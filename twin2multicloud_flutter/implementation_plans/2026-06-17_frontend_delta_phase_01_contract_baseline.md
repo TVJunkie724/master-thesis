@@ -44,8 +44,9 @@ EXTRACTED: 2026-06-17 | VERSION: 1.0
 - **Merge strategy:** Merge commit only, no rebase.
 - **Session ID:** n/a; use conventional commit messages.
 - **GitHub anchors:** #72 for typed Flutter/API contracts, #73 for Twin Overview operations, #77 for the architecture roadmap epic, #100 for pricing traceability.
-- **Status:** In progress. FD-CB-001 is implemented; remaining gaps still need
-  focused implementation slices.
+- **Status:** In progress. FD-CB-001 and FD-CB-002 backend read models are
+  implemented; Flutter DTO/consumption work and remaining contract gaps still
+  need focused implementation slices.
 
 ## 1. Summary
 
@@ -640,7 +641,7 @@ Rules:
 | Gap ID | Type | Area | Description | Suggested issue |
 |---|---|---|---|---|
 | FD-CB-001 | feature | backend/flutter | Add `GET /cloud-access` with credential purpose/default/in-use metadata. | Implemented in first backend slice; continue Flutter DTO work under #72. |
-| FD-CB-002 | feature | backend/flutter | Add `GET /optimizer/pricing-health` aggregate read model. | Link/update #33 and #72. |
+| FD-CB-002 | feature | backend/flutter | Add `GET /optimizer/pricing-health` aggregate read model. | Backend implemented in this slice; continue Flutter DTO work under #72. |
 | FD-CB-003 | feature | backend/optimizer/flutter | Replace twin-bound pricing refresh UI contract with provider refresh run ids and credential confirmation. | Link/update #72 and #100. |
 | FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Link/update #100. |
 | FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Link/update #73. |
@@ -672,6 +673,35 @@ Verification:
 docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_cloud_access.py tests/test_cloud_connections.py tests/test_config_routes.py -q'
 curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
 rg -n 'cloud-access|getCloudAccessInventory|cloud-access-inventory.v1' /tmp/t2mc-openapi.json
+```
+
+FD-CB-002 backend contract is implemented as:
+
+- `GET /optimizer/pricing-health`
+- `PricingHealthResponse`
+- `schema_version`: `pricing-health.v1`
+- service boundary: `PricingHealthService`
+
+Current behavior:
+
+- Pricing health aggregates the existing Optimizer pricing review state and the
+  user-scoped Cloud Access inventory.
+- Azure pricing is represented as public active access.
+- AWS/GCP pricing refresh currently reports missing user-scoped pricing
+  credentials until purpose-aware pricing CloudConnections are implemented.
+- Missing pricing credentials make refresh/review actions visible, but do not
+  override `can_calculate` when fresh/stale/last-known-good pricing can still be
+  used.
+- Responses expose dashboard-ready severity, source labels, credential
+  summaries, and actions without secret payloads.
+
+Verification:
+
+```bash
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_pricing_health.py tests/test_pricing_review_state.py tests/test_cloud_access.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/ -q'
+curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
+rg -n 'pricing-health|getPricingHealth|pricing-health.v1' /tmp/t2mc-openapi.json
 ```
 
 ## 11. Test Plan
@@ -770,7 +800,8 @@ No real cloud deployment E2E is part of this phase.
 - [ ] Gap register entries are linked to existing GitHub issues or split into
       new focused issues.
 - [ ] `GET /cloud-access` target shape is approved.
-- [ ] `GET /optimizer/pricing-health` target shape is approved.
+- [x] `GET /optimizer/pricing-health` backend target shape is implemented and
+      OpenAPI-visible; Flutter DTO/consumption remains downstream work.
 - [ ] Pricing refresh run, candidate report, reviewed decision, and trace
       contracts are approved.
 - [ ] Deployment log catchup route gap is classified as bug and tracked.

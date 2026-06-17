@@ -24,7 +24,10 @@ from src.config import settings
 from src.services.twin_helpers import get_user_twin
 from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.errors import CredentialResolutionFailed
+from src.services.cloud_access_inventory_service import CloudAccessInventoryService
+from src.services.pricing_health_service import build_pricing_health_response
 from src.services.pricing_review_state_service import build_pricing_review_state_response
+from src.schemas.pricing_health import PricingHealthResponse
 from src.schemas.pricing_review import PricingReviewStateResponse
 from src.api.routes.error_models import ERROR_RESPONSES
 
@@ -128,6 +131,58 @@ async def get_pricing_review_state(
             saved_snapshots=_pricing_snapshots_from_config(config),
             saved_timestamps=_pricing_timestamps_from_config(config),
         )
+    except httpx.ConnectError:
+        raise HTTPException(503, "Cannot connect to Optimizer service")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Optimizer service timed out")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+
+
+@router.get(
+    "/pricing-health",
+    response_model=PricingHealthResponse,
+    operation_id="getPricingHealth",
+    summary="Get dashboard-ready pricing health for all providers",
+    description=(
+        "**Purpose:** Expose provider pricing readiness for Dashboard cards.\n\n"
+        "**Response fields per provider:**\n"
+        "- `state`: `fresh`, `stale`, `review_required`, `missing`, or `failed`\n"
+        "- `severity`: dashboard severity (`success`, `warning`, `error`, `info`)\n"
+        "- `source_label`: user-facing provider account/project/public API label\n"
+        "- `credential_summary`: secret-free pricing access metadata\n"
+        "- `primary_message`: concise user-actionable status text"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        502: {"description": "Optimizer service request failed"},
+        503: {"description": "Cannot connect to Optimizer service"},
+        504: {"description": "Optimizer service timed out"},
+    },
+)
+async def get_pricing_health(
+    twin_id: Optional[str] = Query(
+        default=None,
+        description="Twin ID used to resolve last-known-good pricing snapshots",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    config = None
+    if twin_id:
+        twin = await get_user_twin(twin_id, current_user, db)
+        config = twin.optimizer_config
+
+    try:
+        optimizer_statuses = await _get_optimizer_pricing_statuses()
+        review_state = build_pricing_review_state_response(
+            optimizer_statuses,
+            saved_snapshots=_pricing_snapshots_from_config(config),
+            saved_timestamps=_pricing_timestamps_from_config(config),
+        )
+        cloud_access = CloudAccessInventoryService(db).build_inventory(current_user.id)
+        return build_pricing_health_response(review_state, cloud_access)
     except httpx.ConnectError:
         raise HTTPException(503, "Cannot connect to Optimizer service")
     except httpx.TimeoutException:

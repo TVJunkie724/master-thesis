@@ -13,6 +13,7 @@ from src.schemas.cloud_connection import (
     CloudConnectionValidationResponse,
 )
 from src.schemas.cloud_access import CloudAccessInventoryResponse
+from src.schemas.pricing_health import PricingHealthResponse
 
 __all__ = [
     "UserBase", "UserResponse",
@@ -22,5 +23,5 @@ __all__ = [
     "TwinConfigCreate", "TwinConfigUpdate", "TwinConfigResponse",
     "CredentialValidationResult", "CloudConnectionCreate", "CloudConnectionResponse",
     "CloudConnectionUpdate", "CloudConnectionValidationResponse",
-    "CloudAccessInventoryResponse"
+    "CloudAccessInventoryResponse", "PricingHealthResponse"
 ]
