@@ -52,6 +52,8 @@ deployment operations.
     tracked under #100)
   - deployment log catchup route (backend contract implemented; Flutter DTO
     and Twin Overview cleanup remain tracked under #73)
+  - typed deployer config read model (backend contract implemented; Flutter
+    DTO and Step 3 consumption remain tracked under #72/#76)
   - CloudConnection preflight routes
   - Twin Overview simulator/test utility routes
   - typed deployer configuration read/write routes
@@ -96,6 +98,8 @@ implementation starts:
   `docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_pricing_review_contracts.py -q'`
 - Backend deployment log catchup contract tests:
   `docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_deployment_logs_route.py -q'`
+- Backend deployer config read model tests:
+  `docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_deployer_config_read_model.py -q'`
 - Local contract smoke, when the stack is available:
   `docker compose ps` and Management API `/openapi.json` inspection.
 

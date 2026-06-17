@@ -14,6 +14,7 @@ from src.schemas.cloud_connection import (
 )
 from src.schemas.cloud_access import CloudAccessInventoryResponse
 from src.schemas.deployment_logs import DeploymentLogEntryResponse, DeploymentLogPageResponse
+from src.schemas.deployer_config import DeployerConfigReadModelResponse
 from src.schemas.pricing_health import PricingHealthResponse
 from src.schemas.pricing_refresh import PricingRefreshRunResponse, PricingRefreshStartRequest
 from src.schemas.pricing_review_contracts import (
@@ -35,6 +36,7 @@ __all__ = [
     "CloudConnectionUpdate", "CloudConnectionValidationResponse",
     "CloudAccessInventoryResponse", "PricingHealthResponse",
     "DeploymentLogEntryResponse", "DeploymentLogPageResponse",
+    "DeployerConfigReadModelResponse",
     "PricingRefreshRunResponse", "PricingRefreshStartRequest",
     "PricingCandidateReportListResponse", "PricingCandidateReportResponse",
     "PricingReviewDecisionCreate", "PricingReviewDecisionListResponse",

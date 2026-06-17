@@ -44,7 +44,7 @@ EXTRACTED: 2026-06-17 | VERSION: 1.0
 - **Merge strategy:** Merge commit only, no rebase.
 - **Session ID:** n/a; use conventional commit messages.
 - **GitHub anchors:** #72 for typed Flutter/API contracts, #73 for Twin Overview operations, #77 for the architecture roadmap epic, #100 for pricing traceability.
-- **Status:** In progress. FD-CB-001 through FD-CB-005 backend
+- **Status:** In progress. FD-CB-001 through FD-CB-006 backend
   contracts are implemented; Flutter DTO/consumption work and remaining
   deployment contract gaps still need focused implementation slices.
 
@@ -363,7 +363,7 @@ implementation plans.
 | Pricing export | `GET /optimizer/pricing/export/{provider}` exists | Legacy snapshotting | Useful internally; not enough for candidate review. |
 | Cost calculation | `PUT /optimizer/calculate` exists | Phase 6 | Existing calculation route is fine as Management API boundary. Later DTO hardening belongs to #72. |
 | Optimizer config | `GET/PUT /twins/{id}/optimizer-config/...` exists | Phase 6/8 | Currently consumed through dynamic maps in Flutter. Needs typed DTO plan under #72. |
-| Deployer config | `GET/PUT /twins/{id}/deployer/config` exists | Phase 7/8 | Response exists but Flutter uses dynamic map traversal. Needs typed deployer config contract. |
+| Deployer config | `GET/PUT /twins/{id}/deployer/config` exists; `GET /twins/{id}/deployer/config/read-model` implemented | Phase 7/8 | Legacy response remains for compatibility; typed read model is available for Flutter DTO work. |
 | Deployer config validation | `POST /twins/{id}/deployer/validate/{type}` exists | Phase 7 | Existing validation can stay, but returned errors must be typed for field-level UI. |
 | Deploy/destroy | `POST /twins/{id}/deploy`, `POST /twins/{id}/destroy` exist | Phase 8 | Existing response returns `session_id` and `sse_url`. Good baseline. |
 | Deployment SSE | `GET /sse/deploy/{session_id}` exists | Phase 8 | Existing route supports reconnect with `last_event_id`. Good baseline. |
@@ -653,7 +653,7 @@ Rules:
 | FD-CB-003 | feature | backend/optimizer/flutter | Replace twin-bound pricing refresh UI contract with provider refresh run ids and credential confirmation. | Backend implemented in this slice; continue Flutter DTO/workflow under #72 and candidate trace under #100. |
 | FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Backend implemented in this slice; raw Optimizer candidate enrichment and Flutter review UI continue under #100/#72. |
 | FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Backend implemented in this slice; continue Flutter DTO/Twin Overview cleanup under #73. |
-| FD-CB-006 | feature | backend/flutter | Define typed deployer config read model and Dart DTOs. | Link/update #72 and #76 context. |
+| FD-CB-006 | feature | backend/flutter | Define typed deployer config read model and Dart DTOs. | Backend implemented in this slice; continue Flutter DTO/Step 3 consumption under #72 and #76 context. |
 | FD-CB-007 | feature | backend/flutter | Add typed deployment operation DTOs for status, history, outputs, verification, simulator, and log trace. | Link/update #73. |
 
 ### 10.4 Implementation Evidence
@@ -821,6 +821,38 @@ curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-o
 rg -n 'getDigitalTwinDeploymentLogs|deployment-log-page.v1|/twins/\\{twin_id\\}/logs' /tmp/t2mc-openapi.json
 ```
 
+FD-CB-006 backend contract is implemented as:
+
+- `GET /twins/{twin_id}/deployer/config/read-model`
+- `DeployerConfigReadModelResponse`
+- `schema_version`: `deployer-config-read-model.v1`
+- section ids: `configuration`, `payloads`, `user_logic`,
+  `digital_twin_assets`
+- artifact fields: `artifact_id`, `section_id`, `label`, `content`,
+  `has_content`, `validated`, `required`, `validation_key`, `requirements`
+
+Current behavior:
+
+- Existing `/twins/{twin_id}/deployer/config` read/write routes remain
+  unchanged for legacy hydration and saves.
+- The read model groups Step 3 data into stable UI sections and artifacts, so
+  Flutter no longer needs to infer readiness from unrelated dynamic maps.
+- Keyed legacy JSON maps such as processors and event actions are expanded into
+  deterministic artifact lists.
+- Invalid legacy JSON map fields do not crash the contract; the response
+  returns a warning and treats that field as empty.
+- The route is owner-scoped through the existing Digital Twin boundary.
+
+Verification:
+
+```bash
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_deployer_config_read_model.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_deployer_config_read_model.py tests/test_twins.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/ -q'
+curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
+rg -n 'getDeployerConfigReadModel|deployer-config-read-model.v1|/twins/\\{twin_id\\}/deployer/config/read-model' /tmp/t2mc-openapi.json
+```
+
 ## 11. Test Plan
 
 ### Unit and schema tests
@@ -925,8 +957,9 @@ No real cloud deployment E2E is part of this phase.
       Flutter DTO/consumption remain downstream work.
 - [x] Deployment log catchup backend route is implemented and OpenAPI-visible;
       Flutter DTO/Twin Overview consumption remains downstream work.
-- [ ] Typed deployer config and deployment operation DTO boundaries are
-      approved.
+- [x] Typed deployer config backend read model is implemented and
+      OpenAPI-visible; Flutter DTO/Step 3 consumption remains downstream work.
+- [ ] Typed deployment operation DTO boundaries are approved.
 - [ ] All response contracts are secret-free by construction.
 - [ ] No contract requires Flutter to parse raw logs for business state.
 - [ ] No contract requires Flutter to call Optimizer or Deployer directly.
