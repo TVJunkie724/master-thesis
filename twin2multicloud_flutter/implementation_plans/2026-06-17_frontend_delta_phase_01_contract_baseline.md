@@ -44,7 +44,8 @@ EXTRACTED: 2026-06-17 | VERSION: 1.0
 - **Merge strategy:** Merge commit only, no rebase.
 - **Session ID:** n/a; use conventional commit messages.
 - **GitHub anchors:** #72 for typed Flutter/API contracts, #73 for Twin Overview operations, #77 for the architecture roadmap epic, #100 for pricing traceability.
-- **Status:** Ready for review. Builder work must not start until this plan is explicitly approved.
+- **Status:** In progress. FD-CB-001 is implemented; remaining gaps still need
+  focused implementation slices.
 
 ## 1. Summary
 
@@ -638,13 +639,40 @@ Rules:
 
 | Gap ID | Type | Area | Description | Suggested issue |
 |---|---|---|---|---|
-| FD-CB-001 | feature | backend/flutter | Add `GET /cloud-access` with credential purpose/default/in-use metadata. | Link/update #72 or split from #77. |
+| FD-CB-001 | feature | backend/flutter | Add `GET /cloud-access` with credential purpose/default/in-use metadata. | Implemented in first backend slice; continue Flutter DTO work under #72. |
 | FD-CB-002 | feature | backend/flutter | Add `GET /optimizer/pricing-health` aggregate read model. | Link/update #33 and #72. |
 | FD-CB-003 | feature | backend/optimizer/flutter | Replace twin-bound pricing refresh UI contract with provider refresh run ids and credential confirmation. | Link/update #72 and #100. |
 | FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Link/update #100. |
 | FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Link/update #73. |
 | FD-CB-006 | feature | backend/flutter | Define typed deployer config read model and Dart DTOs. | Link/update #72 and #76 context. |
 | FD-CB-007 | feature | backend/flutter | Add typed deployment operation DTOs for status, history, outputs, verification, simulator, and log trace. | Link/update #73. |
+
+### 10.4 Implementation Evidence
+
+FD-CB-001 backend contract is implemented as:
+
+- `GET /cloud-access`
+- `CloudAccessInventoryResponse`
+- `schema_version`: `cloud-access-inventory.v1`
+- service boundary: `CloudAccessInventoryService`
+
+Current behavior:
+
+- Azure pricing is represented as active public pricing access.
+- AWS/GCP pricing are represented as missing until purpose-aware pricing
+  CloudConnections are implemented.
+- Existing CloudConnections are represented as deployment access.
+- Deployment entries include safe provider identity metadata, permission-set
+  status, and `bound_twin_count`/`bound_twin_labels`.
+- Responses do not decrypt or expose credential payloads.
+
+Verification:
+
+```bash
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_cloud_access.py tests/test_cloud_connections.py tests/test_config_routes.py -q'
+curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
+rg -n 'cloud-access|getCloudAccessInventory|cloud-access-inventory.v1' /tmp/t2mc-openapi.json
+```
 
 ## 11. Test Plan
 

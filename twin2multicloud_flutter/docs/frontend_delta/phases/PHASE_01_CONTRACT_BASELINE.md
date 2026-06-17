@@ -40,7 +40,7 @@ deployment operations.
 ## Deliverables
 
 - Contract checklist for:
-  - `GET /cloud-access`
+  - `GET /cloud-access` (backend read model implemented; Flutter DTO work remains)
   - `GET /optimizer/pricing-health`
   - provider pricing refresh start/stream routes
   - pricing candidate review routes

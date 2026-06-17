@@ -12,6 +12,7 @@ from src.schemas.cloud_connection import (
     CloudConnectionUpdate,
     CloudConnectionValidationResponse,
 )
+from src.schemas.cloud_access import CloudAccessInventoryResponse
 
 __all__ = [
     "UserBase", "UserResponse",
@@ -20,5 +21,6 @@ __all__ = [
     "AWSCredentials", "AzureCredentials", "GCPCredentials",
     "TwinConfigCreate", "TwinConfigUpdate", "TwinConfigResponse",
     "CredentialValidationResult", "CloudConnectionCreate", "CloudConnectionResponse",
-    "CloudConnectionUpdate", "CloudConnectionValidationResponse"
+    "CloudConnectionUpdate", "CloudConnectionValidationResponse",
+    "CloudAccessInventoryResponse"
 ]
