@@ -69,3 +69,15 @@ class OptimizerContractError(DomainError):
 
 class CostCalculationRunSelectionError(DomainError):
     status_code = 409
+
+
+class PricingRefreshRequestError(DomainError):
+    status_code = 400
+
+
+class PricingRefreshRunNotFound(DomainError):
+    status_code = 404
+
+
+class PricingRefreshConnectionNotFound(DomainError):
+    status_code = 404

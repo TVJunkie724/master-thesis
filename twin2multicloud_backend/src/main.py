@@ -10,6 +10,7 @@ from src.api.routes import (
     cloud_bootstrap,
     cloud_connections,
     health,
+    pricing_refresh,
     twins,
 )
 from src.api.routes.config import router as config_router, inline_router as config_inline_router
@@ -72,6 +73,7 @@ app.include_router(cloud_bootstrap.router)
 app.include_router(cloud_access.router)
 app.include_router(config_router)
 app.include_router(config_inline_router)
+app.include_router(pricing_refresh.router)
 app.include_router(optimizer_router)
 app.include_router(optimizer_config_router)
 app.include_router(optimizer_runs_router)

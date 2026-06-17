@@ -30,3 +30,25 @@ class OptimizerClient(ExternalServiceClient):
             json=params,
             timeout=60.0,
         )
+
+    async def refresh_pricing(
+        self,
+        provider: str,
+        *,
+        credentials: dict[str, Any] | None = None,
+        force_fetch: bool = True,
+    ) -> dict[str, Any]:
+        if provider == "azure":
+            return await self._request_json(
+                "POST",
+                "/fetch_pricing/azure",
+                params={"force_fetch": force_fetch},
+                timeout=300.0,
+            )
+        return await self._request_json(
+            "POST",
+            f"/fetch_pricing_with_credentials/{provider}",
+            json=credentials or {},
+            params={"force_fetch": force_fetch},
+            timeout=300.0,
+        )

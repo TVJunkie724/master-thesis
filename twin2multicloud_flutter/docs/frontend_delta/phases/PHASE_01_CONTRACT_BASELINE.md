@@ -42,7 +42,7 @@ deployment operations.
 - Contract checklist for:
   - `GET /cloud-access` (backend read model implemented; Flutter DTO work remains)
   - `GET /optimizer/pricing-health` (backend read model implemented; Flutter DTO work remains)
-  - provider pricing refresh start/stream routes
+  - provider pricing refresh start/stream routes (backend run contract implemented; Flutter DTO work remains)
   - pricing candidate review routes
   - pricing reviewed decision routes
   - pricing trace/evidence read routes for intent-to-result inspection

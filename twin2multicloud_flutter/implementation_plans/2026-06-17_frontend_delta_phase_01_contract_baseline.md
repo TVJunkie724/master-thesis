@@ -44,9 +44,10 @@ EXTRACTED: 2026-06-17 | VERSION: 1.0
 - **Merge strategy:** Merge commit only, no rebase.
 - **Session ID:** n/a; use conventional commit messages.
 - **GitHub anchors:** #72 for typed Flutter/API contracts, #73 for Twin Overview operations, #77 for the architecture roadmap epic, #100 for pricing traceability.
-- **Status:** In progress. FD-CB-001 and FD-CB-002 backend read models are
-  implemented; Flutter DTO/consumption work and remaining contract gaps still
-  need focused implementation slices.
+- **Status:** In progress. FD-CB-001, FD-CB-002, and FD-CB-003 backend
+  contracts are implemented; Flutter DTO/consumption work and remaining
+  candidate-review/deployment contract gaps still need focused implementation
+  slices.
 
 ## 1. Summary
 
@@ -359,6 +360,7 @@ implementation plans.
 | Pricing review state | `GET /optimizer/pricing-review-state?twin_id=` exists | Phase 3/6 partial | Typed and useful, but does not include provider access identity/credential confirmation metadata. |
 | Pricing refresh | `POST /optimizer/refresh-pricing/{provider}?twin_id=` exists | Phase 4 partial | Synchronous route uses twin-bound credentials. Target Review Center needs user-scoped pricing credential confirmation and run identity. |
 | Pricing refresh SSE | `GET /optimizer/stream/refresh-pricing/{provider}?twin_id=` exists | Phase 4 partial | Streams logs, but logs must stay diagnostic and not be business state. Needs refresh-run result contract. |
+| Pricing refresh run | `POST /optimizer/pricing-refresh/{provider}`, `GET /optimizer/pricing-refresh/runs/{refresh_run_id}`, and `GET /optimizer/pricing-refresh/runs/{refresh_run_id}/stream` exist | Phase 4 backend ready | Canonical typed run contract. Detail routes use an explicit `/runs/` namespace to avoid ambiguous OpenAPI path templates. Current AWS/GCP transition requires an explicitly selected user-owned CloudConnection until purpose-aware pricing credentials exist. |
 | Pricing export | `GET /optimizer/pricing/export/{provider}` exists | Legacy snapshotting | Useful internally; not enough for candidate review. |
 | Cost calculation | `PUT /optimizer/calculate` exists | Phase 6 | Existing calculation route is fine as Management API boundary. Later DTO hardening belongs to #72. |
 | Optimizer config | `GET/PUT /twins/{id}/optimizer-config/...` exists | Phase 6/8 | Currently consumed through dynamic maps in Flutter. Needs typed DTO plan under #72. |
@@ -489,8 +491,8 @@ Rules:
 
 ```http
 POST /optimizer/pricing-refresh/{provider}
-GET /optimizer/pricing-refresh/{refresh_run_id}
-GET /optimizer/pricing-refresh/{refresh_run_id}/stream
+GET /optimizer/pricing-refresh/runs/{refresh_run_id}
+GET /optimizer/pricing-refresh/runs/{refresh_run_id}/stream
 ```
 
 Target request:
@@ -515,7 +517,7 @@ Target start response:
     "identity_label": "t2mc-pricing-reader",
     "provider_account_id": "123456789012"
   },
-  "sse_url": "/optimizer/pricing-refresh/run-123/stream"
+  "sse_url": "/optimizer/pricing-refresh/runs/run-123/stream"
 }
 ```
 
@@ -525,6 +527,8 @@ Rules:
   public API based.
 - SSE is operational progress only.
 - The final run state links to candidate report ids and health state refresh.
+- Detail routes use `/runs/{refresh_run_id}` so generated OpenAPI clients do
+  not see `{provider}` and `{refresh_run_id}` as competing path templates.
 
 #### Pricing Candidate Review
 
@@ -642,7 +646,7 @@ Rules:
 |---|---|---|---|---|
 | FD-CB-001 | feature | backend/flutter | Add `GET /cloud-access` with credential purpose/default/in-use metadata. | Implemented in first backend slice; continue Flutter DTO work under #72. |
 | FD-CB-002 | feature | backend/flutter | Add `GET /optimizer/pricing-health` aggregate read model. | Backend implemented in this slice; continue Flutter DTO work under #72. |
-| FD-CB-003 | feature | backend/optimizer/flutter | Replace twin-bound pricing refresh UI contract with provider refresh run ids and credential confirmation. | Link/update #72 and #100. |
+| FD-CB-003 | feature | backend/optimizer/flutter | Replace twin-bound pricing refresh UI contract with provider refresh run ids and credential confirmation. | Backend implemented in this slice; continue Flutter DTO/workflow under #72 and candidate trace under #100. |
 | FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Link/update #100. |
 | FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Link/update #73. |
 | FD-CB-006 | feature | backend/flutter | Define typed deployer config read model and Dart DTOs. | Link/update #72 and #76 context. |
@@ -702,6 +706,40 @@ docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python
 docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/ -q'
 curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
 rg -n 'pricing-health|getPricingHealth|pricing-health.v1' /tmp/t2mc-openapi.json
+```
+
+FD-CB-003 backend contract is implemented as:
+
+- `POST /optimizer/pricing-refresh/{provider}`
+- `GET /optimizer/pricing-refresh/runs/{refresh_run_id}`
+- `GET /optimizer/pricing-refresh/runs/{refresh_run_id}/stream`
+- `PricingRefreshRunResponse`
+- `schema_version`: `pricing-refresh-run.v1`
+- service boundary: `PricingRefreshRunService`
+- persistence: `pricing_refresh_runs` plus explicit migration
+
+Current behavior:
+
+- Azure pricing refresh uses the public Azure Retail Prices API and rejects a
+  redundant `pricing_connection_id`.
+- AWS/GCP pricing refresh requires an explicitly confirmed user-owned
+  CloudConnection id. This is a transition contract until purpose-aware pricing
+  credentials are introduced.
+- Refresh attempts create a persisted run record with provider, force flag,
+  secret-free credential summary, status, timestamps, and sanitized result
+  summary.
+- Optimizer service failures persist a failed run with typed error code/message
+  instead of forcing Flutter to parse logs.
+- Stream endpoint emits the current typed run state as SSE events; legacy
+  streaming logs remain diagnostic-only.
+
+Verification:
+
+```bash
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_pricing_refresh_runs.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/ -q'
+curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
+rg -n 'pricing-refresh|startPricingRefreshRun|getPricingRefreshRun|streamPricingRefreshRun|pricing-refresh-run.v1' /tmp/t2mc-openapi.json
 ```
 
 ## 11. Test Plan
@@ -802,8 +840,8 @@ No real cloud deployment E2E is part of this phase.
 - [ ] `GET /cloud-access` target shape is approved.
 - [x] `GET /optimizer/pricing-health` backend target shape is implemented and
       OpenAPI-visible; Flutter DTO/consumption remains downstream work.
-- [ ] Pricing refresh run, candidate report, reviewed decision, and trace
-      contracts are approved.
+- [x] Pricing refresh run backend contract is implemented and OpenAPI-visible.
+- [ ] Candidate report, reviewed decision, and trace contracts are approved.
 - [ ] Deployment log catchup route gap is classified as bug and tracked.
 - [ ] Typed deployer config and deployment operation DTO boundaries are
       approved.
