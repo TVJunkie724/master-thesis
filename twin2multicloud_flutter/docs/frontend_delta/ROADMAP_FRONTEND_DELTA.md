@@ -2,8 +2,8 @@
 title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
-lastUpdated: "2026-06-13"
-version: "1.0"
+lastUpdated: "2026-06-18"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -21,7 +21,8 @@ version: "1.0"
 - twin2multicloud_flutter/lib/screens/wizard/step3_deployer.dart
 - twin2multicloud_flutter/lib/screens/twin_overview/twin_overview_screen.dart
 - twin2multicloud_flutter/lib/models/wizard_config_requests.dart
-EXTRACTED: 2026-06-13 | VERSION: 1.0
+- twin2multicloud_flutter/docs/frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md
+EXTRACTED: 2026-06-18 | VERSION: 1.1
 -->
 
 # Frontend Delta Roadmap
@@ -30,6 +31,12 @@ This roadmap captures the Flutter work needed after the backend, credential
 SSOT, pricing reliability, and deployment hardening refactors. The goal is a
 coherent thesis-ready UI that exposes the final architecture instead of legacy
 implementation details.
+
+Before the feature-heavy phases in this roadmap continue, execute the
+[Frontend Architecture Refactoring Roadmap](../frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md).
+That prerequisite prevents the new Pricing Review, Profile Cloud Accounts,
+Dashboard Pricing Health, Wizard cleanup, and Twin Overview work from expanding
+the current god classes.
 
 | In scope ✅ | Out of scope ❌ |
 |---|---|
@@ -106,6 +113,8 @@ Flutter App
 
 The order is intentional:
 
+0. Complete the frontend architecture refactoring foundation before adding new
+   feature-heavy UI surfaces.
 1. Establish backend/read-model contracts before UI work.
 2. Give users a profile-level place to understand provider access.
 3. Add Dashboard pricing readiness after the access inventory exists.
