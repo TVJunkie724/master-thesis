@@ -25,6 +25,11 @@ from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin import TwinCreate, TwinUpdate, TwinResponse
 from src.schemas.deployment_logs import DeploymentLogPageResponse
+from src.schemas.deployment_operations import (
+    DeploymentHistoryResponse,
+    DeploymentOutputsResponse,
+    DeploymentStatusResponse,
+)
 from src.config import settings
 from src.services.deployment_service import (
     run_real_deploy_stream,
@@ -34,6 +39,11 @@ from src.services.deployment_service import (
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.configuration_validation_service import ConfigurationValidationService
 from src.services.deployment_log_read_service import DeploymentLogReadService
+from src.services.deployment_operation_read_service import (
+    build_deployment_history_response,
+    build_deployment_outputs_response,
+    build_deployment_status_response,
+)
 from src.services.errors import (
     ConfigurationValidationFailed,
     CredentialResolutionFailed,
@@ -272,22 +282,6 @@ def _deployment_package_exception(exc: DeploymentPackageBuildFailed) -> HTTPExce
             "errors": exc.errors,
         },
     )
-
-
-def _deployment_summary(deployment) -> dict | None:
-    if not deployment:
-        return None
-    return {
-        "id": deployment.id,
-        "session_id": deployment.session_id,
-        "operation_id": deployment.operation_id,
-        "operation_type": deployment.operation_type,
-        "status": deployment.status,
-        "error_code": deployment.error_code,
-        "error_message": deployment.error_message,
-        "started_at": deployment.started_at.isoformat() if deployment.started_at else None,
-        "completed_at": deployment.completed_at.isoformat() if deployment.completed_at else None,
-    }
 
 
 @router.delete(
@@ -731,6 +725,7 @@ async def destroy_twin_infrastructure(
 
 @router.get(
     "/{twin_id}/deployment-status",
+    response_model=DeploymentStatusResponse,
     operation_id="getDigitalTwinDeploymentStatus",
     summary="Get current deployment status",
     description=(
@@ -781,14 +776,11 @@ async def get_deployment_status(
 
     latest_deployment = DeploymentRepository(db).get_latest_for_twin(twin_id)
 
-    return {
-        "state": twin.state,
-        "last_error": twin.last_error,
-        "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
-        "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
-        "active_session": active_session,
-        "latest_deployment": _deployment_summary(latest_deployment),
-    }
+    return build_deployment_status_response(
+        twin,
+        active_session=active_session,
+        latest_deployment=latest_deployment,
+    )
 
 @router.get(
     "/{twin_id}/logs",
@@ -838,6 +830,7 @@ async def get_deployment_logs(
 
 @router.get(
     "/{twin_id}/outputs",
+    response_model=DeploymentOutputsResponse,
     operation_id="getDigitalTwinTerraformOutputs",
     summary="Get Terraform outputs from most recent deployment",
     description=(
@@ -864,8 +857,6 @@ async def get_deployment_outputs(
     Returns the outputs stored in the Deployment table for this twin.
     Used to display outputs after the terminal is closed or on page refresh.
     """
-    from src.models.deployment import Deployment
-    
     # Verify twin belongs to user
     twin = db.query(DigitalTwin).filter(
         DigitalTwin.id == twin_id,
@@ -875,24 +866,13 @@ async def get_deployment_outputs(
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
     
-    # Get most recent successful deployment
-    deployment = db.query(Deployment).filter(
-        Deployment.twin_id == twin_id,
-        Deployment.status == "success",
-        Deployment.operation_type.in_(["deploy", "test"])  # Both real and test deploys
-    ).order_by(Deployment.completed_at.desc()).first()
-    
-    if not deployment:
-        return {"outputs": None, "deployed_at": None}
-    
-    return {
-        "outputs": deployment.terraform_outputs,
-        "deployed_at": deployment.completed_at.isoformat() if deployment.completed_at else None
-    }
+    deployment = DeploymentRepository(db).get_latest_successful_outputs(twin_id)
+    return build_deployment_outputs_response(deployment)
 
 
 @router.get(
     "/{twin_id}/deployments",
+    response_model=DeploymentHistoryResponse,
     operation_id="getDigitalTwinDeploymentHistory",
     summary="Get deployment history for a twin",
     description=(
@@ -931,22 +911,7 @@ async def get_deployment_history(
     
     deployments = DeploymentRepository(db).list_for_twin(twin_id, limit)
     
-    return {
-        "deployments": [
-            {
-                "id": d.id,
-                "session_id": d.session_id,
-                "operation_id": d.operation_id,
-                "operation_type": d.operation_type,
-                "status": d.status,
-                "started_at": d.started_at.isoformat() if d.started_at else None,
-                "completed_at": d.completed_at.isoformat() if d.completed_at else None,
-                "error_code": d.error_code,
-                "error_message": d.error_message,
-            }
-            for d in deployments
-        ]
-    }
+    return build_deployment_history_response(deployments)
 
 
 

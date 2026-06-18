@@ -44,9 +44,9 @@ EXTRACTED: 2026-06-17 | VERSION: 1.0
 - **Merge strategy:** Merge commit only, no rebase.
 - **Session ID:** n/a; use conventional commit messages.
 - **GitHub anchors:** #72 for typed Flutter/API contracts, #73 for Twin Overview operations, #77 for the architecture roadmap epic, #100 for pricing traceability.
-- **Status:** In progress. FD-CB-001 through FD-CB-006 backend
+- **Status:** In progress. FD-CB-001 through FD-CB-007A backend
   contracts are implemented; Flutter DTO/consumption work and remaining
-  deployment contract gaps still need focused implementation slices.
+  simulator/log-trace contract gaps still need focused implementation slices.
 
 ## 1. Summary
 
@@ -654,7 +654,8 @@ Rules:
 | FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Backend implemented in this slice; raw Optimizer candidate enrichment and Flutter review UI continue under #100/#72. |
 | FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Backend implemented in this slice; continue Flutter DTO/Twin Overview cleanup under #73. |
 | FD-CB-006 | feature | backend/flutter | Define typed deployer config read model and Dart DTOs. | Backend implemented in this slice; continue Flutter DTO/Step 3 consumption under #72 and #76 context. |
-| FD-CB-007 | feature | backend/flutter | Add typed deployment operation DTOs for status, history, outputs, verification, simulator, and log trace. | Link/update #73. |
+| FD-CB-007A | feature | backend/flutter | Add typed core deployment operation DTOs for status, history, and outputs. | Backend implemented in this slice; continue Flutter DTO/Twin Overview consumption under #73. |
+| FD-CB-007B | feature | backend/flutter | Audit and harden simulator, verification, and log-trace operation DTOs after core app flows are stable. | Keep open under #73; intentionally deferred until non-simulator app contracts are finalized. |
 
 ### 10.4 Implementation Evidence
 
@@ -853,6 +854,42 @@ curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-o
 rg -n 'getDeployerConfigReadModel|deployer-config-read-model.v1|/twins/\\{twin_id\\}/deployer/config/read-model' /tmp/t2mc-openapi.json
 ```
 
+FD-CB-007A backend contract is implemented as:
+
+- `GET /twins/{twin_id}/deployment-status`
+- `GET /twins/{twin_id}/deployments`
+- `GET /twins/{twin_id}/outputs`
+- `DeploymentStatusResponse`
+- `DeploymentHistoryResponse`
+- `DeploymentOutputsResponse`
+- `schema_version`: `deployment-status.v1`, `deployment-history.v1`,
+  `deployment-outputs.v1`
+
+Current behavior:
+
+- Existing field names remain compatible for current Flutter callers.
+- Deployment status exposes typed current twin state, timestamps,
+  active SSE session metadata, and latest deployment operation metadata.
+- Deployment history returns typed operation summaries with session id,
+  deployer operation id, operation type, status, timestamps, and error fields.
+- Deployment outputs now include the source deployment summary and a `redacted`
+  flag.
+- Terraform output values under secret-like keys are redacted before leaving
+  the Management API.
+- Simulator, verification, and log-trace hardening are intentionally not part
+  of this slice. They remain FD-CB-007B because those paths have separate bugs
+  and should be audited after core app flows are stable.
+
+Verification:
+
+```bash
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_twins.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_twins.py tests/test_deployment_logs_route.py tests/test_deployment_repository.py tests/test_sse_session.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/ -q'
+curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
+rg -n 'deployment-status.v1|deployment-history.v1|deployment-outputs.v1|getDigitalTwinDeploymentStatus|getDigitalTwinDeploymentHistory|getDigitalTwinTerraformOutputs' /tmp/t2mc-openapi.json
+```
+
 ## 11. Test Plan
 
 ### Unit and schema tests
@@ -959,7 +996,10 @@ No real cloud deployment E2E is part of this phase.
       Flutter DTO/Twin Overview consumption remains downstream work.
 - [x] Typed deployer config backend read model is implemented and
       OpenAPI-visible; Flutter DTO/Step 3 consumption remains downstream work.
-- [ ] Typed deployment operation DTO boundaries are approved.
+- [x] Typed core deployment operation backend DTO boundaries are implemented
+      and OpenAPI-visible for status, history, and outputs.
+- [ ] Simulator, verification, and log-trace contracts are deferred to
+      FD-CB-007B after core app flows are stable.
 - [ ] All response contracts are secret-free by construction.
 - [ ] No contract requires Flutter to parse raw logs for business state.
 - [ ] No contract requires Flutter to call Optimizer or Deployer directly.
