@@ -1,0 +1,76 @@
+---
+title: "Phase 0: Cross-Service Baseline"
+description: "Define the shared audit rubric, tooling baseline, stale guide cleanup plan, and verification gates for all Python services."
+tags: [architecture, audit, tooling, docs, quality]
+lastUpdated: "2026-06-19"
+version: "1.0"
+---
+
+<!-- SOURCES:
+- docs/plans/service_architecture_audit/ROADMAP_SERVICE_ARCHITECTURE_AUDIT.md
+- ONBOARDING.md sections "Tests" and "Credentials"
+- twin2multicloud_backend/DEVELOPMENT_GUIDE.md
+- 2-twin2clouds/DEVELOPMENT_GUIDE.md
+- 3-cloud-deployer/development_guide.md
+- requirements.txt files in all three service projects
+EXTRACTED: 2026-06-19 | VERSION: 1.0
+-->
+
+# Phase 0: Cross-Service Baseline
+
+## Summary
+
+Create a shared baseline before service-specific work starts. This avoids three
+separate audits using three different quality bars.
+
+## Scope
+
+| In scope | Out of scope |
+|---|---|
+| Shared audit rubric for all Python services | Refactoring business logic |
+| Current container/test command normalization | Running live cloud E2E tests |
+| Static analysis/security tooling plan | Installing new tooling without implementation approval |
+| Development Guide cleanup plan | Rewriting the documentation site |
+| Cross-service error/log/security criteria | Implementing a central observability backend |
+
+## Audit Findings To Address
+
+| Finding | Impact |
+|---|---|
+| Development Guides contain stale container names, Windows paths, and broad auto-run permission language. | Handoffs become misleading and can encourage unsafe commands. |
+| The Python services expose only `requirements.txt`; no shared `pyproject.toml`, Ruff, mypy, pytest, or Bandit policy was found. | Quality checks are not reproducible or comparable across services. |
+| Default verification boundaries around E2E/cloud-cost tests are not consistently encoded in every service guide. | Future agents may accidentally run costly or destructive tests. |
+| Error/logging/security criteria exist implicitly in code and chats, not as a shared gate. | Each refactor can drift into a different standard. |
+
+## Subphases
+
+| Subphase | Deliverable |
+|---|---|
+| 0.1 Audit rubric | Define one checklist for boundaries, typed contracts, errors, logs, security, tests, config, docs, and tooling. |
+| 0.2 Tooling baseline | Decide the minimal per-service tooling set and how it runs in Docker. |
+| 0.3 Guide cleanup plan | Identify stale sections in all three Development Guides and define the canonical replacement wording. |
+| 0.4 Test boundary policy | Document which unit/integration/security commands are safe and which E2E commands remain opt-in only. |
+| 0.5 Backlog mapping | Link each service phase to GitHub issues or create issues before implementation begins. |
+
+## Acceptance Criteria
+
+- Every service-specific audit phase references the same rubric.
+- The allowed verification commands are explicit for each service and exclude
+  live cloud E2E by default.
+- Stale Development Guide sections are identified before any code refactor
+  relies on them.
+- Security checks include secret redaction, credential file handling, and
+  dependency scanning expectations.
+- The baseline is narrow enough for thesis scope and does not require adopting
+  heavyweight enterprise infrastructure.
+
+## Verification Gates
+
+- Static review of all three Development Guides.
+- Static review for existing Python tooling configuration.
+- Static review of default test paths to ensure E2E tests are not included.
+- Roadmap review against the shared quality criteria.
+
+## Roadmap Anchor
+
+[Service Architecture Audit Roadmap](../ROADMAP_SERVICE_ARCHITECTURE_AUDIT.md)
