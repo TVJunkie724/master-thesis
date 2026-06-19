@@ -3,7 +3,7 @@ title: "Phase 3: Deployer Audit"
 description: "Audit the Deployer for API/provider/workspace boundaries, Terraform execution, logs, preflight, permissions, simulator, and security."
 tags: [deployer, terraform, audit, architecture, quality]
 lastUpdated: "2026-06-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.0"
 - 3-cloud-deployer/src/validator.py
 - 3-cloud-deployer/tests/
 - 3-cloud-deployer/implementation_plans/
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-19 | VERSION: 1.1
 -->
 
 # Phase 3: Deployer Audit
@@ -51,13 +51,13 @@ and logging responsibilities into implementable hardening slices.
 
 | Subphase | Deliverable |
 |---|---|
-| 3.1 API boundary audit | Classify every API route by project files, validation, deployment, logs, simulator, credentials, verify, and functions. |
-| 3.2 Provider boundary audit | Review AWS/Azure/GCP provider responsibilities, naming, cleanup, layer ownership, and shared helper duplication. |
-| 3.3 Terraform/workspace audit | Verify manifest contract, ephemeral workspace behavior, tfvars generation, outputs, and file/template boundaries. |
-| 3.4 Logging/error/trace audit | Define structured deployment events, redaction, correlation IDs, SSE semantics, and failure taxonomy. |
-| 3.5 Permissions/preflight audit | Review AWS/Azure/GCP permission checkers, pricing-access credentials, admin bootstrap assumptions, and least-privilege gaps. |
-| 3.6 Simulator/test utility audit | Scope simulator bugs and log-trace issues separately from deployment core. |
-| 3.7 Test matrix | Map safe unit/API/integration tests and explicitly exclude live cloud E2E from default verification. |
+| 3.1 | [API Boundary Audit](subphases/PHASE_03_01_DEPLOYER_API_BOUNDARY_AUDIT.md) |
+| 3.2 | [Provider Boundary Audit](subphases/PHASE_03_02_DEPLOYER_PROVIDER_BOUNDARY_AUDIT.md) |
+| 3.3 | [Terraform Workspace Audit](subphases/PHASE_03_03_DEPLOYER_TERRAFORM_WORKSPACE_AUDIT.md) |
+| 3.4 | [Logging Error Trace Audit](subphases/PHASE_03_04_DEPLOYER_LOGGING_ERROR_TRACE_AUDIT.md) |
+| 3.5 | [Permissions Preflight Audit](subphases/PHASE_03_05_DEPLOYER_PERMISSIONS_PREFLIGHT_AUDIT.md) |
+| 3.6 | [Simulator Test Utility Audit](subphases/PHASE_03_06_DEPLOYER_SIMULATOR_TEST_UTILITY_AUDIT.md) |
+| 3.7 | [Test Matrix](subphases/PHASE_03_07_DEPLOYER_TEST_MATRIX.md) |
 
 ## Acceptance Criteria
 

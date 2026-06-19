@@ -3,7 +3,7 @@ title: "Phase 2: Optimizer Audit"
 description: "Audit the Optimizer for pricing fetcher reliability, strategy/calculation contracts, evidence traceability, error handling, API contracts, and tests."
 tags: [optimizer, pricing, audit, architecture, quality]
 lastUpdated: "2026-06-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.0"
 - 2-twin2clouds/json/
 - 2-twin2clouds/tests/
 - 2-twin2clouds/implementation_plans/
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-19 | VERSION: 1.1
 -->
 
 # Phase 2: Optimizer Audit
@@ -50,12 +50,12 @@ optimization metrics.
 
 | Subphase | Deliverable |
 |---|---|
-| 2.1 Strategy-contract audit | Define how optimization objective, pricing intent, fetcher, calculator, formulas, and evidence stay compatible. |
-| 2.2 Pricing source audit | Classify each price as dynamic API, static official table, derived formula, or unsupported with evidence. |
-| 2.3 Fetcher reliability audit | Review provider fetchers for matching criteria, unit normalization, tier handling, rejected candidates, and no-fallback guarantees. |
-| 2.4 Calculation correctness audit | Verify layer formulas against EDT paper intent, current provider pricing models, and known tiering gaps. |
-| 2.5 API contract audit | Review calculation, pricing, regions, file-status, credentials, and validation endpoints for typed responses and safe errors. |
-| 2.6 Test matrix | Map unit/integration tests to pricing source, formula, tier, unit, candidate selection, and API error scenarios. |
+| 2.1 | [Strategy Contract Audit](subphases/PHASE_02_01_OPTIMIZER_STRATEGY_CONTRACT_AUDIT.md) |
+| 2.2 | [Pricing Source Audit](subphases/PHASE_02_02_OPTIMIZER_PRICING_SOURCE_AUDIT.md) |
+| 2.3 | [Fetcher Reliability Audit](subphases/PHASE_02_03_OPTIMIZER_FETCHER_RELIABILITY_AUDIT.md) |
+| 2.4 | [Calculation Correctness Audit](subphases/PHASE_02_04_OPTIMIZER_CALCULATION_CORRECTNESS_AUDIT.md) |
+| 2.5 | [API Contract Audit](subphases/PHASE_02_05_OPTIMIZER_API_CONTRACT_AUDIT.md) |
+| 2.6 | [Test Matrix](subphases/PHASE_02_06_OPTIMIZER_TEST_MATRIX.md) |
 
 ## Acceptance Criteria
 

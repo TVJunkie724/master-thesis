@@ -3,7 +3,7 @@ title: "Service Architecture Audit Roadmap"
 description: "Project-wide roadmap for auditing and hardening Management API, Optimizer, and Deployer against shared enterprise-grade code-quality criteria."
 tags: [architecture, audit, backend, optimizer, deployer, quality]
 lastUpdated: "2026-06-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.0"
 - twin2multicloud_backend/src/
 - 2-twin2clouds/backend/, 2-twin2clouds/api/
 - 3-cloud-deployer/src/
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-19 | VERSION: 1.1
 -->
 
 # Service Architecture Audit Roadmap
@@ -69,6 +69,22 @@ final code review finding list; it is the evidence used to plan the phases.
 | 2 | Planned | [PHASE_02_OPTIMIZER_AUDIT.md](phases/PHASE_02_OPTIMIZER_AUDIT.md) | Optimizer pricing/calculation/API boundary audit and strategy-contract hardening plan. |
 | 3 | Planned | [PHASE_03_DEPLOYER_AUDIT.md](phases/PHASE_03_DEPLOYER_AUDIT.md) | Deployer API/provider/workspace/logging/security audit and refactor plan. |
 | 4 | Planned | [PHASE_04_SERVICE_QUALITY_GATE.md](phases/PHASE_04_SERVICE_QUALITY_GATE.md) | Consolidated verification gate across Management API, Optimizer, and Deployer. |
+
+## Subphase Split Decision
+
+Concept review found that Phases 1, 2, and 3 are correct as service-level
+containers, but too broad to implement as single slices. They are therefore
+split into dedicated subphase documents. Phase 0 and Phase 4 remain single
+cross-service phases because their deliverables are governance and gate reports
+rather than service refactors.
+
+| Parent phase | Split required | Reason |
+|---|---|---|
+| Phase 0: Cross-Service Baseline | No | Small, cross-cutting setup phase; internal steps are sufficient. |
+| Phase 1: Management API Audit | Yes | Route, service, contract, error, migration, and test work are independent risk areas. |
+| Phase 2: Optimizer Audit | Yes | Strategy contracts, pricing sources, fetchers, formulas, API contracts, and tests must be reviewed independently. |
+| Phase 3: Deployer Audit | Yes | API, provider, Terraform/workspace, logs, permissions, simulator, and tests have different owners and risks. |
+| Phase 4: Service Quality Gate | No | Final consolidated gate; implementation work happens in prior phases. |
 
 ## Execution Order
 
