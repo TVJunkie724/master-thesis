@@ -2,8 +2,8 @@
 title: "Phase 1.2: Management Service Boundary Plan"
 description: "Define target service and repository ownership for Management API orchestration logic."
 tags: [management-api, services, repositories, architecture]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -36,6 +36,8 @@ extracted from routes.
 - Rule for where DB transactions start and end.
 - Rule for where downstream HTTP calls are allowed.
 - Compatibility plan for existing tests during extraction.
+- Completed review artifact:
+  [PHASE_01_02_MANAGEMENT_SERVICE_BOUNDARY_REVIEW.md](../../PHASE_01_02_MANAGEMENT_SERVICE_BOUNDARY_REVIEW.md)
 
 ## Acceptance Criteria
 
