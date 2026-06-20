@@ -54,10 +54,12 @@ class Settings(BaseSettings):
     SEED_DATA: bool = False
     SEED_CREDENTIALS_FILE: str = "/config/config_credentials.json"
     SEED_GCP_CREDENTIALS_FILE: str = "/config/gcp_credentials.json"
+
+    # Test-only routes (disabled by default)
+    ENABLE_TEST_ENDPOINTS: bool = False
     
     class Config:
         env_file = ".env"
         extra = "ignore"
 
 settings = Settings()
-

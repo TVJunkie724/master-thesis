@@ -3,7 +3,7 @@ title: "Phase 1.2 Review: Management Service Boundary Plan"
 description: "Implementation-ready service, repository, client, and route ownership plan for the Management API refactor."
 tags: [management-api, services, repositories, architecture, issue-102]
 lastUpdated: "2026-06-21"
-version: "1.4"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.4"
 - twin2multicloud_backend/src/api/routes/
 - twin2multicloud_backend/src/services/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 1.4
+EXTRACTED: 2026-06-21 | VERSION: 1.5
 -->
 
 # Phase 1.2 Review: Management Service Boundary Plan
@@ -201,7 +201,8 @@ Gate:
 
 ### Slice 5: Test Endpoint Quarantine
 
-Status: Next.
+Status: In progress. Router quarantine complete:
+[PHASE_01_SLICE_05A_TEST_ROUTER_QUARANTINE_REVIEW.md](PHASE_01_SLICE_05A_TEST_ROUTER_QUARANTINE_REVIEW.md)
 
 Files:
 
