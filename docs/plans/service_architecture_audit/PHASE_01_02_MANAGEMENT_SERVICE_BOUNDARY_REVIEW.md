@@ -3,7 +3,7 @@ title: "Phase 1.2 Review: Management Service Boundary Plan"
 description: "Implementation-ready service, repository, client, and route ownership plan for the Management API refactor."
 tags: [management-api, services, repositories, architecture, issue-102]
 lastUpdated: "2026-06-21"
-version: "1.3"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.3"
 - twin2multicloud_backend/src/api/routes/
 - twin2multicloud_backend/src/services/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 1.3
+EXTRACTED: 2026-06-21 | VERSION: 1.4
 -->
 
 # Phase 1.2 Review: Management Service Boundary Plan
@@ -174,7 +174,8 @@ Gate:
 
 ### Slice 4: Deployment Command Boundary
 
-Status: Next.
+Status: Complete. Review artifact:
+[PHASE_01_SLICE_04_DEPLOYMENT_COMMAND_BOUNDARY_REVIEW.md](PHASE_01_SLICE_04_DEPLOYMENT_COMMAND_BOUNDARY_REVIEW.md)
 
 Files:
 
@@ -199,6 +200,8 @@ Gate:
 - No live cloud or Deployer E2E calls run by default.
 
 ### Slice 5: Test Endpoint Quarantine
+
+Status: Next.
 
 Files:
 

@@ -28,11 +28,7 @@ from src.config import settings
 from src.clients.deployer_client import DeployerClient
 from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
-from src.services.deployment_service import (
-    run_real_deploy_stream,
-    run_real_destroy_stream,
-    build_deploy_config,
-)
+from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_read_service import DeploymentReadService
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
@@ -53,6 +49,11 @@ def _deployment_read_service(db: Session) -> DeploymentReadService:
         deployment_repository=DeploymentRepository(db),
         deployer_client=DeployerClient(),
     )
+
+
+def _deployment_operation_service(db: Session) -> DeploymentOperationService:
+    """Build the command-side deployment service for this request."""
+    return DeploymentOperationService(db=db, twin_repository=TwinRepository(db))
 
 
 def _twin_read_service(db: Session) -> TwinReadService:
@@ -465,112 +466,20 @@ async def deploy_twin(
     - deployment_id: unique deployment session ID
     - sse_url: URL for SSE streaming of logs
     """
-    from datetime import datetime
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Validate state allows deployment
-    allowed_states = [TwinState.CONFIGURED, TwinState.DESTROYED, TwinState.ERROR]
-    if twin.state not in allowed_states:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Cannot deploy twin in '{twin.state}' state. Must be configured, destroyed, or error."
-        )
-    
-    # Check for concurrent deployment
-    if twin.state == TwinState.DEPLOYING:
-        raise HTTPException(
-            status_code=409,
-            detail="Deployment already in progress"
-        )
-    
-    # Update state to deploying (NOTE: resource_name and provider now extracted after prepare step)
-    twin.state = TwinState.DEPLOYING
-    twin.last_error = None
-    db.commit()
-    
-    # Create SSE session and spawn background task
-    import asyncio
-    import uuid
-    from src.api.routes.sse import create_session, get_active_sessions_for_twin
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    # Check for concurrent deployment
-    active_sessions = await get_active_sessions_for_twin(twin_id)
-    if active_sessions:
-        twin.state = TwinState.CONFIGURED  # Rollback
-        db.commit()
-        raise HTTPException(
-            status_code=409,
-            detail="Deployment already in progress for this twin"
-        )
-    
-    # TEST MODE: delegate to mock deployment
+    test_stream_runner = None
     if TEST_MODE:
         from src.api.routes.test_endpoints import _run_test_deploy_stream
-        session_id = str(uuid.uuid4())
-        await create_session(twin_id, session_id, operation_type="test")
-        asyncio.create_task(_run_test_deploy_stream(
-            session_id=session_id, twin_id=twin_id,
-            twin_name=twin.name, duration=30, should_fail=False
-        ))
-        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
-    
-    # Reload twin with ALL related configurations for ZIP building
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),  # Contains cloud credentials
-    ).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-    ).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Prepare project in Deployer (build ZIP and upload) before streaming
+        test_stream_runner = _run_test_deploy_stream
+
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except HTTPException as e:
-        logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e.detail}")
-        twin.state = TwinState.CONFIGURED  # Rollback state on failure
-        db.commit()
-        raise e
-    except Exception as e:
-        logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e}", exc_info=True)
-        twin.state = TwinState.CONFIGURED  # Rollback state on failure
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
-    
-    # Determine provider - use L1 provider as the main deployment target
-    provider = "aws"  # default
-    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-        provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    # Create SSE session
-    session_id = str(uuid.uuid4())
-    await create_session(twin_id, session_id, operation_type="deploy")
-    
-    # Spawn background task for streaming logs from Deployer
-    asyncio.create_task(run_real_deploy_stream(
-        session_id=session_id,
-        twin_id=twin_id,
-        resource_name=resource_name,
-        provider=provider
-    ))
-    
-    return {
-        "session_id": session_id,
-        "sse_url": f"/sse/deploy/{session_id}"
-    }
+        return await _deployment_operation_service(db).deploy_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
+            test_stream_runner=test_stream_runner,
+        )
+    except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.post(
@@ -610,108 +519,20 @@ async def destroy_twin_infrastructure(
     Returns:
     - sse_url: URL for SSE streaming of logs
     """
-    from datetime import datetime
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Validate state allows destruction
-    allowed_states = [TwinState.DEPLOYED, TwinState.ERROR]
-    if twin.state not in allowed_states:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot destroy twin in '{twin.state}' state. Must be deployed or error."
-        )
-    
-    # Check for concurrent operation
-    if twin.state == TwinState.DESTROYING:
-        raise HTTPException(
-            status_code=409,
-            detail="Destroy operation already in progress"
-        )
-    
-    # Update state to destroying
-    twin.state = TwinState.DESTROYING
-    twin.last_error = None
-    db.commit()
-    
-    # Create SSE session and spawn background task
-    import asyncio
-    import uuid
-    from src.api.routes.sse import create_session, get_active_sessions_for_twin
-    from src.services.deployment_service import prepare_project_for_deployment, get_resource_name
-    from sqlalchemy.orm import joinedload
-    
-    # Check for concurrent operation
-    active_sessions = await get_active_sessions_for_twin(twin_id)
-    if active_sessions:
-        twin.state = TwinState.DEPLOYED  # Rollback
-        db.commit()
-        raise HTTPException(
-            status_code=409,
-            detail="Destroy operation already in progress for this twin"
-        )
-    
-    # TEST MODE: delegate to mock destruction
+    test_stream_runner = None
     if TEST_MODE:
         from src.api.routes.test_endpoints import _run_test_destroy_stream
-        session_id = str(uuid.uuid4())
-        await create_session(twin_id, session_id, operation_type="destroy")
-        asyncio.create_task(_run_test_destroy_stream(
-            session_id=session_id, twin_id=twin_id,
-            twin_name=twin.name, duration=20, should_fail=False
-        ))
-        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
-    
-    # Reload twin with ALL related configurations (for project preparation)
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-    ).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Get resource name (DRY: use helper)
-    resource_name = get_resource_name(twin)
-    
-    # Prepare project in Deployer (ensures terraform state is accessible)
+        test_stream_runner = _run_test_destroy_stream
+
     try:
-        await prepare_project_for_deployment(twin, current_user.id)
-    except Exception as e:
-        # Log but don't fail - destroy should work even if project prep fails
-        logger.warning(f"Project preparation failed during destroy: {e}")
-    
-    # Determine provider - use L1 provider as the main deployment target
-    provider = "aws"  # default
-    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-        provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    # Create SSE session
-    session_id = str(uuid.uuid4())
-    await create_session(twin_id, session_id, operation_type="destroy")
-    
-    # Spawn background task
-    asyncio.create_task(run_real_destroy_stream(
-        session_id=session_id,
-        twin_id=twin_id,
-        resource_name=resource_name,
-        provider=provider
-    ))
-    
-    return {
-        "session_id": session_id,
-        "sse_url": f"/sse/deploy/{session_id}"
-    }
+        return await _deployment_operation_service(db).destroy_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
+            test_stream_runner=test_stream_runner,
+        )
+    except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.get(
