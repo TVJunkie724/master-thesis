@@ -2,8 +2,8 @@
 title: "Phase 1.1: Management Route Responsibility Audit"
 description: "Classify Management API route responsibilities before extracting service or repository boundaries."
 tags: [management-api, routes, audit, architecture]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -35,6 +35,8 @@ move behavior deliberately instead of reshuffling code.
 - Risk list for route handlers that write DB state and call downstream services
   in the same function.
 - Recommended extraction order for Phase 1.2.
+- Completed review artifact:
+  [PHASE_01_01_MANAGEMENT_ROUTE_RESPONSIBILITY_REVIEW.md](../../PHASE_01_01_MANAGEMENT_ROUTE_RESPONSIBILITY_REVIEW.md)
 
 ## Acceptance Criteria
 
