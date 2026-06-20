@@ -103,6 +103,17 @@ class TestTwinsRoutes:
         twin_ids = [t["id"] for t in list_response.json()]
         assert twin_id not in twin_ids
 
+    def test_get_deleted_twin_returns_404(self, authenticated_client):
+        """GET /twins/{id} returns 404 after soft delete."""
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+
+        delete_response = client.delete(f"/twins/{twin_id}", headers=headers)
+        assert delete_response.status_code == 200
+
+        response = client.get(f"/twins/{twin_id}", headers=headers)
+        assert response.status_code == 404
+
     def test_list_twins_after_create(self, authenticated_client):
         """GET /twins/ returns created twins."""
         client, headers = authenticated_client

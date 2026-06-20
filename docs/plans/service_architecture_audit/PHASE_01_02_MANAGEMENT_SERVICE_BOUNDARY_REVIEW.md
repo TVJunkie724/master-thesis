@@ -3,7 +3,7 @@ title: "Phase 1.2 Review: Management Service Boundary Plan"
 description: "Implementation-ready service, repository, client, and route ownership plan for the Management API refactor."
 tags: [management-api, services, repositories, architecture, issue-102]
 lastUpdated: "2026-06-21"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.1"
 - twin2multicloud_backend/src/api/routes/
 - twin2multicloud_backend/src/services/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 1.1
+EXTRACTED: 2026-06-21 | VERSION: 1.2
 -->
 
 # Phase 1.2 Review: Management Service Boundary Plan
@@ -123,7 +123,8 @@ Gate:
 
 ### Slice 2: Twin Read And Lifecycle Boundary
 
-Status: Next.
+Status: Complete. Review artifact:
+[PHASE_01_SLICE_02_TWIN_LIFECYCLE_BOUNDARY_REVIEW.md](PHASE_01_SLICE_02_TWIN_LIFECYCLE_BOUNDARY_REVIEW.md)
 
 Files:
 
@@ -148,6 +149,8 @@ Gate:
 - The repository never commits; lifecycle service owns transaction boundaries.
 
 ### Slice 3: SSE Registry And Stream Boundary
+
+Status: Next.
 
 Files:
 

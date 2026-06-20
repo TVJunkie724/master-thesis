@@ -9,6 +9,14 @@ class EntityNotFoundError(ServiceError):
     """Raised when a user-owned entity cannot be found."""
 
 
+class ValidationError(ServiceError):
+    """Raised when an application-level validation rule fails."""
+
+
+class ConflictError(ServiceError):
+    """Raised when a request conflicts with existing application state."""
+
+
 class DownstreamServiceError(ServiceError):
     """Raised when a downstream service call fails safely."""
 

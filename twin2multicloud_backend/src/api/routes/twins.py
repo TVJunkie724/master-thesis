@@ -34,7 +34,8 @@ from src.services.deployment_service import (
     build_deploy_config,
 )
 from src.services.deployment_read_service import DeploymentReadService
-from src.services.service_errors import DownstreamServiceError, EntityNotFoundError
+from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
+from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.api.routes.error_models import ERROR_RESPONSES
 
 logger = logging.getLogger(__name__)
@@ -54,10 +55,24 @@ def _deployment_read_service(db: Session) -> DeploymentReadService:
     )
 
 
+def _twin_read_service(db: Session) -> TwinReadService:
+    """Build the read-side twin service for this request."""
+    return TwinReadService(twin_repository=TwinRepository(db))
+
+
+def _twin_lifecycle_service(db: Session) -> TwinLifecycleService:
+    """Build the write-side twin lifecycle service for this request."""
+    return TwinLifecycleService(db=db, twin_repository=TwinRepository(db))
+
+
 def _raise_service_http_error(exc: Exception) -> None:
     """Map typed service errors to the existing route-level HTTP contract."""
     if isinstance(exc, EntityNotFoundError):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if isinstance(exc, ValidationError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, ConflictError):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if isinstance(exc, DownstreamServiceError):
         raise HTTPException(status_code=exc.status_code, detail=exc.public_detail) from exc
     raise exc
@@ -82,11 +97,7 @@ async def list_twins(
     current_user: User = Depends(get_current_user)
 ):
     """List all twins for current user."""
-    twins = db.query(DigitalTwin).filter(
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).all()
-    return twins
+    return _twin_read_service(db).list_twins(current_user.id)
 
 @router.post(
     "/", 
@@ -112,27 +123,10 @@ async def create_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new digital twin."""
-    # Check for duplicate name (case-insensitive, excluding inactive twins)
-    existing = db.query(DigitalTwin).filter(
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.name.ilike(twin.name),
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if existing:
-        raise HTTPException(
-            status_code=409, 
-            detail=f"A twin with the name '{twin.name}' already exists"
-        )
-    
-    new_twin = DigitalTwin(
-        name=twin.name,
-        user_id=current_user.id,
-        state=TwinState.DRAFT
-    )
-    db.add(new_twin)
-    db.commit()
-    db.refresh(new_twin)
-    return new_twin
+    try:
+        return _twin_lifecycle_service(db).create_twin(twin.name, current_user.id)
+    except ConflictError as exc:
+        _raise_service_http_error(exc)
 
 @router.get(
     "/{twin_id}", 
@@ -156,13 +150,10 @@ async def get_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific twin."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    return twin
+    try:
+        return _twin_read_service(db).get_twin(twin_id, current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 @router.put(
     "/{twin_id}", 
@@ -194,46 +185,16 @@ async def update_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Update a twin."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Block NAME changes for deployed/deploying/destroying twins (state changes allowed for deploy/destroy flow)
-    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
-    if update.name is not None and update.name != twin.name and twin.state in BLOCKED_STATES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot rename twin in '{twin.state.value}' state"
+    try:
+        return await _twin_lifecycle_service(db).update_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            name=update.name,
+            state=update.state,
+            configured_validator=_validate_configured_transition,
         )
-    
-    if update.name is not None and update.name != twin.name:
-        # Check for duplicate name (case-insensitive, excluding this twin and inactive twins)
-        existing = db.query(DigitalTwin).filter(
-            DigitalTwin.user_id == current_user.id,
-            DigitalTwin.name.ilike(update.name),
-            DigitalTwin.id != twin_id,
-            DigitalTwin.state != TwinState.INACTIVE
-        ).first()
-        if existing:
-            raise HTTPException(
-                status_code=409, 
-                detail=f"A twin with the name '{update.name}' already exists"
-            )
-        twin.name = update.name
-    
-    # Validate before allowing state transition to CONFIGURED
-    if update.state is not None and update.state == TwinState.CONFIGURED:
-        await _validate_configured_transition(twin, db)
-    
-    if update.state is not None:
-        twin.state = update.state
-        
-    db.commit()
-    db.refresh(twin)
-    return twin
+    except (ConflictError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 OPTIMIZER_API_URL = os.getenv("OPTIMIZER_URL", "http://twin2clouds:8000")
@@ -414,26 +375,10 @@ async def delete_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Soft delete a twin (set to inactive). Also cleans up GLB files."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Cleanup GLB file if exists
-    glb_path = Path(settings.UPLOAD_DIR) / twin_id / "scene.glb"
-    glb_path.unlink(missing_ok=True)
     try:
-        (Path(settings.UPLOAD_DIR) / twin_id).rmdir()
-    except OSError:
-        pass  # Directory not empty or doesn't exist
-    
-    twin.state = TwinState.INACTIVE
-    # Rename to free up the name for reuse (unique constraint)
-    twin.name = f"_deleted_{twin_id}_{twin.name}"
-    db.commit()
-    return {"message": "Twin deleted"}
+        return _twin_lifecycle_service(db).delete_twin(twin_id, current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
