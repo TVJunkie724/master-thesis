@@ -3,36 +3,33 @@ title: "Service Audit Backlog Mapping"
 description: "Backlog mapping for service audit phases and GitHub issue readiness."
 tags: [backlog, github, audit, roadmap]
 lastUpdated: "2026-06-21"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
 - docs/plans/service_architecture_audit/ROADMAP_SERVICE_ARCHITECTURE_AUDIT.md
 - gh issue list --repo TVJunkie724/master-thesis --state open --search "service architecture audit"
-EXTRACTED: 2026-06-21 | VERSION: 1.0
+- GitHub issues #101, #102, #103, #104, #105
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Service Audit Backlog Mapping
 
-GitHub is reachable from the current environment, but the service audit phases
-do not yet have dedicated issues. Existing issue search for service architecture
-audit work did not return a matching service-audit issue.
+GitHub issues now exist for every service audit phase.
 
 ## Required Issues
 
-| Phase | Proposed issue title | Labels |
+| Phase | Issue | Labels |
 |---|---|---|
-| Phase 0 | Define cross-service architecture audit baseline | `type:task`, `area:backend`, `area:optimizer`, `area:deployer`, `priority:p1` |
-| Phase 1 | Audit and refactor Management API architecture boundaries | `type:task`, `area:backend`, `priority:p1` |
-| Phase 2 | Audit and harden Optimizer pricing and calculation architecture | `type:task`, `area:optimizer`, `priority:p1` |
-| Phase 3 | Audit and harden Deployer API, provider, workspace, logging, and preflight boundaries | `type:task`, `area:deployer`, `priority:p1` |
-| Phase 4 | Run cross-service quality gate for thesis-ready backend services | `type:task`, `area:backend`, `area:optimizer`, `area:deployer`, `priority:p1` |
+| Phase 0 | [#101 Define cross-service architecture audit baseline](https://github.com/TVJunkie724/master-thesis/issues/101) | `type:task`, `area:backend`, `area:optimizer`, `area:deployer`, `priority:p1` |
+| Phase 1 | [#102 Audit and refactor Management API architecture boundaries](https://github.com/TVJunkie724/master-thesis/issues/102) | `type:task`, `area:backend`, `priority:p1` |
+| Phase 2 | [#103 Audit and harden Optimizer pricing and calculation architecture](https://github.com/TVJunkie724/master-thesis/issues/103) | `type:task`, `area:optimizer`, `priority:p1` |
+| Phase 3 | [#104 Audit and harden Deployer API, provider, workspace, logging, and preflight boundaries](https://github.com/TVJunkie724/master-thesis/issues/104) | `type:task`, `area:deployer`, `priority:p1` |
+| Phase 4 | [#105 Run cross-service quality gate for thesis-ready backend services](https://github.com/TVJunkie724/master-thesis/issues/105) | `type:task`, `area:backend`, `area:optimizer`, `area:deployer`, `priority:p1` |
 
 ## Issue Creation Rule
 
-Create or update GitHub issues before starting Phase 1 implementation work.
-Phase 0 can complete with this mapping because it is the local baseline that
-defines which issues are needed.
+Reference the relevant issue in every later implementation commit.
 
 ## Existing Related Issues
 

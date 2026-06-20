@@ -34,7 +34,7 @@ Phase 0 passes review.
 
 | Finding | Severity | Resolution |
 |---|---|---|
-| No blocking findings. | Low | Phase 0 can be committed and used as the baseline for Phase 1. |
+| No blocking findings. | Low | Phase 0 can be used as the baseline for Phase 1. |
 
 ## Verification Evidence
 
@@ -43,7 +43,10 @@ Phase 0 passes review.
 - Markdown link check passed.
 - `git diff --check` passed for service audit documentation.
 
-## Residual Risk
+## GitHub Issue Evidence
 
-Dedicated GitHub issues for the service audit phases still need to be created
-before Phase 1 implementation begins.
+- Phase 0 baseline: [#101](https://github.com/TVJunkie724/master-thesis/issues/101)
+- Phase 1 Management API: [#102](https://github.com/TVJunkie724/master-thesis/issues/102)
+- Phase 2 Optimizer: [#103](https://github.com/TVJunkie724/master-thesis/issues/103)
+- Phase 3 Deployer: [#104](https://github.com/TVJunkie724/master-thesis/issues/104)
+- Phase 4 Quality Gate: [#105](https://github.com/TVJunkie724/master-thesis/issues/105)
