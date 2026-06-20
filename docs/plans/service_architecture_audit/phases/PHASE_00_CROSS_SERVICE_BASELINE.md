@@ -2,8 +2,8 @@
 title: "Phase 0: Cross-Service Baseline"
 description: "Define the shared audit rubric, tooling baseline, stale guide cleanup plan, and verification gates for all Python services."
 tags: [architecture, audit, tooling, docs, quality]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,11 @@ version: "1.0"
 - 2-twin2clouds/DEVELOPMENT_GUIDE.md
 - 3-cloud-deployer/development_guide.md
 - requirements.txt files in all three service projects
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+- docs/plans/service_architecture_audit/BASELINE_AUDIT_RUBRIC.md
+- docs/plans/service_architecture_audit/BASELINE_TEST_AND_TOOLING_POLICY.md
+- docs/plans/service_architecture_audit/BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md
+- docs/plans/service_architecture_audit/BASELINE_BACKLOG_MAPPING.md
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 0: Cross-Service Baseline
@@ -46,11 +50,11 @@ separate audits using three different quality bars.
 
 | Subphase | Deliverable |
 |---|---|
-| 0.1 Audit rubric | Define one checklist for boundaries, typed contracts, errors, logs, security, tests, config, docs, and tooling. |
-| 0.2 Tooling baseline | Decide the minimal per-service tooling set and how it runs in Docker. |
-| 0.3 Guide cleanup plan | Identify stale sections in all three Development Guides and define the canonical replacement wording. |
-| 0.4 Test boundary policy | Document which unit/integration/security commands are safe and which E2E commands remain opt-in only. |
-| 0.5 Backlog mapping | Link each service phase to GitHub issues or create issues before implementation begins. |
+| 0.1 Audit rubric | [BASELINE_AUDIT_RUBRIC.md](../BASELINE_AUDIT_RUBRIC.md) |
+| 0.2 Tooling baseline | [BASELINE_TEST_AND_TOOLING_POLICY.md](../BASELINE_TEST_AND_TOOLING_POLICY.md) |
+| 0.3 Guide cleanup plan | [BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md](../BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md) |
+| 0.4 Test boundary policy | [BASELINE_TEST_AND_TOOLING_POLICY.md](../BASELINE_TEST_AND_TOOLING_POLICY.md) |
+| 0.5 Backlog mapping | [BASELINE_BACKLOG_MAPPING.md](../BASELINE_BACKLOG_MAPPING.md) |
 
 ## Acceptance Criteria
 
