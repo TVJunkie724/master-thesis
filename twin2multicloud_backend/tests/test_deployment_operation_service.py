@@ -123,6 +123,24 @@ async def test_deploy_rolls_back_when_active_session_exists(db_session):
 
 
 @pytest.mark.asyncio
+async def test_deploy_active_session_restores_original_state_when_validation_is_skipped(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DRAFT)
+
+    with pytest.raises(ConflictError):
+        await _service(db_session, active_session_provider=_active_sessions).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=True,
+            test_stream_runner=_fake_test_runner,
+            skip_state_validation=True,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DRAFT
+
+
+@pytest.mark.asyncio
 async def test_deploy_rolls_back_on_project_preparation_failure(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
@@ -180,6 +198,24 @@ async def test_destroy_rolls_back_when_active_session_exists(db_session):
 
 
 @pytest.mark.asyncio
+async def test_destroy_active_session_restores_original_state_when_validation_is_skipped(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DRAFT)
+
+    with pytest.raises(ConflictError):
+        await _service(db_session, active_session_provider=_active_sessions).destroy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=True,
+            test_stream_runner=_fake_test_runner,
+            skip_state_validation=True,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DRAFT
+
+
+@pytest.mark.asyncio
 async def test_test_mode_deploy_uses_test_session_type(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
@@ -196,3 +232,23 @@ async def test_test_mode_deploy_uses_test_session_type(db_session):
     assert result["sse_url"].startswith("/sse/deploy/")
     assert session_records[0][2] == "test"
     assert len(scheduled) == 1
+
+
+@pytest.mark.asyncio
+async def test_test_mode_deploy_can_skip_state_validation_for_explicit_test_endpoint(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DRAFT)
+    session_records = []
+    scheduled = []
+
+    result = await _service(db_session, session_records=session_records, scheduled=scheduled).deploy_twin(
+        twin_id=twin.id,
+        user_id=user.id,
+        test_mode=True,
+        test_stream_runner=_fake_test_runner,
+        skip_state_validation=True,
+    )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DEPLOYING
+    assert result["sse_url"].startswith("/sse/deploy/")

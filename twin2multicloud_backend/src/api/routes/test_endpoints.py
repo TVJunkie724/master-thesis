@@ -24,6 +24,9 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
+from src.repositories.twin_repository import TwinRepository
+from src.services.deployment_operation_service import DeploymentOperationService
+from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
 
 router = APIRouter(prefix="/twins", tags=["twins-test"])
 
@@ -35,6 +38,22 @@ def _require_test_endpoints():
     """Raise 404 if test endpoints are disabled."""
     if not TEST_ENDPOINTS_ENABLED:
         raise HTTPException(status_code=404, detail="Not found")
+
+
+def _deployment_operation_service(db: Session) -> DeploymentOperationService:
+    """Build the shared deployment operation service for test endpoints."""
+    return DeploymentOperationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _raise_service_http_error(exc: Exception) -> None:
+    """Map typed service errors to the existing test-endpoint HTTP contract."""
+    if isinstance(exc, EntityNotFoundError):
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if isinstance(exc, ValidationError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, ConflictError):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    raise exc
 
 
 # =============================================================================
@@ -73,37 +92,22 @@ async def test_deploy_twin(
     No real cloud resources are created.
     """
     _require_test_endpoints()
-    
-    from src.api.routes.sse import create_session, get_active_sessions_for_twin
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    active_sessions = await get_active_sessions_for_twin(twin_id)
-    if active_sessions:
-        raise HTTPException(status_code=409, detail="Deployment already in progress for this twin")
-    
-    twin.state = TwinState.DEPLOYING
-    twin.last_error = None
-    db.commit()
-    
-    session_id = str(uuid.uuid4())
-    await create_session(twin_id, session_id, operation_type="test")
-    
-    asyncio.create_task(_run_test_deploy_stream(
-        session_id=session_id,
-        twin_id=twin_id,
-        twin_name=twin.name,
-        duration=duration,
-        should_fail=should_fail
-    ))
-    
-    return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
+
+    async def runner(**kwargs):
+        kwargs["duration"] = duration
+        kwargs["should_fail"] = should_fail
+        await _run_test_deploy_stream(**kwargs)
+
+    try:
+        return await _deployment_operation_service(db).deploy_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=True,
+            test_stream_runner=runner,
+            skip_state_validation=True,
+        )
+    except (ConflictError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 # =============================================================================
@@ -141,37 +145,22 @@ async def test_destroy_twin(
     Requires ENABLE_TEST_ENDPOINTS=true environment variable.
     """
     _require_test_endpoints()
-    
-    from src.api.routes.sse import create_session, get_active_sessions_for_twin
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    active_sessions = await get_active_sessions_for_twin(twin_id)
-    if active_sessions:
-        raise HTTPException(status_code=409, detail="Operation already in progress for this twin")
-    
-    twin.state = TwinState.DESTROYING
-    twin.last_error = None
-    db.commit()
-    
-    session_id = str(uuid.uuid4())
-    await create_session(twin_id, session_id, operation_type="destroy")
-    
-    asyncio.create_task(_run_test_destroy_stream(
-        session_id=session_id,
-        twin_id=twin_id,
-        twin_name=twin.name,
-        duration=duration,
-        should_fail=should_fail
-    ))
-    
-    return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
+
+    async def runner(**kwargs):
+        kwargs["duration"] = duration
+        kwargs["should_fail"] = should_fail
+        await _run_test_destroy_stream(**kwargs)
+
+    try:
+        return await _deployment_operation_service(db).destroy_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=True,
+            test_stream_runner=runner,
+            skip_state_validation=True,
+        )
+    except (ConflictError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 # =============================================================================

@@ -59,18 +59,21 @@ class DeploymentOperationService:
         *,
         test_mode: bool,
         test_stream_runner: Callable[..., Awaitable[Any]] | None = None,
+        skip_state_validation: bool = False,
     ) -> dict[str, str]:
         """Start deployment and return the SSE session location."""
         twin = self._require_active_twin(twin_id, user_id)
-        self._ensure_state(twin.state, self.DEPLOY_ALLOWED_STATES, "deploy")
+        if not skip_state_validation:
+            self._ensure_state(twin.state, self.DEPLOY_ALLOWED_STATES, "deploy")
 
+        previous_state = twin.state
         twin.state = TwinState.DEPLOYING
         twin.last_error = None
         self.db.commit()
 
         active_sessions = await self.active_session_provider(twin_id)
         if active_sessions:
-            twin.state = TwinState.CONFIGURED
+            twin.state = previous_state
             self.db.commit()
             raise ConflictError("Deployment already in progress for this twin")
 
@@ -127,18 +130,21 @@ class DeploymentOperationService:
         *,
         test_mode: bool,
         test_stream_runner: Callable[..., Awaitable[Any]] | None = None,
+        skip_state_validation: bool = False,
     ) -> dict[str, str]:
         """Start infrastructure destroy and return the SSE session location."""
         twin = self._require_active_twin(twin_id, user_id)
-        self._ensure_state(twin.state, self.DESTROY_ALLOWED_STATES, "destroy")
+        if not skip_state_validation:
+            self._ensure_state(twin.state, self.DESTROY_ALLOWED_STATES, "destroy")
 
+        previous_state = twin.state
         twin.state = TwinState.DESTROYING
         twin.last_error = None
         self.db.commit()
 
         active_sessions = await self.active_session_provider(twin_id)
         if active_sessions:
-            twin.state = TwinState.DEPLOYED
+            twin.state = previous_state
             self.db.commit()
             raise ConflictError("Destroy operation already in progress for this twin")
 
