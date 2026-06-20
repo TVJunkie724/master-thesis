@@ -25,11 +25,16 @@ from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin import TwinCreate, TwinUpdate, TwinResponse
 from src.config import settings
+from src.clients.deployer_client import DeployerClient
+from src.repositories.deployment_repository import DeploymentRepository
+from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_service import (
     run_real_deploy_stream,
     run_real_destroy_stream,
     build_deploy_config,
 )
+from src.services.deployment_read_service import DeploymentReadService
+from src.services.service_errors import DownstreamServiceError, EntityNotFoundError
 from src.api.routes.error_models import ERROR_RESPONSES
 
 logger = logging.getLogger(__name__)
@@ -38,6 +43,24 @@ logger = logging.getLogger(__name__)
 TEST_MODE = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
 
 router = APIRouter(prefix="/twins", tags=["twins"])
+
+
+def _deployment_read_service(db: Session) -> DeploymentReadService:
+    """Build the read-side deployment service for this request."""
+    return DeploymentReadService(
+        twin_repository=TwinRepository(db),
+        deployment_repository=DeploymentRepository(db),
+        deployer_client=DeployerClient(),
+    )
+
+
+def _raise_service_http_error(exc: Exception) -> None:
+    """Map typed service errors to the existing route-level HTTP contract."""
+    if isinstance(exc, EntityNotFoundError):
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if isinstance(exc, DownstreamServiceError):
+        raise HTTPException(status_code=exc.status_code, detail=exc.public_detail) from exc
+    raise exc
 
 @router.get(
     "/", 
@@ -448,40 +471,10 @@ async def can_redeploy(
     Proxies to Deployer API's /infrastructure/cooldown-check endpoint.
     Zero cloud costs - pure calculation.
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Get deployer config to check if GCP Firestore is used
-    uses_gcp_firestore = False
-    if twin.deployer_config and twin.deployer_config.layer_3_hot_provider:
-        uses_gcp_firestore = twin.deployer_config.layer_3_hot_provider == "google"
-    
-    # If no destroyed_at or not using GCP Firestore, always ready
-    if not twin.destroyed_at or not uses_gcp_firestore:
-        return {"ready": True, "remaining_seconds": 0}
-    
-    # Proxy to Deployer API
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{DEPLOYER_API_URL}/infrastructure/cooldown-check",
-                params={
-                    "destroyed_at": twin.destroyed_at.isoformat() + "Z",
-                    "uses_gcp_firestore": str(uses_gcp_firestore).lower()
-                },
-                timeout=10.0
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Deployer API error")
-    except httpx.RequestError:
-        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+        return await _deployment_read_service(db).can_redeploy(twin_id, current_user.id)
+    except (EntityNotFoundError, DownstreamServiceError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
@@ -805,34 +798,16 @@ async def get_deployment_status(
     
     Used for polling fallback when SSE is unavailable.
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Check for active SSE session (for reconnection after navigation)
     from src.api.routes.sse import get_active_sessions_for_twin
-    active_session = None
-    if twin.state in (TwinState.DEPLOYING, TwinState.DESTROYING):
-        sessions = await get_active_sessions_for_twin(twin_id)
-        if sessions:
-            s = sessions[0]
-            active_session = {
-                "session_id": s.session_id,
-                "sse_url": f"/sse/deploy/{s.session_id}",
-                "operation_type": s.operation_type,
-            }
 
-    return {
-        "state": twin.state,
-        "last_error": twin.last_error,
-        "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
-        "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
-        "active_session": active_session,
-    }
+    try:
+        return await _deployment_read_service(db).get_status(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            active_session_provider=get_active_sessions_for_twin,
+        )
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 @router.get(
     "/{twin_id}/outputs",
@@ -862,31 +837,10 @@ async def get_deployment_outputs(
     Returns the outputs stored in the Deployment table for this twin.
     Used to display outputs after the terminal is closed or on page refresh.
     """
-    from src.models.deployment import Deployment
-    
-    # Verify twin belongs to user
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Get most recent successful deployment
-    deployment = db.query(Deployment).filter(
-        Deployment.twin_id == twin_id,
-        Deployment.status == "success",
-        Deployment.operation_type.in_(["deploy", "test"])  # Both real and test deploys
-    ).order_by(Deployment.completed_at.desc()).first()
-    
-    if not deployment:
-        return {"outputs": None, "deployed_at": None}
-    
-    return {
-        "outputs": deployment.terraform_outputs,
-        "deployed_at": deployment.completed_at.isoformat() if deployment.completed_at else None
-    }
+    try:
+        return _deployment_read_service(db).get_outputs(twin_id, current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 @router.get(
@@ -918,35 +872,10 @@ async def get_deployment_history(
     
     Returns a list of historical deployments ordered by most recent first.
     """
-    from src.models.deployment import Deployment
-    
-    # Verify twin belongs to user
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    deployments = db.query(Deployment).filter(
-        Deployment.twin_id == twin_id
-    ).order_by(Deployment.started_at.desc()).limit(limit).all()
-    
-    return {
-        "deployments": [
-            {
-                "id": d.id,
-                "session_id": d.session_id,
-                "operation_type": d.operation_type,
-                "status": d.status,
-                "started_at": d.started_at.isoformat() if d.started_at else None,
-                "completed_at": d.completed_at.isoformat() if d.completed_at else None,
-                "error_message": d.error_message,
-            }
-            for d in deployments
-        ]
-    }
+    try:
+        return _deployment_read_service(db).get_history(twin_id, current_user.id, limit)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 

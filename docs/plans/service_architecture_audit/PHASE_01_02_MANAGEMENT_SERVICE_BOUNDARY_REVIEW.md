@@ -3,7 +3,7 @@ title: "Phase 1.2 Review: Management Service Boundary Plan"
 description: "Implementation-ready service, repository, client, and route ownership plan for the Management API refactor."
 tags: [management-api, services, repositories, architecture, issue-102]
 lastUpdated: "2026-06-21"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - twin2multicloud_backend/src/api/routes/
 - twin2multicloud_backend/src/services/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 1.0
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 1.2 Review: Management Service Boundary Plan
@@ -96,6 +96,9 @@ slice that moves behavior into it and adds tests for the moved behavior.
 
 ### Slice 1: Deployment Read Boundary
 
+Status: Complete. Review artifact:
+[PHASE_01_SLICE_01_DEPLOYMENT_READ_BOUNDARY_REVIEW.md](PHASE_01_SLICE_01_DEPLOYMENT_READ_BOUNDARY_REVIEW.md)
+
 Files:
 
 - Add `src/repositories/deployment_repository.py`.
@@ -119,6 +122,8 @@ Gate:
   cases.
 
 ### Slice 2: Twin Read And Lifecycle Boundary
+
+Status: Next.
 
 Files:
 
