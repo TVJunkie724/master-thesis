@@ -34,7 +34,8 @@ from src.config import settings
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployer_config_validation_service import DeployerConfigValidationService
 from src.services.deployer_configuration_service import DeployerConfigurationService
-from src.services.service_errors import EntityNotFoundError, ValidationError
+from src.services.scene_glb_service import SceneGlbService
+from src.services.service_errors import EntityNotFoundError, StorageError, ValidationError
 from src.services.twin_helpers import get_user_twin
 from src.api.routes.error_models import ERROR_RESPONSES
 
@@ -51,12 +52,19 @@ def _deployer_config_validation_service(db: Session) -> DeployerConfigValidation
     return DeployerConfigValidationService(db=db, twin_repository=TwinRepository(db))
 
 
+def _scene_glb_service(db: Session) -> SceneGlbService:
+    """Build the scene GLB storage service for this request."""
+    return SceneGlbService(db=db, twin_repository=TwinRepository(db))
+
+
 def _raise_service_http_error(exc: Exception) -> None:
     """Map typed service errors to the existing deployer HTTP contract."""
     if isinstance(exc, EntityNotFoundError):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     if isinstance(exc, ValidationError):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, StorageError):
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     raise exc
 
 
@@ -221,39 +229,15 @@ async def upload_scene_glb(
     Saves to: UPLOAD_DIR/<twin_id>/scene.glb
     File size limit: MAX_GLB_SIZE_MB (default 100MB)
     """
-    twin = await get_user_twin(twin_id, current_user, db)
-    
-    # Check file size
-    max_size = settings.MAX_GLB_SIZE_MB * 1024 * 1024
     contents = await file.read()
-    if len(contents) > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File exceeds {settings.MAX_GLB_SIZE_MB}MB limit"
-        )
-    
-    # Save to disk
-    upload_path = Path(settings.UPLOAD_DIR) / twin_id
-    glb_path = upload_path / "scene.glb"
-    
     try:
-        upload_path.mkdir(parents=True, exist_ok=True)
-        with open(glb_path, "wb") as f:
-            f.write(contents)
-        
-        # Update DB flag
-        config = twin.deployer_config
-        if not config:
-            config = DeployerConfiguration(twin_id=twin_id)
-            db.add(config)
-        config.scene_glb_uploaded = True
-        db.commit()
-        
-        return {"message": "GLB file uploaded successfully", "size_mb": round(len(contents) / 1024 / 1024, 2)}
-    except Exception as e:
-        # Cleanup on failure
-        glb_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail=f"Failed to save GLB file: {str(e)}")
+        return _scene_glb_service(db).upload_scene_glb(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            content=contents,
+        )
+    except (EntityNotFoundError, ValidationError, StorageError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.delete(
@@ -286,25 +270,10 @@ async def delete_scene_glb(
     - L4 provider changes (invalidation)
     - Twin is deleted
     """
-    twin = await get_user_twin(twin_id, current_user, db)
-    
-    # Delete from disk
-    glb_path = Path(settings.UPLOAD_DIR) / twin_id / "scene.glb"
-    glb_path.unlink(missing_ok=True)
-    
-    # Try to remove empty directory
     try:
-        (Path(settings.UPLOAD_DIR) / twin_id).rmdir()
-    except OSError:
-        pass  # Directory not empty or doesn't exist
-    
-    # Update DB flag
-    config = twin.deployer_config
-    if config:
-        config.scene_glb_uploaded = False
-        db.commit()
-    
-    return {"message": "GLB file deleted"}
+        return _scene_glb_service(db).delete_scene_glb(twin_id=twin_id, user_id=current_user.id)
+    except (EntityNotFoundError, StorageError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ==========================================

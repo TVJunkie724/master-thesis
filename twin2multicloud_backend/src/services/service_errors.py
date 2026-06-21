@@ -24,3 +24,7 @@ class DownstreamServiceError(ServiceError):
         super().__init__(public_detail)
         self.status_code = status_code
         self.public_detail = public_detail
+
+
+class StorageError(ServiceError):
+    """Raised when local file storage cannot complete an operation safely."""

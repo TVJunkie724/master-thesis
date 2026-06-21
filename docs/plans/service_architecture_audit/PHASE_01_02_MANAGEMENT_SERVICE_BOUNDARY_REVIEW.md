@@ -3,7 +3,7 @@ title: "Phase 1.2 Review: Management Service Boundary Plan"
 description: "Implementation-ready service, repository, client, and route ownership plan for the Management API refactor."
 tags: [management-api, services, repositories, architecture, issue-102]
 lastUpdated: "2026-06-21"
-version: "2.4"
+version: "2.5"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "2.4"
 - twin2multicloud_backend/src/api/routes/
 - twin2multicloud_backend/src/services/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 2.4
+EXTRACTED: 2026-06-21 | VERSION: 2.5
 -->
 
 # Phase 1.2 Review: Management Service Boundary Plan
@@ -268,6 +268,8 @@ Deployer config read/write boundary complete:
 [PHASE_01_SLICE_07C_DEPLOYER_CONFIG_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07C_DEPLOYER_CONFIG_BOUNDARY_REVIEW.md)
 Deployer validation boundary complete:
 [PHASE_01_SLICE_07D_DEPLOYER_VALIDATION_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07D_DEPLOYER_VALIDATION_BOUNDARY_REVIEW.md)
+Scene GLB storage boundary complete:
+[PHASE_01_SLICE_07E_SCENE_GLB_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07E_SCENE_GLB_BOUNDARY_REVIEW.md)
 
 Files:
 
