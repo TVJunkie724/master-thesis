@@ -153,6 +153,46 @@ class TestOptimizerProxyErrorHandling:
             
             assert response.status_code == 200
 
+    def test_pricing_export_returns_provider_snapshot(self, authenticated_client):
+        """Pricing export returns Optimizer snapshot payload for supported provider."""
+        client, headers = authenticated_client
+
+        with patch("src.services.optimizer_pricing_export_service.httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"provider": "aws", "prices": []}
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            response = client.get("/optimizer/pricing/export/aws", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json() == {"provider": "aws", "prices": []}
+
+    def test_pricing_export_rejects_invalid_provider(self, authenticated_client):
+        """Pricing export rejects unsupported providers before downstream call."""
+        client, headers = authenticated_client
+
+        with patch("src.services.optimizer_pricing_export_service.httpx.AsyncClient") as mock_client:
+            response = client.get("/optimizer/pricing/export/digitalocean", headers=headers)
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid provider: digitalocean"
+        mock_client.assert_not_called()
+
+    def test_pricing_export_timeout_returns_504(self, authenticated_client):
+        """Timeout to optimizer pricing export returns 504."""
+        client, headers = authenticated_client
+
+        with patch("src.services.optimizer_pricing_export_service.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                side_effect=httpx.TimeoutException("Read timed out")
+            )
+
+            response = client.get("/optimizer/pricing/export/gcp", headers=headers)
+
+        assert response.status_code == 504
+        assert "timed out" in response.json()["detail"].lower()
+
 
 class TestDeployerProxyErrorHandling:
     """Tests for /twins/{twin_id}/deployer/* proxy error handling."""

@@ -21,8 +21,9 @@ from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.config import settings
+from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
 from src.services.optimizer_status_service import OptimizerStatusService
-from src.services.service_errors import DownstreamServiceError
+from src.services.service_errors import DownstreamServiceError, ValidationError
 from src.utils.crypto import decrypt
 from src.services.twin_helpers import get_user_twin
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -36,6 +37,11 @@ OPTIMIZER_URL = getattr(settings, 'OPTIMIZER_URL', 'http://master-thesis-2twin2c
 def _optimizer_status_service() -> OptimizerStatusService:
     """Build the optimizer status service for this request."""
     return OptimizerStatusService()
+
+
+def _optimizer_pricing_export_service() -> OptimizerPricingExportService:
+    """Build the optimizer pricing export service for this request."""
+    return OptimizerPricingExportService()
 
 
 def _raise_downstream_http_error(exc: DownstreamServiceError) -> None:
@@ -130,21 +136,12 @@ async def proxy_pricing_export(
     current_user: User = Depends(get_current_user)
 ):
     """Proxy to Optimizer service for pricing export (for snapshotting)."""
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(400, f"Invalid provider: {provider}")
-    
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{OPTIMIZER_URL}/pricing/export/{provider}")
-        if response.status_code != 200:
-            raise HTTPException(response.status_code, response.text)
-        return response.json()
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_pricing_export_service().export_pricing_snapshot(provider)
+    except ValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 # ============================================================================
