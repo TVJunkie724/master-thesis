@@ -9,11 +9,8 @@ from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.twin_config import AWSCredentials, GCPCredentials, InlineValidationRequest
-from src.services.credential_validation_service import (
-    CredentialValidationService,
-    redact_validation_message,
-    redact_validation_payload,
-)
+from src.services.credential_validation_service import CredentialValidationService
+from src.services.secret_redaction import redact_validation_message, redact_validation_payload
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.utils.crypto import encrypt
 

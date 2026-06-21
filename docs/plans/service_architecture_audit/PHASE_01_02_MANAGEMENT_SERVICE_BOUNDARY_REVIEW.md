@@ -3,7 +3,7 @@ title: "Phase 1.2 Review: Management Service Boundary Plan"
 description: "Implementation-ready service, repository, client, and route ownership plan for the Management API refactor."
 tags: [management-api, services, repositories, architecture, issue-102]
 lastUpdated: "2026-06-21"
-version: "2.8"
+version: "2.9"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "2.8"
 - twin2multicloud_backend/src/api/routes/
 - twin2multicloud_backend/src/services/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 2.8
+EXTRACTED: 2026-06-21 | VERSION: 2.9
 -->
 
 # Phase 1.2 Review: Management Service Boundary Plan
@@ -276,6 +276,8 @@ Optimizer status boundary complete:
 [PHASE_01_SLICE_07G_OPTIMIZER_STATUS_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07G_OPTIMIZER_STATUS_BOUNDARY_REVIEW.md)
 Optimizer pricing export boundary complete:
 [PHASE_01_SLICE_07H_OPTIMIZER_PRICING_EXPORT_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07H_OPTIMIZER_PRICING_EXPORT_BOUNDARY_REVIEW.md)
+Optimizer pricing refresh boundary complete:
+[PHASE_01_SLICE_07I_OPTIMIZER_PRICING_REFRESH_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07I_OPTIMIZER_PRICING_REFRESH_BOUNDARY_REVIEW.md)
 
 Files:
 

@@ -17,13 +17,14 @@ import asyncio
 import json
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.config import settings
+from src.repositories.twin_repository import TwinRepository
 from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
+from src.services.optimizer_pricing_refresh_service import OptimizerPricingRefreshService
 from src.services.optimizer_status_service import OptimizerStatusService
-from src.services.service_errors import DownstreamServiceError, ValidationError
+from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.utils.crypto import decrypt
 from src.services.twin_helpers import get_user_twin
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -42,6 +43,11 @@ def _optimizer_status_service() -> OptimizerStatusService:
 def _optimizer_pricing_export_service() -> OptimizerPricingExportService:
     """Build the optimizer pricing export service for this request."""
     return OptimizerPricingExportService()
+
+
+def _optimizer_pricing_refresh_service(db: Session) -> OptimizerPricingRefreshService:
+    """Build the optimizer pricing refresh service for this request."""
+    return OptimizerPricingRefreshService(db=db, twin_repository=TwinRepository(db))
 
 
 def _raise_downstream_http_error(exc: DownstreamServiceError) -> None:
@@ -183,62 +189,18 @@ async def refresh_pricing(
     
     Credentials are decrypted from TwinConfiguration and forwarded to Optimizer.
     """
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(400, f"Invalid provider: {provider}. Must be aws, azure, or gcp")
-    
     try:
-        # Azure uses public API - no credentials needed
-        if provider == "azure":
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    f"{OPTIMIZER_URL}/fetch_pricing/azure",
-                    params={"force_fetch": True}
-                )
-            if response.status_code != 200:
-                raise HTTPException(response.status_code, response.text)
-            return response.json()
-        
-        # AWS/GCP need credentials from twin config
-        twin = await get_user_twin(twin_id, current_user, db)
-        config = twin.configuration
-        
-        if not config:
-            raise HTTPException(400, "Twin has no configuration. Complete Step 1 first.")
-        
-        credentials = {}
-        if provider == "aws":
-            if not config.aws_access_key_id:
-                raise HTTPException(400, "AWS credentials not configured in Step 1")
-            credentials = {
-                "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-                "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-                "aws_region": config.aws_region or "eu-central-1"
-            }
-        elif provider == "gcp":
-            if not config.gcp_service_account_json:
-                raise HTTPException(400, "GCP credentials not configured in Step 1")
-            credentials = {
-                "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
-                "gcp_region": config.gcp_region or "europe-west1"
-            }
-        
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{OPTIMIZER_URL}/fetch_pricing_with_credentials/{provider}",
-                json=credentials
-            )
-        
-        if response.status_code != 200:
-            raise HTTPException(response.status_code, response.text)
-        
-        return response.json()
-        
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_pricing_refresh_service(db).refresh_pricing(
+            provider=provider,
+            twin_id=twin_id,
+            user_id=current_user.id,
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 @router.get(
