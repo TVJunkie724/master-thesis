@@ -2,14 +2,14 @@
 title: "Phase 2.6: Optimizer Test Matrix"
 description: "Map Optimizer tests to pricing sources, fetchers, formulas, API contracts, and security risks."
 tags: [optimizer, tests, pricing, quality]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
 - docs/plans/service_architecture_audit/phases/PHASE_02_OPTIMIZER_AUDIT.md
 - 2-twin2clouds/tests/
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 2.6: Optimizer Test Matrix
@@ -29,11 +29,10 @@ calculation behavior without paid resource creation.
 
 ## Deliverables
 
-- Test-to-risk matrix for pricing sources, fetcher matching, formulas, API
-  contracts, validation, and credentials.
-- Missing fixtures for selected, rejected, ambiguous, unsupported, static, and
-  stale pricing cases.
-- Safe Docker command plan for Optimizer verification.
+- Complete. Test-to-risk matrix is captured in
+  [Phase 2.6 Review](../../PHASE_02_06_OPTIMIZER_TEST_MATRIX_REVIEW.md).
+- Complete. Missing fixture and future-work gaps are registered in the review.
+- Complete. Safe Docker command plan for Optimizer verification is documented.
 
 ## Acceptance Criteria
 
@@ -43,9 +42,10 @@ calculation behavior without paid resource creation.
 
 ## Verification
 
-- Static test inventory.
-- Mapping against Phase 2.1 through Phase 2.5 findings.
-- No paid cloud resource tests.
+- Complete. Static test inventory captured in Phase 2.6 review.
+- Complete. Mapping against Phase 2.1 through Phase 2.5 findings captured in
+  the risk matrix.
+- Complete. No paid cloud resource tests.
 
 ## Parent Phase
 
