@@ -2,15 +2,15 @@
 title: "Phase 2.4: Optimizer Calculation Correctness Audit"
 description: "Audit calculation formulas, provider layer models, pricing units, and known tiering gaps against thesis intent."
 tags: [optimizer, calculation, formulas, tiering]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
 - docs/plans/service_architecture_audit/phases/PHASE_02_OPTIMIZER_AUDIT.md
 - 2-twin2clouds/backend/calculation_v2/
 - integration_vision.md section "Theoretical Foundation"
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 2.4: Optimizer Calculation Correctness Audit
@@ -30,11 +30,15 @@ provider, and layer semantics.
 
 ## Deliverables
 
-- Formula inventory for all enabled layers and providers.
-- Unit compatibility matrix from pricing source to formula input.
-- Tiering gap register for IoT Hub, Digital Twins, storage, transfer, and
-  equivalent provider services.
-- Required regression test list for corrected formulas.
+- Complete. Formula inventory status is captured in
+  [Phase 2.4 Review](../../PHASE_02_04_OPTIMIZER_CALCULATION_CORRECTNESS_REVIEW.md).
+- Complete. Azure Digital Twins unit compatibility was corrected in the
+  strategy contract and calculator.
+- Complete. Azure IoT Hub and Azure Digital Twins tiering gaps were fixed with
+  focused regression tests; remaining storage/transfer refinements are assigned
+  to later provider-model work.
+- Complete. Required regression tests are implemented in
+  `tests/unit/calculation_v2/test_azure_tiered_calculations.py`.
 
 ## Acceptance Criteria
 
@@ -45,9 +49,9 @@ provider, and layer semantics.
 
 ## Verification
 
-- Static formula review.
-- Existing unit test coverage mapping.
-- No paid cloud tests.
+- Complete. Static formula review captured in the Phase 2.4 review.
+- Complete. Existing and new unit test coverage is mapped in the review.
+- Complete. No paid cloud tests.
 
 ## Parent Phase
 

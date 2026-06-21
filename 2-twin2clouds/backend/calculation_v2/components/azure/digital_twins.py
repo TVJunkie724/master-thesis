@@ -35,7 +35,8 @@ class AzureDigitalTwinsCalculator:
         operations_per_month: float,
         queries_per_month: float,
         messages_per_month: float,
-        pricing: Dict[str, Any]
+        pricing: Dict[str, Any],
+        query_units_per_query: float = None
     ) -> float:
         """
         Calculate Azure Digital Twins monthly cost.
@@ -45,6 +46,7 @@ class AzureDigitalTwinsCalculator:
             queries_per_month: Number of twin queries
             messages_per_month: Number of property update messages
             pricing: Full pricing dictionary
+            query_units_per_query: Optional explicit query-unit weight per query
             
         Returns:
             Monthly cost in USD
@@ -52,25 +54,57 @@ class AzureDigitalTwinsCalculator:
         p = pricing["azure"]["azureDigitalTwins"]
         
         # Operations cost (CA formula)
-        op_price_per_million = p.get("operationPrice", p.get("pricePerMillionOperations", 0))
-        op_price = op_price_per_million / 1_000_000
+        op_price = self._normalize_price(
+            p.get("operationPrice", p.get("pricePerMillionOperations", 0)),
+            p.get("operationPriceUnit", "per_1k"),
+        )
         operation_cost = action_based_cost(
             price_per_action=op_price,
             num_actions=operations_per_month
         )
         
-        # Query cost (CA formula)
-        query_price = p.get("queryPrice", 0)
+        # Query cost (CA formula over query units)
+        query_units = queries_per_month * (
+            query_units_per_query
+            if query_units_per_query is not None
+            else self._default_query_units_per_query(p)
+        )
+        query_price = self._normalize_price(
+            p.get("queryPrice", 0),
+            p.get("queryPriceUnit", "per_1k"),
+        )
         query_cost = action_based_cost(
             price_per_action=query_price,
-            num_actions=queries_per_month
+            num_actions=query_units
         )
         
         # Message cost (CM formula)
-        message_price = p.get("messagePrice", 0)
+        message_price = self._normalize_price(
+            p.get("messagePrice", 0),
+            p.get("messagePriceUnit", "per_1k"),
+        )
         message_cost = message_based_cost(
             price_per_message=message_price,
             num_messages=messages_per_month
         )
         
         return operation_cost + query_cost + message_cost
+
+    def _normalize_price(self, price: float, unit: str) -> float:
+        unit = (unit or "").lower()
+        if unit in {"per_action", "per_message", "per_query_unit", "per_unit"}:
+            return float(price)
+        if unit in {"per_1k", "per_1000"}:
+            return float(price) / 1_000
+        if unit in {"per_100k", "per_100000"}:
+            return float(price) / 100_000
+        if unit in {"per_million", "per_1m", "per_1000000"}:
+            return float(price) / 1_000_000
+        raise ValueError(f"Unsupported Azure Digital Twins price unit: {unit}")
+
+    def _default_query_units_per_query(self, pricing: Dict[str, Any]) -> float:
+        tiers = pricing.get("queryUnitTiers") or []
+        if not tiers:
+            return 1.0
+        first_tier = min(tiers, key=lambda item: item.get("lower", 0))
+        return float(first_tier.get("value", 1.0))

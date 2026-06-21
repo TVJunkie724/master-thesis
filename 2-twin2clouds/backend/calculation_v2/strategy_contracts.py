@@ -502,9 +502,9 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "azureDigitalTwins",
             "Azure Digital Twins operation, message, query, and tier pricing.",
             (
-                _field("operation", ("azure", "azureDigitalTwins", "operationPrice"), "usd/action", "usd/million_actions", "operations", normalizer="price_per_million_to_price_per_action"),
-                _field("message", ("azure", "azureDigitalTwins", "messagePrice"), "usd/message", "usd/message", "messages"),
-                _field("query", ("azure", "azureDigitalTwins", "queryPrice"), "usd/query_unit", "usd/query_unit", "query_units"),
+                _field("operation", ("azure", "azureDigitalTwins", "operationPrice"), "usd/action", "usd/1k_actions", "operations", normalizer="price_per_1k_to_price_per_action"),
+                _field("message", ("azure", "azureDigitalTwins", "messagePrice"), "usd/message", "usd/1k_messages", "messages", normalizer="price_per_1k_to_price_per_action"),
+                _field("query", ("azure", "azureDigitalTwins", "queryPrice"), "usd/query_unit", "usd/1k_query_units", "query_units", normalizer="price_per_1k_to_price_per_action"),
                 _field("query_unit_tiers", ("azure", "azureDigitalTwins", "queryUnitTiers"), "query_unit", "tier_table", "query_complexity", normalizer="azure_digital_twins_query_units"),
             ),
         ),

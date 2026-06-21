@@ -12,6 +12,7 @@ Pricing Model:
 """
 
 from typing import Dict, Any
+import math
 from ..types import AzureComponent, FormulaType
 from ...formulas import message_based_cost
 
@@ -49,6 +50,9 @@ class AzureIoTHubCalculator:
             Monthly cost in USD
         """
         p = pricing["azure"]["iotHub"]
+
+        if "pricing_tiers" in p:
+            return self._calculate_tier_table_cost(messages_per_month, p["pricing_tiers"])
         
         # Base unit cost
         unit_price = p.get("pricePerUnit", p.get("pricePerMonth", 0))
@@ -67,3 +71,41 @@ class AzureIoTHubCalculator:
         )
         
         return base_cost + additional_cost
+
+    def _calculate_tier_table_cost(self, messages_per_month: float, pricing_tiers: Dict[str, Any]) -> float:
+        """
+        Calculate IoT Hub cost from the canonical tier table.
+
+        The fetched table stores each tier's monthly unit capacity in
+        ``threshold`` and the tier's maximum total capacity in ``limit``. The
+        calculator selects the cheapest tier that can serve the monthly volume.
+        """
+        free_tier = pricing_tiers.get("freeTier")
+        if free_tier and messages_per_month <= float(free_tier.get("limit", 0)):
+            return float(free_tier.get("price", 0))
+
+        candidates = []
+        for tier_name, tier in pricing_tiers.items():
+            if tier_name == "freeTier":
+                continue
+
+            threshold = float(tier.get("threshold", 0) or 0)
+            if threshold <= 0:
+                continue
+
+            limit = tier.get("limit", float("inf"))
+            if isinstance(limit, str) and limit.lower() == "infinity":
+                limit = float("inf")
+            else:
+                limit = float(limit)
+
+            if messages_per_month > limit:
+                continue
+
+            units = max(1, math.ceil(messages_per_month / threshold))
+            candidates.append(units * float(tier.get("price", 0)))
+
+        if not candidates:
+            raise ValueError("Azure IoT Hub pricing_tiers cannot cover requested message volume")
+
+        return min(candidates)
