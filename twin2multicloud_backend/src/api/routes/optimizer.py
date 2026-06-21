@@ -13,8 +13,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
 import httpx
-import asyncio
-import json
 
 from src.models.database import get_db
 from src.models.user import User
@@ -23,10 +21,9 @@ from src.config import settings
 from src.repositories.twin_repository import TwinRepository
 from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
 from src.services.optimizer_pricing_refresh_service import OptimizerPricingRefreshService
+from src.services.optimizer_pricing_stream_service import OptimizerPricingStreamService
 from src.services.optimizer_status_service import OptimizerStatusService
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
-from src.utils.crypto import decrypt
-from src.services.twin_helpers import get_user_twin
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
@@ -48,6 +45,11 @@ def _optimizer_pricing_export_service() -> OptimizerPricingExportService:
 def _optimizer_pricing_refresh_service(db: Session) -> OptimizerPricingRefreshService:
     """Build the optimizer pricing refresh service for this request."""
     return OptimizerPricingRefreshService(db=db, twin_repository=TwinRepository(db))
+
+
+def _optimizer_pricing_stream_service(db: Session) -> OptimizerPricingStreamService:
+    """Build the optimizer pricing stream service for this request."""
+    return OptimizerPricingStreamService(db=db, twin_repository=TwinRepository(db))
 
 
 def _raise_downstream_http_error(exc: DownstreamServiceError) -> None:
@@ -235,88 +237,17 @@ async def stream_refresh_pricing(
     - complete: Refresh completed successfully
     - error: An error occurred
     """
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(400, f"Invalid provider: {provider}")
-
-    async def event_generator():
-        def emit(msg: str, event_type: str = "log"):
-            return f"event: {event_type}\ndata: {json.dumps({'message': msg, 'type': event_type})}\n\n"
-
-        yield emit(f"Starting {provider.upper()} pricing refresh...")
-        await asyncio.sleep(0.1)  # Allow client to receive
-
-        try:
-            # Prepare credentials (Management API responsibility - security boundary)
-            credentials = {}
-            
-            if provider == "azure":
-                yield emit("Azure uses public API - no credentials needed")
-            else:
-                # AWS/GCP need credentials from twin config
-                yield emit("Loading twin credentials...")
-                await asyncio.sleep(0.1)
-                
-                twin = await get_user_twin(twin_id, current_user, db)
-                config = twin.configuration
-                
-                if not config:
-                    yield emit("❌ Error: Twin has no configuration. Complete Step 1 first.", "error")
-                    return
-
-                if provider == "aws":
-                    if not config.aws_access_key_id:
-                        yield emit("❌ Error: AWS credentials not configured in Step 1", "error")
-                        return
-                    credentials = {
-                        "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-                        "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-                        "aws_region": config.aws_region or "eu-central-1"
-                    }
-                    yield emit("AWS credentials loaded and decrypted")
-                elif provider == "gcp":
-                    if not config.gcp_service_account_json:
-                        yield emit("❌ Error: GCP credentials not configured in Step 1", "error")
-                        return
-                    credentials = {
-                        "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
-                        "gcp_region": config.gcp_region or "europe-west1"
-                    }
-                    yield emit("GCP credentials loaded and decrypted")
-
-            await asyncio.sleep(0.1)
-            yield emit(f"Connecting to Optimizer service for {provider.upper()} pricing...")
-
-            # Relay SSE stream from Optimizer
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                async with client.stream(
-                    "POST",
-                    f"{OPTIMIZER_URL}/stream/fetch_pricing/{provider}",
-                    json=credentials,
-                    headers={"Accept": "text/event-stream"}
-                ) as response:
-                    if response.status_code != 200:
-                        yield emit(f"❌ Optimizer error: {response.status_code}", "error")
-                        return
-                    
-                    # Relay SSE events from Optimizer
-                    buffer = ""
-                    async for chunk in response.aiter_text():
-                        buffer += chunk
-                        # Process complete SSE events (delimited by double newline)
-                        while "\n\n" in buffer:
-                            event_str, buffer = buffer.split("\n\n", 1)
-                            if event_str.strip():
-                                yield event_str + "\n\n"
-
-        except httpx.ConnectError:
-            yield emit("❌ Error: Cannot connect to Optimizer service", "error")
-        except httpx.TimeoutException:
-            yield emit("❌ Error: Optimizer service timed out", "error")
-        except Exception as e:
-            yield emit(f"❌ Error: {str(e)}", "error")
+    try:
+        event_generator = _optimizer_pricing_stream_service(db).build_refresh_stream(
+            provider=provider,
+            twin_id=twin_id,
+            user_id=current_user.id,
+        )
+    except ValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
     return StreamingResponse(
-        event_generator(),
+        event_generator,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

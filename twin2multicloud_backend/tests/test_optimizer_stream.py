@@ -9,6 +9,33 @@ from unittest.mock import patch, AsyncMock, MagicMock
 import httpx
 
 
+class MockSSEStream:
+    """Async context manager matching httpx stream() behavior."""
+
+    def __init__(self, chunks=None, status_code=200):
+        self.status_code = status_code
+        self.chunks = chunks or []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def aiter_text(self):
+        for chunk in self.chunks:
+            yield chunk
+
+
+def configure_stream_client(mock_client, stream_response):
+    mock_instance = MagicMock()
+    mock_instance.stream = MagicMock(return_value=stream_response)
+    mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+    mock_instance.__aexit__ = AsyncMock(return_value=None)
+    mock_client.return_value = mock_instance
+    return mock_instance
+
+
 class TestStreamRefreshPricingHappy:
     """Happy path tests for pricing stream relay."""
     
@@ -29,22 +56,13 @@ class TestStreamRefreshPricingHappy:
         db.add(config)
         db.commit()
         
-        # Mock the Optimizer SSE stream
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_response = MockSSEStream([
+            'event: log\ndata: {"message": "Starting..."}\n\n',
+            'event: complete\ndata: {"message": "Done!"}\n\n',
+        ])
         
-        async def mock_chunks():
-            yield 'event: log\ndata: {"message": "Starting..."}\n\n'
-            yield 'event: complete\ndata: {"message": "Done!"}\n\n'
-        mock_response.aiter_text = mock_chunks
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_client.return_value.__aenter__ = AsyncMock(return_value=MagicMock(
-                stream=MagicMock(return_value=mock_response)
-            ))
-            mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
+        with patch('src.services.optimizer_pricing_stream_service.httpx.AsyncClient') as mock_client:
+            configure_stream_client(mock_client, mock_response)
             
             response = auth_client.get(
                 f"/optimizer/stream/refresh-pricing/aws?twin_id={test_twin.id}"
@@ -55,24 +73,11 @@ class TestStreamRefreshPricingHappy:
     
     def test_stream_azure_no_credentials_needed(self, auth_client, test_twin):
         """Azure stream should work without credentials (public API)."""
-        # Mock the Optimizer SSE stream
-        with patch('src.api.routes.optimizer.httpx.AsyncClient') as mock_client:
-            async def mock_stream(*args, **kwargs):
-                mock_resp = MagicMock()
-                mock_resp.status_code = 200
-                
-                async def mock_chunks():
-                    yield 'event: complete\ndata: {"message": "Azure done!"}\n\n'
-                mock_resp.aiter_text = mock_chunks
-                mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
-                mock_resp.__aexit__ = AsyncMock(return_value=None)
-                return mock_resp
-            
-            mock_instance = MagicMock()
-            mock_instance.stream = mock_stream
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock(return_value=None)
-            mock_client.return_value = mock_instance
+        with patch('src.services.optimizer_pricing_stream_service.httpx.AsyncClient') as mock_client:
+            configure_stream_client(
+                mock_client,
+                MockSSEStream(['event: complete\ndata: {"message": "Azure done!"}\n\n']),
+            )
             
             response = auth_client.get(
                 f"/optimizer/stream/refresh-pricing/azure?twin_id={test_twin.id}"
@@ -128,7 +133,7 @@ class TestStreamRefreshPricingError:
         db.add(config)
         db.commit()
         
-        with patch('src.api.routes.optimizer.httpx.AsyncClient') as mock_client:
+        with patch('src.services.optimizer_pricing_stream_service.httpx.AsyncClient') as mock_client:
             mock_instance = MagicMock()
             mock_instance.stream = MagicMock(side_effect=httpx.ConnectError("Connection refused"))
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -149,23 +154,8 @@ class TestStreamRefreshPricingEdge:
     
     def test_stream_returns_correct_headers(self, auth_client, test_twin):
         """Response should have SSE headers."""
-        with patch('src.api.routes.optimizer.httpx.AsyncClient') as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock(return_value=None)
-            
-            async def mock_stream(*args, **kwargs):
-                mock_resp = MagicMock()
-                mock_resp.status_code = 200
-                async def mock_chunks():
-                    yield 'event: complete\ndata: {}\n\n'
-                mock_resp.aiter_text = mock_chunks
-                mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
-                mock_resp.__aexit__ = AsyncMock(return_value=None)
-                return mock_resp
-            
-            mock_instance.stream = mock_stream
-            mock_client.return_value = mock_instance
+        with patch('src.services.optimizer_pricing_stream_service.httpx.AsyncClient') as mock_client:
+            configure_stream_client(mock_client, MockSSEStream(['event: complete\ndata: {}\n\n']))
             
             response = auth_client.get(
                 f"/optimizer/stream/refresh-pricing/azure?twin_id={test_twin.id}"
