@@ -32,6 +32,7 @@ from src.schemas.deployer_config import (
 )
 from src.config import settings
 from src.repositories.twin_repository import TwinRepository
+from src.services.deployer_config_validation_service import DeployerConfigValidationService
 from src.services.deployer_configuration_service import DeployerConfigurationService
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.services.twin_helpers import get_user_twin
@@ -43,6 +44,11 @@ router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
 def _deployer_configuration_service(db: Session) -> DeployerConfigurationService:
     """Build the deployer configuration service for this request."""
     return DeployerConfigurationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _deployer_config_validation_service(db: Session) -> DeployerConfigValidationService:
+    """Build the deployer config validation service for this request."""
+    return DeployerConfigValidationService(db=db, twin_repository=TwinRepository(db))
 
 
 def _raise_service_http_error(exc: Exception) -> None:
@@ -162,158 +168,22 @@ async def validate_config(
 ):
     """
     Validate config content via Deployer API.
-    
+
     Section 2 types: 'events', 'iot', 'config' (persisted to DB)
     Section 3 L1: 'payloads' (persisted to DB)
     Section 3 L2: 'function-code', 'state-machine' (NOT persisted - BLoC handles)
-    
+
     Proxies to Deployer API: POST /validate/{endpoint}
     """
-    # Map Flutter config types to Deployer endpoint paths
-    config_type_map = {
-        # Section 2
-        "events": "config/events",
-        "iot": "config/iot",
-        "config": "config/config",
-        # Section 2: L4 Hierarchy
-        "hierarchy": "hierarchy",
-        # Section 3 L1
-        "payloads": "simulator/payloads",
-        # Section 3 L2
-        "function-code": "function-code",
-        "state-machine": "state-machine",
-        # Section 3 L4
-        "scene-config": "scene-config",
-        "user-config": "user-config",
-    }
-    
-    l2_types = {"function-code", "state-machine"}
-    # L4 types require provider parameter
-    l4_types = {"hierarchy", "scene-config", "user-config"}
-    
-    if config_type not in config_type_map:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid config_type. Use: {list(config_type_map.keys())}"
-        )
-    
-    # L2 types require provider parameter
-    if config_type in l2_types and not request.provider:
-        raise HTTPException(
-            status_code=400,
-            detail=f"provider is required for {config_type} validation (aws, azure, google)"
-        )
-    
-    # L4 types require provider parameter
-    if config_type in l4_types and not request.provider:
-        raise HTTPException(
-            status_code=400,
-            detail=f"provider is required for {config_type} validation (aws or azure)"
-        )
-    
-    twin = await get_user_twin(twin_id, current_user, db)
-    deployer_endpoint = config_type_map[config_type]
-    
     try:
-        async with httpx.AsyncClient() as client:
-            if config_type in l2_types:
-                # L2: File upload with provider query param
-                if config_type == "function-code":
-                    ext = ".py"
-                else:
-                    # State machine: detect JSON vs YAML
-                    ext = ".json" if request.content.strip().startswith(("{", "[")) else ".yaml"
-                
-                files = {"file": (f"code{ext}", request.content.encode(), "text/plain")}
-                response = await client.post(
-                    f"{settings.DEPLOYER_URL}/validate/{deployer_endpoint}?provider={request.provider}",
-                    files=files,
-                    timeout=30.0
-                )
-            elif config_type in l4_types:
-                # L4: File upload with provider query param
-                if config_type == "scene-config":
-                    # Scene config needs hierarchy for cross-reference
-                    config = twin.deployer_config
-                    hierarchy_content = config.hierarchy_content if config else ""
-                    files = {
-                        "scene_file": ("scene.json", request.content.encode(), "application/json"),
-                        "hierarchy_file": ("hierarchy.json", (hierarchy_content or "").encode(), "application/json"),
-                    }
-                else:
-                    # hierarchy or user-config: simple file upload
-                    files = {"file": (f"{config_type}.json", request.content.encode(), "application/json")}
-                
-                response = await client.post(
-                    f"{settings.DEPLOYER_URL}/validate/{deployer_endpoint}?provider={request.provider}",
-                    files=files,
-                    timeout=30.0
-                )
-            else:
-                # Section 2 / L1: JSON file upload
-                files = {
-                    "file": (f"config_{config_type}.json", request.content.encode(), "application/json")
-                }
-                response = await client.post(
-                    f"{settings.DEPLOYER_URL}/validate/{deployer_endpoint}",
-                    files=files,
-                    timeout=30.0
-                )
-            
-            if response.status_code == 200:
-                result = response.json()
-                valid = True
-                message = result.get("message", "Valid")
-                
-                # Only persist validation for Section 2/L1/L4 types, NOT L2
-                # L2 per-entity validation is handled by Flutter BLoC
-                if config_type not in l2_types:
-                    config = twin.deployer_config
-                    if not config:
-                        config = DeployerConfiguration(twin_id=twin_id)
-                        db.add(config)
-                    
-                    if config_type == "config":
-                        config.config_json_validated = True
-                    elif config_type == "events":
-                        config.config_events_validated = True
-                    elif config_type == "iot":
-                        config.config_iot_devices_validated = True
-                    elif config_type == "payloads":
-                        config.payloads_validated = True
-                    # L4 types
-                    elif config_type == "hierarchy":
-                        config.hierarchy_validated = True
-                    elif config_type == "scene-config":
-                        config.scene_config_validated = True
-                    elif config_type == "user-config":
-                        config.user_config_validated = True
-                    
-                    db.commit()
-                
-                return ConfigValidationResponse(valid=valid, message=message)
-            else:
-                # Normalize error: Deployer uses "detail" for errors
-                try:
-                    error_detail = response.json().get("detail", response.text)
-                except Exception:
-                    error_detail = response.text
-                
-                return ConfigValidationResponse(
-                    valid=False,
-                    message=str(error_detail)
-                )
-                
-    except httpx.ConnectError:
-        return ConfigValidationResponse(
-            valid=False,
-            message="Cannot connect to Deployer API. Is it running on port 5004?"
+        return await _deployer_config_validation_service(db).validate_config(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            config_type=config_type,
+            request=request,
         )
-    except httpx.RequestError as e:
-        return ConfigValidationResponse(
-            valid=False,
-            message=f"Request error: {str(e)}"
-        )
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ==========================================

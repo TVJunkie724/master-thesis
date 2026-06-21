@@ -200,7 +200,7 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                 side_effect=httpx.TimeoutException("Operation timed out")
             )
@@ -223,7 +223,7 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                 side_effect=httpx.ConnectError("Connection refused")
             )
@@ -244,7 +244,7 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"valid": True}
@@ -263,7 +263,7 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"valid": True}
@@ -323,7 +323,7 @@ class TestL2ValidationEndpoints:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"message": "Code is valid for aws."}
@@ -344,7 +344,7 @@ class TestL2ValidationEndpoints:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"message": "State machine is valid for aws."}
@@ -400,7 +400,7 @@ class TestL2ValidationEndpoints:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 400
             mock_response.json.return_value = {"detail": "SyntaxError: invalid syntax at line 1"}
@@ -430,7 +430,7 @@ States:
     End: true
 """
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"message": "Valid"}
@@ -455,7 +455,7 @@ States:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"message": "Code is valid for azure."}
@@ -479,7 +479,7 @@ States:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"message": "Code is valid for google."}
@@ -499,7 +499,7 @@ States:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 400
             mock_response.json.return_value = {"detail": "Empty file"}
@@ -521,7 +521,7 @@ States:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"message": "Valid"}
