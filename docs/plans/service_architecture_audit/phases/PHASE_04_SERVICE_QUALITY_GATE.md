@@ -43,8 +43,8 @@ Flutter work and thesis demonstration.
 
 ## Subphases
 
-| Subphase | Deliverable |
-|---|---|
+| Subphase | Status | Document | Deliverable |
+|---|---|---|---|
 | 4.1 | Complete | [Contract gate](subphases/PHASE_04_01_CONTRACT_GATE.md) | Verify Management API, Optimizer, and Deployer contracts are documented and compatible. |
 | 4.2 | Complete | [Test gate](subphases/PHASE_04_02_TEST_GATE.md) | Run and record safe unit/integration/API tests for each service. |
 | 4.3 | Complete | [Security gate](subphases/PHASE_04_03_SECURITY_GATE.md) | Run and record dependency/static/security checks plus manual secret-redaction review. |
