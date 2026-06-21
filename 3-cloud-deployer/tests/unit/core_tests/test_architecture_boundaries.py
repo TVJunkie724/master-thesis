@@ -50,3 +50,25 @@ def test_production_code_does_not_import_legacy_aws_stack():
     ]
 
     assert violations == []
+
+
+def test_deployment_orchestration_uses_cleanup_registry_boundary():
+    """Orchestration must not import provider cleanup modules directly."""
+    orchestration_files = [
+        SRC_ROOT / "providers" / "deployer.py",
+        SRC_ROOT / "providers" / "terraform" / "deployer_strategy.py",
+    ]
+    forbidden_imports = (
+        "src.providers.aws.cleanup",
+        "src.providers.azure.cleanup",
+        "src.providers.gcp.cleanup",
+    )
+
+    violations = []
+    for path in orchestration_files:
+        text = path.read_text(encoding="utf-8")
+        for forbidden_import in forbidden_imports:
+            if forbidden_import in text:
+                violations.append(f"{path.relative_to(PROJECT_ROOT)} imports {forbidden_import}")
+
+    assert violations == []

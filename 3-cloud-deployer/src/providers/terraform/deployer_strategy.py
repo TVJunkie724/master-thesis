@@ -44,15 +44,10 @@ from src.providers.terraform.aws_deployer import (
     register_aws_iot_devices,
     configure_aws_grafana,
 )
+from src.providers.cleanup_registry import CleanupRequest, cleanup_provider_resources
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
-
-# Pre-import cleanup modules to avoid ThreadPoolExecutor deadlock
-# Python import locks can cause deadlock when multiple threads import simultaneously
-from src.providers.aws.cleanup import cleanup_aws_resources
-from src.providers.azure.cleanup import cleanup_azure_resources
-from src.providers.gcp.cleanup import cleanup_gcp_resources
 
 logger = logging.getLogger(__name__)
 
@@ -495,7 +490,7 @@ class TerraformDeployerStrategy:
             except Exception as e:
                 yield f"  ⚠ Could not load credentials: {e}"
         
-        # Generate tfvars if needed
+        # Generate missing tfvars before Terraform init
         if not self.tfvars_path.exists():
             yield "tfvars.json not found, generating..."
             self._generate_tfvars()
@@ -1038,14 +1033,17 @@ class TerraformDeployerStrategy:
     ) -> None:
         """Unified cleanup dispatcher with logging."""
         logger.info(f"[{provider.upper()}] Starting SDK cleanup...")
-        
-        # Uses pre-imported cleanup modules (see top of file) to avoid ThreadPoolExecutor deadlock
-        if provider == "aws":
-            cleanup_aws_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
-        elif provider == "azure":
-            cleanup_azure_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
-        elif provider == "gcp":
-            cleanup_gcp_resources(credentials, prefix, dry_run=dry_run)
+
+        cleanup_provider_resources(
+            CleanupRequest(
+                provider=provider,
+                credentials=credentials,
+                prefix=prefix,
+                cleanup_identity_user=cleanup_user,
+                platform_user_email=platform_user_email,
+                dry_run=dry_run,
+            )
+        )
         
         logger.info(f"[{provider.upper()}] ✓ Cleanup complete")
     
