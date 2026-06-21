@@ -2,15 +2,15 @@
 title: "Phase 2.3: Optimizer Fetcher Reliability Audit"
 description: "Audit provider price fetchers for deterministic candidate matching, unit normalization, tier handling, and evidence capture."
 tags: [optimizer, price-fetcher, reliability, evidence]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
 - docs/plans/service_architecture_audit/phases/PHASE_02_OPTIMIZER_AUDIT.md
 - 2-twin2clouds/backend/fetch_data/
 - 2-twin2clouds/tests/unit/pricing/
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 2.3: Optimizer Fetcher Reliability Audit
@@ -30,11 +30,14 @@ reject unsafe ambiguity.
 
 ## Deliverables
 
-- Provider fetcher behavior matrix.
-- Candidate selection criteria for service name, SKU, meter, region, tier,
-  unit, currency, and term.
-- Rejected-candidate evidence requirements.
-- Ambiguity behavior: review-required instead of silent fallback.
+- Complete. Provider fetcher behavior matrix is captured in
+  [Phase 2.3 Review](../../PHASE_02_03_OPTIMIZER_FETCHER_RELIABILITY_REVIEW.md).
+- Complete. Candidate selection criteria now produce evidence for service name,
+  SKU/row, meter, region, unit, price, and rejection reason where supported.
+- Complete. Rejected-candidate evidence is modeled through
+  `RejectedCandidate` and `FieldMatchEvidence`.
+- Complete. Ambiguous paid candidates are review-required and not successful
+  automatic matches at the hardened matching boundary.
 
 ## Acceptance Criteria
 
@@ -45,9 +48,10 @@ reject unsafe ambiguity.
 
 ## Verification
 
-- Static fetcher review.
-- Fixture/test gap list for multi-candidate and no-candidate cases.
-- No live cloud deployment tests.
+- Complete. Static fetcher review captured in the Phase 2.3 review.
+- Complete. Fixture tests cover multi-candidate ambiguity for AWS, Azure, and
+  GCP matching helpers.
+- Complete. No live cloud deployment tests.
 
 ## Parent Phase
 

@@ -1,6 +1,11 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from backend.fetch_data.cloud_price_fetcher_google import fetch_gcp_price, STATIC_DEFAULTS_GCP
+from backend.fetch_data.cloud_price_fetcher_google import (
+    fetch_gcp_price,
+    STATIC_DEFAULTS_GCP,
+    _select_gcp_sku_with_evidence,
+)
+from backend.fetch_data.fetch_evidence import MatchStatus
 
 # Helper to create mock SKU
 def create_mock_sku(service_regions, description, unit_description, unit_price_currency):
@@ -109,3 +114,44 @@ def test_static_defaults_structure():
     for service in expected_services:
         assert service in STATIC_DEFAULTS_GCP
         assert isinstance(STATIC_DEFAULTS_GCP[service], dict)
+
+def test_select_gcp_sku_with_evidence_selected():
+    sku = create_mock_sku(["us-central1"], "Message Delivery", "gibibyte", 0.0000004)
+    meter_conf = {
+        "desc_keywords": ["Message Delivery"],
+        "unit_keywords": ["gibibyte"],
+    }
+
+    evidence = _select_gcp_sku_with_evidence(
+        [sku],
+        meter_conf,
+        "us-central1",
+        service_name="iot",
+        field_key="pricePerGiB",
+    )
+
+    assert evidence.status == MatchStatus.SELECTED
+    assert evidence.selected_price == 0.0000004
+    assert evidence.normalized_price == 0.0000004
+    assert evidence.requires_review is False
+
+def test_select_gcp_sku_with_evidence_ambiguous_distinct_prices():
+    sku_a = create_mock_sku(["us-central1"], "Message Delivery", "gibibyte", 0.0000004)
+    sku_b = create_mock_sku(["us-central1"], "Message Delivery Premium", "gibibyte", 0.0000006)
+    meter_conf = {
+        "desc_keywords": ["Message Delivery"],
+        "unit_keywords": ["gibibyte"],
+    }
+
+    evidence = _select_gcp_sku_with_evidence(
+        [sku_a, sku_b],
+        meter_conf,
+        "us-central1",
+        service_name="iot",
+        field_key="pricePerGiB",
+    )
+
+    assert evidence.status == MatchStatus.AMBIGUOUS
+    assert evidence.selected_row is None
+    assert evidence.requires_review is True
+    assert "distinct prices" in evidence.reason

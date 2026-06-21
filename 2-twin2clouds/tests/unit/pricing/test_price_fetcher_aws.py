@@ -1,7 +1,12 @@
 import pytest
 import json
 from unittest.mock import patch, MagicMock
-from backend.fetch_data.cloud_price_fetcher_aws import fetch_aws_price, _extract_prices_from_api_response
+from backend.fetch_data.cloud_price_fetcher_aws import (
+    fetch_aws_price,
+    _extract_prices_from_api_response,
+    _extract_prices_with_evidence,
+)
+from backend.fetch_data.fetch_evidence import MatchStatus
 
 # Mock data for AWS Pricing API response
 def create_mock_price_item(description, price_per_unit, unit="USD"):
@@ -64,6 +69,41 @@ def test_extract_prices_from_api_response_with_exclusion():
     )
     
     assert "pricePerMessage" not in result
+
+def test_extract_prices_with_evidence_marks_distinct_paid_candidates_ambiguous():
+    price_list = [
+        create_mock_price_item("AWS Lambda total requests pricing", 0.0000002),
+        create_mock_price_item("AWS Lambda total requests pricing alternate", 0.0000003),
+    ]
+    field_map = {"requestPrice": ["requests"]}
+
+    evidence = _extract_prices_with_evidence(
+        price_list,
+        field_map,
+        include_keywords=["lambda", "requests"],
+        debug=False,
+        service_name="functions",
+    )
+
+    assert evidence["requestPrice"].status == MatchStatus.AMBIGUOUS
+    assert evidence["requestPrice"].selected_row is None
+    assert evidence["requestPrice"].requires_review is True
+
+def test_extract_prices_legacy_wrapper_omits_ambiguous_fields():
+    price_list = [
+        create_mock_price_item("AWS Lambda total requests pricing", 0.0000002),
+        create_mock_price_item("AWS Lambda total requests pricing alternate", 0.0000003),
+    ]
+    field_map = {"requestPrice": ["requests"]}
+
+    result = _extract_prices_from_api_response(
+        price_list,
+        field_map,
+        include_keywords=["lambda", "requests"],
+        debug=False,
+    )
+
+    assert "requestPrice" not in result
 
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 @patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
