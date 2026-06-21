@@ -2,14 +2,14 @@
 title: "Phase 3.7: Deployer Test Matrix"
 description: "Map Deployer tests to API, provider, Terraform, workspace, logging, permission, simulator, and security risks."
 tags: [deployer, tests, quality, security]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
 - docs/plans/service_architecture_audit/phases/PHASE_03_DEPLOYER_AUDIT.md
 - 3-cloud-deployer/tests/
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 3.7: Deployer Test Matrix
@@ -18,6 +18,8 @@ EXTRACTED: 2026-06-19 | VERSION: 1.0
 
 Define safe Deployer verification coverage without accidentally including live
 cloud E2E tests.
+
+Status: Complete.
 
 ## Scope
 
@@ -29,23 +31,27 @@ cloud E2E tests.
 
 ## Deliverables
 
-- Test-to-risk matrix for API, provider, Terraform package building, workspace,
+- [x] Test-to-risk matrix for API, provider, Terraform package building, workspace,
   validation, logs, permissions, simulator, and redaction.
-- Explicit default test command list excluding `tests/e2e/`.
-- Opt-in E2E command registry for later user-approved runs.
-- Missing high-risk test list for implementation planning.
+- [x] Explicit default test command list excluding `tests/e2e/`.
+- [x] Opt-in E2E command registry for later user-approved runs.
+- [x] Missing high-risk test list for implementation planning.
 
 ## Acceptance Criteria
 
-- Ordinary verification cannot deploy cloud resources.
-- Every planned Deployer refactor has matching safe regression tests.
-- E2E tests remain documented but quarantined from default checks.
+- [x] Ordinary verification cannot deploy cloud resources.
+- [x] Every planned Deployer refactor has matching safe regression tests.
+- [x] E2E tests remain documented but quarantined from default checks.
 
 ## Verification
 
-- Static test inventory.
-- Mapping against Phase 3.1 through Phase 3.6 findings.
-- No live cloud execution.
+- [x] Static test inventory.
+- [x] Mapping against Phase 3.1 through Phase 3.6 findings.
+- [x] No live cloud execution.
+
+## Review Artifact
+
+[Phase 3.7 Review: Deployer Test Matrix](../../PHASE_03_07_DEPLOYER_TEST_MATRIX_REVIEW.md)
 
 ## Parent Phase
 

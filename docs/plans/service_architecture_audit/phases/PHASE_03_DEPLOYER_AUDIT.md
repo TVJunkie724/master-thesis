@@ -3,7 +3,7 @@ title: "Phase 3: Deployer Audit"
 description: "Audit the Deployer for API/provider/workspace boundaries, Terraform execution, logs, preflight, permissions, simulator, and security."
 tags: [deployer, terraform, audit, architecture, quality]
 lastUpdated: "2026-06-21"
-version: "1.7"
+version: "1.8"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.7"
 - 3-cloud-deployer/src/validator.py
 - 3-cloud-deployer/tests/
 - 3-cloud-deployer/implementation_plans/
-EXTRACTED: 2026-06-21 | VERSION: 1.7
+EXTRACTED: 2026-06-21 | VERSION: 1.8
 -->
 
 # Phase 3: Deployer Audit
@@ -57,7 +57,7 @@ and logging responsibilities into implementable hardening slices.
 | 3.4 | Complete | [Logging Error Trace Audit](subphases/PHASE_03_04_DEPLOYER_LOGGING_ERROR_TRACE_AUDIT.md) |
 | 3.5 | Complete | [Permissions Preflight Audit](subphases/PHASE_03_05_DEPLOYER_PERMISSIONS_PREFLIGHT_AUDIT.md) |
 | 3.6 | Complete | [Simulator Test Utility Audit](subphases/PHASE_03_06_DEPLOYER_SIMULATOR_TEST_UTILITY_AUDIT.md) |
-| 3.7 | Planned | [Test Matrix](subphases/PHASE_03_07_DEPLOYER_TEST_MATRIX.md) |
+| 3.7 | Complete | [Test Matrix](subphases/PHASE_03_07_DEPLOYER_TEST_MATRIX.md) |
 
 ## Acceptance Criteria
 
