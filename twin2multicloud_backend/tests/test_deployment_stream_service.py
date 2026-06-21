@@ -11,6 +11,7 @@ from src.services.deployment_stream_service import (
     LogSession,
     SessionState,
     SseSessionRegistry,
+    _flush_expired_session_logs,
     persist_logs_batch,
     stream_session_events,
 )
@@ -97,3 +98,20 @@ async def test_stream_session_events_resets_running_session_to_pending_on_discon
         pass
 
     assert session.state == SessionState.PENDING
+
+
+@pytest.mark.asyncio
+async def test_expired_session_flush_logs_persistence_failure(monkeypatch, caplog):
+    session = LogSession("twin-1", "session-failed-flush", "deploy")
+    await session.push_log("buffered")
+
+    def fail_get_db():
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr("src.models.get_db", fail_get_db)
+
+    with caplog.at_level("WARNING"):
+        await _flush_expired_session_logs(session)
+
+    assert "Failed to persist expired deployment session logs" in caplog.text
+    assert "session-failed-flush" in caplog.text

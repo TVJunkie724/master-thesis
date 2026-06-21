@@ -239,16 +239,7 @@ async def _session_reaper(registry: SseSessionRegistry) -> None:
         await asyncio.sleep(10)
         expired_sessions = await registry.collect_expired()
         for session in expired_sessions:
-            if session.unpersisted_logs:
-                try:
-                    from src.models import get_db
-
-                    db_gen = get_db()
-                    db = next(db_gen)
-                    await persist_logs_batch(session, session.unpersisted_logs, db)
-                    db.close()
-                except Exception:
-                    pass
+            await _flush_expired_session_logs(session)
 
         stuck_check_counter += 1
         if stuck_check_counter >= 30:
@@ -257,6 +248,26 @@ async def _session_reaper(registry: SseSessionRegistry) -> None:
                 await recover_stuck_twins(registry)
             except Exception as exc:
                 logger.warning("Stuck twin recovery failed: %s", exc)
+
+
+async def _flush_expired_session_logs(session: LogSession) -> None:
+    """Persist logs for an expired session and log failures for diagnostics."""
+    if not session.unpersisted_logs:
+        return
+
+    try:
+        from src.models import get_db
+
+        db_gen = get_db()
+        db = next(db_gen)
+        await persist_logs_batch(session, session.unpersisted_logs, db)
+        db.close()
+    except Exception as exc:
+        logger.warning(
+            "Failed to persist expired deployment session logs for session %s: %s",
+            session.session_id,
+            exc,
+        )
 
 
 async def stream_session_events(session: LogSession, request, last_event_id: int, db: Session):
