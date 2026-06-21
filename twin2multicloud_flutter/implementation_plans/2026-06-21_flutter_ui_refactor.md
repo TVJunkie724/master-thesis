@@ -176,6 +176,13 @@ Implementation Notes:
 
 ## Phase 4 - Wizard Step 2 Boundary Cleanup
 
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused calculation trace widget/model tests passed.
+- Full `flutter test` passed.
+
 ### Scope
 
 - Keep Step 2 focused on workload inputs, calculation execution, and result
@@ -196,6 +203,14 @@ Implementation Notes:
 - Step 2 no longer deep-traverses calculation maps in widget code.
 - Result details can show collapsed trace metadata when available.
 - Calculate/save-next behavior remains unchanged.
+
+Implementation Notes:
+- Removed Step 2-local pricing refresh state, SSE subscription handling, and
+  provider freshness cards.
+- Step 2 now shows a concise notice that provider pricing refresh/review is
+  owned by Dashboard Pricing Review.
+- Added `CalculationTraceSummary` to expose typed intent/result trace metadata
+  from `CalcResult` without relying on separate pricing review state.
 
 ## Phase 5 - Wizard Step 3 Deployer UI Split
 
