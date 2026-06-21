@@ -13,6 +13,7 @@ import traceback
 import boto3
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 
 # Handle import path for shared module
 try:
@@ -33,6 +34,16 @@ REMOTE_READER_URL = os.environ.get("REMOTE_READER_URL", "").strip()
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 
 lambda_client = boto3.client("lambda")
+
+
+def _validate_https_url(url: str, label: str) -> str:
+    """Validate runtime-configured outbound URLs before opening them."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    return url
 
 
 def _is_multi_cloud() -> bool:
@@ -61,6 +72,7 @@ def _query_remote_hot_reader(event: dict) -> dict:
         raise EnvironmentError("REMOTE_READER_URL not configured")
     if not INTER_CLOUD_TOKEN:
         raise EnvironmentError("INTER_CLOUD_TOKEN not configured")
+    _validate_https_url(REMOTE_READER_URL, "REMOTE_READER_URL")
     
     data = json.dumps(event).encode("utf-8")
     
@@ -75,7 +87,8 @@ def _query_remote_hot_reader(event: dict) -> dict:
     )
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        # Bandit: urlopen is allowed only after HTTPS URL validation.
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
             body = response.read().decode("utf-8")
             return json.loads(body)
     except urllib.error.HTTPError as e:

@@ -41,6 +41,7 @@ import sys
 import logging
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 
 import azure.functions as func
 
@@ -78,6 +79,16 @@ FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 
 USE_LOGIC_APPS = os.environ.get("USE_LOGIC_APPS", "false").lower() == "true"
 USE_FEEDBACK = os.environ.get("USE_FEEDBACK", "false").lower() == "true"
+
+
+def _validate_https_url(url: str, label: str) -> str:
+    """Validate runtime-configured outbound URLs before opening them."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    return url
 
 # USER Function Key - lazy loaded for Azure→user-functions authentication
 _user_function_key = None
@@ -127,13 +138,15 @@ def _trigger_logic_app(payload: dict) -> None:
     """Trigger Azure Logic App via HTTP POST."""
     if not LOGIC_APP_TRIGGER_URL:
         raise ValueError("LOGIC_APP_TRIGGER_URL is required")
+    _validate_https_url(LOGIC_APP_TRIGGER_URL, "LOGIC_APP_TRIGGER_URL")
     
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(LOGIC_APP_TRIGGER_URL, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        # Bandit: urlopen is allowed only after HTTPS URL validation.
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
             logging.info(f"Logic App triggered: {response.getcode()}")
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to trigger Logic App: {e.code}")
@@ -179,13 +192,15 @@ def _invoke_function(function_name: str, payload: dict) -> None:
     user_key = _get_user_function_key()
     separator = "&" if "?" in base_url else "?"
     url = f"{base_url}{separator}code={user_key}"
+    _validate_https_url(url, f"{function_name} URL")
     
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        # Bandit: urlopen is allowed only after HTTPS URL validation.
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
             logging.info(f"Function {function_name} invoked: {response.getcode()}")
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to invoke {function_name}: {e.code}")
@@ -201,13 +216,15 @@ def _send_feedback(feedback_payload: dict) -> None:
     user_key = _get_user_function_key()
     separator = "&" if "?" in FEEDBACK_FUNCTION_URL else "?"
     url = f"{FEEDBACK_FUNCTION_URL}{separator}code={user_key}"
+    _validate_https_url(url, "FEEDBACK_FUNCTION_URL")
     
     data = json.dumps(feedback_payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        # Bandit: urlopen is allowed only after HTTPS URL validation.
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
             logging.info(f"Feedback sent: {response.getcode()}")
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to send feedback: {e.code}")

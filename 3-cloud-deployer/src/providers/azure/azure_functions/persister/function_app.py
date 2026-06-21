@@ -42,6 +42,7 @@ import sys
 import logging
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 
 import azure.functions as func
 from azure.cosmos import CosmosClient, PartitionKey
@@ -94,6 +95,16 @@ USE_EVENT_CHECKING = os.environ.get("USE_EVENT_CHECKING", "false").lower() == "t
 
 # Function base URL for invoking other functions
 FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
+
+
+def _validate_https_url(url: str, label: str) -> str:
+    """Validate runtime-configured outbound URLs before opening them."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    return url
 
 # NOTE: _l2_function_key removed - event-checker is now AuthLevel.ANONYMOUS (Terraform cycle workaround)
 
@@ -161,6 +172,7 @@ def _invoke_event_checker(event: dict) -> None:
     if not EVENT_CHECKER_FUNCTION_URL:
         logging.warning("EVENT_CHECKER_FUNCTION_URL not set - cannot invoke Event Checker")
         return
+    _validate_https_url(EVENT_CHECKER_FUNCTION_URL, "EVENT_CHECKER_FUNCTION_URL")
     
     # No function key needed - event-checker uses AuthLevel.ANONYMOUS
     data = json.dumps(event).encode("utf-8")
@@ -168,7 +180,8 @@ def _invoke_event_checker(event: dict) -> None:
     req = urllib.request.Request(EVENT_CHECKER_FUNCTION_URL, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        # Bandit: urlopen is allowed only after HTTPS URL validation.
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
             logging.info(f"Event Checker invoked: {response.getcode()}")
     except Exception as e:
         logging.warning(f"Failed to invoke Event Checker: {e}")

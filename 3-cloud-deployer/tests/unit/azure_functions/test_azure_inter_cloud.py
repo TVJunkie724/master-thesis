@@ -154,6 +154,31 @@ class TestPostToRemote:
         with pytest.raises(ValueError, match="Inter-cloud token is required"):
             post_to_remote(url="https://example.com", token="", payload={}, target_layer="L2")
 
+    def test_post_to_remote_rejects_non_https_url_before_network_call(self):
+        """Should reject non-HTTPS URLs before urllib opens a request."""
+        from _shared.inter_cloud import post_to_remote
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            with pytest.raises(ValueError, match="absolute HTTPS URL"):
+                post_to_remote(
+                    url="http://example.com/ingestion",
+                    token="token",
+                    payload={},
+                    target_layer="L2",
+                )
+
+        mock_urlopen.assert_not_called()
+
+    def test_post_raw_rejects_url_without_host_before_network_call(self):
+        """Should reject malformed absolute URLs before urllib opens a request."""
+        from _shared.inter_cloud import post_raw
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            with pytest.raises(ValueError, match="absolute HTTPS URL"):
+                post_raw(url="https:///missing-host", token="token", payload={})
+
+        mock_urlopen.assert_not_called()
+
     @patch("urllib.request.urlopen")
     def test_post_to_remote_sends_auth_header(self, mock_urlopen):
         """Should send X-Inter-Cloud-Token header."""

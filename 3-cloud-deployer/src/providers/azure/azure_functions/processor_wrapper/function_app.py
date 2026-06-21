@@ -16,6 +16,7 @@ import sys
 import logging
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 
 import azure.functions as func
 
@@ -34,6 +35,24 @@ _persister_function_url = None
 _digital_twin_info = None
 _user_function_key = None
 # NOTE: _l2_function_key removed - persister is now AuthLevel.ANONYMOUS (Terraform cycle workaround)
+
+
+def _validate_https_url(url: str, label: str) -> str:
+    """Validate runtime-configured outbound URLs before opening them."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    return url
+
+
+def _read_error_body(error: urllib.error.HTTPError) -> str:
+    """Best-effort HTTP error body extraction without hiding failures."""
+    try:
+        return error.read().decode("utf-8")
+    except (AttributeError, UnicodeDecodeError, OSError, ValueError):
+        return "<unreadable error body>"
 
 def _get_persister_function_url():
     global _persister_function_url
@@ -80,21 +99,19 @@ def _invoke_persister(payload: dict) -> None:
     """
     persister_url = _get_persister_function_url()
     # No function key needed - persister uses AuthLevel.ANONYMOUS
+    _validate_https_url(persister_url, "PERSISTER_FUNCTION_URL")
     
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(persister_url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        # Bandit: urlopen is allowed only after HTTPS URL validation.
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
             logging.info(f"Persister invoked successfully: {response.getcode()}")
     except urllib.error.HTTPError as e:
         # Read the error response body to get the actual error message
-        error_body = ""
-        try:
-            error_body = e.read().decode("utf-8")
-        except Exception:
-            pass
+        error_body = _read_error_body(e)
         logging.error(f"Failed to invoke Persister: {e.code} {e.reason}")
         if error_body:
             logging.error(f"Error response from Persister: {error_body}")
@@ -123,14 +140,16 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
         device_id = event.get("device_id") or event.get("iotDeviceId", "default")
         try:
             url = _get_processor_url(device_id)
-            if not url or not url.startswith("http"):
-                raise Exception(f"Cannot construct processor URL for device {device_id}")
+            if not url:
+                raise ValueError(f"Cannot construct processor URL for device {device_id}")
             else:
+                _validate_https_url(url, "processor URL")
                 logging.info(f"Calling user processor at {url}")
                 data = json.dumps(event).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
                 req_proc = urllib.request.Request(url, data=data, headers=headers, method="POST")
-                with urllib.request.urlopen(req_proc, timeout=30) as response:
+                # Bandit: urlopen is allowed only after HTTPS URL validation.
+                with urllib.request.urlopen(req_proc, timeout=30) as response:  # nosec B310
                     processed_event = json.loads(response.read().decode("utf-8"))
                 logging.info(f"User Logic Complete. Result: {json.dumps(processed_event)}")
         except Exception as e:

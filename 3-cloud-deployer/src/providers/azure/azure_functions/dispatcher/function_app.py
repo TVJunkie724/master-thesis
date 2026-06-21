@@ -16,6 +16,7 @@ import sys
 import logging
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 
 import azure.functions as func
 
@@ -50,6 +51,24 @@ FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 
 # L2 Function Key - lazy loaded for Azure→Azure authentication
 _l2_function_key = None
+
+
+def _validate_https_url(url: str, label: str) -> str:
+    """Validate runtime-configured outbound URLs before opening them."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    return url
+
+
+def _read_error_body(error: urllib.error.HTTPError) -> str:
+    """Best-effort HTTP error body extraction without hiding failures."""
+    try:
+        return error.read().decode("utf-8")
+    except (AttributeError, UnicodeDecodeError, OSError, ValueError):
+        return "<unreadable error body>"
 
 def _get_l2_function_key():
     """Lazy-load L2_FUNCTION_KEY for Azure→Azure HTTP authentication."""
@@ -104,21 +123,19 @@ def _invoke_function(function_name: str, payload: dict) -> None:
         function_key = _get_l2_function_key()
         separator = "&" if "?" in base_url else "?"
         url = f"{base_url}{separator}code={function_key}"  # Single-cloud: requires auth
+    _validate_https_url(url, f"{function_name} URL")
     
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        # Bandit: urlopen is allowed only after HTTPS URL validation.
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
             logging.info(f"Successfully invoked {function_name}: {response.getcode()}")
     except urllib.error.HTTPError as e:
         # Read the error response body to get the actual error message
-        error_body = ""
-        try:
-            error_body = e.read().decode("utf-8")
-        except Exception:
-            pass
+        error_body = _read_error_body(e)
         logging.error(f"Failed to invoke {function_name}: {e.code} {e.reason}")
         if error_body:
             logging.error(f"Error response from {function_name}: {error_body}")

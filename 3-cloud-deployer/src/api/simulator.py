@@ -12,7 +12,8 @@ endpoint for real-time simulator interaction.
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
-import subprocess
+# Bandit: subprocess import is required for controlled local CLI execution.
+import subprocess  # nosec B404
 import sys
 import asyncio
 import os
@@ -20,6 +21,7 @@ import json
 import zipfile
 import io
 import datetime
+from pathlib import Path
 from logger import logger
 import src.core.state as state
 from api.error_models import ERROR_RESPONSES
@@ -55,6 +57,17 @@ def _resolve_payload_path(project_path: str, internal_provider: str) -> str | No
         if os.path.exists(candidate):
             return candidate
     return None
+
+
+def _resolve_simulator_script_path(internal_provider: str) -> Path:
+    """Resolve a simulator entrypoint inside the canonical source tree."""
+    simulator_root = (Path(state.get_project_base_path()) / "src" / "iot_device_simulator").resolve()
+    script_path = (simulator_root / internal_provider / "main.py").resolve()
+    if simulator_root not in script_path.parents:
+        raise ValueError("Simulator script resolved outside the simulator source tree")
+    if not script_path.is_file():
+        raise ValueError(f"Simulator script not found for provider '{internal_provider}'")
+    return script_path
 
 # ==========================================
 # 1. WebSocket Stream
@@ -110,9 +123,10 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         return
 
     # 2. Start Subprocess
-    script_path = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", internal_provider, "main.py")
-    process = subprocess.Popen(
-        [sys.executable, script_path, "--project", project_name],
+    script_path = _resolve_simulator_script_path(internal_provider)
+    # Bandit: subprocess is constrained to validated argument lists with shell=False.
+    process = subprocess.Popen(  # nosec B603
+        [sys.executable, str(script_path), "--project", project_name],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

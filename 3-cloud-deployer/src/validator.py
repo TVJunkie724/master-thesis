@@ -1043,7 +1043,7 @@ def check_duplicate_project(
             
             if existing_twin_name == new_twin_name and existing_creds_hash == new_creds_hash:
                 return project_name
-        except Exception:
+        except (OSError, json.JSONDecodeError, TypeError):
             # Skip corrupted or unreadable projects
             continue
     

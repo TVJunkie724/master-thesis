@@ -18,13 +18,22 @@ Usage:
     outputs = runner.output()
 """
 
-import subprocess
+# Bandit: subprocess import is required for controlled local CLI execution.
+import subprocess  # nosec B404
 import json
 import logging
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_terraform_args(args: list[str]) -> None:
+    """Validate Terraform command arguments before process execution."""
+    if not isinstance(args, list) or not args:
+        raise ValueError("Terraform command args must be a non-empty list")
+    if any(not isinstance(arg, str) or not arg for arg in args):
+        raise ValueError("Terraform command args must contain only non-empty strings")
 
 
 class TerraformError(Exception):
@@ -98,6 +107,8 @@ class TerraformRunner:
         Raises:
             TerraformError: If command fails and check=True
         """
+        _validate_terraform_args(args)
+
         # Build base command
         cmd = ["terraform", f"-chdir={self.terraform_dir}"]
         
@@ -120,7 +131,8 @@ class TerraformRunner:
         
         if stream_output:
             # For long-running commands, stream output to console and capture for error handling
-            process = subprocess.Popen(
+            # Bandit: subprocess is constrained to validated argument lists with shell=False.
+            process = subprocess.Popen(  # nosec B603
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -144,7 +156,8 @@ class TerraformRunner:
                 stderr=None
             )
         else:
-            result = subprocess.run(
+            # Bandit: subprocess is constrained to validated argument lists with shell=False.
+            result = subprocess.run(  # nosec B603
                 cmd,
                 capture_output=capture_output,
                 text=True,

@@ -1,6 +1,8 @@
 """Tests for TerraformRunner workspace path behavior."""
 
-from src.terraform_runner import TerraformRunner
+import pytest
+
+from src.terraform_runner import TerraformRunner, _validate_terraform_args
 
 
 def test_plan_defaults_to_project_workspace_when_state_path_is_set(tmp_path, monkeypatch):
@@ -80,3 +82,13 @@ def test_plan_accepts_explicit_out_file(tmp_path, monkeypatch):
     assert result == str(explicit_plan)
     assert explicit_plan.parent.exists()
     assert calls[0][-1] == f"-out={explicit_plan}"
+
+
+@pytest.mark.parametrize("args", [[], (), ["plan", ""], ["plan", None]])
+def test_validate_terraform_args_rejects_invalid_arguments(args):
+    with pytest.raises(ValueError):
+        _validate_terraform_args(args)
+
+
+def test_validate_terraform_args_accepts_non_empty_string_list():
+    _validate_terraform_args(["plan", "-out=/tmp/tfplan"])

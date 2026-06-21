@@ -19,6 +19,7 @@ import azure.functions as func
 from azure.iot.hub import IoTHubRegistryManager
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +29,16 @@ logger = logging.getLogger(__name__)
 _iot_hub_connection_string = None
 _registry_manager = None
 _event_feedback_function_url = None
+
+
+def _validate_https_url(url: str, label: str) -> str:
+    """Validate runtime-configured outbound URLs before opening them."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    return url
 
 
 def _get_iot_hub_connection_string():
@@ -106,11 +117,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 user_key = _get_user_function_key()
                 separator = "&" if "?" in url else "?"
                 url_with_key = f"{url}{separator}code={user_key}"
+                _validate_https_url(url_with_key, "EVENT_FEEDBACK_FUNCTION_URL")
                 
                 data = json.dumps(payload).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
                 req_feedback = urllib.request.Request(url_with_key, data=data, headers=headers, method="POST")
-                with urllib.request.urlopen(req_feedback, timeout=30) as response:
+                # Bandit: urlopen is allowed only after HTTPS URL validation.
+                with urllib.request.urlopen(req_feedback, timeout=30) as response:  # nosec B310
                     processed_payload = json.loads(response.read().decode("utf-8"))
                 logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
             except Exception as e:

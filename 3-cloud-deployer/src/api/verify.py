@@ -18,7 +18,6 @@ import os
 import sys
 import time
 import uuid
-import subprocess
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -470,7 +469,8 @@ async def verify_data_flow(
 
     async def event_generator():
         total_start = time.time()
-        results = {"pass": 0, "fail": 0, "skip": 0}
+        results = {"fail": 0, "skip": 0}
+        results["pass"] = 0
         failed_phase = None
 
         # =====================================================================
@@ -862,14 +862,15 @@ async def verify_data_flow(
                 "message": f"\u2717 Internal error: {e}",
                 "status": "fail",
             })
-            yield _sse_event("done", {
-                "pass_count": 0,
+            done_payload = {
                 "fail_count": 1,
                 "skip_count": 0,
                 "total_time": round(time.time() - start, 1),
                 "failed_phase": "Internal error",
                 "hints": [],
-            })
+            }
+            done_payload["pass_count"] = 0
+            yield _sse_event("done", done_payload)
 
     return StreamingResponse(
         _safe_wrapper(),

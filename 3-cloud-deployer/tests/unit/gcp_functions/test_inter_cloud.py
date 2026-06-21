@@ -18,6 +18,8 @@ spec.loader.exec_module(gcp_inter_cloud)
 
 _get_token_expiry = gcp_inter_cloud._get_token_expiry
 get_id_token_headers = gcp_inter_cloud.get_id_token_headers
+post_to_remote = gcp_inter_cloud.post_to_remote
+post_raw = gcp_inter_cloud.post_raw
 _token_cache = gcp_inter_cloud._token_cache
 
 
@@ -63,20 +65,48 @@ class TestGetIdTokenHeaders:
     
     def test_invalid_url_raises_value_error(self):
         """Should raise ValueError for invalid URLs."""
-        with pytest.raises(ValueError, match="Invalid target URL"):
+        with pytest.raises(ValueError, match="absolute HTTPS URL"):
             get_id_token_headers("")
-        with pytest.raises(ValueError, match="Invalid target URL"):
+        with pytest.raises(ValueError, match="absolute HTTPS URL"):
             get_id_token_headers("not-a-url")
     
     def test_none_url_raises_value_error(self):
         """Should raise ValueError for None URL."""
-        with pytest.raises(ValueError, match="Invalid target URL"):
+        with pytest.raises(ValueError, match="absolute HTTPS URL"):
             get_id_token_headers(None)
     
     def test_ftp_url_raises_value_error(self):
         """Should raise ValueError for non-http URLs."""
-        with pytest.raises(ValueError, match="Invalid target URL"):
+        with pytest.raises(ValueError, match="absolute HTTPS URL"):
             get_id_token_headers("ftp://example.com")
+
+    def test_http_url_raises_value_error(self):
+        """Should require HTTPS for service-to-service ID token audiences."""
+        with pytest.raises(ValueError, match="absolute HTTPS URL"):
+            get_id_token_headers("http://example.com")
+
+
+class TestOutboundUrlValidation:
+    """Tests for GCP inter-cloud outbound URL validation."""
+
+    def test_post_to_remote_rejects_non_https_url_before_network_call(self):
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            with pytest.raises(ValueError, match="absolute HTTPS URL"):
+                post_to_remote(
+                    url="http://example.com/ingestion",
+                    token="token",
+                    payload={},
+                    target_layer="L2",
+                )
+
+        mock_urlopen.assert_not_called()
+
+    def test_post_raw_rejects_url_without_host_before_network_call(self):
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            with pytest.raises(ValueError, match="absolute HTTPS URL"):
+                post_raw(url="https:///missing-host", token="token", payload={})
+
+        mock_urlopen.assert_not_called()
     
     def test_missing_google_auth_raises_runtime_error(self):
         """Should raise RuntimeError if google-auth not installed."""

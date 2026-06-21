@@ -1,6 +1,10 @@
 """Tests for simulator API boundary helpers."""
 
-from src.api.simulator import _normalize_simulator_provider, _resolve_payload_path
+from src.api.simulator import (
+    _normalize_simulator_provider,
+    _resolve_payload_path,
+    _resolve_simulator_script_path,
+)
 
 
 def test_simulator_provider_normalization_supports_public_aliases():
@@ -52,3 +56,31 @@ def test_resolve_payload_path_returns_none_when_missing(tmp_path):
     project_path.mkdir(parents=True)
 
     assert _resolve_payload_path(str(project_path), "aws") is None
+
+
+def test_resolve_simulator_script_path_returns_canonical_script(tmp_path, monkeypatch):
+    simulator_dir = tmp_path / "src" / "iot_device_simulator" / "aws"
+    simulator_dir.mkdir(parents=True)
+    script = simulator_dir / "main.py"
+    script.write_text("print('ok')\n")
+
+    monkeypatch.setattr("src.api.simulator.state.get_project_base_path", lambda: str(tmp_path))
+
+    assert _resolve_simulator_script_path("aws") == script.resolve()
+
+
+def test_resolve_simulator_script_path_rejects_path_escape(tmp_path, monkeypatch):
+    simulator_root = tmp_path / "src" / "iot_device_simulator"
+    simulator_root.mkdir(parents=True)
+    outside = tmp_path / "src" / "escaped"
+    outside.mkdir(parents=True)
+    (outside / "main.py").write_text("print('escape')\n")
+
+    monkeypatch.setattr("src.api.simulator.state.get_project_base_path", lambda: str(tmp_path))
+
+    try:
+        _resolve_simulator_script_path("../escaped")
+    except ValueError as exc:
+        assert "outside the simulator source tree" in str(exc)
+    else:
+        raise AssertionError("Expected path escape to raise ValueError")

@@ -275,8 +275,9 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
                         ctx.iot_config = parsed
                     elif basename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
                         ctx.credentials_config = parsed
-                except:
-                    pass  # JSON parse failed, can't populate context
+                except json.JSONDecodeError:
+                    # JSON parse failed; context cannot be populated from this file.
+                    continue
                     
             except Exception as e:
                 all_errors.append(f"Validation failed for {basename}: {e}")

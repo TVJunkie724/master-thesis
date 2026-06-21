@@ -148,14 +148,16 @@ def _query_cosmos_db(query_params: dict) -> dict:
         # Fallback: try to extract from component name or entity ID
         iot_device_id = component_name or entity_id
     
-    # Query Cosmos DB
-    query = f"""
+    # Query Cosmos DB; user-controlled values stay in Cosmos parameters below.
+    query = (
+        """
         SELECT * FROM c 
         WHERE c.device_id = @device_id 
         AND c.id >= @start_time 
         AND c.id <= @end_time
         ORDER BY c.id ASC
     """
+    )
     
     parameters = [
         {"name": "@device_id", "value": iot_device_id},

@@ -3,7 +3,7 @@ title: "Service Architecture Audit Roadmap"
 description: "Project-wide roadmap for auditing and hardening Management API, Optimizer, and Deployer against shared enterprise-grade code-quality criteria."
 tags: [architecture, audit, backend, optimizer, deployer, quality]
 lastUpdated: "2026-06-21"
-version: "2.0"
+version: "2.2"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "2.0"
 - twin2multicloud_backend/src/
 - 2-twin2clouds/backend/, 2-twin2clouds/api/
 - 3-cloud-deployer/src/
-EXTRACTED: 2026-06-21 | VERSION: 2.0
+EXTRACTED: 2026-06-21 | VERSION: 2.2
 -->
 
 # Service Architecture Audit Roadmap
@@ -69,6 +69,7 @@ final code review finding list; it is the evidence used to plan the phases.
 | 2 | Complete | [PHASE_02_OPTIMIZER_AUDIT.md](phases/PHASE_02_OPTIMIZER_AUDIT.md) | Optimizer pricing/calculation/API boundary audit and strategy-contract hardening plan. |
 | 3 | Complete | [PHASE_03_DEPLOYER_AUDIT.md](phases/PHASE_03_DEPLOYER_AUDIT.md) | Deployer API/provider/workspace/logging/security audit and refactor plan. |
 | 4 | Complete | [PHASE_04_SERVICE_QUALITY_GATE.md](phases/PHASE_04_SERVICE_QUALITY_GATE.md) | Consolidated verification gate across Management API, Optimizer, and Deployer. |
+| 5 | Complete | [PHASE_05_DEPLOYER_PROVIDER_RUNTIME_SECURITY_HARDENING.md](phases/PHASE_05_DEPLOYER_PROVIDER_RUNTIME_SECURITY_HARDENING.md) | Resolve Deployer provider-runtime Bandit residuals with hardened URL/process boundaries and reviewed narrow suppressions. |
 
 ## Subphase Split Decision
 
@@ -112,7 +113,8 @@ remains a single cross-service baseline phase.
 
 ## Final Status
 
-The service architecture audit roadmap is complete for Phases 0 through 4.
-Every phase has review evidence, safe verification guidance, and committed
-implementation or gate artifacts. Remaining work is tracked as residual risk and
-future roadmap items rather than hidden inside this audit.
+The service architecture audit roadmap is complete for Phases 0 through 5.
+Phase 5 resolved the Deployer provider-runtime security residuals that were
+intentionally tracked after the full service quality gate. Remaining work stays
+explicit in phase documents and GitHub issues rather than hidden inside broad
+audit notes.

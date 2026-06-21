@@ -13,6 +13,7 @@ import time
 import uuid
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -24,6 +25,24 @@ from typing import Any, Optional
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1  # seconds
 DEFAULT_TIMEOUT = 30  # seconds
+
+
+def _validate_https_url(url: str, label: str = "remote URL") -> str:
+    """Validate runtime-configured outbound URLs before opening them."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError(f"{label} must be an absolute HTTPS URL")
+    return url
+
+
+def _read_error_body(error: urllib.error.HTTPError) -> str:
+    """Best-effort HTTP error body extraction without swallowing control flow."""
+    try:
+        return error.read().decode("utf-8")
+    except (AttributeError, UnicodeDecodeError, OSError, ValueError):
+        return "<unreadable error body>"
 
 
 # ==========================================
@@ -99,6 +118,7 @@ def post_to_remote(
         raise ValueError("Remote URL is required for inter-cloud POST")
     if not token:
         raise ValueError("Inter-cloud token is required for authentication")
+    _validate_https_url(url)
     
     # Build envelope and encode
     envelope = build_envelope(payload, target_layer)
@@ -114,7 +134,8 @@ def post_to_remote(
     
     for attempt in range(max_retries + 1):
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            # Bandit: urlopen is allowed only after HTTPS URL validation.
+            with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
                 return {
                     "statusCode": response.getcode(),
                     "body": response.read().decode('utf-8')
@@ -122,11 +143,7 @@ def post_to_remote(
         
         except urllib.error.HTTPError as e:
             # Read error body for better debugging
-            error_body = ""
-            try:
-                error_body = e.read().decode('utf-8')
-            except Exception:
-                pass
+            error_body = _read_error_body(e)
             
             # Client error (4xx): Do not retry - fail fast
             if 400 <= e.code < 500:
@@ -194,6 +211,7 @@ def post_raw(
         raise ValueError("Remote URL is required for inter-cloud POST")
     if not token:
         raise ValueError("Inter-cloud token is required for authentication")
+    _validate_https_url(url)
     
     data = json.dumps(payload, default=str).encode('utf-8')
     
@@ -207,7 +225,8 @@ def post_raw(
     
     for attempt in range(max_retries + 1):
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            # Bandit: urlopen is allowed only after HTTPS URL validation.
+            with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
                 return {
                     "statusCode": response.getcode(),
                     "body": response.read().decode('utf-8')
@@ -215,11 +234,7 @@ def post_raw(
         
         except urllib.error.HTTPError as e:
             # Read error body for better debugging
-            error_body = ""
-            try:
-                error_body = e.read().decode('utf-8')
-            except Exception:
-                pass
+            error_body = _read_error_body(e)
             
             if 400 <= e.code < 500:
                 print(f"Client Error ({e.code}): {e.reason}. Body: {error_body}. Not retrying.")
