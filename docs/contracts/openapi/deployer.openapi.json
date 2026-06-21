@@ -1,0 +1,4596 @@
+{
+  "components": {
+    "schemas": {
+      "AWSCredentialsRequest": {
+        "description": "Request body for AWS credential validation.",
+        "properties": {
+          "aws_access_key_id": {
+            "description": "AWS Access Key ID",
+            "title": "Aws Access Key Id",
+            "type": "string"
+          },
+          "aws_region": {
+            "description": "AWS Region (e.g., 'eu-central-1')",
+            "title": "Aws Region",
+            "type": "string"
+          },
+          "aws_secret_access_key": {
+            "description": "AWS Secret Access Key",
+            "title": "Aws Secret Access Key",
+            "type": "string"
+          },
+          "aws_session_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional AWS Session Token for temporary credentials (from STS)",
+            "title": "Aws Session Token"
+          },
+          "aws_sso_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region",
+            "title": "Aws Sso Region"
+          }
+        },
+        "required": [
+          "aws_access_key_id",
+          "aws_secret_access_key",
+          "aws_region"
+        ],
+        "title": "AWSCredentialsRequest",
+        "type": "object"
+      },
+      "AzureCredentialsCheckResponse": {
+        "description": "Response schema for Azure credential validation.",
+        "properties": {
+          "by_layer": {
+            "additionalProperties": true,
+            "description": "Permission results organized by deployment layer",
+            "title": "By Layer",
+            "type": "object"
+          },
+          "caller_identity": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Azure subscription/principal info",
+            "title": "Caller Identity"
+          },
+          "can_list_roles": {
+            "description": "Whether the credentials can list role assignments",
+            "title": "Can List Roles",
+            "type": "boolean"
+          },
+          "message": {
+            "description": "Human-readable result message",
+            "title": "Message",
+            "type": "string"
+          },
+          "recommended_roles": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Recommended roles: custom (preferred) and builtin alternatives",
+            "title": "Recommended Roles"
+          },
+          "status": {
+            "description": "Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "description": "Summary with total_layers, valid_layers, partial_layers, invalid_layers counts",
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "can_list_roles",
+          "by_layer",
+          "summary"
+        ],
+        "title": "AzureCredentialsCheckResponse",
+        "type": "object"
+      },
+      "AzureCredentialsRequest": {
+        "description": "Request body for Azure credential validation.",
+        "properties": {
+          "azure_client_id": {
+            "description": "Service Principal Client/Application ID",
+            "title": "Azure Client Id",
+            "type": "string"
+          },
+          "azure_client_secret": {
+            "description": "Service Principal Client Secret",
+            "title": "Azure Client Secret",
+            "type": "string"
+          },
+          "azure_region": {
+            "description": "Azure Region for general resources (e.g., 'italynorth')",
+            "title": "Azure Region",
+            "type": "string"
+          },
+          "azure_region_digital_twin": {
+            "description": "Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list",
+            "title": "Azure Region Digital Twin",
+            "type": "string"
+          },
+          "azure_region_iothub": {
+            "description": "Azure Region for IoT Hub (e.g., 'westeurope'), may differ from azure_region",
+            "title": "Azure Region Iothub",
+            "type": "string"
+          },
+          "azure_subscription_id": {
+            "description": "Azure Subscription ID",
+            "title": "Azure Subscription Id",
+            "type": "string"
+          },
+          "azure_tenant_id": {
+            "description": "Azure AD Tenant ID",
+            "title": "Azure Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "azure_subscription_id",
+          "azure_tenant_id",
+          "azure_client_id",
+          "azure_client_secret",
+          "azure_region",
+          "azure_region_iothub",
+          "azure_region_digital_twin"
+        ],
+        "title": "AzureCredentialsRequest",
+        "type": "object"
+      },
+      "Body_buildFunctionZip": {
+        "properties": {
+          "function_file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Python function file (.py)",
+            "title": "Function File",
+            "type": "string"
+          },
+          "requirements_file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Optional requirements.txt",
+            "title": "Requirements File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "function_file"
+        ],
+        "title": "Body_buildFunctionZip",
+        "type": "object"
+      },
+      "Body_extractProjectZip": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Project zip file to extract",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_extractProjectZip",
+        "type": "object"
+      },
+      "Body_importProjectZip": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Project zip file",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_importProjectZip",
+        "type": "object"
+      },
+      "Body_validateConfigFile": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Configuration file to validate",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_validateConfigFile",
+        "type": "object"
+      },
+      "Body_validateFunctionCode": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Python file to validate",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_validateFunctionCode",
+        "type": "object"
+      },
+      "Body_validateHierarchy": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Hierarchy JSON file",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_validateHierarchy",
+        "type": "object"
+      },
+      "Body_validatePayloadsWithDevices": {
+        "properties": {
+          "devices_file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "config_iot_devices.json file",
+            "title": "Devices File",
+            "type": "string"
+          },
+          "payloads_file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "payloads.json file",
+            "title": "Payloads File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payloads_file",
+          "devices_file"
+        ],
+        "title": "Body_validatePayloadsWithDevices",
+        "type": "object"
+      },
+      "Body_validateProjectZip": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Project zip file to validate",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_validateProjectZip",
+        "type": "object"
+      },
+      "Body_validateSceneConfig": {
+        "properties": {
+          "hierarchy_file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Hierarchy JSON for cross-reference (optional)",
+            "title": "Hierarchy File",
+            "type": "string"
+          },
+          "scene_file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Scene config file (scene.json or 3DScenesConfiguration.json)",
+            "title": "Scene File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_file"
+        ],
+        "title": "Body_validateSceneConfig",
+        "type": "object"
+      },
+      "Body_validateSimulatorPayloads": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "payloads.json file to validate",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_validateSimulatorPayloads",
+        "type": "object"
+      },
+      "Body_validateStateMachine": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "State machine definition file (JSON)",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_validateStateMachine",
+        "type": "object"
+      },
+      "Body_validateUserConfig": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "config_user.json file",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_validateUserConfig",
+        "type": "object"
+      },
+      "ConfigType": {
+        "enum": [
+          "config",
+          "iot",
+          "events",
+          "aws_hierarchy",
+          "azure_hierarchy",
+          "credentials",
+          "providers",
+          "optimization"
+        ],
+        "title": "ConfigType",
+        "type": "string"
+      },
+      "CredentialsCheckResponse": {
+        "description": "Response schema for credential validation.",
+        "properties": {
+          "by_layer": {
+            "additionalProperties": true,
+            "description": "Permission results organized by deployment layer (layer_1 through layer_5)",
+            "title": "By Layer",
+            "type": "object"
+          },
+          "by_service": {
+            "additionalProperties": true,
+            "description": "Permission results organized by AWS service with layer references",
+            "title": "By Service",
+            "type": "object"
+          },
+          "caller_identity": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AWS caller identity if credentials are valid",
+            "title": "Caller Identity"
+          },
+          "can_list_policies": {
+            "description": "Whether the credentials can list their own policies",
+            "title": "Can List Policies",
+            "type": "boolean"
+          },
+          "message": {
+            "description": "Human-readable result message",
+            "title": "Message",
+            "type": "string"
+          },
+          "missing_check_permission": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Permission missing to perform the check (if can_list_policies is False)",
+            "title": "Missing Check Permission"
+          },
+          "status": {
+            "description": "Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "description": "Summary with total_required, valid, and missing counts",
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "can_list_policies",
+          "by_layer",
+          "by_service",
+          "summary"
+        ],
+        "title": "CredentialsCheckResponse",
+        "type": "object"
+      },
+      "DataFlowRequest": {
+        "properties": {
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "required": [
+          "payload"
+        ],
+        "title": "DataFlowRequest",
+        "type": "object"
+      },
+      "DeployerCompleteValidation": {
+        "description": "Input model for complete deployer config validation.",
+        "properties": {
+          "cheapest_path": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cheapest Path"
+          },
+          "config_events": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Events"
+          },
+          "config_iot_devices": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Iot Devices"
+          },
+          "deployer_digital_twin_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployer Digital Twin Name"
+          },
+          "event_actions": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Actions"
+          },
+          "event_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Feedback"
+          },
+          "hierarchy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hierarchy"
+          },
+          "optimizer_params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Optimizer Params"
+          },
+          "payloads": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payloads"
+          },
+          "processors": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processors"
+          },
+          "scene_config": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene Config"
+          },
+          "scene_glb_uploaded": {
+            "default": false,
+            "title": "Scene Glb Uploaded",
+            "type": "boolean"
+          },
+          "state_machine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Machine"
+          },
+          "user_config": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Config"
+          }
+        },
+        "title": "DeployerCompleteValidation",
+        "type": "object"
+      },
+      "DeployerValidationResponse": {
+        "description": "Validation response with all errors.",
+        "properties": {
+          "errors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid"
+        ],
+        "title": "DeployerValidationResponse",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Standardized error response with detailed information for troubleshooting.\n\nThis schema provides structured error information that enables:\n1. Understanding what went wrong (error_code, message)\n2. Knowing exactly how to fix it (fix_suggestion)\n3. Identifying specific field issues (field_errors)\n4. Finding additional help (documentation_url)\n\nAll error responses from this API follow this schema for consistency.",
+        "example": {
+          "documentation_url": "/documentation/docs-formulas.html",
+          "error_code": "VALIDATION_ERROR",
+          "field_errors": [
+            {
+              "field": "numberOfDevices",
+              "message": "Value must be a positive integer",
+              "received_value": "-5"
+            }
+          ],
+          "fix_suggestion": "Ensure all required fields are present and have valid values. See field_errors for details.",
+          "http_status": 422,
+          "message": "Request validation failed"
+        },
+        "properties": {
+          "documentation_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "URL to relevant documentation for this error or endpoint",
+            "example": "/documentation/docs-overview.html",
+            "title": "Documentation Url"
+          },
+          "error_code": {
+            "description": "Machine-readable error code in SCREAMING_SNAKE_CASE format. Use this to programmatically identify error types. Common codes: VALIDATION_ERROR, INVALID_CREDENTIALS, RESOURCE_NOT_FOUND, RATE_LIMITED, INTERNAL_ERROR, CONFIGURATION_MISSING",
+            "example": "VALIDATION_ERROR",
+            "title": "Error Code",
+            "type": "string"
+          },
+          "field_errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldError"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For validation errors (422), detailed list of which fields failed and why",
+            "title": "Field Errors"
+          },
+          "fix_suggestion": {
+            "description": "Actionable instruction that explains exactly how to fix this error and retry the request successfully. Be specific about what to change.",
+            "example": "Set 'numberOfDevices' to a positive integer (e.g., 100). This field represents the number of IoT devices in your deployment.",
+            "title": "Fix Suggestion",
+            "type": "string"
+          },
+          "http_status": {
+            "description": "The HTTP status code associated with this error (400, 401, 403, 404, 422, 500, etc.)",
+            "example": 400,
+            "title": "Http Status",
+            "type": "integer"
+          },
+          "message": {
+            "description": "Human-readable description of what went wrong",
+            "example": "Request validation failed: numberOfDevices must be positive",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "fix_suggestion",
+          "http_status"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "FieldError": {
+        "description": "Describes a validation error for a specific request field.\n\nUse this to understand exactly which field failed validation\nand what values would be acceptable.",
+        "example": {
+          "allowed_values": [
+            "aws",
+            "azure",
+            "gcp"
+          ],
+          "field": "provider",
+          "message": "Invalid cloud provider specified",
+          "received_value": "alibaba"
+        },
+        "properties": {
+          "allowed_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "If applicable, the list of valid values for this field",
+            "example": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Allowed Values"
+          },
+          "field": {
+            "description": "The name of the field that failed validation (dot notation for nested fields)",
+            "example": "numberOfDevices",
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "description": "Human-readable explanation of why this field failed validation",
+            "example": "Value must be a positive integer",
+            "title": "Message",
+            "type": "string"
+          },
+          "received_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The actual value that was received (stringified for display)",
+            "example": "-5",
+            "title": "Received Value"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "GCPCredentialsCheckResponse": {
+        "description": "Response schema for GCP credential validation.",
+        "properties": {
+          "api_status": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "API enablement status by layer",
+            "title": "Api Status"
+          },
+          "caller_identity": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "GCP service account info",
+            "title": "Caller Identity"
+          },
+          "message": {
+            "description": "Human-readable result message",
+            "title": "Message",
+            "type": "string"
+          },
+          "project_access": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Project access status",
+            "title": "Project Access"
+          },
+          "required_roles": {
+            "description": "List of required IAM roles",
+            "items": {},
+            "title": "Required Roles",
+            "type": "array"
+          },
+          "status": {
+            "description": "Result status: 'valid', 'partial', 'invalid', 'sdk_missing', or 'error'",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "required_roles"
+        ],
+        "title": "GCPCredentialsCheckResponse",
+        "type": "object"
+      },
+      "GCPCredentialsRequest": {
+        "description": "Request body for GCP credential validation.",
+        "properties": {
+          "gcp_billing_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "GCP Billing Account ID for auto-project creation (org accounts)",
+            "title": "Gcp Billing Account"
+          },
+          "gcp_credentials_file": {
+            "description": "Path to Service Account JSON key file",
+            "title": "Gcp Credentials File",
+            "type": "string"
+          },
+          "gcp_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "GCP Project ID for existing project (private accounts)",
+            "title": "Gcp Project Id"
+          },
+          "gcp_region": {
+            "description": "GCP Region (e.g., 'europe-west1')",
+            "title": "Gcp Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gcp_credentials_file",
+          "gcp_region"
+        ],
+        "title": "GCPCredentialsRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ProviderEnum": {
+        "enum": [
+          "aws",
+          "azure",
+          "gcp",
+          "google"
+        ],
+        "title": "ProviderEnum",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "API for deploying, destroying, and inspecting Digital Twin environment resources.<h3>\ud83d\udd17 Useful Links</h3><h4>\ud83d\udcd8 Documentation</h4><ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>",
+    "title": "Digital Twin Manager API",
+    "version": "2.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "**Purpose:** Check API status and active project.\\n\\n**When to call:** For health checks and debugging.",
+        "operationId": "getApiHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "API health check",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/dataflow/verify": {
+      "post": {
+        "description": "**Purpose:** Sends a test IoT message and verifies it propagates through the entire pipeline (ingestion \u2192 processing \u2192 storage \u2192 digital twin \u2192 events).\n\n**Response:** SSE stream with phase-by-phase results.\n\n**Duration:** 1-15 minutes depending on cold starts.",
+        "operationId": "verifyDataFlow",
+        "parameters": [
+          {
+            "description": "Digital twin project name",
+            "in": "query",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Digital twin project name",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataFlowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "SSE stream with verification results"
+          },
+          "400": {
+            "description": "Invalid payload or missing configuration"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify end-to-end data flow through deployed pipeline",
+        "tags": [
+          "Verification"
+        ]
+      }
+    },
+    "/functions/build": {
+      "post": {
+        "description": "**Purpose:** Create cloud-ready ZIP from Python function file.\n\n**When to call:** To prepare a function for manual deployment.\n\n**Validation:** Syntax check, entry point validation per provider.",
+        "operationId": "buildFunctionZip",
+        "parameters": [
+          {
+            "description": "Cloud provider: aws, azure, or google",
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "description": "Cloud provider: aws, azure, or google",
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_buildFunctionZip"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/zip": {}
+            },
+            "description": "ZIP file download"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Build function deployment ZIP",
+        "tags": [
+          "Functions",
+          "Functions"
+        ]
+      }
+    },
+    "/functions/updatable_functions": {
+      "get": {
+        "description": "**Purpose:** Discover all functions that can be updated via SDK.\n\n**When to call:** Before updating functions to get available targets.\n\n**Returns:** Function names, types (event_action/processor/feedback), and deployment status.",
+        "operationId": "listUpdatableFunctions",
+        "parameters": [
+          {
+            "description": "Name of the project",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Function list retrieved"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List user-modifiable functions",
+        "tags": [
+          "Functions",
+          "Functions"
+        ]
+      }
+    },
+    "/functions/update_function/{function_name}": {
+      "post": {
+        "description": "**Purpose:** Deploy updated function code to cloud via SDK (boto3/Kudu/gcloud).\n\n**When to call:** After modifying function code locally.\n\n**Process:** Build ZIP \u2192 Compare hash \u2192 Upload if changed \u2192 Save metadata.",
+        "operationId": "updateFunctionCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "function_name",
+            "required": true,
+            "schema": {
+              "title": "Function Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Name of the project",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project",
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Force update even if hash unchanged",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Force update even if hash unchanged",
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Function updated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Update function code via SDK",
+        "tags": [
+          "Functions",
+          "Functions"
+        ]
+      }
+    },
+    "/infrastructure/cooldown-check": {
+      "get": {
+        "description": "Check if redeployment is allowed (GCP Firestore 5-min cooldown).\n\n**Zero cloud costs:** Pure calculation with hardcoded 5-min limit. No cloud API calls.\n\nArgs:\n    destroyed_at: ISO timestamp from Management API\n    uses_gcp_firestore: Whether deployment uses GCP as L3-Hot provider\n\nReturns:\n    ready: True if deployment can proceed\n    remaining_seconds: Seconds until ready (0 if ready)",
+        "operationId": "check_cooldown_infrastructure_cooldown_check_get",
+        "parameters": [
+          {
+            "description": "ISO timestamp of last destroy",
+            "in": "query",
+            "name": "destroyed_at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO timestamp of last destroy",
+              "title": "Destroyed At"
+            }
+          },
+          {
+            "description": "Whether deployment uses GCP Firestore",
+            "in": "query",
+            "name": "uses_gcp_firestore",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Whether deployment uses GCP Firestore",
+              "title": "Uses Gcp Firestore",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Cooldown status returned"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check GCP Firestore deployment cooldown",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/infrastructure/deploy": {
+      "post": {
+        "description": "Deploys the full digital twin environment using Terraform.\n\n**Deployment process:**\n1. Validates project structure and configuration\n2. Runs `terraform init` (if needed) and `terraform apply`\n3. Deploys all configured layers based on config_providers.json\n\n**Layers deployed:**\n- **L1** (IoT Ingestion): IoT Hub/Core, Dispatcher Lambda/Function\n- **L2** (Processing): Persister, Event Checker, State Machine\n- **L3** (Storage): Hot storage (DynamoDB/CosmosDB), Cold storage (S3/Blob)\n- **L4** (Digital Twin): TwinMaker/ADT entities\n- **L5** (Visualization): Grafana dashboards\n\n**Note:** Long-running operation (2-10 minutes depending on resources).",
+        "operationId": "deploy_all_infrastructure_deploy_post",
+        "parameters": [
+          {
+            "description": "Cloud provider: aws, azure, or google",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "aws",
+              "description": "Cloud provider: aws, azure, or google",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Name of the project context",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project context",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Deployment successful"
+          },
+          "400": {
+            "description": "Invalid project or provider"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Deployment failed"
+          }
+        },
+        "summary": "Deploy full digital twin environment",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/infrastructure/deploy/stream": {
+      "post": {
+        "description": "Deploy with Server-Sent Events streaming.\n\nReturns an SSE stream with real-time deployment logs.",
+        "operationId": "deploy_stream_infrastructure_deploy_stream_post",
+        "parameters": [
+          {
+            "description": "Cloud provider: aws, azure, or google",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "aws",
+              "description": "Cloud provider: aws, azure, or google",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Name of the project context",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project context",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "SSE stream of deployment logs"
+          },
+          "400": {
+            "description": "Invalid project or provider"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Deployment failed"
+          }
+        },
+        "summary": "Deploy with SSE streaming logs",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/infrastructure/destroy": {
+      "post": {
+        "description": "Destroys the full digital twin environment using Terraform.\n\n**Destruction process:**\n1. Runs `terraform destroy` to remove all infrastructure\n2. Cleans up SDK-managed resources (IoT devices, Digital Twin entities)\n\n**If destruction fails for AWS TwinMaker:**\nUse `DELETE /projects/{name}/cleanup/aws-twinmaker` to manually clean entities first.\n\n**Note:** This operation cannot be undone. All data will be lost.",
+        "operationId": "destroy_all_infrastructure_destroy_post",
+        "parameters": [
+          {
+            "description": "Cloud provider: aws, azure, or google",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "aws",
+              "description": "Cloud provider: aws, azure, or google",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Name of the project context",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project context",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Destruction successful"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Destruction failed - may need force cleanup"
+          }
+        },
+        "summary": "Destroy full digital twin environment",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/infrastructure/destroy/stream": {
+      "post": {
+        "description": "Destroy with Server-Sent Events streaming.\n\nReturns an SSE stream with real-time destruction logs.",
+        "operationId": "destroy_stream_infrastructure_destroy_stream_post",
+        "parameters": [
+          {
+            "description": "Cloud provider: aws, azure, or google",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "aws",
+              "description": "Cloud provider: aws, azure, or google",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Name of the project context",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project context",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "SSE stream of destruction logs"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Destruction failed"
+          }
+        },
+        "summary": "Destroy with SSE streaming logs",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/infrastructure/status": {
+      "get": {
+        "description": "**Purpose:** Unified status check for infrastructure, user functions, and SDK-managed resources.\n\n**Returns three categories:**\n- `infrastructure`: Terraform-managed resources (fast, local state check)\n- `user_functions`: Function deployment status (from hash metadata)\n- `sdk_managed`: Dynamic resources (TwinMaker entities, IoT devices)\n\n**Performance:**\n- Default: ~instant (local state file)\n- With `detailed=true`: 5-30 seconds (cloud API drift detection)",
+        "operationId": "getDeploymentStatus",
+        "parameters": [
+          {
+            "description": "Cloud provider: aws, azure, or google",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "aws",
+              "description": "Cloud provider: aws, azure, or google",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Name of the project context",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project context",
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Include drift detection (slower, makes cloud API calls)",
+            "in": "query",
+            "name": "detailed",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include drift detection (slower, makes cloud API calls)",
+              "title": "Detailed",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Status check successful"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Check complete deployment status across all layers",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/infrastructure/verify": {
+      "post": {
+        "description": "**Purpose:** Run a structured pass/fail/skip check for every resource layer (L0\u2013L5).\n\n**Returns:**\n- `checks`: List of individual check results (name, status, provider, detail)\n- `summary`: Overall counts and healthy boolean\n\n**Performance:** 5-30 seconds (cloud SDK calls for IoT, TwinMaker/ADT, Azure Functions)\n\n**Use case:** Deployment verification in the UI.",
+        "operationId": "verifyInfrastructure",
+        "parameters": [
+          {
+            "description": "Primary cloud provider: aws, azure, or google",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "aws",
+              "description": "Primary cloud provider: aws, azure, or google",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Name of the project context",
+            "in": "query",
+            "name": "project_name",
+            "required": false,
+            "schema": {
+              "default": "template",
+              "description": "Name of the project context",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Verification complete"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Structured infrastructure verification across all layers",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/logs/trace/start": {
+      "post": {
+        "description": "**Purpose:** Initiates end-to-end log tracing by sending a test IoT message.\n\n**When to call:** To verify the EDT pipeline is working after deployment.\n\n**Rate limited:** 1 trace per 30 seconds per project.\n**Returns:** trace_id to use with /trace/stream/{trace_id}",
+        "operationId": "startLogTrace",
+        "parameters": [
+          {
+            "description": "Digital twin project name",
+            "in": "query",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Digital twin project name",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Trace started, returns trace_id and provider info"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited, wait before retrying"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Send test IoT message with unique trace_id",
+        "tags": [
+          "Logs"
+        ]
+      }
+    },
+    "/logs/trace/stream/{trace_id}": {
+      "get": {
+        "description": "**Purpose:** Streams logs from all cloud providers containing the trace_id.\n\n**When to call:** After calling /trace/start, use the returned trace_id.\n\n**SSE Events:** 'log' (each matching entry), 'error', 'done' (with summary).\n**Duration:** Polls providers every 2s for 90s.",
+        "operationId": "streamLogTrace",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trace_id",
+            "required": true,
+            "schema": {
+              "title": "Trace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "SSE stream with log events"
+          },
+          "403": {
+            "description": "Trace ID does not belong to this project"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "410": {
+            "description": "Trace ID expired (older than 2 minutes)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "SSE endpoint streaming logs matching trace_id",
+        "tags": [
+          "Logs"
+        ]
+      }
+    },
+    "/permissions/verify/aws": {
+      "get": {
+        "description": "**Purpose:** Verifies AWS credentials from project's config_credentials.json.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (optional) - uses active project if not specified.",
+        "operationId": "verifyAwsCredentialsFromConfig",
+        "parameters": [
+          {
+            "description": "Project name to load credentials from. Uses active project if not specified.",
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Project name to load credentials from. Uses active project if not specified.",
+              "title": "Project"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialsCheckResponse"
+                }
+              }
+            },
+            "description": "Credential validation completed (check status field)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Verify AWS permissions from project config",
+        "tags": [
+          "Permissions - Project"
+        ]
+      },
+      "post": {
+        "description": "**Purpose:** Verifies AWS credentials against all required permissions for the deployer.\n\n**When to call:** During wizard to validate user-provided AWS credentials.\n\n**Response:** Categorized results by layer (1-5) and by service.",
+        "operationId": "verifyAwsCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AWSCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialsCheckResponse"
+                }
+              }
+            },
+            "description": "Credential validation completed (check status field)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Verify AWS permissions from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/permissions/verify/azure": {
+      "get": {
+        "description": "**Purpose:** Verifies Azure credentials from project's config_credentials.json.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (optional) - uses active project if not specified.",
+        "operationId": "verifyAzureCredentialsFromConfig",
+        "parameters": [
+          {
+            "description": "Project name to load credentials from. Uses active project if not specified.",
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Project name to load credentials from. Uses active project if not specified.",
+              "title": "Project"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AzureCredentialsCheckResponse"
+                }
+              }
+            },
+            "description": "Credential validation completed (check status field)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Verify Azure permissions from project config",
+        "tags": [
+          "Permissions - Project"
+        ]
+      },
+      "post": {
+        "description": "**Purpose:** Verifies Azure Service Principal credentials against required RBAC roles.\n\n**When to call:** During wizard to validate user-provided Azure credentials.\n\n**Checks:** Contributor and User Access Administrator role assignments.",
+        "operationId": "verifyAzureCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AzureCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AzureCredentialsCheckResponse"
+                }
+              }
+            },
+            "description": "Credential validation completed (check status field)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Verify Azure permissions from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/permissions/verify/gcp": {
+      "get": {
+        "description": "**Purpose:** Verifies GCP credentials from project's config_credentials.json.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (optional) - uses active project if not specified.",
+        "operationId": "verifyGcpCredentialsFromConfig",
+        "parameters": [
+          {
+            "description": "Project name to load credentials from. Uses active project if not specified.",
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Project name to load credentials from. Uses active project if not specified.",
+              "title": "Project"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GCPCredentialsCheckResponse"
+                }
+              }
+            },
+            "description": "Credential validation completed (check status field)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Verify GCP permissions from project config",
+        "tags": [
+          "Permissions - Project"
+        ]
+      },
+      "post": {
+        "description": "**Purpose:** Verifies GCP Service Account credentials against required permissions.\n\n**When to call:** During wizard to validate user-provided GCP credentials.\n\n**Checks:** Project access, API enablement (Pub/Sub, Cloud Functions, Firestore, etc).",
+        "operationId": "verifyGcpCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GCPCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GCPCredentialsCheckResponse"
+                }
+              }
+            },
+            "description": "Credential validation completed (check status field)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Verify GCP permissions from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/projects": {
+      "get": {
+        "description": "**Purpose:** Returns all available projects for the project selector UI.\n\n**Response includes:**\n- Project names and descriptions\n- Version counts (saved ZIP snapshots)\n- Currently active project name",
+        "operationId": "listDeploymentProjects",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project list retrieved successfully"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List all deployment projects with metadata",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "post": {
+        "description": "**Purpose:** Creates a new deployment project from a ZIP file.\n\n**ZIP structure expected:**\n- config.json (required)\n- config_providers.json (required)\n- config_credentials.json (required)\n- config_iot_devices.json, config_events.json, etc.\n\n**Validation performed:**\n- ZIP structure validation\n- Config schema validation\n- Cross-config consistency checks",
+        "operationId": "createDeploymentProject",
+        "parameters": [
+          {
+            "description": "Name of the new project",
+            "in": "query",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Name of the new project",
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional project description",
+            "in": "query",
+            "name": "description",
+            "required": false,
+            "schema": {
+              "description": "Optional project description",
+              "title": "Description",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project created successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Create new project from uploaded ZIP file",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}": {
+      "delete": {
+        "description": "**Purpose:** Permanently delete a project and all saved versions.\n\n**Side effect:** If this was the active project, resets to default.\n\n**Protected:** Cannot delete the 'template' project.",
+        "operationId": "deleteProject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project deleted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Delete a project",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/cleanup/aws-twinmaker": {
+      "delete": {
+        "description": "**Purpose:** Force delete TwinMaker workspace when Terraform destroy fails.\n\n**When to call:** When `terraform destroy` fails due to existing entities.\n\n**Deletion order:** Entities \u2192 Component Types \u2192 Workspace",
+        "operationId": "cleanupAwsTwinmaker",
+        "parameters": [
+          {
+            "description": "Name of the project",
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Name of the project",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "TwinMaker workspace deleted"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Force delete AWS TwinMaker workspace",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/config/{config_type}": {
+      "get": {
+        "description": "**Purpose:** Retrieve a specific configuration file from a project.\n\n**When to call:** To load config for editing in wizard or display.\n\n**Path params:** config_type = config|iot|events|providers|credentials|optimization|aws_hierarchy|azure_hierarchy",
+        "operationId": "getProjectConfig",
+        "parameters": [
+          {
+            "description": "Project name",
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Project name",
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Type of configuration to retrieve",
+            "in": "path",
+            "name": "config_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ConfigType",
+              "description": "Type of configuration to retrieve"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Configuration retrieved successfully"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get project configuration",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "put": {
+        "description": "**Purpose:** Update a specific config file (config.json, config_iot_devices.json, etc).\n\n**When to call:** After wizard field changes to persist configuration.\n\n**Accepts:** Multipart (binary) or JSON (Base64).",
+        "operationId": "updateProjectConfig",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "config_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ConfigType"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Configuration updated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Update a configuration file",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/export": {
+      "get": {
+        "description": "**Purpose:** Download a complete project as a ZIP file.\n\n**When to call:** For backup, sharing, or migrating projects.\n\n**Contents:** All configs, hierarchies, state machines, payloads, 3D assets.",
+        "operationId": "exportProjectZip",
+        "parameters": [
+          {
+            "description": "Name of the project to export",
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Name of the project to export",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project zip file"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Export project as zip",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/files": {
+      "get": {
+        "description": "**Purpose:** Returns recursive file tree for file browser UI.\n\n**When to call:** When displaying project contents in explorer view.",
+        "operationId": "getProjectFileTree",
+        "parameters": [
+          {
+            "description": "Project name",
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Project name",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "File tree structure"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get project file tree",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/files/{file_path}": {
+      "get": {
+        "description": "**Purpose:** Read a specific file from a project.\n\n**When to call:** When opening a file in the editor.\n\n**Supports:** JSON files return parsed content; others return raw.",
+        "operationId": "getProjectFile",
+        "parameters": [
+          {
+            "description": "Project name",
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Project name",
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Relative path to file",
+            "in": "path",
+            "name": "file_path",
+            "required": true,
+            "schema": {
+              "description": "Relative path to file",
+              "title": "File Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "File content"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "FORBIDDEN",
+                  "fix_suggestion": "Use the dedicated credential endpoint or an example file instead.",
+                  "http_status": 403,
+                  "message": "The requested file is protected and cannot be read through this endpoint"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - The requested resource is protected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get file content",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/import": {
+      "post": {
+        "description": "**Purpose:** Upload a complete project zip to update an existing project.\n\n**Prerequisite:** Project must already exist (create via POST /projects first).\n\n**Validation:** Zip structure and config schema validation performed.",
+        "operationId": "importProjectZip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional project description update",
+            "in": "query",
+            "name": "description",
+            "required": false,
+            "schema": {
+              "description": "Optional project description update",
+              "title": "Description",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_importProjectZip"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project imported successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Import/update project from zip",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/info": {
+      "patch": {
+        "description": "**Purpose:** Update project description without re-uploading zip.\n\n**Body:** `{\"description\": \"New description\"}`",
+        "operationId": "updateProjectInfo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project info updated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Update project metadata",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/simulator/payloads": {
+      "put": {
+        "description": "**Purpose:** Upload payloads.json for the IoT simulator.\n\n**Validation:** Structure and iotDeviceId validation performed.\n\n**Location:** Saved to iot_device_simulator/payloads.json",
+        "operationId": "uploadSimulatorPayloads",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Payloads uploaded"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Upload IoT simulator payloads",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/simulator/{provider}/download": {
+      "get": {
+        "description": "**Purpose:** Download a self-contained IoT device simulator for local/Docker use.\n\n**Package contents:**\n- config.json, payloads.json\n- src/: Simulator Python code\n- certificates/ or service_account.json (provider-specific)\n- Dockerfile & docker-compose.yml\n- README.md with setup instructions",
+        "operationId": "downloadSimulatorPackage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Simulator zip package"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download standalone IoT simulator package as ZIP",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/state_machines/{provider}": {
+      "put": {
+        "description": "**Purpose:** Upload AWS Step Function, Azure Logic App, or GCP Workflow.\n\n**Path param:** provider = aws|azure|google\n\n**Validation:** Schema validation performed before saving.",
+        "operationId": "uploadStateMachine",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProviderEnum"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "State machine uploaded"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Upload state machine definition",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/summary": {
+      "get": {
+        "description": "**Purpose:** Dashboard overview for Flutter frontend.\n\n**When to call:** When displaying project cards or details.\n\n**Returns:** name, description, providers, deployment/validation status.",
+        "operationId": "getProjectSummary",
+        "parameters": [
+          {
+            "description": "Project name",
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Project name",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project summary"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get project dashboard summary",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/validate": {
+      "get": {
+        "description": "**Purpose:** Pre-deployment readiness check for existing projects.\n\n**Checks performed:**\n- Required files presence\n- Config content validity (schema validation)\n- Optimization flag dependencies\n- Cross-config consistency (payloads \u2194 devices, credentials \u2194 providers)",
+        "operationId": "validateProjectStructure",
+        "parameters": [
+          {
+            "description": "Name of the project structure to validate",
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Name of the project structure to validate",
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project structure is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate project structure and configuration",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/validate/config/{config_type}": {
+      "post": {
+        "description": "**Purpose:** Validates a specific configuration file against its JSON schema.\n\n**When to call:** To validate individual config files (config.json, config_iot_devices.json, etc).\n\n**Path param:** config_type = config|iot|events|providers|optimization|credentials|aws_hierarchy|azure_hierarchy",
+        "operationId": "validateConfigFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "config_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ConfigType"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateConfigFile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Configuration is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate configuration file",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/deployer-complete": {
+      "post": {
+        "description": "Validates ALL deployer configuration files and functions for state transition to 'configured'.\n\n**Checks performed (reuses existing validators):**\n- `deployer_digital_twin_name`: Non-empty, valid format (alphanumeric, hyphen, underscore, max 15 chars)\n- `config_events`, `config_iot_devices`: Required, schema validation\n- `payloads`: Required\n- `processors`: One per device in config_iot_devices, code validation\n- `hierarchy`: Required if L4 = AWS or Azure, schema validation\n- `scene_config`, `scene_glb`: Required if needs3DModel = true and L4 = AWS/Azure\n- `event_feedback`: Required if returnFeedbackToDevice = true\n- `event_actions`: One per action functionName in config_events (if useEventChecking = true)\n- `state_machine`: Required if triggerNotificationWorkflow = true\n- `user_config`: Required if L5 = AWS or Azure\n\n**Returns all errors, not just the first one.**",
+        "operationId": "validateDeployerComplete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployerCompleteValidation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeployerValidationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate complete deployer configuration",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/function-code": {
+      "post": {
+        "description": "**Purpose:** Validates Python code syntax and entry point signatures for serverless functions.\n\n**When to call:** To validate processor or event action code before deployment.\n\n**Checks:** Python syntax (ast.parse), required function signature per provider.",
+        "operationId": "validateFunctionCode",
+        "parameters": [
+          {
+            "description": "Target cloud provider",
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProviderEnum",
+              "description": "Target cloud provider"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateFunctionCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Code is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate function code syntax",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/hierarchy": {
+      "post": {
+        "description": "**Purpose:** Validates hierarchy JSON for L4 Digital Twins (AWS IoT TwinMaker or Azure ADT).\n\n**When to call:** To validate aws_hierarchy.json or azure_hierarchy.json before deployment.\n\n**AWS format:** Array of entity definitions with type, id, and optional children.\n**Azure format:** Object with header, models, twins, and relationships arrays.",
+        "operationId": "validateHierarchy",
+        "parameters": [
+          {
+            "description": "L4 provider (aws or azure)",
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProviderEnum",
+              "description": "L4 provider (aws or azure)"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateHierarchy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Hierarchy is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate hierarchy JSON for L4 provider",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/payloads-with-devices": {
+      "post": {
+        "description": "**Purpose:** Validates that all iotDeviceId values in payloads.json exist in config_iot_devices.json.\n\n**When to call:** To ensure payload device IDs match configured devices before simulation.\n\n**Response:** Returns valid=true if all device IDs match, or list of mismatches.",
+        "operationId": "validatePayloadsWithDevices",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validatePayloadsWithDevices"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "All payload device IDs exist in devices config"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Cross-validate payloads against devices",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/scene-config": {
+      "post": {
+        "description": "**Purpose:** Validates scene configuration for L4 3D visualization.\n\n**When to call:** To validate scene.json (AWS) or 3DScenesConfiguration.json (Azure).\n\n**Azure:** Validates JSON schema and cross-references primaryTwinID against hierarchy twins.",
+        "operationId": "validateSceneConfig",
+        "parameters": [
+          {
+            "description": "L4 provider (aws or azure)",
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProviderEnum",
+              "description": "L4 provider (aws or azure)"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateSceneConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Scene config is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate scene configuration with hierarchy cross-reference",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/simulator/payloads": {
+      "post": {
+        "description": "**Purpose:** Validates the structure of a payloads.json file for IoT simulation.\n\n**When to call:** Before running the IoT simulator to verify payload format.\n\n**Required fields:** Each payload must have an iotDeviceId matching config_iot_devices.json.",
+        "operationId": "validateSimulatorPayloads",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateSimulatorPayloads"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Payloads structure is valid"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate simulator payloads",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/state-machine": {
+      "post": {
+        "description": "**Purpose:** Validates state machine definitions for workflow orchestration.\n\n**When to call:** To validate AWS Step Functions, Azure Logic Apps, or GCP Cloud Workflows.\n\n**Query param:** provider=aws|azure|google determines which schema to validate against.",
+        "operationId": "validateStateMachine",
+        "parameters": [
+          {
+            "description": "Target cloud provider",
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProviderEnum",
+              "description": "Target cloud provider"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateStateMachine"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "State machine is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate state machine definition",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/user-config": {
+      "post": {
+        "description": "**Purpose:** Validates config_user.json for L5 platform user provisioning (Grafana admin).\n\n**When to call:** To validate platform user configuration before L5 deployment.\n\n**Azure requirement:** Email must use verified domain (*.onmicrosoft.com).",
+        "operationId": "validateUserConfig",
+        "parameters": [
+          {
+            "description": "L4 provider (aws or azure)",
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProviderEnum",
+              "description": "L4 provider (aws or azure)"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateUserConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "User config is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate config_user.json for platform user",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/zip": {
+      "post": {
+        "description": "**Purpose:** Validates a project zip file without extracting, checking structure and security.\\n\\n**When to call:** Before uploading a project to verify it meets all requirements.\\n\\n**Checks performed:** Zip integrity, Zip Slip path traversal, required files, schema validation.",
+        "operationId": "validateProjectZip",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateProjectZip"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Project zip is valid"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Validate project zip file",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/zip/extract": {
+      "post": {
+        "description": "**Purpose:** Extracts and validates project zip for Flutter wizard auto-population.\n\n**When to call:** From Step 3 wizard to import existing project files.\n\n**Mode A:** Pass validation_context to skip credentials (wizard step 3).\n**Mode B:** Full import with include_credentials=true.",
+        "operationId": "extractProjectZip",
+        "parameters": [
+          {
+            "description": "JSON ValidationContext for Mode A",
+            "in": "query",
+            "name": "validation_context",
+            "required": false,
+            "schema": {
+              "description": "JSON ValidationContext for Mode A",
+              "title": "Validation Context",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Include credentials in response (Mode B only)",
+            "in": "query",
+            "name": "include_credentials",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include credentials in response (Mode B only)",
+              "title": "Include Credentials",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_extractProjectZip"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Extraction successful with file contents"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "413": {
+            "description": "File too large (max 100MB)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Extract and validate project zip for wizard auto-population",
+        "tags": [
+          "Validation"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "Project lifecycle management: upload, configure, validate, delete. Includes config retrieval, simulator download, and AWS TwinMaker cleanup.",
+      "name": "Projects"
+    },
+    {
+      "description": "Infrastructure deployment and status. Deploy/destroy cloud resources across all 5 layers (L1-L5) with Terraform. Check deployment status.",
+      "name": "Infrastructure"
+    },
+    {
+      "description": "Pre-deployment validation endpoints. Validate project zip structure, config files, function code, state machines, and simulator payloads.",
+      "name": "Validation"
+    },
+    {
+      "description": "Verify cloud provider permissions from request body. Tests AWS/Azure/GCP credentials before deployment.",
+      "name": "Permissions - Upload"
+    },
+    {
+      "description": "Verify cloud provider permissions from project config. Reads credentials from project's config_credentials.json.",
+      "name": "Permissions - Project"
+    },
+    {
+      "description": "User function management. List updatable functions (event actions, processors, feedback) and update function code via SDK.",
+      "name": "Functions"
+    }
+  ]
+}
