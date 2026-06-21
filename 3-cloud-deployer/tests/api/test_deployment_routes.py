@@ -91,6 +91,12 @@ async def _fake_destroy_stream(context, strategy=None):
     yield "terraform destroy"
 
 
+async def _fake_secret_deploy_stream(context, strategy=None):
+    assert context is not None
+    assert strategy is not None
+    yield "terraform apply azure_client_secret=super-secret-value"
+
+
 def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
     context = MagicMock(name="deployment_context")
     strategy = MagicMock(name="terraform_strategy")
@@ -112,6 +118,36 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
     assert 'data: {"event":"log","operation":"deploy","message":"terraform init"}\n\n' in body
     assert 'data: {"event":"log","operation":"deploy","message":"terraform apply"}\n\n' in body
     assert 'event: complete\ndata: {"event":"complete","operation":"deploy","success":true,"outputs":{"output":{"value":"ok"}}}\n\n' in body
+
+
+def test_deploy_stream_redacts_secret_logs_and_outputs():
+    context = MagicMock(name="deployment_context")
+    strategy = MagicMock(name="terraform_strategy")
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "create_terraform_strategy", return_value=strategy),
+        patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_secret_deploy_stream),
+        patch.object(
+            deployment.core_deployer,
+            "get_terraform_outputs",
+            return_value={
+                "aws_grafana_api_key": "secret-api-key",
+                "aws_grafana_endpoint": "https://grafana.example.test",
+            },
+        ),
+    ):
+        response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+
+    assert "super-secret-value" not in body
+    assert "secret-api-key" not in body
+    assert "Sensitive deployment detail redacted" in body
+    assert '"aws_grafana_api_key":"[REDACTED]"' in body
+    assert "https://grafana.example.test" in body
 
 
 def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():

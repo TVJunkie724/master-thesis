@@ -9,6 +9,12 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from src.api.deployment_trace import (
+    DeploymentErrorCategory,
+    classify_deployment_error,
+    sanitize_deployment_message,
+    sanitize_terraform_outputs,
+)
 
 
 class DeploymentOperation(str, Enum):
@@ -64,10 +70,15 @@ class DeploymentStreamEvent(BaseModel):
     message: str | None = None
     outputs: dict[str, Any] | None = None
     error: str | None = None
+    error_category: DeploymentErrorCategory | None = None
 
     @classmethod
     def log(cls, operation: DeploymentOperation, message: str) -> "DeploymentStreamEvent":
-        return cls(event=DeploymentEventType.log, operation=operation, message=message)
+        return cls(
+            event=DeploymentEventType.log,
+            operation=operation,
+            message=sanitize_deployment_message(message),
+        )
 
     @classmethod
     def complete(
@@ -79,7 +90,7 @@ class DeploymentStreamEvent(BaseModel):
             event=DeploymentEventType.complete,
             operation=operation,
             success=True,
-            outputs=outputs,
+            outputs=sanitize_terraform_outputs(outputs),
         )
 
     @classmethod
@@ -88,7 +99,8 @@ class DeploymentStreamEvent(BaseModel):
             event=DeploymentEventType.error,
             operation=operation,
             success=False,
-            error=error,
+            error=sanitize_deployment_message(error),
+            error_category=classify_deployment_error(error),
         )
 
     def to_sse(self) -> str:
