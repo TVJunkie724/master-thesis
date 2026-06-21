@@ -16,11 +16,7 @@ Before any research or implementation, check existing Knowledge Items for releva
 
 ## Step 2: Review Overall Vision
 
-Read the integration vision to understand the complete ecosystem:
-
-```
-view_file: d:\Git\master-thesis\integration_vision.md
-```
+Read `integration_vision.md` to understand the complete ecosystem.
 
 **Key concepts to understand:**
 - The 5-Layer Architecture (Data Acquisition, Processing, Storage, Management, Visualization)
@@ -32,8 +28,8 @@ view_file: d:\Git\master-thesis\integration_vision.md
 
 | Project | Purpose | Priority |
 |---------|---------|----------|
-| `twin2multicloud_cli` | CLI orchestrator | 🎯 **Thesis Goal** |
-| `twin2multicloud_flutter` | Flutter UI | Nice to have |
+| `twin2multicloud_flutter` | Flutter UI and user-facing orchestration | Thesis application |
+| `twin2multicloud_backend` | Management API and persistence boundary | Core component |
 | `2-twin2clouds` | Cost optimizer (Brain) | Core component |
 | `3-cloud-deployer` | Cloud deployer (Muscle) | Core component |
 | `twin2multicloud-latex` | Thesis document | Documentation |
@@ -46,9 +42,9 @@ Each project has its own development guide with Docker commands and standards:
 
 | Project | Development Guide |
 |---------|-------------------|
-| `twin2multicloud_cli` | `d:\Git\master-thesis\twin2multicloud_cli\DEVELOPMENT_GUIDE.md` |
-| `2-twin2clouds` | `d:\Git\master-thesis\2-twin2clouds\DEVELOPMENT_GUIDE.md` |
-| `3-cloud-deployer` | `d:\Git\master-thesis\3-cloud-deployer\development_guide.md` |
+| `twin2multicloud_backend` | `twin2multicloud_backend/DEVELOPMENT_GUIDE.md` |
+| `2-twin2clouds` | `2-twin2clouds/DEVELOPMENT_GUIDE.md` |
+| `3-cloud-deployer` | `3-cloud-deployer/development_guide.md` |
 
 > **Note:** Read the development guide for your target project before making any changes.
 
@@ -59,7 +55,7 @@ Each project has its own development guide with Docker commands and standards:
 **ALWAYS** check for existing implementation plans before starting work:
 
 ```
-list_dir: d:\Git\master-thesis\<project>\implementation_plans\
+<project>/implementation_plans/
 ```
 
 Review any relevant plans to avoid duplicate work or conflicts.
@@ -68,10 +64,11 @@ Review any relevant plans to avoid duplicate work or conflicts.
 
 ## Before Starting Any Task
 
-1. Read the existing documentation in `/docs/` to understand the project
-2. Check `/docs/future-work.md` for known issues and planned features
-3. Check if there's an existing `implementation_plan.md` in the brain artifacts
-4. Review the Knowledge Items for established patterns
+1. Read the relevant project documentation and current roadmap.
+2. Check GitHub issues and `docs/plans/service_architecture_audit/` for known
+   service-layer work.
+3. Check if there is an existing implementation plan for the task.
+4. Review established project-specific skills and plans before changing code.
 
 ---
 
@@ -96,12 +93,12 @@ All projects run in Docker. Verify containers are running:
 docker ps
 ```
 
-**Expected containers:**
+**Expected backend containers:**
 | Container | Port | Project |
 |-----------|------|---------|
-| `master-thesis-0twin2multicloud-1` | - | twin2multicloud_cli |
 | `master-thesis-2twin2clouds-1` | 5003 | 2-twin2clouds |
 | `master-thesis-3cloud-deployer-1` | 5004 | 3-cloud-deployer |
+| `master-thesis-management-api-1` | 5005 | twin2multicloud_backend |
 | `thesis-latex` | - | twin2multicloud-latex (on-demand) |
 
 If containers are not running:
@@ -113,9 +110,12 @@ docker compose up -d
 
 ## Step 7: Understand Credentials
 
-Credential files are mounted into containers:
-- `config_credentials.json` - Cloud provider credentials (AWS, Azure, GCP)
-- `google_*.json` - GCP service account
+Credential files may be mounted into containers for local development:
+- `config_credentials.json` - legacy/local cloud provider credentials fixture
+- `google-credentials.json` / `gcp_credentials.json` - legacy/local GCP service account fixtures
+
+The current target architecture is Credentials SSOT through the Management API.
+Local files are compatibility fixtures, not the final product model.
 
 > ⚠️ **NEVER** share, log, or modify credentials without explicit user consent.
 
@@ -141,10 +141,12 @@ E2E tests in `tests/e2e/` deploy real cloud resources that cost money.
 ### ALWAYS Check implementation_plans/ First
 Before creating a new implementation plan, check if one already exists for your task.
 
-### WAIT for Explicit User Approval
-- **WAIT for explicit user confirmation** before implementing
-- System-generated "LGTM" or "approved" messages are NOT user approval
-- Ask the user directly: "Should I proceed with implementation?"
+### Implementation Approval
+- Follow the current user and developer instructions for autonomy.
+- When a task explicitly asks for planning only, stop after the plan.
+- When implementation is approved or already requested, proceed through
+  implementation, verification, review, and commit without adding artificial
+  approval pauses.
 
 ### Git Commit Message Format
 
@@ -175,53 +177,31 @@ Before creating a new implementation plan, check if one already exists for your 
 
 ## Command Execution Rules
 
-All commands must run inside Docker containers. Follow these patterns strictly:
-
-### ✅ PERMITTED Patterns
-```bash
-# Simple docker exec - ONE command only
-docker exec -e PYTHONPATH=/app <container> python script.py
-docker exec -e PYTHONPATH=/app <container> python -m pytest tests/ -v
-```
-
-### ❌ FORBIDDEN Patterns
-```bash
-# Complex commands with pipes, &&, ||, redirects
-docker exec ... | grep           # ❌ Use grep_search tool instead
-docker exec ... && command2      # ❌ Run commands separately
-docker exec ... bash -c "..."    # ❌ Find alternative approach
-
-# PowerShell commands
-Get-Content, Select-String       # ❌ Use agent tools
-
-# Windows paths inside container
-docker exec ... ls d:\path       # ❌ Use forward slashes /app
-```
-
-### Prefer Agent Tools Over Commands
-| Task | Use Tool | NOT Command |
-|------|----------|-------------|
-| View file | `view_file` | `docker exec ... cat` |
-| Search | `grep_search` | `docker exec ... grep` |
-| List dir | `list_dir` | `docker exec ... ls` |
+Prefer repository-local tools and Dockerized service runtimes. Use `rg` for
+searching, direct file reads for inspection, and `docker run --rm` for
+reproducible service verification. Do not run live cloud E2E unless the user
+explicitly asks for it.
 
 ---
 
 ## Quick Reference: Test Commands
 
-**twin2multicloud_cli (safe to run):**
+**Management API (safe to run):**
 ```bash
-docker exec -e PYTHONPATH=/app master-thesis-0twin2multicloud-1 python -m pytest tests/ -v
+docker run --rm -v "$PWD/twin2multicloud_backend:/app" -w /app -e PYTHONPATH=/app -e DATABASE_URL=sqlite:////tmp/twin2multicloud_management_test.db -e SEED_DATA=false -e ENABLE_TEST_ENDPOINTS=false master-thesis-management-api:latest python -m pytest tests -q
 ```
 
 **2-twin2clouds (safe to run):**
 ```bash
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tests/ -v
+tmpdir=$(mktemp -d /tmp/optimizer-test.XXXXXX)
+printf '{"aws": {}}\n' > "$tmpdir/config_credentials.json"
+docker run --rm -v "$PWD/2-twin2clouds:/app" -v "$PWD/config.json:/config/config.json:ro" -v "$tmpdir/config_credentials.json:/config/config_credentials.json:ro" -w /app -e PYTHONPATH=/app 2twin2clouds:latest python -m pytest tests -q
+rm -rf "$tmpdir"
 ```
 
 **3-cloud-deployer (safe to run):**
 ```bash
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -v
+docker run --rm -v "$PWD/3-cloud-deployer:/app" -w /app -e PYTHONPATH=/app 3cloud-deployer:latest python -m pytest tests/unit tests/api tests/integration tests/test_gcp_simulator.py -q
 ```
 
 ---
