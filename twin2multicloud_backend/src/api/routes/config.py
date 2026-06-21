@@ -1,12 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import httpx
-import json
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin, TwinState
-from src.models.twin_config import TwinConfiguration
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin_config import (
@@ -14,57 +10,29 @@ from src.schemas.twin_config import (
     InlineValidationRequest
 )
 from src.config import settings
-from src.utils.crypto import encrypt, decrypt
+from src.utils.crypto import decrypt
 from src.services.twin_helpers import get_user_twin
+from src.repositories.twin_repository import TwinRepository
+from src.services.service_errors import EntityNotFoundError, ValidationError
+from src.services.twin_configuration_service import TwinConfigurationService
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
 inline_router = APIRouter(prefix="/config", tags=["configuration"])
 
 
-def _populate_cheapest_columns(opt_config: OptimizerConfiguration, optimizer_result: dict | None) -> None:
-    """
-    Derive cheapest_l* column values from an optimizer result payload and assign
-    them to the SQLAlchemy model.
+def _twin_configuration_service(db: Session) -> TwinConfigurationService:
+    """Build the twin configuration service for this request."""
+    return TwinConfigurationService(db=db, twin_repository=TwinRepository(db))
 
-    Used by the wizard's bulk-save flow which only sends `optimizer_result` (not
-    a separate `cheapest_path` field). Without this, downstream consumers like
-    deploy/simulator/upload-zip see NULL columns even though result_json holds
-    the calculation, and have to write their own fallback logic.
 
-    Source of truth is `result.cheapestPath` (a list of "L<n>_<provider>" or
-    "L3_<tier>_<provider>" strings, e.g. ["L1_GCP", "L3_hot_AWS", ...]).
-    Falls back to `result.calculationResult` for L1/L2/L4/L5 if cheapestPath
-    isn't a list (older response shapes).
-    """
-    if not optimizer_result or not isinstance(optimizer_result, dict):
-        return
-
-    def _from_path(prefix: str) -> str | None:
-        path = optimizer_result.get("cheapestPath")
-        if not isinstance(path, list):
-            return None
-        for segment in path:
-            if isinstance(segment, str) and segment.startswith(prefix):
-                return segment[len(prefix):].lower() or None
-        return None
-
-    def _from_calc(*keys: str) -> str | None:
-        node = optimizer_result.get("calculationResult")
-        for key in keys:
-            if not isinstance(node, dict):
-                return None
-            node = node.get(key)
-        return node.lower() if isinstance(node, str) and node else None
-
-    opt_config.cheapest_l1 = _from_path("L1_") or _from_calc("L1")
-    opt_config.cheapest_l2 = _from_path("L2_") or _from_calc("L2")
-    opt_config.cheapest_l3_hot = _from_path("L3_hot_") or _from_calc("L3", "Hot")
-    opt_config.cheapest_l3_cool = _from_path("L3_cool_") or _from_calc("L3", "Cool")
-    opt_config.cheapest_l3_archive = _from_path("L3_archive_") or _from_calc("L3", "Archive")
-    opt_config.cheapest_l4 = _from_path("L4_") or _from_calc("L4")
-    opt_config.cheapest_l5 = _from_path("L5_") or _from_calc("L5")
-
+def _raise_service_http_error(exc: Exception) -> None:
+    """Map typed service errors to the existing configuration HTTP contract."""
+    if isinstance(exc, EntityNotFoundError):
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if isinstance(exc, ValidationError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    raise exc
 
 
 @router.get(
@@ -94,17 +62,10 @@ async def get_config(
     current_user: User = Depends(get_current_user)
 ):
     """Get configuration for a twin. Creates default if none exists."""
-    twin = await get_user_twin(twin_id, current_user, db)
-    
-    if not twin.configuration:
-        config = TwinConfiguration(twin_id=twin_id)
-        db.add(config)
-        db.commit()
-        db.refresh(config)
-    else:
-        config = twin.configuration
-    
-    return TwinConfigResponse.from_db(config, twin.optimizer_config)
+    try:
+        return _twin_configuration_service(db).get_config(twin_id=twin_id, user_id=current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 @router.put(
@@ -141,100 +102,14 @@ async def update_config(
     Update configuration for a twin.
     Credentials are ENCRYPTED with user+twin-specific key.
     """
-    twin = await get_user_twin(twin_id, current_user, db)
-    
-    # Block modifications for deployed/deploying/destroying twins
-    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
-    if twin.state in BLOCKED_STATES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot modify twin in '{twin.state.value}' state"
+    try:
+        return _twin_configuration_service(db).update_config(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            update=update,
         )
-    
-    # Track if we need to regress state
-    REGRESS_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
-    should_regress = twin.state in REGRESS_STATES
-    
-    if not twin.configuration:
-        config = TwinConfiguration(twin_id=twin_id)
-        db.add(config)
-    else:
-        config = twin.configuration
-    
-    # Update fields
-    if update.debug_mode is not None:
-        config.debug_mode = update.debug_mode
-    
-    # AWS - ENCRYPT with user+twin-specific key
-    if update.aws:
-        config.aws_access_key_id = encrypt(update.aws.access_key_id, current_user.id, twin_id)
-        config.aws_secret_access_key = encrypt(update.aws.secret_access_key, current_user.id, twin_id)
-        config.aws_region = update.aws.region
-        config.aws_sso_region = update.aws.sso_region  # SSO may be in different region
-        if update.aws.session_token:
-            config.aws_session_token = encrypt(update.aws.session_token, current_user.id, twin_id)
-        else:
-            config.aws_session_token = None
-        config.aws_validated = False
-    
-    # Azure - ENCRYPT with user+twin-specific key
-    if update.azure:
-        config.azure_subscription_id = encrypt(update.azure.subscription_id, current_user.id, twin_id)
-        config.azure_client_id = encrypt(update.azure.client_id, current_user.id, twin_id)
-        config.azure_client_secret = encrypt(update.azure.client_secret, current_user.id, twin_id)
-        config.azure_tenant_id = encrypt(update.azure.tenant_id, current_user.id, twin_id)
-        config.azure_region = update.azure.region  # Not encrypted
-        # Optional region overrides; None means "fall back to azure_region at deploy time"
-        config.azure_region_iothub = update.azure.region_iothub or None
-        config.azure_region_digital_twin = update.azure.region_digital_twin or None
-        config.azure_validated = False
-    
-    # GCP - ENCRYPT with user+twin-specific key
-    if update.gcp:
-        config.gcp_project_id = update.gcp.project_id  # Not encrypted (public)
-        if update.gcp.billing_account:
-            config.gcp_billing_account = encrypt(update.gcp.billing_account, current_user.id, twin_id)
-        else:
-            config.gcp_billing_account = None
-        config.gcp_region = update.gcp.region  # Not encrypted
-        if update.gcp.service_account_json:
-            config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
-        config.gcp_validated = False
-    
-    # Wizard progress tracking
-    if update.highest_step_reached is not None:
-        config.highest_step_reached = update.highest_step_reached
-    
-    # Optimizer data - save to OptimizerConfiguration table
-    if update.optimizer_params is not None or update.optimizer_result is not None:
-        opt_config = twin.optimizer_config
-        if not opt_config:
-            opt_config = OptimizerConfiguration(twin_id=twin_id)
-            db.add(opt_config)
-
-        if update.optimizer_params is not None:
-            opt_config.params = json.dumps(update.optimizer_params)
-        if update.optimizer_result is not None:
-            opt_config.result_json = json.dumps(update.optimizer_result)
-            # Also populate the cheapest_l* columns from result.cheapestPath so
-            # downstream endpoints (deploy, simulator/download, _build_providers_config,
-            # etc.) get consistent data without needing per-call fallbacks. The
-            # dedicated /optimizer-config/result endpoint already does this from an
-            # explicit cheapest_path payload; we mirror the same derivation here for
-            # the wizard's bulk-save flow which only sends optimizer_result.
-            _populate_cheapest_columns(opt_config, update.optimizer_result)
-    
-    # Regress to draft if editing configured/error/destroyed twin
-    if should_regress:
-        twin.state = TwinState.DRAFT
-    
-    db.commit()
-    db.refresh(config)
-    db.refresh(twin)
-
-    # Include twin_state in response for frontend sync
-    response = TwinConfigResponse.from_db(config, twin.optimizer_config)
-    return {**response.dict(), "twin_state": twin.state.value}
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.post(

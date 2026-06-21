@@ -3,7 +3,7 @@ title: "Phase 1.2 Review: Management Service Boundary Plan"
 description: "Implementation-ready service, repository, client, and route ownership plan for the Management API refactor."
 tags: [management-api, services, repositories, architecture, issue-102]
 lastUpdated: "2026-06-21"
-version: "2.0"
+version: "2.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "2.0"
 - twin2multicloud_backend/src/api/routes/
 - twin2multicloud_backend/src/services/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 2.0
+EXTRACTED: 2026-06-21 | VERSION: 2.1
 -->
 
 # Phase 1.2 Review: Management Service Boundary Plan
@@ -259,6 +259,9 @@ Gate:
 - Export output does not include plaintext credentials.
 
 ### Slice 7: Config, Deployer, And Optimizer Route Thinning
+
+Status: In progress. Config read/write boundary complete:
+[PHASE_01_SLICE_07A_CONFIG_READ_WRITE_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07A_CONFIG_READ_WRITE_BOUNDARY_REVIEW.md)
 
 Files:
 
