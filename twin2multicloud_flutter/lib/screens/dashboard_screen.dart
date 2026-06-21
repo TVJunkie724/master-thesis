@@ -152,7 +152,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: Theme.of(context).brightness == Brightness.dark
+                            alpha:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? 0.2
                                 : 0.06,
                           ),
@@ -308,10 +309,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return statsAsync.when(
       data: (stats) {
-        final deployed = stats['deployed_count'] ?? 0;
-        final draft = stats['draft_count'] ?? 0;
-        final total = stats['total_twins'] ?? 0;
-        final cost = stats['estimated_monthly_cost'] ?? 0.0;
+        final deployed = stats.deployedCount;
+        final draft = stats.draftCount;
+        final total = stats.totalTwins;
+        final cost = stats.estimatedMonthlyCost;
 
         // Format cost
         final costStr = cost > 0 ? '\$${cost.toStringAsFixed(0)}/mo' : '—';
