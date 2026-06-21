@@ -32,6 +32,7 @@ from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_read_service import DeploymentReadService
 from src.services.simulator_service import SimulatorDownloadService
+from src.services.twin_export_service import TwinExportService
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
 from src.services.verification_service import DeploymentVerificationService
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
@@ -67,6 +68,11 @@ def _simulator_download_service(db: Session) -> SimulatorDownloadService:
 def _deployment_verification_service(db: Session) -> DeploymentVerificationService:
     """Build the deployment verification service for this request."""
     return DeploymentVerificationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _twin_export_service(db: Session) -> TwinExportService:
+    """Build the redacted twin export service for this request."""
+    return TwinExportService(db=db)
 
 
 def _twin_read_service(db: Session) -> TwinReadService:
@@ -1032,9 +1038,9 @@ async def download_simulator(
     operation_id="exportTwinConfiguration",
     summary="Export twin configuration as ZIP",
     description=(
-        "**Purpose:** Downloads the twin configuration as a Deployer-compatible ZIP file.\n\n"
+        "**Purpose:** Downloads the twin configuration as a redacted ZIP file.\n\n"
         "**Use case:** Debugging, backup, or manual deployment verification.\n\n"
-        "**Contents:** config.json, config_providers.json, config_credentials.json (decrypted), "
+        "**Contents:** config.json, config_providers.json, config_credentials.json (redacted), "
         "state machine, hierarchy, user functions, scene assets, and simulator payloads."
     ),
     responses={
@@ -1049,29 +1055,13 @@ async def export_twin_configuration(
     current_user: User = Depends(get_current_user)
 ):
     """Export twin configuration as downloadable ZIP."""
-    from src.services.deployment_service import build_project_zip
-    from sqlalchemy.orm import joinedload
-    from fastapi.responses import StreamingResponse
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-    ).first()
-    
-    if not twin:
-        raise HTTPException(404, "Twin not found")
-    
-    # Reuse the same ZIP building logic
-    zip_data = build_project_zip(twin, current_user.id)
-    
-    filename = f"{twin.name.lower().replace(' ', '-')}_config.zip"
-    
+    try:
+        archive = _twin_export_service(db).export_twin(twin_id=twin_id, user_id=current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
+
     return StreamingResponse(
-        zip_data,
-        media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        archive.content,
+        media_type=archive.media_type,
+        headers={"Content-Disposition": f'attachment; filename="{archive.filename}"'}
     )
