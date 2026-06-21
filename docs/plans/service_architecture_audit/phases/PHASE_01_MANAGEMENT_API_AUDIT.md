@@ -3,7 +3,7 @@ title: "Phase 1: Management API Audit"
 description: "Audit the Management API for route/service/persistence boundaries, typed contracts, error handling, logging, security, migrations, and tests."
 tags: [management-api, backend, audit, architecture, quality]
 lastUpdated: "2026-06-21"
-version: "1.5"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.5"
 - twin2multicloud_backend/src/schemas/
 - twin2multicloud_backend/migrations/
 - twin2multicloud_backend/tests/
-EXTRACTED: 2026-06-21 | VERSION: 1.5
+EXTRACTED: 2026-06-21 | VERSION: 1.6
 -->
 
 # Phase 1: Management API Audit
@@ -53,7 +53,7 @@ contracts, and making error/log/security behavior consistent.
 | 1.2 | Complete | [Service Boundary Plan](subphases/PHASE_01_02_MANAGEMENT_SERVICE_BOUNDARY_PLAN.md) |
 | 1.3 | Complete | [Contract And Schema Audit](subphases/PHASE_01_03_MANAGEMENT_CONTRACT_SCHEMA_AUDIT.md) |
 | 1.4 | Complete | [Error Log Redaction Audit](subphases/PHASE_01_04_MANAGEMENT_ERROR_LOG_REDACTION_AUDIT.md) |
-| 1.5 | Planned | [Persistence And Migration Audit](subphases/PHASE_01_05_MANAGEMENT_PERSISTENCE_MIGRATION_AUDIT.md) |
+| 1.5 | Complete | [Persistence And Migration Audit](subphases/PHASE_01_05_MANAGEMENT_PERSISTENCE_MIGRATION_AUDIT.md) |
 | 1.6 | Planned | [Test Matrix](subphases/PHASE_01_06_MANAGEMENT_TEST_MATRIX.md) |
 
 ## Acceptance Criteria
