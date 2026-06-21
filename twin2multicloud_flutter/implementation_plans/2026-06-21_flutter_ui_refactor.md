@@ -136,6 +136,13 @@ Implementation Notes:
 
 ## Phase 3 - Twin Overview Responsibility Split
 
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused Twin Overview widget/BLoC tests passed.
+- Full `flutter test` passed.
+
 ### Scope
 
 - Split `twin_overview_screen.dart` into focused widgets for header/status,
@@ -158,6 +165,14 @@ Implementation Notes:
 - Child widgets receive constructor data/callbacks and do not call services.
 - Deployment logs/status actions remain available.
 - Existing dashboard to overview navigation still works.
+
+Implementation Notes:
+- Extracted project/resource name cards, command center, deployment terminal
+  panel, Terraform output display wiring, and configuration review sections.
+- View/download behavior is routed through `TwinOverviewCodeArtifact` callbacks
+  so file/dialog side effects stay in the smart screen.
+- The previous no-op "View Logs" path now opens available deployment or terminal
+  logs in the code viewer dialog.
 
 ## Phase 4 - Wizard Step 2 Boundary Cleanup
 
