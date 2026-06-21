@@ -11,17 +11,8 @@ GLB file uploads, and project.zip extraction for wizard auto-population.
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-import httpx
-import json
-import logging
-import shutil
-from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 from src.models.database import get_db
-from src.models.deployer_config import DeployerConfiguration
-from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.deployer_config import (
@@ -30,13 +21,12 @@ from src.schemas.deployer_config import (
     ConfigValidationRequest,
     ConfigValidationResponse,
 )
-from src.config import settings
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployer_config_validation_service import DeployerConfigValidationService
 from src.services.deployer_configuration_service import DeployerConfigurationService
+from src.services.project_zip_extraction_service import ProjectZipExtractionService
 from src.services.scene_glb_service import SceneGlbService
 from src.services.service_errors import EntityNotFoundError, StorageError, ValidationError
-from src.services.twin_helpers import get_user_twin
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
@@ -55,6 +45,16 @@ def _deployer_config_validation_service(db: Session) -> DeployerConfigValidation
 def _scene_glb_service(db: Session) -> SceneGlbService:
     """Build the scene GLB storage service for this request."""
     return SceneGlbService(db=db, twin_repository=TwinRepository(db))
+
+
+def _project_zip_extraction_service(db: Session) -> ProjectZipExtractionService:
+    """Build the project ZIP extraction service for this request."""
+    twin_repository = TwinRepository(db)
+    return ProjectZipExtractionService(
+        db=db,
+        twin_repository=twin_repository,
+        scene_glb_service=SceneGlbService(db=db, twin_repository=twin_repository),
+    )
 
 
 def _raise_service_http_error(exc: Exception) -> None:
@@ -316,134 +316,14 @@ async def upload_project_zip(
     3. If GLB exists in response, saves via existing upload logic
     4. Returns extracted content for Flutter to populate fields
     """
-    import base64
-    
-    twin = await get_user_twin(twin_id, current_user, db)
-    
-    # Build validation context from twin's optimizer config
-    validation_context = {
-        "skip_credentials": True,  # Mode A: never return credentials
-        "skip_config_files": [],   # Validate all files
-    }
-    
-    # Get provider info from optimizer config if available.
-    # Prefer the cheapest_l* columns; fall back to parsing result_json.calculationResult
-    # when the columns weren't populated (data inconsistency from save endpoint).
-    if twin.optimizer_config:
-        opt_config = twin.optimizer_config
-
-        # Parse calculationResult from result_json as fallback source
-        calc_result = {}
-        if opt_config.result_json:
-            try:
-                calc_result = (json.loads(opt_config.result_json) or {}).get("calculationResult", {}) or {}
-            except (ValueError, TypeError):
-                calc_result = {}
-
-        def _resolve_layer(column_value: str | None, calc_key: str) -> str | None:
-            if column_value:
-                return column_value.lower()
-            raw = calc_result.get(calc_key)
-            return raw.lower() if isinstance(raw, str) and raw else None
-
-        l2 = _resolve_layer(opt_config.cheapest_l2, "L2")
-        l4 = _resolve_layer(opt_config.cheapest_l4, "L4")
-        if l2:
-            validation_context["l2_provider"] = l2
-        if l4:
-            validation_context["l4_provider"] = l4
-        logger.info(
-            "upload-zip: resolved providers for twin %s — l2=%s, l4=%s (columns: l2=%s l4=%s)",
-            twin_id, l2, l4, opt_config.cheapest_l2, opt_config.cheapest_l4,
-        )
-    
-    # Read zip file content
     zip_content = await file.read()
-    
-    # File size limit: 100MB
-    MAX_ZIP_SIZE = 100 * 1024 * 1024  # 100 MB
-    if len(zip_content) > MAX_ZIP_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Maximum allowed size is 100MB, got {len(zip_content) / (1024*1024):.1f}MB"
-        )
-    
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # Proxy to Deployer
-            response = await client.post(
-                f"{settings.DEPLOYER_URL}/validate/zip/extract",
-                files={"file": ("project.zip", zip_content, "application/zip")},
-                params={
-                    "validation_context": json.dumps(validation_context),
-                    "include_credentials": False
-                }
-            )
-            
-            if response.status_code != 200:
-                return {
-                    "success": False,
-                    "validation_errors": [f"Deployer error: {response.text}"],
-                    "files": {},
-                    "functions": {"processors": {}, "event_actions": {}, "event_feedback": None},
-                    "assets": {"scene_glb": None},
-                    "warnings": []
-                }
-            
-            result = response.json()
-            
-            # If GLB exists in result, save it locally
-            assets = result.get("assets") or {}
-            scene_glb = assets.get("scene_glb") or {}
-            if scene_glb.get("exists"):
-                glb_data = scene_glb
-                if glb_data.get("content") and glb_data.get("is_binary"):
-                    try:
-                        glb_bytes = base64.b64decode(glb_data["content"])
-                        
-                        # Save to disk (reuse existing logic)
-                        upload_path = Path(settings.UPLOAD_DIR) / twin_id
-                        glb_path = upload_path / "scene.glb"
-                        upload_path.mkdir(parents=True, exist_ok=True)
-                        
-                        with open(glb_path, "wb") as f:
-                            f.write(glb_bytes)
-                        
-                        # Update DB flag
-                        config = twin.deployer_config
-                        if not config:
-                            config = DeployerConfiguration(twin_id=twin_id)
-                            db.add(config)
-                        config.scene_glb_uploaded = True
-                        db.commit()
-                        
-                        # Mark as saved (don't return base64 content to Flutter)
-                        result["assets"]["scene_glb"] = {
-                            "exists": True,
-                            "saved": True,
-                            "is_binary": True,
-                            "content": None  # Don't send base64 back to Flutter
-                        }
-                    except Exception as e:
-                        result["warnings"] = result.get("warnings", []) + [f"Failed to save GLB: {str(e)}"]
-            
-            return result
-            
-    except httpx.ConnectError:
-        return {
-            "success": False,
-            "validation_errors": ["Cannot connect to Deployer API. Is it running?"],
-            "files": {},
-            "functions": {"processors": {}, "event_actions": {}, "event_feedback": None},
-            "assets": {"scene_glb": None},
-            "warnings": []
-        }
-    except httpx.RequestError as e:
-        return {
-            "success": False,
-            "validation_errors": [f"Request error: {str(e)}"],
-            "files": {},
-            "functions": {"processors": {}, "event_actions": {}, "event_feedback": None},
-            "assets": {"scene_glb": None},
-            "warnings": []
-        }
+        return await _project_zip_extraction_service(db).upload_project_zip(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            zip_content=zip_content,
+        )
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
+    except ValidationError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
