@@ -1,8 +1,3 @@
-// TODO(refactoring): This file is 1265 lines - candidate for refactoring.
-// Consider extracting ExpansionTile widgets into separate components per layer:
-// - L1Section, L2Section, L3Section, L4Section, L5Section
-// See: monolith_reduction_patterns KI for widget extraction patterns.
-
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -18,10 +13,11 @@ import '../../widgets/file_inputs/file_editor_block.dart';
 import '../../widgets/file_inputs/function_package_block.dart';
 import '../../widgets/file_inputs/collapsible_section.dart';
 import '../../widgets/file_inputs/collapsible_block_wrapper.dart';
-import '../../widgets/file_inputs/zip_upload_block.dart';
 import '../../widgets/file_inputs/config_json_visualization_block.dart';
 import '../../widgets/file_inputs/config_visualization_block.dart';
 import '../../widgets/step3/info_cards.dart';
+import '../../widgets/step3/step3_glb_upload_card.dart';
+import '../../widgets/step3/step3_layout_widgets.dart';
 import 'helpers/step3_validation_helper.dart';
 
 /// Step 3: Deployer Configuration - BLoC version
@@ -257,7 +253,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           children: [
             Expanded(
               child: state.calcResult == null
-                  ? _buildNoResultMessage(context)
+                  ? const Step3NoResultMessage()
                   : _buildLayerAlignedLayout(context, state),
             ),
           ],
@@ -279,85 +275,12 @@ class _Step3DeployerState extends State<Step3Deployer> {
               // ============================================================
               // QUICK UPLOAD AREA (Always visible, not collapsible)
               // ============================================================
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.folder_zip,
-                            size: 28,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Quick Upload',
-                                style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                'Import an existing deployment project',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Description
-                      Text(
-                        'Upload a complete project ZIP file to automatically populate all configuration fields below. '
-                        'This is the fastest way to configure your deployment if you have an existing project structure. '
-                        'Alternatively, you can manually configure each section below.',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // ZIP Upload Block
-                      const ZipUploadBlock(),
-                    ],
-                  ),
-                ),
-              ),
+              const Step3QuickUploadSection(),
 
               const SizedBox(height: 32),
 
               // Separator with "Or configure manually" text
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: Row(
-                    children: [
-                      Expanded(child: Divider(color: Colors.grey.shade400)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Or configure manually',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      Expanded(child: Divider(color: Colors.grey.shade400)),
-                    ],
-                  ),
-                ),
-              ),
+              const Step3ManualSeparator(),
 
               const SizedBox(height: 24),
 
@@ -663,13 +586,16 @@ class _Step3DeployerState extends State<Step3Deployer> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeader(context, showFlowchart),
+        Step3FlowHeader(
+          showFlowchart: showFlowchart,
+          flowchartWidth: _flowchartWidth,
+        ),
         const SizedBox(height: 24),
 
         // L1 Row
-        _buildLayerRow(
-          context,
+        Step3LayerRow(
           showFlowchart: showFlowchart,
+          flowchartWidth: _flowchartWidth,
           flowchart: layerBuilder.buildL1Layer(context),
           editors: [
             CollapsibleBlockWrapper(
@@ -707,36 +633,36 @@ class _Step3DeployerState extends State<Step3Deployer> {
           ],
         ),
 
-        if (showFlowchart) _buildArrowRow(),
+        if (showFlowchart) const Step3ArrowRow(flowchartWidth: _flowchartWidth),
 
         // L2 Row (Dynamic)
-        _buildLayerRow(
-          context,
+        Step3LayerRow(
           showFlowchart: showFlowchart,
+          flowchartWidth: _flowchartWidth,
           flowchart: layerBuilder.buildL2Layer(context),
           editors: _buildL2DynamicInputs(context, state),
         ),
 
-        if (showFlowchart) _buildArrowRow(),
+        if (showFlowchart) const Step3ArrowRow(flowchartWidth: _flowchartWidth),
 
         // L3 Row
-        _buildLayerRow(
-          context,
+        Step3LayerRow(
           showFlowchart: showFlowchart,
+          flowchartWidth: _flowchartWidth,
           flowchart: layerBuilder.buildL3Layer(context),
           editors: [Step3InfoCards.autoConfigured(context)],
         ),
 
-        if (showFlowchart) _buildArrowRow(),
+        if (showFlowchart) const Step3ArrowRow(flowchartWidth: _flowchartWidth),
 
         // L4 Row - Scene Config (only when needs3DModel && L4 provider is AWS/Azure && hierarchy validated)
         if (state.calcParams?.needs3DModel == true &&
             state.hierarchyValidated &&
             (state.layer4Provider?.toUpperCase() == 'AWS' ||
                 state.layer4Provider?.toUpperCase() == 'AZURE')) ...[
-          _buildLayerRow(
-            context,
+          Step3LayerRow(
             showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
             flowchart: layerBuilder.buildL4Layer(context),
             editors: [
               Builder(
@@ -794,20 +720,24 @@ class _Step3DeployerState extends State<Step3Deployer> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // GLB Upload Status Card
-                      _buildGlbUploadCard(context, state),
+                      Step3GlbUploadCard(
+                        isUploaded: state.sceneGlbUploaded,
+                        onDelete: () => _deleteSceneGlb(context, state),
+                        onUpload: () => _pickAndUploadSceneGlb(context, state),
+                      ),
                     ],
                   );
                 },
               ),
             ],
           ),
-          if (showFlowchart) _buildArrowRow(),
+          if (showFlowchart)
+            const Step3ArrowRow(flowchartWidth: _flowchartWidth),
         ] else ...[
           // No L4 Scene needed - show info card
-          _buildLayerRow(
-            context,
+          Step3LayerRow(
             showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
             flowchart: layerBuilder.buildL4Layer(context),
             editors: [
               Step3InfoCards.l4Info(
@@ -817,13 +747,14 @@ class _Step3DeployerState extends State<Step3Deployer> {
               ),
             ],
           ),
-          if (showFlowchart) _buildArrowRow(),
+          if (showFlowchart)
+            const Step3ArrowRow(flowchartWidth: _flowchartWidth),
         ],
 
         // L5 Row - User Config (AWS/Azure only)
-        _buildLayerRow(
-          context,
+        Step3LayerRow(
           showFlowchart: showFlowchart,
+          flowchartWidth: _flowchartWidth,
           flowchart: layerBuilder.buildL5Layer(context),
           editors: [
             if (state.layer5Provider?.toUpperCase() == 'AWS' ||
@@ -878,7 +809,11 @@ class _Step3DeployerState extends State<Step3Deployer> {
         ),
 
         const SizedBox(height: 24),
-        _buildFooter(context, showFlowchart),
+        Step3FlowFooter(
+          showFlowchart: showFlowchart,
+          flowchartWidth: _flowchartWidth,
+          legend: _layerBuilder!.buildLegend(context),
+        ),
       ],
     );
   }
@@ -933,337 +868,95 @@ class _Step3DeployerState extends State<Step3Deployer> {
     };
   }
 
-  Widget _buildHeader(BuildContext context, bool showFlowchart) {
-    final editorsHeader = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.edit_document, size: 24, color: Colors.grey.shade500),
-            const SizedBox(width: 12),
-            Text(
-              'Configuration Files',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ],
+  Future<void> _deleteSceneGlb(BuildContext context, WizardState state) async {
+    final twinId = state.twinId;
+    if (twinId == null) return;
+
+    final container = ProviderScope.containerOf(context);
+    final api = container.read(apiServiceProvider);
+    final bloc = context.read<WizardBloc>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      await api.deleteSceneGlb(twinId);
+      bloc.add(const WizardSceneGlbUploadStatusChanged(false));
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Delete failed: ${ApiErrorHandler.extractMessage(e)}'),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Upload or edit configuration files for your deployment',
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-        ),
-      ],
-    );
-
-    if (!showFlowchart) return editorsHeader;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: _flowchartWidth,
-          child: Column(
-            children: [
-              Text(
-                'Data Flow',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Component architecture',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 32),
-        Expanded(child: editorsHeader),
-      ],
-    );
-  }
-
-  Widget _buildFooter(BuildContext context, bool showFlowchart) {
-    final infoBox = Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Click "Finish Configuration" when ready.',
-              style: TextStyle(color: Colors.blue.shade800, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (!showFlowchart) return infoBox;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: _flowchartWidth,
-          child: _layerBuilder!.buildLegend(context),
-        ),
-        const SizedBox(width: 32),
-        Expanded(child: infoBox),
-      ],
-    );
-  }
-
-  Widget _buildLayerRow(
-    BuildContext context, {
-    required bool showFlowchart,
-    required Widget flowchart,
-    required List<Widget> editors,
-  }) {
-    final editorsColumn = ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 800),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: editors,
-      ),
-    );
-    if (!showFlowchart) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 24),
-        child: Center(child: editorsColumn),
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(width: _flowchartWidth, child: flowchart),
-        const SizedBox(width: 32),
-        Flexible(
-          child: Align(alignment: Alignment.topLeft, child: editorsColumn),
+  }
+
+  Future<void> _pickAndUploadSceneGlb(
+    BuildContext context,
+    WizardState state,
+  ) async {
+    final twinId = state.twinId;
+    final messenger = ScaffoldMessenger.of(context);
+    final container = ProviderScope.containerOf(context);
+    final api = container.read(apiServiceProvider);
+    final bloc = context.read<WizardBloc>();
+
+    if (twinId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Save draft first before uploading GLB')),
+      );
+      return;
+    }
+
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['glb'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    final bytes = file.bytes;
+
+    if (bytes == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to read file')),
+      );
+      return;
+    }
+
+    final sizeMb = bytes.length / (1024 * 1024);
+    if (sizeMb > 100) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'File too large: ${sizeMb.toStringAsFixed(1)}MB (max 100MB)',
+          ),
         ),
-      ],
-    );
-  }
+      );
+      return;
+    }
 
-  Widget _buildArrowRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: _flowchartWidth,
-            child: Center(
-              child: Icon(
-                Icons.arrow_downward,
-                size: 24,
-                color: Colors.grey.shade500,
-              ),
-            ),
+    try {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Uploading ${file.name} (${sizeMb.toStringAsFixed(1)}MB)...',
           ),
-          const SizedBox(width: 32),
-          const Expanded(child: SizedBox.shrink()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNoResultMessage(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 64,
-            color: Colors.orange.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No Optimization Result',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Please complete Step 2 (Optimizer) first.',
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // L4/L5 HELPER WIDGETS
-  // ============================================================
-
-  /// GLB file upload card - shows upload button or uploaded status
-  Widget _buildGlbUploadCard(BuildContext context, WizardState state) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isUploaded = state.sceneGlbUploaded;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isUploaded
-              ? Colors.green.shade300
-              : (isDark ? Colors.grey.shade700 : Colors.grey.shade300),
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isUploaded ? Icons.check_circle : Icons.view_in_ar,
-            color: isUploaded ? Colors.green : Colors.grey.shade600,
-            size: 32,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'scene.glb',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isUploaded
-                      ? '3D model uploaded ✓'
-                      : 'Upload 3D model for visualization',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isUploaded ? Colors.green : Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (isUploaded) ...[
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'Delete GLB',
-              onPressed: () async {
-                final twinId = state.twinId;
-                if (twinId == null) return;
-                final container = ProviderScope.containerOf(context);
-                final api = container.read(apiServiceProvider);
-                final bloc = context.read<WizardBloc>();
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await api.deleteSceneGlb(twinId);
-                  bloc.add(const WizardSceneGlbUploadStatusChanged(false));
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Delete failed: ${ApiErrorHandler.extractMessage(e)}',
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-          ] else ...[
-            ElevatedButton.icon(
-              icon: const Icon(Icons.upload_file, size: 18),
-              label: const Text('Upload GLB'),
-              onPressed: () async {
-                final twinId = state.twinId;
-                // Capture references before any async operations
-                final messenger = ScaffoldMessenger.of(context);
-                final container = ProviderScope.containerOf(context);
-                final api = container.read(apiServiceProvider);
-                final bloc = context.read<WizardBloc>();
+      );
 
-                if (twinId == null) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Save draft first before uploading GLB'),
-                    ),
-                  );
-                  return;
-                }
+      await api.uploadSceneGlb(twinId, bytes, file.name);
+      bloc.add(const WizardSceneGlbUploadStatusChanged(true));
 
-                // Pick GLB file
-                final result = await FilePicker.pickFiles(
-                  type: FileType.custom,
-                  allowedExtensions: ['glb'],
-                  withData: true, // Required for web support
-                );
-
-                if (result == null || result.files.isEmpty) return;
-
-                final file = result.files.first;
-                final bytes = file.bytes;
-
-                if (bytes == null) {
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Failed to read file')),
-                  );
-                  return;
-                }
-
-                // Size check (100MB limit)
-                final sizeMb = bytes.length / (1024 * 1024);
-                if (sizeMb > 100) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'File too large: ${sizeMb.toStringAsFixed(1)}MB (max 100MB)',
-                      ),
-                    ),
-                  );
-                  return;
-                }
-
-                // Upload to server
-                try {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Uploading ${file.name} (${sizeMb.toStringAsFixed(1)}MB)...',
-                      ),
-                    ),
-                  );
-
-                  await api.uploadSceneGlb(twinId, bytes, file.name);
-
-                  bloc.add(const WizardSceneGlbUploadStatusChanged(true));
-
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('GLB uploaded successfully ✓'),
-                    ),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Upload failed: ${ApiErrorHandler.extractMessage(e)}',
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-          ],
-        ],
-      ),
-    );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('GLB uploaded successfully')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Upload failed: ${ApiErrorHandler.extractMessage(e)}'),
+        ),
+      );
+    }
   }
 }

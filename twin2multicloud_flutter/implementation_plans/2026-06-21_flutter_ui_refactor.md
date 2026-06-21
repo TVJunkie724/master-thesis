@@ -214,6 +214,13 @@ Implementation Notes:
 
 ## Phase 5 - Wizard Step 3 Deployer UI Split
 
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused Step 3 widget, ZIP upload, and Cloud Connection wizard tests passed.
+- Full `flutter test` passed.
+
 ### Scope
 
 - Split `step3_deployer.dart` into section widgets matching deployment artifact
@@ -235,6 +242,14 @@ Implementation Notes:
 - User-editable artifacts remain visible and validatable.
 - Zip upload, explicit clears, artifact-only changes, and finish flow stay
   covered by tests.
+
+Implementation Notes:
+- Extracted Step 3 quick upload, manual separator, flow header/footer, layer
+  row, no-result message, and GLB upload card into focused widgets.
+- Kept file picker, API, SnackBar, and BLoC side effects inside the smart
+  screen while presentation widgets receive constructor callbacks.
+- Reduced `step3_deployer.dart` below 1,000 lines without changing deployer
+  artifact schema, upload limits, validation entry points, or finish behavior.
 
 ## Phase 6 - Final Quality Gate and Documentation Update
 
