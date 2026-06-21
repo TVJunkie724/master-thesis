@@ -69,6 +69,12 @@ class TerraformRunner:
         
         if not self.terraform_dir.exists():
             raise ValueError(f"Terraform directory does not exist: {terraform_dir}")
+
+    def _default_plan_path(self) -> Path:
+        """Return the default plan path for this runner's workspace."""
+        if self.state_path:
+            return self.state_path.parent / "tfplan"
+        return self.terraform_dir / "tfplan"
     
     def _run_command(
         self,
@@ -207,7 +213,8 @@ class TerraformRunner:
         
         Args:
             var_file: Path to the tfvars.json file
-            out_file: Optional path to save the plan (defaults to tfplan in terraform_dir)
+            out_file: Optional path to save the plan. Defaults to the project
+                      workspace when state_path is set, otherwise terraform_dir.
             destroy: If True, plan for destruction instead of creation
         
         Returns:
@@ -221,7 +228,11 @@ class TerraformRunner:
             raise ValueError("var_file is required")
         
         if out_file is None:
-            out_file = str(self.terraform_dir / "tfplan")
+            out_file = str(self._default_plan_path())
+        else:
+            out_file = str(Path(out_file))
+
+        Path(out_file).parent.mkdir(parents=True, exist_ok=True)
         
         args = ["plan", f"-var-file={var_file}", f"-out={out_file}"]
         
@@ -462,4 +473,3 @@ class TerraformRunner:
         async for line in self._run_command_async(args):
             yield line
         yield "✓ Destroy complete"
-

@@ -2,8 +2,8 @@
 title: "Phase 3.3: Deployer Terraform Workspace Audit"
 description: "Audit Terraform execution, ephemeral workspaces, manifest contracts, tfvars generation, outputs, and file boundaries."
 tags: [deployer, terraform, workspace, manifest]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.0"
 - 3-cloud-deployer/src/tfvars_generator.py
 - 3-cloud-deployer/src/providers/terraform/
 - 3-cloud-deployer/src/file_manager.py
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 3.3: Deployer Terraform Workspace Audit
@@ -21,6 +21,8 @@ EXTRACTED: 2026-06-19 | VERSION: 1.0
 
 Ensure deployment file generation and Terraform execution are reproducible,
 isolated, and free of legacy template fallback behavior.
+
+Status: Complete.
 
 ## Scope
 
@@ -32,23 +34,31 @@ isolated, and free of legacy template fallback behavior.
 
 ## Deliverables
 
-- Manifest-to-workspace dataflow diagram in ASCII.
-- Inventory of runtime files, generated files, template files, and forbidden
+- [x] Manifest-to-workspace dataflow diagram in ASCII.
+- [x] Inventory of runtime files, generated files, template files, and forbidden
   credential paths.
-- tfvars ownership and validation rules.
-- Terraform outputs and state handling risk register.
+- [x] tfvars ownership and validation rules.
+- [x] Terraform outputs and state handling risk register.
+- [x] Project-scoped default Terraform plan path.
+- [x] Terraform output visibility classification contract.
 
 ## Acceptance Criteria
 
-- Runtime project workspaces cannot fall back to `upload/template` secrets.
-- Generated deployment files are reproducible from an explicit manifest.
-- Outputs are classified as safe, redacted, or internal-only.
+- [x] Runtime project workspaces cannot fall back to `upload/template` secrets.
+- [x] Generated deployment files are reproducible from an explicit manifest.
+- [x] Outputs are classified as safe, redacted, or internal-only.
 
 ## Verification
 
-- Static file path review.
-- Unit/API test inventory for workspace behavior.
-- No Terraform apply/destroy execution.
+- [x] Static file path review.
+- [x] Unit/API test inventory for workspace behavior.
+- [x] No Terraform apply/destroy execution.
+- [x] Docker targeted tests:
+  `python -m pytest tests/unit/terraform/test_terraform_runner.py tests/unit/terraform/test_terraform_output_policy.py tests/unit/core_tests/test_deployment_paths.py -q`
+
+## Review Artifact
+
+[Phase 3.3 Review: Deployer Terraform Workspace](../../PHASE_03_03_DEPLOYER_TERRAFORM_WORKSPACE_REVIEW.md)
 
 ## Parent Phase
 
