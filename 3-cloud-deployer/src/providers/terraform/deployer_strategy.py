@@ -31,6 +31,7 @@ from typing import Optional, Dict, Any, TYPE_CHECKING
 
 from src.terraform_runner import TerraformRunner, TerraformError
 from src.tfvars_generator import generate_tfvars, ConfigurationError
+from src.api.deployment_trace import sanitize_deployment_message
 
 # Provider-specific deployers
 from src.providers.terraform.azure_deployer import (
@@ -50,6 +51,8 @@ if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
+
+PREFLIGHT_VALID_STATUS = "valid"
 
 
 @dataclass
@@ -563,7 +566,7 @@ class TerraformDeployerStrategy:
         for layer in all_layers:
             cloud = providers.get(layer)
             if cloud:
-                used_clouds.add(cloud)
+                used_clouds.add("gcp" if cloud == "google" else cloud)
         
         logger.info(f"  Configured clouds: {', '.join(used_clouds) or 'none'}")
         
@@ -576,18 +579,11 @@ class TerraformDeployerStrategy:
             try:
                 from api.azure_credentials_checker import check_azure_credentials
                 result = check_azure_credentials(azure_creds)
-                
-                if result["status"] == "error":
-                    raise ValueError(f"Azure credential validation failed: {result['message']}")
-                elif result["status"] == "invalid":
-                    logger.warning(f"  ⚠ Azure: {result['message']}")
-                    logger.warning("    Deployment may fail due to missing permissions")
-                elif result["status"] == "partial":
-                    logger.warning(f"  ⚠ Azure: {result['message']}")
-                else:
-                    logger.info("  ✓ Azure credentials validated")
+
+                self._assert_preflight_valid("Azure", result)
+                logger.info("  ✓ Azure credentials validated")
             except ImportError:
-                logger.warning("  ⚠ Azure SDK not installed, skipping credential check")
+                raise ValueError("Azure credential preflight failed: Azure SDK is not installed")
         
         # Validate AWS credentials
         if "aws" in used_clouds:
@@ -598,21 +594,14 @@ class TerraformDeployerStrategy:
             try:
                 from api.credentials_checker import check_aws_credentials
                 result = check_aws_credentials(aws_creds)
-                
-                if result["status"] == "error":
-                    raise ValueError(f"AWS credential validation failed: {result['message']}")
-                elif result["status"] == "invalid":
-                    logger.warning(f"  ⚠ AWS: {result['message']}")
-                    logger.warning("    Deployment may fail due to missing permissions")
-                elif result["status"] == "partial":
-                    logger.warning(f"  ⚠ AWS: {result['message']}")
-                else:
-                    logger.info("  ✓ AWS credentials validated")
+
+                self._assert_preflight_valid("AWS", result)
+                logger.info("  ✓ AWS credentials validated")
             except ImportError:
-                logger.warning("  ⚠ boto3 not installed, skipping AWS credential check")
+                raise ValueError("AWS credential preflight failed: boto3 is not installed")
         
         # Validate GCP credentials
-        if "google" in used_clouds:
+        if "gcp" in used_clouds:
             gcp_creds = credentials.get("gcp", {})
             if not gcp_creds:
                 raise ValueError("GCP is configured but no GCP credentials found")
@@ -620,18 +609,22 @@ class TerraformDeployerStrategy:
             try:
                 from api.gcp_credentials_checker import check_gcp_credentials
                 result = check_gcp_credentials(gcp_creds)
-                
-                if result["status"] == "error":
-                    raise ValueError(f"GCP credential validation failed: {result['message']}")
-                elif result["status"] == "invalid":
-                    logger.warning(f"  ⚠ GCP: {result['message']}")
-                    logger.warning("    Deployment may fail due to missing permissions")
-                elif result["status"] == "partial":
-                    logger.warning(f"  ⚠ GCP: {result['message']}")
-                else:
-                    logger.info("  ✓ GCP credentials validated")
+
+                self._assert_preflight_valid("GCP", result)
+                logger.info("  ✓ GCP credentials validated")
             except ImportError:
-                logger.warning("  ⚠ google-auth not installed, skipping GCP credential check")
+                raise ValueError("GCP credential preflight failed: google-auth is not installed")
+
+    def _assert_preflight_valid(self, provider: str, result: dict) -> None:
+        """Fail closed unless a credential checker reports a fully valid status."""
+        status = result.get("status", "error")
+        if status == PREFLIGHT_VALID_STATUS:
+            return
+
+        message = sanitize_deployment_message(str(result.get("message", "No message provided")))
+        raise ValueError(
+            f"{provider} credential preflight failed ({status}): {message}"
+        )
     
     def _build_packages(self) -> None:
         """Build all Lambda/Function packages before Terraform."""
