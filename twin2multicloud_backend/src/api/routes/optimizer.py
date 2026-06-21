@@ -12,13 +12,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
-import httpx
 
 from src.models.database import get_db
 from src.models.user import User
 from src.api.dependencies import get_current_user
-from src.config import settings
 from src.repositories.twin_repository import TwinRepository
+from src.services.optimizer_calculation_service import OptimizerCalculationService
 from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
 from src.services.optimizer_pricing_refresh_service import OptimizerPricingRefreshService
 from src.services.optimizer_pricing_stream_service import OptimizerPricingStreamService
@@ -28,13 +27,14 @@ from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
 
-# Use environment variable or fallback to docker service name
-OPTIMIZER_URL = getattr(settings, 'OPTIMIZER_URL', 'http://master-thesis-2twin2clouds-1:8000')
-
-
 def _optimizer_status_service() -> OptimizerStatusService:
     """Build the optimizer status service for this request."""
     return OptimizerStatusService()
+
+
+def _optimizer_calculation_service() -> OptimizerCalculationService:
+    """Build the optimizer calculation service for this request."""
+    return OptimizerCalculationService()
 
 
 def _optimizer_pricing_export_service() -> OptimizerPricingExportService:
@@ -343,20 +343,6 @@ async def calculate(
     - Transfer costs
     """
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.put(
-                f"{OPTIMIZER_URL}/calculate",
-                json=params.model_dump()
-            )
-        
-        if response.status_code != 200:
-            raise HTTPException(response.status_code, response.text)
-        
-        return response.json()
-        
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_calculation_service().calculate(params.model_dump())
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
