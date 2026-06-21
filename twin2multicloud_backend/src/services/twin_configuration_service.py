@@ -12,6 +12,7 @@ from src.models.twin import TwinState
 from src.models.twin_config import TwinConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.twin_config import TwinConfigResponse, TwinConfigUpdate
+from src.services.optimizer_config_projection import set_cheapest_columns_from_payload
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.utils.crypto import encrypt
 
@@ -125,35 +126,4 @@ class TwinConfigurationService:
             optimizer_config.params = json.dumps(update.optimizer_params)
         if update.optimizer_result is not None:
             optimizer_config.result_json = json.dumps(update.optimizer_result)
-            self._populate_cheapest_columns(optimizer_config, update.optimizer_result)
-
-    @staticmethod
-    def _populate_cheapest_columns(opt_config: OptimizerConfiguration, optimizer_result: dict | None) -> None:
-        """Derive cheapest_l* columns from optimizer result payload."""
-        if not optimizer_result or not isinstance(optimizer_result, dict):
-            return
-
-        def from_path(prefix: str) -> str | None:
-            path = optimizer_result.get("cheapestPath")
-            if not isinstance(path, list):
-                return None
-            for segment in path:
-                if isinstance(segment, str) and segment.startswith(prefix):
-                    return segment[len(prefix):].lower() or None
-            return None
-
-        def from_calc(*keys: str) -> str | None:
-            node = optimizer_result.get("calculationResult")
-            for key in keys:
-                if not isinstance(node, dict):
-                    return None
-                node = node.get(key)
-            return node.lower() if isinstance(node, str) and node else None
-
-        opt_config.cheapest_l1 = from_path("L1_") or from_calc("L1")
-        opt_config.cheapest_l2 = from_path("L2_") or from_calc("L2")
-        opt_config.cheapest_l3_hot = from_path("L3_hot_") or from_calc("L3", "Hot")
-        opt_config.cheapest_l3_cool = from_path("L3_cool_") or from_calc("L3", "Cool")
-        opt_config.cheapest_l3_archive = from_path("L3_archive_") or from_calc("L3", "Archive")
-        opt_config.cheapest_l4 = from_path("L4_") or from_calc("L4")
-        opt_config.cheapest_l5 = from_path("L5_") or from_calc("L5")
+            set_cheapest_columns_from_payload(optimizer_config, optimizer_result=update.optimizer_result)
