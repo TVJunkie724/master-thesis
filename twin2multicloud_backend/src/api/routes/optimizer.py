@@ -21,6 +21,8 @@ from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.config import settings
+from src.services.optimizer_status_service import OptimizerStatusService
+from src.services.service_errors import DownstreamServiceError
 from src.utils.crypto import decrypt
 from src.services.twin_helpers import get_user_twin
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -30,6 +32,15 @@ router = APIRouter(prefix="/optimizer", tags=["optimizer"])
 # Use environment variable or fallback to docker service name
 OPTIMIZER_URL = getattr(settings, 'OPTIMIZER_URL', 'http://master-thesis-2twin2clouds-1:8000')
 
+
+def _optimizer_status_service() -> OptimizerStatusService:
+    """Build the optimizer status service for this request."""
+    return OptimizerStatusService()
+
+
+def _raise_downstream_http_error(exc: DownstreamServiceError) -> None:
+    """Map typed downstream service errors to the existing HTTP contract."""
+    raise HTTPException(exc.status_code, exc.public_detail) from exc
 
 
 # ============================================================================
@@ -61,21 +72,9 @@ async def get_pricing_status(current_user: User = Depends(get_current_user)):
     for AWS, Azure, and GCP.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            aws = await client.get(f"{OPTIMIZER_URL}/pricing_age/aws")
-            azure = await client.get(f"{OPTIMIZER_URL}/pricing_age/azure")
-            gcp = await client.get(f"{OPTIMIZER_URL}/pricing_age/gcp")
-        return {
-            "aws": aws.json() if aws.status_code == 200 else {"error": "Failed to fetch"},
-            "azure": azure.json() if azure.status_code == 200 else {"error": "Failed to fetch"},
-            "gcp": gcp.json() if gcp.status_code == 200 else {"error": "Failed to fetch"}
-        }
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_status_service().get_pricing_status()
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 @router.get(
@@ -102,21 +101,9 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
     for AWS, Azure, and GCP.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            aws = await client.get(f"{OPTIMIZER_URL}/regions_age/aws")
-            azure = await client.get(f"{OPTIMIZER_URL}/regions_age/azure")
-            gcp = await client.get(f"{OPTIMIZER_URL}/regions_age/gcp")
-        return {
-            "aws": aws.json() if aws.status_code == 200 else {"error": "Failed to fetch"},
-            "azure": azure.json() if azure.status_code == 200 else {"error": "Failed to fetch"},
-            "gcp": gcp.json() if gcp.status_code == 200 else {"error": "Failed to fetch"}
-        }
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_status_service().get_regions_status()
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 # ============================================================================

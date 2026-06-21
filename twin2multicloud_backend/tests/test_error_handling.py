@@ -25,7 +25,7 @@ class TestOptimizerProxyErrorHandling:
         """GET optimizer/pricing-status returns data when optimizer available."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.optimizer_status_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"aws": {"age": "1 day"}}
@@ -40,7 +40,7 @@ class TestOptimizerProxyErrorHandling:
         """GET optimizer/regions-status returns data when optimizer available."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.optimizer_status_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"aws": {"age": "1 day"}}
@@ -58,7 +58,7 @@ class TestOptimizerProxyErrorHandling:
         """Timeout to optimizer returns 504 with user-friendly message."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.optimizer_status_service.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(
                 side_effect=httpx.TimeoutException("Read timed out")
             )
@@ -74,7 +74,7 @@ class TestOptimizerProxyErrorHandling:
         """Timeout to optimizer regions returns 504."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.optimizer_status_service.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(
                 side_effect=httpx.TimeoutException("Read timed out")
             )
@@ -91,7 +91,7 @@ class TestOptimizerProxyErrorHandling:
         """Empty response body from optimizer handled."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.optimizer_status_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {}
@@ -105,7 +105,7 @@ class TestOptimizerProxyErrorHandling:
         """Multiple concurrent requests don't cause issues."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.optimizer_status_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"aws": {}}
@@ -143,7 +143,7 @@ class TestOptimizerProxyErrorHandling:
         """Partial response data handled gracefully."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        with patch("src.services.optimizer_status_service.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"aws": None, "azure": {"age": "1 day"}}
