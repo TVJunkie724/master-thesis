@@ -15,6 +15,7 @@ import os
 import asyncio
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pathlib import Path
@@ -30,6 +31,7 @@ from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_read_service import DeploymentReadService
+from src.services.simulator_service import SimulatorDownloadService
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -54,6 +56,11 @@ def _deployment_read_service(db: Session) -> DeploymentReadService:
 def _deployment_operation_service(db: Session) -> DeploymentOperationService:
     """Build the command-side deployment service for this request."""
     return DeploymentOperationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _simulator_download_service(db: Session) -> SimulatorDownloadService:
+    """Build the simulator download service for this request."""
+    return SimulatorDownloadService(db=db, twin_repository=TwinRepository(db))
 
 
 def _twin_read_service(db: Session) -> TwinReadService:
@@ -1181,69 +1188,20 @@ async def download_simulator(
     Extracts L1 from OptimizerConfiguration.cheapest_path and proxies to
     Deployer API /projects/{name}/simulator/{provider}/download.
     """
-    import io
-    from fastapi.responses import StreamingResponse
-    from src.models.optimizer_config import OptimizerConfiguration
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(404, "Twin not found")
-    
-    if twin.state != TwinState.DEPLOYED:
-        raise HTTPException(400, f"Simulator only available for deployed twins. Current: {twin.state.value}")
-    
-    # TEST MODE: delegate to mock simulator download
-    if TEST_MODE:
-        from src.api.routes.test_endpoints import test_download_simulator
-        return await test_download_simulator(twin_id, db=db, current_user=current_user)
-    
-    # Reload twin with all configs for project preparation
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(DigitalTwin.id == twin_id).first()
-    
-    if not twin:
-        raise HTTPException(404, "Twin not found during reload")
-    
-    if not twin.optimizer_config or not twin.optimizer_config.cheapest_l1:
-        raise HTTPException(404, "Optimization not configured. Complete Step 2 first.")
-    
-    l1_provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    # Prepare project in Deployer (ensures simulator config is current)
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except Exception as e:
-        raise HTTPException(500, f"Failed to prepare project for simulator download: {str(e)}")
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(
-                f"{DEPLOYER_API_URL}/projects/{resource_name}/simulator/{l1_provider}/download",
-                timeout=60.0
-            )
-        except httpx.RequestError as e:
-            raise HTTPException(502, f"Failed to connect to Deployer: {str(e)}")
-        
-        if resp.status_code == 404:
-            raise HTTPException(404, "Simulator not available. Ensure L1 deployed.")
-        elif resp.status_code != 200:
-            raise HTTPException(resp.status_code, f"Deployer error: {resp.text}")
-        
-        return StreamingResponse(
-            io.BytesIO(resp.content),
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename=simulator_{resource_name}_{l1_provider}.zip"}
+        archive = await _simulator_download_service(db).download(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
         )
+    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+    return StreamingResponse(
+        archive.content,
+        media_type=archive.media_type,
+        headers={"Content-Disposition": f"attachment; filename={archive.filename}"}
+    )
 
 
 @router.get(
