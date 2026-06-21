@@ -19,6 +19,15 @@ import io
 import src.validator as validator
 
 
+SENSITIVE_PROJECT_FILE_NAMES = {
+    CONSTANTS.CONFIG_CREDENTIALS_FILE,
+    "config_credentials_aws.json",
+    "config_credentials_azure.json",
+    "config_credentials_google.json",
+    "config_credentials_gcp.json",
+}
+
+
 def _get_project_base_path():
     """Get the base path for projects. Uses PYTHONPATH or app detection."""
     # Prefer /app in container, fallback to parent of src/
@@ -27,6 +36,14 @@ def _get_project_base_path():
         return app_path
     # Fallback: go up from this file's directory
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _is_sensitive_project_file(relative_path: str) -> bool:
+    """Return True when a project file path points to runtime credentials."""
+    file_name = os.path.basename(relative_path)
+    if file_name.endswith(".example"):
+        return False
+    return file_name in SENSITIVE_PROJECT_FILE_NAMES
 
 
 # ==========================================
@@ -496,6 +513,9 @@ def get_project_file_tree(project_name: str, project_path: str = None) -> list:
                 
             full_path = os.path.join(current_path, entry)
             rel_path = os.path.join(rel_base, entry).replace("\\", "/") # force posix path for API
+
+            if os.path.isfile(full_path) and _is_sensitive_project_file(rel_path):
+                continue
             
             item = {
                 "name": entry,
@@ -524,6 +544,11 @@ def get_project_file_content(project_name: str, relative_path: str, project_path
         
     safe_name = os.path.basename(project_name)
     target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+
+    if _is_sensitive_project_file(relative_path):
+        raise PermissionError(
+            f"File '{relative_path}' is protected and cannot be read through the project file API."
+        )
     
     # Security check: prevent directory traversal
     target_file = os.path.abspath(os.path.join(target_dir, relative_path))
@@ -545,8 +570,9 @@ def get_project_file_content(project_name: str, relative_path: str, project_path
             "raw": content
         }
         
-        # Try parsing JSON if applicable
-        if relative_path.endswith(".json"):
+        # Try parsing JSON if applicable. Example files keep their source suffix
+        # (for example config_credentials.json.example) but still carry JSON.
+        if relative_path.endswith(".json") or relative_path.endswith(".json.example"):
             try:
                 result["content"] = json.loads(content)
             except json.JSONDecodeError:
@@ -555,4 +581,3 @@ def get_project_file_content(project_name: str, relative_path: str, project_path
         return result
     except UnicodeDecodeError:
         raise ValueError("Cannot read binary file as text.")
-

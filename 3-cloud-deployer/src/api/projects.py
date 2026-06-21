@@ -245,7 +245,6 @@ def get_project_config(
     
     filename = config_map[config_type]
     
-    is_template_project = project_name == CONSTANTS.DEFAULT_PROJECT_NAME
     do_return_credentials_file = False
     try:
         if config_type == ConfigType.credentials:
@@ -272,7 +271,6 @@ def get_project_config(
                 detail=f"Config file '{filename}' not found in project '{project_name}'"
             )
         
-        print(is_template_project, do_return_credentials_file)
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
             
@@ -477,7 +475,7 @@ def get_project_summary(
         "name": project_name,
         "description": None,
         "providers": {},
-        "deployment_status": "unknown", # placeholder, implement real logic if needed
+        "deployment_status": "unknown",
         "validation_status": "unknown"
     }
 
@@ -554,6 +552,7 @@ def get_project_files(
     ),
     responses={
         200: {"description": "File content"},
+        403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }
@@ -568,6 +567,8 @@ def get_project_file_content_endpoint(
     try:
         content = file_manager.get_project_file_content(project_name, file_path)
         return content
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         if "not found" in str(e):
              raise HTTPException(status_code=404, detail=str(e))

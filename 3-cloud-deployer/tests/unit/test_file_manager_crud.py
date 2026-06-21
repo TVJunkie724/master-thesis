@@ -242,3 +242,69 @@ class TestUpdateProjectInfo:
         with open(info_path, 'r') as f:
             info = json.load(f)
         assert info["description"] == "New description"
+
+
+class TestProjectFileBrowserSecurity:
+    """Tests for safe project file browser behavior."""
+
+    def test_file_tree_excludes_runtime_credentials_but_keeps_examples(
+        self,
+        temp_project_path,
+        created_project,
+    ):
+        """Runtime credentials must not be listed by the generic file API."""
+        project_dir = os.path.join(
+            temp_project_path,
+            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
+            created_project,
+        )
+        with open(os.path.join(project_dir, "config_credentials.json.example"), "w") as f:
+            f.write("{}")
+        with open(os.path.join(project_dir, "config_credentials_aws.json"), "w") as f:
+            f.write("{}")
+
+        files = file_manager.get_project_file_tree(
+            created_project,
+            project_path=temp_project_path,
+        )
+        paths = {item["path"] for item in files if item["type"] == "file"}
+
+        assert "config_credentials.json" not in paths
+        assert "config_credentials_aws.json" not in paths
+        assert "config_credentials.json.example" in paths
+
+    def test_file_content_blocks_runtime_credentials(
+        self,
+        temp_project_path,
+        created_project,
+    ):
+        """Credential files are protected even if callers know the exact path."""
+        with pytest.raises(PermissionError, match="protected"):
+            file_manager.get_project_file_content(
+                created_project,
+                "config_credentials.json",
+                project_path=temp_project_path,
+            )
+
+    def test_file_content_allows_credential_example(
+        self,
+        temp_project_path,
+        created_project,
+    ):
+        """Credential example files remain readable for documentation and UI help."""
+        project_dir = os.path.join(
+            temp_project_path,
+            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
+            created_project,
+        )
+        with open(os.path.join(project_dir, "config_credentials.json.example"), "w") as f:
+            f.write('{"aws": {"aws_access_key_id": "example"}}')
+
+        result = file_manager.get_project_file_content(
+            created_project,
+            "config_credentials.json.example",
+            project_path=temp_project_path,
+        )
+
+        assert result["path"] == "config_credentials.json.example"
+        assert result["content"]["aws"]["aws_access_key_id"] == "example"

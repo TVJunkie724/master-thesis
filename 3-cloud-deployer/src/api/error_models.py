@@ -147,6 +147,20 @@ ERROR_RESPONSES = {
             }
         }
     },
+    403: {
+        "description": "Forbidden - The requested resource is protected",
+        "model": ErrorResponse,
+        "content": {
+            "application/json": {
+                "example": {
+                    "error_code": "FORBIDDEN",
+                    "message": "The requested file is protected and cannot be read through this endpoint",
+                    "fix_suggestion": "Use the dedicated credential endpoint or an example file instead.",
+                    "http_status": 403
+                }
+            }
+        }
+    },
     404: {
         "description": "Not Found - The requested resource does not exist",
         "model": ErrorResponse,

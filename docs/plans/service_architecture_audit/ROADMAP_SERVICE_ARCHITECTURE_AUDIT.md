@@ -3,7 +3,7 @@ title: "Service Architecture Audit Roadmap"
 description: "Project-wide roadmap for auditing and hardening Management API, Optimizer, and Deployer against shared enterprise-grade code-quality criteria."
 tags: [architecture, audit, backend, optimizer, deployer, quality]
 lastUpdated: "2026-06-21"
-version: "1.6"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.6"
 - twin2multicloud_backend/src/
 - 2-twin2clouds/backend/, 2-twin2clouds/api/
 - 3-cloud-deployer/src/
-EXTRACTED: 2026-06-21 | VERSION: 1.6
+EXTRACTED: 2026-06-21 | VERSION: 1.7
 -->
 
 # Service Architecture Audit Roadmap
@@ -67,7 +67,7 @@ final code review finding list; it is the evidence used to plan the phases.
 | 0 | Complete | [PHASE_00_CROSS_SERVICE_BASELINE.md](phases/PHASE_00_CROSS_SERVICE_BASELINE.md) | Shared audit rubric, tooling baseline, stale guide cleanup plan, and cross-service quality gates. |
 | 1 | Complete | [PHASE_01_MANAGEMENT_API_AUDIT.md](phases/PHASE_01_MANAGEMENT_API_AUDIT.md) | Management API route/service/persistence boundary audit and refactor plan. |
 | 2 | Complete | [PHASE_02_OPTIMIZER_AUDIT.md](phases/PHASE_02_OPTIMIZER_AUDIT.md) | Optimizer pricing/calculation/API boundary audit and strategy-contract hardening plan. |
-| 3 | Planned | [PHASE_03_DEPLOYER_AUDIT.md](phases/PHASE_03_DEPLOYER_AUDIT.md) | Deployer API/provider/workspace/logging/security audit and refactor plan. |
+| 3 | In Progress | [PHASE_03_DEPLOYER_AUDIT.md](phases/PHASE_03_DEPLOYER_AUDIT.md) | Deployer API/provider/workspace/logging/security audit and refactor plan. |
 | 4 | Planned | [PHASE_04_SERVICE_QUALITY_GATE.md](phases/PHASE_04_SERVICE_QUALITY_GATE.md) | Consolidated verification gate across Management API, Optimizer, and Deployer. |
 
 ## Subphase Split Decision
