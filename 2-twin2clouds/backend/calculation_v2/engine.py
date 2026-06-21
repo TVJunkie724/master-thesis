@@ -26,6 +26,7 @@ from backend.calculation_v2.formulas import tiered_unit_cost
 from backend.config_loader import load_combined_pricing
 from backend.logger import logger
 from backend.optimization.context import OptimizationMetricContext
+from backend.optimization.metrics import MetricProvider
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
 from backend.calculation_v2.traceability import (
@@ -98,6 +99,56 @@ def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
         "cool_duration": cool_duration,
         "archive_duration": archive_duration,
     }
+
+
+def _ensure_supported_result_profile(
+    result_schema_version: str,
+    metric_provider_ids: tuple[str, ...],
+    primary_metric_id: str,
+) -> None:
+    """Fail fast when a future profile is enabled without an engine implementation."""
+
+    if result_schema_version != "cost-result.v1":
+        raise ValueError(
+            "calculate_cheapest_costs currently supports only cost-result.v1. "
+            f"Received {result_schema_version!r}."
+        )
+    if primary_metric_id not in metric_provider_ids:
+        raise ValueError(
+            "Scoring strategy primary metric must be declared by the active "
+            f"profile: {primary_metric_id!r}"
+        )
+
+
+def _build_provider_candidates(
+    *,
+    layer: str,
+    provider_options: list[tuple[str, float]],
+    metric_providers: dict[str, MetricProvider],
+    pricing_registry_reference: str,
+) -> list[OptimizationCandidate]:
+    """Build provider candidates from declared metric providers only."""
+
+    candidates = []
+    for provider, cost in provider_options:
+        metric_results = {}
+        for metric_id, metric_provider in metric_providers.items():
+            metric_results[metric_id] = metric_provider.compute(
+                OptimizationMetricContext(
+                    candidate_id=provider,
+                    metric_inputs={"cost": cost},
+                    evidence_references=(pricing_registry_reference,),
+                    metadata={"layer": layer, "provider": provider},
+                )
+            )
+        candidates.append(
+            OptimizationCandidate(
+                candidate_id=provider,
+                dimensions={"layer": layer, "provider": provider},
+                metrics=metric_results,
+            )
+        )
+    return candidates
 
 
 # =============================================================================
@@ -412,9 +463,17 @@ def calculate_cheapest_costs(
     # around the registry or manually mixing metric/model/scoring components.
     profile_registry = build_default_profile_registry()
     optimization_profile = profile_registry.select_profile(optimization_profile_id)
-    cost_metric_provider = profile_registry.get_metric_provider("cost")
+    metric_providers = {
+        metric_id: profile_registry.get_metric_provider(metric_id)
+        for metric_id in optimization_profile.metric_provider_ids
+    }
     scoring_strategy = profile_registry.get_scoring_strategy(
         optimization_profile.scoring_strategy_id
+    )
+    _ensure_supported_result_profile(
+        optimization_profile.result_schema_version,
+        tuple(metric_providers),
+        scoring_strategy.primary_metric_id,
     )
     optimization_metadata = profile_registry.build_result_metadata(
         optimization_profile.profile_id
@@ -436,7 +495,7 @@ def calculate_cheapest_costs(
     
     # Determine cheapest for each layer
     def get_cheapest(layer: str, include_gcp: bool = True) -> tuple:
-        """Return (provider, cost) for cheapest option at this layer."""
+        """Return (provider, metric value) for the selected option at this layer."""
         options = [
             ("AWS", aws_costs[layer]["cost"]),
             ("Azure", azure_costs[layer]["cost"]),
@@ -444,28 +503,15 @@ def calculate_cheapest_costs(
         if include_gcp:
             options.append(("GCP", gcp_costs[layer]["cost"]))
 
-        candidates = []
-        for provider, cost in options:
-            metric_result = cost_metric_provider.compute(
-                OptimizationMetricContext(
-                    candidate_id=provider,
-                    metric_inputs={"cost": cost},
-                    evidence_references=(
-                        pricing_registry_reference,
-                    ),
-                    metadata={"layer": layer, "provider": provider},
-                )
-            )
-            candidates.append(
-                OptimizationCandidate(
-                    candidate_id=provider,
-                    dimensions={"layer": layer, "provider": provider},
-                    metrics={"cost": metric_result},
-                )
-            )
+        candidates = _build_provider_candidates(
+            layer=layer,
+            provider_options=options,
+            metric_providers=metric_providers,
+            pricing_registry_reference=pricing_registry_reference,
+        )
 
         best = scoring_strategy.select_best(candidates)
-        return best.candidate_id, best.metric_value("cost")
+        return best.candidate_id, best.metric_value(scoring_strategy.primary_metric_id)
     
     # Find cheapest path
     result = {}

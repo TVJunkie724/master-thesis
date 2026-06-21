@@ -244,6 +244,8 @@ class TestEngineIntegration:
         from backend.optimization.metrics import CostMetricProvider
 
         class InspectingStrategy:
+            primary_metric_id = "cost"
+
             def __init__(self):
                 self.seen_payloads = []
 
@@ -264,6 +266,7 @@ class TestEngineIntegration:
             def select_profile(self, profile_id=None):
                 return SimpleNamespace(
                     profile_id="cost_minimization_v1",
+                    metric_provider_ids=("cost",),
                     scoring_strategy_id="min_total_cost_v1",
                     result_schema_version="cost-result.v1",
                 )
@@ -304,6 +307,58 @@ class TestEngineIntegration:
 
         assert result["optimization_profile_id"] == "cost_minimization_v1"
         assert len(strategy.seen_payloads) >= 7
+
+    def test_profile_primary_metric_mismatch_fails_fast(
+        self,
+        sample_params,
+        sample_pricing,
+        monkeypatch,
+    ):
+        """Enabled profiles may not mix scoring metrics outside the profile contract."""
+        from backend.calculation_v2 import engine
+        from backend.optimization.metrics import CostMetricProvider
+
+        class MismatchedStrategy:
+            primary_metric_id = "latency"
+
+            def select_best(self, candidates):
+                return candidates[0]
+
+        class FakeProfileRegistry:
+            def select_profile(self, profile_id=None):
+                return SimpleNamespace(
+                    profile_id="cost_minimization_v1",
+                    metric_provider_ids=("cost",),
+                    scoring_strategy_id="min_total_cost_v1",
+                    result_schema_version="cost-result.v1",
+                )
+
+            def get_metric_provider(self, metric_id):
+                assert metric_id == "cost"
+                return CostMetricProvider()
+
+            def get_scoring_strategy(self, strategy_id):
+                return MismatchedStrategy()
+
+            def build_result_metadata(self, profile_id):
+                return {
+                    "pricing_registry_version": "test-registry.v1",
+                    "profile_id": "cost_minimization_v1",
+                    "metric_provider_ids": ["cost"],
+                    "calculation_model_ids": ["cost_model_v1"],
+                    "scoring_strategy_id": "min_total_cost_v1",
+                    "intent_group_ids": ["cost"],
+                    "result_schema_version": "cost-result.v1",
+                }
+
+        monkeypatch.setattr(
+            engine,
+            "build_default_profile_registry",
+            lambda: FakeProfileRegistry(),
+        )
+
+        with pytest.raises(ValueError, match="primary metric"):
+            engine.calculate_cheapest_costs(sample_params, sample_pricing)
     
     def test_total_cost_is_positive(self, sample_params, sample_pricing):
         """Total cost should be positive for non-zero usage."""

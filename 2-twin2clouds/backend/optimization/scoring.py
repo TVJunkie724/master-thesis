@@ -36,6 +36,7 @@ class ScoringStrategy(Protocol):
     strategy_id: str
     enabled: bool
     compatible_metric_provider_ids: tuple[str, ...]
+    primary_metric_id: str
 
     def rank(self, candidates: list[OptimizationCandidate]) -> list[OptimizationCandidate]:
         ...
@@ -51,11 +52,12 @@ class CostOnlyScoringStrategy:
     strategy_id: str = "min_total_cost_v1"
     enabled: bool = True
     compatible_metric_provider_ids: tuple[str, ...] = ("cost",)
+    primary_metric_id: str = "cost"
 
     def rank(self, candidates: list[OptimizationCandidate]) -> list[OptimizationCandidate]:
         if not candidates:
             raise ValueError("At least one optimization candidate is required")
-        return sorted(candidates, key=lambda candidate: candidate.metric_value("cost"))
+        return sorted(candidates, key=lambda candidate: candidate.metric_value(self.primary_metric_id))
 
     def select_best(self, candidates: list[OptimizationCandidate]) -> OptimizationCandidate:
         return self.rank(candidates)[0]

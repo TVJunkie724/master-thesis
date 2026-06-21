@@ -89,3 +89,18 @@ def test_calculate_pricing_azure_centralized_loading(
     args, kwargs = mock_fetch_azure.call_args
     # Signature: fetch_azure_data(azure_credentials, service_mapping, region_map, additional_debug)
     assert args[2] == expected_region_map
+
+
+@patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
+def test_region_map_load_failure_is_contextual(mock_load_json):
+    """Region-map failures should keep cause while returning a user-actionable message."""
+    from backend.fetch_data.calculate_up_to_date_pricing import _load_region_map
+
+    mock_load_json.side_effect = FileNotFoundError("missing local file path")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
+
+    assert "Failed to load AWS region map" in str(exc_info.value)
+    assert "Fetch regions before pricing" in str(exc_info.value)
+    assert isinstance(exc_info.value.__cause__, FileNotFoundError)
