@@ -15,6 +15,7 @@ import os
 import asyncio
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pathlib import Path
@@ -24,19 +25,27 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin import TwinCreate, TwinUpdate, TwinResponse
+from src.schemas.management_contracts import (
+    DeploymentHistoryResponse,
+    DeploymentOutputsResponse,
+    DeploymentStatusResponse,
+    MessageResponse,
+    OperationSessionResponse,
+    RedeployReadinessResponse,
+)
 from src.config import settings
-from src.services.deployment_service import (
-    run_real_deploy_stream,
-    run_real_destroy_stream,
-    build_deploy_config,
-)
+from src.clients.deployer_client import DeployerClient
 from src.repositories.deployment_repository import DeploymentRepository
+from src.repositories.twin_repository import TwinRepository
 from src.services.configuration_validation_service import ConfigurationValidationService
-from src.services.errors import (
-    ConfigurationValidationFailed,
-    CredentialResolutionFailed,
-    DeploymentPackageBuildFailed,
-)
+from src.services.deployment_operation_service import DeploymentOperationService
+from src.services.deployment_read_service import DeploymentReadService
+from src.services.simulator_service import SimulatorDownloadService
+from src.services.errors import ConfigurationValidationFailed
+from src.services.twin_export_service import TwinExportService
+from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
+from src.services.verification_service import DeploymentVerificationService
+from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.api.routes.error_models import ERROR_RESPONSES
 
 logger = logging.getLogger(__name__)
@@ -45,6 +54,58 @@ logger = logging.getLogger(__name__)
 TEST_MODE = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
 
 router = APIRouter(prefix="/twins", tags=["twins"])
+
+
+def _deployment_read_service(db: Session) -> DeploymentReadService:
+    """Build the read-side deployment service for this request."""
+    return DeploymentReadService(
+        twin_repository=TwinRepository(db),
+        deployment_repository=DeploymentRepository(db),
+        deployer_client=DeployerClient(),
+    )
+
+
+def _deployment_operation_service(db: Session) -> DeploymentOperationService:
+    """Build the command-side deployment service for this request."""
+    return DeploymentOperationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _simulator_download_service(db: Session) -> SimulatorDownloadService:
+    """Build the simulator download service for this request."""
+    return SimulatorDownloadService(db=db, twin_repository=TwinRepository(db))
+
+
+def _deployment_verification_service(db: Session) -> DeploymentVerificationService:
+    """Build the deployment verification service for this request."""
+    return DeploymentVerificationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _twin_export_service(db: Session) -> TwinExportService:
+    """Build the redacted twin export service for this request."""
+    return TwinExportService(db=db)
+
+
+def _twin_read_service(db: Session) -> TwinReadService:
+    """Build the read-side twin service for this request."""
+    return TwinReadService(twin_repository=TwinRepository(db))
+
+
+def _twin_lifecycle_service(db: Session) -> TwinLifecycleService:
+    """Build the write-side twin lifecycle service for this request."""
+    return TwinLifecycleService(db=db, twin_repository=TwinRepository(db))
+
+
+def _raise_service_http_error(exc: Exception) -> None:
+    """Map typed service errors to the existing route-level HTTP contract."""
+    if isinstance(exc, EntityNotFoundError):
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if isinstance(exc, ValidationError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, ConflictError):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if isinstance(exc, DownstreamServiceError):
+        raise HTTPException(status_code=exc.status_code, detail=exc.public_detail) from exc
+    raise exc
 
 @router.get(
     "/", 
@@ -66,11 +127,7 @@ async def list_twins(
     current_user: User = Depends(get_current_user)
 ):
     """List all twins for current user."""
-    twins = db.query(DigitalTwin).filter(
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).all()
-    return twins
+    return _twin_read_service(db).list_twins(current_user.id)
 
 @router.post(
     "/", 
@@ -96,27 +153,10 @@ async def create_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new digital twin."""
-    # Check for duplicate name (case-insensitive, excluding inactive twins)
-    existing = db.query(DigitalTwin).filter(
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.name.ilike(twin.name),
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if existing:
-        raise HTTPException(
-            status_code=409, 
-            detail=f"A twin with the name '{twin.name}' already exists"
-        )
-    
-    new_twin = DigitalTwin(
-        name=twin.name,
-        user_id=current_user.id,
-        state=TwinState.DRAFT
-    )
-    db.add(new_twin)
-    db.commit()
-    db.refresh(new_twin)
-    return new_twin
+    try:
+        return _twin_lifecycle_service(db).create_twin(twin.name, current_user.id)
+    except ConflictError as exc:
+        _raise_service_http_error(exc)
 
 @router.get(
     "/{twin_id}", 
@@ -140,13 +180,10 @@ async def get_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific twin."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    return twin
+    try:
+        return _twin_read_service(db).get_twin(twin_id, current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 @router.put(
     "/{twin_id}", 
@@ -178,46 +215,16 @@ async def update_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Update a twin."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Block NAME changes for deployed/deploying/destroying twins (state changes allowed for deploy/destroy flow)
-    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
-    if update.name is not None and update.name != twin.name and twin.state in BLOCKED_STATES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot rename twin in '{twin.state.value}' state"
+    try:
+        return await _twin_lifecycle_service(db).update_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            name=update.name,
+            state=update.state,
+            configured_validator=_validate_configured_transition,
         )
-    
-    if update.name is not None and update.name != twin.name:
-        # Check for duplicate name (case-insensitive, excluding this twin and inactive twins)
-        existing = db.query(DigitalTwin).filter(
-            DigitalTwin.user_id == current_user.id,
-            DigitalTwin.name.ilike(update.name),
-            DigitalTwin.id != twin_id,
-            DigitalTwin.state != TwinState.INACTIVE
-        ).first()
-        if existing:
-            raise HTTPException(
-                status_code=409, 
-                detail=f"A twin with the name '{update.name}' already exists"
-            )
-        twin.name = update.name
-    
-    # Validate before allowing state transition to CONFIGURED
-    if update.state is not None and update.state == TwinState.CONFIGURED:
-        await _validate_configured_transition(twin, db)
-    
-    if update.state is not None:
-        twin.state = update.state
-        
-    db.commit()
-    db.refresh(twin)
-    return twin
+    except (ConflictError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 OPTIMIZER_API_URL = os.getenv("OPTIMIZER_URL", "http://twin2clouds:8000")
@@ -243,53 +250,13 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
             detail={
                 "code": "VALIDATION_FAILED",
                 "message": exc.message,
-                "errors": exc.errors
-            }
-        )
-
-
-def _credential_resolution_exception(exc: CredentialResolutionFailed) -> HTTPException:
-    """Map credential resolution failures to one stable API error shape."""
-    return HTTPException(
-        status_code=400,
-        detail={
-            "code": "CREDENTIAL_RESOLUTION_FAILED",
-            "message": exc.message,
-            "errors": exc.errors,
-        },
-    )
-
-
-def _deployment_package_exception(exc: DeploymentPackageBuildFailed) -> HTTPException:
-    """Map deployment package build failures to one stable API error shape."""
-    return HTTPException(
-        status_code=400,
-        detail={
-            "code": "DEPLOYMENT_PACKAGE_BUILD_FAILED",
-            "message": exc.message,
-            "errors": exc.errors,
-        },
-    )
-
-
-def _deployment_summary(deployment) -> dict | None:
-    if not deployment:
-        return None
-    return {
-        "id": deployment.id,
-        "session_id": deployment.session_id,
-        "operation_id": deployment.operation_id,
-        "operation_type": deployment.operation_type,
-        "status": deployment.status,
-        "error_code": deployment.error_code,
-        "error_message": deployment.error_message,
-        "started_at": deployment.started_at.isoformat() if deployment.started_at else None,
-        "completed_at": deployment.completed_at.isoformat() if deployment.completed_at else None,
-    }
-
+                "errors": exc.errors,
+            },
+        ) from exc
 
 @router.delete(
     "/{twin_id}",
+    response_model=MessageResponse,
     operation_id="deleteDigitalTwin",
     summary="Soft-delete a digital twin",
     description=(
@@ -312,26 +279,10 @@ async def delete_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Soft delete a twin (set to inactive). Also cleans up GLB files."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Cleanup GLB file if exists
-    glb_path = Path(settings.UPLOAD_DIR) / twin_id / "scene.glb"
-    glb_path.unlink(missing_ok=True)
     try:
-        (Path(settings.UPLOAD_DIR) / twin_id).rmdir()
-    except OSError:
-        pass  # Directory not empty or doesn't exist
-    
-    twin.state = TwinState.INACTIVE
-    # Rename to free up the name for reuse (unique constraint)
-    twin.name = f"_deleted_{twin_id}_{twin.name}"
-    db.commit()
-    return {"message": "Twin deleted"}
+        return _twin_lifecycle_service(db).delete_twin(twin_id, current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
@@ -341,6 +292,7 @@ async def delete_twin(
 
 @router.get(
     "/{twin_id}/can-redeploy",
+    response_model=RedeployReadinessResponse,
     operation_id="checkRedeploymentCooldown",
     summary="Check if twin can be redeployed",
     description=(
@@ -369,40 +321,10 @@ async def can_redeploy(
     Proxies to Deployer API's /infrastructure/cooldown-check endpoint.
     Zero cloud costs - pure calculation.
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Get deployer config to check if GCP Firestore is used
-    uses_gcp_firestore = False
-    if twin.deployer_config and twin.deployer_config.layer_3_hot_provider:
-        uses_gcp_firestore = twin.deployer_config.layer_3_hot_provider == "google"
-    
-    # If no destroyed_at or not using GCP Firestore, always ready
-    if not twin.destroyed_at or not uses_gcp_firestore:
-        return {"ready": True, "remaining_seconds": 0}
-    
-    # Proxy to Deployer API
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{DEPLOYER_API_URL}/infrastructure/cooldown-check",
-                params={
-                    "destroyed_at": twin.destroyed_at.isoformat() + "Z",
-                    "uses_gcp_firestore": str(uses_gcp_firestore).lower()
-                },
-                timeout=10.0
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Deployer API error")
-    except httpx.RequestError:
-        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+        return await _deployment_read_service(db).can_redeploy(twin_id, current_user.id)
+    except (EntityNotFoundError, DownstreamServiceError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
@@ -411,6 +333,7 @@ async def can_redeploy(
 
 @router.post(
     "/{twin_id}/deploy",
+    response_model=OperationSessionResponse,
     operation_id="deployDigitalTwin",
     summary="Deploy twin infrastructure to cloud providers",
     description=(
@@ -448,136 +371,25 @@ async def deploy_twin(
     - deployment_id: unique deployment session ID
     - sse_url: URL for SSE streaming of logs
     """
-    from datetime import datetime
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Validate state allows deployment
-    allowed_states = [TwinState.CONFIGURED, TwinState.DESTROYED, TwinState.ERROR]
-    if twin.state not in allowed_states:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Cannot deploy twin in '{twin.state}' state. Must be configured, destroyed, or error."
-        )
-    
-    # Check for concurrent deployment
-    if twin.state == TwinState.DEPLOYING:
-        raise HTTPException(
-            status_code=409,
-            detail="Deployment already in progress"
-        )
-    
-    # Update state to deploying (NOTE: resource_name and provider now extracted after prepare step)
-    twin.state = TwinState.DEPLOYING
-    twin.last_error = None
-    db.commit()
-    
-    # Create SSE session and spawn background task
-    import asyncio
-    import uuid
-    from src.api.routes.sse import create_session, get_active_sessions_for_twin
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    # Check for concurrent deployment
-    active_sessions = await get_active_sessions_for_twin(twin_id)
-    if active_sessions:
-        twin.state = TwinState.CONFIGURED  # Rollback
-        db.commit()
-        raise HTTPException(
-            status_code=409,
-            detail="Deployment already in progress for this twin"
-        )
-    
-    # TEST MODE: delegate to mock deployment
+    test_stream_runner = None
     if TEST_MODE:
         from src.api.routes.test_endpoints import _run_test_deploy_stream
-        session_id = str(uuid.uuid4())
-        await create_session(twin_id, session_id, operation_type="test")
-        asyncio.create_task(_run_test_deploy_stream(
-            session_id=session_id, twin_id=twin_id,
-            twin_name=twin.name, duration=30, should_fail=False
-        ))
-        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
-    
-    # Reload twin with ALL related configurations for ZIP building
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),  # Contains cloud credentials
-    ).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-    ).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Prepare project in Deployer (build ZIP and upload) before streaming
+        test_stream_runner = _run_test_deploy_stream
+
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except CredentialResolutionFailed as e:
-        logger.warning(
-            "Credential resolution failed while preparing deploy for twin '%s' (%s): %s",
-            twin.name,
-            twin_id,
-            e.errors,
+        return await _deployment_operation_service(db).deploy_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
+            test_stream_runner=test_stream_runner,
         )
-        twin.state = TwinState.CONFIGURED
-        db.commit()
-        raise _credential_resolution_exception(e) from e
-    except DeploymentPackageBuildFailed as e:
-        logger.warning(
-            "Deployment package build failed for twin '%s' (%s): %s",
-            twin.name,
-            twin_id,
-            e.errors,
-        )
-        twin.state = TwinState.CONFIGURED
-        db.commit()
-        raise _deployment_package_exception(e) from e
-    except HTTPException as e:
-        logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e.detail}")
-        twin.state = TwinState.CONFIGURED  # Rollback state on failure
-        db.commit()
-        raise e
-    except Exception as e:
-        logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e}", exc_info=True)
-        twin.state = TwinState.CONFIGURED  # Rollback state on failure
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
-    
-    # Determine provider - use L1 provider as the main deployment target
-    provider = "aws"  # default
-    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-        provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    # Create SSE session
-    session_id = str(uuid.uuid4())
-    await create_session(twin_id, session_id, operation_type="deploy")
-    
-    # Spawn background task for streaming logs from Deployer
-    asyncio.create_task(run_real_deploy_stream(
-        session_id=session_id,
-        twin_id=twin_id,
-        resource_name=resource_name,
-        provider=provider
-    ))
-    
-    return {
-        "session_id": session_id,
-        "sse_url": f"/sse/deploy/{session_id}"
-    }
+    except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.post(
     "/{twin_id}/destroy",
+    response_model=OperationSessionResponse,
     operation_id="destroyDigitalTwinInfrastructure",
     summary="Destroy twin's deployed cloud infrastructure",
     description=(
@@ -613,122 +425,25 @@ async def destroy_twin_infrastructure(
     Returns:
     - sse_url: URL for SSE streaming of logs
     """
-    from datetime import datetime
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Validate state allows destruction
-    allowed_states = [TwinState.DEPLOYED, TwinState.ERROR]
-    if twin.state not in allowed_states:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot destroy twin in '{twin.state}' state. Must be deployed or error."
-        )
-    
-    # Check for concurrent operation
-    if twin.state == TwinState.DESTROYING:
-        raise HTTPException(
-            status_code=409,
-            detail="Destroy operation already in progress"
-        )
-    
-    # Update state to destroying
-    twin.state = TwinState.DESTROYING
-    twin.last_error = None
-    db.commit()
-    
-    # Create SSE session and spawn background task
-    import asyncio
-    import uuid
-    from src.api.routes.sse import create_session, get_active_sessions_for_twin
-    from src.services.deployment_service import prepare_project_for_deployment, get_resource_name
-    from sqlalchemy.orm import joinedload
-    
-    # Check for concurrent operation
-    active_sessions = await get_active_sessions_for_twin(twin_id)
-    if active_sessions:
-        twin.state = TwinState.DEPLOYED  # Rollback
-        db.commit()
-        raise HTTPException(
-            status_code=409,
-            detail="Destroy operation already in progress for this twin"
-        )
-    
-    # TEST MODE: delegate to mock destruction
+    test_stream_runner = None
     if TEST_MODE:
         from src.api.routes.test_endpoints import _run_test_destroy_stream
-        session_id = str(uuid.uuid4())
-        await create_session(twin_id, session_id, operation_type="destroy")
-        asyncio.create_task(_run_test_destroy_stream(
-            session_id=session_id, twin_id=twin_id,
-            twin_name=twin.name, duration=20, should_fail=False
-        ))
-        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
-    
-    # Reload twin with ALL related configurations (for project preparation)
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-    ).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Get resource name (DRY: use helper)
-    resource_name = get_resource_name(twin)
-    
-    # Prepare project in Deployer (ensures terraform state is accessible)
+        test_stream_runner = _run_test_destroy_stream
+
     try:
-        await prepare_project_for_deployment(twin, current_user.id)
-    except CredentialResolutionFailed as e:
-        logger.warning(
-            "Credential resolution failed while preparing destroy for twin '%s' (%s): %s",
-            twin.name,
-            twin_id,
-            e.errors,
+        return await _deployment_operation_service(db).destroy_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
+            test_stream_runner=test_stream_runner,
         )
-        twin.state = TwinState.DEPLOYED
-        db.commit()
-        raise _credential_resolution_exception(e) from e
-    except Exception as e:
-        # Log but don't fail - destroy should work even if project prep fails
-        logger.warning(f"Project preparation failed during destroy: {e}")
-    
-    # Determine provider - use L1 provider as the main deployment target
-    provider = "aws"  # default
-    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-        provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    # Create SSE session
-    session_id = str(uuid.uuid4())
-    await create_session(twin_id, session_id, operation_type="destroy")
-    
-    # Spawn background task
-    asyncio.create_task(run_real_destroy_stream(
-        session_id=session_id,
-        twin_id=twin_id,
-        resource_name=resource_name,
-        provider=provider
-    ))
-    
-    return {
-        "session_id": session_id,
-        "sse_url": f"/sse/deploy/{session_id}"
-    }
+    except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.get(
     "/{twin_id}/deployment-status",
+    response_model=DeploymentStatusResponse,
     operation_id="getDigitalTwinDeploymentStatus",
     summary="Get current deployment status",
     description=(
@@ -756,40 +471,20 @@ async def get_deployment_status(
     
     Used for polling fallback when SSE is unavailable.
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Check for active SSE session (for reconnection after navigation)
     from src.api.routes.sse import get_active_sessions_for_twin
-    active_session = None
-    if twin.state in (TwinState.DEPLOYING, TwinState.DESTROYING):
-        sessions = await get_active_sessions_for_twin(twin_id)
-        if sessions:
-            s = sessions[0]
-            active_session = {
-                "session_id": s.session_id,
-                "sse_url": f"/sse/deploy/{s.session_id}",
-                "operation_type": s.operation_type,
-            }
 
-    latest_deployment = DeploymentRepository(db).get_latest_for_twin(twin_id)
-
-    return {
-        "state": twin.state,
-        "last_error": twin.last_error,
-        "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
-        "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
-        "active_session": active_session,
-        "latest_deployment": _deployment_summary(latest_deployment),
-    }
+    try:
+        return await _deployment_read_service(db).get_status(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            active_session_provider=get_active_sessions_for_twin,
+        )
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 @router.get(
     "/{twin_id}/outputs",
+    response_model=DeploymentOutputsResponse,
     operation_id="getDigitalTwinTerraformOutputs",
     summary="Get Terraform outputs from most recent deployment",
     description=(
@@ -816,35 +511,15 @@ async def get_deployment_outputs(
     Returns the outputs stored in the Deployment table for this twin.
     Used to display outputs after the terminal is closed or on page refresh.
     """
-    from src.models.deployment import Deployment
-    
-    # Verify twin belongs to user
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Get most recent successful deployment
-    deployment = db.query(Deployment).filter(
-        Deployment.twin_id == twin_id,
-        Deployment.status == "success",
-        Deployment.operation_type.in_(["deploy", "test"])  # Both real and test deploys
-    ).order_by(Deployment.completed_at.desc()).first()
-    
-    if not deployment:
-        return {"outputs": None, "deployed_at": None}
-    
-    return {
-        "outputs": deployment.terraform_outputs,
-        "deployed_at": deployment.completed_at.isoformat() if deployment.completed_at else None
-    }
+    try:
+        return _deployment_read_service(db).get_outputs(twin_id, current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 @router.get(
     "/{twin_id}/deployments",
+    response_model=DeploymentHistoryResponse,
     operation_id="getDigitalTwinDeploymentHistory",
     summary="Get deployment history for a twin",
     description=(
@@ -872,33 +547,10 @@ async def get_deployment_history(
     
     Returns a list of historical deployments ordered by most recent first.
     """
-    # Verify twin belongs to user
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    deployments = DeploymentRepository(db).list_for_twin(twin_id, limit)
-    
-    return {
-        "deployments": [
-            {
-                "id": d.id,
-                "session_id": d.session_id,
-                "operation_id": d.operation_id,
-                "operation_type": d.operation_type,
-                "status": d.status,
-                "started_at": d.started_at.isoformat() if d.started_at else None,
-                "completed_at": d.completed_at.isoformat() if d.completed_at else None,
-                "error_code": d.error_code,
-                "error_message": d.error_message,
-            }
-            for d in deployments
-        ]
-    }
+    try:
+        return _deployment_read_service(db).get_history(twin_id, current_user.id, limit)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 
@@ -1008,10 +660,6 @@ async def start_log_trace(
     # Prepare project in Deployer (ensures credentials are current for log queries)
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except CredentialResolutionFailed as e:
-        raise _credential_resolution_exception(e) from e
-    except DeploymentPackageBuildFailed as e:
-        raise _deployment_package_exception(e) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare project for log trace: {str(e)}")
     
@@ -1158,147 +806,19 @@ async def verify_infrastructure(
         checks: List of {name, status, provider, detail, layer}
         summary: {pass_count, fail_count, skip_count, total, healthy}
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Must be deployed to verify infrastructure
-    if twin.state != TwinState.DEPLOYED:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Twin must be deployed to verify infrastructure (current state: {twin.state})"
-        )
-    
-    # TEST MODE: return mock verification data
-    if TEST_MODE:
-        return {
-            "checks": [
-                {"name": "L0 Setup resources", "status": "pass", "provider": "", "detail": "12 resources found", "layer": "L0"},
-                {"name": "L0 Glue functions", "status": "pass", "provider": "", "detail": "cold-writer, hot-reader", "layer": "L0"},
-                {"name": "IoT endpoint", "status": "pass", "provider": "AWS", "detail": "endpoint active", "layer": "L1"},
-                {"name": "IoT devices registered", "status": "pass", "provider": "AWS", "detail": "2 device(s)", "layer": "L1"},
-                {"name": "Functions deployed", "status": "pass", "provider": "AWS", "detail": "5 resources", "layer": "L2"},
-                {"name": "Hot storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Cold storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Archive storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Hot→Cold mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Cold→Archive mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "TwinMaker workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L4"},
-                {"name": "TwinMaker entities", "status": "pass", "provider": "AWS", "detail": "2 entities created", "layer": "L4"},
-                {"name": "ADT twins", "status": "skip", "provider": "", "detail": "L4 not Azure", "layer": "L4"},
-                {"name": "Grafana workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L5"},
-            ],
-            "summary": dict(pass_count=13, fail_count=0, skip_count=1, total=14, healthy=True)
-        }
-    
-    # Reload twin with configs for credential sync
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(DigitalTwin.id == twin_id).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Prepare project in Deployer (ensures credentials are current)
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except CredentialResolutionFailed as e:
-        raise _credential_resolution_exception(e) from e
-    except DeploymentPackageBuildFailed as e:
-        raise _deployment_package_exception(e) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
-    
-    # Determine provider for Deployer API
-    provider = "aws"
-    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-        provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{DEPLOYER_API_URL}/infrastructure/verify",
-                params={"project_name": resource_name, "provider": provider}
-            )
-            response.raise_for_status()
-            return response.json()
-            
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=e.response.status_code,
-            detail=f"Deployer API error: {e.response.text}"
+        return await _deployment_verification_service(db).verify_infrastructure(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
         )
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Deployer API unavailable: {str(e)}")
+    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
 # Data Flow Verification
 # ============================================================
-
-async def _proxy_dataflow_sse(
-    session_id: str,
-    resource_name: str,
-    payload: dict,
-):
-    """Background task that proxies Deployer data flow SSE to our session."""
-    from src.api.routes.sse import get_session
-
-    session = await get_session(session_id)
-    if not session:
-        return
-
-    try:
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/dataflow/verify",
-                params={"project_name": resource_name},
-                json={"payload": payload},
-            ) as response:
-                last_data = None
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        msg = line[6:]
-                        last_data = msg
-                        await session.push_log(msg)
-                    elif line.startswith("event: done"):
-                        # Next data line is the summary
-                        pass
-
-        # Parse done event to determine success
-        verification_ok = True
-        summary_msg = "Data flow verification complete"
-        if last_data:
-            try:
-                summary = json.loads(last_data)
-                fail_count = summary.get("fail_count", 0)
-                verification_ok = fail_count == 0
-                if not verification_ok:
-                    failed_phase = summary.get("failed_phase", "unknown")
-                    summary_msg = f"Verification failed at: {failed_phase}"
-            except (json.JSONDecodeError, TypeError):
-                pass
-        session.on_complete(success=verification_ok, message=summary_msg)
-
-    except Exception as e:
-        await session.push_log(json.dumps({
-            "timestamp": "",
-            "message": f"✗ Verification error: {e}",
-            "status": "fail",
-        }))
-        session.on_complete(success=False, message=str(e))
-
 
 @router.post(
     "/{twin_id}/verify/dataflow",
@@ -1337,78 +857,15 @@ async def verify_dataflow(
     
     Returns session_id and sse_url for SSE streaming.
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    if twin.state != TwinState.DEPLOYED:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Twin must be deployed to verify data flow (current state: {twin.state})"
-        )
-    
-    # Validate payload
-    payload = body.get("payload", {})
-    if not payload or "iotDeviceId" not in payload:
-        raise HTTPException(
-            status_code=400,
-            detail="Request body must contain 'payload' with 'iotDeviceId' field"
-        )
-    
-    # TEST MODE: return mock SSE session
-    if TEST_MODE:
-        session_id = str(uuid.uuid4())
-        from src.api.routes.sse import create_session
-        await create_session(twin_id, session_id, operation_type="verify_dataflow")
-        return {
-            "session_id": session_id,
-            "sse_url": f"/sse/deploy/{session_id}",
-        }
-    
-    # Reload twin with configs for credential sync
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(DigitalTwin.id == twin_id).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Prepare project (sync credentials)
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except CredentialResolutionFailed as e:
-        raise _credential_resolution_exception(e) from e
-    except DeploymentPackageBuildFailed as e:
-        raise _deployment_package_exception(e) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
-    
-    # Create SSE session
-    import uuid, asyncio
-    session_id = str(uuid.uuid4())
-    from src.api.routes.sse import create_session
-    await create_session(twin_id, session_id, operation_type="verify_dataflow")
-    
-    # Start background SSE proxy
-    asyncio.create_task(_proxy_dataflow_sse(
-        session_id=session_id,
-        resource_name=resource_name,
-        payload=payload,
-    ))
-    
-    return {
-        "session_id": session_id,
-        "sse_url": f"/sse/deploy/{session_id}",
-    }
+        return await _deployment_verification_service(db).start_dataflow_verification(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            body=body,
+            test_mode=TEST_MODE,
+        )
+    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
@@ -1450,73 +907,20 @@ async def download_simulator(
     Extracts L1 from OptimizerConfiguration.cheapest_path and proxies to
     Deployer API /projects/{name}/simulator/{provider}/download.
     """
-    import io
-    from fastapi.responses import StreamingResponse
-    from src.models.optimizer_config import OptimizerConfiguration
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(404, "Twin not found")
-    
-    if twin.state != TwinState.DEPLOYED:
-        raise HTTPException(400, f"Simulator only available for deployed twins. Current: {twin.state.value}")
-    
-    # TEST MODE: delegate to mock simulator download
-    if TEST_MODE:
-        from src.api.routes.test_endpoints import test_download_simulator
-        return await test_download_simulator(twin_id, db=db, current_user=current_user)
-    
-    # Reload twin with all configs for project preparation
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(DigitalTwin.id == twin_id).first()
-    
-    if not twin:
-        raise HTTPException(404, "Twin not found during reload")
-    
-    if not twin.optimizer_config or not twin.optimizer_config.cheapest_l1:
-        raise HTTPException(404, "Optimization not configured. Complete Step 2 first.")
-    
-    l1_provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    # Prepare project in Deployer (ensures simulator config is current)
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except CredentialResolutionFailed as e:
-        raise _credential_resolution_exception(e) from e
-    except DeploymentPackageBuildFailed as e:
-        raise _deployment_package_exception(e) from e
-    except Exception as e:
-        raise HTTPException(500, f"Failed to prepare project for simulator download: {str(e)}")
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(
-                f"{DEPLOYER_API_URL}/projects/{resource_name}/simulator/{l1_provider}/download",
-                timeout=60.0
-            )
-        except httpx.RequestError as e:
-            raise HTTPException(502, f"Failed to connect to Deployer: {str(e)}")
-        
-        if resp.status_code == 404:
-            raise HTTPException(404, "Simulator not available. Ensure L1 deployed.")
-        elif resp.status_code != 200:
-            raise HTTPException(resp.status_code, f"Deployer error: {resp.text}")
-        
-        return StreamingResponse(
-            io.BytesIO(resp.content),
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename=simulator_{resource_name}_{l1_provider}.zip"}
+        archive = await _simulator_download_service(db).download(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
         )
+    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+    return StreamingResponse(
+        archive.content,
+        media_type=archive.media_type,
+        headers={"Content-Disposition": f"attachment; filename={archive.filename}"}
+    )
 
 
 @router.get(
@@ -1524,9 +928,9 @@ async def download_simulator(
     operation_id="exportTwinConfiguration",
     summary="Export twin configuration as ZIP",
     description=(
-        "**Purpose:** Downloads the twin configuration as a Deployer-compatible ZIP file.\n\n"
+        "**Purpose:** Downloads the twin configuration as a redacted ZIP file.\n\n"
         "**Use case:** Debugging, backup, or manual deployment verification.\n\n"
-        "**Contents:** config.json, config_providers.json, config_credentials.json (decrypted), "
+        "**Contents:** config.json, config_providers.json, config_credentials.json (redacted), "
         "state machine, hierarchy, user functions, scene assets, and simulator payloads."
     ),
     responses={
@@ -1541,34 +945,13 @@ async def export_twin_configuration(
     current_user: User = Depends(get_current_user)
 ):
     """Export twin configuration as downloadable ZIP."""
-    from src.services.deployment_service import build_project_zip
-    from sqlalchemy.orm import joinedload
-    from fastapi.responses import StreamingResponse
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-    ).first()
-    
-    if not twin:
-        raise HTTPException(404, "Twin not found")
-    
-    # Reuse the same ZIP building logic
     try:
-        zip_data = build_project_zip(twin, current_user.id)
-    except CredentialResolutionFailed as e:
-        raise _credential_resolution_exception(e) from e
-    except DeploymentPackageBuildFailed as e:
-        raise _deployment_package_exception(e) from e
-    
-    filename = f"{twin.name.lower().replace(' ', '-')}_config.zip"
-    
+        archive = _twin_export_service(db).export_twin(twin_id=twin_id, user_id=current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
+
     return StreamingResponse(
-        zip_data,
-        media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        archive.content,
+        media_type=archive.media_type,
+        headers={"Content-Disposition": f'attachment; filename="{archive.filename}"'}
     )

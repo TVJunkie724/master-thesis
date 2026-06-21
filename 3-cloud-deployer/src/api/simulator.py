@@ -28,6 +28,34 @@ from src.core.paths import resolve_project_context_path
 
 router = APIRouter()
 
+_SIMULATOR_PROVIDER_ALIASES = {
+    "aws": "aws",
+    "azure": "azure",
+    "gcp": "google",
+    "google": "google",
+}
+
+
+def _normalize_simulator_provider(provider: str) -> str:
+    """Return the internal simulator provider directory name."""
+    normalized = provider.lower()
+    if normalized not in _SIMULATOR_PROVIDER_ALIASES:
+        supported = ", ".join(sorted({"aws", "azure", "gcp"}))
+        raise ValueError(f"Provider '{provider}' not supported. Supported: {supported}.")
+    return _SIMULATOR_PROVIDER_ALIASES[normalized]
+
+
+def _resolve_payload_path(project_path: str, internal_provider: str) -> str | None:
+    """Resolve simulator payloads with shared path first, legacy path second."""
+    candidates = [
+        os.path.join(project_path, "iot_device_simulator", "payloads.json"),
+        os.path.join(project_path, "iot_device_simulator", internal_provider, "payloads.json"),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
 # ==========================================
 # 1. WebSocket Stream
 # ==========================================
@@ -41,8 +69,10 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
     await websocket.accept()
     
     # 1. Validation
-    if provider not in ("aws", "azure"):
-        await websocket.send_json({"type": "error", "data": f"Provider '{provider}' not supported. Supported: aws, azure."})
+    try:
+        internal_provider = _normalize_simulator_provider(provider)
+    except ValueError as e:
+        await websocket.send_json({"type": "error", "data": str(e)})
         await websocket.close()
         return
 
@@ -54,7 +84,7 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         return
 
     # Check Config - look for device subdirectories
-    provider_dir = project_path / "iot_device_simulator" / provider
+    provider_dir = project_path / "iot_device_simulator" / internal_provider
     if not provider_dir.exists():
         await websocket.send_json({"type": "error", "data": "Simulator config not found. Please deploy L1 first."})
         await websocket.close()
@@ -73,14 +103,14 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         return
 
     # Check Payloads
-    payload_path = project_path / "iot_device_simulator" / provider / "payloads.json"
-    if not payload_path.exists():
+    payload_path = _resolve_payload_path(project_path, internal_provider)
+    if not payload_path:
         await websocket.send_json({"type": "error", "data": "Payloads file not found. Please upload payloads.json."})
         await websocket.close()
         return
 
     # 2. Start Subprocess
-    script_path = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider, "main.py")
+    script_path = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", internal_provider, "main.py")
     process = subprocess.Popen(
         [sys.executable, script_path, "--project", project_name],
         stdin=subprocess.PIPE,
@@ -90,7 +120,7 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         bufsize=0 # Unbuffered
     )
 
-    logger.info(f"Started simulator subprocess for {project_name}/{provider}")
+    logger.info(f"Started simulator subprocess for {project_name}/{internal_provider}")
 
     async def read_stdout():
         try:
@@ -210,11 +240,10 @@ async def download_simulator_package(project_name: str, provider: str):
     - Dockerfile & docker-compose.yml: Container setup
     - README.md: Usage instructions
     """
-    # Normalize 'gcp' to 'google' internally
-    internal_provider = "google" if provider == "gcp" else provider
-    
-    if internal_provider not in ("aws", "azure", "google"):
-        raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure, gcp.")
+    try:
+        internal_provider = _normalize_simulator_provider(provider)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     project_path = resolve_project_context_path(project_name)
     provider_dir = project_path / "iot_device_simulator" / internal_provider
@@ -358,5 +387,8 @@ async def download_simulator_package(project_name: str, provider: str):
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "X-Twin2MultiCloud-Utility": "simulator",
+        }
     )

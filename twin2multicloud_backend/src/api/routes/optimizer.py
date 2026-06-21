@@ -7,32 +7,62 @@ This module provides:
 - Credential-forwarded pricing refresh
 - Calculation endpoint proxy
 """
+import json
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
-import httpx
-import asyncio
-import json
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.config import settings
 from src.services.twin_helpers import get_user_twin
-from src.services.credential_resolution_service import CredentialResolutionService
-from src.services.errors import CredentialResolutionFailed
 from src.services.pricing_review_state_service import build_pricing_review_state_response
 from src.schemas.pricing_review import PricingReviewStateResponse
+from src.repositories.twin_repository import TwinRepository
+from src.services.optimizer_calculation_service import OptimizerCalculationService
+from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
+from src.services.optimizer_pricing_refresh_service import OptimizerPricingRefreshService
+from src.services.optimizer_pricing_stream_service import OptimizerPricingStreamService
+from src.services.optimizer_status_service import OptimizerStatusService
+from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
+OPTIMIZER_URL = settings.OPTIMIZER_URL
 
-# Use environment variable or fallback to docker service name
-OPTIMIZER_URL = getattr(settings, 'OPTIMIZER_URL', 'http://master-thesis-2twin2clouds-1:8000')
+def _optimizer_status_service() -> OptimizerStatusService:
+    """Build the optimizer status service for this request."""
+    return OptimizerStatusService()
 
+
+def _optimizer_calculation_service() -> OptimizerCalculationService:
+    """Build the optimizer calculation service for this request."""
+    return OptimizerCalculationService()
+
+
+def _optimizer_pricing_export_service() -> OptimizerPricingExportService:
+    """Build the optimizer pricing export service for this request."""
+    return OptimizerPricingExportService()
+
+
+def _optimizer_pricing_refresh_service(db: Session) -> OptimizerPricingRefreshService:
+    """Build the optimizer pricing refresh service for this request."""
+    return OptimizerPricingRefreshService(db=db, twin_repository=TwinRepository(db))
+
+
+def _optimizer_pricing_stream_service(db: Session) -> OptimizerPricingStreamService:
+    """Build the optimizer pricing stream service for this request."""
+    return OptimizerPricingStreamService(db=db, twin_repository=TwinRepository(db))
+
+
+def _raise_downstream_http_error(exc: DownstreamServiceError) -> None:
+    """Map typed downstream service errors to the existing HTTP contract."""
+    raise HTTPException(exc.status_code, exc.public_detail) from exc
 
 
 # ============================================================================
@@ -64,21 +94,9 @@ async def get_pricing_status(current_user: User = Depends(get_current_user)):
     for AWS, Azure, and GCP.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            aws = await client.get(f"{OPTIMIZER_URL}/pricing_age/aws")
-            azure = await client.get(f"{OPTIMIZER_URL}/pricing_age/azure")
-            gcp = await client.get(f"{OPTIMIZER_URL}/pricing_age/gcp")
-        return {
-            "aws": aws.json() if aws.status_code == 200 else {"error": "Failed to fetch"},
-            "azure": azure.json() if azure.status_code == 200 else {"error": "Failed to fetch"},
-            "gcp": gcp.json() if gcp.status_code == 200 else {"error": "Failed to fetch"}
-        }
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_status_service().get_pricing_status()
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 @router.get(
@@ -160,21 +178,9 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
     for AWS, Azure, and GCP.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            aws = await client.get(f"{OPTIMIZER_URL}/regions_age/aws")
-            azure = await client.get(f"{OPTIMIZER_URL}/regions_age/azure")
-            gcp = await client.get(f"{OPTIMIZER_URL}/regions_age/gcp")
-        return {
-            "aws": aws.json() if aws.status_code == 200 else {"error": "Failed to fetch"},
-            "azure": azure.json() if azure.status_code == 200 else {"error": "Failed to fetch"},
-            "gcp": gcp.json() if gcp.status_code == 200 else {"error": "Failed to fetch"}
-        }
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_status_service().get_regions_status()
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 async def _get_optimizer_pricing_statuses() -> dict[str, dict]:
@@ -243,21 +249,12 @@ async def proxy_pricing_export(
     current_user: User = Depends(get_current_user)
 ):
     """Proxy to Optimizer service for pricing export (for snapshotting)."""
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(400, f"Invalid provider: {provider}")
-    
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{OPTIMIZER_URL}/pricing/export/{provider}")
-        if response.status_code != 200:
-            raise HTTPException(response.status_code, response.text)
-        return response.json()
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_pricing_export_service().export_pricing_snapshot(provider)
+    except ValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 # ============================================================================
@@ -299,50 +296,18 @@ async def refresh_pricing(
     
     Credentials are decrypted from CloudConnection storage and forwarded to Optimizer.
     """
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(400, f"Invalid provider: {provider}. Must be aws, azure, or gcp")
-    
     try:
-        # Azure uses public API - no credentials needed
-        if provider == "azure":
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    f"{OPTIMIZER_URL}/fetch_pricing/azure",
-                    params={"force_fetch": True}
-                )
-            if response.status_code != 200:
-                raise HTTPException(response.status_code, response.text)
-            return response.json()
-        
-        # AWS/GCP need credentials from the bound CloudConnection.
-        twin = await get_user_twin(twin_id, current_user, db)
-        try:
-            resolved = CredentialResolutionService().resolve_provider_credentials(
-                twin,
-                current_user.id,
-                provider,
-            )
-        except CredentialResolutionFailed as exc:
-            raise HTTPException(400, _credential_resolution_detail(exc)) from exc
-        credentials = _optimizer_pricing_payload(provider, resolved.optimizer_payload)
-        
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{OPTIMIZER_URL}/fetch_pricing_with_credentials/{provider}",
-                json=credentials
-            )
-        
-        if response.status_code != 200:
-            raise HTTPException(response.status_code, response.text)
-        
-        return response.json()
-        
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_pricing_refresh_service(db).refresh_pricing(
+            provider=provider,
+            twin_id=twin_id,
+            user_id=current_user.id,
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 @router.get(
@@ -377,76 +342,17 @@ async def stream_refresh_pricing(
     - complete: Refresh completed successfully
     - error: An error occurred
     """
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(400, f"Invalid provider: {provider}")
-
-    async def event_generator():
-        def emit(msg: str, event_type: str = "log"):
-            return f"event: {event_type}\ndata: {json.dumps({'message': msg, 'type': event_type})}\n\n"
-
-        yield emit(f"Starting {provider.upper()} pricing refresh...")
-        await asyncio.sleep(0.1)  # Allow client to receive
-
-        try:
-            # Prepare credentials (Management API responsibility - security boundary)
-            credentials = {}
-            
-            if provider == "azure":
-                yield emit("Azure uses public API - no credentials needed")
-            else:
-                # AWS/GCP need credentials from the bound CloudConnection.
-                yield emit("Loading Cloud Connection credentials...")
-                await asyncio.sleep(0.1)
-                
-                twin = await get_user_twin(twin_id, current_user, db)
-                try:
-                    resolved = CredentialResolutionService().resolve_provider_credentials(
-                        twin,
-                        current_user.id,
-                        provider,
-                    )
-                except CredentialResolutionFailed as exc:
-                    detail = _credential_resolution_detail(exc)
-                    yield emit(f"Error: {detail['message']}", "error")
-                    return
-
-                credentials = _optimizer_pricing_payload(provider, resolved.optimizer_payload)
-                yield emit(f"{provider.upper()} Cloud Connection credentials loaded")
-
-            await asyncio.sleep(0.1)
-            yield emit(f"Connecting to Optimizer service for {provider.upper()} pricing...")
-
-            # Relay SSE stream from Optimizer
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                async with client.stream(
-                    "POST",
-                    f"{OPTIMIZER_URL}/stream/fetch_pricing/{provider}",
-                    json=credentials,
-                    headers={"Accept": "text/event-stream"}
-                ) as response:
-                    if response.status_code != 200:
-                        yield emit(f"❌ Optimizer error: {response.status_code}", "error")
-                        return
-                    
-                    # Relay SSE events from Optimizer
-                    buffer = ""
-                    async for chunk in response.aiter_text():
-                        buffer += chunk
-                        # Process complete SSE events (delimited by double newline)
-                        while "\n\n" in buffer:
-                            event_str, buffer = buffer.split("\n\n", 1)
-                            if event_str.strip():
-                                yield event_str + "\n\n"
-
-        except httpx.ConnectError:
-            yield emit("❌ Error: Cannot connect to Optimizer service", "error")
-        except httpx.TimeoutException:
-            yield emit("❌ Error: Optimizer service timed out", "error")
-        except Exception as e:
-            yield emit(f"❌ Error: {str(e)}", "error")
+    try:
+        event_generator = _optimizer_pricing_stream_service(db).build_refresh_stream(
+            provider=provider,
+            twin_id=twin_id,
+            user_id=current_user.id,
+        )
+    except ValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
     return StreamingResponse(
-        event_generator(),
+        event_generator,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -454,24 +360,6 @@ async def stream_refresh_pricing(
             "X-Accel-Buffering": "no"  # Disable nginx buffering
         }
     )
-
-
-def _credential_resolution_detail(exc: CredentialResolutionFailed) -> dict:
-    return {
-        "code": "CREDENTIAL_RESOLUTION_FAILED",
-        "message": exc.message,
-        "errors": exc.errors,
-    }
-
-
-def _optimizer_pricing_payload(provider: str, optimizer_payload: dict) -> dict:
-    if provider != "gcp":
-        return optimizer_payload
-    payload = {
-        "gcp_service_account_json": optimizer_payload.get("gcp_credentials_file"),
-        "gcp_region": optimizer_payload.get("gcp_region"),
-    }
-    return {key: value for key, value in payload.items() if value}
 
 
 # ============================================================================
@@ -560,20 +448,6 @@ async def calculate(
     - Transfer costs
     """
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.put(
-                f"{OPTIMIZER_URL}/calculate",
-                json=params.model_dump()
-            )
-        
-        if response.status_code != 200:
-            raise HTTPException(response.status_code, response.text)
-        
-        return response.json()
-        
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+        return await _optimizer_calculation_service().calculate(params.model_dump())
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)

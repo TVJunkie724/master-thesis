@@ -12,7 +12,6 @@ from src.api.routes.optimizer_runs import router as optimizer_runs_router
 from src.api.routes.dashboard import router as dashboard_router
 from src.api.routes.deployer import router as deployer_router
 from src.api.routes.sse import router as sse_router, start_reaper
-from src.api.routes.test_endpoints import router as test_endpoints_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -70,7 +69,9 @@ app.include_router(optimizer_runs_router)
 app.include_router(dashboard_router)
 app.include_router(deployer_router)
 app.include_router(sse_router)
-app.include_router(test_endpoints_router)
+if settings.ENABLE_TEST_ENDPOINTS:
+    from src.api.routes.test_endpoints import router as test_endpoints_router
+    app.include_router(test_endpoints_router)
 
 @app.get("/")
 async def root():

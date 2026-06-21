@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from logger import logger
 from src.core.observability import OperationContext, operation_step, redact_sensitive
 from src.core.workspace import deployment_workspace
+from src.providers.cleanup_registry import CleanupRequest, cleanup_provider_resources
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -196,20 +197,12 @@ def _run_sdk_cleanup(
         extra=_log_extra(operation_context, "sdk_cleanup"),
     )
     
-    # Import cleanup functions
-    from src.providers.aws.cleanup import cleanup_aws_resources
-    from src.providers.azure.cleanup import cleanup_azure_resources
-    from src.providers.gcp.cleanup import cleanup_gcp_resources
-    
     # AWS cleanup (best-effort)
     if credentials.get("aws"):
         logger.info("[SDK Cleanup] AWS...")
         try:
-            cleanup_aws_resources(
-                credentials, prefix,
-                cleanup_identity_user=False,
-                platform_user_email="",
-                dry_run=False
+            cleanup_provider_resources(
+                CleanupRequest(provider="aws", credentials=credentials, prefix=prefix)
             )
         except Exception as e:
             logger.warning(
@@ -224,11 +217,8 @@ def _run_sdk_cleanup(
     if credentials.get("azure"):
         logger.info("[SDK Cleanup] Azure...")
         try:
-            cleanup_azure_resources(
-                credentials, prefix,
-                cleanup_entra_user=False,
-                platform_user_email="",
-                dry_run=False
+            cleanup_provider_resources(
+                CleanupRequest(provider="azure", credentials=credentials, prefix=prefix)
             )
         except Exception as e:
             logger.warning(
@@ -243,7 +233,9 @@ def _run_sdk_cleanup(
     if credentials.get("gcp"):
         logger.info("[SDK Cleanup] GCP...")
         try:
-            cleanup_gcp_resources(credentials, prefix, dry_run=False)
+            cleanup_provider_resources(
+                CleanupRequest(provider="gcp", credentials=credentials, prefix=prefix)
+            )
         except Exception as e:
             logger.warning(
                 "[SDK Cleanup] GCP cleanup failed: %s",

@@ -148,14 +148,14 @@ ERROR_RESPONSES = {
         }
     },
     403: {
-        "description": "Forbidden - This runtime mode does not allow the requested operation",
+        "description": "Forbidden - The requested operation or resource is protected",
         "model": ErrorResponse,
         "content": {
             "application/json": {
                 "example": {
-                    "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
-                    "message": "File-based credential checks are disabled for this runtime.",
-                    "fix_suggestion": "Use request-body credential validation or start the explicit local-cloud Compose override.",
+                    "error_code": "FORBIDDEN",
+                    "message": "The requested operation is protected in this runtime.",
+                    "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
                     "http_status": 403
                 }
             }

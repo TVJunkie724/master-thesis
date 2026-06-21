@@ -127,7 +127,7 @@ def test_gcp_deployment_credentials_use_service_account_file_boundary():
     assert "private_key" not in str(resolved.config_credentials)
 
 
-def test_optimizer_selected_provider_without_credentials_fails_closed():
+def test_optimizer_selected_provider_with_legacy_credentials_uses_migration_fallback():
     twin = _twin(
         configuration=_configuration(
             aws_access_key_id=encrypt("AKIAIOSFODNN7EXAMPLE", USER_ID, TWIN_ID),
@@ -136,17 +136,12 @@ def test_optimizer_selected_provider_without_credentials_fails_closed():
         optimizer_config=_optimizer_config(cheapest_l1="AWS"),
     )
 
-    with pytest.raises(CredentialResolutionFailed) as exc_info:
-        CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
+    resolved = CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
 
-    assert {
-        "provider": "aws",
-        "code": "MISSING_CLOUD_CONNECTION",
-        "field": "credentials",
-        "message": "Provider requires a bound Cloud Connection",
-    } in exc_info.value.errors
-    assert "AKIAIOSFODNN7EXAMPLE" not in str(exc_info.value.errors)
-    assert "secret" not in str(exc_info.value.errors)
+    assert resolved.providers == ("aws",)
+    assert resolved.sources == {"aws": "legacy_twin_config"}
+    assert resolved.config_credentials["aws"]["aws_access_key_id"] == "AKIAIOSFODNN7EXAMPLE"
+    assert resolved.config_credentials["aws"]["aws_secret_access_key"] == "secret"
 
 
 def test_dangling_cloud_connection_fails_closed_with_secret_safe_error():

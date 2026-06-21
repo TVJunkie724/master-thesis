@@ -1,0 +1,2291 @@
+{
+  "components": {
+    "schemas": {
+      "AWSCredentialsRequest": {
+        "description": "Request body for AWS credential validation.",
+        "example": {
+          "aws_access_key_id": "redacted",
+          "aws_region": "eu-central-1"
+        },
+        "properties": {
+          "aws_access_key_id": {
+            "title": "Aws Access Key Id",
+            "type": "string"
+          },
+          "aws_region": {
+            "default": "eu-central-1",
+            "title": "Aws Region",
+            "type": "string"
+          },
+          "aws_secret_access_key": {
+            "title": "Aws Secret Access Key",
+            "type": "string"
+          },
+          "aws_session_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Session Token"
+          }
+        },
+        "required": [
+          "aws_access_key_id",
+          "aws_secret_access_key"
+        ],
+        "title": "AWSCredentialsRequest",
+        "type": "object"
+      },
+      "AzureCredentialsRequest": {
+        "description": "Request body for Azure credential validation.",
+        "example": {
+          "azure_region": "westeurope",
+          "azure_subscription_id": "12345678-1234-1234-1234-123456789abc"
+        },
+        "properties": {
+          "azure_client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Azure Client Id"
+          },
+          "azure_client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Azure Client Secret"
+          },
+          "azure_region": {
+            "default": "westeurope",
+            "title": "Azure Region",
+            "type": "string"
+          },
+          "azure_subscription_id": {
+            "title": "Azure Subscription Id",
+            "type": "string"
+          },
+          "azure_tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Azure Tenant Id"
+          }
+        },
+        "required": [
+          "azure_subscription_id"
+        ],
+        "title": "AzureCredentialsRequest",
+        "type": "object"
+      },
+      "CalcParams": {
+        "description": "Defines the parameters for calculating the cost-optimized Digital Twin deployment.\n\nServer-side validation ensures:\n- Positive values for device counts, intervals, and sizes\n- Storage duration ordering: Hot \u2264 Cool \u2264 Archive\n- Non-negative values for editor/viewer counts and dashboard settings",
+        "example": {
+          "allowGcpSelfHostedL4": false,
+          "allowGcpSelfHostedL5": false,
+          "amountOfActiveEditors": 0,
+          "amountOfActiveViewers": 0,
+          "apiCallsPerDashboardRefresh": 1,
+          "archiveStorageDurationInMonths": 12,
+          "averageSizeOfMessageInKb": 0.25,
+          "coolStorageDurationInMonths": 3,
+          "currency": "USD",
+          "dashboardActiveHoursPerDay": 0,
+          "dashboardRefreshesPerHour": 2,
+          "deviceSendingIntervalInMinutes": 2,
+          "entityCount": 1,
+          "eventsPerMessage": 1,
+          "hotStorageDurationInMonths": 1,
+          "integrateErrorHandling": true,
+          "needs3DModel": false,
+          "numberOfDevices": 100,
+          "orchestrationActionsPerMessage": 3,
+          "returnFeedbackToDevice": false,
+          "triggerNotificationWorkflow": true,
+          "useEventChecking": true
+        },
+        "properties": {
+          "allowGcpSelfHostedL4": {
+            "default": false,
+            "description": "Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization - NOT IMPLEMENTED",
+            "title": "Allowgcpselfhostedl4",
+            "type": "boolean"
+          },
+          "allowGcpSelfHostedL5": {
+            "default": false,
+            "description": "Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization - NOT IMPLEMENTED",
+            "title": "Allowgcpselfhostedl5",
+            "type": "boolean"
+          },
+          "amountOfActiveEditors": {
+            "description": "Number of active editors (must be >= 0)",
+            "minimum": 0.0,
+            "title": "Amountofactiveeditors",
+            "type": "integer"
+          },
+          "amountOfActiveViewers": {
+            "description": "Number of active viewers (must be >= 0)",
+            "minimum": 0.0,
+            "title": "Amountofactiveviewers",
+            "type": "integer"
+          },
+          "apiCallsPerDashboardRefresh": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Apicallsperdashboardrefresh",
+            "type": "integer"
+          },
+          "archiveStorageDurationInMonths": {
+            "description": "Archive storage duration (must be >= 6)",
+            "minimum": 6.0,
+            "title": "Archivestoragedurationinmonths",
+            "type": "integer"
+          },
+          "average3DModelSizeInMB": {
+            "default": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Average3Dmodelsizeinmb",
+            "type": "number"
+          },
+          "averageSizeOfMessageInKb": {
+            "description": "Average message size in KB (must be > 0)",
+            "exclusiveMinimum": 0.0,
+            "title": "Averagesizeofmessageinkb",
+            "type": "number"
+          },
+          "coolStorageDurationInMonths": {
+            "description": "Cool storage duration (must be >= 1)",
+            "minimum": 1.0,
+            "title": "Coolstoragedurationinmonths",
+            "type": "integer"
+          },
+          "currency": {
+            "default": "USD",
+            "title": "Currency",
+            "type": "string"
+          },
+          "dashboardActiveHoursPerDay": {
+            "description": "Active hours per day (must be 0-24)",
+            "maximum": 24.0,
+            "minimum": 0.0,
+            "title": "Dashboardactivehoursperday",
+            "type": "integer"
+          },
+          "dashboardRefreshesPerHour": {
+            "description": "Dashboard refresh rate (must be >= 0)",
+            "minimum": 0.0,
+            "title": "Dashboardrefreshesperhour",
+            "type": "integer"
+          },
+          "deviceSendingIntervalInMinutes": {
+            "description": "Sending interval in minutes (must be > 0)",
+            "exclusiveMinimum": 0.0,
+            "title": "Devicesendingintervalinminutes",
+            "type": "number"
+          },
+          "entityCount": {
+            "description": "Number of entities (must be >= 0)",
+            "minimum": 0.0,
+            "title": "Entitycount",
+            "type": "integer"
+          },
+          "eventTriggerRate": {
+            "default": 0.1,
+            "description": "Fraction of messages that trigger events (0.0-1.0)",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Eventtriggerrate",
+            "type": "number"
+          },
+          "eventsPerMessage": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Eventspermessage",
+            "type": "integer"
+          },
+          "hotStorageDurationInMonths": {
+            "description": "Hot storage duration (must be >= 1)",
+            "minimum": 1.0,
+            "title": "Hotstoragedurationinmonths",
+            "type": "integer"
+          },
+          "integrateErrorHandling": {
+            "default": false,
+            "title": "Integrateerrorhandling",
+            "type": "boolean"
+          },
+          "needs3DModel": {
+            "title": "Needs3Dmodel",
+            "type": "boolean"
+          },
+          "numberOfDeviceTypes": {
+            "default": 1,
+            "description": "Number of distinct device types (each requires a processor)",
+            "minimum": 1.0,
+            "title": "Numberofdevicetypes",
+            "type": "integer"
+          },
+          "numberOfDevices": {
+            "description": "Number of IoT devices (must be > 0)",
+            "exclusiveMinimum": 0.0,
+            "title": "Numberofdevices",
+            "type": "integer"
+          },
+          "numberOfEventActions": {
+            "default": 0,
+            "description": "Number of event action handlers from config_events.json",
+            "minimum": 0.0,
+            "title": "Numberofeventactions",
+            "type": "integer"
+          },
+          "orchestrationActionsPerMessage": {
+            "default": 3,
+            "minimum": 1.0,
+            "title": "Orchestrationactionspermessage",
+            "type": "integer"
+          },
+          "returnFeedbackToDevice": {
+            "default": false,
+            "title": "Returnfeedbacktodevice",
+            "type": "boolean"
+          },
+          "triggerNotificationWorkflow": {
+            "default": false,
+            "title": "Triggernotificationworkflow",
+            "type": "boolean"
+          },
+          "useEventChecking": {
+            "default": false,
+            "title": "Useeventchecking",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "numberOfDevices",
+          "deviceSendingIntervalInMinutes",
+          "averageSizeOfMessageInKb",
+          "hotStorageDurationInMonths",
+          "coolStorageDurationInMonths",
+          "archiveStorageDurationInMonths",
+          "needs3DModel",
+          "entityCount",
+          "amountOfActiveEditors",
+          "amountOfActiveViewers",
+          "dashboardRefreshesPerHour",
+          "dashboardActiveHoursPerDay"
+        ],
+        "title": "CalcParams",
+        "type": "object"
+      },
+      "CredentialRequest": {
+        "description": "Credentials for pricing fetch.",
+        "properties": {
+          "aws_access_key_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Access Key Id"
+          },
+          "aws_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "eu-central-1",
+            "title": "Aws Region"
+          },
+          "aws_secret_access_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Secret Access Key"
+          },
+          "gcp_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "europe-west1",
+            "title": "Gcp Region"
+          },
+          "gcp_service_account_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gcp Service Account Json"
+          }
+        },
+        "title": "CredentialRequest",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Standardized error response with detailed information for troubleshooting.\n\nThis schema provides structured error information that enables:\n1. Understanding what went wrong (error_code, message)\n2. Knowing exactly how to fix it (fix_suggestion)\n3. Identifying specific field issues (field_errors)\n4. Finding additional help (documentation_url)\n\nAll error responses from this API follow this schema for consistency.",
+        "example": {
+          "documentation_url": "/documentation/docs-formulas.html",
+          "error_code": "VALIDATION_ERROR",
+          "field_errors": [
+            {
+              "field": "numberOfDevices",
+              "message": "Value must be a positive integer",
+              "received_value": "-5"
+            }
+          ],
+          "fix_suggestion": "Ensure all required fields are present and have valid values. See field_errors for details.",
+          "http_status": 422,
+          "message": "Request validation failed"
+        },
+        "properties": {
+          "documentation_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "URL to relevant documentation for this error or endpoint",
+            "example": "/documentation/docs-overview.html",
+            "title": "Documentation Url"
+          },
+          "error_code": {
+            "description": "Machine-readable error code in SCREAMING_SNAKE_CASE format. Use this to programmatically identify error types. Common codes: VALIDATION_ERROR, INVALID_CREDENTIALS, RESOURCE_NOT_FOUND, RATE_LIMITED, INTERNAL_ERROR, CONFIGURATION_MISSING",
+            "example": "VALIDATION_ERROR",
+            "title": "Error Code",
+            "type": "string"
+          },
+          "field_errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldError"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For validation errors (422), detailed list of which fields failed and why",
+            "title": "Field Errors"
+          },
+          "fix_suggestion": {
+            "description": "Actionable instruction that explains exactly how to fix this error and retry the request successfully. Be specific about what to change.",
+            "example": "Set 'numberOfDevices' to a positive integer (e.g., 100). This field represents the number of IoT devices in your deployment.",
+            "title": "Fix Suggestion",
+            "type": "string"
+          },
+          "http_status": {
+            "description": "The HTTP status code associated with this error (400, 401, 403, 404, 422, 500, etc.)",
+            "example": 400,
+            "title": "Http Status",
+            "type": "integer"
+          },
+          "message": {
+            "description": "Human-readable description of what went wrong",
+            "example": "Request validation failed: numberOfDevices must be positive",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "fix_suggestion",
+          "http_status"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "FieldError": {
+        "description": "Describes a validation error for a specific request field.\n\nUse this to understand exactly which field failed validation\nand what values would be acceptable.",
+        "example": {
+          "allowed_values": [
+            "aws",
+            "azure",
+            "gcp"
+          ],
+          "field": "provider",
+          "message": "Invalid cloud provider specified",
+          "received_value": "alibaba"
+        },
+        "properties": {
+          "allowed_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "If applicable, the list of valid values for this field",
+            "example": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Allowed Values"
+          },
+          "field": {
+            "description": "The name of the field that failed validation (dot notation for nested fields)",
+            "example": "numberOfDevices",
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "description": "Human-readable explanation of why this field failed validation",
+            "example": "Value must be a positive integer",
+            "title": "Message",
+            "type": "string"
+          },
+          "received_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The actual value that was received (stringified for display)",
+            "example": "-5",
+            "title": "Received Value"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "GCPCredentialsRequest": {
+        "description": "Request body for GCP credential validation.",
+        "example": {
+          "gcp_credentials_file": "/config/gcp_credentials.json",
+          "gcp_project_id": "my-project-id",
+          "gcp_region": "europe-west1"
+        },
+        "properties": {
+          "gcp_credentials_file": {
+            "title": "Gcp Credentials File",
+            "type": "string"
+          },
+          "gcp_project_id": {
+            "title": "Gcp Project Id",
+            "type": "string"
+          },
+          "gcp_region": {
+            "default": "europe-west1",
+            "title": "Gcp Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gcp_credentials_file",
+          "gcp_project_id"
+        ],
+        "title": "GCPCredentialsRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "OptimizerConfigValidation": {
+        "description": "Input model for optimizer config validation.\n\nProvide the optimizer parameters and calculation result to validate\nthat the configuration is complete and ready for deployment.",
+        "example": {
+          "params": {
+            "archiveStorageDurationInMonths": 12,
+            "averageSizeOfMessageInKb": 0.25,
+            "coolStorageDurationInMonths": 3,
+            "deviceSendingIntervalInMinutes": 2,
+            "hotStorageDurationInMonths": 1,
+            "numberOfDevices": 100
+          },
+          "result": {
+            "calculationResult": {
+              "L1": "GCP",
+              "L2": "AWS",
+              "L3": "Azure"
+            },
+            "cheapestPath": [
+              "L1_GCP",
+              "L2_AWS",
+              "L3_Azure"
+            ],
+            "totalMonthlyCost": 125.5
+          }
+        },
+        "properties": {
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The optimizer parameters used for calculation (from Step 2 configuration)",
+            "title": "Params"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The calculation result containing cheapestPath and cost breakdown",
+            "title": "Result"
+          }
+        },
+        "title": "OptimizerConfigValidation",
+        "type": "object"
+      },
+      "PricingSourceInventoryResponse": {
+        "properties": {
+          "objective": {
+            "default": "cost",
+            "title": "Objective",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/PricingSourceRecordResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "schema_version": {
+            "default": "pricing-source-inventory.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "summary",
+          "records"
+        ],
+        "title": "PricingSourceInventoryResponse",
+        "type": "object"
+      },
+      "PricingSourceRecordResponse": {
+        "properties": {
+          "aliases": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "canonical_unit": {
+            "title": "Canonical Unit",
+            "type": "string"
+          },
+          "emergency_fallback_allowed": {
+            "title": "Emergency Fallback Allowed",
+            "type": "boolean"
+          },
+          "emergency_fallback_source_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emergency Fallback Source Type"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "failure_behavior": {
+            "title": "Failure Behavior",
+            "type": "string"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "intent_id": {
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "key_path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Key Path",
+            "type": "array"
+          },
+          "layer": {
+            "title": "Layer",
+            "type": "string"
+          },
+          "normalizer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalizer"
+          },
+          "primary_source_type": {
+            "title": "Primary Source Type",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "quantity_basis": {
+            "title": "Quantity Basis",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "refreshability": {
+            "title": "Refreshability",
+            "type": "string"
+          },
+          "review_state": {
+            "title": "Review State",
+            "type": "string"
+          },
+          "service_key": {
+            "title": "Service Key",
+            "type": "string"
+          },
+          "source_unit": {
+            "title": "Source Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "intent_id",
+          "provider",
+          "layer",
+          "service_key",
+          "field_id",
+          "key_path",
+          "aliases",
+          "canonical_unit",
+          "source_unit",
+          "quantity_basis",
+          "normalizer",
+          "primary_source_type",
+          "refreshability",
+          "failure_behavior",
+          "evidence",
+          "review_state",
+          "emergency_fallback_source_type",
+          "emergency_fallback_allowed"
+        ],
+        "title": "PricingSourceRecordResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "ValidationResponse": {
+        "description": "Validation response with all errors found.\n\nWhen valid=true, the configuration is complete and ready for deployment.\nWhen valid=false, check the errors array for what needs to be fixed.",
+        "example": {
+          "errors": [
+            {
+              "code": "MISSING_RESULT",
+              "field": "result",
+              "message": "Optimizer result required - run cost calculation in Step 2"
+            }
+          ],
+          "valid": false
+        },
+        "properties": {
+          "errors": {
+            "default": [],
+            "description": "List of all validation errors (empty if valid=true)",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "valid": {
+            "description": "True if configuration is complete and valid, False if there are errors",
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid"
+        ],
+        "title": "ValidationResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "API backend for **Twin2Clouds**, a cost-optimization platform for engineering digital twins across multiple cloud providers (AWS, Azure, Google). This API serves both the web UI and the computational engine that calculates the most cost-efficient provider setup for each architectural layer.<h3>\ud83d\udd17 Useful Links</h3><h4>\ud83d\udda5\ufe0f Web Interface</h4><ul><li><a href=\"/ui\" target=\"_blank\"><strong>Open Web UI</strong></a></br>  The graphical Twin2Clouds interface for configuring scenarios.</li></ul><h4>\ud83d\udcd8 Documentation</h4><ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>",
+    "title": "twin2clouds REST API",
+    "version": "1.2"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/calculate": {
+      "put": {
+        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Loads current pricing data for all three cloud providers\n3. Calculates costs for each of the 5 architectural layers on each provider\n4. Returns the optimal provider per layer and detailed cost breakdowns\n\n**The 5 Architectural Layers:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L3 (Processing):** Data processing, event detection, notifications\n- **L4 (Management):** Digital Twin entity management and 3D modeling\n- **L5 (Visualization):** Dashboards and user interfaces\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
+        "operationId": "calculateOptimalCloudDistribution",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalcParams",
+                "examples": [
+                  {
+                    "amountOfActiveEditors": 2,
+                    "amountOfActiveViewers": 10,
+                    "apiCallsPerDashboardRefresh": 1,
+                    "archiveStorageDurationInMonths": 12,
+                    "averageSizeOfMessageInKb": 0.25,
+                    "coolStorageDurationInMonths": 3,
+                    "currency": "USD",
+                    "dashboardActiveHoursPerDay": 8,
+                    "dashboardRefreshesPerHour": 4,
+                    "deviceSendingIntervalInMinutes": 2.0,
+                    "entityCount": 0,
+                    "eventsPerMessage": 1,
+                    "hotStorageDurationInMonths": 1,
+                    "integrateErrorHandling": true,
+                    "needs3DModel": false,
+                    "numberOfDevices": 100,
+                    "orchestrationActionsPerMessage": 3,
+                    "returnFeedbackToDevice": false,
+                    "triggerNotificationWorkflow": true,
+                    "useEventChecking": true
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "result": {
+                    "awsCosts": {
+                      "L1": 12.5,
+                      "L2_Archive": 2.0,
+                      "L2_Cool": 8.0,
+                      "L2_Hot": 5.0
+                    },
+                    "azureCosts": {
+                      "L1": 15.0,
+                      "L4": 20.0
+                    },
+                    "calculationResult": {
+                      "L1": "GCP",
+                      "L2": {
+                        "Archive": "AWS",
+                        "Cool": "GCP",
+                        "Hot": "AWS"
+                      },
+                      "L3": "AWS",
+                      "L4": "Azure",
+                      "L5": "GCP"
+                    },
+                    "cheapestPath": [
+                      "L1_GCP",
+                      "L2_AWS_Hot",
+                      "L2_GCP_Cool",
+                      "L2_AWS_Archive",
+                      "L3_AWS",
+                      "L4_Azure",
+                      "L5_GCP"
+                    ],
+                    "currency": "USD",
+                    "gcpCosts": {
+                      "L1": 10.0,
+                      "L5": 18.0
+                    },
+                    "totalMonthlyCost": 85.5
+                  }
+                },
+                "schema": {}
+              }
+            },
+            "description": "Successful calculation - returns cost breakdown and optimal configuration"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Calculate optimal multi-cloud cost distribution for Digital Twin deployment",
+        "tags": [
+          "Calculation"
+        ]
+      }
+    },
+    "/currency_age": {
+      "get": {
+        "description": "Returns the age of the local currency conversion rates file.",
+        "operationId": "getCurrencyRatesStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "age": "12 hours"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Currency file age"
+          }
+        },
+        "summary": "Check age of cached currency exchange rates",
+        "tags": [
+          "File Status"
+        ]
+      }
+    },
+    "/fetch_currency": {
+      "post": {
+        "description": "**Purpose:** Fetches current currency exchange rates for cost display.\n\n**When to use:**\n- The calculation engine uses these rates to convert costs between currencies\n- Rates are cached for 1 day",
+        "operationId": "refreshCurrencyRates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "EUR": 0.92,
+                  "USD": 1.0
+                },
+                "schema": {}
+              }
+            },
+            "description": "Current exchange rates"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Refresh currency exchange rates (USD/EUR)",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/fetch_pricing/aws": {
+      "post": {
+        "description": "**Purpose:** Fetches current AWS pricing data and caches it locally for use in cost calculations.\n\n**When to use:**\n- Before running calculations if pricing data is stale (>7 days old)\n- When you need guaranteed fresh pricing data\n- After AWS announces pricing changes\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Requires valid AWS credentials in config_credentials.json\n- May take 30-60 seconds for a full refresh",
+        "operationId": "refreshAwsPricing",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "additional_debug",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Additional Debug",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force_fetch",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Fetch",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Pricing data (cached or freshly fetched)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Refresh AWS pricing data from Price List API",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/fetch_pricing/azure": {
+      "post": {
+        "description": "**Purpose:** Fetches current Azure pricing data and caches it locally.\n\n**When to use:**\n- Before running calculations if pricing data is stale\n- The Azure Retail Prices API is public - no credentials required\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- No authentication required (public API)",
+        "operationId": "refreshAzurePricing",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "additional_debug",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Additional Debug",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force_fetch",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Fetch",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Pricing data (cached or freshly fetched)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Refresh Azure pricing data from Retail Prices API",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/fetch_pricing/gcp": {
+      "post": {
+        "description": "**Purpose:** Fetches current Google Cloud pricing data and caches it locally.\n\n**When to use:**\n- Before running calculations if pricing data is stale (>7 days old)\n- Requires valid GCP service account credentials\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Requires gcp_credentials.json with Cloud Billing Catalog API access",
+        "operationId": "refreshGcpPricing",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "additional_debug",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Additional Debug",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force_fetch",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Fetch",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Pricing data (cached or freshly fetched)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Refresh GCP pricing data from Cloud Billing API",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/fetch_pricing_with_credentials/{provider}": {
+      "post": {
+        "description": "**Purpose:** Refresh pricing data using credentials from request body.\n\n**When to call:** Management API integration to refresh pricing with saved twin credentials.\n\n**Credentials:** AWS needs access keys; Azure uses public API; GCP needs service account JSON.",
+        "operationId": "fetchPricingWithCredentials",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force_fetch",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Force Fetch",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Pricing data fetched"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Fetch pricing using twin credentials",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/fetch_regions/aws": {
+      "post": {
+        "description": "**Purpose:** Fetches the current list of AWS regions and caches them locally.\n\n**When to use:**\n- To populate region selection dropdowns\n- Before calculating costs to ensure valid regions\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Returns map of region codes to display names",
+        "operationId": "refreshAwsRegions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "force_fetch",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Fetch",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "eu-west-1": "EU (Ireland)",
+                  "us-east-1": "US East (N. Virginia)"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Map of region codes to names"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Refresh list of available AWS regions",
+        "tags": [
+          "Regions"
+        ]
+      }
+    },
+    "/fetch_regions/azure": {
+      "post": {
+        "description": "**Purpose:** Fetches the current list of Azure regions and caches them locally.\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Returns map of region codes to display names",
+        "operationId": "refreshAzureRegions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "force_fetch",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Fetch",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "eastus": "East US",
+                  "westeurope": "West Europe"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Map of region codes to names"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Refresh list of available Azure regions",
+        "tags": [
+          "Regions"
+        ]
+      }
+    },
+    "/fetch_regions/gcp": {
+      "post": {
+        "description": "**Purpose:** Fetches the current list of GCP regions and caches them locally.\n\n**WARNING:** This operation takes 5-10 minutes due to GCP API pagination!\n\n**Behavior:**\n- Uses cached data if less than 30 days old (unless force_fetch=true)\n- Only force_fetch if absolutely necessary due to long runtime",
+        "operationId": "refreshGcpRegions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "force_fetch",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Fetch",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "europe-west1": "St. Ghislain, Belgium",
+                  "us-central1": "Council Bluffs, Iowa"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Map of region codes to names"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Refresh list of available GCP regions (SLOW: 5-10 minutes)",
+        "tags": [
+          "Regions"
+        ]
+      }
+    },
+    "/permissions/verify/aws": {
+      "get": {
+        "description": "Validates AWS credentials loaded from the config file. Checks: credentials present, STS GetCallerIdentity succeeds, and Pricing API access works.",
+        "operationId": "verifyAwsCredentialsFromConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "can_fetch_pricing": true,
+                  "config_present": true,
+                  "credentials_valid": true,
+                  "identity": {
+                    "account": "123456789012",
+                    "arn": "arn:aws:iam::123456789012:user/example"
+                  },
+                  "message": "AWS credentials are valid and can access Pricing API",
+                  "provider": "aws",
+                  "status": "valid"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Credential check result"
+          }
+        },
+        "summary": "Verify AWS permissions using project config credentials",
+        "tags": [
+          "Permissions - Project"
+        ]
+      },
+      "post": {
+        "description": "Validates AWS credentials provided in the request body. Does not use the config file.",
+        "operationId": "verifyAwsCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AWSCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify AWS permissions from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/permissions/verify/azure": {
+      "get": {
+        "description": "Validates Azure configuration loaded from the config file. Note: Azure Pricing API is publicly accessible, so credentials are not strictly required for pricing data. This endpoint validates that the configuration is properly formatted.",
+        "operationId": "verifyAzureCredentialsFromConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "can_fetch_pricing": true,
+                  "config_present": true,
+                  "credentials_valid": true,
+                  "identity": {
+                    "region": "westeurope",
+                    "subscription_id": "12345678-1234-1234-1234-123456789abc"
+                  },
+                  "message": "Azure configuration is valid. Note: Pricing API is publicly accessible.",
+                  "note": "Azure pricing API is publicly accessible - no authentication required",
+                  "provider": "azure",
+                  "status": "valid"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Credential check result"
+          }
+        },
+        "summary": "Verify Azure configuration using project config",
+        "tags": [
+          "Permissions - Project"
+        ]
+      },
+      "post": {
+        "description": "Validates Azure configuration provided in the request body. Note: Azure Pricing API is publicly accessible.",
+        "operationId": "verifyAzureCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AzureCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Azure configuration from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/permissions/verify/gcp": {
+      "get": {
+        "description": "Validates GCP service account credentials loaded from the config. Checks: credentials file exists, can load credentials, and Cloud Billing Catalog API access works.",
+        "operationId": "verifyGcpCredentialsFromConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "can_fetch_pricing": true,
+                  "config_present": true,
+                  "credentials_valid": true,
+                  "identity": {
+                    "project_id": "my-project",
+                    "service_account_email": "sa@my-project.iam.gserviceaccount.com"
+                  },
+                  "message": "GCP credentials are valid and can access Cloud Billing Catalog API",
+                  "provider": "gcp",
+                  "status": "valid"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Credential check result"
+          }
+        },
+        "summary": "Verify GCP permissions using project config credentials",
+        "tags": [
+          "Permissions - Project"
+        ]
+      },
+      "post": {
+        "description": "Validates GCP credentials using the file path provided in the request body.",
+        "operationId": "verifyGcpCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GCPCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify GCP permissions from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/pricing/export/{provider}": {
+      "get": {
+        "description": "**Purpose:** Returns the complete cached pricing data for a provider with metadata.\n\n**When to use:**\n- To capture exact pricing data used in a calculation for audit trail\n- To understand what pricing data is currently cached\n\n**Parameters:**\n- provider: 'aws', 'azure', or 'gcp'",
+        "operationId": "exportPricingSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "pricing": [
+                    "...full pricing object..."
+                  ],
+                  "provider": "aws",
+                  "updated_at": "2026-01-29T10:00:00Z"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Full pricing data with metadata"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export cached pricing data for audit/snapshot purposes",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/pricing/source_inventory": {
+      "get": {
+        "description": "Returns the pricing source governance contract used by the Optimizer. Management API and UI clients can use this to display which pricing fields are dynamic, static, derived, review-required, or unsupported.",
+        "operationId": "getPricingSourceInventory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingSourceInventoryResponse"
+                }
+              }
+            },
+            "description": "Pricing source inventory"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Return pricing source inventory and review state",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/pricing_age/aws": {
+      "get": {
+        "description": "**Purpose:** Check if AWS pricing data is fresh and valid before running calculations.\n\n**Use this to decide:** Should I call `refreshAwsPricing` before `calculateOptimalCloudDistribution`?\n\n**Response fields:**\n- `is_fresh`: true if data aged < 7 days\n- `status`: 'valid', 'incomplete', 'missing', or 'error'\n- `missing_keys`: service keys that are missing if incomplete",
+        "operationId": "getAwsPricingStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "age": "3 days",
+                  "is_fresh": true,
+                  "missing_keys": [],
+                  "status": "valid",
+                  "threshold_days": 7
+                },
+                "schema": {}
+              }
+            },
+            "description": "Pricing file status"
+          }
+        },
+        "summary": "Check age and validity of cached AWS pricing data",
+        "tags": [
+          "File Status"
+        ]
+      }
+    },
+    "/pricing_age/azure": {
+      "get": {
+        "description": "**Purpose:** Check if Azure pricing data is fresh and valid before running calculations.\n\n**Use this to decide:** Should I call `refreshAzurePricing` before `calculateOptimalCloudDistribution`?",
+        "operationId": "getAzurePricingStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "age": "1 day",
+                  "is_fresh": true,
+                  "missing_keys": [],
+                  "status": "valid",
+                  "threshold_days": 7
+                },
+                "schema": {}
+              }
+            },
+            "description": "Pricing file status"
+          }
+        },
+        "summary": "Check age and validity of cached Azure pricing data",
+        "tags": [
+          "File Status"
+        ]
+      }
+    },
+    "/pricing_age/gcp": {
+      "get": {
+        "description": "**Purpose:** Check if GCP pricing data is fresh and valid before running calculations.\n\n**Use this to decide:** Should I call `refreshGcpPricing` before `calculateOptimalCloudDistribution`?",
+        "operationId": "getGcpPricingStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "age": "5 days",
+                  "is_fresh": true,
+                  "missing_keys": [],
+                  "status": "valid",
+                  "threshold_days": 7
+                },
+                "schema": {}
+              }
+            },
+            "description": "Pricing file status"
+          }
+        },
+        "summary": "Check age and validity of cached GCP pricing data",
+        "tags": [
+          "File Status"
+        ]
+      }
+    },
+    "/regions_age/aws": {
+      "get": {
+        "description": "Returns the age and freshness of the local AWS regions cache.",
+        "operationId": "getAwsRegionsStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "age": "2 days",
+                  "is_fresh": true,
+                  "threshold_days": 7
+                },
+                "schema": {}
+              }
+            },
+            "description": "Regions file status"
+          }
+        },
+        "summary": "Check age of cached AWS regions data",
+        "tags": [
+          "File Status"
+        ]
+      }
+    },
+    "/regions_age/azure": {
+      "get": {
+        "description": "Returns the age and freshness of the local Azure regions cache.",
+        "operationId": "getAzureRegionsStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "age": "4 days",
+                  "is_fresh": true,
+                  "threshold_days": 7
+                },
+                "schema": {}
+              }
+            },
+            "description": "Regions file status"
+          }
+        },
+        "summary": "Check age of cached Azure regions data",
+        "tags": [
+          "File Status"
+        ]
+      }
+    },
+    "/regions_age/gcp": {
+      "get": {
+        "description": "Returns the age and freshness of the local GCP regions cache (30-day threshold).",
+        "operationId": "getGcpRegionsStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "age": "15 days",
+                  "is_fresh": true,
+                  "threshold_days": 30
+                },
+                "schema": {}
+              }
+            },
+            "description": "Regions file status"
+          }
+        },
+        "summary": "Check age of cached GCP regions data",
+        "tags": [
+          "File Status"
+        ]
+      }
+    },
+    "/stream/fetch_pricing/{provider}": {
+      "post": {
+        "description": "**Purpose:** Stream real-time logs during pricing data fetch via Server-Sent Events.\n\n**Event types:**\n- `log`: Progress message from pricing fetch operations\n- `heartbeat`: Keep-alive signal (every 10s during long operations)\n- `complete`: Pricing fetch completed successfully\n- `error`: An error occurred during fetch\n\n**Dual Output:** Logs appear in both SSE stream AND container logs.",
+        "operationId": "streamFetchPricing",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialRequest",
+                "default": {
+                  "aws_region": "eu-central-1",
+                  "gcp_region": "europe-west1"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "SSE stream of log events"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "SSE stream for pricing fetch with real-time logs",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/validate/optimizer-config": {
+      "post": {
+        "description": "**Purpose:** Validates that the optimizer configuration is complete and ready for state transition to the deployment phase.\n\n**When to use:**\n- Before transitioning from 'optimized' to 'ready_to_deploy' state\n- To verify user has completed all Step 2 configuration\n\n**Validation checks:**\n- `params`: Optimizer parameters must be present (device count, intervals, etc.)\n- `result`: Calculation result must be present (run the calculation first)\n- `result.cheapestPath`: The optimal provider path must be calculated\n\n**Returns:** `valid=true` if ready, or list of errors detailing what's missing.",
+        "operationId": "validateOptimizerConfiguration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizerConfigValidation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalid": {
+                    "value": {
+                      "errors": [
+                        {
+                          "code": "MISSING_RESULT",
+                          "field": "result",
+                          "message": "Run calculation first"
+                        }
+                      ],
+                      "valid": false
+                    }
+                  },
+                  "valid": {
+                    "value": {
+                      "errors": [],
+                      "valid": true
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResponse"
+                }
+              }
+            },
+            "description": "Validation result with any errors"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Validate optimizer configuration before deployment",
+        "tags": [
+          "Validation"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "Endpoints related to cloud cost calculation.",
+      "name": "Calculation"
+    },
+    {
+      "description": "Endpoints for fetching cloud service pricing data.",
+      "name": "Pricing"
+    },
+    {
+      "description": "Endpoints for fetching cloud regions.",
+      "name": "Regions"
+    },
+    {
+      "description": "Endpoints for checking the age of data files.",
+      "name": "File Status"
+    },
+    {
+      "description": "Verify cloud credentials from request body.",
+      "name": "Permissions - Upload"
+    },
+    {
+      "description": "Verify cloud credentials from project config.",
+      "name": "Permissions - Project"
+    },
+    {
+      "description": "Endpoints for validating optimizer configuration.",
+      "name": "Validation"
+    }
+  ]
+}

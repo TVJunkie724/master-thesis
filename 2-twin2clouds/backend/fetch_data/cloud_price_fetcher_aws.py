@@ -7,6 +7,12 @@ from typing import Dict, Any, Optional, List, Callable
 from backend.logger import logger
 import backend.constants as CONSTANTS
 import backend.config_loader as config_loader
+from backend.fetch_data.fetch_evidence import (
+    FieldMatchEvidence,
+    MatchStatus,
+    RejectedCandidate,
+    distinct_prices,
+)
 # from backend.fetch_data import initial_fetch_aws # No longer needed for global load
 
 # --------------------------------------------------------------------
@@ -182,14 +188,22 @@ def _fetch_api_products(pricing_client, service_code: str, region_human: str, us
         logger.debug(f"⚠️ Query failed for {service_code} ({'with' if with_location else 'without'} location): {e}")
         return []
 
-def _extract_prices_from_api_response(price_list: List[str], field_map: Dict[str, List[str]], include_keywords: List[str] = None, exclude_keywords: List[str] = None, debug: bool = False) -> Dict[str, float]:
+def _extract_prices_with_evidence(
+    price_list: List[str],
+    field_map: Dict[str, List[str]],
+    include_keywords: List[str] = None,
+    exclude_keywords: List[str] = None,
+    debug: bool = False,
+    *,
+    service_name: str = "unknown",
+) -> Dict[str, FieldMatchEvidence]:
     """
-    Parse the raw JSON response from AWS Pricing API to extract prices matching the field map.
+    Parse AWS Pricing API responses and return field-level match evidence.
     """
-    prices = {}
-    seen_pairs = set()
     include_keywords = include_keywords or []
     exclude_keywords = exclude_keywords or []
+    selected_rows: Dict[str, List[Dict[str, Any]]] = {key: [] for key in field_map}
+    rejected: Dict[str, List[RejectedCandidate]] = {key: [] for key in field_map}
 
     for prod_json in price_list:
         prod = json.loads(prod_json)
@@ -202,28 +216,85 @@ def _extract_prices_from_api_response(price_list: List[str], field_map: Dict[str
                 price = float(dim.get("pricePerUnit", {}).get("USD", 0))
                 
                 if price == 0:
+                    for key in field_map:
+                        rejected[key].append(RejectedCandidate("zero price", {"description": desc, "price": price}))
                     continue
 
                 # Check inclusion keywords
                 if include_keywords and not any(k in desc for k in include_keywords):
                     if debug: logger.debug(f"   ❌ No Match: {desc.strip()} {price}")
+                    for key in field_map:
+                        rejected[key].append(RejectedCandidate("include keyword mismatch", {"description": desc, "price": price}))
                     continue
                 
                 # Check exclusion keywords
                 if any(x in desc for x in exclude_keywords):
                     if debug: logger.debug(f"   ❌ Excluded: {desc.strip()} {price}")
+                    for key in field_map:
+                        rejected[key].append(RejectedCandidate("exclude keyword match", {"description": desc, "price": price}))
                     continue
 
                 # Check against field map
                 for key, patterns in field_map.items():
                     if any(p in desc for p in patterns):
-                        pair = (key, round(price, 12))
-                        if pair not in seen_pairs:
-                            prices[key] = price
-                            seen_pairs.add(pair)
-                            if debug: logger.debug(f"   ✔️ Matched:  {desc.strip()} → {key} = {price}")
+                        selected_rows[key].append({"description": desc.strip(), "price": price})
+                        if debug: logger.debug(f"   ✔️ Matched:  {desc.strip()} → {key} = {price}")
                         break # Stop checking other keys for this dimension
-    return prices
+
+    evidence = {}
+    for key, rows in selected_rows.items():
+        unique_prices = distinct_prices(rows, price_key="price")
+        if len(unique_prices) > 1:
+            evidence[key] = FieldMatchEvidence(
+                provider="aws",
+                service_name=service_name,
+                field_key=key,
+                status=MatchStatus.AMBIGUOUS,
+                rejected_candidates=tuple(rejected[key][:25]),
+                reason=f"Multiple paid candidates matched with distinct prices: {unique_prices}",
+            )
+            continue
+        if not rows:
+            evidence[key] = FieldMatchEvidence(
+                provider="aws",
+                service_name=service_name,
+                field_key=key,
+                status=MatchStatus.NO_MATCH,
+                rejected_candidates=tuple(rejected[key][:25]),
+                reason="No price dimension matched include, exclude, and field patterns.",
+            )
+            continue
+        selected = rows[0]
+        evidence[key] = FieldMatchEvidence(
+            provider="aws",
+            service_name=service_name,
+            field_key=key,
+            status=MatchStatus.SELECTED,
+            selected_row=selected,
+            selected_price=float(selected["price"]),
+            normalized_price=float(selected["price"]),
+            rejected_candidates=tuple(rejected[key][:25]),
+        )
+    return evidence
+
+
+def _extract_prices_from_api_response(price_list: List[str], field_map: Dict[str, List[str]], include_keywords: List[str] = None, exclude_keywords: List[str] = None, debug: bool = False) -> Dict[str, float]:
+    """
+    Parse the raw JSON response from AWS Pricing API to extract deterministic prices.
+    Ambiguous fields are omitted so callers can fall into review/fallback paths.
+    """
+    evidence = _extract_prices_with_evidence(
+        price_list,
+        field_map,
+        include_keywords=include_keywords,
+        exclude_keywords=exclude_keywords,
+        debug=debug,
+    )
+    return {
+        key: item.normalized_price
+        for key, item in evidence.items()
+        if item.status == MatchStatus.SELECTED and item.normalized_price is not None
+    }
 
 # -------------------------------------------------------------------
 # Specialized Fetchers

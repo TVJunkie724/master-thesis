@@ -6,6 +6,12 @@ import requests
 
 from backend.logger import logger
 import backend.config_loader as config_loader
+from backend.fetch_data.fetch_evidence import (
+    FieldMatchEvidence,
+    MatchStatus,
+    RejectedCandidate,
+    distinct_prices,
+)
 
 # -----------------------------------------------------------------------------
 # CONFIGURATION & CONSTANTS
@@ -176,11 +182,21 @@ def _sanitize_row(row: Dict[str, Any]) -> Dict[str, Any]:
     keep = {"productName", "meterName", "skuName", "unitOfMeasure", "unitPrice", "currencyCode", "serviceName"}
     return {k: v for k, v in row.items() if k in keep}
 
-def _find_best_match(rows: List[Dict[str, Any]], meter_kw: str, unit_kw: str, include_kw: List[str], debug: bool) -> Optional[Dict[str, Any]]:
-    """Find the best matching row based on keywords, prioritizing non-zero prices."""
+def _find_best_match_with_evidence(
+    rows: List[Dict[str, Any]],
+    meter_kw: str,
+    unit_kw: str,
+    include_kw: List[str],
+    debug: bool,
+    *,
+    field_key: str = "unknown",
+    service_name: str = "unknown",
+) -> FieldMatchEvidence:
+    """Find a matching row and return selected/rejected candidate evidence."""
     best_row = None
     best_price = None
     candidates = []
+    rejected = []
 
     for r in rows:
         product = (r.get("productName") or "").lower()
@@ -190,10 +206,18 @@ def _find_best_match(rows: List[Dict[str, Any]], meter_kw: str, unit_kw: str, in
         price = float(r.get("unitPrice", 0))
 
         # 1. Basic Filtering
-        if "reserved" in product: continue
-        if include_kw and not all(k.lower() in product for k in include_kw): continue 
-        if meter_kw.lower() not in meter: continue
-        if unit_kw.lower() not in unit: continue
+        if "reserved" in product:
+            rejected.append(RejectedCandidate("reserved product", _sanitize_row(r)))
+            continue
+        if include_kw and not all(k.lower() in product for k in include_kw):
+            rejected.append(RejectedCandidate("product include keyword mismatch", _sanitize_row(r)))
+            continue
+        if meter_kw.lower() not in meter:
+            rejected.append(RejectedCandidate("meter keyword mismatch", _sanitize_row(r)))
+            continue
+        if unit_kw.lower() not in unit:
+            rejected.append(RejectedCandidate("unit keyword mismatch", _sanitize_row(r)))
+            continue
         
         candidates.append(r)
 
@@ -210,7 +234,18 @@ def _find_best_match(rows: List[Dict[str, Any]], meter_kw: str, unit_kw: str, in
         elif price > 0 and price < best_price:
             best_row = r
             best_price = price
-            
+
+    unique_prices = distinct_prices(candidates)
+    if len(unique_prices) > 1:
+        return FieldMatchEvidence(
+            provider="azure",
+            service_name=service_name,
+            field_key=field_key,
+            status=MatchStatus.AMBIGUOUS,
+            rejected_candidates=tuple(rejected),
+            reason=f"Multiple paid candidates matched with distinct prices: {unique_prices}",
+        )
+
     if not best_row and debug:
          # Log why we didn't find a match if we expected one
          if candidates:
@@ -220,8 +255,41 @@ def _find_best_match(rows: List[Dict[str, Any]], meter_kw: str, unit_kw: str, in
          else:
              # If no candidates, we might want to know what we missed
              pass
-            
-    return best_row
+
+    if not best_row:
+        return FieldMatchEvidence(
+            provider="azure",
+            service_name=service_name,
+            field_key=field_key,
+            status=MatchStatus.NO_MATCH,
+            rejected_candidates=tuple(rejected[:25]),
+            reason="No candidate matched meter, unit, product, and reservation filters.",
+        )
+
+    return FieldMatchEvidence(
+        provider="azure",
+        service_name=service_name,
+        field_key=field_key,
+        status=MatchStatus.SELECTED,
+        selected_row=_sanitize_row(best_row),
+        selected_price=best_price,
+        source_unit=best_row.get("unitOfMeasure", ""),
+        rejected_candidates=tuple(rejected[:25]),
+    )
+
+
+def _find_best_match(rows: List[Dict[str, Any]], meter_kw: str, unit_kw: str, include_kw: List[str], debug: bool) -> Optional[Dict[str, Any]]:
+    """Find the best matching row based on keywords, returning None on ambiguity."""
+    evidence = _find_best_match_with_evidence(
+        rows,
+        meter_kw,
+        unit_kw,
+        include_kw,
+        debug,
+    )
+    if evidence.status != MatchStatus.SELECTED:
+        return None
+    return dict(evidence.selected_row)
 
 # -----------------------------------------------------------------------------
 # PRICE NORMALIZATION
@@ -333,7 +401,16 @@ def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Di
         # Try all combinations of meter/unit keywords
         for mk in m["meter_keywords"]:
             for uk in m["unit_keywords"]:
-                match = _find_best_match(rows, mk, uk, spec.get("include", []), debug)
+                evidence = _find_best_match_with_evidence(
+                    rows,
+                    mk,
+                    uk,
+                    spec.get("include", []),
+                    debug,
+                    field_key=key,
+                    service_name=neutral,
+                )
+                match = dict(evidence.selected_row) if evidence.status == MatchStatus.SELECTED else None
                 if match: break
             if match: break
             

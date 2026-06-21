@@ -56,8 +56,7 @@ class AWSCredentialsRequest(BaseModel):
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
-            "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
-            "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            "aws_access_key_id": "redacted",
             "aws_region": "eu-central-1"
         }
     })

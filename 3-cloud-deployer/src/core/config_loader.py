@@ -305,6 +305,13 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     )
 
 
+def load_providers_config(project_path: Path) -> Dict[str, Any]:
+    """Load only config_providers.json for preflight checks that do not need the full bundle."""
+    return normalize_provider_mapping(
+        _load_json_file(project_path / CONFIG_PROVIDERS_FILE, required=True)
+    )
+
+
 def load_deployment_manifest(project_path: Path) -> Dict[str, Any]:
     """
     Load optional deployment_manifest.json for manifest-backed runtime contexts.

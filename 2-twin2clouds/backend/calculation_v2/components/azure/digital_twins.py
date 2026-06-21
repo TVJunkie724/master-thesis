@@ -40,7 +40,8 @@ class AzureDigitalTwinsCalculator:
         operations_per_month: float,
         queries_per_month: float,
         messages_per_month: float,
-        pricing: Dict[str, Any]
+        pricing: Dict[str, Any],
+        query_units_per_query: float | None = None,
     ) -> float:
         """
         Calculate Azure Digital Twins monthly cost.
@@ -84,9 +85,14 @@ class AzureDigitalTwinsCalculator:
                 ("pricePer1kQueryUnits", 1_000),
             ),
         )
+        query_unit_weight = (
+            float(query_units_per_query)
+            if query_units_per_query is not None
+            else self._default_query_units_per_query(p)
+        )
         query_cost = action_based_cost(
             price_per_action=query_price,
-            num_actions=queries_per_month
+            num_actions=queries_per_month * query_unit_weight,
         )
         
         # Message cost (CM formula)
@@ -105,3 +111,14 @@ class AzureDigitalTwinsCalculator:
         )
         
         return operation_cost + query_cost + message_cost
+
+    @staticmethod
+    def _default_query_units_per_query(pricing: Dict[str, Any]) -> float:
+        tiers = pricing.get("queryUnitTiers") or []
+        if not tiers:
+            return 1.0
+        first_tier = min(
+            tiers,
+            key=lambda tier: float(tier.get("lower", 0) or 0),
+        )
+        return float(first_tier.get("value") or 1.0)

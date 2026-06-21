@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 from src.services.errors import CredentialResolutionFailed
-from src.utils.crypto import decrypt_scoped
+from src.utils.crypto import decrypt, decrypt_scoped
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,10 @@ class CredentialResolutionService:
             if errors:
                 raise self._failed_from_errors(errors)
             return self._build_provider_credentials(provider, payload, "cloud_connection", connection_id)
+
+        payload = self._legacy_twin_config_payload(config, user_id, getattr(twin, "id", ""), provider)
+        if payload is not None:
+            return self._build_provider_credentials(provider, payload, "legacy_twin_config", None)
 
         raise self._failed(
             errors,
@@ -302,6 +306,87 @@ class CredentialResolutionService:
             )
             return {}
         return parsed if isinstance(parsed, dict) else {}
+
+    def _legacy_twin_config_payload(
+        self,
+        config,
+        user_id: str,
+        twin_id: str,
+        provider: str,
+    ) -> dict[str, Any] | None:
+        """Read legacy encrypted twin credentials for migration compatibility only."""
+        try:
+            if provider == "aws":
+                has_legacy = any(
+                    getattr(config, field, None)
+                    for field in ("aws_access_key_id", "aws_secret_access_key")
+                )
+                if not has_legacy:
+                    return None
+                payload = {
+                    "aws_access_key_id": self._decrypt_optional(config.aws_access_key_id, user_id, twin_id),
+                    "aws_secret_access_key": self._decrypt_optional(config.aws_secret_access_key, user_id, twin_id),
+                    "aws_region": config.aws_region,
+                }
+                if config.aws_session_token:
+                    payload["aws_session_token"] = decrypt(config.aws_session_token, user_id, twin_id)
+                if config.aws_sso_region:
+                    payload["aws_sso_region"] = config.aws_sso_region
+                return payload
+
+            if provider == "azure":
+                has_legacy = any(
+                    getattr(config, field, None)
+                    for field in (
+                        "azure_subscription_id",
+                        "azure_tenant_id",
+                        "azure_client_id",
+                        "azure_client_secret",
+                    )
+                )
+                if not has_legacy:
+                    return None
+                azure_region = config.azure_region
+                return {
+                    "azure_subscription_id": self._decrypt_optional(config.azure_subscription_id, user_id, twin_id),
+                    "azure_tenant_id": self._decrypt_optional(config.azure_tenant_id, user_id, twin_id),
+                    "azure_client_id": self._decrypt_optional(config.azure_client_id, user_id, twin_id),
+                    "azure_client_secret": self._decrypt_optional(config.azure_client_secret, user_id, twin_id),
+                    "azure_region": azure_region,
+                    "azure_region_iothub": config.azure_region_iothub or azure_region,
+                    "azure_region_digital_twin": config.azure_region_digital_twin or azure_region,
+                }
+
+            has_legacy = any(
+                getattr(config, field, None)
+                for field in ("gcp_project_id", "gcp_billing_account", "gcp_service_account_json")
+            )
+            if not has_legacy:
+                return None
+            return {
+                "gcp_project_id": config.gcp_project_id,
+                "gcp_billing_account": self._decrypt_optional(config.gcp_billing_account, user_id, twin_id),
+                "gcp_region": config.gcp_region,
+                "gcp_credentials_file": self._decrypt_optional(config.gcp_service_account_json, user_id, twin_id),
+            }
+        except ValueError as exc:
+            logger.warning(
+                "Legacy twin credential resolution failed for provider %s: %s",
+                provider,
+                type(exc).__name__,
+            )
+            raise self._failed(
+                [],
+                provider,
+                "INVALID_LEGACY_CREDENTIAL_PAYLOAD",
+                "Legacy twin credential payload cannot be decrypted",
+            ) from exc
+
+    @staticmethod
+    def _decrypt_optional(ciphertext: str | None, user_id: str, twin_id: str) -> str | None:
+        if not ciphertext:
+            return None
+        return decrypt(ciphertext, user_id, twin_id)
 
     def _deployment_providers(self, twin, required_providers: set[str] | None) -> list[str]:
         selected_providers = required_providers or self.required_providers_from_optimizer(

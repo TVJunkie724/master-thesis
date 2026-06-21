@@ -11,6 +11,8 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import httpx
 
 from tests.conftest import create_test_twin
+from src.models.optimizer_config import OptimizerConfiguration
+from src.models.twin import DigitalTwin, TwinState
 
 
 class TestCanRedeploy:
@@ -120,3 +122,30 @@ class TestCanRedeploy:
         
         assert response.status_code == 200
         assert isinstance(response.json()["remaining_seconds"], int)
+
+    @pytest.mark.asyncio
+    async def test_gcp_firestore_twin_proxies_cooldown_check(self, auth_client, db, test_twin):
+        """GCP L3 hot twins with destroyed_at use the Deployer cooldown check."""
+        test_twin.state = TwinState.DESTROYED
+        test_twin.destroyed_at = datetime.utcnow() - timedelta(minutes=1)
+        db.add(
+            OptimizerConfiguration(
+                twin_id=test_twin.id,
+                cheapest_l3_hot="GCP",
+            )
+        )
+        db.commit()
+
+        async def fake_check_cooldown(self, destroyed_at, uses_gcp_firestore):
+            assert destroyed_at == test_twin.destroyed_at
+            assert uses_gcp_firestore is True
+            return {"ready": False, "remaining_seconds": 111}
+
+        with patch(
+            "src.clients.deployer_client.DeployerClient.check_cooldown",
+            new=fake_check_cooldown,
+        ):
+            response = auth_client.get(f"/twins/{test_twin.id}/can-redeploy")
+
+        assert response.status_code == 200
+        assert response.json() == {"ready": False, "remaining_seconds": 111}

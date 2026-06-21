@@ -13,12 +13,13 @@ from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from starlette.requests import Request
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
+from typing import Dict, List, Optional
 
 from backend.logger import logger
 from backend.utils import is_file_fresh
 from backend.config_loader import load_json_file
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
+from backend.calculation_v2.pricing_source_inventory import pricing_source_inventory
 from backend.sse_utils import ThreadSafeSseHandler, emit_sse
 import backend.constants as CONSTANTS
 from api.error_models import ERROR_RESPONSES
@@ -56,6 +57,110 @@ def _pricing_error_detail(
         "fix_suggestion": fix_suggestion,
         "http_status": http_status,
     }
+
+
+class PricingSourceRecordResponse(BaseModel):
+    record_id: str
+    intent_id: str
+    provider: str
+    layer: str
+    service_key: str
+    field_id: str
+    key_path: List[str]
+    aliases: List[List[str]]
+    canonical_unit: str
+    source_unit: str
+    quantity_basis: str
+    normalizer: Optional[str]
+    primary_source_type: str
+    refreshability: str
+    failure_behavior: str
+    evidence: str
+    review_state: str
+    emergency_fallback_source_type: Optional[str]
+    emergency_fallback_allowed: bool
+
+
+class PricingSourceInventoryResponse(BaseModel):
+    schema_version: str = "pricing-source-inventory.v1"
+    objective: str = "cost"
+    provider: Optional[str] = None
+    summary: Dict[str, int]
+    records: List[PricingSourceRecordResponse]
+
+
+def _review_state(record: Dict[str, object]) -> str:
+    failure_behavior = record["failure_behavior"]
+    if failure_behavior == "mark_unsupported":
+        return "unsupported"
+    if failure_behavior == "require_review":
+        return "review_required"
+    if failure_behavior in {"reject_field", "use_reviewed_decision", "derive_from_usage_model"}:
+        return "ready"
+    return "failed"
+
+
+def _summarize_records(records: List[Dict[str, object]]) -> Dict[str, int]:
+    summary = {
+        "total": len(records),
+        "ready": 0,
+        "review_required": 0,
+        "unsupported": 0,
+        "failed": 0,
+    }
+    for record in records:
+        summary[_review_state(record)] += 1
+    return summary
+
+
+@router.get(
+    "/pricing/source_inventory",
+    operation_id="getPricingSourceInventory",
+    response_model=PricingSourceInventoryResponse,
+    summary="Return pricing source inventory and review state",
+    description=(
+        "Returns the pricing source governance contract used by the Optimizer. "
+        "Management API and UI clients can use this to display which pricing "
+        "fields are dynamic, static, derived, review-required, or unsupported."
+    ),
+    responses={
+        200: {"description": "Pricing source inventory"},
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
+    },
+)
+def get_pricing_source_inventory(provider: Optional[str] = None):
+    allowed_providers = {"aws", "azure", "gcp"}
+    normalized_provider = provider.lower() if provider else None
+    if normalized_provider and normalized_provider not in allowed_providers:
+        raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
+
+    try:
+        records = [record.as_dict() for record in pricing_source_inventory()]
+        if normalized_provider:
+            records = [
+                record
+                for record in records
+                if record["provider"] == normalized_provider
+            ]
+        for record in records:
+            record["review_state"] = _review_state(record)
+
+        return {
+            "schema_version": "pricing-source-inventory.v1",
+            "objective": "cost",
+            "provider": normalized_provider,
+            "summary": _summarize_records(records),
+            "records": records,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error building pricing source inventory: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to build pricing source inventory. Check server logs.",
+        )
 
 
 # --------------------------------------------------

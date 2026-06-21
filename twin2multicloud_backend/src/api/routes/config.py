@@ -1,34 +1,69 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-import httpx
 
 from src.models.database import get_db
-from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin_config import (
     TwinConfigUpdate, TwinConfigResponse, CredentialValidationResult,
     InlineValidationRequest
 )
-from src.config import settings
-from src.services.twin_helpers import get_user_twin
+from src.schemas.management_contracts import DualCredentialValidationResponse
+from src.repositories.twin_repository import TwinRepository
 from src.services.cloud_credential_validation_service import perform_dual_validation
 from src.services.credential_resolution_service import CredentialResolutionService
+from src.services.credential_validation_service import CredentialValidationService
 from src.services.errors import CredentialResolutionFailed
-from src.services.wizard_configuration_service import WizardConfigurationService
+from src.services.service_errors import EntityNotFoundError, ValidationError
+from src.services.twin_configuration_service import TwinConfigurationService
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
 inline_router = APIRouter(prefix="/config", tags=["configuration"])
 
 
-def _credential_resolution_detail(exc: CredentialResolutionFailed) -> dict:
+def _twin_configuration_service(db: Session) -> TwinConfigurationService:
+    """Build the twin configuration service for this request."""
+    return TwinConfigurationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _credential_validation_service(db: Session) -> CredentialValidationService:
+    """Build the credential validation service for this request."""
+    return CredentialValidationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _raise_service_http_error(exc: Exception) -> None:
+    """Map typed service errors to the existing configuration HTTP contract."""
+    if isinstance(exc, EntityNotFoundError):
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if isinstance(exc, ValidationError):
+        raise HTTPException(status_code=400, detail=getattr(exc, "detail", None) or str(exc)) from exc
+    raise exc
+
+
+def _credential_resolution_failed_detail(exc: CredentialResolutionFailed) -> dict:
     return {
         "code": "CREDENTIAL_RESOLUTION_FAILED",
         "message": exc.message,
         "errors": exc.errors,
     }
 
+
+async def _perform_dual_validation(
+    provider: str,
+    optimizer_creds: dict,
+    deployer_creds: dict,
+) -> dict:
+    return await perform_dual_validation(provider, optimizer_creds, deployer_creds)
+
+
+def _set_provider_validated(config, provider: str, valid: bool) -> None:
+    if provider == "aws":
+        config.aws_validated = valid
+    elif provider == "azure":
+        config.azure_validated = valid
+    elif provider == "gcp":
+        config.gcp_validated = valid
 
 
 @router.get(
@@ -37,15 +72,15 @@ def _credential_resolution_detail(exc: CredentialResolutionFailed) -> dict:
     operation_id="getTwinConfig",
     summary="Get configuration for a twin",
     description=(
-        "**Purpose:** Retrieve CloudConnection bindings and validation status for Step 1 (Credentials) screen.\n\n"
-        "**When to call:** When loading Step 1 to show selected CloudConnections and validation indicators.\n\n"
+        "**Purpose:** Retrieve cloud provider credentials and validation status for Step 1 (Credentials) screen.\n\n"
+        "**When to call:** When loading Step 1 to show saved credentials (masked) and validation indicators.\n\n"
         "**Response fields:**\n"
-        "- `{provider}_cloud_connection_id`: selected provider CloudConnection id\n"
-        "- `cloud_connections`: secret-safe summaries of bound CloudConnections\n"
-        "- `{provider}_configured`: whether a usable CloudConnection is bound\n"
+        "- `aws`: Object with masked credentials, region, and `validated` boolean\n"
+        "- `azure`: Object with masked credentials, region, and `validated` boolean\n"
+        "- `gcp`: Object with masked credentials, region, and `validated` boolean\n"
         "- `debug_mode`: Whether debug logging is enabled\n"
         "- `highest_step_reached`: Wizard progress indicator (1-5)\n\n"
-        "**Note:** Creates empty config if none exists. Secrets are never returned."
+        "**Note:** Creates empty config if none exists. Credentials are masked in response."
     ),
     responses={
         401: ERROR_RESPONSES[401],
@@ -58,17 +93,10 @@ async def get_config(
     current_user: User = Depends(get_current_user)
 ):
     """Get configuration for a twin. Creates default if none exists."""
-    twin = await get_user_twin(twin_id, current_user, db)
-    
-    if not twin.configuration:
-        config = TwinConfiguration(twin_id=twin_id)
-        db.add(config)
-        db.commit()
-        db.refresh(config)
-    else:
-        config = twin.configuration
-    
-    return TwinConfigResponse.from_db(config, twin.optimizer_config, twin_state=twin.state.value)
+    try:
+        return _twin_configuration_service(db).get_config(twin_id=twin_id, user_id=current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
 
 
 @router.put(
@@ -77,14 +105,15 @@ async def get_config(
     operation_id="updateTwinConfig",
     summary="Update configuration for a twin",
     description=(
-        "**Purpose:** Save CloudConnection bindings and non-secret configuration for a Digital Twin.\n\n"
-        "**When to call:** When user selects/unbinds CloudConnections or saves wizard progress.\n\n"
+        "**Purpose:** Save cloud provider credentials and configuration for a Digital Twin.\n\n"
+        "**When to call:** When user saves credentials in Step 1, or when auto-saving on field blur.\n\n"
         "**Request body fields:**\n"
-        "- `cloud_connections`: {aws, azure, gcp} CloudConnection ids or nulls\n"
-        "- `aws`/`azure`/`gcp`: null clears that provider; direct credential storage is disabled\n"
+        "- `aws`: {access_key_id, secret_access_key, region, session_token(optional)}\n"
+        "- `azure`: {subscription_id, client_id, client_secret, tenant_id, region}\n"
+        "- `gcp`: {project_id, billing_account, service_account_json, region}\n"
         "- `debug_mode`: Enable verbose logging for deployment\n"
         "- `highest_step_reached`: Track wizard progress\n\n"
-        "**Security:** Provider secrets are stored only in user-scoped CloudConnections.\n\n"
+        "**Security:** Credentials are encrypted with user+twin-specific key before storage.\n\n"
         "**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n"
         "**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT."
     ),
@@ -104,32 +133,27 @@ async def update_config(
     Update configuration for a twin.
     Credentials are ENCRYPTED with user+twin-specific key.
     """
-    twin = await get_user_twin(twin_id, current_user, db)
-    config = WizardConfigurationService(db).apply_twin_config_update(
-        twin,
-        update,
-        current_user.id,
-    )
-    
-    db.commit()
-    db.refresh(config)
-    db.refresh(twin)
-
-    # Include twin_state in response for frontend sync
-    return TwinConfigResponse.from_db(config, twin.optimizer_config, twin_state=twin.state.value)
+    try:
+        return _twin_configuration_service(db).update_config(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            update=update,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.post(
     "/validate/{provider}",
     response_model=CredentialValidationResult,
     operation_id="validateStoredCredentials",
-    summary="Validate bound CloudConnection via Deployer API",
+    summary="Validate stored credentials via Deployer API",
     description=(
-        "**Purpose:** Validate credentials from a bound CloudConnection via Deployer API.\n\n"
-        "**When to call:** When user clicks Validate button for a selected CloudConnection.\n\n"
+        "**Purpose:** Validate credentials that were previously saved to the twin configuration.\n\n"
+        "**When to call:** When user clicks Validate button and credentials are already saved (masked in UI).\n\n"
         "**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n"
         "**Flow:**\n"
-        "1. Decrypts the bound CloudConnection payload\n"
+        "1. Decrypts stored credentials using user+twin-specific key\n"
         "2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n"
         "3. Updates `{provider}_validated` flag in database\n"
         "4. Returns validation result (credentials never exposed to client)\n\n"
@@ -154,71 +178,14 @@ async def validate_credentials(
     Validate credentials by calling the Deployer API.
     DECRYPTS credentials with user+twin-specific key, sends to Deployer, never exposes to client.
     """
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
-    
-    twin = await get_user_twin(twin_id, current_user, db)
-    config = twin.configuration
-    
-    if not config:
-        raise HTTPException(status_code=400, detail="No configuration found. Save credentials first.")
-    
     try:
-        credentials = CredentialResolutionService().resolve_provider_credentials(
-            twin,
-            current_user.id,
-            provider,
-        ).deployer_validation_payload
-    except CredentialResolutionFailed as exc:
-        raise HTTPException(status_code=400, detail=_credential_resolution_detail(exc)) from exc
-    
-    # Call Deployer API
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
-                json=credentials,
-                timeout=30.0
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                valid = result.get("valid", False)
-                
-                # Update validation status in DB
-                if provider == "aws":
-                    config.aws_validated = valid
-                elif provider == "azure":
-                    config.azure_validated = valid
-                elif provider == "gcp":
-                    config.gcp_validated = valid
-                
-                db.commit()
-                
-                return CredentialValidationResult(
-                    provider=provider,
-                    valid=valid,
-                    message=result.get("message", "Validation complete"),
-                    permissions=result.get("missing_permissions")
-                )
-            else:
-                return CredentialValidationResult(
-                    provider=provider,
-                    valid=False,
-                    message=f"Deployer API error: {response.status_code}"
-                )
-    except httpx.ConnectError:
-        return CredentialValidationResult(
+        return await _credential_validation_service(db).validate_stored_with_deployer(
+            twin_id=twin_id,
+            user_id=current_user.id,
             provider=provider,
-            valid=False,
-            message="Cannot connect to Deployer API. Is it running on port 5004?"
         )
-    except httpx.RequestError as e:
-        return CredentialValidationResult(
-            provider=provider,
-            valid=False,
-            message=f"Request error: {str(e)}"
-        )
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 @inline_router.post(
@@ -245,6 +212,7 @@ async def validate_credentials(
 )
 async def validate_credentials_inline(
     request: InlineValidationRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -253,55 +221,14 @@ async def validate_credentials_inline(
     Credentials are sent directly to Deployer API, never stored.
     """
     try:
-        resolved = CredentialResolutionService().resolve_plaintext_credentials(
-            request.provider,
-            getattr(request, request.provider, None),
-        )
-    except CredentialResolutionFailed as exc:
-        raise HTTPException(status_code=400, detail=_credential_resolution_detail(exc)) from exc
-
-    provider = resolved.provider
-    credentials = resolved.deployer_validation_payload
-    
-    # Call Deployer API
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
-                json=credentials,
-                timeout=30.0
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return CredentialValidationResult(
-                    provider=provider,
-                    valid=result.get("valid", False),
-                    message=result.get("message", "Validation complete"),
-                    permissions=result.get("missing_permissions")
-                )
-            else:
-                return CredentialValidationResult(
-                    provider=provider,
-                    valid=False,
-                    message=f"Deployer API error: {response.status_code}"
-                )
-    except httpx.ConnectError:
-        return CredentialValidationResult(
-            provider=provider,
-            valid=False,
-            message="Cannot connect to Deployer API"
-        )
-    except httpx.RequestError as e:
-        return CredentialValidationResult(
-            provider=provider,
-            valid=False,
-            message=f"Request error: {str(e)}"
-        )
+        return await _credential_validation_service(db).validate_inline_with_deployer(request)
+    except ValidationError as exc:
+        _raise_service_http_error(exc)
 
 
 @inline_router.post(
     "/validate-dual",
+    response_model=DualCredentialValidationResponse,
     operation_id="validateCredentialsDual",
     summary="Validate against both Optimizer and Deployer APIs",
     description=(
@@ -322,6 +249,7 @@ async def validate_credentials_inline(
 )
 async def validate_credentials_dual(
     request: InlineValidationRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -331,31 +259,33 @@ async def validate_credentials_dual(
     Returns separate results for each.
     """
     try:
+        provider = request.provider.lower()
         resolved = CredentialResolutionService().resolve_plaintext_credentials(
-            request.provider,
-            getattr(request, request.provider, None),
+            provider,
+            getattr(request, provider, None),
+        )
+        return await _perform_dual_validation(
+            provider,
+            resolved.optimizer_payload,
+            resolved.deployer_validation_payload,
         )
     except CredentialResolutionFailed as exc:
-        raise HTTPException(status_code=400, detail=_credential_resolution_detail(exc)) from exc
-
-    provider = resolved.provider
-    optimizer_creds = resolved.optimizer_payload
-    deployer_creds = resolved.deployer_validation_payload
-
-    # Use shared helper
-    return await _perform_dual_validation(provider, optimizer_creds, deployer_creds)
+        raise HTTPException(status_code=400, detail=_credential_resolution_failed_detail(exc)) from exc
+    except ValidationError as exc:
+        _raise_service_http_error(exc)
 
 
 @router.post(
     "/validate-stored/{provider}",
+    response_model=DualCredentialValidationResponse,
     operation_id="validateStoredCredentialsDual",
-    summary="Validate bound CloudConnection against both APIs",
+    summary="Validate stored credentials against both APIs",
     description=(
-        "**Purpose:** Same as `validateCredentialsDual` but uses the bound CloudConnection.\n\n"
-        "**When to call:** When user clicks Validate for a selected CloudConnection.\n\n"
+        "**Purpose:** Same as `validateCredentialsDual` but uses credentials already stored in database.\n\n"
+        "**When to call:** When user clicks Validate and credentials are masked (already saved previously).\n\n"
         "**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n"
         "**Flow:**\n"
-        "1. Decrypts the bound CloudConnection payload\n"
+        "1. Decrypts stored credentials using user+twin-specific key\n"
         "2. Validates against Optimizer API (pricing permissions)\n"
         "3. Validates against Deployer API (infrastructure permissions)\n"
         "4. Updates `{provider}_validated` flag based on combined result\n\n"
@@ -377,45 +307,28 @@ async def validate_stored_credentials_dual(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Validate bound CloudConnection credentials against BOTH Optimizer and Deployer APIs.
+    Validate STORED credentials against BOTH Optimizer and Deployer APIs.
+    Used when frontend fields are empty (hidden secrets).
     """
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
-    
-    twin = await get_user_twin(twin_id, current_user, db)
-    config = twin.configuration
-    
-    if not config:
-        raise HTTPException(status_code=400, detail="No configuration found.")
-    
     try:
+        provider = provider.lower()
+        twin = TwinRepository(db).get_for_user(twin_id, current_user.id)
+        if not twin:
+            raise EntityNotFoundError("Twin not found")
         resolved = CredentialResolutionService().resolve_provider_credentials(
             twin,
             current_user.id,
             provider,
         )
+        result = await _perform_dual_validation(
+            provider,
+            resolved.optimizer_payload,
+            resolved.deployer_validation_payload,
+        )
+        _set_provider_validated(twin.configuration, provider, result.get("valid", False))
+        db.commit()
+        return result
     except CredentialResolutionFailed as exc:
-        raise HTTPException(status_code=400, detail=_credential_resolution_detail(exc)) from exc
-
-    optimizer_creds = resolved.optimizer_payload
-    deployer_creds = resolved.deployer_validation_payload
-
-    # Use shared helper
-    result = await _perform_dual_validation(provider, optimizer_creds, deployer_creds)
-    
-    # Update validation status in DB
-    valid = result.get("valid", False)
-    if provider == "aws":
-        config.aws_validated = valid
-    elif provider == "azure":
-        config.azure_validated = valid
-    elif provider == "gcp":
-        config.gcp_validated = valid
-    db.commit()
-    
-    return result
-
-
-async def _perform_dual_validation(provider: str, optimizer_creds: dict, deployer_creds: dict) -> dict:
-    """Helper to call both APIs in parallel."""
-    return await perform_dual_validation(provider, optimizer_creds, deployer_creds)
+        raise HTTPException(status_code=400, detail=_credential_resolution_failed_detail(exc)) from exc
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)

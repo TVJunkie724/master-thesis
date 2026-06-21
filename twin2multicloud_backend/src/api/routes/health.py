@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.models.database import get_db
+from src.schemas.management_contracts import HealthResponse
 
 router = APIRouter(tags=["health"])
 
 @router.get(
     "/health",
+    response_model=HealthResponse,
     operation_id="healthCheck",
     summary="Health check endpoint",
     description="Returns API and database connection status."

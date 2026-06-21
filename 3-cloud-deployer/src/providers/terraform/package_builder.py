@@ -47,8 +47,8 @@ BUILD_DIR = ".build"
 
 
 def _compute_content_hash(data: bytes) -> str:
-    """Compute short MD5 hash of bytes for content-based versioning."""
-    return hashlib.md5(data).hexdigest()[:16]
+    """Compute a short SHA-256 hash for content-based package versioning."""
+    return hashlib.sha256(data).hexdigest()[:16]
 
 
 def _clean_old_versioned_zips(build_dir: Path, prefix: str) -> None:
@@ -1166,5 +1166,4 @@ def get_user_package_path(project_path: Path, function_name: str, provider: str)
         Path to the ZIP file
     """
     return project_path / ".build" / provider / f"{function_name}.zip"
-
 

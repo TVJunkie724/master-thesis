@@ -185,7 +185,7 @@ def _load_yaml_document(path: Path) -> dict[str, Any]:
         raise PricingRegistryError([f"{path}: missing registry file"])
     try:
         with path.open("r", encoding="utf-8") as handle:
-            loaded = yaml.load(handle, Loader=_UniqueKeyLoader)
+            loaded = yaml.load(handle, Loader=_UniqueKeyLoader)  # nosec B506
     except PricingRegistryError:
         raise
     except yaml.YAMLError as exc:
