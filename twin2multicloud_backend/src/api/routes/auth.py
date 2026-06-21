@@ -18,7 +18,7 @@ from src.models.user import User
 from src.auth.providers.google import GoogleOAuth
 from src.auth.providers.saml import UIBKSAMLProvider, is_saml_available
 from src.auth.jwt import create_access_token
-from src.schemas.auth import TokenResponse
+from src.schemas.management_contracts import AuthProvidersResponse, AuthUrlResponse, CurrentUserResponse
 from src.api.dependencies import get_current_user
 from src.config import settings
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -35,6 +35,7 @@ oauth_states: dict[str, str] = {}
 
 @router.get(
     "/google/login",
+    response_model=AuthUrlResponse,
     operation_id="initiateGoogleLogin",
     summary="Initiate Google OAuth flow",
     description="Returns auth_url to redirect user to Google for authentication."
@@ -104,6 +105,7 @@ async def google_callback(
 
 @router.get(
     "/uibk/login",
+    response_model=AuthUrlResponse,
     operation_id="initiateUibkLogin",
     summary="Initiate UIBK SAML SSO flow",
     description=(
@@ -267,7 +269,7 @@ async def uibk_metadata():
 
 @router.get(
     "/me", 
-    response_model=dict,
+    response_model=CurrentUserResponse,
     operation_id="getCurrentUser",
     summary="Get current authenticated user details",
     responses={
@@ -282,7 +284,7 @@ async def get_me(
 
 @router.patch(
     "/me", 
-    response_model=dict,
+    response_model=CurrentUserResponse,
     operation_id="updateCurrentUser",
     summary="Update current user preferences",
     description="Updates user preferences like theme_preference (light/dark).",
@@ -325,6 +327,7 @@ def _build_user_response(user: User) -> dict:
 
 @router.get(
     "/providers",
+    response_model=AuthProvidersResponse,
     operation_id="getAvailableAuthProviders",
     summary="Get list of available authentication providers",
     description="Returns which auth methods are enabled (google, uibk)."
@@ -335,4 +338,3 @@ async def get_available_providers():
     if settings.SAML_ENABLED and is_saml_available():
         providers.append("uibk")
     return {"providers": providers}
-

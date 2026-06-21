@@ -8,6 +8,7 @@ from src.models.database import get_db
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_config import (
+    CheapestPathResponse,
     OptimizerConfigResponse,
     OptimizerParamsUpdate,
     OptimizerResultUpdate,
@@ -126,6 +127,7 @@ async def save_result(
 
 @router.get(
     "/cheapest-path",
+    response_model=CheapestPathResponse,
     operation_id="getCheapestPath",
     summary="Get cheapest path only for deployment logic",
     description=(

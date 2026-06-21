@@ -21,6 +21,10 @@ from src.schemas.deployer_config import (
     ConfigValidationRequest,
     ConfigValidationResponse,
 )
+from src.schemas.management_contracts import (
+    MessageResponse,
+    SceneGlbUploadResponse,
+)
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployer_config_validation_service import DeployerConfigValidationService
 from src.services.deployer_configuration_service import DeployerConfigurationService
@@ -199,6 +203,7 @@ async def validate_config(
 # ==========================================
 @router.post(
     "/upload-glb",
+    response_model=SceneGlbUploadResponse,
     operation_id="uploadSceneGlb",
     summary="Upload 3D scene GLB file",
     description=(
@@ -242,6 +247,7 @@ async def upload_scene_glb(
 
 @router.delete(
     "/upload-glb",
+    response_model=MessageResponse,
     operation_id="deleteSceneGlb",
     summary="Delete 3D scene GLB file",
     description=(

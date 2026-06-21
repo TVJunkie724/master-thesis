@@ -25,6 +25,14 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin import TwinCreate, TwinUpdate, TwinResponse
+from src.schemas.management_contracts import (
+    DeploymentHistoryResponse,
+    DeploymentOutputsResponse,
+    DeploymentStatusResponse,
+    MessageResponse,
+    OperationSessionResponse,
+    RedeployReadinessResponse,
+)
 from src.config import settings
 from src.clients.deployer_client import DeployerClient
 from src.repositories.deployment_repository import DeploymentRepository
@@ -373,6 +381,7 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
 
 @router.delete(
     "/{twin_id}",
+    response_model=MessageResponse,
     operation_id="deleteDigitalTwin",
     summary="Soft-delete a digital twin",
     description=(
@@ -408,6 +417,7 @@ async def delete_twin(
 
 @router.get(
     "/{twin_id}/can-redeploy",
+    response_model=RedeployReadinessResponse,
     operation_id="checkRedeploymentCooldown",
     summary="Check if twin can be redeployed",
     description=(
@@ -448,6 +458,7 @@ async def can_redeploy(
 
 @router.post(
     "/{twin_id}/deploy",
+    response_model=OperationSessionResponse,
     operation_id="deployDigitalTwin",
     summary="Deploy twin infrastructure to cloud providers",
     description=(
@@ -503,6 +514,7 @@ async def deploy_twin(
 
 @router.post(
     "/{twin_id}/destroy",
+    response_model=OperationSessionResponse,
     operation_id="destroyDigitalTwinInfrastructure",
     summary="Destroy twin's deployed cloud infrastructure",
     description=(
@@ -556,6 +568,7 @@ async def destroy_twin_infrastructure(
 
 @router.get(
     "/{twin_id}/deployment-status",
+    response_model=DeploymentStatusResponse,
     operation_id="getDigitalTwinDeploymentStatus",
     summary="Get current deployment status",
     description=(
@@ -596,6 +609,7 @@ async def get_deployment_status(
 
 @router.get(
     "/{twin_id}/outputs",
+    response_model=DeploymentOutputsResponse,
     operation_id="getDigitalTwinTerraformOutputs",
     summary="Get Terraform outputs from most recent deployment",
     description=(
@@ -630,6 +644,7 @@ async def get_deployment_outputs(
 
 @router.get(
     "/{twin_id}/deployments",
+    response_model=DeploymentHistoryResponse,
     operation_id="getDigitalTwinDeploymentHistory",
     summary="Get deployment history for a twin",
     description=(

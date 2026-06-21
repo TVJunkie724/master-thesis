@@ -8,6 +8,7 @@ from src.schemas.twin_config import (
     TwinConfigUpdate, TwinConfigResponse, CredentialValidationResult,
     InlineValidationRequest
 )
+from src.schemas.management_contracts import DualCredentialValidationResponse
 from src.repositories.twin_repository import TwinRepository
 from src.services.credential_validation_service import CredentialValidationService
 from src.services.service_errors import EntityNotFoundError, ValidationError
@@ -199,6 +200,7 @@ async def validate_credentials_inline(
 
 @inline_router.post(
     "/validate-dual",
+    response_model=DualCredentialValidationResponse,
     operation_id="validateCredentialsDual",
     summary="Validate against both Optimizer and Deployer APIs",
     description=(
@@ -236,6 +238,7 @@ async def validate_credentials_dual(
 
 @router.post(
     "/validate-stored/{provider}",
+    response_model=DualCredentialValidationResponse,
     operation_id="validateStoredCredentialsDual",
     summary="Validate stored credentials against both APIs",
     description=(
