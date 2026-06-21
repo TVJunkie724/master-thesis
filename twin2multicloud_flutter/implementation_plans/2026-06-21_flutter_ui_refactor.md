@@ -4,7 +4,7 @@ date: "2026-06-21"
 branch: "codex/flutter-ui-refactor"
 base: "origin/codex/optimizer-finish"
 issues: [38, 72, 73, 33, 100]
-status: "in_progress"
+status: "complete"
 ---
 
 # Flutter UI Refactor Roadmap
@@ -253,6 +253,15 @@ Implementation Notes:
 
 ## Phase 6 - Final Quality Gate and Documentation Update
 
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Full `flutter test` passed.
+- `flutter build web --dart-define-from-file=config/dev.json` passed.
+- `flutter build macos --debug --dart-define-from-file=config/dev.json`
+  passed.
+
 ### Scope
 
 - Run full Flutter verification.
@@ -267,3 +276,19 @@ Implementation Notes:
 - `flutter build macos --debug` passes.
 - Issues #38, #72, #73, #33, and #100 are updated with what was completed and
   what remains intentionally deferred.
+
+Implementation Notes:
+- Flutter UI now has typed dashboard/pricing/review model boundaries, a
+  dashboard-owned Pricing Review entry, a split Twin Overview presentation
+  layer, a focused Step 2 optimizer screen, and a Step 3 deployer screen that
+  delegates presentation to focused widgets.
+- Remaining intentionally deferred work: full pricing review editor UX,
+  provider credential/account management screens, simulator-log repair, and
+  deeper Flutter feature-module extraction after the backend contracts settle.
+
+Residual Warnings:
+- Flutter reports that `file_saver` does not yet support Swift Package Manager
+  for macOS; this is pre-existing dependency metadata and did not block builds.
+- `WizardZipService` tests still emit existing debug validation output during
+  test runs; this is not introduced by the UI refactor and should be cleaned in
+  a separate logging/test-noise pass if desired.
