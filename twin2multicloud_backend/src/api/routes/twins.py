@@ -33,6 +33,7 @@ from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_read_service import DeploymentReadService
 from src.services.simulator_service import SimulatorDownloadService
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
+from src.services.verification_service import DeploymentVerificationService
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.api.routes.error_models import ERROR_RESPONSES
 
@@ -61,6 +62,11 @@ def _deployment_operation_service(db: Session) -> DeploymentOperationService:
 def _simulator_download_service(db: Session) -> SimulatorDownloadService:
     """Build the simulator download service for this request."""
     return SimulatorDownloadService(db=db, twin_repository=TwinRepository(db))
+
+
+def _deployment_verification_service(db: Session) -> DeploymentVerificationService:
+    """Build the deployment verification service for this request."""
+    return DeploymentVerificationService(db=db, twin_repository=TwinRepository(db))
 
 
 def _twin_read_service(db: Session) -> TwinReadService:
@@ -904,143 +910,19 @@ async def verify_infrastructure(
         checks: List of {name, status, provider, detail, layer}
         summary: {pass_count, fail_count, skip_count, total, healthy}
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    # Must be deployed to verify infrastructure
-    if twin.state != TwinState.DEPLOYED:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Twin must be deployed to verify infrastructure (current state: {twin.state})"
-        )
-    
-    # TEST MODE: return mock verification data
-    if TEST_MODE:
-        return {
-            "checks": [
-                {"name": "L0 Setup resources", "status": "pass", "provider": "", "detail": "12 resources found", "layer": "L0"},
-                {"name": "L0 Glue functions", "status": "pass", "provider": "", "detail": "cold-writer, hot-reader", "layer": "L0"},
-                {"name": "IoT endpoint", "status": "pass", "provider": "AWS", "detail": "endpoint active", "layer": "L1"},
-                {"name": "IoT devices registered", "status": "pass", "provider": "AWS", "detail": "2 device(s)", "layer": "L1"},
-                {"name": "Functions deployed", "status": "pass", "provider": "AWS", "detail": "5 resources", "layer": "L2"},
-                {"name": "Hot storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Cold storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Archive storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Hot→Cold mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Cold→Archive mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "TwinMaker workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L4"},
-                {"name": "TwinMaker entities", "status": "pass", "provider": "AWS", "detail": "2 entities created", "layer": "L4"},
-                {"name": "ADT twins", "status": "skip", "provider": "", "detail": "L4 not Azure", "layer": "L4"},
-                {"name": "Grafana workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L5"},
-            ],
-            "summary": {"pass_count": 13, "fail_count": 0, "skip_count": 1, "total": 14, "healthy": True}
-        }
-    
-    # Reload twin with configs for credential sync
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(DigitalTwin.id == twin_id).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Prepare project in Deployer (ensures credentials are current)
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
-    
-    # Determine provider for Deployer API
-    provider = "aws"
-    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-        provider = twin.optimizer_config.cheapest_l1.lower()
-    
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{DEPLOYER_API_URL}/infrastructure/verify",
-                params={"project_name": resource_name, "provider": provider}
-            )
-            response.raise_for_status()
-            return response.json()
-            
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=e.response.status_code,
-            detail=f"Deployer API error: {e.response.text}"
+        return await _deployment_verification_service(db).verify_infrastructure(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            test_mode=TEST_MODE,
         )
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Deployer API unavailable: {str(e)}")
+    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
 # Data Flow Verification
 # ============================================================
-
-async def _proxy_dataflow_sse(
-    session_id: str,
-    resource_name: str,
-    payload: dict,
-):
-    """Background task that proxies Deployer data flow SSE to our session."""
-    from src.api.routes.sse import get_session
-
-    session = await get_session(session_id)
-    if not session:
-        return
-
-    try:
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/dataflow/verify",
-                params={"project_name": resource_name},
-                json={"payload": payload},
-            ) as response:
-                last_data = None
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        msg = line[6:]
-                        last_data = msg
-                        await session.push_log(msg)
-                    elif line.startswith("event: done"):
-                        # Next data line is the summary
-                        pass
-
-        # Parse done event to determine success
-        verification_ok = True
-        summary_msg = "Data flow verification complete"
-        if last_data:
-            try:
-                summary = json.loads(last_data)
-                fail_count = summary.get("fail_count", 0)
-                verification_ok = fail_count == 0
-                if not verification_ok:
-                    failed_phase = summary.get("failed_phase", "unknown")
-                    summary_msg = f"Verification failed at: {failed_phase}"
-            except (json.JSONDecodeError, TypeError):
-                pass
-        session.on_complete(success=verification_ok, message=summary_msg)
-
-    except Exception as e:
-        await session.push_log(json.dumps({
-            "timestamp": "",
-            "message": f"✗ Verification error: {e}",
-            "status": "fail",
-        }))
-        session.on_complete(success=False, message=str(e))
-
 
 @router.post(
     "/{twin_id}/verify/dataflow",
@@ -1079,74 +961,15 @@ async def verify_dataflow(
     
     Returns session_id and sse_url for SSE streaming.
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    if twin.state != TwinState.DEPLOYED:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Twin must be deployed to verify data flow (current state: {twin.state})"
-        )
-    
-    # Validate payload
-    payload = body.get("payload", {})
-    if not payload or "iotDeviceId" not in payload:
-        raise HTTPException(
-            status_code=400,
-            detail="Request body must contain 'payload' with 'iotDeviceId' field"
-        )
-    
-    # TEST MODE: return mock SSE session
-    if TEST_MODE:
-        session_id = str(uuid.uuid4())
-        from src.api.routes.sse import create_session
-        await create_session(twin_id, session_id, operation_type="verify_dataflow")
-        return {
-            "session_id": session_id,
-            "sse_url": f"/sse/deploy/{session_id}",
-        }
-    
-    # Reload twin with configs for credential sync
-    from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),
-    ).filter(DigitalTwin.id == twin_id).first()
-    
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found during reload")
-    
-    # Prepare project (sync credentials)
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
-    
-    # Create SSE session
-    import uuid, asyncio
-    session_id = str(uuid.uuid4())
-    from src.api.routes.sse import create_session
-    await create_session(twin_id, session_id, operation_type="verify_dataflow")
-    
-    # Start background SSE proxy
-    asyncio.create_task(_proxy_dataflow_sse(
-        session_id=session_id,
-        resource_name=resource_name,
-        payload=payload,
-    ))
-    
-    return {
-        "session_id": session_id,
-        "sse_url": f"/sse/deploy/{session_id}",
-    }
+        return await _deployment_verification_service(db).start_dataflow_verification(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            body=body,
+            test_mode=TEST_MODE,
+        )
+    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
 
 
 # ============================================================
