@@ -41,9 +41,9 @@ All-severity inventory:
 
 | Service | High | Medium | Low | Notes |
 |---|---:|---:|---:|---|
-| Management API | 0 | 1 | 6 | Mostly disabled test-route/mock and deprecation-adjacent cleanup findings. |
+| Management API | 0 | 0 | 0 | Full `/app/src` Bandit scan is clean; line-specific `# nosec B105` comments document false-positive count/regex literals. |
 | Optimizer | 0 | 0 | 0 | Clean after removing credential-shaped example value. |
-| Deployer | 0 | 17 | 25 | Remaining findings are mainly subprocess/urllib/template-function review items. |
+| Deployer | 0 | 17 | 18 | Remaining findings are mainly subprocess/urllib/template-function review items; tracked by [#106](https://github.com/TVJunkie724/master-thesis/issues/106). |
 
 ## Secret And Artifact Checks
 
@@ -60,13 +60,13 @@ Result: no credential-shaped values in generated OpenAPI snapshots.
 Deployer safe suite after SHA-256 change:
 
 ```text
-944 passed, 1 skipped, 1 warning
+1059 passed, 1 skipped, 1 warning
 ```
 
-Optimizer focused API/security smoke after OpenAPI example cleanup:
+Optimizer safe suite after OpenAPI example cleanup:
 
 ```text
-32 passed, 1 warning
+375 passed, 1 warning
 ```
 
 ## Acceptance Review
@@ -80,8 +80,9 @@ Optimizer focused API/security smoke after OpenAPI example cleanup:
 
 ## Residual Risk
 
-Management API and Deployer still have Low/Medium Bandit findings that deserve
-targeted cleanup, especially Deployer subprocess/urllib boundaries and remaining
-silent exception handlers. They do not block Phase 4.3 because the high-severity
-gate is clean and the remaining items need behavior-aware hardening rather than
-blanket suppression.
+Deployer still has Low/Medium Bandit findings that deserve targeted cleanup,
+especially provider-runtime `urlopen` boundaries, subprocess/script execution
+boundaries, and remaining silent exception handlers. They do not block Phase 4.3
+because the high-severity gate is clean and the remaining items need
+behavior-aware hardening rather than blanket suppression. Follow-up:
+[#106 Harden Deployer provider-runtime security findings](https://github.com/TVJunkie724/master-thesis/issues/106).

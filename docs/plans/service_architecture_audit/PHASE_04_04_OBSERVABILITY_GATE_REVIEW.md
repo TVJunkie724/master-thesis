@@ -45,13 +45,13 @@ Focused Management API stream-service regression:
 Full Management API suite:
 
 ```text
-297 passed, 3 warnings
+454 passed
 ```
 
 Relevant previously verified gates:
 
-- Deployer safe suite: `944 passed, 1 skipped, 1 warning`
-- Optimizer safe suite: `226 passed, 1 warning`
+- Deployer safe suite: `1059 passed, 1 skipped, 1 warning`
+- Optimizer safe suite: `375 passed, 1 warning`
 - Contract snapshots: Management API 44 paths, Optimizer 23 paths, Deployer 42 paths
 
 ## Acceptance Review

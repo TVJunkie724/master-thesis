@@ -20,9 +20,9 @@ Optimizer credential-dependent code paths.
 
 | Service | Command scope | Result |
 |---|---|---:|
-| Management API | `python -m pytest tests -q` | 296 passed, 3 warnings |
-| Optimizer | `python -m pytest tests -q` | 226 passed |
-| Deployer | `python -m pytest tests/unit tests/api tests/integration tests/test_gcp_simulator.py -q` | 944 passed, 1 skipped, 1 warning |
+| Management API | `python -m pytest tests -q` | 454 passed |
+| Optimizer | `python -m pytest tests -q` | 375 passed, 1 warning |
+| Deployer | `python -m pytest tests/unit tests/api tests/integration tests/test_gcp_simulator.py -q` | 1059 passed, 1 skipped, 1 warning |
 
 ## Commands
 
