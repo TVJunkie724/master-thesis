@@ -39,6 +39,7 @@ class PricingSourceType(str, Enum):
     STATIC_OFFICIAL_TABLE = "static_official_table"
     REVIEWED_DECISION = "reviewed_decision"
     DERIVED_CALCULATION = "derived_calculation"
+    UNSUPPORTED = "unsupported"
 
 
 class EvidenceRequirement(str, Enum):
@@ -61,6 +62,8 @@ class PricingFieldContract:
     evidence: EvidenceRequirement = EvidenceRequirement.REQUIRED
     aliases: Tuple[Tuple[str, ...], ...] = ()
     normalizer: Optional[str] = None
+    emergency_fallback_source_type: Optional[PricingSourceType] = None
+    emergency_fallback_allowed: bool = False
 
     def candidate_paths(self) -> Tuple[Tuple[str, ...], ...]:
         return (self.key_path,) + self.aliases
@@ -161,6 +164,8 @@ def _field(
     source_type: PricingSourceType = PricingSourceType.DYNAMIC_PROVIDER_API,
     aliases: Sequence[Sequence[str]] = (),
     normalizer: Optional[str] = None,
+    emergency_fallback_source_type: Optional[PricingSourceType] = None,
+    emergency_fallback_allowed: bool = False,
 ) -> PricingFieldContract:
     return PricingFieldContract(
         field_id=field_id,
@@ -171,6 +176,8 @@ def _field(
         source_type=source_type,
         aliases=tuple(tuple(alias) for alias in aliases),
         normalizer=normalizer,
+        emergency_fallback_source_type=emergency_fallback_source_type,
+        emergency_fallback_allowed=emergency_fallback_allowed,
     )
 
 

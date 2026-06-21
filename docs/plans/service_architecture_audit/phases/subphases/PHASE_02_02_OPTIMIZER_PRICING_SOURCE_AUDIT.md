@@ -2,15 +2,15 @@
 title: "Phase 2.2: Optimizer Pricing Source Audit"
 description: "Classify every Optimizer pricing value by source type, evidence, refreshability, and failure behavior."
 tags: [optimizer, pricing, sources, evidence]
-lastUpdated: "2026-06-19"
-version: "1.0"
+lastUpdated: "2026-06-21"
+version: "1.1"
 ---
 
 <!-- SOURCES:
 - docs/plans/service_architecture_audit/phases/PHASE_02_OPTIMIZER_AUDIT.md
 - 2-twin2clouds/json/
 - 2-twin2clouds/backend/fetch_data/
-EXTRACTED: 2026-06-19 | VERSION: 1.0
+EXTRACTED: 2026-06-21 | VERSION: 1.1
 -->
 
 # Phase 2.2: Optimizer Pricing Source Audit
@@ -30,11 +30,15 @@ comes from and how it is verified.
 
 ## Deliverables
 
-- Pricing field inventory for AWS, Azure, and GCP.
-- Source classification: dynamic API, static official table, derived formula,
-  manual override, or unsupported.
-- Evidence requirements for selected and rejected candidate rows.
-- Drift and stale-data behavior recommendation.
+- Complete. `2-twin2clouds/backend/calculation_v2/pricing_source_inventory.py`
+  builds a pricing field inventory for AWS, Azure, and GCP from the strategy
+  contract.
+- Complete. Source classification covers dynamic API, static official table,
+  reviewed decision, derived calculation, and unsupported values.
+- Complete. Evidence requirements and emergency fallback visibility are exposed
+  per field.
+- Complete. Drift and stale-data behavior is represented as reject, require
+  review, use reviewed decision, derive from usage model, or mark unsupported.
 
 ## Acceptance Criteria
 
@@ -45,8 +49,11 @@ comes from and how it is verified.
 
 ## Verification
 
-- Static review of pricing JSON and fetcher outputs.
-- Provider-by-provider source matrix.
+- Complete. Static review captured in
+  [Phase 2.2 Review](../../PHASE_02_02_OPTIMIZER_PRICING_SOURCE_REVIEW.md).
+- Complete. Provider-by-provider source matrix is documented in the review.
+- Complete. Focused Dockerized tests:
+  `python -m pytest tests/unit/calculation_v2/test_strategy_contracts.py tests/unit/calculation_v2/test_pricing_source_inventory.py -q`.
 
 ## Parent Phase
 
