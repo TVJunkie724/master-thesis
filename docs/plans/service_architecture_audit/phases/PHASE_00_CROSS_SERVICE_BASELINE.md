@@ -3,7 +3,7 @@ title: "Phase 0: Cross-Service Baseline"
 description: "Define the shared audit rubric, tooling baseline, stale guide cleanup plan, and verification gates for all Python services."
 tags: [architecture, audit, tooling, docs, quality]
 lastUpdated: "2026-06-21"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -17,10 +17,12 @@ version: "1.1"
 - docs/plans/service_architecture_audit/BASELINE_TEST_AND_TOOLING_POLICY.md
 - docs/plans/service_architecture_audit/BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md
 - docs/plans/service_architecture_audit/BASELINE_BACKLOG_MAPPING.md
-EXTRACTED: 2026-06-21 | VERSION: 1.1
+EXTRACTED: 2026-06-21 | VERSION: 1.2
 -->
 
 # Phase 0: Cross-Service Baseline
+
+Status: Complete.
 
 ## Summary
 
@@ -48,13 +50,17 @@ separate audits using three different quality bars.
 
 ## Subphases
 
-| Subphase | Deliverable |
-|---|---|
-| 0.1 Audit rubric | [BASELINE_AUDIT_RUBRIC.md](../BASELINE_AUDIT_RUBRIC.md) |
-| 0.2 Tooling baseline | [BASELINE_TEST_AND_TOOLING_POLICY.md](../BASELINE_TEST_AND_TOOLING_POLICY.md) |
-| 0.3 Guide cleanup plan | [BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md](../BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md) |
-| 0.4 Test boundary policy | [BASELINE_TEST_AND_TOOLING_POLICY.md](../BASELINE_TEST_AND_TOOLING_POLICY.md) |
-| 0.5 Backlog mapping | [BASELINE_BACKLOG_MAPPING.md](../BASELINE_BACKLOG_MAPPING.md) |
+| Subphase | Status | Deliverable |
+|---|---|---|
+| 0.1 Audit rubric | Complete | [BASELINE_AUDIT_RUBRIC.md](../BASELINE_AUDIT_RUBRIC.md) |
+| 0.2 Tooling baseline | Complete | [BASELINE_TEST_AND_TOOLING_POLICY.md](../BASELINE_TEST_AND_TOOLING_POLICY.md) |
+| 0.3 Guide cleanup plan | Complete | [BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md](../BASELINE_DEVELOPMENT_GUIDE_CLEANUP.md) |
+| 0.4 Test boundary policy | Complete | [BASELINE_TEST_AND_TOOLING_POLICY.md](../BASELINE_TEST_AND_TOOLING_POLICY.md) |
+| 0.5 Backlog mapping | Complete | [BASELINE_BACKLOG_MAPPING.md](../BASELINE_BACKLOG_MAPPING.md) |
+
+## Review Artifact
+
+[Phase 0 Review: Cross-Service Baseline](../PHASE_00_REVIEW_2026-06-21.md)
 
 ## Acceptance Criteria
 
