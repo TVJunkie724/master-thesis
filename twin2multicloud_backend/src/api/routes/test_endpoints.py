@@ -9,9 +9,7 @@ Consolidated from twins.py to keep production code clean and test code separate.
 """
 
 import os
-import io
 import json
-import zipfile
 import asyncio
 import uuid
 from datetime import datetime, timezone
@@ -27,6 +25,7 @@ from src.api.routes.error_models import ERROR_RESPONSES
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
+from src.services.test_deployment_service import TestDeploymentService
 
 router = APIRouter(prefix="/twins", tags=["twins-test"])
 
@@ -43,6 +42,11 @@ def _require_test_endpoints():
 def _deployment_operation_service(db: Session) -> DeploymentOperationService:
     """Build the shared deployment operation service for test endpoints."""
     return DeploymentOperationService(db=db, twin_repository=TwinRepository(db))
+
+
+def _test_deployment_service(db: Session) -> TestDeploymentService:
+    """Build the test-only deployment service for gated UI-development flows."""
+    return TestDeploymentService(db=db, twin_repository=TwinRepository(db))
 
 
 def _raise_service_http_error(exc: Exception) -> None:
@@ -198,51 +202,17 @@ async def test_log_trace_start(
     No real cloud resources are queried.
     """
     _require_test_endpoints()
-    
-    from src.api.routes.sse import create_session
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    
-    trace_id = f"TRACE-{uuid.uuid4().hex[:8].upper()}"
-    
-    # Get providers from deployer_config (dynamic)
-    providers = ["aws"]  # Default fallback
-    if twin.deployer_config and hasattr(twin.deployer_config, 'layer_providers'):
-        layer_providers = twin.deployer_config.layer_providers or {}
-        unique_providers = set()
-        for layer in ['layer_1_provider', 'layer_2_provider', 'layer_3_hot_provider']:
-            if layer_providers.get(layer):
-                unique_providers.add(layer_providers[layer])
-        if unique_providers:
-            providers = list(unique_providers)
-    
-    session_id = str(uuid.uuid4())
-    await create_session(twin_id, session_id, operation_type="log_trace")
-    
-    asyncio.create_task(_run_test_log_trace_stream(
-        session_id=session_id,
-        twin_id=twin_id,
-        trace_id=trace_id,
-        providers=providers,
-        duration=duration,
-        should_fail=should_fail
-    ))
-    
-    return {
-        "trace_id": trace_id,
-        "sent_at": datetime.now(timezone.utc).isoformat(),
-        "l1_provider": providers[0] if providers else "aws",
-        "providers": providers,
-        "message": f"Test message sent to {providers[0] if providers else 'aws'} IoT endpoint",
-        "session_id": session_id,
-        "sse_url": f"/sse/deploy/{session_id}"
-    }
+
+    try:
+        return await _test_deployment_service(db).start_log_trace(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            duration=duration,
+            should_fail=should_fail,
+            test_log_trace_runner=_run_test_log_trace_stream,
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 # =============================================================================
@@ -277,61 +247,20 @@ async def test_download_simulator(
     Does NOT require real deployment or Deployer connectivity.
     Use when kUseTestDeploy = true in Flutter.
     """
-    from src.models.optimizer_config import OptimizerConfiguration
-    
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
-    if not twin:
-        raise HTTPException(404, "Twin not found")
-    
-    opt_config = db.query(OptimizerConfiguration).filter_by(twin_id=twin_id).first()
-    l1_provider = opt_config.cheapest_l1.lower() if opt_config and opt_config.cheapest_l1 else "gcp"
-    
-    resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
-        resource_name = twin.deployer_config.deployer_digital_twin_name
-    
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        config = {
-            "project_id": "mock-project-id",
-            "topic_name": f"projects/mock-project/topics/{resource_name}-telemetry",
-            "device_id": "mock-device-1",
-            "digital_twin_name": resource_name,
-            "payload_path": "payloads.json",
-            "service_account_key_path": "service_account.json"
-        }
-        zf.writestr("config.json", json.dumps(config, indent=2))
-        
-        payloads = [{"temperature": 25.5, "humidity": 60, "device_id": "mock-device-1"}]
-        zf.writestr("payloads.json", json.dumps(payloads, indent=2))
-        
-        readme = f"""# IoT Device Simulator - {resource_name} ({l1_provider.upper()})
+    _require_test_endpoints()
 
-## [MOCK PACKAGE - FOR UI TESTING ONLY]
+    try:
+        archive = _test_deployment_service(db).build_mock_simulator_archive(
+            twin_id=twin_id,
+            user_id=current_user.id,
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-This is a mock simulator package generated for UI testing purposes.
-In production, this package would contain the actual simulator code.
-
-## Usage
-```bash
-pip install -r requirements.txt
-python src/main.py --project {resource_name}
-```
-"""
-        zf.writestr("README.md", readme)
-        zf.writestr("requirements.txt", "google-cloud-pubsub>=2.0.0\n")
-        zf.writestr("src/main.py", "# Mock simulator main.py\nprint('Mock simulator')\n")
-    
-    zip_buffer.seek(0)
-    
     return StreamingResponse(
-        zip_buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename=simulator_{resource_name}_{l1_provider}.zip"}
+        archive.content,
+        media_type=archive.media_type,
+        headers={"Content-Disposition": f"attachment; filename={archive.filename}"}
     )
 
 
