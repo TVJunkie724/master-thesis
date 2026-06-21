@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from src.models.deployer_config import DeployerConfiguration
@@ -151,6 +152,54 @@ async def test_validate_downstream_error_returns_safe_invalid_result(db_session)
 
     assert result.valid is False
     assert "SyntaxError" in result.message
+
+
+@pytest.mark.asyncio
+async def test_validate_downstream_error_redacts_secret_fragments(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+            return_value=_mock_response(
+                400,
+                {"detail": "private_key=VALIDATION-PRIVATE-KEY-123"},
+                "bad request",
+            )
+        )
+
+        result = await _service(db_session).validate_config(
+            twin.id,
+            user.id,
+            "function-code",
+            ConfigValidationRequest(content="def broken(", provider="aws"),
+        )
+
+    assert result.valid is False
+    assert "VALIDATION-PRIVATE-KEY-123" not in result.message
+    assert "private_key=[REDACTED]" in result.message
+
+
+@pytest.mark.asyncio
+async def test_validate_request_error_redacts_secret_fragments(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    with patch("src.services.deployer_config_validation_service.httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+            side_effect=httpx.RequestError("client_secret=VALIDATION-SECRET-123")
+        )
+
+        result = await _service(db_session).validate_config(
+            twin.id,
+            user.id,
+            "events",
+            ConfigValidationRequest(content="{}"),
+        )
+
+    assert result.valid is False
+    assert "VALIDATION-SECRET-123" not in result.message
+    assert "client_secret=[REDACTED]" in result.message
 
 
 @pytest.mark.asyncio

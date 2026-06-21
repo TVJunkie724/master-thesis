@@ -186,3 +186,22 @@ async def test_verification_wraps_project_preparation_failure(db_session):
         )
 
     assert exc.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_verification_redacts_project_preparation_failure(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    async def failing_preparer(_twin, _user_id):
+        raise RuntimeError("Authorization: Bearer verification-secret-token")
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _service(db_session, project_preparer=failing_preparer).verify_infrastructure(
+            twin.id,
+            user.id,
+            test_mode=False,
+        )
+
+    assert "verification-secret-token" not in exc.value.public_detail
+    assert "Authorization: Bearer [REDACTED]" in exc.value.public_detail

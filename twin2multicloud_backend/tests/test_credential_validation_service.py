@@ -10,7 +10,7 @@ from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.twin_config import AWSCredentials, GCPCredentials, InlineValidationRequest
 from src.services.credential_validation_service import CredentialValidationService
-from src.services.secret_redaction import redact_validation_message, redact_validation_payload
+from src.services.secret_redaction import redact_secret_like_text, redact_validation_message, redact_validation_payload
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.utils.crypto import encrypt
 
@@ -218,3 +218,19 @@ def test_redact_validation_helpers_handle_nested_payloads():
 
     assert redact_validation_message("leak NESTED-SECRET", credentials) == "leak [REDACTED]"
     assert redact_validation_payload({"items": ["NESTED-SECRET"]}, credentials) == {"items": ["[REDACTED]"]}
+
+
+def test_redact_secret_like_text_handles_common_secret_shapes():
+    message = (
+        'client_secret=CLIENT-SECRET-123 {"private_key_id": "gcp-key-id"} '
+        "Authorization: Bearer abcdefghijklmnop "
+        "-----BEGIN PRIVATE KEY-----abc-----END PRIVATE KEY-----"
+    )
+
+    redacted = redact_secret_like_text(message)
+
+    assert "CLIENT-SECRET-123" not in redacted
+    assert "gcp-key-id" not in redacted
+    assert "abcdefghijklmnop" not in redacted
+    assert "PRIVATE KEY-----abc" not in redacted
+    assert redacted.count("[REDACTED]") >= 4

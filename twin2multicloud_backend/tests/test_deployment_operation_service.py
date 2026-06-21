@@ -161,6 +161,25 @@ async def test_deploy_rolls_back_on_project_preparation_failure(db_session):
 
 
 @pytest.mark.asyncio
+async def test_deploy_redacts_project_preparation_public_detail(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+
+    async def failing_preparer(_twin, _user_id):
+        raise HTTPException(status_code=502, detail="client_secret=LEAKED-SECRET-123")
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _service(db_session, project_preparer=failing_preparer).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    assert "LEAKED-SECRET-123" not in exc.value.public_detail
+    assert "client_secret=[REDACTED]" in exc.value.public_detail
+
+
+@pytest.mark.asyncio
 async def test_destroy_sets_state_and_schedules_real_stream(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.DEPLOYED)

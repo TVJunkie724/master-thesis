@@ -9,6 +9,7 @@ from src.config import settings
 from src.models.deployer_config import DeployerConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployer_config import ConfigValidationRequest, ConfigValidationResponse
+from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
 
@@ -56,7 +57,10 @@ class DeployerConfigValidationService:
                 message="Cannot connect to Deployer API. Is it running on port 5004?",
             )
         except httpx.RequestError as exc:
-            return ConfigValidationResponse(valid=False, message=f"Request error: {str(exc)}")
+            return ConfigValidationResponse(
+                valid=False,
+                message=f"Request error: {redact_secret_like_text(str(exc))}",
+            )
 
         if response.status_code != 200:
             return ConfigValidationResponse(valid=False, message=self._extract_error_detail(response))
@@ -150,6 +154,6 @@ class DeployerConfigValidationService:
     @staticmethod
     def _extract_error_detail(response: httpx.Response) -> str:
         try:
-            return str(response.json().get("detail", response.text))
+            return redact_secret_like_text(str(response.json().get("detail", response.text)))
         except Exception:
-            return response.text
+            return redact_secret_like_text(response.text)

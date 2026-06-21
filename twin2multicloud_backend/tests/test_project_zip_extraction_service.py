@@ -153,6 +153,21 @@ async def test_upload_project_zip_returns_stable_error_shape_on_deployer_error(d
 
 
 @pytest.mark.asyncio
+async def test_upload_project_zip_redacts_deployer_error_text(db_session, tmp_path):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+            return_value=_mock_response(500, {}, "client_secret=ZIP-SECRET-123")
+        )
+
+        result = await _service(db_session, tmp_path).upload_project_zip(twin.id, user.id, b"zip-bytes")
+
+    assert result["validation_errors"] == ["Deployer error: client_secret=[REDACTED]"]
+
+
+@pytest.mark.asyncio
 async def test_upload_project_zip_rejects_oversized_zip_before_downstream_call(db_session, tmp_path):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)

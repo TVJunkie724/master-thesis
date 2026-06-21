@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from src.config import settings
 from src.repositories.twin_repository import TwinRepository
+from src.services.secret_redaction import redact_secret_like_text
 from src.services.scene_glb_service import SceneGlbService
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
@@ -72,10 +73,10 @@ class ProjectZipExtractionService:
         except httpx.ConnectError:
             return empty_zip_extraction_response("Cannot connect to Deployer API. Is it running?")
         except httpx.RequestError as exc:
-            return empty_zip_extraction_response(f"Request error: {str(exc)}")
+            return empty_zip_extraction_response(f"Request error: {redact_secret_like_text(str(exc))}")
 
         if response.status_code != 200:
-            return empty_zip_extraction_response(f"Deployer error: {response.text}")
+            return empty_zip_extraction_response(f"Deployer error: {redact_secret_like_text(response.text)}")
 
         result = response.json()
         self._save_scene_glb_if_present(twin_id, user_id, result)

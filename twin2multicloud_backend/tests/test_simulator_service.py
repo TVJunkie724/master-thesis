@@ -109,6 +109,27 @@ async def test_download_wraps_project_preparation_failure(db_session):
 
 
 @pytest.mark.asyncio
+async def test_download_redacts_project_preparation_failure(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
+    db_session.commit()
+
+    async def failing_preparer(_twin, _user_id):
+        raise RuntimeError("aws_secret_access_key=SIMULATOR-SECRET-123")
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _service(db_session, project_preparer=failing_preparer).download(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    assert "SIMULATOR-SECRET-123" not in exc.value.public_detail
+    assert "aws_secret_access_key=[REDACTED]" in exc.value.public_detail
+
+
+@pytest.mark.asyncio
 async def test_download_uses_mock_archive_in_test_mode_without_optimizer(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)

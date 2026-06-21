@@ -15,6 +15,7 @@ from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
 from src.services.deployment_stream_service import create_session, get_session
+from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 
 
@@ -165,7 +166,10 @@ class DeploymentVerificationService:
         try:
             return await self.project_preparer(twin, user_id)
         except Exception as exc:
-            raise DownstreamServiceError(status_code=500, public_detail=f"{message}: {exc}") from exc
+            raise DownstreamServiceError(
+                status_code=500,
+                public_detail=f"{message}: {redact_secret_like_text(str(exc))}",
+            ) from exc
 
     @staticmethod
     def _validate_dataflow_payload(body: dict[str, Any]) -> dict[str, Any]:
@@ -193,12 +197,12 @@ class DeploymentVerificationService:
         except httpx.HTTPStatusError as exc:
             raise DownstreamServiceError(
                 status_code=exc.response.status_code,
-                public_detail=f"Deployer API error: {exc.response.text}",
+                public_detail=f"Deployer API error: {redact_secret_like_text(exc.response.text)}",
             ) from exc
         except httpx.RequestError as exc:
             raise DownstreamServiceError(
                 status_code=503,
-                public_detail=f"Deployer API unavailable: {exc}",
+                public_detail=f"Deployer API unavailable: {redact_secret_like_text(str(exc))}",
             ) from exc
 
     @staticmethod

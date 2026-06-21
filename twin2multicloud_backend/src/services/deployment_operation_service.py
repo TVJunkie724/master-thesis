@@ -19,6 +19,7 @@ from src.services.deployment_service import (
     run_real_destroy_stream,
 )
 from src.services.deployment_stream_service import create_session, get_active_sessions_for_twin
+from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
 
 logger = logging.getLogger(__name__)
@@ -100,10 +101,11 @@ class DeploymentOperationService:
             status_code = getattr(exc, "status_code", None)
             detail = getattr(exc, "detail", None)
             if status_code:
-                logger.error("Deploy preparation failed for twin '%s' (%s): %s", twin.name, twin_id, detail)
+                safe_detail = redact_secret_like_text(str(detail))
+                logger.error("Deploy preparation failed for twin '%s' (%s): %s", twin.name, twin_id, safe_detail)
                 twin.state = TwinState.CONFIGURED
                 self.db.commit()
-                raise DownstreamServiceError(status_code=status_code, public_detail=str(detail)) from exc
+                raise DownstreamServiceError(status_code=status_code, public_detail=safe_detail) from exc
 
             logger.error("Deploy preparation failed for twin '%s' (%s)", twin.name, twin_id, exc_info=True)
             twin.state = TwinState.CONFIGURED

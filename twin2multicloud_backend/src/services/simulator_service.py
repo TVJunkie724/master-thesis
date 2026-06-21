@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
+from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.services.test_deployment_service import TestDeploymentService
 
@@ -74,7 +75,10 @@ class SimulatorDownloadService:
         except Exception as exc:
             raise DownstreamServiceError(
                 status_code=500,
-                public_detail=f"Failed to prepare project for simulator download: {exc}",
+                public_detail=(
+                    "Failed to prepare project for simulator download: "
+                    f"{redact_secret_like_text(str(exc))}"
+                ),
             ) from exc
 
         content = await self.simulator_fetcher(resource_name, l1_provider)
@@ -113,7 +117,7 @@ class SimulatorDownloadService:
             except httpx.RequestError as exc:
                 raise DownstreamServiceError(
                     status_code=502,
-                    public_detail=f"Failed to connect to Deployer: {exc}",
+                    public_detail=f"Failed to connect to Deployer: {redact_secret_like_text(str(exc))}",
                 ) from exc
 
         if response.status_code == 404:
@@ -121,6 +125,6 @@ class SimulatorDownloadService:
         if response.status_code != 200:
             raise DownstreamServiceError(
                 status_code=response.status_code,
-                public_detail=f"Deployer error: {response.text}",
+                public_detail=f"Deployer error: {redact_secret_like_text(response.text)}",
             )
         return response.content
