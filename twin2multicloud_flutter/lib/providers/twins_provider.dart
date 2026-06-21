@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dashboard_stats.dart';
+import '../models/pricing_review_state.dart';
 import '../models/twin.dart';
 import '../services/api_service.dart';
 
@@ -29,3 +30,9 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
     return DashboardStats.fromTwins(twins);
   }
 });
+
+final pricingReviewStateProvider =
+    FutureProvider.family<PricingReviewStateResponse, String?>((ref, twinId) {
+      final api = ref.read(apiServiceProvider);
+      return api.getPricingReviewState(twinId);
+    });

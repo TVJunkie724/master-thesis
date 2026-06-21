@@ -3,10 +3,12 @@ import 'package:equatable/equatable.dart';
 class PricingReviewStateResponse extends Equatable {
   final String schemaVersion;
   final Map<String, ProviderPricingReviewState> providers;
+  final Map<String, dynamic> optimizer;
 
   const PricingReviewStateResponse({
     required this.schemaVersion,
     required this.providers,
+    this.optimizer = const {},
   });
 
   factory PricingReviewStateResponse.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,9 @@ class PricingReviewStateResponse extends Equatable {
           ),
         ),
       ),
+      optimizer: json['optimizer'] is Map
+          ? Map<String, dynamic>.from(json['optimizer'] as Map)
+          : const {},
     );
   }
 
@@ -29,7 +34,7 @@ class PricingReviewStateResponse extends Equatable {
   }
 
   @override
-  List<Object?> get props => [schemaVersion, providers];
+  List<Object?> get props => [schemaVersion, providers, optimizer];
 }
 
 class ProviderPricingReviewState extends Equatable {
@@ -69,15 +74,15 @@ class ProviderPricingReviewState extends Equatable {
     return ProviderPricingReviewState(
       provider: json['provider']?.toString() ?? '',
       state: json['state']?.toString() ?? 'failed',
-      reviewRequired: json['review_required'] as bool? ?? false,
+      reviewRequired: _boolValue(json['review_required']),
       canCalculate: json['can_calculate'] as bool? ?? false,
       calculationSource:
           json['calculation_source']?.toString() ?? 'unavailable',
       pricingFreshness: json['pricing_freshness']?.toString() ?? 'unavailable',
       age: json['age']?.toString(),
       status: json['status']?.toString(),
-      isFresh: json['is_fresh'] as bool? ?? false,
-      thresholdDays: json['threshold_days'] as int?,
+      isFresh: _boolValue(json['is_fresh']),
+      thresholdDays: _intValue(json['threshold_days']),
       missingKeys: _stringList(json['missing_keys']),
       reviewReasons: (json['review_reasons'] as List<dynamic>? ?? [])
           .whereType<Map>()
@@ -178,4 +183,17 @@ class PricingReviewReason extends Equatable {
 List<String> _stringList(dynamic value) {
   if (value is! List) return const [];
   return value.map((item) => item.toString()).toList();
+}
+
+bool _boolValue(dynamic value) {
+  if (value is bool) return value;
+  if (value is String) return value.toLowerCase() == 'true';
+  return false;
+}
+
+int? _intValue(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
 }

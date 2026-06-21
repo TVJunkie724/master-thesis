@@ -95,7 +95,12 @@ Verification:
 
 ## Phase 2 - Dashboard Pricing Health and Review Entry
 
-Status: Pending.
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused pricing model/widget tests passed.
+- Full `flutter test` passed.
 
 ### Scope
 
@@ -121,6 +126,13 @@ Status: Pending.
 - Pricing Review screen can refresh providers independently.
 - Trace/details are collapsed by default and inspectable on demand.
 - UI uses Management API endpoints only.
+
+Implementation Notes:
+- Dashboard reads global pricing readiness without a `twin_id`.
+- Provider refresh remains explicitly bound to a selected twin credential
+  context because `/optimizer/refresh-pricing/{provider}` requires `twin_id`.
+- Optimizer metadata from the Management API response is retained for collapsed
+  review details.
 
 ## Phase 3 - Twin Overview Responsibility Split
 

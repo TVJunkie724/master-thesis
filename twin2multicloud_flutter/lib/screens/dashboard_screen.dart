@@ -11,6 +11,7 @@ import '../utils/twin_state_utils.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/branded_app_bar.dart';
 import '../widgets/selectable_scaffold.dart';
+import '../widgets/pricing/pricing_health_row.dart';
 import '../models/twin.dart';
 import '../theme/colors.dart';
 import '../config/docs_config.dart';
@@ -58,6 +59,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void _refreshDashboard(WidgetRef ref) {
     ref.invalidate(twinsProvider);
     ref.invalidate(dashboardStatsProvider);
+    ref.invalidate(pricingReviewStateProvider(null));
   }
 
   @override
@@ -144,6 +146,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 children: [
                   // Stat cards row
                   _buildStatsRow(ref),
+                  const SizedBox(height: 16),
+                  _buildPricingHealthRow(context, ref),
                   const SizedBox(height: 24),
                   // Twins section - wrapped in Card
                   Container(
@@ -363,6 +367,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           StatCard(title: 'Draft', value: '?', icon: Icons.edit_note),
         ],
       ),
+    );
+  }
+
+  Widget _buildPricingHealthRow(BuildContext context, WidgetRef ref) {
+    return PricingHealthRow(
+      reviewState: ref.watch(pricingReviewStateProvider(null)),
+      onOpenReview: () => context.go('/pricing-review'),
+      onRetry: () => ref.invalidate(pricingReviewStateProvider(null)),
     );
   }
 

@@ -220,12 +220,12 @@ class ApiService {
   }
 
   /// Get typed pricing review state for all providers.
-  Future<PricingReviewStateResponse> getPricingReviewState(
-    String twinId,
-  ) async {
+  Future<PricingReviewStateResponse> getPricingReviewState([
+    String? twinId,
+  ]) async {
     final response = await _dio.get(
       '/optimizer/pricing-review-state',
-      queryParameters: {'twin_id': twinId},
+      queryParameters: {if (twinId != null) 'twin_id': twinId},
     );
     return PricingReviewStateResponse.fromJson(
       Map<String, dynamic>.from(response.data as Map),
