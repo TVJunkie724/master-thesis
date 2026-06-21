@@ -25,6 +25,11 @@ from backend.calculation_v2.strategy_contracts import (
 
 TRACE_SCHEMA_VERSION = "intent-result-trace.v1"
 
+# TODO(future-optimization-entrypoint): When a new enabled profile introduces a
+# non-cost result schema, version or extend this trace builder so the profile,
+# formula binding, evidence reference, contribution, and verification contract
+# remain inspectable without leaking raw provider payloads or credentials.
+
 _LAYER_SELECTIONS = {
     LayerType.L1_INGESTION: ("L1", ("L1",)),
     LayerType.L2_PROCESSING: ("L2", ("L2",)),

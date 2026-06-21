@@ -406,6 +406,10 @@ def calculate_cheapest_costs(
     if pricing is None:
         pricing = load_combined_pricing()
 
+    # TODO(future-optimization-entrypoint): This is the runtime profile
+    # selection boundary. Future optimizer types should enter through
+    # build_default_profile_registry() and profile validation, not by branching
+    # around the registry or manually mixing metric/model/scoring components.
     profile_registry = build_default_profile_registry()
     optimization_profile = profile_registry.select_profile(optimization_profile_id)
     cost_metric_provider = profile_registry.get_metric_provider("cost")

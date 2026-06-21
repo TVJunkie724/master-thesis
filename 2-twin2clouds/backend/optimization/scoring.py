@@ -91,3 +91,7 @@ DEFAULT_SCORING_STRATEGIES: dict[str, ScoringStrategy] = {
     "min_total_cost_v1": CostOnlyScoringStrategy(),
 }
 
+# TODO(future-optimization-entrypoint): Add concrete ScoringStrategy instances
+# here only when all compatible metric providers and calculation models are
+# implemented. Multi-objective scoring must document weights and remain tied to
+# an explicit OptimizationProfile.

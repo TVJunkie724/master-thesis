@@ -228,6 +228,10 @@ def _binding(
 def cost_strategy_contract() -> OptimizationStrategyContract:
     """Return the only currently enabled optimization strategy."""
 
+    # TODO(future-optimization-entrypoint): New optimizer objectives need their
+    # own strategy contract function that declares pricing/metric intents,
+    # formula bindings, source units, normalizers, evidence requirements, and
+    # drift tests. Do not add active formula bindings to disabled objectives.
     intents = (
         _intent(
             "aws.l1.iot_core",
