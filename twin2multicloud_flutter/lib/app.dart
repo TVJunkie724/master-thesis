@@ -43,8 +43,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/callback',
         builder: (context, state) {
-          // Handle OAuth callback (future implementation)
-          // TODO: Store token from state.uri.queryParameters['token'] and redirect
+          // OAuth callback placeholder until authentication is extended.
           return const DashboardScreen();
         },
       ),
