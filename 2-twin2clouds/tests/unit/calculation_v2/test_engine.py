@@ -164,11 +164,14 @@ class TestEngineIntegration:
         assert "totalCost" in result
         assert result["optimization_profile_id"] == "cost_minimization_v1"
         assert result["result_schema_version"] == "cost-result.v1"
+        assert result["trace_schema_version"] == "intent-result-trace.v1"
         assert result["optimizationProfile"]["metric_provider_ids"] == ["cost"]
         assert result["optimizationProfile"]["scoring_strategy_id"] == "min_total_cost_v1"
         assert result["evidenceReferences"]["pricing_registry"].startswith("pricing_registry:")
         assert result["evidenceReferences"]["pricing_evidence_contract"] == "pricing-evidence.v1"
         assert result["evidenceReferences"]["intent_group_ids"] == ["cost"]
+        assert result["intentTrace"]["schema_version"] == "intent-result-trace.v1"
+        assert result["intentTrace"]["summary"]["record_count"] > 0
         
         # Verify calculationResult has all layers
         calc_result = result["calculationResult"]

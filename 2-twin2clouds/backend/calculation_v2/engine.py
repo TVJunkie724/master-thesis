@@ -28,6 +28,10 @@ from backend.logger import logger
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
+from backend.calculation_v2.traceability import (
+    TRACE_SCHEMA_VERSION,
+    build_intent_result_trace,
+)
 
 
 # =============================================================================
@@ -543,15 +547,32 @@ def calculate_cheapest_costs(
         f"L5_{l5_provider}",
     ]
     
+    provider_costs = {
+        "aws": aws_costs,
+        "azure": azure_costs,
+        "gcp": gcp_costs,
+    }
+    intent_trace = build_intent_result_trace(
+        params=params,
+        derived=derived,
+        calculation_result=result,
+        provider_costs=provider_costs,
+        transfer_costs=transfer_costs,
+        optimization_metadata=optimization_metadata,
+        pricing_registry_reference=pricing_registry_reference,
+    )
+
     return {
         "optimization_profile_id": optimization_profile.profile_id,
         "result_schema_version": optimization_profile.result_schema_version,
+        "trace_schema_version": TRACE_SCHEMA_VERSION,
         "optimizationProfile": optimization_metadata,
         "evidenceReferences": {
             "pricing_registry": pricing_registry_reference,
             "pricing_evidence_contract": "pricing-evidence.v1",
             "intent_group_ids": list(optimization_metadata.get("intent_group_ids") or []),
         },
+        "intentTrace": intent_trace,
         "calculationResult": result,
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,

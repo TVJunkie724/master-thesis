@@ -181,3 +181,35 @@ def test_feature_toggle_gcp_l4_disabled(mock_load_pricing):
         params_arg = args[0]
         assert params_arg["allowGcpSelfHostedL4"] is False
         assert params_arg["allowGcpSelfHostedL5"] is False
+
+
+@patch("api.calculation.load_combined_pricing")
+def test_calculate_response_exposes_additive_trace_metadata(mock_load_pricing):
+    """The public calculate endpoint exposes read-only intent trace metadata."""
+    from tests.unit.calculation_v2.test_intent_to_result_traceability import _sample_pricing
+
+    mock_load_pricing.return_value = _sample_pricing()
+    payload = {
+        "numberOfDevices": 100,
+        "deviceSendingIntervalInMinutes": 2.0,
+        "averageSizeOfMessageInKb": 0.25,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "needs3DModel": False,
+        "entityCount": 1,
+        "amountOfActiveEditors": 2,
+        "amountOfActiveViewers": 5,
+        "dashboardRefreshesPerHour": 4,
+        "dashboardActiveHoursPerDay": 8,
+        "allowGcpSelfHostedL4": True,
+        "allowGcpSelfHostedL5": True,
+    }
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["trace_schema_version"] == "intent-result-trace.v1"
+    assert result["intentTrace"]["summary"]["record_count"] > 0
+    assert result["intentTrace"]["profile"]["profile_id"] == "cost_minimization_v1"
