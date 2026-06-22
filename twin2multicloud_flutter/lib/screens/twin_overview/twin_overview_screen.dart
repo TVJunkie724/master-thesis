@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../bloc/twin_overview/twin_overview_bloc.dart';
 import '../../bloc/twin_overview/twin_overview_event.dart';
 import '../../bloc/twin_overview/twin_overview_state.dart';
+import '../../bloc/deployment_verification/deployment_verification.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../utils/file_download_utils.dart';
@@ -350,13 +351,18 @@ class TwinOverviewView extends ConsumerWidget {
 
                 // Deployment Verification (only for deployed twins)
                 if (state.twinState == 'deployed') ...[
-                  DeploymentVerificationCard(
-                    twinId: state.twinId,
-                    api: ref.read(apiServiceProvider),
-                    payloadsJson:
-                        state.deployerConfig?['payloads_json'] as String?,
-                    configEventsJson:
-                        state.deployerConfig?['config_events_json'] as String?,
+                  BlocProvider(
+                    create: (_) => DeploymentVerificationBloc(
+                      twinId: state.twinId,
+                      api: ref.read(apiServiceProvider),
+                    ),
+                    child: DeploymentVerificationCard(
+                      payloadsJson:
+                          state.deployerConfig?['payloads_json'] as String?,
+                      configEventsJson:
+                          state.deployerConfig?['config_events_json']
+                              as String?,
+                    ),
                   ),
                   const SizedBox(height: 24),
                 ],

@@ -58,7 +58,12 @@ artifacts. Display widgets receive typed models or small view models.
 
 ## Phase 1 - Deployment Verification Feature State
 
-Status: Pending.
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused deployment verification model, BLoC, and widget tests passed.
+- Full `flutter test` passed.
 
 ### Scope
 
@@ -87,6 +92,15 @@ Status: Pending.
 - Infrastructure and data-flow states cover idle, loading, data, error, and
   terminal complete states.
 - Existing Twin Overview verification entry remains available.
+
+Implementation Notes:
+- Added typed deployment verification models for infrastructure checks,
+  summaries, data-flow logs, payload initialization, and data-flow summaries.
+- Added `DeploymentVerificationBloc` as the single owner of infrastructure API
+  calls, data-flow API calls, SSE subscription lifecycle, SSE parsing, and
+  verification errors.
+- Rebuilt `DeploymentVerificationCard` as a presentation component that renders
+  BLoC state and dispatches verification events.
 
 ## Phase 2 - Remove Legacy CredentialSection
 
