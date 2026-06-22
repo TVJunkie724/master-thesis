@@ -5,7 +5,8 @@ import '../../utils/api_error_handler.dart';
 import '../../utils/file_reader.dart';
 
 /// Form-style input block for config.json.
-/// Similar to CredentialSection but for deployment configuration.
+/// Used for deployment configuration fields that can be edited directly or
+/// populated from JSON.
 ///
 /// Fields:
 /// - digital_twin_name (text)
@@ -99,7 +100,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
 
       _notifyChange();
 
-      // Auto-validate if enabled (matches CredentialSection pattern)
+      // Auto-validate if enabled after a successful JSON import.
       if (widget.autoValidateOnUpload) {
         await _validate();
       }

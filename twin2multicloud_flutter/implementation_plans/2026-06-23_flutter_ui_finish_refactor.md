@@ -104,7 +104,12 @@ Implementation Notes:
 
 ## Phase 2 - Remove Legacy CredentialSection
 
-Status: Pending.
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused CloudConnection, cloud credential status, and model tests passed.
+- Full `flutter test` passed.
 
 ### Scope
 
@@ -126,6 +131,12 @@ Status: Pending.
   CloudConnection form flow.
 - No dead legacy credential widget remains in `lib/`.
 - Existing CloudConnection create/select/save tests still pass.
+
+Implementation Notes:
+- Removed the unused legacy `CredentialSection` production widget, including
+  its direct Dio/API/file/process credential handling.
+- Updated stale deployment config comments that referenced the removed widget.
+- Verified that CloudConnection widgets remain the credential SSOT UI path.
 
 ## Phase 3 - Wizard State Boundary Split
 
