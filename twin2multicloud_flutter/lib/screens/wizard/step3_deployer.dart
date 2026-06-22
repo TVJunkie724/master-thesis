@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../bloc/wizard/services/wizard_deployer_validation_service.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../config/step3_examples.dart';
 import '../../config/step3_constraints.dart';
@@ -18,7 +19,6 @@ import '../../widgets/file_inputs/config_visualization_block.dart';
 import '../../widgets/step3/info_cards.dart';
 import '../../widgets/step3/step3_glb_upload_card.dart';
 import '../../widgets/step3/step3_layout_widgets.dart';
-import 'helpers/step3_validation_helper.dart';
 
 /// Step 3: Deployer Configuration - BLoC version
 ///
@@ -39,6 +39,103 @@ class _Step3DeployerState extends State<Step3Deployer> {
   // Breakpoint for showing flowchart column
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
+
+  WizardDeployerValidationService _validationService(BuildContext context) {
+    final api = ProviderScope.containerOf(context).read(apiServiceProvider);
+    return WizardDeployerValidationService(api: api);
+  }
+
+  Future<Map<String, dynamic>> _validateConfigFile(
+    BuildContext context,
+    String configType,
+    String content,
+    WizardState state,
+  ) async {
+    final result = await _validationService(context).validateConfigFile(
+      twinId: state.twinId,
+      configType: configType,
+      content: content,
+    );
+    if (context.mounted) {
+      context.read<WizardBloc>().add(
+        WizardConfigValidationCompleted(configType, result.valid),
+      );
+    }
+    return result.toJson();
+  }
+
+  Future<Map<String, dynamic>> _validateL2Content(
+    BuildContext context,
+    String type,
+    String content,
+    WizardState state, {
+    String? entityId,
+  }) async {
+    final result = await _validationService(context).validateL2Content(
+      twinId: state.twinId,
+      provider: state.layer2Provider,
+      type: type,
+      content: content,
+    );
+    if (context.mounted && result.valid) {
+      _dispatchL2ValidationEvent(context, type, entityId, result.valid);
+    }
+    return result.toJson();
+  }
+
+  void _dispatchL2ValidationEvent(
+    BuildContext context,
+    String type,
+    String? entityId,
+    bool valid,
+  ) {
+    final bloc = context.read<WizardBloc>();
+    if (type == 'function-code') {
+      if (entityId != null && entityId.startsWith('processor:')) {
+        bloc.add(
+          WizardProcessorValidationCompleted(entityId.substring(10), valid),
+        );
+      } else if (entityId != null && entityId.startsWith('event-action:')) {
+        bloc.add(
+          WizardEventActionValidationCompleted(entityId.substring(13), valid),
+        );
+      } else if (entityId == 'feedback') {
+        bloc.add(WizardEventFeedbackValidationCompleted(valid));
+      }
+    } else if (type == 'state-machine') {
+      bloc.add(WizardStateMachineValidationCompleted(valid));
+    }
+  }
+
+  Future<Map<String, dynamic>> _validateL4Content(
+    BuildContext context,
+    String type,
+    String content,
+    WizardState state, {
+    String? providerOverride,
+  }) async {
+    final result = await _validationService(context).validateL4Content(
+      twinId: state.twinId,
+      provider: providerOverride ?? state.layer4Provider,
+      type: type,
+      content: content,
+    );
+    if (context.mounted) {
+      final bloc = context.read<WizardBloc>();
+      switch (type) {
+        case 'hierarchy':
+          bloc.add(WizardHierarchyValidationCompleted(result.valid));
+          break;
+        case 'scene-config':
+          bloc.add(WizardSceneConfigValidationCompleted(result.valid));
+          break;
+        case 'user-config':
+          bloc.add(WizardUserConfigValidationCompleted(result.valid));
+          break;
+      }
+    }
+    return result.toJson();
+  }
 
   /// Build dynamic L2 inputs based on Section 2 validation state
   List<Widget> _buildL2DynamicInputs(BuildContext context, WizardState state) {
@@ -75,7 +172,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             onRequirementsChanged: (content) => context.read<WizardBloc>().add(
               WizardProcessorRequirementsChanged(deviceId, content),
             ),
-            onValidate: (content) => Step3ValidationHelper.validateL2Content(
+            onValidate: (content) => _validateL2Content(
               context,
               'function-code',
               content,
@@ -111,7 +208,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           onRequirementsChanged: (content) => context.read<WizardBloc>().add(
             WizardEventFeedbackRequirementsChanged(content),
           ),
-          onValidate: (content) => Step3ValidationHelper.validateL2Content(
+          onValidate: (content) => _validateL2Content(
             context,
             'function-code',
             content,
@@ -162,7 +259,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               onRequirementsChanged: (content) => context
                   .read<WizardBloc>()
                   .add(WizardEventActionRequirementsChanged(funcName, content)),
-              onValidate: (content) => Step3ValidationHelper.validateL2Content(
+              onValidate: (content) => _validateL2Content(
                 context,
                 'function-code',
                 content,
@@ -214,12 +311,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
             onContentChanged: (content) => context.read<WizardBloc>().add(
               WizardStateMachineContentChanged(content),
             ),
-            onValidate: (content) => Step3ValidationHelper.validateL2Content(
-              context,
-              'state-machine',
-              content,
-              state,
-            ),
+            onValidate: (content) =>
+                _validateL2Content(context, 'state-machine', content, state),
             autoValidateOnUpload: true,
           ),
         ),
@@ -376,7 +469,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               final content = const JsonEncoder.withIndent(
                 '  ',
               ).convert(config);
-              return await Step3ValidationHelper.validateConfigFile(
+              return await _validateConfigFile(
                 context,
                 'config',
                 content,
@@ -418,7 +511,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               );
             },
             onValidate: (content) async {
-              return await Step3ValidationHelper.validateConfigFile(
+              return await _validateConfigFile(
                 context,
                 'events',
                 content,
@@ -456,12 +549,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               );
             },
             onValidate: (content) async {
-              return await Step3ValidationHelper.validateConfigFile(
-                context,
-                'iot',
-                content,
-                state,
-              );
+              return await _validateConfigFile(context, 'iot', content, state);
             },
             autoValidateOnUpload: true,
           ),
@@ -510,7 +598,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     );
                   },
                   onValidate: (content) async {
-                    return await Step3ValidationHelper.validateL4Content(
+                    return await _validateL4Content(
                       context,
                       'hierarchy',
                       content,
@@ -621,12 +709,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                   WizardPayloadsChanged(content),
                 ),
                 onValidate: (content) =>
-                    Step3ValidationHelper.validateConfigFile(
-                      context,
-                      'payloads',
-                      content,
-                      state,
-                    ),
+                    _validateConfigFile(context, 'payloads', content, state),
                 autoValidateOnUpload: true,
               ),
             ),
@@ -709,7 +792,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                             );
                           },
                           onValidate: (content) async {
-                            return await Step3ValidationHelper.validateL4Content(
+                            return await _validateL4Content(
                               context,
                               'scene-config',
                               content,
@@ -789,7 +872,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                       },
                       onValidate: (content) async {
                         // User config is L5 - use layer5Provider instead of layer4Provider
-                        return await Step3ValidationHelper.validateL4Content(
+                        return await _validateL4Content(
                           context,
                           'user-config',
                           content,

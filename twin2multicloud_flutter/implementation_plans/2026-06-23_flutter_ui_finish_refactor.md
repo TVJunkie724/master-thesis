@@ -140,7 +140,13 @@ Implementation Notes:
 
 ## Phase 3 - Wizard State Boundary Split
 
-Status: Pending.
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused Wizard service, ZIP service, L4/L5, and Step 3 widget tests passed.
+- Full `flutter test` passed.
+- `git diff --check` passed.
 
 ### Scope
 
@@ -165,6 +171,14 @@ Status: Pending.
 - No `print()` or analyzer ignores for print remain.
 - Step 3 validation returns typed validation results at the boundary.
 - Wizard behavior and existing tests remain unchanged.
+
+Implementation Notes:
+- Added `WizardGlbCleanupService` and delegated L4 GLB cleanup from
+  `WizardBloc`.
+- Added `WizardDeployerValidationService` and moved Step 3 config, L2, and L4
+  validation out of the screen helper into a BLoC-adjacent service boundary.
+- Added a typed `ValidationResult` model for deployer validation responses.
+- Removed the legacy screen helper and the noisy ZIP validation debug output.
 
 ## Phase 4 - Pricing Review Feature State and Extension Points
 

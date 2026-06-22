@@ -3,7 +3,6 @@
 // STATELESS SERVICE: receives data, returns state (no API calls)
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import '../wizard_state.dart';
 
 /// Result of processing a zip upload.
@@ -238,11 +237,6 @@ class WizardZipService {
     // Check if all sections are valid for auto-collapse
     final allSectionsValid =
         newState.isSection2Valid && newState.isSection3Valid;
-
-    // Log validation state (only in debug mode)
-    if (kDebugMode) {
-      _logValidationState(newState, allSectionsValid);
-    }
 
     return ZipProcessingResult.ok(
       newState,
@@ -484,42 +478,5 @@ class WizardZipService {
     if (fileHasContent(functions['event_feedback'])) count++;
     if (assets['scene_glb']?['saved'] == true) count++;
     return count;
-  }
-
-  /// Log validation state for debugging (only called in debug mode)
-  void _logValidationState(WizardState state, bool allSectionsValid) {
-    debugPrint('=== ZIP UPLOAD VALIDATION DEBUG ===');
-    debugPrint('Section 2 Valid: ${state.isSection2Valid}');
-    debugPrint('  - configJsonValidated: ${state.configJsonValidated}');
-    debugPrint('  - configEventsValidated: ${state.configEventsValidated}');
-    debugPrint(
-      '  - configIotDevicesValidated: ${state.configIotDevicesValidated}',
-    );
-    debugPrint('  - hierarchyValidated: ${state.hierarchyValidated}');
-    debugPrint('  - L4 provider: ${state.layer4Provider}');
-    debugPrint('Section 3 Valid: ${state.isSection3Valid}');
-    debugPrint('  - payloadsValidated: ${state.payloadsValidated}');
-    debugPrint('  - processorValidated: ${state.processorValidated}');
-    debugPrint('  - deviceIds: ${state.deviceIds}');
-    debugPrint(
-      '  - calcParams.returnFeedbackToDevice: ${state.calcParams?.returnFeedbackToDevice}',
-    );
-    debugPrint('  - eventFeedbackValidated: ${state.eventFeedbackValidated}');
-    debugPrint(
-      '  - calcParams.useEventChecking: ${state.calcParams?.useEventChecking}',
-    );
-    debugPrint('  - eventActionValidated: ${state.eventActionValidated}');
-    debugPrint(
-      '  - calcParams.triggerNotificationWorkflow: ${state.calcParams?.triggerNotificationWorkflow}',
-    );
-    debugPrint('  - stateMachineValidated: ${state.stateMachineValidated}');
-    debugPrint(
-      '  - calcParams.needs3DModel: ${state.calcParams?.needs3DModel}',
-    );
-    debugPrint('  - sceneConfigValidated: ${state.sceneConfigValidated}');
-    debugPrint('  - L5 provider: ${state.layer5Provider}');
-    debugPrint('  - userConfigValidated: ${state.userConfigValidated}');
-    debugPrint('All sections valid: $allSectionsValid');
-    debugPrint('===================================');
   }
 }

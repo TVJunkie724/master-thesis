@@ -11,6 +11,7 @@ import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
 import 'helpers/helpers.dart';
+import 'services/wizard_glb_cleanup_service.dart';
 import 'services/wizard_init_service.dart';
 import 'services/wizard_zip_service.dart';
 
@@ -24,15 +25,19 @@ import 'services/wizard_zip_service.dart';
 class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final WizardInitService _initService;
   final WizardZipService _zipService;
+  final WizardGlbCleanupService _glbCleanupService;
   final ApiService _api;
 
   WizardBloc({
     required ApiService api,
     WizardInitService? initService,
     WizardZipService? zipService,
+    WizardGlbCleanupService? glbCleanupService,
   }) : _api = api,
        _initService = initService ?? WizardInitService(),
        _zipService = zipService ?? WizardZipService(),
+       _glbCleanupService =
+           glbCleanupService ?? WizardGlbCleanupService(api: api),
        super(const WizardState()) {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
@@ -1535,17 +1540,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       ),
     );
 
-    // Delete GLB from server if twin exists and GLB was uploaded
-    if (twinId != null && wasGlbUploaded) {
-      try {
-        await _api.deleteSceneGlb(twinId);
-      } catch (e) {
-        // Log error but don't fail - state is already reset
-        // The server cleanup is best-effort
-        // ignore: avoid_print
-        print('[WizardBloc] GLB cleanup failed (best-effort): $e');
-      }
-    }
+    await _glbCleanupService.deleteUploadedGlb(
+      twinId: twinId,
+      wasUploaded: wasGlbUploaded,
+    );
   }
 
   // ============================================================
