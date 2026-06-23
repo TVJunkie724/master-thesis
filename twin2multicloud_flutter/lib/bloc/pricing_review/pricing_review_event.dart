@@ -16,6 +16,14 @@ class PricingReviewTwinSelected extends PricingReviewEvent {
   List<Object?> get props => [twinId];
 }
 
+class PricingReviewStarted extends PricingReviewEvent {
+  const PricingReviewStarted();
+}
+
+class PricingReviewReloadRequested extends PricingReviewEvent {
+  const PricingReviewReloadRequested();
+}
+
 class PricingReviewProviderRefreshRequested extends PricingReviewEvent {
   final String provider;
 

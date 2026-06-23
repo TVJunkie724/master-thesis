@@ -31,7 +31,7 @@ class TwinOverviewConfigurationReview extends StatelessWidget {
           'CONFIGURATION REVIEW',
           style: theme.textTheme.labelLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
-            letterSpacing: 1.2,
+            letterSpacing: AppSpacing.labelLetterSpacing,
           ),
         ),
         const Divider(),
@@ -339,8 +339,8 @@ class _PricingRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 4,
-            height: 40,
+            width: AppSpacing.providerAccentWidth,
+            height: AppSpacing.providerAccentHeight,
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(AppSpacing.xxs),
@@ -409,7 +409,7 @@ class _CodeArtifactRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
-          Icon(icon, size: 20),
+          Icon(icon, size: AppSpacing.iconMd),
           const SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(artifact.filename)),
           IconButton(
@@ -515,7 +515,11 @@ class _CalculatedAtBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.schedule, size: 16, color: theme.colorScheme.primary),
+          Icon(
+            Icons.schedule,
+            size: AppSpacing.iconSm,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Text(
             'Calculated: $timestamp',

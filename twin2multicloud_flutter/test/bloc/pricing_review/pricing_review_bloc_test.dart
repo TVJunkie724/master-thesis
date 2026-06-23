@@ -2,6 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/pricing_review/pricing_review.dart';
+import 'package:twin2multicloud_flutter/models/pricing_review_state.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 class MockApiService extends Mock implements ApiService {}
@@ -22,14 +23,74 @@ void main() {
     });
 
     blocTest<PricingReviewBloc, PricingReviewState>(
-      'selects credential context and clears feedback',
-      build: () => PricingReviewBloc(api: api, initialTwinId: 'old-twin'),
+      'loads twins and pricing review state on start',
+      build: () {
+        when(() => api.getTwins()).thenAnswer((_) async => [_twinJson()]);
+        when(
+          () => api.getPricingReviewState('twin-1'),
+        ).thenAnswer((_) async => _reviewState());
+        return PricingReviewBloc(api: api, initialTwinId: 'twin-1');
+      },
+      act: (bloc) => bloc.add(const PricingReviewStarted()),
+      expect: () => [
+        isA<PricingReviewState>()
+            .having((state) => state.isLoadingTwins, 'loading twins', isTrue)
+            .having(
+              (state) => state.isLoadingReviewState,
+              'loading review',
+              isTrue,
+            ),
+        isA<PricingReviewState>()
+            .having((state) => state.twins.single.id, 'twin id', 'twin-1')
+            .having((state) => state.isLoadingTwins, 'loading twins', isFalse),
+        isA<PricingReviewState>()
+            .having(
+              (state) => state.reviewState?.schemaVersion,
+              'schema version',
+              'pricing-review.v1',
+            )
+            .having(
+              (state) => state.isLoadingReviewState,
+              'loading review',
+              isFalse,
+            ),
+      ],
+    );
+
+    blocTest<PricingReviewBloc, PricingReviewState>(
+      'selects credential context, clears feedback and reloads review state',
+      build: () {
+        when(
+          () => api.getPricingReviewState('new-twin'),
+        ).thenAnswer((_) async => _reviewState());
+        return PricingReviewBloc(api: api, initialTwinId: 'old-twin');
+      },
       seed: () => PricingReviewState(
         selectedTwinId: 'old-twin',
+        reviewState: _reviewState(schemaVersion: 'old'),
         feedback: PricingReviewFeedback.error('Old feedback'),
       ),
       act: (bloc) => bloc.add(const PricingReviewTwinSelected('new-twin')),
-      expect: () => [const PricingReviewState(selectedTwinId: 'new-twin')],
+      expect: () => [
+        isA<PricingReviewState>()
+            .having((state) => state.selectedTwinId, 'selected', 'new-twin')
+            .having((state) => state.feedback, 'feedback', isNull),
+        isA<PricingReviewState>()
+            .having((state) => state.selectedTwinId, 'selected', 'new-twin')
+            .having((state) => state.reviewState, 'review state', isNull)
+            .having(
+              (state) => state.isLoadingReviewState,
+              'loading review',
+              isTrue,
+            ),
+        isA<PricingReviewState>()
+            .having((state) => state.selectedTwinId, 'selected', 'new-twin')
+            .having(
+              (state) => state.reviewState?.schemaVersion,
+              'schema version',
+              'pricing-review.v1',
+            ),
+      ],
     );
 
     blocTest<PricingReviewBloc, PricingReviewState>(
@@ -49,6 +110,9 @@ void main() {
         when(
           () => api.refreshPricing('aws', 'twin-1'),
         ).thenAnswer((_) async => {'success': true});
+        when(
+          () => api.getPricingReviewState('twin-1'),
+        ).thenAnswer((_) async => _reviewState());
         return PricingReviewBloc(api: api, initialTwinId: 'twin-1');
       },
       act: (bloc) =>
@@ -63,12 +127,23 @@ void main() {
           feedback: PricingReviewFeedback.success(
             'AWS pricing refresh requested.',
           ),
-          refreshRevision: 1,
-          lastRefreshedTwinId: 'twin-1',
+        ),
+        isA<PricingReviewState>()
+            .having(
+              (state) => state.isLoadingReviewState,
+              'loading review',
+              isTrue,
+            )
+            .having((state) => state.reviewState, 'review state', isNull),
+        isA<PricingReviewState>().having(
+          (state) => state.reviewState?.schemaVersion,
+          'schema version',
+          'pricing-review.v1',
         ),
       ],
       verify: (_) {
         verify(() => api.refreshPricing('aws', 'twin-1')).called(1);
+        verify(() => api.getPricingReviewState('twin-1')).called(1);
       },
     );
 
@@ -96,4 +171,32 @@ void main() {
       ],
     );
   });
+}
+
+Map<String, dynamic> _twinJson() {
+  return {
+    'id': 'twin-1',
+    'name': 'Demo Twin',
+    'state': 'configured',
+    'providers': ['AWS'],
+  };
+}
+
+PricingReviewStateResponse _reviewState({
+  String schemaVersion = 'pricing-review.v1',
+}) {
+  return PricingReviewStateResponse(
+    schemaVersion: schemaVersion,
+    providers: const {
+      'aws': ProviderPricingReviewState(
+        provider: 'aws',
+        state: 'fresh',
+        reviewRequired: false,
+        canCalculate: true,
+        calculationSource: 'fresh',
+        pricingFreshness: 'fresh',
+        isFresh: true,
+      ),
+    },
+  );
 }

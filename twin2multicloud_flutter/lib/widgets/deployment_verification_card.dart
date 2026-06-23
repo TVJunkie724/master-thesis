@@ -61,7 +61,9 @@ class _DeploymentVerificationCardState
             if (_terminalScroll.hasClients) {
               _terminalScroll.animateTo(
                 _terminalScroll.position.maxScrollExtent,
-                duration: const Duration(milliseconds: 150),
+                duration: const Duration(
+                  milliseconds: AppSpacing.animationFastMs,
+                ),
                 curve: Curves.easeOut,
               );
             }
@@ -70,7 +72,7 @@ class _DeploymentVerificationCardState
       },
       builder: (context, state) {
         return Card(
-          elevation: 2,
+          elevation: AppSpacing.cardElevationLow,
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
@@ -78,7 +80,14 @@ class _DeploymentVerificationCardState
               children: [
                 _VerificationHeader(theme: theme),
                 const SizedBox(height: AppSpacing.lg),
-                _InfrastructureSection(state: state),
+                _InfrastructureSection(
+                  state: state,
+                  onCheckInfrastructure: () {
+                    context.read<DeploymentVerificationBloc>().add(
+                      const DeploymentVerificationInfrastructureRequested(),
+                    );
+                  },
+                ),
                 const SizedBox(height: AppSpacing.lg),
                 Divider(color: theme.dividerColor.withValues(alpha: 0.5)),
                 const SizedBox(height: AppSpacing.md),
@@ -88,6 +97,11 @@ class _DeploymentVerificationCardState
                   terminalScroll: _terminalScroll,
                   defaultPayload: _defaultPayload,
                   configEventsJson: widget.configEventsJson,
+                  onVerifyDataFlow: (payloadText) {
+                    context.read<DeploymentVerificationBloc>().add(
+                      DeploymentVerificationDataFlowRequested(payloadText),
+                    );
+                  },
                 ),
               ],
             ),
@@ -113,7 +127,7 @@ class _VerificationHeader extends StatelessWidget {
           'DEPLOYMENT VERIFICATION',
           style: theme.textTheme.labelLarge?.copyWith(
             color: theme.colorScheme.primary,
-            letterSpacing: 1.2,
+            letterSpacing: AppSpacing.labelLetterSpacing,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -124,8 +138,12 @@ class _VerificationHeader extends StatelessWidget {
 
 class _InfrastructureSection extends StatelessWidget {
   final DeploymentVerificationState state;
+  final VoidCallback onCheckInfrastructure;
 
-  const _InfrastructureSection({required this.state});
+  const _InfrastructureSection({
+    required this.state,
+    required this.onCheckInfrastructure,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -136,20 +154,18 @@ class _InfrastructureSection extends StatelessWidget {
       children: [
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: AppSpacing.actionButtonHeight,
           child: FilledButton.icon(
             onPressed: state.isCheckingInfrastructure
                 ? null
-                : () => context.read<DeploymentVerificationBloc>().add(
-                    const DeploymentVerificationInfrastructureRequested(),
-                  ),
+                : onCheckInfrastructure,
             icon: state.isCheckingInfrastructure
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                ? SizedBox(
+                    width: AppSpacing.iconMd,
+                    height: AppSpacing.iconMd,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+                      strokeWidth: AppSpacing.xxs,
+                      color: theme.colorScheme.onPrimary,
                     ),
                   )
                 : const Icon(Icons.play_arrow),
@@ -186,6 +202,7 @@ class _DataFlowSection extends StatelessWidget {
   final ScrollController terminalScroll;
   final String defaultPayload;
   final String? configEventsJson;
+  final ValueChanged<String> onVerifyDataFlow;
 
   const _DataFlowSection({
     required this.state,
@@ -193,6 +210,7 @@ class _DataFlowSection extends StatelessWidget {
     required this.terminalScroll,
     required this.defaultPayload,
     required this.configEventsJson,
+    required this.onVerifyDataFlow,
   });
 
   @override
@@ -204,22 +222,18 @@ class _DataFlowSection extends StatelessWidget {
       children: [
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: AppSpacing.actionButtonHeight,
           child: FilledButton.icon(
             onPressed: state.isRunningDataFlow
                 ? null
-                : () => context.read<DeploymentVerificationBloc>().add(
-                    DeploymentVerificationDataFlowRequested(
-                      payloadController.text,
-                    ),
-                  ),
+                : () => onVerifyDataFlow(payloadController.text),
             icon: state.isRunningDataFlow
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                ? SizedBox(
+                    width: AppSpacing.iconMd,
+                    height: AppSpacing.iconMd,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+                      strokeWidth: AppSpacing.xxs,
+                      color: theme.colorScheme.onPrimary,
                     ),
                   )
                 : const Icon(Icons.send),
@@ -228,7 +242,7 @@ class _DataFlowSection extends StatelessWidget {
             ),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
+              foregroundColor: theme.colorScheme.onPrimary,
             ),
           ),
         ),
@@ -281,7 +295,7 @@ class _EventConditionHint extends StatelessWidget {
         children: [
           const Icon(
             Icons.warning_amber_rounded,
-            size: 16,
+            size: AppSpacing.iconSm,
             color: AppColors.warning,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -335,7 +349,7 @@ class _PayloadEditor extends StatelessWidget {
               children: [
                 Icon(
                   Icons.data_object,
-                  size: 16,
+                  size: AppSpacing.iconSm,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -350,13 +364,13 @@ class _PayloadEditor extends StatelessWidget {
                 if (enabled)
                   TextButton.icon(
                     onPressed: () => controller.text = defaultPayload,
-                    icon: const Icon(Icons.restore, size: 16),
+                    icon: const Icon(Icons.restore, size: AppSpacing.iconSm),
                     label: const Text('Reset'),
                   ),
                 if (configEventsJson != null && configEventsJson!.isNotEmpty)
                   TextButton.icon(
                     onPressed: () => _showEventsDialog(context),
-                    icon: const Icon(Icons.event_note, size: 16),
+                    icon: const Icon(Icons.event_note, size: AppSpacing.iconSm),
                     label: const Text('Events'),
                   ),
               ],
@@ -367,7 +381,7 @@ class _PayloadEditor extends StatelessWidget {
             child: TextField(
               controller: controller,
               enabled: enabled,
-              maxLines: 6,
+              maxLines: AppSpacing.payloadEditorMaxLines,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
               ),
@@ -598,7 +612,7 @@ class _TerminalOutput extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.borderRadiusSm),
       ),
       child: SizedBox(
-        height: 220,
+        height: AppSpacing.terminalLogHeight,
         child: Column(
           children: [
             Padding(
@@ -607,7 +621,7 @@ class _TerminalOutput extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.terminal,
-                    size: 16,
+                    size: AppSpacing.iconSm,
                     color: theme.colorScheme.onInverseSurface,
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -732,7 +746,7 @@ class _DataFlowSummaryCard extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.lightbulb_outline,
-                    size: 16,
+                    size: AppSpacing.iconSm,
                     color: AppColors.warning,
                   ),
                   const SizedBox(width: AppSpacing.sm),
