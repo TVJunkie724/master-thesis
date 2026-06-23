@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../bloc/twin_overview/twin_overview_state.dart';
+import '../../models/twin_configuration_view.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../results/cheapest_path_visualization.dart';
@@ -23,6 +22,7 @@ class TwinOverviewConfigurationReview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final view = TwinConfigurationView.fromState(state);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,24 +36,24 @@ class TwinOverviewConfigurationReview extends StatelessWidget {
         ),
         const Divider(),
         const SizedBox(height: AppSpacing.md),
-        _ProviderArchitectureSection(state: state),
+        _ProviderArchitectureSection(pathSegments: view.pathSegments),
         const SizedBox(height: AppSpacing.md),
-        _OptimizationSummarySection(state: state),
+        _OptimizationSummarySection(optimization: view.optimization),
         const SizedBox(height: AppSpacing.md),
         _PricingDataSection(
-          state: state,
+          snapshots: view.pricingSnapshots,
           onViewArtifact: onViewArtifact,
           onDownloadArtifact: onDownloadArtifact,
         ),
         const SizedBox(height: AppSpacing.md),
         _ConfigurationFilesSection(
-          state: state,
+          artifacts: view.configurationArtifacts,
           onViewArtifact: onViewArtifact,
           onDownloadArtifact: onDownloadArtifact,
         ),
         const SizedBox(height: AppSpacing.md),
         _UserFunctionsSection(
-          state: state,
+          functionGroups: view.functionGroups,
           onViewArtifact: onViewArtifact,
           onDownloadArtifact: onDownloadArtifact,
         ),
@@ -63,17 +63,12 @@ class TwinOverviewConfigurationReview extends StatelessWidget {
 }
 
 class _ProviderArchitectureSection extends StatelessWidget {
-  final TwinOverviewLoaded state;
+  final List<String> pathSegments;
 
-  const _ProviderArchitectureSection({required this.state});
+  const _ProviderArchitectureSection({required this.pathSegments});
 
   @override
   Widget build(BuildContext context) {
-    final result = state.optimizerResult;
-    final cheapestPath = result?['cheapestPath'] == null
-        ? <String>[]
-        : List<String>.from(result!['cheapestPath'] as List);
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -93,7 +88,7 @@ class _ProviderArchitectureSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            Center(child: CheapestPathVisualization(path: cheapestPath)),
+            Center(child: CheapestPathVisualization(path: pathSegments)),
           ],
         ),
       ),
@@ -102,15 +97,13 @@ class _ProviderArchitectureSection extends StatelessWidget {
 }
 
 class _OptimizationSummarySection extends StatelessWidget {
-  final TwinOverviewLoaded state;
+  final OptimizationSummaryView optimization;
 
-  const _OptimizationSummarySection({required this.state});
+  const _OptimizationSummarySection({required this.optimization});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final result = state.optimizerResult;
-    final params = state.optimizerParams;
 
     return Card(
       child: ExpansionTile(
@@ -120,7 +113,7 @@ class _OptimizationSummarySection extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: result == null
+            child: !optimization.hasResult
                 ? Text(
                     'No optimization result available',
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -142,7 +135,7 @@ class _OptimizationSummarySection extends StatelessWidget {
                             style: theme.textTheme.titleMedium,
                           ),
                           Text(
-                            '\$${(result['totalCost'] ?? 0).toStringAsFixed(2)}/month',
+                            '\$${optimization.totalCost.toStringAsFixed(2)}/month',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppColors.success,
@@ -151,24 +144,33 @@ class _OptimizationSummarySection extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      if (params != null) ...[
+                      if (optimization.numberOfDevices != null) ...[
                         _ParamRow(
                           label: 'Devices',
-                          value: '${params['numberOfDevices'] ?? 'N/A'}',
+                          value: optimization.numberOfDevices!,
                         ),
+                      ],
+                      if (optimization.messagesPerHour != null) ...[
                         _ParamRow(
                           label: 'Messages/hour',
-                          value: _formatMessagesPerHour(params),
+                          value: optimization.messagesPerHour!,
                         ),
+                      ],
+                      if (optimization.retention != null) ...[
                         _ParamRow(
                           label: 'Retention',
-                          value: _formatRetention(params),
+                          value: optimization.retention!,
                         ),
-                        const SizedBox(height: AppSpacing.sm),
                       ],
-                      if (state.calculatedAt != null)
+                      if (optimization.numberOfDevices != null ||
+                          optimization.messagesPerHour != null ||
+                          optimization.retention != null)
+                        const SizedBox(height: AppSpacing.sm),
+                      if (optimization.calculatedAt != null)
                         _CalculatedAtBadge(
-                          timestamp: _formatTimestamp(state.calculatedAt!),
+                          timestamp: _formatTimestamp(
+                            optimization.calculatedAt!,
+                          ),
                         ),
                     ],
                   ),
@@ -180,12 +182,12 @@ class _OptimizationSummarySection extends StatelessWidget {
 }
 
 class _PricingDataSection extends StatelessWidget {
-  final TwinOverviewLoaded state;
+  final List<ProviderPricingSnapshotView> snapshots;
   final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
   final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
 
   const _PricingDataSection({
-    required this.state,
+    required this.snapshots,
     required this.onViewArtifact,
     required this.onDownloadArtifact,
   });
@@ -202,32 +204,16 @@ class _PricingDataSection extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               children: [
-                _PricingRow(
-                  provider: 'AWS',
-                  color: AppColors.aws,
-                  pricing: state.pricingAws,
-                  updatedAt: state.pricingAwsUpdatedAt,
-                  onViewArtifact: onViewArtifact,
-                  onDownloadArtifact: onDownloadArtifact,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _PricingRow(
-                  provider: 'Azure',
-                  color: AppColors.azure,
-                  pricing: state.pricingAzure,
-                  updatedAt: state.pricingAzureUpdatedAt,
-                  onViewArtifact: onViewArtifact,
-                  onDownloadArtifact: onDownloadArtifact,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _PricingRow(
-                  provider: 'GCP',
-                  color: AppColors.gcp,
-                  pricing: state.pricingGcp,
-                  updatedAt: state.pricingGcpUpdatedAt,
-                  onViewArtifact: onViewArtifact,
-                  onDownloadArtifact: onDownloadArtifact,
-                ),
+                for (var index = 0; index < snapshots.length; index++) ...[
+                  _PricingRow(
+                    snapshot: snapshots[index],
+                    color: _providerColor(snapshots[index].provider),
+                    onViewArtifact: onViewArtifact,
+                    onDownloadArtifact: onDownloadArtifact,
+                  ),
+                  if (index < snapshots.length - 1)
+                    const SizedBox(height: AppSpacing.sm),
+                ],
               ],
             ),
           ),
@@ -238,75 +224,18 @@ class _PricingDataSection extends StatelessWidget {
 }
 
 class _ConfigurationFilesSection extends StatelessWidget {
-  final TwinOverviewLoaded state;
+  final List<ConfigurationArtifactView> artifacts;
   final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
   final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
 
   const _ConfigurationFilesSection({
-    required this.state,
+    required this.artifacts,
     required this.onViewArtifact,
     required this.onDownloadArtifact,
   });
 
   @override
   Widget build(BuildContext context) {
-    final config = state.deployerConfig;
-    final l2Provider =
-        state.cheapestPath?['l2']?.toString().toLowerCase() ?? 'aws';
-    final l4Provider =
-        state.cheapestPath?['l4']?.toString().toLowerCase() ?? 'aws';
-    final hierarchyFilename = l4Provider == 'azure'
-        ? 'azure_hierarchy.json'
-        : 'aws_hierarchy.json';
-    final sceneFilename = l4Provider == 'azure'
-        ? '3DScenesConfiguration.json'
-        : 'scene.json';
-
-    final artifacts = <TwinOverviewCodeArtifact>[
-      if (config?['config_events_json'] != null)
-        TwinOverviewCodeArtifact(
-          title: 'config_events.json',
-          filename: 'config_events.json',
-          content: config!['config_events_json'] as String,
-        ),
-      if (config?['config_iot_devices_json'] != null)
-        TwinOverviewCodeArtifact(
-          title: 'config_iot_devices.json',
-          filename: 'config_iot_devices.json',
-          content: config!['config_iot_devices_json'] as String,
-        ),
-      if (config?['payloads_json'] != null)
-        TwinOverviewCodeArtifact(
-          title: 'payloads.json',
-          filename: 'payloads.json',
-          content: config!['payloads_json'] as String,
-        ),
-      if (config?['state_machine_content'] != null)
-        TwinOverviewCodeArtifact(
-          title: _getStateMachineFilename(l2Provider),
-          filename: _getStateMachineFilename(l2Provider),
-          content: config!['state_machine_content'] as String,
-        ),
-      if (config?['hierarchy_content'] != null)
-        TwinOverviewCodeArtifact(
-          title: hierarchyFilename,
-          filename: hierarchyFilename,
-          content: config!['hierarchy_content'] as String,
-        ),
-      if (config?['scene_config_content'] != null)
-        TwinOverviewCodeArtifact(
-          title: sceneFilename,
-          filename: sceneFilename,
-          content: config!['scene_config_content'] as String,
-        ),
-      if (config?['user_config_content'] != null)
-        TwinOverviewCodeArtifact(
-          title: 'config_user.json',
-          filename: 'config_user.json',
-          content: config!['user_config_content'] as String,
-        ),
-    ];
-
     return Card(
       child: ExpansionTile(
         leading: const Icon(Icons.code),
@@ -321,7 +250,7 @@ class _ConfigurationFilesSection extends StatelessWidget {
                     children: artifacts
                         .map(
                           (artifact) => _CodeArtifactRow(
-                            artifact: artifact,
+                            artifact: _toCodeArtifact(artifact),
                             icon: Icons.insert_drive_file_outlined,
                             onViewArtifact: onViewArtifact,
                             onDownloadArtifact: onDownloadArtifact,
@@ -337,22 +266,18 @@ class _ConfigurationFilesSection extends StatelessWidget {
 }
 
 class _UserFunctionsSection extends StatelessWidget {
-  final TwinOverviewLoaded state;
+  final List<FunctionArtifactGroupView> functionGroups;
   final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
   final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
 
   const _UserFunctionsSection({
-    required this.state,
+    required this.functionGroups,
     required this.onViewArtifact,
     required this.onDownloadArtifact,
   });
 
   @override
   Widget build(BuildContext context) {
-    final config = state.deployerConfig;
-    final l2Provider =
-        state.cheapestPath?['l2']?.toString().toLowerCase() ?? 'aws';
-
     return Card(
       child: ExpansionTile(
         leading: const Icon(Icons.functions),
@@ -361,45 +286,19 @@ class _UserFunctionsSection extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: config == null
+            child: functionGroups.isEmpty
                 ? const Text('No user functions available')
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (config['processor_contents'] != null &&
-                          (config['processor_contents'] as Map).isNotEmpty)
-                        _FunctionGroup(
-                          title: 'Processors',
-                          functions:
-                              config['processor_contents']
-                                  as Map<String, dynamic>,
-                          l2Provider: l2Provider,
-                          onViewArtifact: onViewArtifact,
-                          onDownloadArtifact: onDownloadArtifact,
-                        ),
-                      if (config['event_feedback_content'] != null)
-                        _FunctionGroup(
-                          title: 'Event Feedback',
-                          functions: {
-                            'event-feedback':
-                                config['event_feedback_content'] as String,
-                          },
-                          l2Provider: l2Provider,
-                          onViewArtifact: onViewArtifact,
-                          onDownloadArtifact: onDownloadArtifact,
-                        ),
-                      if (config['event_action_contents'] != null &&
-                          (config['event_action_contents'] as Map).isNotEmpty)
-                        _FunctionGroup(
-                          title: 'Event Actions',
-                          functions:
-                              config['event_action_contents']
-                                  as Map<String, dynamic>,
-                          l2Provider: l2Provider,
-                          onViewArtifact: onViewArtifact,
-                          onDownloadArtifact: onDownloadArtifact,
-                        ),
-                    ],
+                    children: functionGroups
+                        .map(
+                          (group) => _FunctionGroup(
+                            group: group,
+                            onViewArtifact: onViewArtifact,
+                            onDownloadArtifact: onDownloadArtifact,
+                          ),
+                        )
+                        .toList(),
                   ),
           ),
         ],
@@ -409,30 +308,26 @@ class _UserFunctionsSection extends StatelessWidget {
 }
 
 class _PricingRow extends StatelessWidget {
-  final String provider;
+  final ProviderPricingSnapshotView snapshot;
   final Color color;
-  final Map<String, dynamic>? pricing;
-  final String? updatedAt;
   final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
   final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
 
   const _PricingRow({
-    required this.provider,
+    required this.snapshot,
     required this.color,
-    required this.pricing,
-    required this.updatedAt,
     required this.onViewArtifact,
     required this.onDownloadArtifact,
   });
 
   @override
   Widget build(BuildContext context) {
-    final artifact = pricing == null
+    final artifact = !snapshot.hasData
         ? null
         : TwinOverviewCodeArtifact(
-            title: '$provider Pricing',
-            filename: '${provider.toLowerCase()}_pricing.json',
-            content: _prettyPrintJson(pricing!),
+            title: snapshot.title,
+            filename: snapshot.filename,
+            content: snapshot.artifactContent!,
           );
 
     return Container(
@@ -457,14 +352,14 @@ class _PricingRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$provider Pricing',
+                  snapshot.title,
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 ),
                 Text(
-                  updatedAt != null
-                      ? 'Fetched: ${_formatTimestamp(updatedAt!)}'
+                  snapshot.updatedAt != null
+                      ? 'Fetched: ${_formatTimestamp(snapshot.updatedAt!)}'
                       : 'No pricing data',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -473,7 +368,7 @@ class _PricingRow extends StatelessWidget {
               ],
             ),
           ),
-          if (updatedAt != null) ...[
+          if (snapshot.updatedAt != null) ...[
             IconButton(
               onPressed: artifact == null
                   ? null
@@ -534,16 +429,12 @@ class _CodeArtifactRow extends StatelessWidget {
 }
 
 class _FunctionGroup extends StatelessWidget {
-  final String title;
-  final Map<String, dynamic> functions;
-  final String l2Provider;
+  final FunctionArtifactGroupView group;
   final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
   final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
 
   const _FunctionGroup({
-    required this.title,
-    required this.functions,
-    required this.l2Provider,
+    required this.group,
     required this.onViewArtifact,
     required this.onDownloadArtifact,
   });
@@ -556,22 +447,15 @@ class _FunctionGroup extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            group.title,
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: AppSpacing.sm),
-          ...functions.entries.map((entry) {
-            final filename = '${entry.key}/${_getFunctionFilename(l2Provider)}';
-            final artifact = TwinOverviewCodeArtifact(
-              title: filename,
-              filename: filename,
-              content: entry.value as String,
-            );
-
+          ...group.artifacts.map((artifact) {
             return _CodeArtifactRow(
-              artifact: artifact,
+              artifact: _toCodeArtifact(artifact),
               icon: Icons.code,
               onViewArtifact: onViewArtifact,
               onDownloadArtifact: onDownloadArtifact,
@@ -645,47 +529,6 @@ class _CalculatedAtBadge extends StatelessWidget {
   }
 }
 
-String _formatMessagesPerHour(Map<String, dynamic> params) {
-  final interval = params['deviceSendingIntervalInMinutes'];
-  if (interval == null) return 'N/A';
-  final messagesPerHour = 60.0 / (interval as num);
-  return messagesPerHour.toStringAsFixed(1);
-}
-
-String _formatRetention(Map<String, dynamic> params) {
-  final hot = params['hotStorageDurationInMonths'] as num? ?? 0;
-  final cool = params['coolStorageDurationInMonths'] as num? ?? 0;
-  final archive = params['archiveStorageDurationInMonths'] as num? ?? 0;
-  final totalMonths = hot + cool + archive;
-  if (totalMonths == 0) return 'N/A';
-  return '${totalMonths.toStringAsFixed(0)} months';
-}
-
-String _getFunctionFilename(String provider) {
-  return switch (provider.toLowerCase()) {
-    'gcp' => 'main.py',
-    'azure' => 'function_app.py',
-    _ => 'lambda_function.py',
-  };
-}
-
-String _getStateMachineFilename(String provider) {
-  return switch (provider.toLowerCase()) {
-    'gcp' => 'google_cloud_workflow.yaml',
-    'azure' => 'azure_logic_app.json',
-    _ => 'aws_step_function.json',
-  };
-}
-
-String _prettyPrintJson(Map<String, dynamic> json) {
-  try {
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(json);
-  } catch (_) {
-    return json.toString();
-  }
-}
-
 String _formatTimestamp(String timestamp) {
   try {
     final dt = DateTime.parse(timestamp);
@@ -694,4 +537,16 @@ String _formatTimestamp(String timestamp) {
   } catch (_) {
     return timestamp;
   }
+}
+
+Color _providerColor(String provider) {
+  return AppColors.getProviderColor(provider);
+}
+
+TwinOverviewCodeArtifact _toCodeArtifact(ConfigurationArtifactView artifact) {
+  return TwinOverviewCodeArtifact(
+    title: artifact.title,
+    filename: artifact.filename,
+    content: artifact.content,
+  );
 }
