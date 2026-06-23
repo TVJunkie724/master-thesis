@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../bloc/pricing_review/pricing_review.dart';
 import '../../models/pricing_review_state.dart';
 import '../../models/twin.dart';
 import '../../providers/twins_provider.dart';
@@ -11,129 +13,116 @@ import '../../widgets/branded_app_bar.dart';
 import '../../widgets/data_freshness_card.dart';
 import '../../widgets/selectable_scaffold.dart';
 
-class PricingReviewScreen extends ConsumerStatefulWidget {
+class PricingReviewScreen extends ConsumerWidget {
   final String? initialTwinId;
 
   const PricingReviewScreen({super.key, this.initialTwinId});
 
   @override
-  ConsumerState<PricingReviewScreen> createState() =>
-      _PricingReviewScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return BlocProvider(
+      create: (_) => PricingReviewBloc(
+        api: ref.read(apiServiceProvider),
+        initialTwinId: initialTwinId,
+      ),
+      child: const _PricingReviewView(),
+    );
+  }
 }
 
-class _PricingReviewScreenState extends ConsumerState<PricingReviewScreen> {
-  String? _selectedTwinId;
-  String? _refreshingProvider;
-  _PricingReviewFeedback? _feedback;
+class _PricingReviewView extends ConsumerWidget {
+  const _PricingReviewView();
 
   @override
-  void initState() {
-    super.initState();
-    _selectedTwinId = widget.initialTwinId;
-  }
-
-  Future<void> _refreshProvider(String provider) async {
-    final twinId = _selectedTwinId;
-    if (twinId == null || _refreshingProvider != null) return;
-
-    setState(() {
-      _refreshingProvider = provider;
-      _feedback = null;
-    });
-
-    try {
-      final api = ref.read(apiServiceProvider);
-      await api.refreshPricing(provider, twinId);
-      if (!mounted) return;
-      ref.invalidate(pricingReviewStateProvider(twinId));
-      ref.invalidate(pricingReviewStateProvider(null));
-      setState(() {
-        _feedback = _PricingReviewFeedback.success(
-          '${provider.toUpperCase()} pricing refresh requested.',
-        );
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _feedback = _PricingReviewFeedback.error(
-          'Failed to refresh ${provider.toUpperCase()} pricing: '
-          '${ApiErrorHandler.extractMessage(error)}',
-        );
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _refreshingProvider = null);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final twinsAsync = ref.watch(twinsProvider);
-    final reviewStateAsync = ref.watch(
-      pricingReviewStateProvider(_selectedTwinId),
-    );
 
-    return SelectableScaffold(
-      appBar: BrandedAppBar(
-        title: 'Pricing Review',
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Back to dashboard',
-          onPressed: () => context.go('/dashboard'),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Reload pricing state',
-            onPressed: () {
-              ref.invalidate(pricingReviewStateProvider(_selectedTwinId));
-              ref.invalidate(pricingReviewStateProvider(null));
-            },
-          ),
-          const SizedBox(width: AppSpacing.sm),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSpacing.maxContentWidthLarge,
+    return BlocConsumer<PricingReviewBloc, PricingReviewState>(
+      listenWhen: (previous, current) =>
+          previous.refreshRevision != current.refreshRevision,
+      listener: (context, state) {
+        ref.invalidate(pricingReviewStateProvider(state.lastRefreshedTwinId));
+        ref.invalidate(pricingReviewStateProvider(null));
+      },
+      builder: (context, commandState) {
+        final reviewStateAsync = ref.watch(
+          pricingReviewStateProvider(commandState.selectedTwinId),
+        );
+
+        return SelectableScaffold(
+          appBar: BrandedAppBar(
+            title: 'Pricing Review',
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Back to dashboard',
+              onPressed: () => context.go('/dashboard'),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(context),
-                  const SizedBox(height: AppSpacing.lg),
-                  _buildTwinSelector(context, twinsAsync),
-                  if (_feedback != null) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    _buildFeedback(context, _feedback!),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  reviewStateAsync.when(
-                    data: (reviewState) => _PricingReviewContent(
-                      reviewState: reviewState,
-                      selectedTwinId: _selectedTwinId,
-                      refreshingProvider: _refreshingProvider,
-                      onRefreshProvider: _refreshProvider,
-                    ),
-                    loading: () => const _PricingReviewLoading(),
-                    error: (error, _) => _PricingReviewError(
-                      message: ApiErrorHandler.extractMessage(error),
-                      onRetry: () => ref.invalidate(
-                        pricingReviewStateProvider(_selectedTwinId),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Reload pricing state',
+                onPressed: () {
+                  ref.invalidate(
+                    pricingReviewStateProvider(commandState.selectedTwinId),
+                  );
+                  ref.invalidate(pricingReviewStateProvider(null));
+                },
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+          ),
+          body: SingleChildScrollView(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSpacing.maxContentWidthLarge,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(context),
+                      const SizedBox(height: AppSpacing.lg),
+                      _buildTwinSelector(
+                        context,
+                        twinsAsync,
+                        commandState.selectedTwinId,
                       ),
-                    ),
+                      if (commandState.feedback != null) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        _buildFeedback(context, commandState.feedback!),
+                      ],
+                      const SizedBox(height: AppSpacing.lg),
+                      reviewStateAsync.when(
+                        data: (reviewState) => _PricingReviewContent(
+                          reviewState: reviewState,
+                          selectedTwinId: commandState.selectedTwinId,
+                          refreshingProvider: commandState.refreshingProvider,
+                          onRefreshProvider: (provider) {
+                            context.read<PricingReviewBloc>().add(
+                              PricingReviewProviderRefreshRequested(provider),
+                            );
+                          },
+                        ),
+                        loading: () => const _PricingReviewLoading(),
+                        error: (error, _) => _PricingReviewError(
+                          message: ApiErrorHandler.extractMessage(error),
+                          onRetry: () => ref.invalidate(
+                            pricingReviewStateProvider(
+                              commandState.selectedTwinId,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -160,6 +149,7 @@ class _PricingReviewScreenState extends ConsumerState<PricingReviewScreen> {
   Widget _buildTwinSelector(
     BuildContext context,
     AsyncValue<List<Twin>> twinsAsync,
+    String? selectedTwinId,
   ) {
     return Card(
       child: Padding(
@@ -167,10 +157,10 @@ class _PricingReviewScreenState extends ConsumerState<PricingReviewScreen> {
         child: twinsAsync.when(
           data: (twins) {
             final selectedExists = twins.any(
-              (twin) => twin.id == _selectedTwinId,
+              (twin) => twin.id == selectedTwinId,
             );
             final effectiveSelectedTwinId = selectedExists
-                ? _selectedTwinId
+                ? selectedTwinId
                 : null;
 
             return Column(
@@ -201,10 +191,9 @@ class _PricingReviewScreenState extends ConsumerState<PricingReviewScreen> {
                   onChanged: twins.isEmpty
                       ? null
                       : (value) {
-                          setState(() {
-                            _selectedTwinId = value;
-                            _feedback = null;
-                          });
+                          context.read<PricingReviewBloc>().add(
+                            PricingReviewTwinSelected(value),
+                          );
                         },
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -237,7 +226,7 @@ class _PricingReviewScreenState extends ConsumerState<PricingReviewScreen> {
     );
   }
 
-  Widget _buildFeedback(BuildContext context, _PricingReviewFeedback feedback) {
+  Widget _buildFeedback(BuildContext context, PricingReviewFeedback feedback) {
     final color = feedback.isError
         ? Theme.of(context).colorScheme.error
         : Theme.of(context).colorScheme.primary;
@@ -499,20 +488,5 @@ class _PricingReviewError extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _PricingReviewFeedback {
-  final String message;
-  final bool isError;
-
-  const _PricingReviewFeedback._(this.message, {required this.isError});
-
-  factory _PricingReviewFeedback.success(String message) {
-    return _PricingReviewFeedback._(message, isError: false);
-  }
-
-  factory _PricingReviewFeedback.error(String message) {
-    return _PricingReviewFeedback._(message, isError: true);
   }
 }

@@ -182,7 +182,14 @@ Implementation Notes:
 
 ## Phase 4 - Pricing Review Feature State and Extension Points
 
-Status: Pending.
+Status: Complete.
+
+Verification:
+- `flutter analyze` passed.
+- Focused Pricing Review BLoC, pricing state model, pricing health row, and
+  data freshness widget tests passed.
+- Full `flutter test` passed.
+- `git diff --check` passed.
 
 ### Scope
 
@@ -207,6 +214,15 @@ Status: Pending.
 - Refresh command state is testable without pumping the full screen.
 - Extension points are documented outside production TODO comments.
 - Dashboard and Pricing Review still use Management API only.
+
+Implementation Notes:
+- Added `PricingReviewBloc` for selected credential context, active provider
+  refresh, command feedback, and refresh revision invalidation.
+- Converted `PricingReviewScreen` from local `setState` command handling to a
+  BLoC-driven view that keeps Management API data loading in typed providers.
+- Added frontend extension-point documentation for pricing review decisions,
+  optional AI support, CloudConnection account display, optimization strategy
+  selection, deployment verification, and wizard services.
 
 ## Phase 5 - Typed DTO and View-Model Completion
 
