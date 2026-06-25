@@ -122,3 +122,7 @@ DEFAULT_METRIC_PROVIDERS: dict[str, MetricProvider] = {
     "cost": CostMetricProvider(),
 }
 
+# TODO(future-optimization-entrypoint): Register concrete non-cost
+# MetricProvider implementations here after they can produce evidence-backed,
+# numeric MetricResult values. Keep declarations disabled until the provider is
+# implemented and profile validation proves it belongs to an enabled profile.

@@ -1,20 +1,15 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
-import '../../models/pricing_review_state.dart';
 import '../../providers/twins_provider.dart';
-import '../../utils/api_error_handler.dart';
-import '../../widgets/data_freshness_card.dart';
 import '../../widgets/calc_form/calc_form.dart';
+import '../../widgets/results/calculation_trace_summary.dart';
 import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
-import '../../services/api_service.dart';
-import '../../services/sse_service.dart';
 
 /// Step 2: Optimizer - BLoC version
 ///
@@ -27,19 +22,7 @@ class Step2Optimizer extends ConsumerStatefulWidget {
 }
 
 class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
-  final ApiService _apiService = ApiService();
-
-  // Local state for pricing/refresh (not in BLoC yet)
-  Map<String, dynamic>? _pricingStatus;
-  PricingReviewStateResponse? _pricingReviewState;
-  bool _loadingStatus = true;
   bool _loadingConfig = true;
-
-  // SSE Refresh State
-  bool _isRefreshing = false;
-  String? _refreshingProvider;
-  List<String> _refreshLogs = [];
-  StreamSubscription? _sseSubscription;
 
   // Scroll keys for navigation
   final _resultsKey = GlobalKey();
@@ -50,7 +33,6 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
   @override
   void initState() {
     super.initState();
-    _loadPricingStatus();
 
     // If we have calcParams in BLoC state, skip loading
     final state = context.read<WizardBloc>().state;
@@ -75,39 +57,6 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
           }
         });
       });
-    }
-  }
-
-  @override
-  void dispose() {
-    _sseSubscription?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadPricingStatus() async {
-    try {
-      final twinId = context.read<WizardBloc>().state.twinId;
-      final status = await _apiService.getPricingStatus();
-      PricingReviewStateResponse? reviewState;
-      if (twinId != null) {
-        try {
-          reviewState = await _apiService.getPricingReviewState(twinId);
-        } catch (e) {
-          debugPrint(
-            'Failed to load pricing review state: ${ApiErrorHandler.extractMessage(e)}',
-          );
-        }
-      }
-      if (mounted) {
-        setState(() {
-          _pricingStatus = status;
-          _pricingReviewState = reviewState;
-          _loadingStatus = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Failed to load pricing status: $e');
-      if (mounted) setState(() => _loadingStatus = false);
     }
   }
 
@@ -138,97 +87,6 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
     context.read<WizardBloc>().add(WizardCalcParamsChanged(params));
   }
 
-  Future<void> _confirmRefresh(String provider) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Refresh ${provider.toUpperCase()} Pricing?'),
-        content: const Text(
-          'Fetching cloud pricing data may take 30-60 seconds.\n\n'
-          'You will see real-time progress in the log window below.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Refresh'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      _startStreamingRefresh(provider);
-    }
-  }
-
-  Future<void> _startStreamingRefresh(String provider) async {
-    setState(() {
-      _isRefreshing = true;
-      _refreshingProvider = provider;
-      _refreshLogs = [];
-    });
-
-    final authToken = await _apiService.getAuthToken();
-    final sseService = SseService(
-      baseUrl: ApiService.baseUrl,
-      authToken: authToken,
-    );
-
-    if (!mounted) return;
-    final state = context.read<WizardBloc>().state;
-    _sseSubscription = sseService
-        .streamRefreshPricing(provider, state.twinId ?? '')
-        .listen(
-          (event) {
-            if (!mounted) return;
-            setState(() {
-              _refreshLogs.add('${_formatTime()} ${event.message}');
-            });
-
-            if (event.isComplete) {
-              _loadPricingStatus();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '${provider.toUpperCase()} pricing refreshed successfully',
-                    ),
-                  ),
-                );
-              }
-            } else if (event.isError) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Failed to refresh ${provider.toUpperCase()} pricing',
-                    ),
-                  ),
-                );
-              }
-            }
-          },
-          onDone: () {
-            if (mounted) setState(() => _isRefreshing = false);
-          },
-          onError: (e) {
-            if (!mounted) return;
-            setState(() {
-              _refreshLogs.add(
-                '${_formatTime()} ❌ Connection error: ${ApiErrorHandler.extractMessage(e)}',
-              );
-              _isRefreshing = false;
-            });
-          },
-        );
-  }
-
-  String _formatTime() => TimeOfDay.now().format(context);
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<WizardBloc, WizardState>(
@@ -257,14 +115,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Section 1: Data Freshness
-                    _buildPricingStatusSection(context),
-
-                    if (_isRefreshing || _refreshLogs.isNotEmpty)
-                      _buildLogWindow(),
-
-                    const SizedBox(height: 32),
-                    const Divider(),
+                    _buildPricingReviewNotice(context),
                     const SizedBox(height: 32),
 
                     // Note: Step 3 invalidation warning now shown in header alert via warningMessage
@@ -289,181 +140,43 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
     );
   }
 
-  Widget _buildPricingStatusSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _buildPricingReviewNotice(BuildContext context) {
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              Icons.cloud_sync,
-              size: 28,
-              color: Theme.of(context).primaryColor,
+              Icons.price_check,
+              color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 12),
-            Text(
-              'Pricing Data Status',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Ensure pricing data is up-to-date before calculating costs. Click refresh to update.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 20),
-        _buildDataFreshnessCards(),
-      ],
-    );
-  }
-
-  Widget _buildDataFreshnessCards() {
-    if (_loadingStatus) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    // Wrap in BlocBuilder to react to state changes (e.g., draft saved → twinId available)
-    return BlocBuilder<WizardBloc, WizardState>(
-      buildWhen: (prev, curr) =>
-          prev.twinId != curr.twinId ||
-          prev.aws.isValid != curr.aws.isValid ||
-          prev.aws.source != curr.aws.source ||
-          prev.gcp.isValid != curr.gcp.isValid ||
-          prev.gcp.source != curr.gcp.source ||
-          prev.hasUnsavedChanges != curr.hasUnsavedChanges,
-      builder: (context, state) {
-        final hasSavedDraft = state.twinId != null;
-
-        // Helper: credentials are "saved" if inherited from DB OR no unsaved changes
-        bool isCredentialSaved(ProviderCredentials cred) {
-          if (!cred.isValid) return false;
-          return cred.source == CredentialSource.inherited ||
-              !state.hasUnsavedChanges;
-        }
-
-        // Determine enabled state for each provider:
-        // - Azure: Always enabled (uses public API, no credentials needed)
-        // - AWS/GCP: Enabled only if draft saved AND credentials are SAVED (not just validated)
-        final awsEnabled = hasSavedDraft && isCredentialSaved(state.aws);
-        final gcpEnabled = hasSavedDraft && isCredentialSaved(state.gcp);
-
-        // Build disabled reason messages
-        String? awsDisabledReason;
-        if (!hasSavedDraft) {
-          awsDisabledReason = 'Save draft to enable refresh';
-        } else if (!state.aws.isValid) {
-          awsDisabledReason = 'Configure AWS credentials in Step 1';
-        } else if (!isCredentialSaved(state.aws)) {
-          awsDisabledReason = 'Save credentials to enable refresh';
-        }
-
-        String? gcpDisabledReason;
-        if (!hasSavedDraft) {
-          gcpDisabledReason = 'Save draft to enable refresh';
-        } else if (!state.gcp.isValid) {
-          gcpDisabledReason = 'Configure GCP credentials in Step 1';
-        } else if (!isCredentialSaved(state.gcp)) {
-          gcpDisabledReason = 'Save credentials to enable refresh';
-        }
-
-        return Row(
-          children: [
             Expanded(
-              child: DataFreshnessCard(
-                provider: 'aws',
-                status: _pricingStatus?['aws'],
-                reviewState: _pricingReviewState?.provider('aws'),
-                onRefresh: () => _confirmRefresh('aws'),
-                enabled: awsEnabled,
-                disabledReason: awsDisabledReason,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: DataFreshnessCard(
-                provider: 'azure',
-                status: _pricingStatus?['azure'],
-                reviewState: _pricingReviewState?.provider('azure'),
-                onRefresh: () => _confirmRefresh('azure'),
-                enabled: true, // Azure always enabled (public API)
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: DataFreshnessCard(
-                provider: 'gcp',
-                status: _pricingStatus?['gcp'],
-                reviewState: _pricingReviewState?.provider('gcp'),
-                onRefresh: () => _confirmRefresh('gcp'),
-                enabled: gcpEnabled,
-                disabledReason: gcpDisabledReason,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildLogWindow() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Icon(Icons.terminal, color: Colors.grey[700]),
-            const SizedBox(width: 8),
-            Text(
-              'Refresh Log${_refreshingProvider != null ? " (${_refreshingProvider!.toUpperCase()})" : ""}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            const Spacer(),
-            if (!_isRefreshing)
-              TextButton(
-                onPressed: () => setState(() => _refreshLogs.clear()),
-                child: const Text('Clear'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 150,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: ListView.builder(
-            itemCount: _refreshLogs.length + (_isRefreshing ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index < _refreshLogs.length) {
-                return Text(
-                  _refreshLogs[index],
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: Colors.green,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pricing review is managed from the dashboard',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                );
-              } else {
-                return const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: LinearProgressIndicator(),
-                );
-              }
-            },
-          ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Use Dashboard > Pricing Review to refresh provider pricing. '
+                    'This step focuses on workload inputs and calculation results for the current twin.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -534,7 +247,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         // Total Cost Banner
         _buildTotalCost(result),
         const SizedBox(height: 16),
-        _buildPricingQualitySummary(context),
+        CalculationTraceSummary(result: result),
 
         // Note: Unconfigured provider warning is now shown in the wizard header
         const SizedBox(height: 32),
@@ -686,67 +399,6 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         ),
         const SizedBox(height: 32),
       ],
-    );
-  }
-
-  Widget _buildPricingQualitySummary(BuildContext context) {
-    final providers = ['aws', 'azure', 'gcp'];
-    final reviewState = _pricingReviewState;
-
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.verified_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Pricing quality for this calculation',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (reviewState == null)
-              Text(
-                'Pricing review state was not available when this result was displayed.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: providers.map((provider) {
-                  final providerState = reviewState.provider(provider);
-                  final label = provider.toUpperCase();
-                  final text = providerState == null
-                      ? '$label: unknown'
-                      : '$label: ${providerState.badgeLabel} · ${providerState.sourceLabel}';
-                  return Chip(
-                    label: Text(text),
-                    avatar: Icon(
-                      providerState?.reviewRequired == true
-                          ? Icons.warning_amber_outlined
-                          : Icons.check_circle_outline,
-                      size: 18,
-                    ),
-                  );
-                }).toList(),
-              ),
-          ],
-        ),
-      ),
     );
   }
 

@@ -197,6 +197,101 @@ abstract class TestFixtures {
         'L5_AWS',
       ],
       'transferCosts': <String, dynamic>{'L1_to_L2': 0.05, 'L2_to_L3': 0.02},
+      'trace_schema_version': 'intent-result-trace.v1',
+      'optimizationProfile': <String, dynamic>{
+        'profile_id': 'cost_minimization_v1',
+        'objective': 'cost',
+        'metric_provider_ids': <String>['cost'],
+        'calculation_model_ids': <String>['cost_model_v1'],
+        'scoring_strategy_id': 'min_total_cost_v1',
+        'intent_group_ids': <String>['cost'],
+        'result_schema_version': 'cost-result.v1',
+        'pricing_registry_version': 'pricing-registry.v1',
+      },
+      'evidenceReferences': <String, dynamic>{
+        'pricing_registry': 'pricing_registry:pricing-registry.v1',
+      },
+      'intentTrace': <String, dynamic>{
+        'schema_version': 'intent-result-trace.v1',
+        'profile': <String, dynamic>{
+          'profile_id': 'cost_minimization_v1',
+          'objective': 'cost',
+          'metric_provider_ids': <String>['cost'],
+          'calculation_model_ids': <String>['cost_model_v1'],
+          'scoring_strategy_id': 'min_total_cost_v1',
+          'intent_group_ids': <String>['cost'],
+          'result_schema_version': 'cost-result.v1',
+          'pricing_registry_version': 'pricing-registry.v1',
+        },
+        'workload': <String, dynamic>{
+          'inputs': <String, dynamic>{'numberOfDevices': 100},
+          'derived': <String, dynamic>{'total_messages_per_month': 2160000},
+        },
+        'selected_path': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'result_path': 'L1',
+            'layer_cost_key': 'L1',
+            'provider': 'AWS',
+            'path_key': 'L1_AWS',
+            'cost': 10.5,
+          },
+        ],
+        'transfer_trace': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'segment': 'L1_to_L2',
+            'source_layer': 'L1',
+            'target_layer': 'L2',
+            'source_provider': 'AWS',
+            'target_provider': 'GCP',
+            'cost': 0.05,
+            'source_intent_id': 'aws.transfer.egress',
+            'evidence_reference_ids': <String>[
+              'pricing_registry:pricing-registry.v1/aws.transfer.egress',
+            ],
+          },
+        ],
+        'records': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'trace_id': 'trace:aws.l1.iot_core.message_tiers',
+            'record_id': 'aws.l1.iot_core.message_tiers',
+            'intent_id': 'aws.l1.iot_core',
+            'provider': 'aws',
+            'layer': 'L1_INGESTION',
+            'service_key': 'iot_core',
+            'field_id': 'message_tiers',
+            'source': <String, dynamic>{
+              'primary_source_type': 'provider_api',
+              'refreshability': 'refreshable',
+            },
+            'pricing': <String, dynamic>{
+              'canonical_unit': 'usd/message',
+              'source_unit': 'tier_table',
+            },
+            'formula': <String, dynamic>{'binding_id': 'cost.l1.ingestion'},
+            'contribution': <String, dynamic>{
+              'selected': true,
+              'path_key': 'L1_AWS',
+              'cost': 10.5,
+            },
+            'verification': <String, dynamic>{
+              'status': 'ready',
+              'review_required': false,
+              'publishable': true,
+              'evidence_reference_id':
+                  'pricing_registry:pricing-registry.v1/aws.l1.iot_core.message_tiers',
+            },
+          },
+        ],
+        'summary': <String, dynamic>{
+          'record_count': 1,
+          'selected_record_count': 1,
+          'review_required_count': 0,
+          'unsupported_count': 0,
+          'selected_path_count': 1,
+          'transfer_segment_count': 1,
+          'publishable': true,
+        },
+      },
       'totalCost': 55.67,
     },
   };

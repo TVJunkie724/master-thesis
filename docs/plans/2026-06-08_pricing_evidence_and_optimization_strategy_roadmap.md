@@ -38,6 +38,7 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | AWS tiering and unit-aware calculation | #92 | implemented on this branch |
 | GCP pricing credential preflight and evidence artifacts | #93 | implemented on this branch |
 | Cross-provider evidence-backed cost validation | #94 | implemented on this branch |
+| Intent-to-result traceability | #100 | implemented on this branch |
 | Provider-specific tiering/calculation reviews | #90/#92/#93 | implemented baseline; live/e2e finalization remains later |
 
 Issue numbers must be added here when planned phases are split into GitHub
@@ -199,6 +200,7 @@ first-class.
 | 8 | `2026-06-08_aws_tiering_calculation_review.md` | implemented (#92) | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
+| 16 | `2026-06-21_intent_to_result_traceability.md` | implemented (#100) | Expose bounded, secret-free calculation trace metadata from intent to selected result |
 
 ## Phase Boundaries
 
@@ -308,6 +310,21 @@ validates normalized units, validates the active `cost_minimization_v1`
 optimization profile, and exposes selected evidence ids per provider/intent.
 Calculation results now include `evidenceReferences`, and the Management API
 run store rejects optimizer responses that omit evidence-reference metadata.
+
+### Phase 16
+
+Exposes intent-to-result traceability for calculation results without changing
+legacy response consumers.
+
+Implemented in GitHub issue #100. The Optimizer now returns additive
+`trace_schema_version` and `intentTrace` metadata from `/calculate`. The trace
+connects the selected optimization profile, bounded workload inputs and derived
+usage values, selected provider/layer path, pricing source policy, canonical
+units, formula binding, cost contribution, registry evidence references, and
+verification state. Transfer costs are represented as segment-level
+`transfer_trace` entries. The trace is read-only, bounded, and secret-free; raw
+provider pricing rows, credentials, and full pricing payloads remain out of the
+calculation response.
 
 ## Explicit Future Metrics
 

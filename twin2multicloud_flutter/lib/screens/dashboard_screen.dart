@@ -11,6 +11,7 @@ import '../utils/twin_state_utils.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/branded_app_bar.dart';
 import '../widgets/selectable_scaffold.dart';
+import '../widgets/pricing/pricing_health_row.dart';
 import '../models/twin.dart';
 import '../theme/colors.dart';
 import '../config/docs_config.dart';
@@ -58,6 +59,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void _refreshDashboard(WidgetRef ref) {
     ref.invalidate(twinsProvider);
     ref.invalidate(dashboardStatsProvider);
+    ref.invalidate(pricingReviewStateProvider(null));
   }
 
   @override
@@ -144,6 +146,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 children: [
                   // Stat cards row
                   _buildStatsRow(ref),
+                  const SizedBox(height: 16),
+                  _buildPricingHealthRow(context, ref),
                   const SizedBox(height: 24),
                   // Twins section - wrapped in Card
                   Container(
@@ -152,7 +156,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: Theme.of(context).brightness == Brightness.dark
+                            alpha:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? 0.2
                                 : 0.06,
                           ),
@@ -308,10 +313,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return statsAsync.when(
       data: (stats) {
-        final deployed = stats['deployed_count'] ?? 0;
-        final draft = stats['draft_count'] ?? 0;
-        final total = stats['total_twins'] ?? 0;
-        final cost = stats['estimated_monthly_cost'] ?? 0.0;
+        final deployed = stats.deployedCount;
+        final draft = stats.draftCount;
+        final total = stats.totalTwins;
+        final cost = stats.estimatedMonthlyCost;
 
         // Format cost
         final costStr = cost > 0 ? '\$${cost.toStringAsFixed(0)}/mo' : '—';
@@ -362,6 +367,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           StatCard(title: 'Draft', value: '?', icon: Icons.edit_note),
         ],
       ),
+    );
+  }
+
+  Widget _buildPricingHealthRow(BuildContext context, WidgetRef ref) {
+    return PricingHealthRow(
+      reviewState: ref.watch(pricingReviewStateProvider(null)),
+      onOpenReview: () => context.go('/pricing-review'),
+      onRetry: () => ref.invalidate(pricingReviewStateProvider(null)),
     );
   }
 

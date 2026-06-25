@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/dashboard_stats.dart';
+import '../models/pricing_review_state.dart';
 import '../models/twin.dart';
 import '../services/api_service.dart';
 
@@ -18,20 +20,19 @@ final twinsProvider = FutureProvider<List<Twin>>((ref) async {
 ///
 /// Tries the dedicated /dashboard/stats endpoint first (includes cost data).
 /// Falls back to computing counts from the twins list if the endpoint fails.
-final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((
-  ref,
-) async {
+final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
   final api = ref.read(apiServiceProvider);
   try {
     return await api.getDashboardStats();
   } catch (_) {
     // Fallback: compute counts from twins list (cost unavailable)
     final twins = await ref.read(twinsProvider.future);
-    return {
-      'deployed_count': twins.where((t) => t.isDeployed).length,
-      'draft_count': twins.where((t) => t.isDraft).length,
-      'total_twins': twins.length,
-      'estimated_monthly_cost': 0.0,
-    };
+    return DashboardStats.fromTwins(twins);
   }
 });
+
+final pricingReviewStateProvider =
+    FutureProvider.family<PricingReviewStateResponse, String?>((ref, twinId) {
+      final api = ref.read(apiServiceProvider);
+      return api.getPricingReviewState(twinId);
+    });
