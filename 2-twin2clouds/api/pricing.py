@@ -427,6 +427,8 @@ from typing import Optional
 
 class CredentialRequest(BaseModel):
     """Credentials for pricing fetch."""
+    model_config = ConfigDict(extra="forbid")
+
     # AWS
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
@@ -434,7 +436,29 @@ class CredentialRequest(BaseModel):
     aws_region: Optional[str] = "eu-central-1"
     # GCP
     gcp_service_account_json: Optional[str] = None
+    gcp_project_id: Optional[str] = None
+    gcp_billing_account: Optional[str] = None
     gcp_region: Optional[str] = "europe-west1"
+
+
+def _pricing_stream_failure_message(provider: str) -> str:
+    """Return a stable, non-secret SSE error message for UI clients."""
+    return (
+        f"❌ {provider.upper()} pricing fetch failed. "
+        "Check Optimizer logs and credential setup, then retry."
+    )
+
+
+def _redact_credential_values(message: str, credentials: CredentialRequest) -> str:
+    """Remove known credential values from client-facing error text."""
+    redacted = message
+    for key, value in credentials.model_dump().items():
+        if not value:
+            continue
+        if not any(token in key.lower() for token in ("secret", "token", "key", "json")):
+            continue
+        redacted = redacted.replace(str(value), "[REDACTED]")
+    return redacted
 
 
 @router.post(
@@ -501,12 +525,13 @@ def fetch_pricing_with_credentials(
         return calculate_up_to_date_pricing_with_credentials(provider, creds_dict)
 
     except ValueError as e:
-        logger.warning(f"Invalid {provider} pricing credential request: {e}")
+        redacted_message = _redact_credential_values(str(e), credentials)
+        logger.warning("Invalid %s pricing credential request: %s", provider, redacted_message)
         raise HTTPException(
             status_code=400,
             detail=_pricing_error_detail(
                 "PRICING_CREDENTIAL_REQUEST_INVALID",
-                str(e),
+                redacted_message,
                 (
                     "Provide complete request-body credentials for the selected provider. "
                     "AWS requires access key and secret key; GCP requires service account JSON."
@@ -620,10 +645,12 @@ async def stream_fetch_pricing(
                 await task
                 yield emit_sse(f"✅ {provider.upper()} pricing fetch complete!", "complete")
             except Exception as e:
-                yield emit_sse(f"❌ Pricing fetch failed: {str(e)}", "error")
+                logger.error("Pricing fetch failed for %s (%s)", provider, type(e).__name__)
+                yield emit_sse(_pricing_stream_failure_message(provider), "error")
             
         except Exception as e:
-            yield emit_sse(f"❌ Error: {str(e)}", "error")
+            logger.error("Pricing stream failed for %s (%s)", provider, type(e).__name__)
+            yield emit_sse(_pricing_stream_failure_message(provider), "error")
         finally:
             logger.removeHandler(handler)
     

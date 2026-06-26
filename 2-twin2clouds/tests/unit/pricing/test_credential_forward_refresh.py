@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError as PydanticValidationError
 
 from backend.fetch_data.calculate_up_to_date_pricing import (
     build_aws_pricing_client_credentials,
@@ -44,6 +45,31 @@ def test_credential_request_accepts_aws_session_token():
     assert request.model_dump()["aws_session_token"] == "session-token"
 
 
+def test_credential_request_accepts_management_api_gcp_context_fields():
+    request = CredentialRequest(
+        gcp_service_account_json='{"type":"service_account"}',
+        gcp_project_id="thesis-demo",
+        gcp_billing_account="012345-6789AB-CDEF01",
+        gcp_region="europe-west1",
+    )
+
+    assert request.model_dump() == {
+        "aws_access_key_id": None,
+        "aws_secret_access_key": None,
+        "aws_session_token": None,
+        "aws_region": "eu-central-1",
+        "gcp_service_account_json": '{"type":"service_account"}',
+        "gcp_project_id": "thesis-demo",
+        "gcp_billing_account": "012345-6789AB-CDEF01",
+        "gcp_region": "europe-west1",
+    }
+
+
+def test_credential_request_rejects_unknown_fields():
+    with pytest.raises(PydanticValidationError):
+        CredentialRequest(unexpected_secret="should-not-be-silently-ignored")
+
+
 def test_fetch_pricing_with_credentials_invalid_provider_returns_structured_error():
     response = client.post("/fetch_pricing_with_credentials/invalid", json={})
 
@@ -72,6 +98,120 @@ def test_fetch_pricing_with_credentials_value_error_returns_structured_400(
     assert detail["error_code"] == "PRICING_CREDENTIAL_REQUEST_INVALID"
     assert detail["http_status"] == 400
     assert "aws_secret_access_key" in detail["message"]
+
+
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "calculate_up_to_date_pricing_with_credentials"
+)
+def test_fetch_pricing_with_credentials_redacts_secret_value_errors(mock_refresh, caplog):
+    mock_refresh.side_effect = ValueError("provider echoed secret-key in validation")
+
+    with caplog.at_level("WARNING", logger="digital_twin"):
+        response = client.post(
+            "/fetch_pricing_with_credentials/aws",
+            json={
+                "aws_access_key_id": "access-key",
+                "aws_secret_access_key": "secret-key",
+                "aws_region": "eu-central-1",
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["message"] == "provider echoed [REDACTED] in validation"
+    assert "secret-key" not in caplog.text
+
+
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "calculate_up_to_date_pricing_with_credentials"
+)
+def test_fetch_pricing_with_credentials_preserves_gcp_context_fields(mock_refresh):
+    mock_refresh.return_value = {"pubsub": {"price": 1.0}}
+
+    response = client.post(
+        "/fetch_pricing_with_credentials/gcp",
+        json={
+            "gcp_service_account_json": '{"type":"service_account"}',
+            "gcp_project_id": "thesis-demo",
+            "gcp_billing_account": "012345-6789AB-CDEF01",
+            "gcp_region": "europe-west1",
+        },
+    )
+
+    assert response.status_code == 200
+    assert mock_refresh.call_args.args[0] == "gcp"
+    assert mock_refresh.call_args.args[1] == {
+        "aws_access_key_id": None,
+        "aws_secret_access_key": None,
+        "aws_session_token": None,
+        "aws_region": "eu-central-1",
+        "gcp_service_account_json": '{"type":"service_account"}',
+        "gcp_project_id": "thesis-demo",
+        "gcp_billing_account": "012345-6789AB-CDEF01",
+        "gcp_region": "europe-west1",
+    }
+
+
+def test_fetch_pricing_with_credentials_rejects_unknown_fields():
+    response = client.post(
+        "/fetch_pricing_with_credentials/aws",
+        json={"aws_access_key_id": "access-key", "unexpected": "value"},
+    )
+
+    assert response.status_code == 422
+
+
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "calculate_up_to_date_pricing_with_credentials"
+)
+def test_stream_fetch_pricing_preserves_gcp_context_fields(mock_refresh):
+    mock_refresh.return_value = {"pubsub": {"price": 1.0}}
+
+    with client.stream(
+        "POST",
+        "/stream/fetch_pricing/gcp",
+        json={
+            "gcp_service_account_json": '{"type":"service_account"}',
+            "gcp_project_id": "thesis-demo",
+            "gcp_billing_account": "012345-6789AB-CDEF01",
+            "gcp_region": "europe-west1",
+        },
+    ) as response:
+        body = "\n".join(response.iter_lines())
+
+    assert response.status_code == 200
+    assert "complete" in body
+    assert mock_refresh.call_args.args[0] == "gcp"
+    assert mock_refresh.call_args.args[1]["gcp_project_id"] == "thesis-demo"
+    assert mock_refresh.call_args.args[1]["gcp_billing_account"] == "012345-6789AB-CDEF01"
+
+
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "calculate_up_to_date_pricing_with_credentials"
+)
+def test_stream_fetch_pricing_does_not_echo_secret_exception_text(mock_refresh, caplog):
+    mock_refresh.side_effect = Exception("provider echoed secret-key in an error")
+
+    with caplog.at_level("ERROR", logger="digital_twin"):
+        with client.stream(
+            "POST",
+            "/stream/fetch_pricing/aws",
+            json={
+                "aws_access_key_id": "access-key",
+                "aws_secret_access_key": "secret-key",
+                "aws_region": "eu-central-1",
+            },
+        ) as response:
+            body = "\n".join(response.iter_lines())
+
+    assert response.status_code == 200
+    assert "event: error" in body
+    assert "AWS pricing fetch failed" in body
+    assert "secret-key" not in body
+    assert "secret-key" not in caplog.text
 
 
 @patch("backend.pricing_utils.validate_pricing_schema")
