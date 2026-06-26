@@ -8,6 +8,7 @@ from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.services.verification_service import DeploymentVerificationService
 
@@ -54,6 +55,7 @@ def _service(
     session_records=None,
     scheduled=None,
     infrastructure_verifier=None,
+    deployer_client=None,
 ) -> DeploymentVerificationService:
     session_records = session_records if session_records is not None else []
     scheduled = scheduled if scheduled is not None else []
@@ -64,7 +66,21 @@ def _service(
         session_creator=_session_recorder(session_records),
         task_scheduler=_closing_scheduler(scheduled),
         infrastructure_verifier=infrastructure_verifier,
+        deployer_client=deployer_client,
     )
+
+
+class FakeDeployerClient:
+    def __init__(self, result=None, exc=None):
+        self.result = result or {"summary": {"healthy": True}, "checks": []}
+        self.exc = exc
+        self.calls = []
+
+    async def verify_infrastructure(self, resource_name, provider):
+        self.calls.append((resource_name, provider))
+        if self.exc:
+            raise self.exc
+        return self.result
 
 
 @pytest.mark.asyncio
@@ -98,6 +114,63 @@ async def test_verify_infrastructure_uses_optimizer_provider(db_session):
 
     assert result["summary"]["healthy"] is True
     assert calls == [("verification-project", "azure")]
+
+
+@pytest.mark.asyncio
+async def test_verify_infrastructure_default_path_uses_deployer_client(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    fake = FakeDeployerClient()
+
+    result = await _service(db_session, deployer_client=fake).verify_infrastructure(
+        twin.id,
+        user.id,
+        test_mode=False,
+    )
+
+    assert result["summary"]["healthy"] is True
+    assert fake.calls == [("verification-project", "aws")]
+
+
+@pytest.mark.asyncio
+async def test_verify_infrastructure_maps_deployer_client_errors(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    fake = FakeDeployerClient(
+        exc=ExternalServiceError(
+            "Deployer API returned 500: client_secret=secret-value",
+            upstream_status_code=500,
+            public_detail="client_secret=secret-value",
+        )
+    )
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _service(db_session, deployer_client=fake).verify_infrastructure(
+            twin.id,
+            user.id,
+            test_mode=False,
+        )
+
+    assert exc.value.status_code == 500
+    assert "secret-value" not in exc.value.public_detail
+    assert "client_secret=[REDACTED]" in exc.value.public_detail
+
+
+@pytest.mark.asyncio
+async def test_verify_infrastructure_maps_deployer_unavailable(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    fake = FakeDeployerClient(exc=ExternalServiceUnavailable("Deployer API timed out"))
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _service(db_session, deployer_client=fake).verify_infrastructure(
+            twin.id,
+            user.id,
+            test_mode=False,
+        )
+
+    assert exc.value.status_code == 503
+    assert "Deployer API unavailable" in exc.value.public_detail
 
 
 @pytest.mark.asyncio

@@ -13,7 +13,6 @@ import json
 import logging
 import os
 import asyncio
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -33,7 +32,6 @@ from src.schemas.management_contracts import (
     OperationSessionResponse,
     RedeployReadinessResponse,
 )
-from src.config import settings
 from src.clients.deployer_client import DeployerClient
 from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
@@ -41,7 +39,12 @@ from src.services.configuration_validation_service import ConfigurationValidatio
 from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_read_service import DeploymentReadService
 from src.services.simulator_service import SimulatorDownloadService
-from src.services.errors import ConfigurationValidationFailed
+from src.services.errors import (
+    ConfigurationValidationFailed,
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+)
+from src.services.secret_redaction import redact_secret_like_text
 from src.services.twin_export_service import TwinExportService
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
 from src.services.verification_service import DeploymentVerificationService
@@ -225,10 +228,6 @@ async def update_twin(
         )
     except (ConflictError, EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
-
-
-OPTIMIZER_API_URL = os.getenv("OPTIMIZER_URL", "http://twin2clouds:8000")
-DEPLOYER_API_URL = os.getenv("DEPLOYER_URL", "http://3cloud-deployer:8000")
 
 
 async def _validate_configured_transition(twin: DigitalTwin, db: Session):
@@ -664,26 +663,21 @@ async def start_log_trace(
         raise HTTPException(status_code=500, detail=f"Failed to prepare project for log trace: {str(e)}")
     
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{DEPLOYER_API_URL}/logs/trace/start",
-                params={"project_name": resource_name}
-            )
-            
-            if response.status_code == 429:
-                # Rate limited - pass through the message
-                raise HTTPException(status_code=429, detail=response.json().get("detail", "Rate limited"))
-            
-            response.raise_for_status()
-            return response.json()
-            
-    except httpx.HTTPStatusError as e:
+        return await DeployerClient().start_log_trace(resource_name)
+    except ExternalServiceError as e:
+        detail = redact_secret_like_text(e.public_detail)
+        if e.upstream_status_code == 429:
+            try:
+                parsed = json.loads(detail)
+                detail = parsed.get("detail", "Rate limited") if isinstance(parsed, dict) else "Rate limited"
+            except json.JSONDecodeError:
+                detail = "Rate limited"
         raise HTTPException(
-            status_code=e.response.status_code,
-            detail=f"Deployer API error: {e.response.text}"
-        )
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+            status_code=e.upstream_status_code or 502,
+            detail=detail if e.upstream_status_code == 429 else f"Deployer API error: {detail}",
+        ) from e
+    except ExternalServiceUnavailable as e:
+        raise HTTPException(status_code=503, detail="Deployer API unavailable") from e
 
 
 @router.get(
@@ -738,25 +732,20 @@ async def stream_log_trace(
     
     async def event_generator():
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                async with client.stream(
-                    "GET",
-                    f"{DEPLOYER_API_URL}/logs/trace/stream/{trace_id}",
-                    params={"project_name": resource_name}
-                ) as response:
-                    async for line in response.aiter_lines():
-                        # SSE lines come pre-formatted, just pass through
-                        # Only add newline if line doesn't end with one
-                        if line:
-                            if line.endswith('\n'):
-                                yield line
-                            else:
-                                yield f"{line}\n"
-                        else:
-                            # Empty line is SSE event separator
-                            yield "\n"
+            async for line in DeployerClient().stream_log_trace(resource_name, trace_id):
+                # SSE lines come pre-formatted, just pass through.
+                if line:
+                    yield line if line.endswith("\n") else f"{line}\n"
+                else:
+                    yield "\n"
+        except (ExternalServiceError, ExternalServiceUnavailable) as e:
+            safe_error = redact_secret_like_text(str(e))
+            logger.error("Log trace stream error: %s", safe_error)
+            yield "event: error\ndata: {\"message\": \"Deployer log trace stream failed\"}\n\n"
         except Exception as e:
-            yield f"event: error\ndata: {{\"message\": \"Stream error: {str(e)}\"}}\n\n"
+            safe_error = redact_secret_like_text(str(e))
+            logger.error("Log trace stream error: %s", safe_error)
+            yield "event: error\ndata: {\"message\": \"Deployer log trace stream failed\"}\n\n"
     
     return StreamingResponse(
         event_generator(),

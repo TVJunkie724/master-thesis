@@ -7,11 +7,11 @@ import json
 import logging
 from typing import Any
 
-import httpx
 from sqlalchemy.orm import Session
 
-from src.config import settings
+from src.clients.deployer_client import DeployerClient
 from src.repositories.twin_repository import TwinRepository
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.scene_glb_service import SceneGlbService
 from src.services.service_errors import EntityNotFoundError, ValidationError
@@ -42,10 +42,12 @@ class ProjectZipExtractionService:
         db: Session,
         twin_repository: TwinRepository,
         scene_glb_service: SceneGlbService,
+        deployer_client: DeployerClient | None = None,
     ):
         self.db = db
         self.twin_repository = twin_repository
         self.scene_glb_service = scene_glb_service
+        self.deployer_client = deployer_client or DeployerClient()
 
     async def upload_project_zip(self, twin_id: str, user_id: str, zip_content: bytes) -> dict[str, Any]:
         """Proxy project.zip to Deployer and normalize the extraction response."""
@@ -61,24 +63,16 @@ class ProjectZipExtractionService:
         validation_context = self._build_validation_context(twin)
 
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                response = await client.post(
-                    f"{settings.DEPLOYER_URL}/validate/zip/extract",
-                    files={"file": ("project.zip", zip_content, "application/zip")},
-                    params={
-                        "validation_context": json.dumps(validation_context),
-                        "include_credentials": False,
-                    },
-                )
-        except httpx.ConnectError:
+            result = await self.deployer_client.extract_project_zip(zip_content, validation_context)
+        except ExternalServiceUnavailable:
             return empty_zip_extraction_response("Cannot connect to Deployer API. Is it running?")
-        except httpx.RequestError as exc:
+        except ExternalServiceError as exc:
+            return empty_zip_extraction_response(
+                f"Deployer error: {redact_secret_like_text(exc.public_detail)}"
+            )
+        except Exception as exc:
             return empty_zip_extraction_response(f"Request error: {redact_secret_like_text(str(exc))}")
 
-        if response.status_code != 200:
-            return empty_zip_extraction_response(f"Deployer error: {redact_secret_like_text(response.text)}")
-
-        result = response.json()
         self._save_scene_glb_if_present(twin_id, user_id, result)
         return result
 

@@ -5,12 +5,12 @@ Tests GET /twins/{twin_id}/simulator/download which proxies to Deployer API.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-import httpx
+from unittest.mock import patch, AsyncMock
 
 from src.models.twin import DigitalTwin, TwinState
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.deployer_config import DeployerConfiguration
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from tests.conftest import create_test_twin
 
 
@@ -56,17 +56,15 @@ def deployed_twin_with_optimizer(authenticated_client, db_session):
 # ============================================================
 
 @patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
-@patch("httpx.AsyncClient.get")
-def test_download_simulator_aws_success(mock_get, mock_prepare, deployed_twin_with_optimizer):
+@patch(
+    "src.clients.deployer_client.DeployerClient.download_simulator",
+    new_callable=AsyncMock,
+    return_value=b"PK\x03\x04mock-zip-content",
+)
+def test_download_simulator_aws_success(mock_download, mock_prepare, deployed_twin_with_optimizer):
     """Successfully download AWS simulator package."""
     client, headers, twin_id = deployed_twin_with_optimizer
-    
-    # Mock Deployer response
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.content = b"PK\x03\x04mock-zip-content"
-    mock_get.return_value = mock_response
-    
+
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
     
     assert response.status_code == 200
@@ -76,8 +74,12 @@ def test_download_simulator_aws_success(mock_get, mock_prepare, deployed_twin_wi
 
 
 @patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="azure-project")
-@patch("httpx.AsyncClient.get")
-def test_download_simulator_azure_success(mock_get, mock_prepare, authenticated_client, db_session):
+@patch(
+    "src.clients.deployer_client.DeployerClient.download_simulator",
+    new_callable=AsyncMock,
+    return_value=b"PK\x03\x04azure-zip",
+)
+def test_download_simulator_azure_success(mock_download, mock_prepare, authenticated_client, db_session):
     """Successfully download Azure simulator package."""
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers, "Azure Sim Twin")
@@ -90,11 +92,6 @@ def test_download_simulator_azure_success(mock_get, mock_prepare, authenticated_
     db_session.add_all([deployer_config, opt_config])
     db_session.commit()
     
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.content = b"PK\x03\x04azure-zip"
-    mock_get.return_value = mock_response
-    
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
     
     assert response.status_code == 200
@@ -102,8 +99,12 @@ def test_download_simulator_azure_success(mock_get, mock_prepare, authenticated_
 
 
 @patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="gcp-project")
-@patch("httpx.AsyncClient.get")
-def test_download_simulator_gcp_success(mock_get, mock_prepare, authenticated_client, db_session):
+@patch(
+    "src.clients.deployer_client.DeployerClient.download_simulator",
+    new_callable=AsyncMock,
+    return_value=b"PK\x03\x04gcp-zip",
+)
+def test_download_simulator_gcp_success(mock_download, mock_prepare, authenticated_client, db_session):
     """Successfully download GCP simulator package."""
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers, "GCP Sim Twin")
@@ -115,11 +116,6 @@ def test_download_simulator_gcp_success(mock_get, mock_prepare, authenticated_cl
     opt_config = OptimizerConfiguration(twin_id=twin_id, cheapest_l1="gcp")
     db_session.add_all([deployer_config, opt_config])
     db_session.commit()
-    
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.content = b"PK\x03\x04gcp-zip"
-    mock_get.return_value = mock_response
     
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
     
@@ -186,15 +182,18 @@ def test_download_simulator_no_l1(authenticated_client, db_session):
 
 
 @patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
-@patch("httpx.AsyncClient.get")
-def test_download_simulator_deployer_404(mock_get, mock_prepare, deployed_twin_with_optimizer):
+@patch(
+    "src.clients.deployer_client.DeployerClient.download_simulator",
+    new_callable=AsyncMock,
+    side_effect=ExternalServiceError(
+        "Deployer API returned 404: Project not found",
+        upstream_status_code=404,
+        public_detail="Project not found",
+    ),
+)
+def test_download_simulator_deployer_404(mock_download, mock_prepare, deployed_twin_with_optimizer):
     """404 when Deployer returns 404."""
     client, headers, twin_id = deployed_twin_with_optimizer
-    
-    mock_response = MagicMock()
-    mock_response.status_code = 404
-    mock_response.text = "Project not found"
-    mock_get.return_value = mock_response
     
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
     
@@ -207,12 +206,14 @@ def test_download_simulator_deployer_404(mock_get, mock_prepare, deployed_twin_w
 # ============================================================
 
 @patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
-@patch("httpx.AsyncClient.get")
-def test_download_simulator_deployer_timeout(mock_get, mock_prepare, deployed_twin_with_optimizer):
+@patch(
+    "src.clients.deployer_client.DeployerClient.download_simulator",
+    new_callable=AsyncMock,
+    side_effect=ExternalServiceUnavailable("Deployer API timed out"),
+)
+def test_download_simulator_deployer_timeout(mock_download, mock_prepare, deployed_twin_with_optimizer):
     """502 when Deployer times out."""
     client, headers, twin_id = deployed_twin_with_optimizer
-    
-    mock_get.side_effect = httpx.RequestError("Connection timeout")
     
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
     
@@ -221,15 +222,18 @@ def test_download_simulator_deployer_timeout(mock_get, mock_prepare, deployed_tw
 
 
 @patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
-@patch("httpx.AsyncClient.get")
-def test_download_simulator_deployer_500(mock_get, mock_prepare, deployed_twin_with_optimizer):
+@patch(
+    "src.clients.deployer_client.DeployerClient.download_simulator",
+    new_callable=AsyncMock,
+    side_effect=ExternalServiceError(
+        "Deployer API returned 500: Internal server error",
+        upstream_status_code=500,
+        public_detail="Internal server error",
+    ),
+)
+def test_download_simulator_deployer_500(mock_download, mock_prepare, deployed_twin_with_optimizer):
     """500 when Deployer returns 500."""
     client, headers, twin_id = deployed_twin_with_optimizer
-    
-    mock_response = MagicMock()
-    mock_response.status_code = 500
-    mock_response.text = "Internal server error"
-    mock_get.return_value = mock_response
     
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
     

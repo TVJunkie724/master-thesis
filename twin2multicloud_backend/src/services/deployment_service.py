@@ -19,14 +19,18 @@ import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-import httpx
 from datetime import datetime, timezone
 from typing import Any, Optional, TYPE_CHECKING
 
+from src.clients.deployer_client import DeployerClient
 from src.config import settings
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.credential_resolution_service import CredentialResolutionService, DeploymentCredentials
-from src.services.errors import DeploymentPackageBuildFailed
+from src.services.errors import (
+    DeploymentPackageBuildFailed,
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+)
 
 if TYPE_CHECKING:
     from src.models.deployer_config import DeployerConfiguration
@@ -34,8 +38,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Deployer API URL from settings
-DEPLOYER_API_URL = getattr(settings, 'DEPLOYER_URL', 'http://3cloud-deployer:8000')
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
 DEPLOYMENT_MANIFEST_VERSION = "1.0"
 REQUIRED_DEPLOYER_CONFIG_FILES = [
@@ -234,7 +236,8 @@ async def run_real_deploy_stream(
     session_id: str,
     twin_id: str,
     resource_name: str,
-    provider: str
+    provider: str,
+    deployer_client: DeployerClient | None = None,
 ):
     """
     Background task that subscribes to Deployer SSE and forwards logs.
@@ -269,33 +272,25 @@ async def run_real_deploy_stream(
     current_event_type: str | None = None
     
     try:
-        # Subscribe to Deployer SSE with long timeouts
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/infrastructure/deploy/stream",
-                params={"provider": provider, "project_name": resource_name}
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if line.startswith("event: "):
-                        current_event_type = line[7:].strip()
-                        continue
-                    if line.startswith("data: "):
-                        log_message, result = _parse_deployer_sse_data(
-                            line[6:],
-                            current_event_type,
-                            "deploy",
-                        )
-                        current_event_type = None
-                        if result:
-                            terminal_result = result
-                            if result.success and result.outputs:
-                                terraform_outputs = result.outputs
-                        elif log_message:
-                            print(log_message, flush=True)
-                            await session.push_log(log_message)
+        client = deployer_client or DeployerClient()
+        async for line in client.deploy_stream(provider, resource_name):
+            if line.startswith("event: "):
+                current_event_type = line[7:].strip()
+                continue
+            if line.startswith("data: "):
+                log_message, result = _parse_deployer_sse_data(
+                    line[6:],
+                    current_event_type,
+                    "deploy",
+                )
+                current_event_type = None
+                if result:
+                    terminal_result = result
+                    if result.success and result.outputs:
+                        terraform_outputs = result.outputs
+                elif log_message:
+                    print(log_message, flush=True)
+                    await session.push_log(log_message)
         
         deploy_success = bool(terminal_result and terminal_result.success)
         error_message = _result_message(
@@ -410,7 +405,8 @@ async def run_real_destroy_stream(
     session_id: str,
     twin_id: str,
     resource_name: str,
-    provider: str
+    provider: str,
+    deployer_client: DeployerClient | None = None,
 ):
     """
     Background task that subscribes to Deployer destroy SSE and forwards logs.
@@ -443,31 +439,23 @@ async def run_real_destroy_stream(
     current_event_type: str | None = None
     
     try:
-        # Subscribe to Deployer destroy SSE
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/infrastructure/destroy/stream",
-                params={"provider": provider, "project_name": resource_name}
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if line.startswith("event: "):
-                        current_event_type = line[7:].strip()
-                        continue
-                    if line.startswith("data: "):
-                        log_message, result = _parse_deployer_sse_data(
-                            line[6:],
-                            current_event_type,
-                            "destroy",
-                        )
-                        current_event_type = None
-                        if result:
-                            terminal_result = result
-                        elif log_message:
-                            print(log_message, flush=True)
-                            await session.push_log(log_message)
+        client = deployer_client or DeployerClient()
+        async for line in client.destroy_stream(provider, resource_name):
+            if line.startswith("event: "):
+                current_event_type = line[7:].strip()
+                continue
+            if line.startswith("data: "):
+                log_message, result = _parse_deployer_sse_data(
+                    line[6:],
+                    current_event_type,
+                    "destroy",
+                )
+                current_event_type = None
+                if result:
+                    terminal_result = result
+                elif log_message:
+                    print(log_message, flush=True)
+                    await session.push_log(log_message)
         
         destroy_success = bool(terminal_result and terminal_result.success)
         error_message = _result_message(
@@ -1097,7 +1085,8 @@ def _build_optimization_config(oc) -> dict:
 async def upload_project_to_deployer(
     project_name: str,
     zip_data: io.BytesIO,
-    update_existing: bool = True
+    update_existing: bool = True,
+    deployer_client: DeployerClient | None = None,
 ) -> dict:
     """
     Upload project ZIP to the Deployer API.
@@ -1114,43 +1103,29 @@ async def upload_project_to_deployer(
         HTTPException on failure
     """
     from fastapi import HTTPException
-    
-    # Use detailed timeouts like existing code (see run_real_deploy_stream)
-    timeout = httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        # Check if project already exists
-        check_resp = await client.get(f"{DEPLOYER_API_URL}/projects/{project_name}/validate")
-        project_exists = check_resp.status_code == 200
-        
+
+    client = deployer_client or DeployerClient()
+    try:
+        project_exists = await client.project_exists(project_name)
         zip_data.seek(0)
         content = zip_data.read()
-        
+
         if project_exists and update_existing:
-            # Use import endpoint to UPDATE existing project
-            # Import endpoint uses UploadFile (multipart form data)
-            resp = await client.post(
-                f"{DEPLOYER_API_URL}/projects/{project_name}/import",
-                files={"file": (f"{project_name}.zip", content, "application/zip")}
+            return await client.import_project_zip(project_name, content)
+        return await client.create_project_zip(project_name, content)
+    except ExternalServiceUnavailable as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Deployer API unavailable during project setup",
+        ) from exc
+    except ExternalServiceError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Deployer project setup failed: "
+                f"{_redact_deployment_message(exc.public_detail)}"
             )
-        else:
-            # Create NEW project
-            # IMPORTANT: create_project uses extract_file_content() which ONLY accepts:
-            # - multipart/form-data
-            # - application/json (with base64)
-            # It does NOT accept application/octet-stream (returns 415)!
-            resp = await client.post(
-                f"{DEPLOYER_API_URL}/projects",
-                params={"project_name": project_name},
-                files={"file": (f"{project_name}.zip", content, "application/zip")}
-            )
-        
-        if resp.status_code not in (200, 201):
-            raise HTTPException(
-                status_code=502,
-                detail=f"Deployer project setup failed: {resp.text}"
-            )
-        
-        return resp.json()
+        ) from exc
 
 
 async def prepare_project_for_deployment(twin, user_id: str) -> str:

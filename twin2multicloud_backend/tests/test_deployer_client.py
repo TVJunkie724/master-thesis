@@ -115,6 +115,64 @@ async def test_download_simulator_returns_zip_bytes_from_exact_path():
 
 
 @pytest.mark.asyncio
+async def test_project_exists_preserves_404_as_false_without_throwing():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(404, text="not found")
+
+    exists = await _client_with_handler(handler).project_exists("factory")
+
+    assert exists is False
+    assert seen == ["http://deployer.test/projects/factory/validate"]
+
+
+@pytest.mark.asyncio
+async def test_project_zip_upload_methods_send_multipart_contracts():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, str(request.url), request.headers["content-type"]))
+        return httpx.Response(200, json={"project": "factory"})
+
+    client = _client_with_handler(handler)
+
+    assert await client.import_project_zip("factory", b"zip") == {"project": "factory"}
+    assert await client.create_project_zip("factory", b"zip") == {"project": "factory"}
+
+    assert seen[0][0:2] == ("POST", "http://deployer.test/projects/factory/import")
+    assert seen[1][0:2] == ("POST", "http://deployer.test/projects?project_name=factory")
+    assert seen[0][2].startswith("multipart/form-data")
+    assert seen[1][2].startswith("multipart/form-data")
+
+
+@pytest.mark.asyncio
+async def test_extract_project_zip_sends_validation_context_without_credentials():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["content_type"] = request.headers["content-type"]
+        return httpx.Response(200, json={"success": True, "files": {}})
+
+    response = await _client_with_handler(handler).extract_project_zip(
+        b"zip",
+        {"skip_credentials": True, "l2_provider": "aws"},
+    )
+
+    assert response == {"success": True, "files": {}}
+    assert seen["method"] == "POST"
+    assert seen["url"] == (
+        "http://deployer.test/validate/zip/extract?"
+        "validation_context=%7B%22skip_credentials%22%3Atrue%2C%22l2_provider%22%3A%22aws%22%7D"
+        "&include_credentials=false"
+    )
+    assert seen["content_type"].startswith("multipart/form-data")
+
+
+@pytest.mark.asyncio
 async def test_deployer_client_maps_non_200_to_external_service_error():
     client = _client_with_handler(lambda request: httpx.Response(500, text="boom"))
 
