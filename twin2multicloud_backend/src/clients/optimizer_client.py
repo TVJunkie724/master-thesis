@@ -38,6 +38,14 @@ class OptimizerClient(ExternalServiceClient):
             timeout=30.0,
         )
 
+    async def verify_permissions(self, provider: str, credentials: dict[str, Any]) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/permissions/verify/{provider}",
+            json=credentials,
+            timeout=30.0,
+        )
+
     async def calculate(self, params: dict[str, Any]) -> dict[str, Any]:
         return await self._request_json(
             "PUT",

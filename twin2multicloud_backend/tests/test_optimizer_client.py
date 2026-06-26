@@ -29,6 +29,31 @@ async def test_validate_optimizer_config_posts_exact_endpoint_and_payload():
 
 
 @pytest.mark.asyncio
+async def test_verify_permissions_posts_exact_provider_endpoint_and_payload():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["payload"] = request.read().decode()
+        return httpx.Response(200, json={"valid": True})
+
+    client = OptimizerClient(
+        base_url="http://optimizer.test",
+        transport=httpx.MockTransport(handler),
+    )
+
+    response = await client.verify_permissions("aws", {"aws_region": "eu-central-1"})
+
+    assert response == {"valid": True}
+    assert seen == {
+        "method": "POST",
+        "url": "http://optimizer.test/permissions/verify/aws",
+        "payload": '{"aws_region":"eu-central-1"}',
+    }
+
+
+@pytest.mark.asyncio
 async def test_validate_optimizer_config_maps_non_200_to_external_service_error():
     client = OptimizerClient(
         base_url="http://optimizer.test",

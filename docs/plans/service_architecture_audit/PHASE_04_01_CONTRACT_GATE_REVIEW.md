@@ -1,9 +1,9 @@
 ---
 title: "Phase 4.1 Review: Cross-Service Contract Gate"
-description: "Review evidence for Dockerized OpenAPI contract snapshots across Management API, Optimizer, and Deployer."
+description: "Review evidence for OpenAPI snapshots and Management API downstream client contract gates."
 tags: [quality, contracts, openapi, issue-102]
-lastUpdated: "2026-06-21"
-version: "1.0"
+lastUpdated: "2026-06-26"
+version: "1.1"
 ---
 
 # Phase 4.1 Review: Cross-Service Contract Gate
@@ -15,6 +15,12 @@ Status: Complete.
 The service layer now has reproducible OpenAPI snapshots for all three Python
 services. The snapshots are generated through Dockerized service runtimes and
 stored as contract evidence under `docs/contracts/openapi/`.
+
+As of 2026-06-26, the Management API also has a hard downstream contract gate:
+all Optimizer and Deployer HTTP access is centralized in typed client classes,
+and route/service code is tested to prevent direct `httpx.AsyncClient`,
+`settings.OPTIMIZER_URL`, or `settings.DEPLOYER_URL` usage outside that client
+layer.
 
 ## Contract Artifacts
 
@@ -66,6 +72,21 @@ Optimizer focused regression:
 31 passed in 0.41s
 ```
 
+Management API downstream contract regression:
+
+```text
+67 passed in 1.35s
+```
+
+Static contract/security gate:
+
+```text
+compileall: passed
+bandit: passed
+git diff --check: passed
+raw downstream HTTP sweep: only twin2multicloud_backend/src/clients/base.py contains httpx.AsyncClient
+```
+
 ## Review Findings
 
 | Finding | Resolution |
@@ -74,10 +95,12 @@ Optimizer focused regression:
 | Service app entrypoints differ between services. | Added an explicit service registry in `scripts/service_quality_gate/export_openapi.py`. |
 | Management API test routes must not appear in default contracts. | Export tool sets `ENABLE_TEST_ENDPOINTS=false` for the Management API by default. |
 | Optimizer OpenAPI contained credential-shaped AWS example values. | Replaced them with neutral placeholders and regenerated the snapshot. |
+| Management API services could still bypass typed clients for permission/config validation. | Added `verify_permissions` and `validate_config_file` client methods, moved credential/config validation through typed clients, and added a contract gate that fails on direct downstream HTTP usage outside `src/clients/`. |
+| Downstream client surface could grow silently. | Added an explicit OptimizerClient/DeployerClient public-method contract test. |
 
 ## Residual Risk
 
-This gate proves schema availability and provides drift detection. It does not
-yet prove semantic compatibility between every Management API client call and
-downstream Optimizer/Deployer response. That semantic compatibility belongs to
-the remaining Phase 4 gates and targeted cross-service tests.
+This gate proves schema availability, typed client centralization, and critical
+Management API downstream method/endpoint compatibility. It still does not run
+live cloud E2E tests or prove provider-specific permission completeness; those
+remain opt-in verification/future hardening items.

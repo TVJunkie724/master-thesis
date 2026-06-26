@@ -28,6 +28,30 @@ class DeployerClient(ExternalServiceClient):
             timeout=30.0,
         )
 
+    async def verify_permissions(self, provider: str, credentials: dict[str, Any]) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/permissions/verify/{provider}",
+            json=credentials,
+            timeout=30.0,
+        )
+
+    async def validate_config_file(
+        self,
+        endpoint: str,
+        files: dict[str, tuple[str, bytes, str]],
+        *,
+        provider: str | None = None,
+    ) -> dict[str, Any]:
+        params = {"provider": provider} if provider else None
+        return await self._request_json(
+            "POST",
+            f"/validate/{endpoint}",
+            params=params,
+            files=files,
+            timeout=30.0,
+        )
+
     async def check_cooldown(
         self,
         destroyed_at: datetime,

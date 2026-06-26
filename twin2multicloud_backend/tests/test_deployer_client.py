@@ -33,6 +33,51 @@ async def test_validate_deployer_complete_posts_exact_endpoint_and_payload():
 
 
 @pytest.mark.asyncio
+async def test_verify_permissions_posts_exact_provider_endpoint_and_payload():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["payload"] = request.read().decode()
+        return httpx.Response(200, json={"valid": True})
+
+    response = await _client_with_handler(handler).verify_permissions(
+        "azure",
+        {"azure_region": "westeurope"},
+    )
+
+    assert response == {"valid": True}
+    assert seen == {
+        "method": "POST",
+        "url": "http://deployer.test/permissions/verify/azure",
+        "payload": '{"azure_region":"westeurope"}',
+    }
+
+
+@pytest.mark.asyncio
+async def test_validate_config_file_posts_multipart_validation_contract():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["content_type"] = request.headers["content-type"]
+        return httpx.Response(200, json={"message": "Valid"})
+
+    result = await _client_with_handler(handler).validate_config_file(
+        "function-code",
+        {"file": ("code.py", b"def handler(): pass", "text/plain")},
+        provider="aws",
+    )
+
+    assert result == {"message": "Valid"}
+    assert seen["method"] == "POST"
+    assert seen["url"] == "http://deployer.test/validate/function-code?provider=aws"
+    assert seen["content_type"].startswith("multipart/form-data")
+
+
+@pytest.mark.asyncio
 async def test_check_cooldown_sends_expected_query_params():
     seen = {}
     destroyed_at = datetime(2026, 4, 26, 10, 15, tzinfo=timezone.utc)
