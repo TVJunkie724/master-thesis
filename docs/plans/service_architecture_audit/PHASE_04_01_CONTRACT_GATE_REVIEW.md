@@ -78,11 +78,18 @@ Management API downstream contract regression:
 67 passed in 1.35s
 ```
 
+Full Management API Docker regression:
+
+```text
+docker compose run --rm --no-deps -e PYTHONPATH=/app -e DATABASE_URL=sqlite:///./data/docker_contract_test.db -e SEED_DATA=false -e ENABLE_TEST_ENDPOINTS=false management-api python -m pytest tests/ -q
+476 passed, 1 warning in 34.25s
+```
+
 Static contract/security gate:
 
 ```text
 compileall: passed
-bandit: passed
+bandit -r src: passed
 git diff --check: passed
 raw downstream HTTP sweep: only twin2multicloud_backend/src/clients/base.py contains httpx.AsyncClient
 ```
@@ -97,6 +104,7 @@ raw downstream HTTP sweep: only twin2multicloud_backend/src/clients/base.py cont
 | Optimizer OpenAPI contained credential-shaped AWS example values. | Replaced them with neutral placeholders and regenerated the snapshot. |
 | Management API services could still bypass typed clients for permission/config validation. | Added `verify_permissions` and `validate_config_file` client methods, moved credential/config validation through typed clients, and added a contract gate that fails on direct downstream HTTP usage outside `src/clients/`. |
 | Downstream client surface could grow silently. | Added an explicit OptimizerClient/DeployerClient public-method contract test. |
+| Full Docker backend suite still used legacy raw-HTTP patch points. | Updated error-handling and test-endpoint quarantine tests to target typed client boundaries and current FastAPI route objects. |
 
 ## Residual Risk
 
