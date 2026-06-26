@@ -4,18 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
-from src.config import settings
+from src.clients.optimizer_client import OptimizerClient
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.external_service_mapping import map_optimizer_client_error
 from src.services.service_errors import DownstreamServiceError, ValidationError
 
 
-OPTIMIZER_URL = getattr(settings, "OPTIMIZER_URL", "http://master-thesis-2twin2clouds-1:8000")
 SUPPORTED_PRICING_EXPORT_PROVIDERS = {"aws", "azure", "gcp"}
 
 
 class OptimizerPricingExportService:
     """Owns Optimizer pricing snapshot export proxying."""
+
+    def __init__(self, optimizer_client: OptimizerClient | None = None):
+        self.optimizer_client = optimizer_client or OptimizerClient()
 
     async def export_pricing_snapshot(self, provider: str) -> dict[str, Any]:
         """Return the full pricing export payload for a supported provider."""
@@ -23,15 +25,6 @@ class OptimizerPricingExportService:
             raise ValidationError(f"Invalid provider: {provider}")
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(f"{OPTIMIZER_URL}/pricing/export/{provider}")
-        except httpx.ConnectError as exc:
-            raise DownstreamServiceError(503, "Cannot connect to Optimizer service") from exc
-        except httpx.TimeoutException as exc:
-            raise DownstreamServiceError(504, "Optimizer service timed out") from exc
-        except httpx.RequestError as exc:
-            raise DownstreamServiceError(502, f"Request failed: {type(exc).__name__}") from exc
-
-        if response.status_code != 200:
-            raise DownstreamServiceError(response.status_code, response.text)
-        return response.json()
+            return await self.optimizer_client.export_pricing_snapshot(provider)
+        except (ExternalServiceError, ExternalServiceUnavailable) as exc:
+            raise map_optimizer_client_error(exc) from exc

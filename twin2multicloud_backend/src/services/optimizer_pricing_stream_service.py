@@ -6,26 +6,35 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 
-import httpx
 from sqlalchemy.orm import Session
 
-from src.config import settings
+from src.clients.optimizer_client import OptimizerClient
 from src.repositories.twin_repository import TwinRepository
 from src.services.credential_resolution_service import CredentialResolutionService
-from src.services.errors import CredentialResolutionFailed
+from src.services.errors import (
+    CredentialResolutionFailed,
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+)
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
 
-OPTIMIZER_URL = getattr(settings, "OPTIMIZER_URL", "http://master-thesis-2twin2clouds-1:8000")
 SUPPORTED_PRICING_STREAM_PROVIDERS = {"aws", "azure", "gcp"}
 
 
 class OptimizerPricingStreamService:
     """Owns pricing refresh SSE event generation and Optimizer stream relay."""
 
-    def __init__(self, db: Session, twin_repository: TwinRepository, sleep_seconds: float = 0.1):
+    def __init__(
+        self,
+        db: Session,
+        twin_repository: TwinRepository,
+        optimizer_client: OptimizerClient | None = None,
+        sleep_seconds: float = 0.1,
+    ):
         self.db = db
         self.twin_repository = twin_repository
+        self.optimizer_client = optimizer_client or OptimizerClient()
         self.sleep_seconds = sleep_seconds
 
     def build_refresh_stream(self, provider: str, twin_id: str, user_id: str) -> AsyncIterator[str]:
@@ -51,29 +60,22 @@ class OptimizerPricingStreamService:
             await asyncio.sleep(self.sleep_seconds)
             yield self._emit(f"Connecting to Optimizer service for {provider.upper()} pricing...")
 
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                async with client.stream(
-                    "POST",
-                    f"{OPTIMIZER_URL}/stream/fetch_pricing/{provider}",
-                    json=credentials,
-                    headers={"Accept": "text/event-stream"},
-                ) as response:
-                    if response.status_code != 200:
-                        yield self._emit(f"❌ Optimizer error: {response.status_code}", "error")
-                        return
+            buffer = ""
+            async for chunk in self.optimizer_client.stream_pricing_refresh(provider, credentials):
+                buffer += chunk
+                while "\n\n" in buffer:
+                    event_str, buffer = buffer.split("\n\n", 1)
+                    if event_str.strip():
+                        yield event_str + "\n\n"
 
-                    buffer = ""
-                    async for chunk in response.aiter_text():
-                        buffer += chunk
-                        while "\n\n" in buffer:
-                            event_str, buffer = buffer.split("\n\n", 1)
-                            if event_str.strip():
-                                yield event_str + "\n\n"
-
-        except httpx.ConnectError:
-            yield self._emit("❌ Error: Cannot connect to Optimizer service", "error")
-        except httpx.TimeoutException:
+        except ExternalServiceUnavailable as exc:
+            if "timed out" not in exc.message.lower():
+                yield self._emit("❌ Error: Cannot connect to Optimizer service", "error")
+                return
             yield self._emit("❌ Error: Optimizer service timed out", "error")
+        except ExternalServiceError as exc:
+            status_code = exc.upstream_status_code or 502
+            yield self._emit(f"❌ Optimizer error: {status_code}", "error")
         except Exception as exc:
             yield self._emit(f"❌ Error: {str(exc)}", "error")
 

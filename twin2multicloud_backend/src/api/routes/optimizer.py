@@ -9,7 +9,6 @@ This module provides:
 """
 import json
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -19,7 +18,6 @@ from typing import Optional
 from src.models.database import get_db
 from src.models.user import User
 from src.api.dependencies import get_current_user
-from src.config import settings
 from src.services.twin_helpers import get_user_twin
 from src.services.pricing_review_state_service import build_pricing_review_state_response
 from src.schemas.pricing_review import PricingReviewStateResponse
@@ -33,7 +31,6 @@ from src.services.service_errors import DownstreamServiceError, EntityNotFoundEr
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
-OPTIMIZER_URL = settings.OPTIMIZER_URL
 
 def _optimizer_status_service() -> OptimizerStatusService:
     """Build the optimizer status service for this request."""
@@ -140,18 +137,14 @@ async def get_pricing_review_state(
         config = twin.optimizer_config
 
     try:
-        optimizer_statuses = await _get_optimizer_pricing_statuses()
+        optimizer_statuses = await _optimizer_status_service().get_pricing_status()
         return build_pricing_review_state_response(
             optimizer_statuses,
             saved_snapshots=_pricing_snapshots_from_config(config),
             saved_timestamps=_pricing_timestamps_from_config(config),
         )
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to Optimizer service")
-    except httpx.TimeoutException:
-        raise HTTPException(504, "Optimizer service timed out")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
 
 
 @router.get(
@@ -181,18 +174,6 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
         return await _optimizer_status_service().get_regions_status()
     except DownstreamServiceError as exc:
         _raise_downstream_http_error(exc)
-
-
-async def _get_optimizer_pricing_statuses() -> dict[str, dict]:
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        aws = await client.get(f"{OPTIMIZER_URL}/pricing_age/aws")
-        azure = await client.get(f"{OPTIMIZER_URL}/pricing_age/azure")
-        gcp = await client.get(f"{OPTIMIZER_URL}/pricing_age/gcp")
-    return {
-        "aws": aws.json() if aws.status_code == 200 else {"error": "Failed to fetch"},
-        "azure": azure.json() if azure.status_code == 200 else {"error": "Failed to fetch"},
-        "gcp": gcp.json() if gcp.status_code == 200 else {"error": "Failed to fetch"},
-    }
 
 
 def _pricing_snapshots_from_config(config) -> dict[str, dict | None]:

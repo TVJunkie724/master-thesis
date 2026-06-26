@@ -58,6 +58,17 @@ class ExternalServiceUnavailable(DomainError):
 class ExternalServiceError(DomainError):
     status_code = 502
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        upstream_status_code: int | None = None,
+        public_detail: str | None = None,
+    ):
+        super().__init__(message)
+        self.upstream_status_code = upstream_status_code
+        self.public_detail = public_detail or message
+
 
 class OptimizerContractError(DomainError):
     status_code = 502

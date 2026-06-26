@@ -2,55 +2,56 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import httpx
 import pytest
 
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
 from src.services.service_errors import DownstreamServiceError, ValidationError
 
 
-def _mock_response(status_code: int, payload: dict, text: str = "") -> MagicMock:
-    response = MagicMock()
-    response.status_code = status_code
-    response.json.return_value = payload
-    response.text = text
-    return response
+class FakeOptimizerClient:
+    def __init__(self, payload=None, exc=None):
+        self.payload = payload or {}
+        self.exc = exc
+        self.calls = []
+
+    async def export_pricing_snapshot(self, provider):
+        self.calls.append(provider)
+        if self.exc:
+            raise self.exc
+        return self.payload
 
 
 @pytest.mark.asyncio
 async def test_export_pricing_snapshot_returns_provider_payload():
-    with patch("src.services.optimizer_pricing_export_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-            return_value=_mock_response(200, {"provider": "aws", "prices": []})
-        )
-
-        result = await OptimizerPricingExportService().export_pricing_snapshot("aws")
+    fake = FakeOptimizerClient({"provider": "aws", "prices": []})
+    result = await OptimizerPricingExportService(optimizer_client=fake).export_pricing_snapshot("aws")
 
     assert result == {"provider": "aws", "prices": []}
-    called_url = mock_client.return_value.__aenter__.return_value.get.call_args.args[0]
-    assert called_url.endswith("/pricing/export/aws")
+    assert fake.calls == ["aws"]
 
 
 @pytest.mark.asyncio
 async def test_export_pricing_snapshot_rejects_unknown_provider_before_downstream_call():
-    with patch("src.services.optimizer_pricing_export_service.httpx.AsyncClient") as mock_client:
-        with pytest.raises(ValidationError, match="Invalid provider: digitalocean"):
-            await OptimizerPricingExportService().export_pricing_snapshot("digitalocean")
+    fake = FakeOptimizerClient()
+    with pytest.raises(ValidationError, match="Invalid provider: digitalocean"):
+        await OptimizerPricingExportService(optimizer_client=fake).export_pricing_snapshot("digitalocean")
 
-    mock_client.assert_not_called()
+    assert fake.calls == []
 
 
 @pytest.mark.asyncio
 async def test_export_pricing_snapshot_maps_optimizer_non_200():
-    with patch("src.services.optimizer_pricing_export_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-            return_value=_mock_response(503, {}, "optimizer unavailable")
-        )
-
-        with pytest.raises(DownstreamServiceError) as exc_info:
-            await OptimizerPricingExportService().export_pricing_snapshot("azure")
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await OptimizerPricingExportService(
+            optimizer_client=FakeOptimizerClient(
+                exc=ExternalServiceError(
+                    "Optimizer API returned 503: optimizer unavailable",
+                    upstream_status_code=503,
+                    public_detail="optimizer unavailable",
+                )
+            )
+        ).export_pricing_snapshot("azure")
 
     assert exc_info.value.status_code == 503
     assert exc_info.value.public_detail == "optimizer unavailable"
@@ -58,13 +59,12 @@ async def test_export_pricing_snapshot_maps_optimizer_non_200():
 
 @pytest.mark.asyncio
 async def test_export_pricing_snapshot_maps_timeout():
-    with patch("src.services.optimizer_pricing_export_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-            side_effect=httpx.TimeoutException("read timed out")
-        )
-
-        with pytest.raises(DownstreamServiceError) as exc_info:
-            await OptimizerPricingExportService().export_pricing_snapshot("gcp")
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await OptimizerPricingExportService(
+            optimizer_client=FakeOptimizerClient(
+                exc=ExternalServiceUnavailable("Optimizer API timed out")
+            )
+        ).export_pricing_snapshot("gcp")
 
     assert exc_info.value.status_code == 504
     assert exc_info.value.public_detail == "Optimizer service timed out"

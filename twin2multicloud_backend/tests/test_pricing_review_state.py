@@ -1,56 +1,53 @@
 import json
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+
+from pytest import MonkeyPatch
 
 from src.models.optimizer_config import OptimizerConfiguration
 
 
-def _optimizer_response(payload: dict, status_code: int = 200):
-    response = MagicMock()
-    response.status_code = status_code
-    response.json.return_value = payload
-    return response
+class FakeOptimizerStatusService:
+    def __init__(self, statuses):
+        self.statuses = statuses
+
+    async def get_pricing_status(self):
+        return self.statuses
 
 
-def _mock_optimizer_statuses(mock_client, aws: dict, azure: dict, gcp: dict):
-    mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-        side_effect=[
-            _optimizer_response(aws),
-            _optimizer_response(azure),
-            _optimizer_response(gcp),
-        ]
-    )
+def _status_service(aws: dict, azure: dict, gcp: dict):
+    return FakeOptimizerStatusService({"aws": aws, "azure": azure, "gcp": gcp})
 
 
 def test_pricing_review_state_returns_typed_fresh_and_stale_states(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={
-                "age": "2 hours",
-                "status": "valid",
-                "missing_keys": [],
-                "is_fresh": True,
-                "threshold_days": 7,
-            },
-            azure={
-                "age": "10 days",
-                "status": "valid",
-                "missing_keys": [],
-                "is_fresh": False,
-                "threshold_days": 7,
-            },
-            gcp={
-                "age": "1 day",
-                "status": "valid",
-                "missing_keys": [],
-                "is_fresh": True,
-                "threshold_days": 7,
-            },
+    with MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_status_service",
+            lambda: _status_service(
+                aws={
+                    "age": "2 hours",
+                    "status": "valid",
+                    "missing_keys": [],
+                    "is_fresh": True,
+                    "threshold_days": 7,
+                },
+                azure={
+                    "age": "10 days",
+                    "status": "valid",
+                    "missing_keys": [],
+                    "is_fresh": False,
+                    "threshold_days": 7,
+                },
+                gcp={
+                    "age": "1 day",
+                    "status": "valid",
+                    "missing_keys": [],
+                    "is_fresh": True,
+                    "threshold_days": 7,
+                },
+            ),
         )
-
         response = client.get("/optimizer/pricing-review-state", headers=headers)
 
     assert response.status_code == 200
@@ -66,20 +63,21 @@ def test_pricing_review_state_returns_typed_fresh_and_stale_states(authenticated
 def test_pricing_review_state_marks_incomplete_as_review_required(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={
-                "age": "2 hours",
-                "status": "incomplete",
-                "missing_keys": ["lambda.durationPrice"],
-                "is_fresh": True,
-                "threshold_days": 7,
-            },
-            azure={"status": "valid", "is_fresh": True},
-            gcp={"status": "valid", "is_fresh": True},
+    with MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_status_service",
+            lambda: _status_service(
+                aws={
+                    "age": "2 hours",
+                    "status": "incomplete",
+                    "missing_keys": ["lambda.durationPrice"],
+                    "is_fresh": True,
+                    "threshold_days": 7,
+                },
+                azure={"status": "valid", "is_fresh": True},
+                gcp={"status": "valid", "is_fresh": True},
+            ),
         )
-
         response = client.get("/optimizer/pricing-review-state", headers=headers)
 
     aws = response.json()["providers"]["aws"]
@@ -95,24 +93,25 @@ def test_pricing_review_state_marks_valid_fallback_payload_as_review_required(
 ):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={
-                "age": "2 hours",
-                "status": "valid",
-                "missing_keys": [],
-                "is_fresh": True,
-                "threshold_days": 7,
-                "quality_status": "review_required",
-                "review_required": True,
-                "fallback_fields": ["lambda.requestPrice"],
-                "unsupported_fields": [],
-            },
-            azure={"status": "valid", "is_fresh": True},
-            gcp={"status": "valid", "is_fresh": True},
+    with MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_status_service",
+            lambda: _status_service(
+                aws={
+                    "age": "2 hours",
+                    "status": "valid",
+                    "missing_keys": [],
+                    "is_fresh": True,
+                    "threshold_days": 7,
+                    "quality_status": "review_required",
+                    "review_required": True,
+                    "fallback_fields": ["lambda.requestPrice"],
+                    "unsupported_fields": [],
+                },
+                azure={"status": "valid", "is_fresh": True},
+                gcp={"status": "valid", "is_fresh": True},
+            ),
         )
-
         response = client.get("/optimizer/pricing-review-state", headers=headers)
 
     aws = response.json()["providers"]["aws"]
@@ -138,20 +137,21 @@ def test_pricing_review_state_uses_last_known_good_for_missing_provider(
     db.add(config)
     db.commit()
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={
-                "age": "missing",
-                "status": "missing",
-                "missing_keys": [],
-                "is_fresh": False,
-                "threshold_days": 7,
-            },
-            azure={"status": "valid", "is_fresh": True},
-            gcp={"status": "valid", "is_fresh": True},
+    with MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_status_service",
+            lambda: _status_service(
+                aws={
+                    "age": "missing",
+                    "status": "missing",
+                    "missing_keys": [],
+                    "is_fresh": False,
+                    "threshold_days": 7,
+                },
+                azure={"status": "valid", "is_fresh": True},
+                gcp={"status": "valid", "is_fresh": True},
+            ),
         )
-
         response = auth_client.get(
             f"/optimizer/pricing-review-state?twin_id={test_twin.id}"
         )
@@ -168,15 +168,15 @@ def test_pricing_review_state_uses_last_known_good_for_missing_provider(
 def test_pricing_review_state_marks_downstream_error_as_failed(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-            side_effect=[
-                _optimizer_response({}, status_code=500),
-                _optimizer_response({"status": "valid", "is_fresh": True}),
-                _optimizer_response({"status": "valid", "is_fresh": True}),
-            ]
+    with MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_status_service",
+            lambda: _status_service(
+                aws={"error": "Failed to fetch"},
+                azure={"status": "valid", "is_fresh": True},
+                gcp={"status": "valid", "is_fresh": True},
+            ),
         )
-
         response = client.get("/optimizer/pricing-review-state", headers=headers)
 
     aws = response.json()["providers"]["aws"]
@@ -189,28 +189,29 @@ def test_pricing_review_state_marks_downstream_error_as_failed(authenticated_cli
 def test_pricing_review_state_passes_publication_decision_through(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={
-                "schema_version": "pricing-publication-decision.v1",
-                "status": "review_required",
-                "review_required": True,
-                "can_calculate": True,
-                "calculation_source": "last_known_good",
-                "pricing_freshness": "stale",
-                "review_reasons": [
-                    {
-                        "status": "ambiguous",
-                        "intent_id": "api.request_million",
-                        "reason": "Multiple provider pricing candidates match this intent.",
-                    }
-                ],
-            },
-            azure={"status": "valid", "is_fresh": True},
-            gcp={"status": "valid", "is_fresh": True},
+    with MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_status_service",
+            lambda: _status_service(
+                aws={
+                    "schema_version": "pricing-publication-decision.v1",
+                    "status": "review_required",
+                    "review_required": True,
+                    "can_calculate": True,
+                    "calculation_source": "last_known_good",
+                    "pricing_freshness": "stale",
+                    "review_reasons": [
+                        {
+                            "status": "ambiguous",
+                            "intent_id": "api.request_million",
+                            "reason": "Multiple provider pricing candidates match this intent.",
+                        }
+                    ],
+                },
+                azure={"status": "valid", "is_fresh": True},
+                gcp={"status": "valid", "is_fresh": True},
+            ),
         )
-
         response = client.get("/optimizer/pricing-review-state", headers=headers)
 
     aws = response.json()["providers"]["aws"]
