@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import httpx
+from typing import Any
+
 from sqlalchemy.orm import Session
 
-from src.config import settings
+from src.clients.deployer_client import DeployerClient
 from src.models.deployer_config import DeployerConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployer_config import ConfigValidationRequest, ConfigValidationResponse
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
@@ -31,9 +33,15 @@ L4_CONFIG_TYPES = {"hierarchy", "scene-config", "user-config"}
 class DeployerConfigValidationService:
     """Owns deployer config validation proxying and validation flag persistence."""
 
-    def __init__(self, db: Session, twin_repository: TwinRepository):
+    def __init__(
+        self,
+        db: Session,
+        twin_repository: TwinRepository,
+        deployer_client: DeployerClient | None = None,
+    ):
         self.db = db
         self.twin_repository = twin_repository
+        self.deployer_client = deployer_client or DeployerClient()
 
     async def validate_config(
         self,
@@ -49,23 +57,18 @@ class DeployerConfigValidationService:
             raise EntityNotFoundError("Twin not found")
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await self._post_validation_request(client, twin, config_type, request)
-        except httpx.ConnectError:
+            result = await self._post_validation_request(twin, config_type, request)
+        except ExternalServiceUnavailable:
             return ConfigValidationResponse(
                 valid=False,
                 message="Cannot connect to Deployer API. Is it running on port 5004?",
             )
-        except httpx.RequestError as exc:
+        except ExternalServiceError as exc:
             return ConfigValidationResponse(
                 valid=False,
-                message=f"Request error: {redact_secret_like_text(str(exc))}",
+                message=self._extract_error_detail(exc),
             )
 
-        if response.status_code != 200:
-            return ConfigValidationResponse(valid=False, message=self._extract_error_detail(response))
-
-        result = response.json()
         message = result.get("message", "Valid")
         if config_type not in L2_CONFIG_TYPES:
             self._mark_validation_success(twin_id, twin, config_type)
@@ -82,34 +85,29 @@ class DeployerConfigValidationService:
 
     async def _post_validation_request(
         self,
-        client: httpx.AsyncClient,
         twin,
         config_type: str,
         request: ConfigValidationRequest,
-    ) -> httpx.Response:
+    ) -> dict[str, Any]:
         deployer_endpoint = CONFIG_TYPE_ENDPOINTS[config_type]
         if config_type in L2_CONFIG_TYPES:
             files = {"file": self._l2_upload_file(config_type, request.content)}
-            return await client.post(
-                f"{settings.DEPLOYER_URL}/validate/{deployer_endpoint}?provider={request.provider}",
-                files=files,
-                timeout=30.0,
+            return await self.deployer_client.validate_config_file(
+                deployer_endpoint,
+                files,
+                provider=request.provider,
             )
 
         if config_type in L4_CONFIG_TYPES:
             files = self._l4_upload_files(twin, config_type, request.content)
-            return await client.post(
-                f"{settings.DEPLOYER_URL}/validate/{deployer_endpoint}?provider={request.provider}",
-                files=files,
-                timeout=30.0,
+            return await self.deployer_client.validate_config_file(
+                deployer_endpoint,
+                files,
+                provider=request.provider,
             )
 
         files = {"file": (f"config_{config_type}.json", request.content.encode(), "application/json")}
-        return await client.post(
-            f"{settings.DEPLOYER_URL}/validate/{deployer_endpoint}",
-            files=files,
-            timeout=30.0,
-        )
+        return await self.deployer_client.validate_config_file(deployer_endpoint, files)
 
     @staticmethod
     def _l2_upload_file(config_type: str, content: str) -> tuple[str, bytes, str]:
@@ -152,8 +150,5 @@ class DeployerConfigValidationService:
             self.db.commit()
 
     @staticmethod
-    def _extract_error_detail(response: httpx.Response) -> str:
-        try:
-            return redact_secret_like_text(str(response.json().get("detail", response.text)))
-        except Exception:
-            return redact_secret_like_text(response.text)
+    def _extract_error_detail(exc: ExternalServiceError) -> str:
+        return redact_secret_like_text(exc.public_detail)

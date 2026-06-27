@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import inspect
+from pathlib import Path
+
+from src.clients.deployer_client import DeployerClient
+from src.clients.optimizer_client import OptimizerClient
 from src.main import app
 
 
@@ -55,3 +60,71 @@ def test_documented_raw_payload_exceptions_remain_unmodeled():
 
     for path, method in raw_json_paths:
         assert _response_ref(path, method) is None
+
+
+def _public_client_methods(client_cls) -> set[str]:
+    return {
+        name
+        for name, value in inspect.getmembers(client_cls)
+        if not name.startswith("_") and (inspect.iscoroutinefunction(value) or inspect.isfunction(value))
+    }
+
+
+def test_downstream_client_contract_surface_is_explicit():
+    """Optimizer/Deployer calls used by Management API are intentional contract methods."""
+    assert _public_client_methods(OptimizerClient) == {
+        "calculate",
+        "export_pricing_snapshot",
+        "get_cache_status",
+        "refresh_azure_pricing",
+        "refresh_pricing_with_credentials",
+        "stream_pricing_refresh",
+        "validate_optimizer_config",
+        "verify_permissions",
+    }
+    assert _public_client_methods(DeployerClient) == {
+        "check_cooldown",
+        "create_project_zip",
+        "deploy_stream",
+        "destroy_stream",
+        "download_simulator",
+        "extract_project_zip",
+        "import_project_zip",
+        "project_exists",
+        "start_log_trace",
+        "stream_log_trace",
+        "validate_config_file",
+        "validate_deployer_complete",
+        "verify_dataflow",
+        "verify_infrastructure",
+        "verify_permissions",
+    }
+
+
+def test_downstream_http_access_is_centralized_in_client_layer():
+    """Service/route code must not bypass OptimizerClient or DeployerClient."""
+    backend_root = Path(__file__).resolve().parents[1]
+    allowed = {
+        Path("src/clients/base.py"),
+        Path("src/clients/deployer_client.py"),
+        Path("src/clients/optimizer_client.py"),
+    }
+    forbidden_tokens = (
+        "httpx.AsyncClient",
+        "settings.OPTIMIZER_URL",
+        "settings.DEPLOYER_URL",
+        'os.getenv("OPTIMIZER_URL"',
+        'os.getenv("DEPLOYER_URL"',
+    )
+    findings = []
+
+    for path in (backend_root / "src").rglob("*.py"):
+        relative = path.relative_to(backend_root)
+        if relative in allowed:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden_tokens:
+            if token in text:
+                findings.append(f"{relative}: contains {token}")
+
+    assert findings == []

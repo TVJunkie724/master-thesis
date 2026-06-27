@@ -2,31 +2,28 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 
 from src.models.twin import DigitalTwin
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
+from src.services.errors import ExternalServiceUnavailable
 from src.services.optimizer_pricing_stream_service import OptimizerPricingStreamService
 from src.services.service_errors import ValidationError
 from src.utils.crypto import encrypt
 
 
-class MockSSEStream:
-    def __init__(self, chunks=None, status_code=200):
-        self.status_code = status_code
+class FakeOptimizerClient:
+    def __init__(self, chunks=None, exc=None):
         self.chunks = chunks or []
+        self.exc = exc
+        self.calls = []
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return None
-
-    async def aiter_text(self):
+    async def stream_pricing_refresh(self, provider, credentials):
+        self.calls.append((provider, credentials))
+        if self.exc:
+            raise self.exc
         for chunk in self.chunks:
             yield chunk
 
@@ -47,8 +44,13 @@ def _create_twin(db, user: User) -> DigitalTwin:
     return twin
 
 
-def _service(db) -> OptimizerPricingStreamService:
-    return OptimizerPricingStreamService(db=db, twin_repository=TwinRepository(db), sleep_seconds=0)
+def _service(db, optimizer_client=None) -> OptimizerPricingStreamService:
+    return OptimizerPricingStreamService(
+        db=db,
+        twin_repository=TwinRepository(db),
+        optimizer_client=optimizer_client,
+        sleep_seconds=0,
+    )
 
 
 async def _collect(generator):
@@ -76,24 +78,22 @@ async def test_stream_aws_decrypts_credentials_and_relays_optimizer_events(db_se
         )
     )
     db_session.commit()
-    stream = MockSSEStream(['event: complete\ndata: {"message": "Done!"}\n\n'])
+    fake = FakeOptimizerClient(['event: complete\ndata: {"message": "Done!"}\n\n'])
 
-    with patch("src.services.optimizer_pricing_stream_service.httpx.AsyncClient") as mock_client:
-        mock_instance = MagicMock()
-        mock_instance.stream = MagicMock(return_value=stream)
-        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-        mock_instance.__aexit__ = AsyncMock(return_value=None)
-        mock_client.return_value = mock_instance
-
-        body = await _collect(_service(db_session).build_refresh_stream("aws", twin.id, user.id))
+    body = await _collect(_service(db_session, fake).build_refresh_stream("aws", twin.id, user.id))
 
     assert "Starting AWS pricing refresh" in body
     assert 'event: complete\ndata: {"message": "Done!"}' in body
-    assert mock_instance.stream.call_args.kwargs["json"] == {
-        "aws_access_key_id": "AKIA_TEST",
-        "aws_secret_access_key": "secret-test",
-        "aws_region": "eu-west-1",
-    }
+    assert fake.calls == [
+        (
+            "aws",
+            {
+                "aws_access_key_id": "AKIA_TEST",
+                "aws_secret_access_key": "secret-test",
+                "aws_region": "eu-west-1",
+            },
+        )
+    ]
 
 
 @pytest.mark.asyncio
@@ -105,3 +105,24 @@ async def test_stream_missing_credentials_emits_error_event(db_session):
 
     assert "event: error" in body
     assert "Twin has no configuration" in body
+
+
+@pytest.mark.asyncio
+async def test_stream_optimizer_unavailable_emits_safe_error_event(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(
+        TwinConfiguration(
+            twin_id=twin.id,
+            aws_access_key_id=encrypt("AKIA_TEST", user.id, twin.id),
+            aws_secret_access_key=encrypt("secret-test", user.id, twin.id),
+            aws_region="eu-west-1",
+        )
+    )
+    db_session.commit()
+    fake = FakeOptimizerClient(exc=ExternalServiceUnavailable("Optimizer API unavailable"))
+
+    body = await _collect(_service(db_session, fake).build_refresh_stream("aws", twin.id, user.id))
+
+    assert "event: error" in body
+    assert "Cannot connect to Optimizer service" in body

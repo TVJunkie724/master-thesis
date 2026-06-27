@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import httpx
 import pytest
 
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.optimizer_calculation_service import OptimizerCalculationService
 from src.services.service_errors import DownstreamServiceError
 
@@ -20,38 +18,42 @@ def _valid_route_params(sample_calc_params: dict) -> dict:
     }
 
 
-def _mock_response(status_code: int, payload: dict, text: str = "") -> MagicMock:
-    response = MagicMock()
-    response.status_code = status_code
-    response.json.return_value = payload
-    response.text = text
-    return response
+class FakeOptimizerClient:
+    def __init__(self, payload=None, exc=None):
+        self.payload = payload or {}
+        self.exc = exc
+        self.calls = []
+
+    async def calculate(self, params):
+        self.calls.append(params)
+        if self.exc:
+            raise self.exc
+        return self.payload
 
 
 @pytest.mark.asyncio
 async def test_calculate_forwards_params_and_returns_optimizer_payload():
     params = {"numberOfDevices": 10, "currency": "USD"}
+    fake = FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
 
-    with patch("src.services.optimizer_calculation_service.httpx.AsyncClient") as mock_client:
-        put = AsyncMock(return_value=_mock_response(200, {"cheapestPath": ["L1_AWS"]}))
-        mock_client.return_value.__aenter__.return_value.put = put
-
-        result = await OptimizerCalculationService().calculate(params)
+    result = await OptimizerCalculationService(optimizer_client=fake).calculate(params)
 
     assert result == {"cheapestPath": ["L1_AWS"]}
-    assert put.call_args.args[0].endswith("/calculate")
-    assert put.call_args.kwargs["json"] == params
+    assert fake.calls == [params]
 
 
 @pytest.mark.asyncio
 async def test_calculate_maps_optimizer_non_200():
-    with patch("src.services.optimizer_calculation_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.put = AsyncMock(
-            return_value=_mock_response(422, {}, "invalid params")
-        )
-
-        with pytest.raises(DownstreamServiceError) as exc_info:
-            await OptimizerCalculationService().calculate({"bad": "params"})
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await OptimizerCalculationService(
+            optimizer_client=FakeOptimizerClient(
+                exc=ExternalServiceError(
+                    "Optimizer API returned 422: invalid params",
+                    upstream_status_code=422,
+                    public_detail="invalid params",
+                )
+            )
+        ).calculate({"bad": "params"})
 
     assert exc_info.value.status_code == 422
     assert exc_info.value.public_detail == "invalid params"
@@ -59,13 +61,12 @@ async def test_calculate_maps_optimizer_non_200():
 
 @pytest.mark.asyncio
 async def test_calculate_maps_timeout():
-    with patch("src.services.optimizer_calculation_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.put = AsyncMock(
-            side_effect=httpx.TimeoutException("read timed out")
-        )
-
-        with pytest.raises(DownstreamServiceError) as exc_info:
-            await OptimizerCalculationService().calculate({"numberOfDevices": 10})
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await OptimizerCalculationService(
+            optimizer_client=FakeOptimizerClient(
+                exc=ExternalServiceUnavailable("Optimizer API timed out")
+            )
+        ).calculate({"numberOfDevices": 10})
 
     assert exc_info.value.status_code == 504
     assert exc_info.value.public_detail == "Optimizer service timed out"
@@ -74,11 +75,13 @@ async def test_calculate_maps_timeout():
 def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_calc_params):
     client, headers = authenticated_client
 
-    with patch("src.services.optimizer_calculation_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.put = AsyncMock(
-            return_value=_mock_response(200, {"cheapestPath": ["L1_AWS"]})
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_calculation_service",
+            lambda: OptimizerCalculationService(
+                optimizer_client=FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
+            ),
         )
-
         response = client.put("/optimizer/calculate", json=_valid_route_params(sample_calc_params), headers=headers)
 
     assert response.status_code == 200
@@ -88,11 +91,15 @@ def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_
 def test_calculate_route_maps_optimizer_timeout(authenticated_client, sample_calc_params):
     client, headers = authenticated_client
 
-    with patch("src.services.optimizer_calculation_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.put = AsyncMock(
-            side_effect=httpx.TimeoutException("read timed out")
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_calculation_service",
+            lambda: OptimizerCalculationService(
+                optimizer_client=FakeOptimizerClient(
+                    exc=ExternalServiceUnavailable("Optimizer API timed out")
+                )
+            ),
         )
-
         response = client.put("/optimizer/calculate", json=_valid_route_params(sample_calc_params), headers=headers)
 
     assert response.status_code == 504

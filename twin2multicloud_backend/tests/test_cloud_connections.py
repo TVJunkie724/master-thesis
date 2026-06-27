@@ -1,8 +1,12 @@
 import json
 
+import pytest
+
 from src.models.cloud_connection import CloudConnection
 from src.models.user import User
+from src.services.cloud_credential_validation_service import perform_dual_validation
 from src.services.cloud_connection_service import CloudConnectionService
+from src.services.errors import ExternalServiceError
 
 
 def _aws_request(display_name="AWS Dev"):
@@ -130,6 +134,74 @@ def test_gcp_optimizer_credentials_extract_project_from_service_account(authenti
 
     assert optimizer_payload["gcp_project_id"] == "service-account-project"
     assert "placeholder-project" not in str(optimizer_payload)
+
+
+@pytest.mark.asyncio
+async def test_cloud_credential_dual_validation_uses_typed_clients():
+    class FakeOptimizerClient:
+        def __init__(self):
+            self.calls = []
+
+        async def verify_permissions(self, provider, credentials):
+            self.calls.append((provider, credentials))
+            return {"valid": True, "message": "optimizer ok"}
+
+    class FakeDeployerClient:
+        def __init__(self):
+            self.calls = []
+
+        async def verify_permissions(self, provider, credentials):
+            self.calls.append((provider, credentials))
+            return {"valid": True, "message": "deployer ok", "missing_permissions": []}
+
+    optimizer_client = FakeOptimizerClient()
+    deployer_client = FakeDeployerClient()
+
+    result = await perform_dual_validation(
+        "aws",
+        {"aws_region": "eu-central-1"},
+        {"aws_region": "eu-central-1", "permission_set_version": "thesis-demo-v1"},
+        optimizer_client=optimizer_client,
+        deployer_client=deployer_client,
+    )
+
+    assert result["valid"] is True
+    assert result["optimizer"]["message"] == "optimizer ok"
+    assert result["deployer"]["permissions"] == []
+    assert optimizer_client.calls == [("aws", {"aws_region": "eu-central-1"})]
+    assert deployer_client.calls == [
+        ("aws", {"aws_region": "eu-central-1", "permission_set_version": "thesis-demo-v1"}),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_cloud_credential_dual_validation_redacts_unexpected_client_errors():
+    secret = "CLOUD-VALIDATION-SECRET"
+
+    class FailingOptimizerClient:
+        async def verify_permissions(self, provider, credentials):
+            raise RuntimeError(f"client_secret={secret}")
+
+    class FailingDeployerClient:
+        async def verify_permissions(self, provider, credentials):
+            raise ExternalServiceError(
+                f"Deployer API returned 500: client_secret={secret}",
+                upstream_status_code=500,
+                public_detail=f"client_secret={secret}",
+            )
+
+    result = await perform_dual_validation(
+        "aws",
+        {"aws_secret_access_key": secret},
+        {"aws_secret_access_key": secret},
+        optimizer_client=FailingOptimizerClient(),
+        deployer_client=FailingDeployerClient(),
+    )
+
+    assert result["valid"] is False
+    assert secret not in str(result)
+    assert result["optimizer"]["message"] == "Optimizer error: client_secret=[REDACTED]"
+    assert result["deployer"]["message"] == "Deployer API error: 500"
 
 
 def test_cloud_connection_cannot_be_read_by_another_user(authenticated_client, db_session):

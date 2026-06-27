@@ -40,6 +40,16 @@ def _service(db, *, optimizer_validator=None, deployer_validator=None) -> Creden
     )
 
 
+class _FakePermissionClient:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    async def verify_permissions(self, provider, credentials):
+        self.calls.append((provider, credentials))
+        return self.result
+
+
 def _add_aws_config(db, twin: DigitalTwin, user: User, *, secret: str = "AWS-SECRET-VALUE") -> TwinConfiguration:
     config = TwinConfiguration(
         twin_id=twin.id,
@@ -142,6 +152,36 @@ async def test_validate_inline_dual_combines_results_and_redacts(db_session):
     assert secret not in str(result)
     assert result["optimizer"]["message"] == "optimizer ok [REDACTED]"
     assert result["deployer"]["message"] == "deployer denied [REDACTED]"
+
+
+@pytest.mark.asyncio
+async def test_validate_inline_dual_default_path_uses_typed_clients(db_session):
+    optimizer_client = _FakePermissionClient({"valid": True, "message": "optimizer ok"})
+    deployer_client = _FakePermissionClient(
+        {"valid": True, "message": "deployer ok", "missing_permissions": []}
+    )
+
+    result = await CredentialValidationService(
+        db=db_session,
+        twin_repository=TwinRepository(db_session),
+        optimizer_client=optimizer_client,
+        deployer_client=deployer_client,
+    ).validate_inline_dual(
+        InlineValidationRequest(
+            provider="aws",
+            aws=AWSCredentials(
+                access_key_id="AKIAIOSFODNN7EXAMPLE",
+                secret_access_key="DEFAULT-PATH-SECRET",
+                region="eu-central-1",
+            ),
+        )
+    )
+
+    assert result["valid"] is True
+    assert optimizer_client.calls[0][0] == "aws"
+    assert deployer_client.calls[0][0] == "aws"
+    assert optimizer_client.calls[0][1]["aws_secret_access_key"] == "DEFAULT-PATH-SECRET"
+    assert deployer_client.calls[0][1]["aws_secret_access_key"] == "DEFAULT-PATH-SECRET"
 
 
 @pytest.mark.asyncio

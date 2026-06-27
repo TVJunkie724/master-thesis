@@ -6,12 +6,13 @@ import io
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-import httpx
 from sqlalchemy.orm import Session, joinedload
 
+from src.clients.deployer_client import DeployerClient
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.services.test_deployment_service import TestDeploymentService
@@ -40,10 +41,12 @@ class SimulatorDownloadService:
         *,
         project_preparer: ProjectPreparer | None = None,
         simulator_fetcher: SimulatorFetcher | None = None,
+        deployer_client: DeployerClient | None = None,
     ):
         self.db = db
         self.twin_repository = twin_repository
         self.project_preparer = project_preparer or deployment_service.prepare_project_for_deployment
+        self.deployer_client = deployer_client or DeployerClient()
         self.simulator_fetcher = simulator_fetcher or self._fetch_from_deployer
 
     async def download(self, twin_id: str, user_id: str, *, test_mode: bool) -> SimulatorDownload:
@@ -106,25 +109,18 @@ class SimulatorDownloadService:
             raise EntityNotFoundError("Twin not found during reload")
         return twin
 
-    @staticmethod
-    async def _fetch_from_deployer(resource_name: str, l1_provider: str) -> bytes:
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    f"{deployment_service.DEPLOYER_API_URL}/projects/{resource_name}/simulator/{l1_provider}/download",
-                    timeout=60.0,
-                )
-            except httpx.RequestError as exc:
-                raise DownstreamServiceError(
-                    status_code=502,
-                    public_detail=f"Failed to connect to Deployer: {redact_secret_like_text(str(exc))}",
-                ) from exc
-
-        if response.status_code == 404:
-            raise EntityNotFoundError("Simulator not available. Ensure L1 deployed.")
-        if response.status_code != 200:
+    async def _fetch_from_deployer(self, resource_name: str, l1_provider: str) -> bytes:
+        try:
+            return await self.deployer_client.download_simulator(resource_name, l1_provider)
+        except ExternalServiceUnavailable as exc:
             raise DownstreamServiceError(
-                status_code=response.status_code,
-                public_detail=f"Deployer error: {redact_secret_like_text(response.text)}",
-            )
-        return response.content
+                status_code=502,
+                public_detail=f"Failed to connect to Deployer: {redact_secret_like_text(exc.message)}",
+            ) from exc
+        except ExternalServiceError as exc:
+            if exc.upstream_status_code == 404:
+                raise EntityNotFoundError("Simulator not available. Ensure L1 deployed.") from exc
+            raise DownstreamServiceError(
+                status_code=exc.upstream_status_code or 502,
+                public_detail=f"Deployer error: {redact_secret_like_text(exc.public_detail)}",
+            ) from exc

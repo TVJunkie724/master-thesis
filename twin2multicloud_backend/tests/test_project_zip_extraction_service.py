@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -13,6 +12,7 @@ from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
+from src.services.errors import ExternalServiceError
 from src.services.project_zip_extraction_service import ProjectZipExtractionService
 from src.services.scene_glb_service import SceneGlbService
 from src.services.service_errors import EntityNotFoundError, ValidationError
@@ -35,21 +35,27 @@ def _create_twin(db, user: User) -> DigitalTwin:
     return twin
 
 
-def _service(db, tmp_path) -> ProjectZipExtractionService:
+class _FakeDeployerClient:
+    def __init__(self, response=None, exc=None):
+        self.response = response or {"success": True, "assets": {"scene_glb": None}}
+        self.exc = exc
+        self.calls = []
+
+    async def extract_project_zip(self, content, validation_context):
+        self.calls.append((content, validation_context))
+        if self.exc:
+            raise self.exc
+        return self.response
+
+
+def _service(db, tmp_path, deployer_client=None) -> ProjectZipExtractionService:
     twin_repository = TwinRepository(db)
     return ProjectZipExtractionService(
         db=db,
         twin_repository=twin_repository,
         scene_glb_service=SceneGlbService(db=db, twin_repository=twin_repository, upload_dir=tmp_path),
+        deployer_client=deployer_client,
     )
-
-
-def _mock_response(status_code: int, payload: dict, text: str = "") -> MagicMock:
-    response = MagicMock()
-    response.status_code = status_code
-    response.json.return_value = payload
-    response.text = text
-    return response
 
 
 @pytest.mark.asyncio
@@ -60,13 +66,10 @@ async def test_upload_project_zip_sends_validation_context_from_optimizer_column
     db_session.commit()
     db_session.refresh(twin)
 
-    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
-        post = AsyncMock(return_value=_mock_response(200, {"success": True, "assets": {"scene_glb": None}}))
-        mock_client.return_value.__aenter__.return_value.post = post
+    fake = _FakeDeployerClient()
+    result = await _service(db_session, tmp_path, fake).upload_project_zip(twin.id, user.id, b"zip-bytes")
 
-        result = await _service(db_session, tmp_path).upload_project_zip(twin.id, user.id, b"zip-bytes")
-
-    validation_context = json.loads(post.call_args.kwargs["params"]["validation_context"])
+    validation_context = fake.calls[0][1]
     assert result["success"] is True
     assert validation_context == {
         "skip_credentials": True,
@@ -74,7 +77,6 @@ async def test_upload_project_zip_sends_validation_context_from_optimizer_column
         "l2_provider": "aws",
         "l4_provider": "azure",
     }
-    assert post.call_args.kwargs["params"]["include_credentials"] is False
 
 
 @pytest.mark.asyncio
@@ -90,13 +92,10 @@ async def test_upload_project_zip_uses_result_json_provider_fallback(db_session,
     db_session.commit()
     db_session.refresh(twin)
 
-    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
-        post = AsyncMock(return_value=_mock_response(200, {"success": True, "assets": {"scene_glb": None}}))
-        mock_client.return_value.__aenter__.return_value.post = post
+    fake = _FakeDeployerClient()
+    await _service(db_session, tmp_path, fake).upload_project_zip(twin.id, user.id, b"zip-bytes")
 
-        await _service(db_session, tmp_path).upload_project_zip(twin.id, user.id, b"zip-bytes")
-
-    validation_context = json.loads(post.call_args.kwargs["params"]["validation_context"])
+    validation_context = fake.calls[0][1]
     assert validation_context["l2_provider"] == "gcp"
     assert validation_context["l4_provider"] == "aws"
 
@@ -112,12 +111,11 @@ async def test_upload_project_zip_saves_embedded_glb_and_strips_content(db_sessi
         "warnings": [],
     }
 
-    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-            return_value=_mock_response(200, payload)
-        )
-
-        result = await _service(db_session, tmp_path).upload_project_zip(twin.id, user.id, b"zip-bytes")
+    result = await _service(
+        db_session,
+        tmp_path,
+        _FakeDeployerClient(response=payload),
+    ).upload_project_zip(twin.id, user.id, b"zip-bytes")
 
     db_session.refresh(twin)
     assert (tmp_path / twin.id / "scene.glb").read_bytes() == b"embedded-glb"
@@ -135,12 +133,11 @@ async def test_upload_project_zip_returns_stable_error_shape_on_deployer_error(d
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-            return_value=_mock_response(500, {}, "boom")
-        )
-
-        result = await _service(db_session, tmp_path).upload_project_zip(twin.id, user.id, b"zip-bytes")
+    result = await _service(
+        db_session,
+        tmp_path,
+        _FakeDeployerClient(exc=ExternalServiceError("boom", upstream_status_code=500, public_detail="boom")),
+    ).upload_project_zip(twin.id, user.id, b"zip-bytes")
 
     assert result == {
         "success": False,
@@ -157,12 +154,17 @@ async def test_upload_project_zip_redacts_deployer_error_text(db_session, tmp_pa
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-            return_value=_mock_response(500, {}, "client_secret=ZIP-SECRET-123")
-        )
-
-        result = await _service(db_session, tmp_path).upload_project_zip(twin.id, user.id, b"zip-bytes")
+    result = await _service(
+        db_session,
+        tmp_path,
+        _FakeDeployerClient(
+            exc=ExternalServiceError(
+                "client_secret=ZIP-SECRET-123",
+                upstream_status_code=500,
+                public_detail="client_secret=ZIP-SECRET-123",
+            )
+        ),
+    ).upload_project_zip(twin.id, user.id, b"zip-bytes")
 
     assert result["validation_errors"] == ["Deployer error: client_secret=[REDACTED]"]
 
@@ -172,15 +174,15 @@ async def test_upload_project_zip_rejects_oversized_zip_before_downstream_call(d
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
-        with pytest.raises(ValidationError, match="File too large"):
-            await _service(db_session, tmp_path).upload_project_zip(
-                twin.id,
-                user.id,
-                b"x" * (100 * 1024 * 1024 + 1),
-            )
+    fake = _FakeDeployerClient()
+    with pytest.raises(ValidationError, match="File too large"):
+        await _service(db_session, tmp_path, fake).upload_project_zip(
+            twin.id,
+            user.id,
+            b"x" * (100 * 1024 * 1024 + 1),
+        )
 
-    mock_client.assert_not_called()
+    assert fake.calls == []
 
 
 @pytest.mark.asyncio
@@ -196,16 +198,23 @@ def test_upload_project_zip_route_delegates_and_preserves_response(authenticated
     twin_id = create_test_twin(client, headers)
     monkeypatch.setattr(settings, "UPLOAD_DIR", str(tmp_path))
 
-    with patch("src.services.project_zip_extraction_service.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-            return_value=_mock_response(200, {"success": True, "assets": {"scene_glb": None}, "warnings": []})
-        )
+    class FakeRouteService:
+        async def upload_project_zip(self, twin_id, user_id, zip_content):
+            return {"success": True, "assets": {"scene_glb": None}, "warnings": []}
 
-        response = client.post(
-            f"/twins/{twin_id}/deployer/upload-zip",
-            files={"file": ("project.zip", b"zip-route", "application/zip")},
-            headers=headers,
-        )
+    import src.api.routes.deployer as deployer_routes
+
+    monkeypatch.setattr(
+        deployer_routes,
+        "_project_zip_extraction_service",
+        lambda db: FakeRouteService(),
+    )
+
+    response = client.post(
+        f"/twins/{twin_id}/deployer/upload-zip",
+        files={"file": ("project.zip", b"zip-route", "application/zip")},
+        headers=headers,
+    )
 
     assert response.status_code == 200
     assert response.json() == {"success": True, "assets": {"scene_glb": None}, "warnings": []}

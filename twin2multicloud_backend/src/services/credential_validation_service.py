@@ -6,14 +6,14 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-import httpx
 from sqlalchemy.orm import Session
 
-from src.config import settings
+from src.clients.deployer_client import DeployerClient
+from src.clients.optimizer_client import OptimizerClient
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.twin_config import CredentialValidationResult, InlineValidationRequest
 from src.services.credential_resolution_service import CredentialResolutionService
-from src.services.errors import CredentialResolutionFailed
+from src.services.errors import CredentialResolutionFailed, ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_validation_message, redact_validation_payload
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.utils.crypto import decrypt
@@ -33,9 +33,13 @@ class CredentialValidationService:
         *,
         optimizer_validator: ValidatorCall | None = None,
         deployer_validator: ValidatorCall | None = None,
+        optimizer_client: OptimizerClient | None = None,
+        deployer_client: DeployerClient | None = None,
     ):
         self.db = db
         self.twin_repository = twin_repository
+        self.optimizer_client = optimizer_client or OptimizerClient()
+        self.deployer_client = deployer_client or DeployerClient()
         self.optimizer_validator = optimizer_validator or self._call_optimizer
         self.deployer_validator = deployer_validator or self._call_deployer
 
@@ -302,20 +306,12 @@ class CredentialValidationService:
 
     async def _call_optimizer(self, provider: str, credentials: dict[str, Any]) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{settings.OPTIMIZER_URL}/permissions/verify/{provider}",
-                    json=credentials,
-                    timeout=30.0,
-                )
-        except httpx.ConnectError:
+            result = await self.optimizer_client.verify_permissions(provider, credentials)
+        except ExternalServiceUnavailable:
             return {"valid": False, "message": "Cannot connect to Optimizer API (port 5003)"}
-        except httpx.RequestError as exc:
-            return {"valid": False, "message": f"Optimizer request failed: {type(exc).__name__}"}
+        except ExternalServiceError as exc:
+            return {"valid": False, "message": f"Optimizer API error: {exc.upstream_status_code or 502}"}
 
-        if response.status_code != 200:
-            return {"valid": False, "message": f"Optimizer API error: {response.status_code}"}
-        result = response.json()
         return {
             "valid": result.get("valid", False) or result.get("status") == "valid",
             "message": result.get("message", "Validation complete"),
@@ -323,20 +319,12 @@ class CredentialValidationService:
 
     async def _call_deployer(self, provider: str, credentials: dict[str, Any]) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
-                    json=credentials,
-                    timeout=30.0,
-                )
-        except httpx.ConnectError:
+            result = await self.deployer_client.verify_permissions(provider, credentials)
+        except ExternalServiceUnavailable:
             return {"valid": False, "message": "Cannot connect to Deployer API (port 5004)"}
-        except httpx.RequestError as exc:
-            return {"valid": False, "message": f"Deployer request failed: {type(exc).__name__}"}
+        except ExternalServiceError as exc:
+            return {"valid": False, "message": f"Deployer API error: {exc.upstream_status_code or 502}"}
 
-        if response.status_code != 200:
-            return {"valid": False, "message": f"Deployer API error: {response.status_code}"}
-        result = response.json()
         return {
             "valid": result.get("valid", False) or result.get("status") == "valid",
             "message": result.get("message", "Validation complete"),

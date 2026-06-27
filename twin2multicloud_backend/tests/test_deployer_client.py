@@ -33,6 +33,51 @@ async def test_validate_deployer_complete_posts_exact_endpoint_and_payload():
 
 
 @pytest.mark.asyncio
+async def test_verify_permissions_posts_exact_provider_endpoint_and_payload():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["payload"] = request.read().decode()
+        return httpx.Response(200, json={"valid": True})
+
+    response = await _client_with_handler(handler).verify_permissions(
+        "azure",
+        {"azure_region": "westeurope"},
+    )
+
+    assert response == {"valid": True}
+    assert seen == {
+        "method": "POST",
+        "url": "http://deployer.test/permissions/verify/azure",
+        "payload": '{"azure_region":"westeurope"}',
+    }
+
+
+@pytest.mark.asyncio
+async def test_validate_config_file_posts_multipart_validation_contract():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["content_type"] = request.headers["content-type"]
+        return httpx.Response(200, json={"message": "Valid"})
+
+    result = await _client_with_handler(handler).validate_config_file(
+        "function-code",
+        {"file": ("code.py", b"def handler(): pass", "text/plain")},
+        provider="aws",
+    )
+
+    assert result == {"message": "Valid"}
+    assert seen["method"] == "POST"
+    assert seen["url"] == "http://deployer.test/validate/function-code?provider=aws"
+    assert seen["content_type"].startswith("multipart/form-data")
+
+
+@pytest.mark.asyncio
 async def test_check_cooldown_sends_expected_query_params():
     seen = {}
     destroyed_at = datetime(2026, 4, 26, 10, 15, tzinfo=timezone.utc)
@@ -112,6 +157,64 @@ async def test_download_simulator_returns_zip_bytes_from_exact_path():
 
     assert content == b"zip-bytes"
     assert seen["url"] == "http://deployer.test/projects/factory/simulator/azure/download"
+
+
+@pytest.mark.asyncio
+async def test_project_exists_preserves_404_as_false_without_throwing():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(404, text="not found")
+
+    exists = await _client_with_handler(handler).project_exists("factory")
+
+    assert exists is False
+    assert seen == ["http://deployer.test/projects/factory/validate"]
+
+
+@pytest.mark.asyncio
+async def test_project_zip_upload_methods_send_multipart_contracts():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, str(request.url), request.headers["content-type"]))
+        return httpx.Response(200, json={"project": "factory"})
+
+    client = _client_with_handler(handler)
+
+    assert await client.import_project_zip("factory", b"zip") == {"project": "factory"}
+    assert await client.create_project_zip("factory", b"zip") == {"project": "factory"}
+
+    assert seen[0][0:2] == ("POST", "http://deployer.test/projects/factory/import")
+    assert seen[1][0:2] == ("POST", "http://deployer.test/projects?project_name=factory")
+    assert seen[0][2].startswith("multipart/form-data")
+    assert seen[1][2].startswith("multipart/form-data")
+
+
+@pytest.mark.asyncio
+async def test_extract_project_zip_sends_validation_context_without_credentials():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["content_type"] = request.headers["content-type"]
+        return httpx.Response(200, json={"success": True, "files": {}})
+
+    response = await _client_with_handler(handler).extract_project_zip(
+        b"zip",
+        {"skip_credentials": True, "l2_provider": "aws"},
+    )
+
+    assert response == {"success": True, "files": {}}
+    assert seen["method"] == "POST"
+    assert seen["url"] == (
+        "http://deployer.test/validate/zip/extract?"
+        "validation_context=%7B%22skip_credentials%22%3Atrue%2C%22l2_provider%22%3A%22aws%22%7D"
+        "&include_credentials=false"
+    )
+    assert seen["content_type"].startswith("multipart/form-data")
 
 
 @pytest.mark.asyncio

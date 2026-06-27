@@ -8,7 +8,7 @@ def test_test_endpoints_are_not_registered_by_default(authenticated_client):
     client, headers = authenticated_client
 
     assert settings.ENABLE_TEST_ENDPOINTS is False
-    route_paths = {route.path for route in app.routes}
+    route_paths = {route.path for route in app.routes if hasattr(route, "path")}
     assert "/twins/{twin_id}/test-deploy" not in route_paths
     assert "/twins/{twin_id}/test-destroy" not in route_paths
     assert "/twins/{twin_id}/test-log-trace/start" not in route_paths

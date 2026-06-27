@@ -4,27 +4,33 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
 from sqlalchemy.orm import Session
 
-from src.config import settings
+from src.clients.optimizer_client import OptimizerClient
 from src.repositories.twin_repository import TwinRepository
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.external_service_mapping import map_optimizer_client_error
 from src.services.secret_redaction import redact_validation_message
 from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.errors import CredentialResolutionFailed
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 
 
-OPTIMIZER_URL = getattr(settings, "OPTIMIZER_URL", "http://master-thesis-2twin2clouds-1:8000")
 SUPPORTED_PRICING_REFRESH_PROVIDERS = {"aws", "azure", "gcp"}
 
 
 class OptimizerPricingRefreshService:
     """Owns pricing refresh credential materialization and Optimizer proxying."""
 
-    def __init__(self, db: Session, twin_repository: TwinRepository):
+    def __init__(
+        self,
+        db: Session,
+        twin_repository: TwinRepository,
+        optimizer_client: OptimizerClient | None = None,
+    ):
         self.db = db
         self.twin_repository = twin_repository
+        self.optimizer_client = optimizer_client or OptimizerClient()
 
     async def refresh_pricing(self, provider: str, twin_id: str, user_id: str) -> dict[str, Any]:
         """Refresh provider pricing using the twin's stored credentials when required."""
@@ -33,31 +39,22 @@ class OptimizerPricingRefreshService:
 
         credentials: dict[str, str] = {}
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                if provider == "azure":
-                    response = await client.post(
-                        f"{OPTIMIZER_URL}/fetch_pricing/azure",
-                        params={"force_fetch": True},
-                    )
-                else:
-                    credentials = self._build_credentials(provider, twin_id, user_id)
-                    response = await client.post(
-                        f"{OPTIMIZER_URL}/fetch_pricing_with_credentials/{provider}",
-                        json=credentials,
-                    )
-        except httpx.ConnectError as exc:
-            raise DownstreamServiceError(503, "Cannot connect to Optimizer service") from exc
-        except httpx.TimeoutException as exc:
-            raise DownstreamServiceError(504, "Optimizer service timed out") from exc
-        except httpx.RequestError as exc:
-            raise DownstreamServiceError(502, f"Request failed: {type(exc).__name__}") from exc
+            if provider == "azure":
+                return await self.optimizer_client.refresh_azure_pricing()
 
-        if response.status_code != 200:
-            raise DownstreamServiceError(
-                response.status_code,
-                redact_validation_message(response.text, credentials),
+            credentials = self._build_credentials(provider, twin_id, user_id)
+            return await self.optimizer_client.refresh_pricing_with_credentials(
+                provider,
+                credentials,
             )
-        return response.json()
+        except ExternalServiceUnavailable as exc:
+            raise map_optimizer_client_error(exc) from exc
+        except ExternalServiceError as exc:
+            downstream = map_optimizer_client_error(exc)
+            raise DownstreamServiceError(
+                downstream.status_code,
+                redact_validation_message(downstream.public_detail, credentials),
+            ) from exc
 
     def _build_credentials(self, provider: str, twin_id: str, user_id: str) -> dict[str, str]:
         twin = self.twin_repository.get_for_user(twin_id, user_id)

@@ -8,13 +8,14 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-import httpx
 from sqlalchemy.orm import Session, joinedload
 
+from src.clients.deployer_client import DeployerClient
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
 from src.services.deployment_stream_service import create_session, get_session
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 
@@ -37,12 +38,14 @@ class DeploymentVerificationService:
         session_creator: SessionCreator = create_session,
         task_scheduler: TaskScheduler = asyncio.create_task,
         infrastructure_verifier: InfrastructureVerifier | None = None,
+        deployer_client: DeployerClient | None = None,
     ):
         self.db = db
         self.twin_repository = twin_repository
         self.project_preparer = project_preparer or deployment_service.prepare_project_for_deployment
         self.session_creator = session_creator
         self.task_scheduler = task_scheduler
+        self.deployer_client = deployer_client or DeployerClient()
         self.infrastructure_verifier = infrastructure_verifier or self._verify_infrastructure_with_deployer
 
     async def verify_infrastructure(self, twin_id: str, user_id: str, *, test_mode: bool) -> dict[str, Any]:
@@ -95,20 +98,12 @@ class DeploymentVerificationService:
             return
 
         try:
-            timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream(
-                    "POST",
-                    f"{deployment_service.DEPLOYER_API_URL}/dataflow/verify",
-                    params={"project_name": resource_name},
-                    json={"payload": payload},
-                ) as response:
-                    last_data = None
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            message = line[6:]
-                            last_data = message
-                            await session.push_log(message)
+            last_data = None
+            async for line in self.deployer_client.verify_dataflow(resource_name, payload):
+                if line.startswith("data: "):
+                    message = line[6:]
+                    last_data = message
+                    await session.push_log(message)
 
             verification_ok = True
             summary_message = "Data flow verification complete"
@@ -123,17 +118,30 @@ class DeploymentVerificationService:
                 except (json.JSONDecodeError, TypeError):
                     pass
             session.on_complete(success=verification_ok, message=summary_message)
-        except Exception as exc:
+        except (ExternalServiceError, ExternalServiceUnavailable) as exc:
+            safe_error = self._deployer_error_message(exc)
             await session.push_log(
                 json.dumps(
                     {
                         "timestamp": "",
-                        "message": f"Verification error: {exc}",
+                        "message": f"Verification error: {safe_error}",
                         "status": "fail",
                     }
                 )
             )
-            session.on_complete(success=False, message=str(exc))
+            session.on_complete(success=False, message=safe_error)
+        except Exception as exc:
+            safe_error = redact_secret_like_text(str(exc))
+            await session.push_log(
+                json.dumps(
+                    {
+                        "timestamp": "",
+                        "message": f"Verification error: {safe_error}",
+                        "status": "fail",
+                    }
+                )
+            )
+            session.on_complete(success=False, message=safe_error)
 
     def _require_deployed_twin(self, twin_id: str, user_id: str, operation: str) -> DigitalTwin:
         twin = self.twin_repository.get_active_for_user(twin_id, user_id)
@@ -184,26 +192,25 @@ class DeploymentVerificationService:
             return twin.optimizer_config.cheapest_l1.lower()
         return "aws"
 
-    @staticmethod
-    async def _verify_infrastructure_with_deployer(resource_name: str, provider: str) -> dict[str, Any]:
+    async def _verify_infrastructure_with_deployer(self, resource_name: str, provider: str) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(
-                    f"{deployment_service.DEPLOYER_API_URL}/infrastructure/verify",
-                    params={"project_name": resource_name, "provider": provider},
-                )
-                response.raise_for_status()
-                return response.json()
-        except httpx.HTTPStatusError as exc:
+            return await self.deployer_client.verify_infrastructure(resource_name, provider)
+        except ExternalServiceError as exc:
             raise DownstreamServiceError(
-                status_code=exc.response.status_code,
-                public_detail=f"Deployer API error: {redact_secret_like_text(exc.response.text)}",
+                status_code=exc.upstream_status_code or 502,
+                public_detail=f"Deployer API error: {redact_secret_like_text(exc.public_detail)}",
             ) from exc
-        except httpx.RequestError as exc:
+        except ExternalServiceUnavailable as exc:
             raise DownstreamServiceError(
                 status_code=503,
-                public_detail=f"Deployer API unavailable: {redact_secret_like_text(str(exc))}",
+                public_detail=f"Deployer API unavailable: {redact_secret_like_text(exc.message)}",
             ) from exc
+
+    @staticmethod
+    def _deployer_error_message(exc: ExternalServiceError | ExternalServiceUnavailable) -> str:
+        if isinstance(exc, ExternalServiceUnavailable):
+            return "Deployer API unavailable"
+        return f"Deployer API error: {redact_secret_like_text(exc.public_detail)}"
 
     @staticmethod
     def _mock_infrastructure_result() -> dict[str, Any]:

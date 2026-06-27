@@ -45,36 +45,17 @@ from src.utils.crypto import encrypt_scoped
 from tests.conftest import TestingSessionLocal
 
 
-class _FakeStreamResponse:
+class _FakeDeployerClient:
     def __init__(self, lines: list[str]):
-        self._lines = lines
+        self.lines = lines
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return None
-
-    def raise_for_status(self):
-        return None
-
-    async def aiter_lines(self):
-        for line in self._lines:
+    async def deploy_stream(self, provider: str, project_name: str):
+        for line in self.lines:
             yield line
 
-
-class _FakeAsyncClient:
-    def __init__(self, lines: list[str]):
-        self._lines = lines
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return None
-
-    def stream(self, *args, **kwargs):
-        return _FakeStreamResponse(self._lines)
+    async def destroy_stream(self, provider: str, project_name: str):
+        for line in self.lines:
+            yield line
 
 
 def _create_stream_twin(db, state=TwinState.DEPLOYING):
@@ -95,10 +76,7 @@ def _patch_stream_dependencies(monkeypatch, lines: list[str], session: LogSessio
 
     monkeypatch.setattr("src.api.routes.sse.get_session", fake_get_session)
     monkeypatch.setattr("src.models.database.SessionLocal", TestingSessionLocal)
-    monkeypatch.setattr(
-        "src.services.deployment_service.httpx.AsyncClient",
-        lambda *args, **kwargs: _FakeAsyncClient(lines),
-    )
+    return _FakeDeployerClient(lines)
 
 
 class TestDeployerSseParsing:
@@ -185,13 +163,14 @@ class TestRealDeploymentStreamPersistence:
             'data: {"event":"complete","operation":"deploy","success":true,'
             '"outputs":{"endpoint":{"value":"ok"}},"operation_id":"op-deploy"}',
         ]
-        _patch_stream_dependencies(monkeypatch, lines, session)
+        deployer_client = _patch_stream_dependencies(monkeypatch, lines, session)
 
         await run_real_deploy_stream(
             session_id="session-deploy",
             twin_id=twin.id,
             resource_name="stream-twin",
             provider="aws",
+            deployer_client=deployer_client,
         )
 
         db.expire_all()
@@ -217,13 +196,14 @@ class TestRealDeploymentStreamPersistence:
             '"error":"client_secret=super-secret in /app/upload/template",'
             '"error_code":"DESTRUCTION_ERROR","operation_id":"op-destroy"}',
         ]
-        _patch_stream_dependencies(monkeypatch, lines, session)
+        deployer_client = _patch_stream_dependencies(monkeypatch, lines, session)
 
         await run_real_destroy_stream(
             session_id="session-destroy",
             twin_id=twin.id,
             resource_name="stream-twin",
             provider="aws",
+            deployer_client=deployer_client,
         )
 
         db.expire_all()

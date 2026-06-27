@@ -6,9 +6,10 @@ import asyncio
 import json
 from typing import Any
 
-import httpx
-
-from src.config import settings
+from src.clients.deployer_client import DeployerClient
+from src.clients.optimizer_client import OptimizerClient
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.secret_redaction import redact_secret_like_text
 
 _SENSITIVE_KEY_PARTS = (
     "secret",
@@ -30,68 +31,61 @@ async def perform_dual_validation(
     provider: str,
     optimizer_creds: dict,
     deployer_creds: dict,
+    *,
+    optimizer_client: OptimizerClient | None = None,
+    deployer_client: DeployerClient | None = None,
 ) -> dict:
     """Validate credentials against Optimizer and Deployer without persisting secrets."""
+    optimizer_client = optimizer_client or OptimizerClient()
+    deployer_client = deployer_client or DeployerClient()
 
     async def call_optimizer():
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{settings.OPTIMIZER_URL}/permissions/verify/{provider}",
-                    json=optimizer_creds,
-                    timeout=30.0,
-                )
-                if response.status_code == 200:
-                    result = response.json()
-                    is_valid = result.get("valid", False) or result.get("status") == "valid"
-                    return {
-                        "valid": is_valid,
-                        "message": result.get("message", "Validation complete"),
-                    }
-                return {
-                    "valid": False,
-                    "message": f"Optimizer API error: {response.status_code}",
-                }
-        except httpx.ConnectError:
+            result = await optimizer_client.verify_permissions(provider, optimizer_creds)
+            is_valid = result.get("valid", False) or result.get("status") == "valid"
+            return {
+                "valid": is_valid,
+                "message": result.get("message", "Validation complete"),
+            }
+        except ExternalServiceUnavailable:
             return {
                 "valid": False,
                 "message": "Cannot connect to Optimizer API (port 5003)",
             }
+        except ExternalServiceError as exc:
+            return {
+                "valid": False,
+                "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
+            }
         except Exception as exc:
             return {
                 "valid": False,
-                "message": f"Optimizer error: {exc}",
+                "message": f"Optimizer error: {redact_secret_like_text(str(exc))}",
             }
 
     async def call_deployer():
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
-                    json=deployer_creds,
-                    timeout=30.0,
-                )
-                if response.status_code == 200:
-                    result = response.json()
-                    is_valid = result.get("valid", False) or result.get("status") == "valid"
-                    return {
-                        "valid": is_valid,
-                        "message": result.get("message", "Validation complete"),
-                        "permissions": result.get("missing_permissions"),
-                    }
-                return {
-                    "valid": False,
-                    "message": f"Deployer API error: {response.status_code}",
-                }
-        except httpx.ConnectError:
+            result = await deployer_client.verify_permissions(provider, deployer_creds)
+            is_valid = result.get("valid", False) or result.get("status") == "valid"
+            return {
+                "valid": is_valid,
+                "message": result.get("message", "Validation complete"),
+                "permissions": result.get("missing_permissions"),
+            }
+        except ExternalServiceUnavailable:
             return {
                 "valid": False,
                 "message": "Cannot connect to Deployer API (port 5004)",
             }
+        except ExternalServiceError as exc:
+            return {
+                "valid": False,
+                "message": f"Deployer API error: {exc.upstream_status_code or 502}",
+            }
         except Exception as exc:
             return {
                 "valid": False,
-                "message": f"Deployer error: {exc}",
+                "message": f"Deployer error: {redact_secret_like_text(str(exc))}",
             }
 
     optimizer_result, deployer_result = await asyncio.gather(call_optimizer(), call_deployer())

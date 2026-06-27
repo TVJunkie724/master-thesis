@@ -1,9 +1,9 @@
 ---
 title: "Phase 4.1: Cross-Service Contract Gate"
-description: "Generate and review Management API, Optimizer, and Deployer API contracts as reproducible service quality evidence."
+description: "Generate and review API contracts and Management API downstream client boundaries as reproducible service quality evidence."
 tags: [quality, contracts, openapi, management-api, optimizer, deployer]
-lastUpdated: "2026-06-21"
-version: "1.0"
+lastUpdated: "2026-06-26"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -30,6 +30,7 @@ the service layer is declared thesis-ready.
 | Entrypoint verification for all services | Flutter UI integration |
 | Contract evidence for later diff review | Live cloud E2E |
 | Raw/dynamic response risk register | Provider permission hardening |
+| Typed Management API downstream client-surface gate | Replacing provider APIs or IaC tooling |
 
 ## Deliverables
 
@@ -37,6 +38,8 @@ the service layer is declared thesis-ready.
 - A deterministic export tool with explicit service entrypoints.
 - A review artifact documenting endpoint counts, raw/dynamic risk areas, and
   follow-up gates.
+- A Management API test gate that keeps Optimizer/Deployer HTTP access inside
+  typed clients and makes the public downstream client method surface explicit.
 
 ## Acceptance Criteria
 
@@ -44,6 +47,9 @@ the service layer is declared thesis-ready.
 - Management API test-only endpoints are excluded by default.
 - No snapshot contains credential material or live deployment artifacts.
 - Contract drift can be detected through ordinary Git diffs.
+- Direct downstream HTTP calls from Management API routes/services fail tests.
+- New OptimizerClient/DeployerClient public methods require an explicit
+  contract-test update.
 
 ## Verification
 
@@ -51,6 +57,9 @@ the service layer is declared thesis-ready.
   `docs/contracts/openapi/README.md`.
 - Validate each output as JSON.
 - Inspect snapshot summaries for expected title/version/path counts.
+- Run `pytest twin2multicloud_backend/tests/test_management_contracts.py`.
+- Run focused client and credential/config validation tests when the downstream
+  client boundary changes.
 
 ## Review Artifact
 
