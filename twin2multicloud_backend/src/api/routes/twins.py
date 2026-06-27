@@ -32,13 +32,9 @@ from src.schemas.management_contracts import (
     OperationSessionResponse,
     RedeployReadinessResponse,
 )
-from src.clients.deployer_client import DeployerClient
-from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
 from src.services.configuration_validation_service import ConfigurationValidationService
-from src.services.deployment_operation_service import DeploymentOperationService
-from src.services.deployment_read_service import DeploymentReadService
-from src.services.simulator_service import SimulatorDownloadService
+from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.errors import (
     ConfigurationValidationFailed,
     ExternalServiceError,
@@ -47,7 +43,6 @@ from src.services.errors import (
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.twin_export_service import TwinExportService
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
-from src.services.verification_service import DeploymentVerificationService
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.api.routes.error_models import ERROR_RESPONSES
 
@@ -59,28 +54,9 @@ TEST_MODE = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
 router = APIRouter(prefix="/twins", tags=["twins"])
 
 
-def _deployment_read_service(db: Session) -> DeploymentReadService:
-    """Build the read-side deployment service for this request."""
-    return DeploymentReadService(
-        twin_repository=TwinRepository(db),
-        deployment_repository=DeploymentRepository(db),
-        deployer_client=DeployerClient(),
-    )
-
-
-def _deployment_operation_service(db: Session) -> DeploymentOperationService:
-    """Build the command-side deployment service for this request."""
-    return DeploymentOperationService(db=db, twin_repository=TwinRepository(db))
-
-
-def _simulator_download_service(db: Session) -> SimulatorDownloadService:
-    """Build the simulator download service for this request."""
-    return SimulatorDownloadService(db=db, twin_repository=TwinRepository(db))
-
-
-def _deployment_verification_service(db: Session) -> DeploymentVerificationService:
-    """Build the deployment verification service for this request."""
-    return DeploymentVerificationService(db=db, twin_repository=TwinRepository(db))
+def _deployment_orchestrator(db: Session) -> DeploymentOrchestrator:
+    """Build the deployment workflow orchestrator for this request."""
+    return DeploymentOrchestrator.from_session(db)
 
 
 def _twin_export_service(db: Session) -> TwinExportService:
@@ -321,7 +297,7 @@ async def can_redeploy(
     Zero cloud costs - pure calculation.
     """
     try:
-        return await _deployment_read_service(db).can_redeploy(twin_id, current_user.id)
+        return await _deployment_orchestrator(db).can_redeploy(twin_id, current_user.id)
     except (EntityNotFoundError, DownstreamServiceError) as exc:
         _raise_service_http_error(exc)
 
@@ -376,7 +352,7 @@ async def deploy_twin(
         test_stream_runner = _run_test_deploy_stream
 
     try:
-        return await _deployment_operation_service(db).deploy_twin(
+        return await _deployment_orchestrator(db).deploy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
@@ -430,7 +406,7 @@ async def destroy_twin_infrastructure(
         test_stream_runner = _run_test_destroy_stream
 
     try:
-        return await _deployment_operation_service(db).destroy_twin(
+        return await _deployment_orchestrator(db).destroy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
@@ -473,7 +449,7 @@ async def get_deployment_status(
     from src.api.routes.sse import get_active_sessions_for_twin
 
     try:
-        return await _deployment_read_service(db).get_status(
+        return await _deployment_orchestrator(db).get_status(
             twin_id=twin_id,
             user_id=current_user.id,
             active_session_provider=get_active_sessions_for_twin,
@@ -511,7 +487,7 @@ async def get_deployment_outputs(
     Used to display outputs after the terminal is closed or on page refresh.
     """
     try:
-        return _deployment_read_service(db).get_outputs(twin_id, current_user.id)
+        return _deployment_orchestrator(db).get_outputs(twin_id, current_user.id)
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
 
@@ -547,7 +523,7 @@ async def get_deployment_history(
     Returns a list of historical deployments ordered by most recent first.
     """
     try:
-        return _deployment_read_service(db).get_history(twin_id, current_user.id, limit)
+        return _deployment_orchestrator(db).get_history(twin_id, current_user.id, limit)
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
 
@@ -796,7 +772,7 @@ async def verify_infrastructure(
         summary: {pass_count, fail_count, skip_count, total, healthy}
     """
     try:
-        return await _deployment_verification_service(db).verify_infrastructure(
+        return await _deployment_orchestrator(db).verify_infrastructure(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
@@ -847,7 +823,7 @@ async def verify_dataflow(
     Returns session_id and sse_url for SSE streaming.
     """
     try:
-        return await _deployment_verification_service(db).start_dataflow_verification(
+        return await _deployment_orchestrator(db).start_dataflow_verification(
             twin_id=twin_id,
             user_id=current_user.id,
             body=body,
@@ -897,7 +873,7 @@ async def download_simulator(
     Deployer API /projects/{name}/simulator/{provider}/download.
     """
     try:
-        archive = await _simulator_download_service(db).download(
+        archive = await _deployment_orchestrator(db).download_simulator(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,

@@ -1,9 +1,11 @@
 """Route regression tests for deployment read endpoints."""
 
+import io
 from datetime import datetime, timedelta
 
 from src.models.deployment import Deployment
 from src.models.twin import TwinState
+from src.services.simulator_service import SimulatorDownload
 
 
 def test_deployment_status_route_returns_current_twin_state(auth_client, test_twin):
@@ -69,3 +71,65 @@ def test_deployments_route_returns_limited_history(auth_client, db, test_twin):
 
     assert response.status_code == 200
     assert [item["session_id"] for item in response.json()["deployments"]] == ["route-second"]
+
+
+def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_twin, monkeypatch):
+    calls = []
+
+    class FakeOrchestrator:
+        async def deploy_twin(self, **kwargs):
+            calls.append(kwargs)
+            return {"session_id": "route-deploy", "sse_url": "/sse/deploy/route-deploy"}
+
+    monkeypatch.setattr(
+        "src.api.routes.twins._deployment_orchestrator",
+        lambda _db: FakeOrchestrator(),
+    )
+
+    response = auth_client.post(f"/twins/{test_twin.id}/deploy")
+
+    assert response.status_code == 200
+    assert response.json()["session_id"] == "route-deploy"
+    assert calls[0]["twin_id"] == test_twin.id
+    assert calls[0]["test_mode"] is False
+
+
+def test_deployment_verification_route_delegates_to_orchestrator(auth_client, test_twin, monkeypatch):
+    calls = []
+
+    class FakeOrchestrator:
+        async def verify_infrastructure(self, **kwargs):
+            calls.append(kwargs)
+            return {"summary": {"healthy": True}, "checks": []}
+
+    monkeypatch.setattr(
+        "src.api.routes.twins._deployment_orchestrator",
+        lambda _db: FakeOrchestrator(),
+    )
+
+    response = auth_client.post(f"/twins/{test_twin.id}/verify/infrastructure")
+
+    assert response.status_code == 200
+    assert response.json()["summary"]["healthy"] is True
+    assert calls == [{"twin_id": test_twin.id, "user_id": test_twin.user_id, "test_mode": False}]
+
+
+def test_simulator_route_streams_archive_from_orchestrator(auth_client, test_twin, monkeypatch):
+    calls = []
+
+    class FakeOrchestrator:
+        async def download_simulator(self, **kwargs):
+            calls.append(kwargs)
+            return SimulatorDownload(content=io.BytesIO(b"zip"), filename="simulator.zip")
+
+    monkeypatch.setattr(
+        "src.api.routes.twins._deployment_orchestrator",
+        lambda _db: FakeOrchestrator(),
+    )
+
+    response = auth_client.get(f"/twins/{test_twin.id}/simulator/download")
+
+    assert response.status_code == 200
+    assert response.content == b"zip"
+    assert response.headers["content-disposition"] == "attachment; filename=simulator.zip"
+    assert calls == [{"twin_id": test_twin.id, "user_id": test_twin.user_id, "test_mode": False}]
