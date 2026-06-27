@@ -26,7 +26,7 @@ from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
 from src.repositories.twin_repository import TwinRepository
-from src.services.deployment_operation_service import DeploymentOperationService
+from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
 from src.services.test_deployment_service import TestDeploymentService
 
@@ -43,9 +43,9 @@ def _require_test_endpoints():
         raise HTTPException(status_code=404, detail="Not found")
 
 
-def _deployment_operation_service(db: Session) -> DeploymentOperationService:
-    """Build the shared deployment operation service for test endpoints."""
-    return DeploymentOperationService(db=db, twin_repository=TwinRepository(db))
+def _deployment_orchestrator(db: Session) -> DeploymentOrchestrator:
+    """Build the shared deployment orchestrator for gated test endpoints."""
+    return DeploymentOrchestrator.from_session(db)
 
 
 def _test_deployment_service(db: Session) -> TestDeploymentService:
@@ -107,7 +107,7 @@ async def test_deploy_twin(
         await _run_test_deploy_stream(**kwargs)
 
     try:
-        return await _deployment_operation_service(db).deploy_twin(
+        return await _deployment_orchestrator(db).deploy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=True,
@@ -160,7 +160,7 @@ async def test_destroy_twin(
         await _run_test_destroy_stream(**kwargs)
 
     try:
-        return await _deployment_operation_service(db).destroy_twin(
+        return await _deployment_orchestrator(db).destroy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=True,

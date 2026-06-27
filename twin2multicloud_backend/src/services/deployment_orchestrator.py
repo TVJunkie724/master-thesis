@@ -90,6 +90,7 @@ class DeploymentOrchestrator:
         *,
         test_mode: bool,
         test_stream_runner: TestStreamRunner | None = None,
+        skip_state_validation: bool = False,
     ) -> dict[str, str]:
         """Start a deploy operation."""
         return await self.operation_service.deploy_twin(
@@ -97,6 +98,7 @@ class DeploymentOrchestrator:
             user_id=user_id,
             test_mode=test_mode,
             test_stream_runner=test_stream_runner or self.test_deploy_stream_runner,
+            skip_state_validation=skip_state_validation,
         )
 
     async def destroy_twin(
@@ -106,6 +108,7 @@ class DeploymentOrchestrator:
         *,
         test_mode: bool,
         test_stream_runner: TestStreamRunner | None = None,
+        skip_state_validation: bool = False,
     ) -> dict[str, str]:
         """Start a destroy operation."""
         return await self.operation_service.destroy_twin(
@@ -113,6 +116,7 @@ class DeploymentOrchestrator:
             user_id=user_id,
             test_mode=test_mode,
             test_stream_runner=test_stream_runner or self.test_destroy_stream_runner,
+            skip_state_validation=skip_state_validation,
         )
 
     async def get_status(
