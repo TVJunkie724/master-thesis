@@ -82,7 +82,7 @@ def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_tw
             return {"session_id": "route-deploy", "sse_url": "/sse/deploy/route-deploy"}
 
     monkeypatch.setattr(
-        "src.api.routes.twins._deployment_orchestrator",
+        "src.api.routes.twin_operations._deployment_orchestrator",
         lambda _db: FakeOrchestrator(),
     )
 
@@ -104,7 +104,7 @@ def test_deployment_verification_route_delegates_to_orchestrator(auth_client, te
             return {"summary": {"healthy": True}, "checks": []}
 
     monkeypatch.setattr(
-        "src.api.routes.twins._deployment_orchestrator",
+        "src.api.routes.twin_operations._deployment_orchestrator",
         lambda _db: FakeOrchestrator(),
     )
 
@@ -124,7 +124,7 @@ def test_simulator_route_streams_archive_from_orchestrator(auth_client, test_twi
             return SimulatorDownload(content=io.BytesIO(b"zip"), filename="simulator.zip")
 
     monkeypatch.setattr(
-        "src.api.routes.twins._deployment_orchestrator",
+        "src.api.routes.twin_operations._deployment_orchestrator",
         lambda _db: FakeOrchestrator(),
     )
 
