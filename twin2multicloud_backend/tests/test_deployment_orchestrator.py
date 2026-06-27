@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import io
 
+from fastapi import HTTPException
 import pytest
 
+from src.models.twin import DigitalTwin, TwinState
+from src.models.user import User
+from src.repositories.twin_repository import TwinRepository
+from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
+from src.services.service_errors import ConflictError, DownstreamServiceError
 from src.services.simulator_service import SimulatorDownload
 
 
@@ -66,6 +72,75 @@ class FakeSimulatorService:
         return SimulatorDownload(content=io.BytesIO(b"zip"), filename="simulator.zip")
 
 
+def _create_user(db, email: str = "deployment-orchestrator@example.test") -> User:
+    user = User(email=email, name="Deployment Orchestrator", auth_provider="google")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _create_twin(db, user: User, state: TwinState) -> DigitalTwin:
+    twin = DigitalTwin(name=f"Orchestrator Twin {id(db)}", user_id=user.id, state=state)
+    db.add(twin)
+    db.commit()
+    db.refresh(twin)
+    return twin
+
+
+async def _no_active_sessions(_twin_id):
+    return []
+
+
+async def _active_sessions(_twin_id):
+    return [object()]
+
+
+def _closing_scheduler(scheduled):
+    def schedule(coro):
+        scheduled.append(coro)
+        coro.close()
+
+    return schedule
+
+
+def _session_recorder(records):
+    async def create(twin_id, session_id, operation_type):
+        records.append((twin_id, session_id, operation_type))
+
+    return create
+
+
+def _operation_backed_orchestrator(
+    db,
+    *,
+    active_session_provider=_no_active_sessions,
+    project_preparer=None,
+    session_records=None,
+    scheduled=None,
+) -> DeploymentOrchestrator:
+    session_records = session_records if session_records is not None else []
+    scheduled = scheduled if scheduled is not None else []
+
+    async def default_preparer(_twin, _user_id):
+        return "orchestrator-resource"
+
+    operation_service = DeploymentOperationService(
+        db=db,
+        twin_repository=TwinRepository(db),
+        active_session_provider=active_session_provider,
+        session_creator=_session_recorder(session_records),
+        task_scheduler=_closing_scheduler(scheduled),
+        project_preparer=project_preparer or default_preparer,
+    )
+    return DeploymentOrchestrator(
+        read_service=FakeReadService(),
+        operation_service=operation_service,
+        verification_service=FakeVerificationService(),
+        simulator_service=FakeSimulatorService(),
+    )
+
+
 @pytest.fixture
 def orchestrator():
     read = FakeReadService()
@@ -112,6 +187,74 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
             },
         ),
     ]
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_deploy_success_updates_lifecycle_and_schedules_stream(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+    session_records = []
+    scheduled = []
+
+    result = await _operation_backed_orchestrator(
+        db_session,
+        session_records=session_records,
+        scheduled=scheduled,
+    ).deploy_twin(
+        twin_id=twin.id,
+        user_id=user.id,
+        test_mode=False,
+    )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DEPLOYING
+    assert result["sse_url"].startswith("/sse/deploy/")
+    assert session_records[0][2] == "deploy"
+    assert len(scheduled) == 1
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_deploy_rolls_back_when_session_is_active(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+
+    with pytest.raises(ConflictError):
+        await _operation_backed_orchestrator(
+            db_session,
+            active_session_provider=_active_sessions,
+        ).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.CONFIGURED
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_deploy_wraps_package_or_upstream_failure_and_rolls_back(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+
+    async def failing_preparer(_twin, _user_id):
+        raise HTTPException(status_code=502, detail="client_secret=LEAKED-ORCHESTRATOR-SECRET")
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _operation_backed_orchestrator(
+            db_session,
+            project_preparer=failing_preparer,
+        ).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.CONFIGURED
+    assert exc.value.status_code == 502
+    assert "LEAKED-ORCHESTRATOR-SECRET" not in exc.value.public_detail
+    assert "client_secret=[REDACTED]" in exc.value.public_detail
 
 
 @pytest.mark.asyncio
