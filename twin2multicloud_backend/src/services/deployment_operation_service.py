@@ -10,7 +10,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
-from src.models.twin import DigitalTwin, TwinState
+from src.models.twin import DigitalTwin
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_service import (
     get_resource_name,
@@ -19,8 +19,10 @@ from src.services.deployment_service import (
     run_real_destroy_stream,
 )
 from src.services.deployment_stream_service import create_session, get_active_sessions_for_twin
+from src.services.errors import InvalidTwinStateTransition, OperationAlreadyInProgress
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.twin_lifecycle_service import TwinLifecycleService
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +35,6 @@ ProjectPreparer = Callable[[DigitalTwin, str], Awaitable[str]]
 class DeploymentOperationService:
     """Deploy and destroy command workflows."""
 
-    DEPLOY_ALLOWED_STATES = {TwinState.CONFIGURED, TwinState.DESTROYED, TwinState.ERROR}
-    DESTROY_ALLOWED_STATES = {TwinState.DEPLOYED, TwinState.ERROR}
-
     def __init__(
         self,
         db: Session,
@@ -45,6 +44,7 @@ class DeploymentOperationService:
         session_creator: SessionCreator = create_session,
         task_scheduler: TaskScheduler = asyncio.create_task,
         project_preparer: ProjectPreparer = prepare_project_for_deployment,
+        lifecycle_service: TwinLifecycleService | None = None,
     ):
         self.db = db
         self.twin_repository = twin_repository
@@ -52,6 +52,7 @@ class DeploymentOperationService:
         self.session_creator = session_creator
         self.task_scheduler = task_scheduler
         self.project_preparer = project_preparer
+        self.lifecycle_service = lifecycle_service or TwinLifecycleService()
 
     async def deploy_twin(
         self,
@@ -64,17 +65,13 @@ class DeploymentOperationService:
     ) -> dict[str, str]:
         """Start deployment and return the SSE session location."""
         twin = self._require_active_twin(twin_id, user_id)
-        if not skip_state_validation:
-            self._ensure_state(twin.state, self.DEPLOY_ALLOWED_STATES, "deploy")
-
         previous_state = twin.state
-        twin.state = TwinState.DEPLOYING
-        twin.last_error = None
+        self._start_deploy(twin, skip_state_validation=skip_state_validation)
         self.db.commit()
 
         active_sessions = await self.active_session_provider(twin_id)
         if active_sessions:
-            twin.state = previous_state
+            self.lifecycle_service.rollback_deploy_start(twin, previous_state=previous_state)
             self.db.commit()
             raise ConflictError("Deployment already in progress for this twin")
 
@@ -103,12 +100,12 @@ class DeploymentOperationService:
             if status_code:
                 safe_detail = redact_secret_like_text(str(detail))
                 logger.error("Deploy preparation failed for twin '%s' (%s): %s", twin.name, twin_id, safe_detail)
-                twin.state = TwinState.CONFIGURED
+                self.lifecycle_service.rollback_deploy_start(twin, previous_state=previous_state)
                 self.db.commit()
                 raise DownstreamServiceError(status_code=status_code, public_detail=safe_detail) from exc
 
             logger.error("Deploy preparation failed for twin '%s' (%s)", twin.name, twin_id, exc_info=True)
-            twin.state = TwinState.CONFIGURED
+            self.lifecycle_service.rollback_deploy_start(twin, previous_state=previous_state)
             self.db.commit()
             raise DownstreamServiceError(status_code=500, public_detail="Failed to prepare project") from exc
 
@@ -136,17 +133,13 @@ class DeploymentOperationService:
     ) -> dict[str, str]:
         """Start infrastructure destroy and return the SSE session location."""
         twin = self._require_active_twin(twin_id, user_id)
-        if not skip_state_validation:
-            self._ensure_state(twin.state, self.DESTROY_ALLOWED_STATES, "destroy")
-
         previous_state = twin.state
-        twin.state = TwinState.DESTROYING
-        twin.last_error = None
+        self._start_destroy(twin, skip_state_validation=skip_state_validation)
         self.db.commit()
 
         active_sessions = await self.active_session_provider(twin_id)
         if active_sessions:
-            twin.state = previous_state
+            self.lifecycle_service.rollback_destroy_start(twin, previous_state=previous_state)
             self.db.commit()
             raise ConflictError("Destroy operation already in progress for this twin")
 
@@ -192,18 +185,6 @@ class DeploymentOperationService:
             raise EntityNotFoundError("Twin not found")
         return twin
 
-    @staticmethod
-    def _ensure_state(state: TwinState, allowed_states: set[TwinState], operation: str) -> None:
-        if state in allowed_states:
-            return
-        if operation == "deploy":
-            raise ValidationError(
-                f"Cannot deploy twin in '{state}' state. Must be configured, destroyed, or error."
-            )
-        raise ValidationError(
-            f"Cannot destroy twin in '{state}' state. Must be deployed or error."
-        )
-
     def _reload_for_deployment(self, twin_id: str, user_id: str) -> DigitalTwin:
         twin = (
             self.db.query(DigitalTwin)
@@ -227,3 +208,25 @@ class DeploymentOperationService:
         if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
             return twin.optimizer_config.cheapest_l1.lower()
         return "aws"
+
+    def _start_deploy(self, twin: DigitalTwin, *, skip_state_validation: bool) -> None:
+        try:
+            if skip_state_validation:
+                self.lifecycle_service.force_start_deploy_for_test(twin)
+            else:
+                self.lifecycle_service.start_deploy(twin)
+        except OperationAlreadyInProgress as exc:
+            raise ConflictError(exc.message) from exc
+        except InvalidTwinStateTransition as exc:
+            raise ValidationError(exc.message) from exc
+
+    def _start_destroy(self, twin: DigitalTwin, *, skip_state_validation: bool) -> None:
+        try:
+            if skip_state_validation:
+                self.lifecycle_service.force_start_destroy_for_test(twin)
+            else:
+                self.lifecycle_service.start_destroy(twin)
+        except OperationAlreadyInProgress as exc:
+            raise ConflictError(exc.message) from exc
+        except InvalidTwinStateTransition as exc:
+            raise ValidationError(exc.message) from exc

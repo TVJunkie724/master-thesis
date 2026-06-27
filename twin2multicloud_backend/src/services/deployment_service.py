@@ -31,6 +31,7 @@ from src.services.errors import (
     ExternalServiceError,
     ExternalServiceUnavailable,
 )
+from src.services.twin_lifecycle_service import TwinLifecycleService
 
 if TYPE_CHECKING:
     from src.models.deployer_config import DeployerConfiguration
@@ -306,11 +307,9 @@ async def run_real_deploy_stream(
             deployment = repository.get_by_session_id(session_id)
             if twin:
                 if deploy_success:
-                    twin.state = TwinState.DEPLOYED
-                    twin.deployed_at = datetime.utcnow()
+                    TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
                 else:
-                    twin.state = TwinState.ERROR
-                    twin.last_error = error_message
+                    TwinLifecycleService.fail_deploy(twin, error_message)
             
             if deployment:
                 if deploy_success:
@@ -355,11 +354,9 @@ async def run_real_deploy_stream(
         try:
             twin = db.get(DigitalTwin, twin_id)
             if twin and not deploy_success:
-                twin.state = TwinState.ERROR
-                twin.last_error = safe_error
+                TwinLifecycleService.fail_deploy(twin, safe_error)
             elif twin and deploy_success:
-                twin.state = TwinState.DEPLOYED
-                twin.deployed_at = datetime.utcnow()
+                TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
             
             repository = DeploymentRepository(db)
             deployment = repository.get_by_session_id(session_id)
@@ -471,11 +468,9 @@ async def run_real_destroy_stream(
             deployment = repository.get_by_session_id(session_id)
             if twin:
                 if destroy_success:
-                    twin.state = TwinState.DESTROYED
-                    twin.destroyed_at = datetime.utcnow()
+                    TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
                 else:
-                    twin.state = TwinState.ERROR
-                    twin.last_error = error_message
+                    TwinLifecycleService.fail_destroy(twin, error_message)
             
             if deployment:
                 if destroy_success:
@@ -517,11 +512,9 @@ async def run_real_destroy_stream(
         try:
             twin = db.get(DigitalTwin, twin_id)
             if twin and not destroy_success:
-                twin.state = TwinState.ERROR
-                twin.last_error = safe_error
+                TwinLifecycleService.fail_destroy(twin, safe_error)
             elif twin and destroy_success:
-                twin.state = TwinState.DESTROYED
-                twin.destroyed_at = datetime.utcnow()
+                TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
             
             repository = DeploymentRepository(db)
             deployment = repository.get_by_session_id(session_id)

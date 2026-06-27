@@ -76,6 +76,14 @@ def test_start_deploy_allows_configured_destroyed_and_error(state):
     assert twin.last_error is None
 
 
+def test_regress_to_draft_after_config_change_marks_twin_draft():
+    twin = _memory_twin(TwinState.CONFIGURED)
+
+    TwinLifecycleService.regress_to_draft_after_config_change(twin)
+
+    assert twin.state == TwinState.DRAFT
+
+
 @pytest.mark.parametrize("state", [TwinState.DRAFT, TwinState.DEPLOYED, TwinState.DESTROYING, TwinState.INACTIVE])
 def test_start_deploy_rejects_invalid_states(state):
     twin = _memory_twin(state)
@@ -96,6 +104,16 @@ def test_start_deploy_reports_operation_in_progress():
         TwinLifecycleService().start_deploy(twin)
 
     assert exc_info.value.message == "Deployment already in progress"
+
+
+def test_force_start_deploy_for_test_skips_normal_state_validation():
+    twin = _memory_twin(TwinState.DRAFT)
+    twin.last_error = "old error"
+
+    TwinLifecycleService.force_start_deploy_for_test(twin)
+
+    assert twin.state == TwinState.DEPLOYING
+    assert twin.last_error is None
 
 
 def test_deploy_completion_and_failure_mutate_state_and_error_fields():
@@ -149,6 +167,16 @@ def test_start_destroy_reports_operation_in_progress():
         TwinLifecycleService().start_destroy(twin)
 
     assert exc_info.value.message == "Destroy operation already in progress"
+
+
+def test_force_start_destroy_for_test_skips_normal_state_validation():
+    twin = _memory_twin(TwinState.DRAFT)
+    twin.last_error = "old error"
+
+    TwinLifecycleService.force_start_destroy_for_test(twin)
+
+    assert twin.state == TwinState.DESTROYING
+    assert twin.last_error is None
 
 
 def test_destroy_completion_and_failure_mutate_state_and_error_fields():

@@ -125,6 +125,12 @@ class TwinLifecycleService:
         twin.state = TwinState.CONFIGURED
         return twin
 
+    @staticmethod
+    def regress_to_draft_after_config_change(twin: DigitalTwin) -> DigitalTwin:
+        """Pure state helper for invalidating configured/deployed planning after wizard edits."""
+        twin.state = TwinState.DRAFT
+        return twin
+
     def start_deploy(self, twin: DigitalTwin) -> DigitalTwin:
         """Pure state helper for starting deployment."""
         if twin.state == TwinState.DEPLOYING:
@@ -133,6 +139,13 @@ class TwinLifecycleService:
             raise InvalidTwinStateTransition(
                 f"Cannot deploy twin in '{twin.state.value}' state. Must be configured, destroyed, or error."
             )
+        twin.state = TwinState.DEPLOYING
+        twin.last_error = None
+        return twin
+
+    @staticmethod
+    def force_start_deploy_for_test(twin: DigitalTwin) -> DigitalTwin:
+        """Explicit test-helper transition used only by gated UI-dev endpoints."""
         twin.state = TwinState.DEPLOYING
         twin.last_error = None
         return twin
@@ -172,6 +185,13 @@ class TwinLifecycleService:
             raise InvalidTwinStateTransition(
                 f"Cannot destroy twin in '{twin.state.value}' state. Must be deployed or error."
             )
+        twin.state = TwinState.DESTROYING
+        twin.last_error = None
+        return twin
+
+    @staticmethod
+    def force_start_destroy_for_test(twin: DigitalTwin) -> DigitalTwin:
+        """Explicit test-helper transition used only by gated UI-dev endpoints."""
         twin.state = TwinState.DESTROYING
         twin.last_error = None
         return twin

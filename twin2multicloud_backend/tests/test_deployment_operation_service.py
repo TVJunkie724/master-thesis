@@ -161,6 +161,25 @@ async def test_deploy_rolls_back_on_project_preparation_failure(db_session):
 
 
 @pytest.mark.asyncio
+async def test_deploy_preparation_failure_restores_original_allowed_state(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DESTROYED)
+
+    async def failing_preparer(_twin, _user_id):
+        raise HTTPException(status_code=502, detail="Deployer project setup failed")
+
+    with pytest.raises(DownstreamServiceError):
+        await _service(db_session, project_preparer=failing_preparer).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DESTROYED
+
+
+@pytest.mark.asyncio
 async def test_deploy_redacts_project_preparation_public_detail(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)

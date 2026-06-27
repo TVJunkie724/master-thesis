@@ -29,6 +29,7 @@ from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
 from src.services.test_deployment_service import TestDeploymentService
+from src.services.twin_lifecycle_service import TwinLifecycleService
 
 router = APIRouter(prefix="/twins", tags=["twins-test"])
 logger = logging.getLogger(__name__)
@@ -453,8 +454,7 @@ async def _run_test_deploy_stream(
             try:
                 twin = db.query(DigitalTwin).get(twin_id)
                 if twin:
-                    twin.state = TwinState.ERROR
-                    twin.last_error = error_msg
+                    TwinLifecycleService.fail_deploy(twin, error_msg)
                     db.commit()
                 
                 deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
@@ -478,8 +478,7 @@ async def _run_test_deploy_stream(
         try:
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                twin.state = TwinState.DEPLOYED
-                twin.deployed_at = datetime.utcnow()
+                TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
                 db.commit()
             
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
@@ -503,8 +502,7 @@ async def _run_test_deploy_stream(
             db = SessionLocal()
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                twin.state = TwinState.ERROR
-                twin.last_error = str(e)
+                TwinLifecycleService.fail_deploy(twin, str(e))
                 db.commit()
             
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
@@ -585,8 +583,7 @@ async def _run_test_destroy_stream(
             try:
                 twin = db.query(DigitalTwin).get(twin_id)
                 if twin:
-                    twin.state = TwinState.ERROR
-                    twin.last_error = error_msg
+                    TwinLifecycleService.fail_destroy(twin, error_msg)
                     db.commit()
                 
                 deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
@@ -610,8 +607,7 @@ async def _run_test_destroy_stream(
         try:
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                twin.state = TwinState.DESTROYED
-                twin.destroyed_at = datetime.utcnow()
+                TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
                 db.commit()
             
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
@@ -630,8 +626,7 @@ async def _run_test_destroy_stream(
             db = SessionLocal()
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                twin.state = TwinState.ERROR
-                twin.last_error = str(e)
+                TwinLifecycleService.fail_destroy(twin, str(e))
                 db.commit()
             
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
