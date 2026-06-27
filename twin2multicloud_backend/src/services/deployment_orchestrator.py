@@ -34,14 +34,24 @@ class DeploymentOrchestrator:
         operation_service: DeploymentOperationService,
         verification_service: DeploymentVerificationService,
         simulator_service: SimulatorDownloadService,
+        test_deploy_stream_runner: TestStreamRunner | None = None,
+        test_destroy_stream_runner: TestStreamRunner | None = None,
     ) -> None:
         self.read_service = read_service
         self.operation_service = operation_service
         self.verification_service = verification_service
         self.simulator_service = simulator_service
+        self.test_deploy_stream_runner = test_deploy_stream_runner
+        self.test_destroy_stream_runner = test_destroy_stream_runner
 
     @classmethod
-    def from_session(cls, db: Session) -> DeploymentOrchestrator:
+    def from_session(
+        cls,
+        db: Session,
+        *,
+        test_deploy_stream_runner: TestStreamRunner | None = None,
+        test_destroy_stream_runner: TestStreamRunner | None = None,
+    ) -> DeploymentOrchestrator:
         """Build the default orchestrator graph for one API request."""
         twin_repository = TwinRepository(db)
         deployer_client = DeployerClient()
@@ -65,6 +75,8 @@ class DeploymentOrchestrator:
                 twin_repository=twin_repository,
                 deployer_client=deployer_client,
             ),
+            test_deploy_stream_runner=test_deploy_stream_runner,
+            test_destroy_stream_runner=test_destroy_stream_runner,
         )
 
     async def can_redeploy(self, twin_id: str, user_id: str) -> dict[str, Any]:
@@ -84,7 +96,7 @@ class DeploymentOrchestrator:
             twin_id=twin_id,
             user_id=user_id,
             test_mode=test_mode,
-            test_stream_runner=test_stream_runner,
+            test_stream_runner=test_stream_runner or self.test_deploy_stream_runner,
         )
 
     async def destroy_twin(
@@ -100,7 +112,7 @@ class DeploymentOrchestrator:
             twin_id=twin_id,
             user_id=user_id,
             test_mode=test_mode,
-            test_stream_runner=test_stream_runner,
+            test_stream_runner=test_stream_runner or self.test_destroy_stream_runner,
         )
 
     async def get_status(

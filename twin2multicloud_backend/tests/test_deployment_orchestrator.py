@@ -115,6 +115,50 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
 
 
 @pytest.mark.asyncio
+async def test_orchestrator_uses_configured_test_runners_when_route_does_not_override():
+    operation = FakeOperationService()
+
+    async def deploy_runner(**_kwargs):
+        return None
+
+    async def destroy_runner(**_kwargs):
+        return None
+
+    facade = DeploymentOrchestrator(
+        read_service=FakeReadService(),
+        operation_service=operation,
+        verification_service=FakeVerificationService(),
+        simulator_service=FakeSimulatorService(),
+        test_deploy_stream_runner=deploy_runner,
+        test_destroy_stream_runner=destroy_runner,
+    )
+
+    await facade.deploy_twin("twin-1", "user-1", test_mode=True)
+    await facade.destroy_twin("twin-1", "user-1", test_mode=True)
+
+    assert operation.calls == [
+        (
+            "deploy_twin",
+            {
+                "twin_id": "twin-1",
+                "user_id": "user-1",
+                "test_mode": True,
+                "test_stream_runner": deploy_runner,
+            },
+        ),
+        (
+            "destroy_twin",
+            {
+                "twin_id": "twin-1",
+                "user_id": "user-1",
+                "test_mode": True,
+                "test_stream_runner": destroy_runner,
+            },
+        ),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_delegates_verification_and_simulator(orchestrator):
     facade, _read, _operation, verification, simulator = orchestrator
 

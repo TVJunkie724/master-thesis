@@ -92,6 +92,7 @@ def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_tw
     assert response.json()["session_id"] == "route-deploy"
     assert calls[0]["twin_id"] == test_twin.id
     assert calls[0]["test_mode"] is False
+    assert "test_stream_runner" not in calls[0]
 
 
 def test_deployment_verification_route_delegates_to_orchestrator(auth_client, test_twin, monkeypatch):

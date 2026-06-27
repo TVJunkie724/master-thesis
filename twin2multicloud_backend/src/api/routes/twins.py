@@ -56,7 +56,19 @@ router = APIRouter(prefix="/twins", tags=["twins"])
 
 def _deployment_orchestrator(db: Session) -> DeploymentOrchestrator:
     """Build the deployment workflow orchestrator for this request."""
-    return DeploymentOrchestrator.from_session(db)
+    test_deploy_stream_runner = None
+    test_destroy_stream_runner = None
+    if TEST_MODE:
+        from src.api.routes.test_endpoints import _run_test_deploy_stream, _run_test_destroy_stream
+
+        test_deploy_stream_runner = _run_test_deploy_stream
+        test_destroy_stream_runner = _run_test_destroy_stream
+
+    return DeploymentOrchestrator.from_session(
+        db,
+        test_deploy_stream_runner=test_deploy_stream_runner,
+        test_destroy_stream_runner=test_destroy_stream_runner,
+    )
 
 
 def _twin_export_service(db: Session) -> TwinExportService:
@@ -346,17 +358,11 @@ async def deploy_twin(
     - deployment_id: unique deployment session ID
     - sse_url: URL for SSE streaming of logs
     """
-    test_stream_runner = None
-    if TEST_MODE:
-        from src.api.routes.test_endpoints import _run_test_deploy_stream
-        test_stream_runner = _run_test_deploy_stream
-
     try:
         return await _deployment_orchestrator(db).deploy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
-            test_stream_runner=test_stream_runner,
         )
     except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
@@ -400,17 +406,11 @@ async def destroy_twin_infrastructure(
     Returns:
     - sse_url: URL for SSE streaming of logs
     """
-    test_stream_runner = None
-    if TEST_MODE:
-        from src.api.routes.test_endpoints import _run_test_destroy_stream
-        test_stream_runner = _run_test_destroy_stream
-
     try:
         return await _deployment_orchestrator(db).destroy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
-            test_stream_runner=test_stream_runner,
         )
     except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
