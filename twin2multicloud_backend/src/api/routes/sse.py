@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from src.models import get_db, DeploymentLog
 from src.api.routes.error_models import ERROR_RESPONSES
+from src.services.twin_lifecycle_service import TwinLifecycleService
 
 router = APIRouter(prefix="/sse", tags=["sse"])
 
@@ -219,8 +220,11 @@ async def _recover_stuck_twins():
                 logger.warning(
                     f"Recovering stuck twin {twin.id} from {twin.state} → error"
                 )
-                twin.state = TwinState.ERROR
-                twin.last_error = "Operation timed out after 30 minutes (auto-recovered)"
+                timeout_error = "Operation timed out after 30 minutes (auto-recovered)"
+                if twin.state == TwinState.DESTROYING:
+                    TwinLifecycleService.fail_destroy(twin, timeout_error)
+                else:
+                    TwinLifecycleService.fail_deploy(twin, timeout_error)
         db.commit()
         db.close()
     except Exception as e:

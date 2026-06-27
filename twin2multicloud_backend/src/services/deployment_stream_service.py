@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.models import DeploymentLog
+from src.services.twin_lifecycle_service import TwinLifecycleService
 
 logger = logging.getLogger(__name__)
 
@@ -225,8 +226,11 @@ async def recover_stuck_twins(registry: SseSessionRegistry) -> None:
         for twin in stuck:
             if twin.id not in active_twin_ids:
                 logger.warning("Recovering stuck twin %s from %s to error", twin.id, twin.state)
-                twin.state = TwinState.ERROR
-                twin.last_error = "Operation timed out after 30 minutes (auto-recovered)"
+                timeout_error = "Operation timed out after 30 minutes (auto-recovered)"
+                if twin.state == TwinState.DESTROYING:
+                    TwinLifecycleService.fail_destroy(twin, timeout_error)
+                else:
+                    TwinLifecycleService.fail_deploy(twin, timeout_error)
         db.commit()
         db.close()
     except Exception as exc:

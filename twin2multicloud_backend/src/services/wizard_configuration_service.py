@@ -15,6 +15,7 @@ from src.models.twin_config import TwinConfiguration
 from src.schemas.deployer_config import DeployerConfigUpdate
 from src.schemas.twin_config import TwinConfigUpdate
 from src.services.cloud_connection_service import CloudConnectionService
+from src.services.twin_lifecycle_service import TwinLifecycleService
 
 BLOCKED_EDIT_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
 REGRESS_TO_DRAFT_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
@@ -53,7 +54,7 @@ class WizardConfigurationService:
         self._apply_optimizer_update(twin, update)
 
         if should_regress:
-            twin.state = TwinState.DRAFT
+            TwinLifecycleService.regress_to_draft_after_config_change(twin)
 
         return config
 
@@ -86,7 +87,7 @@ class WizardConfigurationService:
             self._apply_json_map_field(config, update, field)
 
         if should_regress:
-            twin.state = TwinState.DRAFT
+            TwinLifecycleService.regress_to_draft_after_config_change(twin)
 
         return config
 
