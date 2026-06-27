@@ -73,7 +73,7 @@ def _deployment_orchestrator(db: Session) -> DeploymentOrchestrator:
 
 def _twin_export_service(db: Session) -> TwinExportService:
     """Build the redacted twin export service for this request."""
-    return TwinExportService(db=db)
+    return TwinExportService(db=db, twin_repository=TwinRepository(db))
 
 
 def _twin_read_service(db: Session) -> TwinReadService:
@@ -569,11 +569,7 @@ async def start_log_trace(
         trace_id: Unique identifier to track in logs
         providers: List of cloud providers that will be queried
     """
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
+    twin = TwinRepository(db).get_with_configs_for_user(twin_id, current_user.id)
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
     
@@ -621,14 +617,8 @@ async def start_log_trace(
     
     # Reload twin with all configs (especially credentials for log querying)
     from src.services.deployment_service import prepare_project_for_deployment
-    from sqlalchemy.orm import joinedload
-    
-    twin = db.query(DigitalTwin).options(
-        joinedload(DigitalTwin.deployer_config),
-        joinedload(DigitalTwin.optimizer_config),
-        joinedload(DigitalTwin.configuration),  # Contains cloud credentials
-    ).filter(DigitalTwin.id == twin_id).first()
-    
+
+    twin = TwinRepository(db).get_with_configs_for_user(twin_id, current_user.id)
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found during reload")
     
@@ -693,11 +683,7 @@ async def stream_log_trace(
     """
     from starlette.responses import StreamingResponse
     
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == current_user.id,
-        DigitalTwin.state != TwinState.INACTIVE
-    ).first()
+    twin = TwinRepository(db).get_with_configs_for_user(twin_id, current_user.id)
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
     

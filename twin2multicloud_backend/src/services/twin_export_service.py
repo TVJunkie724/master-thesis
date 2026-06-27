@@ -7,9 +7,10 @@ import json
 import zipfile
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
-from src.models.twin import DigitalTwin, TwinState
+from src.models.twin import DigitalTwin
+from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
 from src.services.service_errors import EntityNotFoundError
 
@@ -29,8 +30,9 @@ class TwinExportArchive:
 class TwinExportService:
     """Build redacted debug/backup exports for user-owned twins."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, twin_repository: TwinRepository | None = None):
         self.db = db
+        self.twin_repository = twin_repository or TwinRepository(db)
 
     def export_twin(self, twin_id: str, user_id: str) -> TwinExportArchive:
         """Build a redacted configuration archive without plaintext credentials."""
@@ -61,20 +63,7 @@ class TwinExportService:
         )
 
     def _load_twin(self, twin_id: str, user_id: str) -> DigitalTwin:
-        twin = (
-            self.db.query(DigitalTwin)
-            .options(
-                joinedload(DigitalTwin.deployer_config),
-                joinedload(DigitalTwin.optimizer_config),
-                joinedload(DigitalTwin.configuration),
-            )
-            .filter(
-                DigitalTwin.id == twin_id,
-                DigitalTwin.user_id == user_id,
-                DigitalTwin.state != TwinState.INACTIVE,
-            )
-            .first()
-        )
+        twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
         if not twin:
             raise EntityNotFoundError("Twin not found")
         return twin
