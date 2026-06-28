@@ -14,6 +14,7 @@ from src.repositories.twin_repository import TwinRepository
 from src.schemas.twin_config import CredentialValidationResult, InlineValidationRequest
 from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.errors import CredentialResolutionFailed, ExternalServiceError, ExternalServiceUnavailable
+from src.services.provider_contract import normalize_provider_id
 from src.services.secret_redaction import redact_validation_message, redact_validation_payload
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.utils.crypto import decrypt
@@ -122,8 +123,9 @@ class CredentialValidationService:
         return result
 
     def _normalize_provider(self, provider: str) -> str:
-        provider = provider.lower()
-        if provider not in VALID_PROVIDERS:
+        try:
+            provider = normalize_provider_id(provider)
+        except ValueError:
             raise ValidationError("Invalid provider. Use: aws, azure, gcp")
         return provider
 

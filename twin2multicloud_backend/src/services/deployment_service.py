@@ -31,6 +31,7 @@ from src.services.errors import (
     ExternalServiceError,
     ExternalServiceUnavailable,
 )
+from src.services.provider_contract import provider_id_for_deployer_project
 from src.services.twin_lifecycle_service import TwinLifecycleService
 
 if TYPE_CHECKING:
@@ -705,12 +706,11 @@ def _materialize_deployer_artifacts(
         files.append(DeploymentPackageFile("twin_hierarchy/azure_hierarchy.json", dc.hierarchy_content))
 
     if dc.state_machine_content and oc and oc.cheapest_l2:
-        l2 = oc.cheapest_l2.lower()
+        l2 = provider_id_for_deployer_project(oc.cheapest_l2)
         filenames = {
             "aws": "state_machines/aws_step_function.json",
             "azure": "state_machines/azure_logic_app.json",
             "google": "state_machines/google_cloud_workflow.yaml",
-            "gcp": "state_machines/google_cloud_workflow.yaml",
         }
         if l2 in filenames:
             files.append(DeploymentPackageFile(filenames[l2], dc.state_machine_content))
@@ -956,21 +956,14 @@ def _build_providers_config(twin) -> dict:
     
     oc = twin.optimizer_config
     
-    def normalize(value: Optional[str]) -> Optional[str]:
-        if not value:
-            return None
-        v = value.lower()
-        # Optimizer stores "GCP" but Terraform/Deployer expect "google"
-        return "google" if v == "gcp" else v
-    
     return {
-        "layer_1_provider": normalize(oc.cheapest_l1),
-        "layer_2_provider": normalize(oc.cheapest_l2),
-        "layer_3_hot_provider": normalize(oc.cheapest_l3_hot),
-        "layer_3_cold_provider": normalize(oc.cheapest_l3_cool),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
-        "layer_3_archive_provider": normalize(oc.cheapest_l3_archive),
-        "layer_4_provider": normalize(oc.cheapest_l4),
-        "layer_5_provider": normalize(oc.cheapest_l5),
+        "layer_1_provider": provider_id_for_deployer_project(oc.cheapest_l1),
+        "layer_2_provider": provider_id_for_deployer_project(oc.cheapest_l2),
+        "layer_3_hot_provider": provider_id_for_deployer_project(oc.cheapest_l3_hot),
+        "layer_3_cold_provider": provider_id_for_deployer_project(oc.cheapest_l3_cool),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
+        "layer_3_archive_provider": provider_id_for_deployer_project(oc.cheapest_l3_archive),
+        "layer_4_provider": provider_id_for_deployer_project(oc.cheapest_l4),
+        "layer_5_provider": provider_id_for_deployer_project(oc.cheapest_l5),
     }
 
 

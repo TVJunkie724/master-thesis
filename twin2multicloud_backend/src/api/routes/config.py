@@ -14,6 +14,7 @@ from src.services.cloud_credential_validation_service import perform_dual_valida
 from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.credential_validation_service import CredentialValidationService
 from src.services.errors import CredentialResolutionFailed
+from src.services.provider_contract import normalize_provider_id
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.services.twin_configuration_service import TwinConfigurationService
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -64,6 +65,13 @@ def _set_provider_validated(config, provider: str, valid: bool) -> None:
         config.azure_validated = valid
     elif provider == "gcp":
         config.gcp_validated = valid
+
+
+def _normalize_route_provider(provider: str) -> str:
+    try:
+        return normalize_provider_id(provider)
+    except ValueError as exc:
+        raise ValidationError("Invalid provider. Use: aws, azure, gcp") from exc
 
 
 @router.get(
@@ -259,7 +267,7 @@ async def validate_credentials_dual(
     Returns separate results for each.
     """
     try:
-        provider = request.provider.lower()
+        provider = _normalize_route_provider(request.provider)
         resolved = CredentialResolutionService().resolve_plaintext_credentials(
             provider,
             getattr(request, provider, None),
@@ -311,7 +319,7 @@ async def validate_stored_credentials_dual(
     Used when frontend fields are empty (hidden secrets).
     """
     try:
-        provider = provider.lower()
+        provider = _normalize_route_provider(provider)
         twin = TwinRepository(db).get_for_user(twin_id, current_user.id)
         if not twin:
             raise EntityNotFoundError("Twin not found")

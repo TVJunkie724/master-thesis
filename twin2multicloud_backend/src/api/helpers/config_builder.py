@@ -9,6 +9,8 @@ contract is CloudConnection-based and is implemented by
 
 from typing import Dict, Any, Optional
 
+from src.services.provider_contract import normalize_provider_id
+
 
 def mask_credentials(config: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -115,7 +117,7 @@ def check_provider_configured(config: Any, provider: str) -> bool:
     Returns:
         True if provider has encrypted credentials stored
     """
-    field_name = f"{provider.lower()}_cloud_connection_id"
+    field_name = f"{normalize_provider_id(provider)}_cloud_connection_id"
     return getattr(config, field_name, None) is not None
 
 

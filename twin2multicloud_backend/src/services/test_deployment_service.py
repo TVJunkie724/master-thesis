@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_stream_service import create_session
+from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.service_errors import EntityNotFoundError
 
 
@@ -160,7 +161,7 @@ python src/main.py --project {resource_name}
     def _optimizer_l1_provider(self, twin_id: str) -> str:
         optimizer_config = self.db.query(OptimizerConfiguration).filter_by(twin_id=twin_id).first()
         if optimizer_config and optimizer_config.cheapest_l1:
-            return optimizer_config.cheapest_l1.lower()
+            return provider_id_for_deployer_api(optimizer_config.cheapest_l1)
         return "gcp"
 
     @staticmethod

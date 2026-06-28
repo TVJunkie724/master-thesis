@@ -13,6 +13,7 @@ from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.services.test_deployment_service import TestDeploymentService
@@ -72,7 +73,7 @@ class SimulatorDownloadService:
         if not twin.optimizer_config or not twin.optimizer_config.cheapest_l1:
             raise EntityNotFoundError("Optimization not configured. Complete Step 2 first.")
 
-        l1_provider = twin.optimizer_config.cheapest_l1.lower()
+        l1_provider = provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
         try:
             resource_name = await self.project_preparer(twin, user_id)
         except Exception as exc:

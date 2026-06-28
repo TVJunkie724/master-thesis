@@ -16,6 +16,7 @@ from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
 from src.services.deployment_stream_service import create_session, get_session
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 
@@ -189,7 +190,7 @@ class DeploymentVerificationService:
     @staticmethod
     def _main_provider(twin: DigitalTwin) -> str:
         if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-            return twin.optimizer_config.cheapest_l1.lower()
+            return provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
         return "aws"
 
     async def _verify_infrastructure_with_deployer(self, resource_name: str, provider: str) -> dict[str, Any]:

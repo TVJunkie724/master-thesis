@@ -117,6 +117,27 @@ async def test_verify_infrastructure_uses_optimizer_provider(db_session):
 
 
 @pytest.mark.asyncio
+async def test_verify_infrastructure_normalizes_google_alias_for_deployer_api(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
+    db_session.commit()
+    calls = []
+
+    async def verifier(resource_name, provider):
+        calls.append((resource_name, provider))
+        return {"summary": {"healthy": True}, "checks": []}
+
+    await _service(db_session, infrastructure_verifier=verifier).verify_infrastructure(
+        twin.id,
+        user.id,
+        test_mode=False,
+    )
+
+    assert calls == [("verification-project", "gcp")]
+
+
+@pytest.mark.asyncio
 async def test_verify_infrastructure_default_path_uses_deployer_client(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)

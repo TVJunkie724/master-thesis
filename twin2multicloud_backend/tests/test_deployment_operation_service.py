@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from fastapi import HTTPException
 import pytest
 
+from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
@@ -91,6 +93,45 @@ async def test_deploy_sets_state_and_schedules_real_stream(db_session):
     assert session_records[0][0] == twin.id
     assert session_records[0][2] == "deploy"
     assert len(scheduled) == 1
+
+
+@pytest.mark.asyncio
+async def test_deploy_normalizes_google_alias_for_deployer_api(db_session, monkeypatch):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
+    db_session.commit()
+    stream_calls = []
+
+    async def fake_run_real_deploy_stream(**kwargs):
+        stream_calls.append(kwargs)
+
+    monkeypatch.setattr(
+        "src.services.deployment_operation_service.run_real_deploy_stream",
+        fake_run_real_deploy_stream,
+    )
+    session_records = []
+
+    service = DeploymentOperationService(
+        db=db_session,
+        twin_repository=TwinRepository(db_session),
+        session_creator=_session_recorder(session_records),
+        task_scheduler=asyncio.create_task,
+        project_preparer=lambda _twin, _user_id: _async_resource_name(),
+    )
+
+    await service.deploy_twin(
+        twin_id=twin.id,
+        user_id=user.id,
+        test_mode=False,
+    )
+    await asyncio.sleep(0)
+
+    assert stream_calls[0]["provider"] == "gcp"
+
+
+async def _async_resource_name():
+    return "resource-name"
 
 
 @pytest.mark.asyncio
