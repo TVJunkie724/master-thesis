@@ -47,6 +47,38 @@ def test_management_json_contracts_have_response_models():
         assert _response_ref(path, method) == expected_ref
 
 
+def test_twin_routes_keep_openapi_summaries_and_descriptions():
+    """Twin adapters must remain usable as developer/thesis API documentation after route splits."""
+    expected_routes = [
+        ("/twins/", "get"),
+        ("/twins/", "post"),
+        ("/twins/{twin_id}", "get"),
+        ("/twins/{twin_id}", "put"),
+        ("/twins/{twin_id}", "delete"),
+        ("/twins/{twin_id}/can-redeploy", "get"),
+        ("/twins/{twin_id}/deploy", "post"),
+        ("/twins/{twin_id}/destroy", "post"),
+        ("/twins/{twin_id}/deployment-status", "get"),
+        ("/twins/{twin_id}/outputs", "get"),
+        ("/twins/{twin_id}/deployments", "get"),
+        ("/twins/{twin_id}/log-trace/start", "post"),
+        ("/twins/{twin_id}/log-trace/stream/{trace_id}", "get"),
+        ("/twins/{twin_id}/verify/infrastructure", "post"),
+        ("/twins/{twin_id}/verify/dataflow", "post"),
+        ("/twins/{twin_id}/simulator/download", "get"),
+        ("/twins/{twin_id}/export", "get"),
+    ]
+
+    schema = app.openapi()
+    missing = []
+    for path, method in expected_routes:
+        operation = schema["paths"][path][method]
+        if not operation.get("summary") or not operation.get("description"):
+            missing.append(f"{method.upper()} {path}")
+
+    assert missing == []
+
+
 def test_documented_raw_payload_exceptions_remain_unmodeled():
     """Streaming, downloads, and dynamic downstream payloads stay explicitly raw."""
     raw_json_paths = [

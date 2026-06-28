@@ -84,6 +84,11 @@ def _raise_service_http_error(exc: Exception) -> None:
     "/{twin_id}/can-redeploy",
     response_model=RedeployReadinessResponse,
     operation_id="checkRedeploymentCooldown",
+    summary="Check if twin can be redeployed",
+    description=(
+        "Checks deployment cooldown readiness, including the GCP Firestore cooldown rule, "
+        "before a destroyed twin is redeployed."
+    ),
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404], 503: {"description": "Deployer API unavailable"}},
 )
 async def can_redeploy(
@@ -101,6 +106,11 @@ async def can_redeploy(
     "/{twin_id}/deploy",
     response_model=OperationSessionResponse,
     operation_id="deployDigitalTwin",
+    summary="Deploy twin infrastructure",
+    description=(
+        "Starts deployment for a configured, destroyed, or error-state twin and returns the SSE "
+        "session contract for real-time deployment logs."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -127,6 +137,11 @@ async def deploy_twin(
     "/{twin_id}/destroy",
     response_model=OperationSessionResponse,
     operation_id="destroyDigitalTwinInfrastructure",
+    summary="Destroy twin infrastructure",
+    description=(
+        "Starts infrastructure destruction for a deployed or error-state twin and returns the SSE "
+        "session contract for real-time destroy logs."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -153,6 +168,8 @@ async def destroy_twin_infrastructure(
     "/{twin_id}/deployment-status",
     response_model=DeploymentStatusResponse,
     operation_id="getDigitalTwinDeploymentStatus",
+    summary="Get current deployment status",
+    description="Returns persisted deployment state, timestamps, latest deployment metadata, and active SSE reconnect data.",
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
 )
 async def get_deployment_status(
@@ -176,6 +193,8 @@ async def get_deployment_status(
     "/{twin_id}/outputs",
     response_model=DeploymentOutputsResponse,
     operation_id="getDigitalTwinTerraformOutputs",
+    summary="Get latest Terraform outputs",
+    description="Returns Terraform outputs from the latest successful deploy or test deployment for this twin.",
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
 )
 async def get_deployment_outputs(
@@ -193,6 +212,8 @@ async def get_deployment_outputs(
     "/{twin_id}/deployments",
     response_model=DeploymentHistoryResponse,
     operation_id="getDigitalTwinDeploymentHistory",
+    summary="Get deployment history",
+    description="Returns recent deployment and destroy records for audit, troubleshooting, and UI history views.",
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
 )
 async def get_deployment_history(
@@ -210,6 +231,11 @@ async def get_deployment_history(
 @router.post(
     "/{twin_id}/log-trace/start",
     operation_id="startLogTrace",
+    summary="Start a deployment log trace",
+    description=(
+        "Sends or simulates a traceable IoT test message for a deployed twin and returns trace metadata "
+        "plus the optional SSE session contract."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -294,6 +320,8 @@ async def start_log_trace(
 @router.get(
     "/{twin_id}/log-trace/stream/{trace_id}",
     operation_id="streamLogTrace",
+    summary="Stream deployment log trace events",
+    description="Streams Deployer log trace SSE events for a trace id while preserving the Deployer event format.",
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404], 503: {"description": "Deployer API unavailable"}},
 )
 async def stream_log_trace(
@@ -333,6 +361,8 @@ async def stream_log_trace(
 @router.post(
     "/{twin_id}/verify/infrastructure",
     operation_id="verifyInfrastructure",
+    summary="Verify deployed infrastructure",
+    description="Runs structured infrastructure verification for a deployed twin through the Deployer boundary.",
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -358,6 +388,8 @@ async def verify_infrastructure(
 @router.post(
     "/{twin_id}/verify/dataflow",
     operation_id="verifyDataFlow",
+    summary="Verify deployed data flow",
+    description="Starts end-to-end dataflow verification for a deployed twin and returns the SSE session contract.",
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -385,6 +417,8 @@ async def verify_dataflow(
 @router.get(
     "/{twin_id}/simulator/download",
     operation_id="downloadIoTSimulator",
+    summary="Download IoT simulator package",
+    description="Downloads a ready-to-run simulator archive for the optimized L1 provider of a deployed twin.",
     tags=["twins"],
     responses={
         400: ERROR_RESPONSES[400],
@@ -417,6 +451,8 @@ async def download_simulator(
 @router.get(
     "/{twin_id}/export",
     operation_id="exportTwinConfiguration",
+    summary="Export redacted twin configuration",
+    description="Downloads a ZIP archive containing the twin configuration and generated deployer inputs with credentials redacted.",
     responses={
         200: {"description": "ZIP file", "content": {"application/zip": {}}},
         401: ERROR_RESPONSES[401],
