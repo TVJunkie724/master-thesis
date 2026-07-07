@@ -327,7 +327,7 @@ class TestBuildProvidersConfig:
     """Tests for _build_providers_config helper."""
     
     def test_normalizes_provider_names_to_lowercase(self):
-        """Should convert uppercase provider names to lowercase."""
+        """Should convert Optimizer provider names to Deployer project ids."""
         twin = Mock()
         twin.optimizer_config = Mock()
         twin.optimizer_config.cheapest_l1 = "AWS"
@@ -344,6 +344,23 @@ class TestBuildProvidersConfig:
         assert result["layer_2_provider"] == "azure"
         assert result["layer_3_hot_provider"] == "google"
         assert result["layer_4_provider"] == "azure"
+
+    def test_normalizes_google_alias_to_deployer_project_id(self):
+        """Should preserve Deployer's google project-file dialect for GCP aliases."""
+        twin = Mock()
+        twin.optimizer_config = Mock()
+        twin.optimizer_config.cheapest_l1 = "Google"
+        twin.optimizer_config.cheapest_l2 = " gcp "
+        twin.optimizer_config.cheapest_l3_hot = None
+        twin.optimizer_config.cheapest_l3_cool = None
+        twin.optimizer_config.cheapest_l3_archive = None
+        twin.optimizer_config.cheapest_l4 = None
+        twin.optimizer_config.cheapest_l5 = None
+
+        result = _build_providers_config(twin)
+
+        assert result["layer_1_provider"] == "google"
+        assert result["layer_2_provider"] == "google"
     
     def test_returns_empty_when_no_optimizer_config(self):
         """Should return empty dict when no optimizer_config."""
@@ -573,6 +590,31 @@ class TestBuildProjectZip:
         with zipfile.ZipFile(result, 'r') as zf:
             names = zf.namelist()
             assert "state_machines/azure_logic_app.json" in names
+
+    def test_includes_state_machine_for_google_l2_alias(self):
+        """Should write GCP workflow state machine for every accepted GCP spelling."""
+        twin = self._create_mock_twin()
+        twin.optimizer_config.cheapest_l2 = "GCP"
+        twin.deployer_config.state_machine_content = "main:\n  steps: []\n"
+        service_account = {"project_id": "demo-project", "client_email": "sa@example.test"}
+        gcp_payload = {
+            "gcp_project_id": "demo-project",
+            "gcp_region": "europe-west1",
+            "gcp_credentials_file": json.dumps(service_account),
+        }
+        twin.configuration.gcp_cloud_connection_id = "connection-gcp"
+        twin.configuration.gcp_cloud_connection = SimpleNamespace(
+            id="connection-gcp",
+            encrypted_payload=encrypt_scoped(json.dumps(gcp_payload), "user-123", "connection-gcp"),
+        )
+
+        result = build_project_zip(twin, "user-123")
+
+        with zipfile.ZipFile(result, 'r') as zf:
+            names = zf.namelist()
+            providers = json.loads(zf.read("config_providers.json"))
+            assert "state_machines/google_cloud_workflow.yaml" in names
+            assert providers["layer_2_provider"] == "google"
     
     def test_includes_payloads_json(self):
         """Should include payloads.json for simulator."""

@@ -20,6 +20,7 @@ from src.services.deployment_service import (
 )
 from src.services.deployment_stream_service import create_session, get_active_sessions_for_twin
 from src.services.errors import InvalidTwinStateTransition, OperationAlreadyInProgress
+from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.services.twin_lifecycle_service import TwinLifecycleService
@@ -206,7 +207,7 @@ class DeploymentOperationService:
     @staticmethod
     def _main_provider(twin: DigitalTwin) -> str:
         if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-            return twin.optimizer_config.cheapest_l1.lower()
+            return provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
         return "aws"
 
     def _start_deploy(self, twin: DigitalTwin, *, skip_state_validation: bool) -> None:

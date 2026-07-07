@@ -250,6 +250,26 @@ def test_plaintext_gcp_credentials_extract_project_from_service_account():
     assert "private_key" not in str(resolved.deployer_config_payload)
 
 
+def test_plaintext_google_alias_credentials_extract_project_from_service_account():
+    service_account = {
+        "type": "service_account",
+        "project_id": "alias-project",
+        "client_email": "deployer@alias-project.iam.gserviceaccount.com",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----\n",
+    }
+    credentials = SimpleNamespace(
+        project_id=None,
+        billing_account=None,
+        service_account_json=json.dumps(service_account),
+        region="europe-west1",
+    )
+
+    resolved = CredentialResolutionService().resolve_plaintext_credentials("Google", credentials)
+
+    assert resolved.provider == "gcp"
+    assert resolved.optimizer_payload["gcp_project_id"] == "alias-project"
+
+
 def test_plaintext_gcp_credentials_require_service_account_json():
     credentials = SimpleNamespace(
         project_id="demo-project",

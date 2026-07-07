@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 from src.clients.deployer_client import DeployerClient
 from src.clients.optimizer_client import OptimizerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.provider_contract import normalize_provider_id
 from src.services.secret_redaction import redact_secret_like_text
 
 
@@ -16,7 +17,7 @@ async def validate_with_optimizer(provider: str, credentials: dict) -> Tuple[boo
         Tuple of (is_valid, message)
     """
     try:
-        data = await OptimizerClient().verify_permissions(provider.lower(), credentials)
+        data = await OptimizerClient().verify_permissions(normalize_provider_id(provider), credentials)
         return data.get("valid", False) or data.get("status") == "valid", data.get("message", "OK")
     except ExternalServiceUnavailable:
         return False, "Optimizer API timeout"
@@ -35,7 +36,7 @@ async def validate_with_deployer(provider: str, credentials: dict) -> Tuple[bool
         Tuple of (is_valid, message)
     """
     try:
-        data = await DeployerClient().verify_permissions(provider.lower(), credentials)
+        data = await DeployerClient().verify_permissions(normalize_provider_id(provider), credentials)
         return data.get("valid", False) or data.get("status") == "valid", data.get("message", "OK")
     except ExternalServiceUnavailable:
         return False, "Deployer API timeout"
@@ -90,7 +91,7 @@ def build_optimizer_credentials(provider: str, raw_credentials: dict) -> dict:
     Build credentials dict in the format expected by Optimizer API.
     Optimizer uses simpler schema - just what's needed for pricing lookups.
     """
-    provider_lower = provider.lower()
+    provider_lower = normalize_provider_id(provider)
     
     if provider_lower == "aws":
         return {
@@ -119,7 +120,7 @@ def build_deployer_credentials(provider: str, raw_credentials: dict) -> dict:
     Build credentials dict in the format expected by Deployer API.
     Deployer requires full schema for infrastructure deployment.
     """
-    provider_lower = provider.lower()
+    provider_lower = normalize_provider_id(provider)
     
     if provider_lower == "aws":
         return {
@@ -151,7 +152,7 @@ def get_required_fields(provider: str) -> Dict[str, list]:
     Get required credential fields for each provider.
     Returns separate lists for optimizer and deployer.
     """
-    provider_lower = provider.lower()
+    provider_lower = normalize_provider_id(provider)
     
     requirements = {
         "aws": {

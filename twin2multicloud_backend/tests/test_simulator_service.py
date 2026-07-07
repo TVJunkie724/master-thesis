@@ -71,6 +71,29 @@ async def test_download_fetches_deployer_archive_for_optimizer_l1(db_session):
 
 
 @pytest.mark.asyncio
+async def test_download_normalizes_google_alias_for_deployer_api(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(DeployerConfiguration(twin_id=twin.id, deployer_digital_twin_name="simulator-project"))
+    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
+    db_session.commit()
+    fetch_calls = []
+
+    async def fetcher(resource_name, provider):
+        fetch_calls.append((resource_name, provider))
+        return b"PK\x03\x04gcp"
+
+    archive = await _service(db_session, simulator_fetcher=fetcher).download(
+        twin_id=twin.id,
+        user_id=user.id,
+        test_mode=False,
+    )
+
+    assert archive.filename == "simulator_simulator-project_gcp.zip"
+    assert fetch_calls == [("simulator-project", "gcp")]
+
+
+@pytest.mark.asyncio
 async def test_download_rejects_non_deployed_twin(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)

@@ -7,6 +7,7 @@ from typing import Any
 
 from src.schemas.cloud_bootstrap import CloudBootstrapPlanRequest, CloudBootstrapPlanResponse
 from src.services.permission_sets import active_permission_set_version
+from src.services.provider_contract import normalize_provider_id
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ class CloudBootstrapService:
     """Builds explicit, reviewable bootstrap plans for the UI/API contract."""
 
     def build_plan(self, provider: str, request: CloudBootstrapPlanRequest) -> CloudBootstrapPlanResponse:
-        normalized_provider = provider.lower()
+        normalized_provider = normalize_provider_id(provider)
         if normalized_provider not in BOOTSTRAP_SPECS:
             raise ValueError("Unsupported bootstrap provider")
 

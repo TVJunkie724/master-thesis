@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 from src.services.errors import CredentialResolutionFailed
+from src.services.provider_contract import normalize_optional_provider_id
 from src.utils.crypto import decrypt, decrypt_scoped
 
 logger = logging.getLogger(__name__)
@@ -437,8 +438,7 @@ class CredentialResolutionService:
     def _normalize_provider(provider: str | None) -> str:
         if not provider or not isinstance(provider, str):
             return ""
-        normalized = provider.lower()
-        return "gcp" if normalized == "google" else normalized
+        return normalize_optional_provider_id(provider) or ""
 
     @classmethod
     def _gcp_project_id_from_service_account(cls, payload: dict[str, Any]) -> str | None:

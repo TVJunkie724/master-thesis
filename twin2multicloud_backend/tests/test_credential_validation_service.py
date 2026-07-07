@@ -185,6 +185,38 @@ async def test_validate_inline_dual_default_path_uses_typed_clients(db_session):
 
 
 @pytest.mark.asyncio
+async def test_validate_inline_dual_normalizes_google_alias_for_typed_clients(db_session):
+    service_account_json = (
+        '{"type":"service_account","project_id":"alias-project",'
+        '"client_email":"sa@alias-project.iam.gserviceaccount.com","private_key":"secret"}'
+    )
+    optimizer_client = _FakePermissionClient({"valid": True, "message": "optimizer ok"})
+    deployer_client = _FakePermissionClient(
+        {"valid": True, "message": "deployer ok", "missing_permissions": []}
+    )
+
+    result = await CredentialValidationService(
+        db=db_session,
+        twin_repository=TwinRepository(db_session),
+        optimizer_client=optimizer_client,
+        deployer_client=deployer_client,
+    ).validate_inline_dual(
+        InlineValidationRequest(
+            provider="Google",
+            gcp=GCPCredentials(
+                project_id="alias-project",
+                service_account_json=service_account_json,
+                region="europe-west1",
+            ),
+        )
+    )
+
+    assert result["valid"] is True
+    assert optimizer_client.calls[0][0] == "gcp"
+    assert deployer_client.calls[0][0] == "gcp"
+
+
+@pytest.mark.asyncio
 async def test_validate_stored_dual_persists_combined_validity(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)

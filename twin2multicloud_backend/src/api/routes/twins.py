@@ -50,6 +50,8 @@ def _raise_service_http_error(exc: Exception) -> None:
     "/",
     response_model=List[TwinResponse],
     operation_id="listDigitalTwins",
+    summary="List all digital twins for current user",
+    description="Returns all active Digital Twins owned by the authenticated user for dashboard and overview screens.",
     responses={401: ERROR_RESPONSES[401]},
 )
 async def list_twins(
@@ -64,6 +66,8 @@ async def list_twins(
     "/",
     response_model=TwinResponse,
     operation_id="createDigitalTwin",
+    summary="Create a new digital twin",
+    description="Creates a new Digital Twin in DRAFT state after enforcing the per-user active-name uniqueness rule.",
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -86,6 +90,8 @@ async def create_twin(
     "/{twin_id}",
     response_model=TwinResponse,
     operation_id="getDigitalTwin",
+    summary="Get a specific digital twin",
+    description="Returns one active Digital Twin owned by the authenticated user.",
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
 )
 async def get_twin(
@@ -104,6 +110,11 @@ async def get_twin(
     "/{twin_id}",
     response_model=TwinResponse,
     operation_id="updateDigitalTwin",
+    summary="Update a digital twin",
+    description=(
+        "Updates twin name and/or lifecycle state. Transitioning to CONFIGURED runs distributed "
+        "Optimizer and Deployer validation before persisting the state change."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -149,6 +160,11 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session) -> Non
     "/{twin_id}",
     response_model=MessageResponse,
     operation_id="deleteDigitalTwin",
+    summary="Soft-delete a digital twin",
+    description=(
+        "Marks a twin inactive, frees its active display name, and removes the uploaded scene file. "
+        "Cloud infrastructure is not destroyed by this endpoint."
+    ),
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
 )
 async def delete_twin(

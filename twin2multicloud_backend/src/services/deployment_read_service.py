@@ -9,6 +9,7 @@ from src.clients.deployer_client import DeployerClient
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
+from src.services.provider_contract import is_gcp_provider
 from src.services.service_errors import EntityNotFoundError
 
 ActiveSessionProvider = Callable[[str], Awaitable[list[Any]]]
@@ -134,8 +135,4 @@ class DeploymentReadService:
             getattr(getattr(twin, "optimizer_config", None), "cheapest_l3_hot", None),
             getattr(getattr(twin, "deployer_config", None), "layer_3_hot_provider", None),
         ]
-        return any(
-            str(provider).lower() in {"gcp", "google"}
-            for provider in provider_candidates
-            if provider
-        )
+        return any(is_gcp_provider(provider) for provider in provider_candidates if provider)
