@@ -18,7 +18,7 @@ services:
       context: ./2-twin2clouds/
       dockerfile: Dockerfile
     ports:
-      - "5003:8000"
+      - "${THESIS_OPTIMIZER_PORT:-5003}:8000"
     volumes:
       - ./2-twin2clouds:/app
     environment:
@@ -33,7 +33,7 @@ services:
       context: ./3-cloud-deployer
       dockerfile: Dockerfile
     ports:
-      - "5004:8000"
+      - "${THESIS_DEPLOYER_PORT:-5004}:8000"
     volumes: 
       - ./3-cloud-deployer:/app/
     tty: true
@@ -45,7 +45,7 @@ services:
       context: ./twin2multicloud_backend
       dockerfile: Dockerfile
     ports:
-      - "5005:5005"
+      - "${THESIS_MANAGEMENT_API_PORT:-5005}:5005"
     volumes:
       - ./twin2multicloud_backend:/app
       - ./twin2multicloud_backend/data:/app/data
@@ -57,8 +57,8 @@ services:
       - SEED_DATA=false
       # - ENABLE_TEST_ENDPOINTS=true
       # External API URLs (Docker internal hostnames)
-      - OPTIMIZER_URL=http://master-thesis-2twin2clouds-1:8000
-      - DEPLOYER_URL=http://master-thesis-3cloud-deployer-1:8000
+      - OPTIMIZER_URL=http://2twin2clouds:8000
+      - DEPLOYER_URL=http://3cloud-deployer:8000
     networks:
       - my_master_thesis_network
     depends_on:
@@ -70,7 +70,7 @@ services:
       context: ./docs-site
       dockerfile: Dockerfile
     ports:
-      - "5010:8000"
+      - "${THESIS_DOCS_PORT:-5010}:8000"
     volumes:
       - ./docs-site:/docs
     command: mkdocs serve --dev-addr=0.0.0.0:8000

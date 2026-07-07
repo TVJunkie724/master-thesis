@@ -32,6 +32,10 @@ For the canonical published documentation site, see [`docs-site/`](docs-site/).
 
 ## Quick Start (Fresh Clone)
 
+The preferred development entrypoint is [`thesis.sh`](thesis.sh). It wraps the
+Docker stack, Flutter configuration, docs site, and LaTeX build paths so day-to-day
+startup does not require remembering raw `docker compose` and `flutter` commands.
+
 ### 1. Clone the repository
 
 ```bash
@@ -55,7 +59,46 @@ cp google_credentials.json.example    .secrets/local/gcp_credentials.json
 
 Then edit only the files under `.secrets/local/`. If you already have valid root-level credential files from the older setup, keep them until you have manually moved or copied them into `.secrets/local/`; this repository does not migrate or delete live credentials automatically.
 
-### 3. Start the backend services
+### 3. Start the application
+
+From the workspace root:
+
+```bash
+./thesis.sh up
+```
+
+This starts the backend containers, checks the APIs, writes
+`twin2multicloud_flutter/config/dev.json`, and launches Flutter with
+`--dart-define-from-file=config/dev.json`.
+
+Backend only:
+
+```bash
+./thesis.sh up --no-flutter
+```
+
+Flutter only:
+
+```bash
+./thesis.sh flutter --device macos
+```
+
+Status and logs:
+
+```bash
+./thesis.sh status
+./thesis.sh logs management-api
+```
+
+LaTeX is intentionally separate from application startup:
+
+```bash
+./thesis.sh latex once
+./thesis.sh latex watch
+./thesis.sh latex clean
+```
+
+### 4. Raw Docker fallback
 
 From the workspace root:
 
@@ -103,15 +146,21 @@ docker compose --profile docs up docs
 
 Open `http://localhost:5010`. Markdown changes under `docs-site/docs/` reload automatically.
 
-### 4. Database initialization & seeding (automatic)
+Equivalent entrypoint command:
+
+```bash
+./thesis.sh docs up
+```
+
+### 5. Database initialization & seeding (automatic)
 
 The Management API handles everything on startup — no manual commands needed.
 
-#### 4a. Schema creation
+#### 5a. Schema creation
 
 `src/main.py` calls `Base.metadata.create_all(bind=engine)` on startup, which creates all SQLAlchemy tables in `twin2multicloud_backend/data/app.db` if they don't exist yet. The `data/` directory is persisted on the host via a bind mount, so the DB survives container rebuilds.
 
-#### 4b. Dev user (always-on)
+#### 5b. Dev user (always-on)
 
 When `DEBUG=true` (set by default in `compose.yaml`) the backend uses a development auth bypass in [`src/api/dependencies.py`](twin2multicloud_backend/src/api/dependencies.py). The first API request with the header `Authorization: Bearer dev-token` will:
 - return the first existing user, **or**
@@ -119,7 +168,7 @@ When `DEBUG=true` (set by default in `compose.yaml`) the backend uses a developm
 
 The Flutter client hardcodes `dev-token` in [`lib/services/api_service.dart`](twin2multicloud_flutter/lib/services/api_service.dart), so **simply starting the Flutter app is enough to seed the dev user**.
 
-#### 4c. Sample twins (opt-in via `compose.cloud.local.yaml`)
+#### 5c. Sample twins (opt-in via `compose.cloud.local.yaml`)
 
 [`twin2multicloud_backend/scripts/seed_twins.py`](twin2multicloud_backend/scripts/seed_twins.py) creates user-scoped Cloud Connections plus five pre-configured sample twins under a dedicated `seed@twin2multicloud.dev` user:
 
@@ -178,7 +227,7 @@ rm twin2multicloud_backend/data/app.db
 docker compose up -d
 ```
 
-### 5. Run the Flutter app
+### 6. Run the Flutter app
 
 In a second terminal:
 
@@ -188,7 +237,7 @@ flutter pub get
 flutter run -d macos --dart-define-from-file=config/dev.json
 ```
 
-The first screen will auto-login as the mock developer user, hit the Management API, and thereby seed the DB (see step 4).
+The first screen will auto-login as the mock developer user, hit the Management API, and thereby seed the DB (see step 5).
 
 ---
 
