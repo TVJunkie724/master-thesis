@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dashboard_stats.dart';
+import '../models/cloud_connection.dart';
 import '../models/pricing_review_state.dart';
 import '../models/twin.dart';
 import '../services/api_service.dart';
@@ -36,3 +37,10 @@ final pricingReviewStateProvider =
       final api = ref.read(apiServiceProvider);
       return api.getPricingReviewState(twinId);
     });
+
+final cloudConnectionsProvider = FutureProvider<List<CloudConnection>>((
+  ref,
+) async {
+  final api = ref.read(apiServiceProvider);
+  return api.listCloudConnections();
+});
