@@ -90,10 +90,71 @@ def _optimizer_payload(overrides=None):
         ],
         "totalCost": 14.75,
         "currency": "USD",
+        "trace_schema_version": "intent-result-trace.v1",
+        "intentTrace": _intent_trace(),
     }
     if overrides:
         result.update(overrides)
     return {"result": result}
+
+
+def _intent_trace(overrides=None):
+    trace = {
+        "schema_version": "intent-result-trace.v1",
+        "profile": {
+            "profile_id": "cost_minimization_v1",
+            "profile_version": "2026.06.08",
+        },
+        "workload": {
+            "inputs": {"numberOfDevices": 100},
+            "derived": {"total_messages_per_month": 2160000},
+        },
+        "selected_path": [
+            {"layer_cost_key": "L1", "provider": "AWS"},
+            {"layer_cost_key": "L2", "provider": "Azure"},
+        ],
+        "records": [
+            {
+                "trace_id": "trace:aws.l1.iot_core.message_tiers",
+                "record_id": "aws.l1.iot_core.message_tiers",
+                "intent_id": "aws.l1.iot_core",
+                "provider": "aws",
+                "layer": "L1_INGESTION",
+                "service_key": "iotCore",
+                "field_id": "message_tiers",
+                "source": {"primary_source_type": "dynamic_provider_api"},
+                "pricing": {"canonical_unit": "usd/message"},
+                "formula": {"binding_id": "cost.aws.l1.iot_core"},
+                "contribution": {
+                    "selected": True,
+                    "path_key": "L1_AWS",
+                    "cost": 1.0,
+                },
+                "verification": {
+                    "status": "ready",
+                    "review_required": False,
+                    "publishable": True,
+                    "evidence_reference_id": (
+                        "pricing_registry:2026.06.08/aws.l1.iot_core.message_tiers"
+                    ),
+                },
+            }
+        ],
+        "transfer_trace": [
+            {
+                "source_intent_id": "aws.transfer.egress",
+                "evidence_reference_ids": ["pricing_registry:aws.transfer.egress"],
+            }
+        ],
+        "summary": {
+            "record_count": 1,
+            "selected_path_count": 2,
+            "transfer_segment_count": 1,
+        },
+    }
+    if overrides:
+        trace.update(overrides)
+    return trace
 
 
 def _override_optimizer(client, fake):
@@ -263,6 +324,177 @@ def test_create_run_persists_optimizer_evidence_reference_metadata(
     assert result_summary["evidenceReferences"]["pricing_evidence_contract"] == (
         "pricing-evidence.v1"
     )
+    assert result_summary["intentTrace"]["schema_version"] == "intent-result-trace.v1"
+
+
+def test_pricing_evidence_detail_returns_trace_and_result_items(
+    authenticated_client,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload(
+        {
+            "resultItems": [
+                {
+                    "layer": "L1",
+                    "component": "ingestion",
+                    "provider": "AWS",
+                    "service_intent_id": "aws.l1.iot_core",
+                    "cost_amount": 1.0,
+                    "currency": "USD",
+                    "unit": "message",
+                    "quantity": 2160000,
+                    "unit_price": 0.000001,
+                    "evidence_id": "pricing_registry:aws.l1.iot_core.message_tiers",
+                    "service_model_id": "iot_core_message_tiers",
+                    "calculation_notes": {"trace_id": "trace:aws.l1.iot_core.message_tiers"},
+                    "review_status": "ready",
+                }
+            ]
+        }
+    )
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+    create_response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run_id = create_response.json()["id"]
+
+    response = client.get(
+        f"/twins/{twin_id}/optimizer-runs/{run_id}/pricing-evidence",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["run_id"] == run_id
+    assert data["twin_id"] == twin_id
+    assert data["trace_available"] is True
+    assert data["trace_schema_version"] == "intent-result-trace.v1"
+    assert data["profile"]["profile_id"] == "cost_minimization_v1"
+    assert data["workload"]["derived"]["total_messages_per_month"] == 2160000
+    assert data["selected_path"][0]["provider"] == "AWS"
+    assert data["records"][0]["trace_id"] == "trace:aws.l1.iot_core.message_tiers"
+    assert data["transfer_trace"][0]["source_intent_id"] == "aws.transfer.egress"
+    assert data["result_metadata"]["evidenceReferences"]["pricing_registry"] == (
+        "pricing_registry:2026.06.08"
+    )
+    assert data["result_items"][0]["evidence_id"] == (
+        "pricing_registry:aws.l1.iot_core.message_tiers"
+    )
+
+
+def test_pricing_evidence_detail_handles_missing_trace_gracefully(
+    authenticated_client,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload({"intentTrace": None, "trace_schema_version": None})
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+    create_response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run_id = create_response.json()["id"]
+
+    response = client.get(
+        f"/twins/{twin_id}/optimizer-runs/{run_id}/pricing-evidence",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["trace_available"] is False
+    assert data["records"] == []
+    assert data["transfer_trace"] == []
+    assert data["warnings"] == ["Optimizer intent trace is not available for this run."]
+
+
+def test_pricing_evidence_detail_redacts_secret_like_values(
+    authenticated_client,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    trace = _intent_trace(
+        {
+            "records": [
+                {
+                    "trace_id": "trace:secret",
+                    "provider": "aws",
+                    "private_key": "SHOULD_NOT_LEAK",
+                    "message": "authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+                }
+            ]
+        }
+    )
+    payload = _optimizer_payload(
+        {
+            "intentTrace": trace,
+            "evidenceReferences": {
+                "pricing_registry": "pricing_registry:2026.06.08",
+                "api_key": "SHOULD_NOT_LEAK",
+            },
+        }
+    )
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+    create_response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run_id = create_response.json()["id"]
+
+    response = client.get(
+        f"/twins/{twin_id}/optimizer-runs/{run_id}/pricing-evidence",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    serialized = json.dumps(response.json())
+    assert "SHOULD_NOT_LEAK" not in serialized
+    assert "Bearer abcdefghijklmnopqrstuvwxyz" not in serialized
+    assert response.json()["records"][0]["private_key"] == "[REDACTED]"
+
+
+def test_pricing_evidence_detail_is_scoped_to_current_user(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    own_twin_id = create_test_twin(client, headers, name="Evidence Twin")
+    _override_optimizer(client, FakeOptimizerClient())
+    create_response = client.post(
+        f"/twins/{own_twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run_id = create_response.json()["id"]
+
+    other_user = User(email="evidence-other@example.com", name="Other")
+    db_session.add(other_user)
+    db_session.commit()
+    db_session.refresh(other_user)
+    other_twin = DigitalTwin(
+        name="Other Evidence Twin",
+        user_id=other_user.id,
+        state=TwinState.DRAFT,
+    )
+    db_session.add(other_twin)
+    db_session.commit()
+    db_session.refresh(other_twin)
+
+    response = client.get(
+        f"/twins/{other_twin.id}/optimizer-runs/{run_id}/pricing-evidence",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
 
 
 def test_missing_evidence_references_are_rejected(

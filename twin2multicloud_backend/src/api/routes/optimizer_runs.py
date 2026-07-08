@@ -13,6 +13,7 @@ from src.schemas.cost_calculation import (
     CostCalculationRunDetailResponse,
     CostCalculationRunSelectResponse,
     CostCalculationRunSummaryResponse,
+    PricingEvidenceDetailResponse,
 )
 from src.services.cost_calculation_run_service import CostCalculationRunService, _json_loads
 from src.services.errors import (
@@ -125,6 +126,33 @@ async def get_optimizer_run(
 ):
     try:
         return _run_detail_response(service.get_run(twin_id, current_user.id, run_id))
+    except TwinNotFound as exc:
+        raise HTTPException(status_code=404, detail=exc.message)
+
+
+@router.get(
+    "/{run_id}/pricing-evidence",
+    response_model=PricingEvidenceDetailResponse,
+    operation_id="getOptimizerRunPricingEvidence",
+    summary="Get persisted pricing evidence and intent trace for one optimizer run",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def get_optimizer_run_pricing_evidence(
+    twin_id: str,
+    run_id: str,
+    service: CostCalculationRunService = Depends(get_cost_calculation_run_service),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        run = service.get_run(twin_id, current_user.id, run_id)
+        detail = service.build_pricing_evidence_detail(run)
+        return PricingEvidenceDetailResponse(
+            **detail,
+            result_items=[_result_item_response(item) for item in run.result_items],
+        )
     except TwinNotFound as exc:
         raise HTTPException(status_code=404, detail=exc.message)
 
