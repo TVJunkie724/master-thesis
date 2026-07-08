@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -17,12 +18,14 @@ from src.services.errors import (
     OptimizerContractError,
     TwinNotFound,
 )
+from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
 
 
 SUCCESS = "succeeded"
 FAILED = "failed"
 SELECTABLE_STATUSES = {SUCCESS}
 ENABLED_OPTIMIZATION_PROFILES = {"cost_minimization_v1"}
+SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
 
 
 class CostCalculationRunService:
@@ -135,6 +138,46 @@ class CostCalculationRunService:
         if not run:
             raise TwinNotFound("Cost calculation run not found")
         return run
+
+    def get_pricing_evidence_detail(
+        self,
+        twin_id: str,
+        user_id: str,
+        run_id: str,
+    ) -> dict[str, Any]:
+        """Return bounded, secret-free trace evidence for a stored run."""
+        run = self.get_run(twin_id, user_id, run_id)
+        return self.build_pricing_evidence_detail(run)
+
+    def build_pricing_evidence_detail(self, run: CostCalculationRun) -> dict[str, Any]:
+        """Build the public pricing evidence payload for an already scoped run."""
+        result = _json_loads(run.result_summary_json) or {}
+        trace = result.get("intentTrace") if isinstance(result, dict) else None
+        trace_available = isinstance(trace, dict)
+        trace_payload = trace if trace_available else {}
+        warnings = []
+        if not trace_available:
+            warnings.append("Optimizer intent trace is not available for this run.")
+
+        return _redact_payload(
+            {
+                "run_id": run.id,
+                "twin_id": run.twin_id,
+                "trace_schema_version": _string_or_none(
+                    trace_payload.get("schema_version")
+                    or result.get("trace_schema_version")
+                ),
+                "trace_available": trace_available,
+                "profile": _dict_or_empty(trace_payload.get("profile")),
+                "workload": _dict_or_empty(trace_payload.get("workload")),
+                "selected_path": _list_of_dicts(trace_payload.get("selected_path")),
+                "records": _list_of_dicts(trace_payload.get("records")),
+                "transfer_trace": _list_of_dicts(trace_payload.get("transfer_trace")),
+                "summary": _dict_or_empty(trace_payload.get("summary")),
+                "result_metadata": _result_metadata(result),
+                "warnings": warnings,
+            }
+        )
 
     def select_for_deployment(
         self,
@@ -413,3 +456,48 @@ def _float_or_none(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     return None
+
+
+def _result_metadata(result: dict[str, Any]) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    for key in (
+        "result_schema_version",
+        "trace_schema_version",
+        "optimization_profile_id",
+        "currency",
+        "totalCost",
+        "evidenceReferences",
+    ):
+        if key in result:
+            metadata[key] = result[key]
+    return metadata
+
+
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _string_or_none(value: Any) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _redact_payload(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact_secret_like_text(value)
+    if isinstance(value, list):
+        return [_redact_payload(item) for item in value]
+    if isinstance(value, dict):
+        redacted: dict[Any, Any] = {}
+        for key, item in value.items():
+            if isinstance(key, str) and SECRET_FIELD_PATTERN.match(key):
+                redacted[key] = "[REDACTED]"
+            else:
+                redacted[key] = _redact_payload(item)
+        return redacted
+    return value

@@ -68,3 +68,18 @@ class CostCalculationRunSelectResponse(BaseModel):
     run: CostCalculationRunSummaryResponse
     selected_for_deployment_at: datetime
 
+
+class PricingEvidenceDetailResponse(BaseModel):
+    run_id: str
+    twin_id: str
+    trace_schema_version: Optional[str] = None
+    trace_available: bool
+    profile: dict = Field(default_factory=dict)
+    workload: dict = Field(default_factory=dict)
+    selected_path: list[dict] = Field(default_factory=list)
+    records: list[dict] = Field(default_factory=list)
+    transfer_trace: list[dict] = Field(default_factory=list)
+    summary: dict = Field(default_factory=dict)
+    result_metadata: dict = Field(default_factory=dict)
+    result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
