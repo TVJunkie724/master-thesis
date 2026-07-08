@@ -11,6 +11,7 @@ import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/data_freshness_card.dart';
+import '../../widgets/pricing/pricing_review_details.dart';
 import '../../widgets/selectable_scaffold.dart';
 
 class PricingReviewScreen extends ConsumerWidget {
@@ -341,119 +342,8 @@ class _PricingReviewContent extends StatelessWidget {
           },
         ),
         const SizedBox(height: AppSpacing.lg),
-        _PricingReviewDetails(reviewState: reviewState),
+        PricingReviewDetails(reviewState: reviewState),
       ],
-    );
-  }
-}
-
-class _PricingReviewDetails extends StatelessWidget {
-  final PricingReviewStateResponse reviewState;
-
-  const _PricingReviewDetails({required this.reviewState});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ExpansionTile(
-        leading: const Icon(Icons.fact_check_outlined),
-        title: const Text('Review details'),
-        subtitle: const Text('Provider reasons, missing keys and actions'),
-        childrenPadding: const EdgeInsets.all(AppSpacing.md),
-        children: [
-          if (reviewState.optimizer.isNotEmpty)
-            _DetailsSection(
-              title: 'Optimizer',
-              values: reviewState.optimizer.entries
-                  .map((entry) => '${entry.key}: ${entry.value}')
-                  .toList(),
-            ),
-          ...reviewState.providers.entries.map(
-            (entry) =>
-                _ProviderDetails(provider: entry.key, state: entry.value),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProviderDetails extends StatelessWidget {
-  final String provider;
-  final ProviderPricingReviewState state;
-
-  const _ProviderDetails({required this.provider, required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    final values = <String>[
-      'State: ${state.state}',
-      'Calculation source: ${state.calculationSource}',
-      'Can calculate: ${state.canCalculate}',
-      if (state.status != null) 'Schema status: ${state.status}',
-      if (state.lastKnownGoodUpdatedAt != null)
-        'Last-known-good: ${state.lastKnownGoodUpdatedAt}',
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _DetailsSection(title: provider.toUpperCase(), values: values),
-          if (state.missingKeys.isNotEmpty)
-            _DetailsSection(title: 'Missing keys', values: state.missingKeys),
-          if (state.actions.isNotEmpty)
-            _DetailsSection(
-              title: 'Recommended actions',
-              values: state.actions,
-            ),
-          if (state.reviewReasons.isNotEmpty)
-            _DetailsSection(
-              title: 'Review reasons',
-              values: state.reviewReasons.map((reason) {
-                final intent = reason.intentId == null
-                    ? ''
-                    : ' (${reason.intentId})';
-                return '${reason.status}$intent: ${reason.reason}';
-              }).toList(),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailsSection extends StatelessWidget {
-  final String title;
-  final List<String> values;
-
-  const _DetailsSection({required this.title, required this.values});
-
-  @override
-  Widget build(BuildContext context) {
-    if (values.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: AppSpacing.xs),
-          ...values.map(
-            (value) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: Text(
-                value,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
