@@ -1,6 +1,9 @@
 # Project Setup
 
-This page describes the current local setup for the integrated thesis repository. It is intentionally practical: the credential and runtime model is being redesigned, but developers still need one clear path to start the system today.
+This page describes the current local setup for the integrated thesis repository.
+The preferred path is the root `thesis.sh` entrypoint. It keeps Docker, Flutter,
+Docs, and LaTeX workflows discoverable from one place while still keeping app
+startup and thesis compilation separate.
 
 ## Prerequisites
 
@@ -11,12 +14,12 @@ This page describes the current local setup for the integrated thesis repository
 
 Do not commit real credential files. Real cloud credentials are transitional local material until Cloud Connections become the source of truth. Local cloud credential files belong under `.secrets/local/`, which is ignored by Git.
 
-## Start The Backend Stack
+## Start The Application Stack
 
 From the repository root:
 
 ```bash
-docker compose up -d
+./thesis.sh up
 ```
 
 This starts:
@@ -29,10 +32,28 @@ This starts:
 
 The Management API is the UI-facing backend. Flutter should call the Management API, not the Optimizer or Deployer directly.
 
+Backend only:
+
+```bash
+./thesis.sh up --no-flutter
+```
+
+Flutter only:
+
+```bash
+./thesis.sh flutter --device macos
+```
+
+Generate the local Flutter runtime config without starting services:
+
+```bash
+./thesis.sh config
+```
+
 ## Start The Documentation Site
 
 ```bash
-docker compose --profile docs up -d docs
+./thesis.sh docs up
 ```
 
 Open `http://localhost:5010`. Markdown edits under `docs-site/docs/` reload automatically.
@@ -50,19 +71,26 @@ The current development flow uses local backend services. The Flutter app should
 ## Compile The Thesis
 
 ```bash
-docker compose --profile latex run --rm thesis-latex
+./thesis.sh latex once
 ```
 
 The LaTeX source lives in `twin2multicloud-latex/` and remains part of the repository.
+
+Watch mode:
+
+```bash
+./thesis.sh latex watch
+```
 
 ## Credentials In The Current Stack
 
 The default Compose stack is intentionally credential-free. Root-level credential files are not mounted by default, and sample data seeding starts disabled.
 
-Use the local cloud override only when you intentionally need `.secrets/local/` credential files for sample seeding or supervised local cloud tests:
+Use the local cloud override only when you intentionally need `.secrets/local/`
+credential files for sample seeding or supervised local cloud tests:
 
 ```bash
-docker compose -f compose.yaml -f compose.cloud.local.yaml up -d
+./thesis.sh up --with-credentials
 ```
 
 Prepare the local files from placeholders:
@@ -96,7 +124,7 @@ Treat any real cloud deployment as intentional and manually supervised.
 Unit and non-E2E integration tests are safe to run:
 
 ```bash
-docker exec -e PYTHONPATH=/app master-thesis-management-api-1 python -m pytest tests/ -v
+./thesis.sh test backend
 docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tests/ -v
 docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -v
 ```
@@ -106,7 +134,7 @@ E2E tests can create real cloud resources and should only run after an explicit 
 ## Stop Local Services
 
 ```bash
-docker compose --profile docs down
+./thesis.sh down
 ```
 
 Use volume deletion only when you intentionally want to reset local persisted state.

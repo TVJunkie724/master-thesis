@@ -13,7 +13,9 @@ The repository contains multiple related projects:
 
 See [Project Structure](project-structure.md) for the migrated project-structure diagram and directory responsibilities.
 
-For a step-by-step local setup, use [Project Setup](setup.md).
+For a step-by-step local setup, use [Project Setup](setup.md). The same
+practical workflow is also available from the repository root in
+`HANDBOOK.md`.
 
 ## Local Service Ports
 
@@ -24,16 +26,18 @@ For a step-by-step local setup, use [Project Setup](setup.md).
 | Management API | 5005 |
 | Docs Site | 5010 |
 
-## Start The Backend Stack
+## Start The Application Stack
 
 ```bash
-docker compose up -d
+./thesis.sh up --no-flutter
 ```
+
+Use `./thesis.sh up` when you also want to launch Flutter.
 
 ## Start The Docs Site
 
 ```bash
-docker compose --profile docs up docs
+./thesis.sh docs up
 ```
 
 Open `http://localhost:5010`.
@@ -43,6 +47,12 @@ Open `http://localhost:5010`.
 ```bash
 cd twin2multicloud_flutter
 flutter run -d chrome --dart-define-from-file=config/dev.json
+```
+
+The preferred root command is:
+
+```bash
+./thesis.sh flutter --device chrome
 ```
 
 ## Safe Verification

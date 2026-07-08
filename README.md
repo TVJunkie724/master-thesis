@@ -3,6 +3,7 @@
 A unified platform that bridges theoretical cost optimization and practical multi-cloud infrastructure deployment for Digital Twins.
 
 For the project vision, 5-layer architecture and component roles (Orchestrator → Brain → Muscle), see [integration_vision.md](integration_vision.md).
+For practical developer setup and daily workflows, see [HANDBOOK.md](HANDBOOK.md).
 For agent/contributor workflow rules, see [ONBOARDING.md](ONBOARDING.md).
 For the canonical published documentation site, see [`docs-site/`](docs-site/).
 
