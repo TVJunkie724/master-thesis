@@ -10,6 +10,9 @@ class PricingReviewDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasDetails =
+        reviewState.optimizer.isNotEmpty || reviewState.providers.isNotEmpty;
+
     return Card(
       child: ExpansionTile(
         leading: const Icon(Icons.fact_check_outlined),
@@ -19,17 +22,26 @@ class PricingReviewDetails extends StatelessWidget {
         ),
         childrenPadding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          if (reviewState.optimizer.isNotEmpty)
-            PricingDetailsSection(
-              title: 'Optimizer',
-              values: reviewState.optimizer.entries
-                  .map((entry) => '${entry.key}: ${entry.value}')
-                  .toList(),
+          if (!hasDetails)
+            const PricingDetailsSection(
+              title: 'No review evidence available',
+              values: ['Refresh pricing to load provider review evidence.'],
+            )
+          else ...[
+            if (reviewState.optimizer.isNotEmpty)
+              PricingDetailsSection(
+                title: 'Optimizer',
+                values: reviewState.optimizer.entries
+                    .map((entry) => '${entry.key}: ${entry.value}')
+                    .toList(),
+              ),
+            ...reviewState.providers.entries.map(
+              (entry) => ProviderPricingDetails(
+                provider: entry.key,
+                state: entry.value,
+              ),
             ),
-          ...reviewState.providers.entries.map(
-            (entry) =>
-                ProviderPricingDetails(provider: entry.key, state: entry.value),
-          ),
+          ],
         ],
       ),
     );

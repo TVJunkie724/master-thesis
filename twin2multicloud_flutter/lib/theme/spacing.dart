@@ -68,6 +68,9 @@ abstract class AppSpacing {
   /// Deployment verification terminal log viewport height
   static const double terminalLogHeight = 220;
 
+  /// Profile avatar radius for account identity cards
+  static const double profileAvatarRadius = 40;
+
   /// Deployment verification payload editor max lines
   static const int payloadEditorMaxLines = 6;
 

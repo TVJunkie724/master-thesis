@@ -242,7 +242,7 @@ No real cloud E2E tests are part of this plan.
   - `test/widgets/cloud_connections/cloud_accounts_panel_test.dart`
   - `test/widgets/pricing/pricing_review_details_test.dart`
   - `test/widgets/pricing/pricing_health_row_test.dart`
-- Full `flutter test` passed: 320 tests.
+- Full `flutter test` passed: 321 tests.
 - `flutter build web --dart-define-from-file=config/dev.json` passed.
 - `flutter build macos --dart-define-from-file=config/dev.json` passed.
 - `git diff --check` passed.

@@ -38,6 +38,26 @@ void main() {
       expect(find.text('Recommended actions'), findsOneWidget);
       expect(find.text('Review AWS pricing evidence'), findsOneWidget);
     });
+
+    testWidgets('renders an explicit empty evidence state', (tester) async {
+      await tester.pumpWidget(
+        buildWidget(
+          const PricingReviewStateResponse(
+            schemaVersion: 'pricing-review-state.v1',
+            providers: {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Review details'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No review evidence available'), findsOneWidget);
+      expect(
+        find.text('Refresh pricing to load provider review evidence.'),
+        findsOneWidget,
+      );
+    });
   });
 }
 

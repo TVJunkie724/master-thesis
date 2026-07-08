@@ -202,7 +202,7 @@ class _ProfileSection extends StatelessWidget {
         child: Row(
           children: [
             CircleAvatar(
-              radius: AppSpacing.terminalLogHeight / 6,
+              radius: AppSpacing.profileAvatarRadius,
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               foregroundImage: user.pictureUrl == null
                   ? null

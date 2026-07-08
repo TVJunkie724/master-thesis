@@ -281,12 +281,13 @@ class _CloudAccountDetails extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-          'Fingerprint: ${connection.payloadFingerprint}',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        if (connection.payloadFingerprint.isNotEmpty)
+          Text(
+            'Fingerprint: ${connection.payloadFingerprint}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
         if (connection.lastValidatedAt != null) ...[
           const SizedBox(height: AppSpacing.xs),
           Text(
@@ -322,13 +323,15 @@ class _CloudAccountDetails extends StatelessWidget {
   List<String> _metadataLines(CloudConnection connection) {
     final lines = <String>[];
     for (final entry in connection.cloudScope.entries) {
-      if (entry.value != null && entry.value.toString().isNotEmpty) {
-        lines.add('${entry.key}: ${entry.value}');
+      final value = entry.value?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        lines.add('${entry.key}: $value');
       }
     }
     for (final entry in connection.payloadSummary.entries) {
-      if (entry.value != null && entry.value.toString().isNotEmpty) {
-        lines.add('${entry.key}: ${entry.value}');
+      final value = entry.value?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        lines.add('${entry.key}: $value');
       }
     }
     return lines;
@@ -362,6 +365,9 @@ class _CloudAccountActions extends StatelessWidget {
           onPressed: () => _confirmDelete(context),
           icon: const Icon(Icons.delete_outline),
           label: const Text('Delete'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.error,
+          ),
         ),
       ],
     );
@@ -382,6 +388,10 @@ class _CloudAccountActions extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Delete'),
           ),
