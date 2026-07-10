@@ -4,7 +4,7 @@ import shutil
 import yaml
 
 from backend.calculation_v2.engine import calculate_cheapest_costs
-from backend.calculation_v2.traceability import TRACE_SCHEMA_VERSION
+from backend.calculation_v2.strategy_traceability import TRACE_SCHEMA_VERSION
 from backend.pricing_registry import REGISTRY_ROOT
 from backend.pricing_registry_service import PricingRegistryService
 from tests.unit.calculation_v2.test_engine_consistency import (

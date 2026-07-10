@@ -6,6 +6,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/wizard/wizard_screen.dart';
 import 'screens/twin_overview/twin_overview_screen.dart';
+import 'screens/pricing_review/pricing_review_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 
@@ -34,10 +35,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
+        path: '/pricing-review',
+        builder: (context, state) => PricingReviewScreen(
+          initialTwinId: state.uri.queryParameters['twin_id'],
+        ),
+      ),
+      GoRoute(
         path: '/auth/callback',
         builder: (context, state) {
-          // Handle OAuth callback (future implementation)
-          // TODO: Store token from state.uri.queryParameters['token'] and redirect
+          // OAuth callback placeholder until authentication is extended.
           return const DashboardScreen();
         },
       ),

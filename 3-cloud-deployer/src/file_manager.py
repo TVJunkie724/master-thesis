@@ -596,7 +596,7 @@ def get_project_file_content(
         raise ValueError("Invalid file path: Traversal attempt detected.")
 
     if _is_sensitive_project_file(relative_path):
-        raise PermissionError(f"Access denied for sensitive project file '{relative_path}'.")
+        raise PermissionError(f"Access denied for protected sensitive project file '{relative_path}'.")
         
     if not os.path.exists(target_file):
         raise ValueError(f"File '{relative_path}' not found.")
@@ -613,8 +613,9 @@ def get_project_file_content(
             "raw": content
         }
         
-        # Try parsing JSON if applicable
-        if relative_path.endswith(".json"):
+        # Try parsing JSON if applicable. Example files keep their source suffix
+        # (for example config_credentials.json.example) but still carry JSON.
+        if relative_path.endswith(".json") or relative_path.endswith(".json.example"):
             try:
                 result["content"] = json.loads(content)
             except json.JSONDecodeError:

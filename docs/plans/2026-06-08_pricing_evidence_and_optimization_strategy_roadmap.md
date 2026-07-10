@@ -38,13 +38,8 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | AWS tiering and unit-aware calculation | #92 | implemented on this branch |
 | GCP pricing credential preflight and evidence artifacts | #93 | implemented on this branch |
 | Cross-provider evidence-backed cost validation | #94 | implemented on this branch |
-| GCP tiering and unit-aware calculation | #95 | implemented on this branch |
-| Provider-specific tiering/calculation reviews | #90/#92/#95 | implemented baseline; live/e2e finalization remains later |
-| Pricing model and source classification | #96 | implemented on this branch |
-| Strategy/formula/pricing-contract bundle | #97 | planned |
-| Contract-backed calculation validation | #98 | planned |
-| Calculation strategy execution refactor | #99 | planned |
-| Intent-to-result traceability | #100 | planned |
+| Intent-to-result traceability | #100 | implemented on this branch |
+| Provider-specific tiering/calculation reviews | #90/#92/#93 | implemented baseline; live/e2e finalization remains later |
 
 Issue numbers must be added here when planned phases are split into GitHub
 issues. The markdown roadmap remains the thesis/dev narrative; GitHub remains
@@ -74,7 +69,7 @@ Validated Optimization Bundle
         |       +--> compliance        disabled / TBD
         |
         v
-Calculation Strategy / Scoring Strategy
+Calculation Model / Scoring Strategy
         |
         +--> cost-only                 enabled
         +--> weighted multi-objective  disabled / TBD
@@ -85,121 +80,18 @@ Ranked Architecture Candidates
 ```
 
 The selected optimization profile is the compatibility boundary. Users and
-callers must not freely mix metric providers, calculation strategies, formula
-sets, pricing model classifications, price source classifications, provider
-pricing contracts, scoring strategies, workload contracts, and intent groups. A
-profile validates that those pieces belong together before execution.
+callers must not freely mix metric providers, calculation models, scoring
+strategies, and intent groups. A profile validates that those pieces belong
+together before execution.
 
 ```text
 OptimizationProfile
     |
     +--> metric providers
-    +--> calculation strategy
-    +--> formula set
-    +--> pricing model classifications
-    +--> price source classifications
-    +--> provider pricing contracts
-    +--> workload contract
+    +--> calculation models
     +--> scoring strategy
     +--> compatible intent groups
     +--> enabled/disabled state
-```
-
-Calculation strategies own their formula sets. Provider calculators must not
-implicitly pick formulas outside the selected strategy. This matters because
-provider pricing models are not always reducible to the same normalized price
-unit: AWS IoT Core is tiered per billable message, Azure IoT Hub is monthly
-capacity-unit pricing, and GCP Pub/Sub is throughput-volume pricing. The shared
-boundary is the workload contract and final metric output, not a false universal
-provider price unit.
-
-```text
-OptimizationProfile: cost_minimization_v1
-        |
-        v
-CalculationStrategy: cost_calculation_v2
-        |
-        +--> WorkloadContract: digital_twin_workload_v1
-        +--> FormulaSet: cost_formula_set_v1
-        |       +--> CM / message_based_cost
-        |       +--> CE / execution_based_cost
-        |       +--> CA / action_based_cost
-        |       +--> CS / storage_based_cost
-        |       +--> CU / user_based_cost
-        |       +--> CTransfer / transfer_cost
-        |       +--> CapacityTier / capacity_tier_cost
-        |       +--> TieredUnit / tiered_unit_cost
-        |
-        +--> ProviderPricingContracts
-                +--> aws.iot.l1: tiered_message_unit
-                +--> azure.iot.l1: monthly_capacity_unit
-                +--> gcp.iot.l1: throughput_volume
-```
-
-Provider pricing models are explicit classifications, not hidden code
-knowledge. A classification states which billing model a provider service uses,
-which unit and tier semantics are known, which source proves that knowledge, and
-whether the classification is publishable.
-
-```text
-PricingModelClassification
-    +--> provider / layer / service
-    +--> pricing_model_type
-    +--> billing_unit_semantics
-    +--> tier_semantics
-    +--> included_usage / free_tier_semantics
-    +--> region_scope
-    +--> currency
-    +--> effective_date
-    +--> evidence_source_refs
-    +--> review_status
-    +--> publishable
-```
-
-Prices and model constants may come from different source classes. API-fetched
-prices are preferred where available, but global/static official pricing,
-included quotas, and non-price model constants must still flow through typed
-evidence records. They must not be represented as emergency fallbacks.
-
-```text
-PriceSourceClassification
-    +--> source_type
-    |       +--> provider_api
-    |       +--> official_static_documentation
-    |       +--> official_calculator_reference
-    |       +--> curated_model_constant
-    |       +--> derived_from_provider_api
-    |       +--> not_applicable
-    |       +--> unsupported
-    |       +--> fallback_static
-    +--> provider / layer / service / field
-    +--> region_scope
-    +--> currency
-    +--> effective_date
-    +--> retrieved_at / reviewed_at
-    +--> source_url / api_request_id / catalog_sku_id
-    +--> review_status
-    +--> publishable
-```
-
-Provider pricing contracts bind evidence fields to the calculation strategy.
-Each contract declares which pricing model classification is required, which
-price source classes are allowed per field, which formula refs are allowed,
-which workload fields are consumed, which provider-specific normalized fields
-are produced, and which final metric unit is emitted.
-
-```text
-ProviderPricingContract
-    +--> provider / layer / service
-    +--> pricing_model_classification_id
-    +--> allowed_price_source_types_by_field
-    +--> required_evidence_fields
-    +--> curated_model_constants
-    +--> normalization_rules
-    +--> allowed_formula_refs
-    +--> calculation_component
-    +--> consumed_workload_fields
-    +--> output_metric_unit
 ```
 
 Cost metrics are backed by the pricing evidence registry:
@@ -234,8 +126,6 @@ place where developers make lasting mapping decisions.
 Editable Registry SSOT
     |
     +--> provider-neutral intents
-    +--> pricing model classifications
-    +--> price source classifications
     +--> unit normalization rules
     +--> service model assumptions
     +--> provider mapping rules
@@ -279,8 +169,7 @@ Existing Management DB
 Data ownership:
 
 ```text
-Registry files     = rules, intents, mappings, service models,
-                     pricing model/source classifications
+Registry files     = rules, intents, mappings, service models
 Evidence artifacts = observed provider pricing rows and selected/rejected data
 Management DB      = Twin-scoped calculation runs, results, history, audit state
 Optimizer service  = stateless calculation and ranking
@@ -311,12 +200,7 @@ first-class.
 | 8 | `2026-06-08_aws_tiering_calculation_review.md` | implemented (#92) | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
-| 11 | `2026-06-09_gcp_tiering_calculation_review.md` | implemented (#95) | Review GCP tiers/units and adapt cost calculation where the current model is incomplete |
-| 12 | `2-twin2clouds/implementation_plans/2026-06-10_pricing_model_source_classification.md` | implemented (#96) | Classify provider pricing models and source types, including non-fetchable official/static prices and unsupported fields |
-| 13 | `2-twin2clouds/implementation_plans/2026-06-10_strategy_formula_pricing_contract_bundle.md` | planned (#97) | Formalize the versioned bundle between optimization profile, calculation strategy, formula set, provider pricing contracts, and workload contract |
-| 14 | `2-twin2clouds/implementation_plans/2026-06-10_contract_backed_calculation_validation.md` | planned (#98) | Validate fetched pricing/evidence against provider pricing contracts before calculation can run in publishable mode |
-| 15 | `2-twin2clouds/implementation_plans/2026-06-10_calculation_strategy_execution_refactor.md` | planned (#99) | Refactor calculation execution so provider calculators are selected through the active calculation strategy and allowed formula set |
-| 16 | `2-twin2clouds/implementation_plans/2026-06-10_intent_to_result_traceability.md` | planned (#100) | Expose an inspectable trace from intent and selected evidence through normalization, formula application, and final result fields |
+| 16 | `2026-06-21_intent_to_result_traceability.md` | implemented (#100) | Expose bounded, secret-free calculation trace metadata from intent to selected result |
 
 ## Phase Boundaries
 
@@ -334,9 +218,9 @@ reads or local HTTP calls.
 ### Phase 3
 
 Defines optimizer extension seams for metrics and scoring models. It must keep
-only cost enabled. Strategies, metric providers, calculation strategies, formula
-sets, provider pricing contracts, and intent groups must be selected through
-validated optimization profiles, not combined ad hoc.
+only cost enabled. Strategies, metric providers, calculation models, and intent
+groups must be selected through validated optimization profiles, not combined
+ad hoc.
 
 Implemented in GitHub issue #87. The optimizer now exposes
 `cost_minimization_v1` as the only executable profile, routes provider selection
@@ -427,319 +311,20 @@ optimization profile, and exposes selected evidence ids per provider/intent.
 Calculation results now include `evidenceReferences`, and the Management API
 run store rejects optimizer responses that omit evidence-reference metadata.
 
-### Phase 11
-
-Completes the missing provider-specific hardening step for GCP. This phase must
-review Google Cloud billing units and tiers for Pub/Sub, Firestore, Cloud
-Storage, Workflows, Cloud Run functions, Compute Engine, and transfer pricing.
-It must update GCP formulas only where Billing Catalog evidence or official
-Google Cloud pricing documentation proves the current model incomplete or wrong.
-
-Implemented in GitHub issue #95. The executable scope is GCP-only and cost-only:
-tiered Pub/Sub throughput, Firestore operation/storage normalization, Cloud
-Storage operation/retrieval normalization, Workflows internal/external step
-normalization, Cloud Run functions request/GB-second normalization, Compute
-Engine VM/disk separation, GCP transfer tiering, typed missing-price failures,
-and continued rejection of fallback or review-required GCP data in publishable
-mode. This phase did not run real cloud deployment E2E and did not change AWS or
-Azure behavior.
-
-### Phase 12
-
-Adds explicit pricing model and source classification before provider pricing
-contracts are finalized. This phase removes the implicit assumption that the
-code "knows" each provider service's pricing model.
-
-Implemented in GitHub issue #96. The optimizer pricing registry now has
-versioned pricing model classifications, versioned price source
-classifications, typed registry/service/API access, and a generated
-field-level verification matrix covering all 48 active provider/intent fields.
-Publishability validation rejects fallback, unsupported, stale, ambiguous, and
-source/build-path mismatch states before later calculation phases can consume
-the fields.
-
-This phase creates versioned SSOT entries for:
-
-- provider pricing model classifications
-- price source classifications
-- allowed source types per price/model field
-- region, currency, and effective-date semantics
-- review and publishability status
-
-The phase must distinguish static official pricing from fallback values:
-
-```text
-provider_api
-    -> preferred for fetchable public list prices
-    -> publishable when verified and current
-
-official_static_documentation
-    -> allowed for global/static prices, included quotas, or pricing rules not
-       exposed by a provider pricing API
-    -> publishable only with source URL, reviewed_at, effective_date or
-       documented timeless/global scope
-
-official_calculator_reference
-    -> allowed only as supporting evidence when no structured API exists
-    -> publishable only when the referenced pricing rule is deterministic
-
-curated_model_constant
-    -> allowed for non-price model assumptions such as default month length,
-       workload conversion rules, or documented included quotas
-    -> must never masquerade as a fetched price
-
-derived_from_provider_api
-    -> allowed when the value is reproducibly derived from provider API fields
-
-not_applicable
-    -> allowed when a provider/service has no equivalent charge for a field
-
-unsupported
-    -> explicit non-publishable state for fields that cannot currently be
-       priced safely
-
-fallback_static
-    -> emergency diagnostic only
-    -> never publishable
-```
-
-Definition of Done:
-
-- Every active provider/layer/field has a `PriceSourceClassification`.
-- Every active provider/layer/service has a `PricingModelClassification`.
-- Classifications include provider, service/layer, unit semantics, tier
-  semantics, region scope, currency, effective date or documented global/static
-  scope, evidence references, review status, and publishability.
-- Non-fetchable prices and model values are represented as official static,
-  calculator reference, curated constant, derived, not-applicable, or
-  unsupported sources; none are hidden as fallback.
-- Publishable mode rejects `fallback_static`, `unsupported`, `ambiguous`,
-  `deprecated`, `review_required`, and stale classifications.
-- Tests cover API-backed prices, official static prices, curated non-price
-  constants, not-applicable fields, unsupported fields, stale evidence, and
-  source-type/field mismatches.
-
-### Phase 13
-
-Formalizes the missing strategy contract layer. This phase creates the
-versioned SSOT that explicitly binds:
-
-- optimization profile
-- calculation strategy
-- formula set
-- workload contract
-- provider pricing contracts
-- pricing model classifications
-- price source classifications
-- compatible intent groups
-- executable/disabled state
-
-This phase must not rewrite calculation formulas yet. It defines the source of
-truth and validation schema that later phases consume. Provider pricing
-contracts may reference only pricing model and source classifications from Phase
-12.
-
-Status: implemented in #97 on branch `codex/gcp-tiering-calculation-hardening`.
-
-Required target bundle:
-
-```text
-cost_minimization_v1
-    -> calculation_strategy: cost_calculation_v2
-    -> scoring_strategy: min_total_cost_v1
-    -> formula_set: cost_formula_set_v1
-    -> workload_contract: digital_twin_workload_v1
-    -> pricing_model_classification_group: cost_pricing_models_v1
-    -> price_source_classification_group: cost_price_sources_v1
-    -> pricing_contract_group: cost_provider_pricing_contracts_v1
-```
-
-Implemented registry artifacts:
-
-```text
-2-twin2clouds/pricing_registry/optimization_bundles.yaml
-2-twin2clouds/pricing_registry/calculation_strategies.yaml
-2-twin2clouds/pricing_registry/formula_sets.yaml
-2-twin2clouds/pricing_registry/workload_contracts.yaml
-2-twin2clouds/pricing_registry/provider_pricing_contracts.yaml
-```
-
-The implemented bundle contains one executable cost profile, one calculation
-strategy, one formula set, one workload contract, and 48 provider pricing
-contracts across AWS, Azure, and GCP. Provider contracts allow different
-provider models under the same business intent by binding each provider field
-to its own pricing model classification, price source classification, allowed
-formula refs, consumed workload fields, normalization rules, and output metric
-unit.
-
-Definition of Done:
-
-- [x] Versioned YAML or JSON registry files exist for calculation strategies,
-  formula sets, workload contracts, and provider pricing contracts.
-- [x] `PricingRegistryService` or a sibling typed service can load and validate the
-  new contracts without HTTP calls.
-- [x] Cost-only remains the only executable strategy.
-- [x] Future metric strategies may be declared disabled/TBD only; they must not
-  emit fake scores.
-- [x] Tests reject unknown formula refs, unknown workload fields, incompatible
-  profile bundles, missing pricing model/source classifications, disallowed
-  source types, missing provider pricing contracts, and duplicate contract ids.
-
-### Phase 14
-
-Adds contract-backed validation between fetched evidence/pricing payloads and
-the active calculation strategy. This phase closes the current gap where a
-pricing payload can be schema-valid while the calculation assumptions remain
-implicit in provider calculators.
-
-This phase must not change formula behavior. It validates that every active
-provider/layer has the fields and evidence sources required by its provider
-pricing contract.
-
-Status: implemented in #98 on branch `codex/gcp-tiering-calculation-hardening`.
-
-Validation must check:
-
-- required fetched evidence fields are present
-- required pricing model classification exists and is publishable
-- every price/model field has an allowed source classification
-- required curated model constants are explicitly listed and source-classified
-- derived fields reference valid source fields
-- normalized provider fields match the contract unit
-- every calculation component referenced by the contract exists
-- every formula ref belongs to the active strategy formula set
-- publishable mode rejects fallback/static emergency values, unsupported
-  fields, ambiguous classifications, and stale evidence
-
-Definition of Done:
-
-- [x] Cross-provider validation uses provider pricing contracts, not only broad
-  intent ids and schema keys.
-- [x] AWS/Azure/GCP representative paths validate through explicit G1-G7 gates.
-- [x] Non-fetchable official/static fields validate only when their source
-  classification is verified and allowed by the provider pricing contract.
-- [x] Invalid examples fail deterministically: unit mismatch, missing evidence,
-  missing tier metadata, disallowed source type, invalid official static
-  evidence, formula refs outside `cost_formula_set_v1`, unknown calculation
-  component, stale model classification, ambiguous source classification, and
-  fallback/unsupported publishability.
-- [x] Error output is secret-safe and covered by a redaction regression test.
-- [x] Unit tests cover positive and negative contract validation paths.
-
-Deferred pricing-model research examples still planned for later provider
-hardening: AWS message tiers marked per-million
-  but consumed as per-message, Azure IoT Hub missing included-message
-  thresholds, GCP Pub/Sub missing GiB unit metadata, and formula refs outside
-  `cost_formula_set_v1`; official static source used for a field that requires
-  provider API evidence; unsupported field marked publishable.
-
-### Phase 15
-
-Refactors calculation execution to use the active calculation strategy as the
-entry point. Provider calculators remain provider-specific, but they are no
-longer just implicitly called by the engine. The active strategy must select
-which formula set and provider pricing contracts are legal for the run.
-
-This phase is allowed to touch calculation orchestration. It should keep
-existing public `/calculate` behavior compatible unless a request explicitly
-selects an unsupported strategy.
-
-Status: implemented in #99 on branch `codex/gcp-tiering-calculation-hardening`.
-
-Required execution flow:
-
-```text
-calculate(request)
-    -> resolve optimization profile
-    -> resolve calculation strategy
-    -> resolve formula set
-    -> validate workload contract
-    -> validate provider pricing contracts
-    -> validate pricing model/source classifications
-    -> execute provider/layer calculators
-    -> score candidates
-    -> return result + contract metadata
-```
-
-Definition of Done:
-
-- [x] `cost_calculation_v2` is the only executable calculation strategy.
-- [x] Formula helpers used by calculators are traceable to `cost_formula_set_v1`
-  at the engine boundary through `CalculationStrategyExecutionContext`.
-- [x] Provider calculators fail if invoked without compatible provider
-  contract context.
-- [x] Result metadata includes optimization profile id, calculation strategy id,
-  formula set id, pricing contract group id, workload contract id, pricing
-  model classification group id, price source classification group id, and the
-  active provider pricing contract ids.
-- [x] Existing cost calculation tests and Management API cost-run persistence
-  smoke remain green.
-
-Deferred for later deeper provider-component hardening: provider calculators
-should eventually fail if invoked with pricing fields not compatible with
-their pricing contract.
-
 ### Phase 16
 
-Adds an inspectable intent-to-result trace for developer/thesis validation and
-future UI diagnostics. This phase answers: "Why did this final cost field have
-this value?"
+Exposes intent-to-result traceability for calculation results without changing
+legacy response consumers.
 
-The trace must connect:
-
-- business intent or provider contract id
-- pricing model classification and review status
-- price source classification and source type
-- selected provider evidence row or curated decision
-- rejected alternatives, where available
-- normalization rule and before/after value
-- calculation formula ref
-- workload inputs consumed by the formula
-- final result field and cost contribution
-
-This phase must not introduce editable UI. It may expose read-only API output
-and deterministic JSON artifacts.
-
-Definition of Done:
-
-- A single calculation result can be inspected from intent/contract through
-  selected evidence and formula application to final monthly cost.
-- Trace output redacts credentials and excludes raw secret material.
-- Trace output distinguishes provider API prices, official/static prices,
-  curated non-price constants, derived values, not-applicable fields,
-  unsupported fields, and emergency fallback diagnostics.
-- The trace covers at least AWS IoT Core, Azure IoT Hub, GCP Pub/Sub, AWS
-  Managed Grafana, Azure Managed Grafana, and one storage service.
-- Tests verify trace completeness and stable ids for snapshot comparison.
-- Thesis documentation can use the trace as evidence that different provider
-  pricing models are compared through a shared workload/monthly-cost boundary,
-  not through a false universal price unit.
-
-## Phase Readiness Review
-
-Every phase below was reviewed against the plan-readiness criteria: clear goal,
-explicit scope and non-goals, narrow side effects, typed contract boundaries,
-test strategy, no real cloud deployment E2E, documentation/update target, and a
-verifiable Definition of Done.
-
-| Phase | Readiness result | Fixes made during review |
-|---|---|---|
-| 1 | Ready as foundation architecture plan. | No change required; provider-specific formula work remains explicitly out of scope. |
-| 2 | Ready after issue-mapping cleanup. | Phase issue was corrected from `TBD` to #32. |
-| 3 | Ready as strategy/profile architecture plan. | No change required; disabled future metrics are explicit non-executable declarations. |
-| 4 | Ready as Management API persistence plan. | No change required; optimizer-owned DB remains out of scope. |
-| 5 | Ready as Azure evidence plan. | No change required; formula changes remain out of scope for this phase. |
-| 6 | Ready as Azure tiering/calculation plan. | No change required; tests and evidence boundary are explicit. |
-| 7 | Ready as AWS evidence plan. | No change required; formula changes remain out of scope for this phase. |
-| 8 | Ready as AWS tiering/calculation plan. | No change required; tests and missing-price behavior are explicit. |
-| 9 | Ready as GCP credential/evidence plan only. | Roadmap wording was clarified so #93 is not treated as GCP formula hardening. |
-| 10 | Ready as cross-provider validation plan. | No change required; publishable mode rules remain explicit. |
-| 11 | Implemented after plan review. | GCP formulas now use supported normalized fields or fail visibly with typed errors; tests cover tier/unit boundaries. |
-| 12 | Ready as full implementation plan. | Created standalone plan with registry files, typed contracts, publishability rules, source taxonomy, test cases, non-goals, and DoD. |
-| 13 | Ready as full implementation plan. | Created standalone plan with bundle files, service accessors, validation rules, compatibility behavior, test cases, non-goals, and DoD. |
-| 14 | Ready as full implementation plan. | Created standalone plan with validation service boundary, typed error codes, negative cases, source misuse checks, test cases, non-goals, and DoD. |
-| 15 | Ready as full implementation plan. | Created standalone plan with execution context, compatibility requirements, typed failures, test commands, non-goals, and DoD. |
-| 16 | Ready as full implementation plan. | Created standalone plan with trace schema, security/privacy rules, bounded output, snapshot tests, non-goals, and DoD. |
+Implemented in GitHub issue #100. The Optimizer now returns additive
+`trace_schema_version` and `intentTrace` metadata from `/calculate`. The trace
+connects the selected optimization profile, bounded workload inputs and derived
+usage values, selected provider/layer path, pricing source policy, canonical
+units, formula binding, cost contribution, registry evidence references, and
+verification state. Transfer costs are represented as segment-level
+`transfer_trace` entries. The trace is read-only, bounded, and secret-free; raw
+provider pricing rows, credentials, and full pricing payloads remain out of the
+calculation response.
 
 ## Explicit Future Metrics
 
@@ -759,44 +344,21 @@ of pretending to be live cloud pricing.
 
 ## Required Extension Shape
 
-Future metrics and calculation strategies must be added through explicit
-strategy and provider contracts:
+Future metrics and calculation models must be added through explicit strategy
+and provider contracts:
 
 ```text
 OptimizationProfile
-    +--> bundles compatible metrics, calculation strategy, formula set,
-         pricing model classifications, price source classifications, provider
-         pricing contracts, scoring strategy, workload contract, and intent
-         groups
+    +--> bundles compatible metrics, calculation models, scoring strategy,
+         and intent groups
 
 MetricProvider
     +--> declares metric id, enabled state, evidence level, required inputs
     +--> produces typed metric results
 
-CalculationStrategy
+CalculationModel
     +--> converts evidence-backed inputs into metric values
-    +--> owns/references one compatible FormulaSet
-    +--> declares compatible ProviderPricingContracts
-    +--> declares compatible WorkloadContract and intent groups
-
-FormulaSet
-    +--> declares formula refs, inputs, output units, and calculation semantics
-    +--> belongs to a compatible CalculationStrategy
-
-PricingModelClassification
-    +--> declares provider service pricing model, units, tiers, included usage,
-         region/currency/effective-date semantics, evidence refs, and review
-         status / publishability
-
-PriceSourceClassification
-    +--> declares whether a field comes from provider API, official static
-         documentation, official calculator reference, curated model constant,
-         derived provider data, not-applicable state, unsupported state, or
-         emergency fallback
-
-ProviderPricingContract
-    +--> binds model/source classifications to formula refs and workload fields
-    +--> allows provider-specific pricing models under a shared business intent
+    +--> declares compatible intent groups
 
 ScoringStrategy
     +--> declares compatible metrics
@@ -834,12 +396,8 @@ optimization_profiles:
     enabled: true
     metric_providers:
       - cost
-    calculation_strategy: cost_calculation_v2
-    formula_set: cost_formula_set_v1
-    pricing_contract_group: cost_provider_pricing_contracts_v1
-    workload_contract: digital_twin_workload_v1
-    pricing_model_classification_group: cost_pricing_models_v1
-    price_source_classification_group: cost_price_sources_v1
+    calculation_models:
+      - cost_model_v1
     scoring_strategy: min_total_cost_v1
     intent_groups:
       - cost
@@ -847,10 +405,8 @@ optimization_profiles:
 
 Future profiles such as latency minimization or weighted multi-objective
 optimization may be declared as disabled/TBD. They must not execute until their
-metric providers, calculation strategies, formula sets, provider pricing
-contracts, pricing model classifications, price source classifications, scoring
-strategies, workload contracts, and intent groups are implemented and validated
-as a compatible bundle.
+metric providers, calculation models, scoring strategies, and intent groups are
+implemented and validated as a compatible bundle.
 
 ## Publishability Rule
 
@@ -859,52 +415,10 @@ Fallback is an emergency diagnostic path, not the target architecture.
 Publishable pricing must satisfy:
 
 - `fallback_static = 0`
-- every active cost field has a verified source classification or explicit
-  non-applicability
-- every active provider/service has a verified pricing model classification
+- every active cost field has evidence or explicit non-applicability
 - every derived value references source evidence
 - every official-documentation value has a reproducible source reference
-- every official static value has reviewed_at and effective_date metadata or an
-  explicit documented global/static scope
-- every curated model constant is classified as non-price model data and has a
-  reason/source
 - every normalized unit is validated against the registry
-- every unsupported, ambiguous, deprecated, stale, or emergency fallback source
-  is rejected in publishable mode
-
-## Verification Gate Rule
-
-Every active pricing field must pass field-level verification before it can
-contribute to publishable calculation output.
-
-The verification gate proves:
-
-- the field exists in the pricing/source classification registry
-- the selected source type is allowed for that field
-- the selected build path matches the source type
-- fetched fields have selected provider evidence
-- official/static fields have reviewed source metadata
-- curated constants are non-price assumptions
-- derived fields reference source fields and derivation rules
-- `not_applicable` fields have explicit reasons
-- `unsupported` and `fallback_static` fields are non-publishable
-- normalized units and tier semantics match the provider pricing contract
-
-Required gate order:
-
-```text
-G1 Registry Completeness
-G2 Source Buildability
-G3 Evidence Presence
-G4 Normalization
-G5 Contract Compatibility
-G6 Publishability
-G7 Calculation Readiness
-```
-
-If any required gate fails, publishable calculation must stop with typed,
-secret-free validation errors. Diagnostic mode may expose failed gate state, but
-must not present the result as trusted pricing.
 
 ## Registry API Rule
 
@@ -923,51 +437,6 @@ The current `optimizer_configurations.result_json` field may remain as a
 compatibility/current-state bridge during migration, but typed
 `CostCalculationRun` records are the target history model.
 
-## Optional Future Track: AI-Assisted Candidate Review
-
-Plan: `2-twin2clouds/implementation_plans/2026-06-13_ai_assisted_pricing_candidate_review.md`
-
-Thesis reasoning: `docs/research/ai_assisted_pricing_candidate_review_reasoning.md`
-
-Provider access and UI subphase roadmap:
-`docs/plans/provider_access_pricing_review/README.md`
-
-AI may be used later as a semantic review assistant for pricing candidate rows,
-but not as the source of truth for publishable pricing. The target workflow is:
-
-```text
-provider API rows
-    -> deterministic contract filters and scoring
-    -> optional AI semantic review over bounded candidates
-    -> agreement/ambiguity/disagreement classification
-    -> user/dev-reviewed final row selection when needed
-    -> contract validation
-    -> reviewed decision persistence
-```
-
-If deterministic logic and AI agree, the UI may show that agreement as trust
-metadata. If deterministic logic is ambiguous or AI disagrees, the UI must show
-both suggestions and close alternatives; a user/dev chooses the final row, and
-the selected row must still pass deterministic contract validation before it can
-become publishable.
-
-This track is intentionally separate from runtime calculation. `/calculate`
-must continue to work without AI credentials, and no AI output may auto-publish
-pricing.
-
-OpenAI API usage must be treated as metered and optional. The Optimizer may
-enable AI review only through server-side configuration such as
-`AI_REVIEW_ENABLED=true` plus `OPENAI_API_KEY` from environment variables or
-secret management. If the key or feature flag is absent, the Management API and
-Flutter UI must show `ai_disabled` capability metadata while still exposing the
-deterministic candidate table, contract gates, alternatives, and manual review
-actions.
-
-The OpenAI API key is not part of the user/twin credential SSOT. It is an
-operator/platform secret and must not be uploaded through Flutter. A future
-bring-your-own-AI-key feature would require a separate security design with
-encrypted storage, RBAC, audit, rotation, and budget controls.
-
 ## Review Findings
 
 - Fixed: Optimization strategy architecture is now a separate phase before
@@ -981,36 +450,16 @@ encrypted storage, RBAC, audit, rotation, and budget controls.
   issue numbers.
 - Fixed: pricing registry access is now its own typed contract/API phase.
 - Fixed: optimization strategies are bundled through validated profiles so
-  metric providers, calculation strategies, formula sets, pricing model/source
-  classifications, provider pricing contracts, scoring strategies, workload
-  contracts, and intent groups cannot drift apart.
+  metric providers, calculation models, scoring strategies, and intent groups
+  cannot drift apart.
 - Fixed: cost calculation run persistence is now its own Management API phase
   and explicitly uses the existing Management DB.
 - Fixed: optimizer-owned result databases are out of scope to avoid distributed
   Twin/User truth.
 - Fixed: completed pricing schema/fetcher hardening is documented as the
   baseline that this roadmap builds on.
-- Fixed: extension contracts now include `OptimizationProfile`,
-  `CalculationStrategy`, `FormulaSet`, and `ProviderPricingContract`, not only
-  metric/scoring/source contracts.
-- Fixed: provider pricing models are now explicit
-  `PricingModelClassification` records rather than implicit provider-specific
-  code knowledge.
-- Fixed: non-fetchable official/static prices, official calculator references,
-  curated non-price constants, derived values, not-applicable fields,
-  unsupported fields, and emergency fallbacks are now separate
-  `PriceSourceClassification` states.
-- Fixed: official/static values can be publishable only with source references,
-  review metadata, effective-date or documented global/static scope, and an
-  allowed source type for that field.
+- Fixed: extension contracts now include `OptimizationProfile` and
+  `CalculationModel`, not only metric/scoring/source contracts.
 - Fixed: roadmap-level implementation governance is explicit.
-- Fixed: Phase 2 issue mapping no longer contains a stale `TBD`.
-- Fixed: GCP evidence (#93) and GCP tiering/calculation hardening (#95) are now
-  separate phases.
-- Fixed: per-phase readiness review is documented so each phase can be used as
-  an implementation handoff without relying on chat context.
-- Fixed: formula ownership is explicit; provider calculators may only use
-  formulas allowed by the active calculation strategy and provider pricing
-  contract.
 
 No open findings after roadmap review.

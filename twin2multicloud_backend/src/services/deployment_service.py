@@ -19,14 +19,20 @@ import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-import httpx
 from datetime import datetime, timezone
 from typing import Any, Optional, TYPE_CHECKING
 
+from src.clients.deployer_client import DeployerClient
 from src.config import settings
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.credential_resolution_service import CredentialResolutionService, DeploymentCredentials
-from src.services.errors import DeploymentPackageBuildFailed
+from src.services.errors import (
+    DeploymentPackageBuildFailed,
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+)
+from src.services.provider_contract import provider_id_for_deployer_project
+from src.services.twin_lifecycle_service import TwinLifecycleService
 
 if TYPE_CHECKING:
     from src.models.deployer_config import DeployerConfiguration
@@ -34,8 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Deployer API URL from settings
-DEPLOYER_API_URL = getattr(settings, 'DEPLOYER_URL', 'http://3cloud-deployer:8000')
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
 DEPLOYMENT_MANIFEST_VERSION = "1.0"
 REQUIRED_DEPLOYER_CONFIG_FILES = [
@@ -234,7 +238,8 @@ async def run_real_deploy_stream(
     session_id: str,
     twin_id: str,
     resource_name: str,
-    provider: str
+    provider: str,
+    deployer_client: DeployerClient | None = None,
 ):
     """
     Background task that subscribes to Deployer SSE and forwards logs.
@@ -269,33 +274,25 @@ async def run_real_deploy_stream(
     current_event_type: str | None = None
     
     try:
-        # Subscribe to Deployer SSE with long timeouts
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/infrastructure/deploy/stream",
-                params={"provider": provider, "project_name": resource_name}
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if line.startswith("event: "):
-                        current_event_type = line[7:].strip()
-                        continue
-                    if line.startswith("data: "):
-                        log_message, result = _parse_deployer_sse_data(
-                            line[6:],
-                            current_event_type,
-                            "deploy",
-                        )
-                        current_event_type = None
-                        if result:
-                            terminal_result = result
-                            if result.success and result.outputs:
-                                terraform_outputs = result.outputs
-                        elif log_message:
-                            print(log_message, flush=True)
-                            await session.push_log(log_message)
+        client = deployer_client or DeployerClient()
+        async for line in client.deploy_stream(provider, resource_name):
+            if line.startswith("event: "):
+                current_event_type = line[7:].strip()
+                continue
+            if line.startswith("data: "):
+                log_message, result = _parse_deployer_sse_data(
+                    line[6:],
+                    current_event_type,
+                    "deploy",
+                )
+                current_event_type = None
+                if result:
+                    terminal_result = result
+                    if result.success and result.outputs:
+                        terraform_outputs = result.outputs
+                elif log_message:
+                    print(log_message, flush=True)
+                    await session.push_log(log_message)
         
         deploy_success = bool(terminal_result and terminal_result.success)
         error_message = _result_message(
@@ -311,11 +308,9 @@ async def run_real_deploy_stream(
             deployment = repository.get_by_session_id(session_id)
             if twin:
                 if deploy_success:
-                    twin.state = TwinState.DEPLOYED
-                    twin.deployed_at = datetime.utcnow()
+                    TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
                 else:
-                    twin.state = TwinState.ERROR
-                    twin.last_error = error_message
+                    TwinLifecycleService.fail_deploy(twin, error_message)
             
             if deployment:
                 if deploy_success:
@@ -360,11 +355,9 @@ async def run_real_deploy_stream(
         try:
             twin = db.get(DigitalTwin, twin_id)
             if twin and not deploy_success:
-                twin.state = TwinState.ERROR
-                twin.last_error = safe_error
+                TwinLifecycleService.fail_deploy(twin, safe_error)
             elif twin and deploy_success:
-                twin.state = TwinState.DEPLOYED
-                twin.deployed_at = datetime.utcnow()
+                TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
             
             repository = DeploymentRepository(db)
             deployment = repository.get_by_session_id(session_id)
@@ -410,7 +403,8 @@ async def run_real_destroy_stream(
     session_id: str,
     twin_id: str,
     resource_name: str,
-    provider: str
+    provider: str,
+    deployer_client: DeployerClient | None = None,
 ):
     """
     Background task that subscribes to Deployer destroy SSE and forwards logs.
@@ -443,31 +437,23 @@ async def run_real_destroy_stream(
     current_event_type: str | None = None
     
     try:
-        # Subscribe to Deployer destroy SSE
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/infrastructure/destroy/stream",
-                params={"provider": provider, "project_name": resource_name}
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if line.startswith("event: "):
-                        current_event_type = line[7:].strip()
-                        continue
-                    if line.startswith("data: "):
-                        log_message, result = _parse_deployer_sse_data(
-                            line[6:],
-                            current_event_type,
-                            "destroy",
-                        )
-                        current_event_type = None
-                        if result:
-                            terminal_result = result
-                        elif log_message:
-                            print(log_message, flush=True)
-                            await session.push_log(log_message)
+        client = deployer_client or DeployerClient()
+        async for line in client.destroy_stream(provider, resource_name):
+            if line.startswith("event: "):
+                current_event_type = line[7:].strip()
+                continue
+            if line.startswith("data: "):
+                log_message, result = _parse_deployer_sse_data(
+                    line[6:],
+                    current_event_type,
+                    "destroy",
+                )
+                current_event_type = None
+                if result:
+                    terminal_result = result
+                elif log_message:
+                    print(log_message, flush=True)
+                    await session.push_log(log_message)
         
         destroy_success = bool(terminal_result and terminal_result.success)
         error_message = _result_message(
@@ -483,11 +469,9 @@ async def run_real_destroy_stream(
             deployment = repository.get_by_session_id(session_id)
             if twin:
                 if destroy_success:
-                    twin.state = TwinState.DESTROYED
-                    twin.destroyed_at = datetime.utcnow()
+                    TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
                 else:
-                    twin.state = TwinState.ERROR
-                    twin.last_error = error_message
+                    TwinLifecycleService.fail_destroy(twin, error_message)
             
             if deployment:
                 if destroy_success:
@@ -529,11 +513,9 @@ async def run_real_destroy_stream(
         try:
             twin = db.get(DigitalTwin, twin_id)
             if twin and not destroy_success:
-                twin.state = TwinState.ERROR
-                twin.last_error = safe_error
+                TwinLifecycleService.fail_destroy(twin, safe_error)
             elif twin and destroy_success:
-                twin.state = TwinState.DESTROYED
-                twin.destroyed_at = datetime.utcnow()
+                TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
             
             repository = DeploymentRepository(db)
             deployment = repository.get_by_session_id(session_id)
@@ -724,12 +706,11 @@ def _materialize_deployer_artifacts(
         files.append(DeploymentPackageFile("twin_hierarchy/azure_hierarchy.json", dc.hierarchy_content))
 
     if dc.state_machine_content and oc and oc.cheapest_l2:
-        l2 = oc.cheapest_l2.lower()
+        l2 = provider_id_for_deployer_project(oc.cheapest_l2)
         filenames = {
             "aws": "state_machines/aws_step_function.json",
             "azure": "state_machines/azure_logic_app.json",
             "google": "state_machines/google_cloud_workflow.yaml",
-            "gcp": "state_machines/google_cloud_workflow.yaml",
         }
         if l2 in filenames:
             files.append(DeploymentPackageFile(filenames[l2], dc.state_machine_content))
@@ -975,21 +956,14 @@ def _build_providers_config(twin) -> dict:
     
     oc = twin.optimizer_config
     
-    def normalize(value: Optional[str]) -> Optional[str]:
-        if not value:
-            return None
-        v = value.lower()
-        # Optimizer stores "GCP" but Terraform/Deployer expect "google"
-        return "google" if v == "gcp" else v
-    
     return {
-        "layer_1_provider": normalize(oc.cheapest_l1),
-        "layer_2_provider": normalize(oc.cheapest_l2),
-        "layer_3_hot_provider": normalize(oc.cheapest_l3_hot),
-        "layer_3_cold_provider": normalize(oc.cheapest_l3_cool),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
-        "layer_3_archive_provider": normalize(oc.cheapest_l3_archive),
-        "layer_4_provider": normalize(oc.cheapest_l4),
-        "layer_5_provider": normalize(oc.cheapest_l5),
+        "layer_1_provider": provider_id_for_deployer_project(oc.cheapest_l1),
+        "layer_2_provider": provider_id_for_deployer_project(oc.cheapest_l2),
+        "layer_3_hot_provider": provider_id_for_deployer_project(oc.cheapest_l3_hot),
+        "layer_3_cold_provider": provider_id_for_deployer_project(oc.cheapest_l3_cool),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
+        "layer_3_archive_provider": provider_id_for_deployer_project(oc.cheapest_l3_archive),
+        "layer_4_provider": provider_id_for_deployer_project(oc.cheapest_l4),
+        "layer_5_provider": provider_id_for_deployer_project(oc.cheapest_l5),
     }
 
 
@@ -1097,7 +1071,8 @@ def _build_optimization_config(oc) -> dict:
 async def upload_project_to_deployer(
     project_name: str,
     zip_data: io.BytesIO,
-    update_existing: bool = True
+    update_existing: bool = True,
+    deployer_client: DeployerClient | None = None,
 ) -> dict:
     """
     Upload project ZIP to the Deployer API.
@@ -1114,43 +1089,29 @@ async def upload_project_to_deployer(
         HTTPException on failure
     """
     from fastapi import HTTPException
-    
-    # Use detailed timeouts like existing code (see run_real_deploy_stream)
-    timeout = httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        # Check if project already exists
-        check_resp = await client.get(f"{DEPLOYER_API_URL}/projects/{project_name}/validate")
-        project_exists = check_resp.status_code == 200
-        
+
+    client = deployer_client or DeployerClient()
+    try:
+        project_exists = await client.project_exists(project_name)
         zip_data.seek(0)
         content = zip_data.read()
-        
+
         if project_exists and update_existing:
-            # Use import endpoint to UPDATE existing project
-            # Import endpoint uses UploadFile (multipart form data)
-            resp = await client.post(
-                f"{DEPLOYER_API_URL}/projects/{project_name}/import",
-                files={"file": (f"{project_name}.zip", content, "application/zip")}
+            return await client.import_project_zip(project_name, content)
+        return await client.create_project_zip(project_name, content)
+    except ExternalServiceUnavailable as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Deployer API unavailable during project setup",
+        ) from exc
+    except ExternalServiceError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Deployer project setup failed: "
+                f"{_redact_deployment_message(exc.public_detail)}"
             )
-        else:
-            # Create NEW project
-            # IMPORTANT: create_project uses extract_file_content() which ONLY accepts:
-            # - multipart/form-data
-            # - application/json (with base64)
-            # It does NOT accept application/octet-stream (returns 415)!
-            resp = await client.post(
-                f"{DEPLOYER_API_URL}/projects",
-                params={"project_name": project_name},
-                files={"file": (f"{project_name}.zip", content, "application/zip")}
-            )
-        
-        if resp.status_code not in (200, 201):
-            raise HTTPException(
-                status_code=502,
-                detail=f"Deployer project setup failed: {resp.text}"
-            )
-        
-        return resp.json()
+        ) from exc
 
 
 async def prepare_project_for_deployment(twin, user_id: str) -> str:

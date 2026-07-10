@@ -19,6 +19,28 @@ from backend.pricing_schema import attach_pricing_metadata
 from backend.fetch_data.factory import PriceFetcherFactory
 
 
+VALID_PRICING_PROVIDERS = {"aws", "azure", "gcp"}
+
+
+def _log_provider_fetch_start(provider_label: str, credential_mode: str = "file") -> None:
+    logger.info("========================================================")
+    logger.info(
+        "Fetching %s pricing%s...",
+        provider_label,
+        f" ({credential_mode})" if credential_mode else "",
+    )
+    logger.info("========================================================")
+
+
+def _load_region_map(provider_label: str, path: Path) -> dict:
+    try:
+        return config_loader.load_json_file(path)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to load {provider_label} region map. Fetch regions before pricing."
+        ) from exc
+
+
 # ============================================================
 # ENTRYPOINT
 # ============================================================
@@ -29,8 +51,8 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
     """
     logger.info(f"🔄 Starting pricing update for provider: {target_provider}")
 
-    valid_providers = ["aws", "azure", "gcp"]
-    if target_provider not in valid_providers:
+    if target_provider not in VALID_PRICING_PROVIDERS:
+        valid_providers = sorted(VALID_PRICING_PROVIDERS)
         raise ValueError(f"Invalid target_provider: {target_provider}. Must be one of {valid_providers}")
 
     service_mapping = config_loader.load_service_mapping()
@@ -41,17 +63,10 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
     if target_provider == "aws":
         credentials = config_loader.load_credentials_file()
         if "aws" in credentials:
-            print("")
-            logger.info("========================================================")
-            logger.info("Fetching AWS pricing...")
-            logger.info("========================================================")
+            _log_provider_fetch_start("AWS")
             
             # Load Region Map
-            try:
-                region_map = config_loader.load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
-            except Exception as e:
-                logger.error(f"Failed to load AWS region map: {e}. Need to fetch regions first.")
-                raise e
+            region_map = _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
 
             aws_credentials = credentials.get("aws", {})
             output_data = fetch_aws_data(aws_credentials, service_mapping, region_map, additional_debug)
@@ -60,17 +75,10 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             logger.warning("AWS credentials missing, skipping fetch.")
 
     elif target_provider == "azure":
-        print("")
-        logger.info("========================================================")
-        logger.info("Fetching Azure pricing...")
-        logger.info("========================================================")
+        _log_provider_fetch_start("Azure")
         
         # Load Region Map
-        try:
-            region_map = config_loader.load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
-        except Exception as e:
-            logger.error(f"Failed to load Azure region map: {e}. Need to fetch regions first.")
-            raise e
+        region_map = _load_region_map("Azure", CONSTANTS.AZURE_REGIONS_FILE_PATH)
             
         output_data = fetch_azure_data({}, service_mapping, region_map, additional_debug)
         target_file_path = CONSTANTS.AZURE_PRICING_FILE_PATH
@@ -78,17 +86,10 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
     elif target_provider == "gcp":
         credentials = config_loader.load_credentials_file()
         if "gcp" in credentials:
-            print("")
-            logger.info("========================================================")
-            logger.info("Fetching GCP pricing...")
-            logger.info("========================================================")
+            _log_provider_fetch_start("GCP")
             
             # Load Region Map
-            try:
-                region_map = config_loader.load_json_file(CONSTANTS.GCP_REGIONS_FILE_PATH)
-            except Exception as e:
-                logger.error(f"Failed to load GCP region map: {e}. Need to fetch regions first.")
-                raise e
+            region_map = _load_region_map("GCP", CONSTANTS.GCP_REGIONS_FILE_PATH)
 
             google_credentials = credentials.get("gcp", {})
             output_data = fetch_google_data(google_credentials, service_mapping, region_map, additional_debug)
@@ -111,7 +112,6 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             )
             
         Path(target_file_path).write_text(json.dumps(output_data, indent=2))
-        print("")
         logger.info(f"✅ Wrote {target_file_path.name} successfully!")
         return output_data
     else:
@@ -142,16 +142,10 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
     target_file_path = None
 
     if target_provider == "aws":
-        logger.info("========================================================")
-        logger.info("Fetching AWS pricing with provided credentials...")
-        logger.info("========================================================")
+        _log_provider_fetch_start("AWS", credential_mode="provided credentials")
         
         # Load Region Map
-        try:
-            region_map = config_loader.load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
-        except Exception as e:
-            logger.error(f"Failed to load AWS region map: {e}")
-            raise e
+        region_map = _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
 
         # Keep target pricing region separate from Pricing API client credentials.
         aws_credentials = {
@@ -169,16 +163,10 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
         target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
 
     elif target_provider == "gcp":
-        logger.info("========================================================")
-        logger.info("Fetching GCP pricing with provided credentials...")
-        logger.info("========================================================")
+        _log_provider_fetch_start("GCP", credential_mode="provided credentials")
         
         # Load Region Map
-        try:
-            region_map = config_loader.load_json_file(CONSTANTS.GCP_REGIONS_FILE_PATH)
-        except Exception as e:
-            logger.error(f"Failed to load GCP region map: {e}")
-            raise e
+        region_map = _load_region_map("GCP", CONSTANTS.GCP_REGIONS_FILE_PATH)
 
         # Parse service account JSON and create credentials
         from google.oauth2 import service_account as gcp_service_account

@@ -57,6 +57,10 @@ class DeploymentRepository:
             .first()
         )
 
+    def latest_successful_deploy(self, twin_id: str) -> Deployment | None:
+        """Return the latest successful real or test deployment for a twin."""
+        return self.get_latest_successful_outputs(twin_id, operation_types=["deploy", "test"])
+
     def get_latest_for_twin(self, twin_id: str) -> Deployment | None:
         return (
             self._db.query(Deployment)

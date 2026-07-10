@@ -134,7 +134,7 @@ class ProjectStorage:
         normalized = self._normalize_relative_path(relative_path)
         if must_be_readable and is_sensitive_project_file(normalized):
             raise ProjectFileAccessDenied(
-                f"Access denied for sensitive project file '{normalized}'."
+                f"Access denied for protected sensitive project file '{normalized}'."
             )
 
         target = (context.project_path / normalized).resolve()
@@ -166,7 +166,7 @@ class ProjectStorage:
             raise ProjectStorageError("Cannot read binary file as text.") from exc
 
         result: dict[str, Any] = {"path": normalized, "raw": raw}
-        if normalized.endswith(".json"):
+        if normalized.endswith(".json") or normalized.endswith(".json.example"):
             try:
                 result["content"] = json.loads(raw)
             except json.JSONDecodeError:

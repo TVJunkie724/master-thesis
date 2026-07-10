@@ -1,17 +1,11 @@
-# src/api/helpers/credential_validator.py
-"""
-Extracted credential validation logic from config.py routes.
-
-Provides:
-- Dual-service validation (Optimizer + Deployer APIs)
-- Provider-specific credential schemas
-- Async parallel validation
-"""
-
-import httpx
 import asyncio
-from typing import Dict, Any, Tuple, Optional
-from src.config import settings
+from typing import Any, Dict, Optional, Tuple
+
+from src.clients.deployer_client import DeployerClient
+from src.clients.optimizer_client import OptimizerClient
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.provider_contract import normalize_provider_id
+from src.services.secret_redaction import redact_secret_like_text
 
 
 async def validate_with_optimizer(provider: str, credentials: dict) -> Tuple[bool, str]:
@@ -23,27 +17,14 @@ async def validate_with_optimizer(provider: str, credentials: dict) -> Tuple[boo
         Tuple of (is_valid, message)
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{settings.OPTIMIZER_URL}/api/validate-credentials",
-                json={
-                    "provider": provider.lower(),
-                    "credentials": credentials
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("valid", False), data.get("message", "OK")
-            else:
-                return False, f"Optimizer validation failed: {response.status_code}"
-                
-    except httpx.TimeoutException:
+        data = await OptimizerClient().verify_permissions(normalize_provider_id(provider), credentials)
+        return data.get("valid", False) or data.get("status") == "valid", data.get("message", "OK")
+    except ExternalServiceUnavailable:
         return False, "Optimizer API timeout"
-    except httpx.RequestError as e:
-        return False, f"Optimizer API error: {str(e)}"
-    except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
+    except ExternalServiceError as exc:
+        return False, f"Optimizer validation failed: {exc.upstream_status_code or 502}"
+    except Exception as exc:
+        return False, f"Unexpected error: {redact_secret_like_text(str(exc))}"
 
 
 async def validate_with_deployer(provider: str, credentials: dict) -> Tuple[bool, str]:
@@ -55,27 +36,14 @@ async def validate_with_deployer(provider: str, credentials: dict) -> Tuple[bool
         Tuple of (is_valid, message)
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{settings.DEPLOYER_URL}/api/credentials/validate",
-                json={
-                    "provider": provider.lower(),
-                    "credentials": credentials
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("valid", False), data.get("message", "OK")
-            else:
-                return False, f"Deployer validation failed: {response.status_code}"
-                
-    except httpx.TimeoutException:
+        data = await DeployerClient().verify_permissions(normalize_provider_id(provider), credentials)
+        return data.get("valid", False) or data.get("status") == "valid", data.get("message", "OK")
+    except ExternalServiceUnavailable:
         return False, "Deployer API timeout"
-    except httpx.RequestError as e:
-        return False, f"Deployer API error: {str(e)}"
-    except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
+    except ExternalServiceError as exc:
+        return False, f"Deployer validation failed: {exc.upstream_status_code or 502}"
+    except Exception as exc:
+        return False, f"Unexpected error: {redact_secret_like_text(str(exc))}"
 
 
 async def perform_dual_validation(
@@ -123,7 +91,7 @@ def build_optimizer_credentials(provider: str, raw_credentials: dict) -> dict:
     Build credentials dict in the format expected by Optimizer API.
     Optimizer uses simpler schema - just what's needed for pricing lookups.
     """
-    provider_lower = provider.lower()
+    provider_lower = normalize_provider_id(provider)
     
     if provider_lower == "aws":
         return {
@@ -152,7 +120,7 @@ def build_deployer_credentials(provider: str, raw_credentials: dict) -> dict:
     Build credentials dict in the format expected by Deployer API.
     Deployer requires full schema for infrastructure deployment.
     """
-    provider_lower = provider.lower()
+    provider_lower = normalize_provider_id(provider)
     
     if provider_lower == "aws":
         return {
@@ -184,7 +152,7 @@ def get_required_fields(provider: str) -> Dict[str, list]:
     Get required credential fields for each provider.
     Returns separate lists for optimizer and deployer.
     """
-    provider_lower = provider.lower()
+    provider_lower = normalize_provider_id(provider)
     
     requirements = {
         "aws": {

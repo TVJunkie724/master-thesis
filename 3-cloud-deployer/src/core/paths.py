@@ -14,6 +14,7 @@ class DeploymentPaths:
     terraform_dir: Path
     tfvars_path: Path
     state_path: Path
+    plan_path: Path
 
 
 @dataclass(frozen=True)
@@ -91,4 +92,5 @@ def resolve_deployment_paths(
         terraform_dir=terraform_dir,
         tfvars_path=terraform_dir / "generated.tfvars.json",
         state_path=terraform_dir / "terraform.tfstate",
+        plan_path=terraform_dir / "tfplan",
     )

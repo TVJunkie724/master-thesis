@@ -4,21 +4,26 @@ Flutter Web/Desktop UI for the Twin2MultiCloud Management API.
 
 ## Local Runtime
 
-Start the backend stack from the repository root:
+Start the application from the repository root:
 
 ```bash
-docker compose up -d management-api 2twin2clouds 3cloud-deployer
+./thesis.sh up
 ```
 
-Run Flutter against the host-exposed Management API:
+Backend only:
 
 ```bash
-cd twin2multicloud_flutter
-flutter run -d chrome --dart-define-from-file=config/dev.json
+./thesis.sh up --no-flutter
+```
+
+Run Flutter only against the host-exposed Management API:
+
+```bash
+./thesis.sh flutter --device chrome
 ```
 
 `config/dev.example.json` documents the supported runtime keys. Use
-`config/dev.local.json` for personal overrides; it is gitignored.
+`./thesis.sh config` to generate `config/dev.json`; it is gitignored.
 
 ## Quality Checks
 

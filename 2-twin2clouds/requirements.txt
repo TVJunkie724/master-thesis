@@ -1,6 +1,7 @@
 requests
 httpx
 pytest
+bandit
 fastapi
 uvicorn
 colorlog

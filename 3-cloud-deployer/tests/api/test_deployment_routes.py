@@ -136,6 +136,16 @@ async def _fake_failing_destroy_stream(context, strategy=None, operation_context
     raise RuntimeError("client_secret=super-secret")
 
 
+async def _fake_secret_deploy_stream(context, strategy=None, output_sink=None, operation_context=None):
+    assert context is not None
+    yield "terraform apply azure_client_secret=super-secret-value"
+    if output_sink is not None:
+        output_sink["outputs"] = {
+            "aws_grafana_api_key": "secret-api-key",
+            "aws_grafana_endpoint": "https://grafana.example.test",
+        }
+
+
 def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
     context = MagicMock(name="deployment_context")
     context.project_path = Path("/projects/test_api_project")
@@ -176,6 +186,28 @@ def test_deploy_stream_redacts_workspace_paths_in_failure_event():
     assert '"error_code":"DEPLOYMENT_ERROR"' in body
     assert '"operation_id":"' in body
     assert "/tmp/twin2multicloud-deployer-workspaces" not in body
+
+
+def test_deploy_stream_redacts_secret_logs_and_outputs():
+    context = MagicMock(name="deployment_context")
+    strategy = MagicMock(name="terraform_strategy")
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_secret_deploy_stream),
+    ):
+        response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+
+    assert "super-secret-value" not in body
+    assert "secret-api-key" not in body
+    assert "Sensitive deployment detail redacted" in body
+    assert '"aws_grafana_api_key":"[REDACTED]"' in body
+    assert "https://grafana.example.test" in body
 
 
 def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():

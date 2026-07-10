@@ -5,6 +5,7 @@ import '../config/api_config.dart';
 import '../core/result.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_connection.dart';
+import '../models/dashboard_stats.dart';
 import '../models/pricing_review_state.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
@@ -107,9 +108,11 @@ class ApiService {
     return response.data;
   }
 
-  Future<Map<String, dynamic>> getDashboardStats() async {
+  Future<DashboardStats> getDashboardStats() async {
     final response = await _dio.get('/dashboard/stats');
-    return response.data;
+    return DashboardStats.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
   }
 
   Future<Map<String, dynamic>> getTwin(String twinId) async {
@@ -217,12 +220,12 @@ class ApiService {
   }
 
   /// Get typed pricing review state for all providers.
-  Future<PricingReviewStateResponse> getPricingReviewState(
-    String twinId,
-  ) async {
+  Future<PricingReviewStateResponse> getPricingReviewState([
+    String? twinId,
+  ]) async {
     final response = await _dio.get(
       '/optimizer/pricing-review-state',
-      queryParameters: {'twin_id': twinId},
+      queryParameters: {if (twinId != null) 'twin_id': twinId},
     );
     return PricingReviewStateResponse.fromJson(
       Map<String, dynamic>.from(response.data as Map),

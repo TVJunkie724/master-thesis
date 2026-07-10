@@ -9,9 +9,30 @@ Each category has:
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-import httpx
+from unittest.mock import patch, AsyncMock
+from src.clients.optimizer_client import OptimizerProviderStatus
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from tests.conftest import create_test_twin
+
+
+def _optimizer_status(payload_by_provider=None, status_code=200):
+    payload_by_provider = payload_by_provider or {}
+
+    async def _status(self, *, endpoint_prefix, provider):
+        return OptimizerProviderStatus(
+            provider=provider,
+            status_code=status_code,
+            payload=payload_by_provider.get(provider, {}),
+        )
+
+    return _status
+
+
+def _validation_files_from_call(call_args):
+    for value in list(call_args.args) + list(call_args.kwargs.values()):
+        if isinstance(value, dict) and "file" in value:
+            return value
+    return {}
 
 
 class TestOptimizerProxyErrorHandling:
@@ -25,11 +46,10 @@ class TestOptimizerProxyErrorHandling:
         """GET optimizer/pricing-status returns data when optimizer available."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"aws": {"age": "1 day"}}
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
+            _optimizer_status({"aws": {"age": "1 day"}}),
+        ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
             
@@ -40,11 +60,10 @@ class TestOptimizerProxyErrorHandling:
         """GET optimizer/regions-status returns data when optimizer available."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"aws": {"age": "1 day"}}
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
+            _optimizer_status({"aws": {"age": "1 day"}}),
+        ):
             
             response = client.get("/optimizer/regions-status", headers=headers)
             
@@ -58,10 +77,11 @@ class TestOptimizerProxyErrorHandling:
         """Timeout to optimizer returns 504 with user-friendly message."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.TimeoutException("Read timed out")
-            )
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
+            new_callable=AsyncMock,
+            side_effect=ExternalServiceUnavailable("Optimizer API timed out"),
+        ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
             
@@ -74,10 +94,11 @@ class TestOptimizerProxyErrorHandling:
         """Timeout to optimizer regions returns 504."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.TimeoutException("Read timed out")
-            )
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
+            new_callable=AsyncMock,
+            side_effect=ExternalServiceUnavailable("Optimizer API timed out"),
+        ):
             
             response = client.get("/optimizer/regions-status", headers=headers)
             
@@ -91,11 +112,10 @@ class TestOptimizerProxyErrorHandling:
         """Empty response body from optimizer handled."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {}
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
+            _optimizer_status(),
+        ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
             
@@ -105,11 +125,10 @@ class TestOptimizerProxyErrorHandling:
         """Multiple concurrent requests don't cause issues."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"aws": {}}
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
+            _optimizer_status({"aws": {}}),
+        ):
             
             # Make multiple requests
             responses = [
@@ -143,15 +162,58 @@ class TestOptimizerProxyErrorHandling:
         """Partial response data handled gracefully."""
         client, headers = authenticated_client
         
-        with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"aws": None, "azure": {"age": "1 day"}}
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
+            _optimizer_status({"aws": None, "azure": {"age": "1 day"}}),
+        ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
             
             assert response.status_code == 200
+
+    def test_pricing_export_returns_provider_snapshot(self, authenticated_client):
+        """Pricing export returns Optimizer snapshot payload for supported provider."""
+        client, headers = authenticated_client
+
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.export_pricing_snapshot",
+            new_callable=AsyncMock,
+            return_value={"provider": "aws", "prices": []},
+        ):
+
+            response = client.get("/optimizer/pricing/export/aws", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json() == {"provider": "aws", "prices": []}
+
+    def test_pricing_export_rejects_invalid_provider(self, authenticated_client):
+        """Pricing export rejects unsupported providers before downstream call."""
+        client, headers = authenticated_client
+
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.export_pricing_snapshot",
+            new_callable=AsyncMock,
+        ) as mock_client:
+            response = client.get("/optimizer/pricing/export/digitalocean", headers=headers)
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid provider: digitalocean"
+        mock_client.assert_not_called()
+
+    def test_pricing_export_timeout_returns_504(self, authenticated_client):
+        """Timeout to optimizer pricing export returns 504."""
+        client, headers = authenticated_client
+
+        with patch(
+            "src.clients.optimizer_client.OptimizerClient.export_pricing_snapshot",
+            new_callable=AsyncMock,
+            side_effect=ExternalServiceUnavailable("Optimizer API timed out"),
+        ):
+
+            response = client.get("/optimizer/pricing/export/gcp", headers=headers)
+
+        assert response.status_code == 504
+        assert "timed out" in response.json()["detail"].lower()
 
 
 class TestDeployerProxyErrorHandling:
@@ -200,10 +262,11 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                side_effect=httpx.TimeoutException("Operation timed out")
-            )
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            side_effect=ExternalServiceUnavailable("Deployer API timed out"),
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/config",
@@ -223,10 +286,11 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                side_effect=httpx.ConnectError("Connection refused")
-            )
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            side_effect=ExternalServiceUnavailable("Deployer API unavailable"),
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/config",
@@ -244,11 +308,11 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"valid": True}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"valid": True},
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/config",
@@ -263,11 +327,11 @@ class TestDeployerProxyErrorHandling:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"valid": True}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"valid": True},
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/events",
@@ -323,11 +387,11 @@ class TestL2ValidationEndpoints:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"message": "Code is valid for aws."}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"message": "Code is valid for aws."},
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/function-code",
@@ -344,11 +408,11 @@ class TestL2ValidationEndpoints:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"message": "State machine is valid for aws."}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"message": "State machine is valid for aws."},
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/state-machine",
@@ -400,12 +464,15 @@ class TestL2ValidationEndpoints:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 400
-            mock_response.json.return_value = {"detail": "SyntaxError: invalid syntax at line 1"}
-            mock_response.text = "SyntaxError: invalid syntax"
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            side_effect=ExternalServiceError(
+                "Deployer API returned 400: SyntaxError: invalid syntax",
+                upstream_status_code=400,
+                public_detail="SyntaxError: invalid syntax at line 1",
+            ),
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/function-code",
@@ -430,11 +497,11 @@ States:
     End: true
 """
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"message": "Valid"}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"message": "Valid"},
+        ) as mock_validate:
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/state-machine",
@@ -444,8 +511,7 @@ States:
             
             assert response.status_code == 200
             # Verify the file was uploaded with .yaml extension (by checking call args)
-            call_args = mock_client.return_value.__aenter__.return_value.post.call_args
-            files_arg = call_args.kwargs.get("files", {})
+            files_arg = _validation_files_from_call(mock_validate.call_args)
             assert "file" in files_arg
             filename = files_arg["file"][0]
             assert filename.endswith(".yaml")
@@ -455,11 +521,11 @@ States:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"message": "Code is valid for azure."}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"message": "Code is valid for azure."},
+        ) as mock_validate:
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/function-code",
@@ -470,20 +536,18 @@ States:
             assert response.status_code == 200
             assert response.json()["valid"] == True
             # Verify provider passed in URL
-            call_args = mock_client.return_value.__aenter__.return_value.post.call_args
-            url = call_args.args[0] if call_args.args else call_args.kwargs.get("url", "")
-            assert "provider=azure" in url
+            assert mock_validate.call_args.kwargs["provider"] == "azure"
 
     def test_function_code_google_provider(self, authenticated_client):
         """POST validate/function-code with google provider works."""
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"message": "Code is valid for google."}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"message": "Code is valid for google."},
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/function-code",
@@ -499,12 +563,15 @@ States:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 400
-            mock_response.json.return_value = {"detail": "Empty file"}
-            mock_response.text = "Empty file"
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            side_effect=ExternalServiceError(
+                "Deployer API returned 400: Empty file",
+                upstream_status_code=400,
+                public_detail="Empty file",
+            ),
+        ):
             
             response = client.post(
                 f"/twins/{twin_id}/deployer/validate/function-code",
@@ -521,11 +588,11 @@ States:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
         
-        with patch("src.api.routes.deployer.httpx.AsyncClient") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"message": "Valid"}
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+        with patch(
+            "src.clients.deployer_client.DeployerClient.validate_config_file",
+            new_callable=AsyncMock,
+            return_value={"message": "Valid"},
+        ):
             
             # Validate function-code (L2 type)
             response = client.post(

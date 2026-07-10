@@ -56,6 +56,7 @@ class AzureIoTHubCalculator:
 
         pricing_tiers = p.get("pricing_tiers")
         if pricing_tiers:
+            self._assert_tiers_cover_requested_quantity(messages_per_month, pricing_tiers)
             return capacity_tier_cost(
                 messages_per_month,
                 pricing_tiers,
@@ -79,3 +80,15 @@ class AzureIoTHubCalculator:
         )
         
         return base_cost + additional_cost
+
+    @staticmethod
+    def _assert_tiers_cover_requested_quantity(messages_per_month: float, pricing_tiers: dict) -> None:
+        limits = []
+        for tier in pricing_tiers.values():
+            limit = tier.get("limit")
+            if isinstance(limit, str) and limit.lower() == "infinity":
+                return
+            if limit is not None:
+                limits.append(float(limit))
+        if limits and float(messages_per_month) > max(limits):
+            raise ValueError("pricing tiers cannot cover the requested quantity")

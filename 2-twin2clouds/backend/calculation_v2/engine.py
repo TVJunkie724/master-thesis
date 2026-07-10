@@ -27,6 +27,10 @@ from backend.calculation_v2.strategy_context import (
     CalculationStrategyExecutionContext,
     resolve_calculation_strategy_execution_context,
 )
+from backend.calculation_v2.strategy_traceability import (
+    TRACE_SCHEMA_VERSION as STRATEGY_TRACE_SCHEMA_VERSION,
+    build_intent_result_trace as build_strategy_result_trace,
+)
 from backend.calculation_v2.traceability import (
     TRACE_SCHEMA_VERSION,
     build_intent_result_trace,
@@ -103,6 +107,24 @@ def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
         "cool_duration": cool_duration,
         "archive_duration": archive_duration,
     }
+
+
+def _ensure_supported_result_profile(
+    result_schema_version: str,
+    metric_provider_ids: tuple[str, ...],
+    primary_metric_id: str,
+) -> None:
+    """Fail fast when a profile exceeds this engine's executable contract."""
+    if result_schema_version != "cost-result.v1":
+        raise ValueError(
+            "calculate_cheapest_costs currently supports only cost-result.v1. "
+            f"Received {result_schema_version!r}."
+        )
+    if primary_metric_id not in metric_provider_ids:
+        raise ValueError(
+            "Scoring strategy primary metric must be declared by the active "
+            f"profile: {primary_metric_id!r}"
+        )
 
 
 # =============================================================================
@@ -435,7 +457,11 @@ def calculate_cheapest_costs(
         pricing = load_combined_pricing()
 
     registry_service = pricing_registry_service or PricingRegistryService()
-    profile_registry = build_default_profile_registry(registry_service)
+    profile_registry = (
+        build_default_profile_registry(registry_service)
+        if pricing_registry_service is not None
+        else build_default_profile_registry()
+    )
     execution_context = resolve_calculation_strategy_execution_context(
         optimization_profile_id=optimization_profile_id,
         profile_registry=profile_registry,
@@ -446,6 +472,11 @@ def calculate_cheapest_costs(
     cost_metric_provider = profile_registry.get_metric_provider("cost")
     scoring_strategy = profile_registry.get_scoring_strategy(
         optimization_profile.scoring_strategy_id
+    )
+    _ensure_supported_result_profile(
+        optimization_profile.result_schema_version,
+        tuple(optimization_profile.metric_provider_ids),
+        scoring_strategy.primary_metric_id,
     )
     optimization_metadata = profile_registry.build_result_metadata(
         optimization_profile.profile_id
@@ -614,6 +645,7 @@ def calculate_cheapest_costs(
         "optimization_profile_id": optimization_profile.profile_id,
         "calculation_strategy_id": execution_context.calculation_strategy_id,
         "result_schema_version": optimization_profile.result_schema_version,
+        "trace_schema_version": TRACE_SCHEMA_VERSION,
         "optimizationProfile": optimization_metadata,
         "calculationStrategy": execution_context.to_result_metadata(),
         "evidenceReferences": {
@@ -639,8 +671,21 @@ def calculate_cheapest_costs(
         "cheapestPath": cheapest_path,
         "totalCost": round(total_cost, 2),
     }
-    result_payload["resultTraceSchemaVersion"] = TRACE_SCHEMA_VERSION
-    result_payload["resultTrace"] = build_intent_result_trace(
+    result_payload["intentTrace"] = build_intent_result_trace(
+        params=params,
+        derived=derived,
+        calculation_result=result,
+        provider_costs={
+            "aws": aws_costs,
+            "azure": azure_costs,
+            "gcp": gcp_costs,
+        },
+        transfer_costs=transfer_costs,
+        optimization_metadata=optimization_metadata,
+        pricing_registry_reference=pricing_registry_reference,
+    )
+    result_payload["resultTraceSchemaVersion"] = STRATEGY_TRACE_SCHEMA_VERSION
+    result_payload["resultTrace"] = build_strategy_result_trace(
         execution_context=execution_context,
         pricing_registry_service=registry_service,
         params=params,

@@ -482,7 +482,7 @@ def get_project_summary(
         "name": project_name,
         "description": None,
         "providers": {},
-        "deployment_status": "unknown", # placeholder, implement real logic if needed
+        "deployment_status": "unknown",
         "validation_status": "unknown"
     }
 
@@ -557,6 +557,7 @@ def get_project_files(
     ),
     responses={
         200: {"description": "File content"},
+        403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }

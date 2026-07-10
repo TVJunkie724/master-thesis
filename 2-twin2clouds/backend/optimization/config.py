@@ -20,6 +20,10 @@ DEFAULT_OPTIMIZATION_PROFILES: dict[str, dict] = {
         "result_schema_version": "cost-result.v1",
         "description": "Cost-only thesis optimization profile.",
     },
+    # TODO(future-optimization-entrypoint): Add new executable optimizer types here
+    # only after their MetricProvider, CalculationModel, ScoringStrategy, intent
+    # group, result schema, trace schema, and regression tests exist. Profiles
+    # are the compatibility bundle; do not let callers mix strategies ad hoc.
     "latency_minimization_v1": {
         "enabled": False,
         "status": "tbd",

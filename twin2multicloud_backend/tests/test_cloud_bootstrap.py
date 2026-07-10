@@ -79,6 +79,25 @@ def test_gcp_bootstrap_plan_uses_provider_defaults(authenticated_client):
     ]
 
 
+def test_google_bootstrap_alias_returns_canonical_gcp_plan(authenticated_client):
+    client, headers = authenticated_client
+
+    response = client.post(
+        "/cloud-bootstrap/google/plan",
+        headers=headers,
+        json={
+            "display_name": "thesis-demo",
+            "project_id": "thesis-project",
+            "billing_account": "000000-000000-000000",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["provider"] == "gcp"
+    assert data["dry_run_command"][0] == "bootstrap/gcp/bootstrap_deployment_identity.sh"
+
+
 def test_bootstrap_plan_requires_provider_scope(authenticated_client):
     client, headers = authenticated_client
 

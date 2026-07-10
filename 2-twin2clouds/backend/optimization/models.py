@@ -24,6 +24,9 @@ DEFAULT_CALCULATION_MODELS: dict[str, CalculationModel] = {
         result_schema_version="cost-result.v1",
         description="Current monthly cost calculation model.",
     ),
+    # TODO(future-optimization-entrypoint): Add new calculation models here only
+    # with compatible metric provider ids, intent groups, result schema version,
+    # formula/trace tests, and an enabled profile that binds the model.
     "latency_model_v1": CalculationModel(
         model_id="latency_model_v1",
         enabled=False,
@@ -34,4 +37,3 @@ DEFAULT_CALCULATION_MODELS: dict[str, CalculationModel] = {
         description="Future latency model declaration; no implementation in this thesis slice.",
     ),
 }
-

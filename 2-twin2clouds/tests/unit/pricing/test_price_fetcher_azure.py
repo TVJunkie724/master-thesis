@@ -1,6 +1,11 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from backend.fetch_data.cloud_price_fetcher_azure import fetch_azure_price, _find_best_match
+from backend.fetch_data.cloud_price_fetcher_azure import (
+    fetch_azure_price,
+    _find_best_match,
+    _find_best_match_with_evidence,
+)
+from backend.fetch_data.fetch_evidence import MatchStatus
 
 def test_find_best_match_basic():
     """Test finding a matching row with meter and unit keywords"""
@@ -80,6 +85,71 @@ def test_find_best_match_no_match():
         debug=False
     )
     
+    assert result is None
+
+def test_find_best_match_with_evidence_marks_distinct_paid_candidates_ambiguous():
+    rows = [
+        {
+            "productName": "Azure Functions",
+            "meterName": "Standard Total Executions",
+            "unitOfMeasure": "1 Million",
+            "unitPrice": 0.20,
+            "currencyCode": "USD",
+            "skuName": "Standard"
+        },
+        {
+            "productName": "Azure Functions",
+            "meterName": "Standard Total Executions",
+            "unitOfMeasure": "1 Million",
+            "unitPrice": 0.18,
+            "currencyCode": "USD",
+            "skuName": "Standard v2"
+        },
+    ]
+
+    evidence = _find_best_match_with_evidence(
+        rows,
+        meter_kw="Standard Total Executions",
+        unit_kw="1 Million",
+        include_kw=["Functions"],
+        debug=False,
+        field_key="requestPrice",
+        service_name="functions",
+    )
+
+    assert evidence.status == MatchStatus.AMBIGUOUS
+    assert evidence.selected_row is None
+    assert evidence.requires_review is True
+    assert "distinct prices" in evidence.reason
+
+def test_find_best_match_wrapper_returns_none_for_ambiguous_candidates():
+    rows = [
+        {
+            "productName": "Azure Functions",
+            "meterName": "Standard Total Executions",
+            "unitOfMeasure": "1 Million",
+            "unitPrice": 0.20,
+            "currencyCode": "USD",
+            "skuName": "Standard"
+        },
+        {
+            "productName": "Azure Functions",
+            "meterName": "Standard Total Executions",
+            "unitOfMeasure": "1 Million",
+            "unitPrice": 0.18,
+            "currencyCode": "USD",
+            "skuName": "Standard v2"
+        },
+    ]
+
+    result = _find_best_match(
+        rows,
+        meter_kw="Standard Total Executions",
+        unit_kw="1 Million",
+        include_kw=["Functions"],
+        debug=False,
+    )
+
     assert result is None
 
 @patch('backend.fetch_data.cloud_price_fetcher_azure._retail_query_items')

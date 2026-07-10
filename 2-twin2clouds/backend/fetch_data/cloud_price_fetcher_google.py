@@ -4,6 +4,11 @@ from typing import Dict, Any, Optional, List
 from google.cloud import billing_v1
 from backend.logger import logger
 import backend.constants as CONSTANTS
+from backend.fetch_data.fetch_evidence import (
+    FieldMatchEvidence,
+    MatchStatus,
+    RejectedCandidate,
+)
 from backend.gcp_pricing_evidence import redact_gcp_error
 # from backend.config_loader import load_service_mapping # Not used
 # from backend.fetch_data import initial_fetch_google # No longer needed
@@ -257,6 +262,97 @@ def _normalize_price(price: float, unit_text: str) -> float:
         return price / 1024
     return price
 
+def _sku_price(sku: Any) -> float:
+    if not sku.pricing_info:
+        return 0.0
+    pricing_expression = sku.pricing_info[0].pricing_expression
+    if not pricing_expression.tiered_rates:
+        return 0.0
+    for rate in pricing_expression.tiered_rates:
+        price_currency = rate.unit_price.units + (rate.unit_price.nanos / 1_000_000_000)
+        if price_currency > 0:
+            return price_currency
+    return 0.0
+
+def _select_gcp_sku_with_evidence(
+    sku_list: List[Any],
+    meter_conf: Dict[str, Any],
+    region_code: str,
+    *,
+    service_name: str,
+    field_key: str,
+) -> FieldMatchEvidence:
+    candidates = []
+    rejected = []
+
+    for sku in sku_list:
+        row = _sanitize_sku(sku)
+
+        if region_code not in sku.service_regions and "global" not in sku.service_regions:
+            rejected.append(RejectedCandidate("region mismatch", row))
+            continue
+
+        desc = sku.description.lower()
+        if not all(k.lower() in desc for k in meter_conf["desc_keywords"]):
+            rejected.append(RejectedCandidate("description keyword mismatch", row))
+            continue
+
+        if "negative_keywords" in meter_conf:
+            if any(nk.lower() in desc for nk in meter_conf["negative_keywords"]):
+                rejected.append(RejectedCandidate("negative keyword match", row))
+                continue
+
+        if not sku.pricing_info:
+            rejected.append(RejectedCandidate("missing pricing info", row))
+            continue
+
+        pricing_expression = sku.pricing_info[0].pricing_expression
+        unit = pricing_expression.usage_unit_description.lower()
+        if not any(u in unit for u in meter_conf["unit_keywords"]):
+            rejected.append(RejectedCandidate("unit keyword mismatch", row))
+            continue
+
+        price = _sku_price(sku)
+        if price <= 0:
+            rejected.append(RejectedCandidate("zero price", row))
+            continue
+
+        candidates.append((sku, price, unit))
+
+    distinct = sorted({round(price, 12) for _, price, _ in candidates})
+    if len(distinct) > 1:
+        return FieldMatchEvidence(
+            provider="gcp",
+            service_name=service_name,
+            field_key=field_key,
+            status=MatchStatus.AMBIGUOUS,
+            rejected_candidates=tuple(rejected[:25]),
+            reason=f"Multiple paid candidates matched with distinct prices: {tuple(distinct)}",
+        )
+    if not candidates:
+        return FieldMatchEvidence(
+            provider="gcp",
+            service_name=service_name,
+            field_key=field_key,
+            status=MatchStatus.NO_MATCH,
+            rejected_candidates=tuple(rejected[:25]),
+            reason="No SKU matched region, description, unit, and pricing filters.",
+        )
+
+    selected_sku, raw_price, unit = candidates[0]
+    normalized = _normalize_price(raw_price, unit)
+    return FieldMatchEvidence(
+        provider="gcp",
+        service_name=service_name,
+        field_key=field_key,
+        status=MatchStatus.SELECTED,
+        selected_row=_sanitize_sku(selected_sku),
+        selected_price=raw_price,
+        normalized_price=normalized,
+        source_unit=unit,
+        rejected_candidates=tuple(rejected[:25]),
+    )
+
 # -------------------------------------------------------------------
 # Main Fetcher
 # -------------------------------------------------------------------
@@ -323,66 +419,21 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
 
         # 5. Match Meters
         for key, meter_conf in config["meters"].items():
-            match = None
-            best_price = None
-            
-            for sku in sku_list:
-                # Region Check
-                if region_code not in sku.service_regions and "global" not in sku.service_regions:
-                    # if debug: logger.debug(f"Skipping {sku.description} due to region mismatch (Expected {region_code} or global, got {sku.service_regions})")
-                    continue
-
-                # Keyword Check
-                desc = sku.description.lower()
-                if not all(k.lower() in desc for k in meter_conf["desc_keywords"]):
-                    continue
-                
-                # Negative Keyword Check
-                if "negative_keywords" in meter_conf:
-                    if any(nk.lower() in desc for nk in meter_conf["negative_keywords"]):
-                        continue
-
-                # Pricing Info Check
-                if not sku.pricing_info:
-                    continue
-                
-                # We take the first pricing info (usually standard)
-                pricing_expression = sku.pricing_info[0].pricing_expression
-                unit = pricing_expression.usage_unit_description.lower()
-                
-                # Unit Check
-                if not any(u in unit for u in meter_conf["unit_keywords"]):
-                    # if debug: logger.debug(f"Skipping {sku.description} due to unit mismatch (Expected {meter_conf['unit_keywords']}, got {unit})")
-                    continue
-                
-                # Extract Price (Iterate tiers to find non-zero)
-                if not pricing_expression.tiered_rates:
-                    continue
-                    
-                best_tier_price = 0.0
-                for rate in pricing_expression.tiered_rates:
-                    price_currency = rate.unit_price.units + (rate.unit_price.nanos / 1_000_000_000)
-                    if price_currency > 0:
-                        best_tier_price = price_currency
-                        # We usually want the first non-zero tier (or the highest? usually they decrease, but for free tier the first is 0)
-                        # If we find a non-zero, we take it.
-                        break
-                
-                if best_tier_price > 0:
-                     match = sku
-                     best_price = best_tier_price
-                     break # Found a match
-            
-            if match:
-                # Normalize
-                final_price = _normalize_price(best_price, match.pricing_info[0].pricing_expression.usage_unit_description)
-                fetched[key] = final_price
+            evidence = _select_gcp_sku_with_evidence(
+                sku_list,
+                meter_conf,
+                region_code,
+                service_name=service_name,
+                field_key=key,
+            )
+            if evidence.status == MatchStatus.SELECTED:
+                fetched[key] = evidence.normalized_price
                 if debug:
-                    logger.debug(f"   ✔️ Matched {service_name}.{key}: {match.description}")
-                    logger.debug(f"      Price: {best_price} -> Normalized: {final_price}")
+                    logger.debug(f"   ✔️ Matched {service_name}.{key}: {evidence.selected_row}")
+                    logger.debug(f"      Price: {evidence.selected_price} -> Normalized: {evidence.normalized_price}")
             else:
                 if debug:
-                    logger.debug(f"   ❌ {service_name}.{key} not found.")
+                    logger.debug(f"   ❌ {service_name}.{key}: {evidence.reason}")
 
     except Exception as e:
         message = redact_gcp_error(e)

@@ -47,6 +47,31 @@ void main() {
         expect(result.transferCosts, isNotNull);
         expect(result.transferCosts?['L1_to_L2'], 0.05);
       });
+
+      test('parses intent-to-result trace metadata', () {
+        final result = CalcResult.fromJson(TestFixtures.calcResultJson);
+
+        expect(result.traceSchemaVersion, 'intent-result-trace.v1');
+        expect(result.optimizationProfile?.profileId, 'cost_minimization_v1');
+        expect(result.intentTrace, isNotNull);
+        expect(result.intentTrace?.schemaVersion, 'intent-result-trace.v1');
+        expect(
+          result.intentTrace?.profile?.scoringStrategyId,
+          'min_total_cost_v1',
+        );
+        expect(result.intentTrace?.summary.recordCount, 1);
+        expect(result.intentTrace?.summary.publishable, isTrue);
+        expect(result.intentTrace?.records.single.selected, isTrue);
+        expect(
+          result.intentTrace?.records.single.verification.evidenceReferenceId,
+          startsWith('pricing_registry:'),
+        );
+        expect(result.intentTrace?.selectedPath.single.provider, 'AWS');
+        expect(
+          result.intentTrace?.transferTrace.single.sourceIntentId,
+          'aws.transfer.egress',
+        );
+      });
     });
 
     group('totalCost', () {

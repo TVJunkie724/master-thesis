@@ -58,5 +58,8 @@ class Settings(BaseSettings):
     SEED_GCP_CREDENTIALS_FILE: str = "/config/gcp_credentials.json"
     # Retained only to fail fast for obsolete environments that still set it.
     SEED_LEGACY_TWIN_CREDENTIALS: bool = False
+
+    # Test-only routes (disabled by default)
+    ENABLE_TEST_ENDPOINTS: bool = False
     
 settings = Settings()

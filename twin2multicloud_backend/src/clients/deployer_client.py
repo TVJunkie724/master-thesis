@@ -1,5 +1,6 @@
 """Typed Deployer API client."""
 
+import json
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
@@ -24,6 +25,30 @@ class DeployerClient(ExternalServiceClient):
             "POST",
             "/validate/deployer-complete",
             json=payload,
+            timeout=30.0,
+        )
+
+    async def verify_permissions(self, provider: str, credentials: dict[str, Any]) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/permissions/verify/{provider}",
+            json=credentials,
+            timeout=30.0,
+        )
+
+    async def validate_config_file(
+        self,
+        endpoint: str,
+        files: dict[str, tuple[str, bytes, str]],
+        *,
+        provider: str | None = None,
+    ) -> dict[str, Any]:
+        params = {"provider": provider} if provider else None
+        return await self._request_json(
+            "POST",
+            f"/validate/{endpoint}",
+            params=params,
+            files=files,
             timeout=30.0,
         )
 
@@ -104,3 +129,54 @@ class DeployerClient(ExternalServiceClient):
             f"/projects/{project_name}/simulator/{provider}/download",
             timeout=60.0,
         )
+
+    async def project_exists(self, project_name: str) -> bool:
+        response = await self._request(
+            "GET",
+            f"/projects/{project_name}/validate",
+            timeout=30.0,
+        )
+        if response.status_code == 200:
+            return True
+        if response.status_code == 404:
+            return False
+        self._raise_for_status(response)
+        return False
+
+    async def import_project_zip(self, project_name: str, content: bytes) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/projects/{project_name}/import",
+            files={"file": (f"{project_name}.zip", content, "application/zip")},
+            timeout=httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0),
+        )
+
+    async def create_project_zip(self, project_name: str, content: bytes) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            "/projects",
+            params={"project_name": project_name},
+            files={"file": (f"{project_name}.zip", content, "application/zip")},
+            timeout=httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0),
+        )
+
+    async def extract_project_zip(
+        self,
+        content: bytes,
+        validation_context: dict[str, Any],
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            "/validate/zip/extract",
+            files={"file": ("project.zip", content, "application/zip")},
+            params={
+                "validation_context": _json_dumps_compact(validation_context),
+                "include_credentials": False,
+            },
+            timeout=120.0,
+        )
+
+
+def _json_dumps_compact(value: dict[str, Any]) -> str:
+    """Encode query JSON without whitespace to keep request URLs deterministic."""
+    return json.dumps(value, separators=(",", ":"))

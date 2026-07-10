@@ -3,6 +3,7 @@
 A unified platform that bridges theoretical cost optimization and practical multi-cloud infrastructure deployment for Digital Twins.
 
 For the project vision, 5-layer architecture and component roles (Orchestrator → Brain → Muscle), see [integration_vision.md](integration_vision.md).
+For practical developer setup and daily workflows, see [HANDBOOK.md](HANDBOOK.md).
 For agent/contributor workflow rules, see [ONBOARDING.md](ONBOARDING.md).
 For the canonical published documentation site, see [`docs-site/`](docs-site/).
 
@@ -32,6 +33,10 @@ For the canonical published documentation site, see [`docs-site/`](docs-site/).
 
 ## Quick Start (Fresh Clone)
 
+The preferred development entrypoint is [`thesis.sh`](thesis.sh). It wraps the
+Docker stack, Flutter configuration, docs site, and LaTeX build paths so day-to-day
+startup does not require remembering raw `docker compose` and `flutter` commands.
+
 ### 1. Clone the repository
 
 ```bash
@@ -55,7 +60,46 @@ cp google_credentials.json.example    .secrets/local/gcp_credentials.json
 
 Then edit only the files under `.secrets/local/`. If you already have valid root-level credential files from the older setup, keep them until you have manually moved or copied them into `.secrets/local/`; this repository does not migrate or delete live credentials automatically.
 
-### 3. Start the backend services
+### 3. Start the application
+
+From the workspace root:
+
+```bash
+./thesis.sh up
+```
+
+This starts the backend containers, checks the APIs, writes
+`twin2multicloud_flutter/config/dev.json`, and launches Flutter with
+`--dart-define-from-file=config/dev.json`.
+
+Backend only:
+
+```bash
+./thesis.sh up --no-flutter
+```
+
+Flutter only:
+
+```bash
+./thesis.sh flutter --device macos
+```
+
+Status and logs:
+
+```bash
+./thesis.sh status
+./thesis.sh logs management-api
+```
+
+LaTeX is intentionally separate from application startup:
+
+```bash
+./thesis.sh latex once
+./thesis.sh latex watch
+./thesis.sh latex clean
+```
+
+### 4. Raw Docker fallback
 
 From the workspace root:
 
@@ -103,15 +147,21 @@ docker compose --profile docs up docs
 
 Open `http://localhost:5010`. Markdown changes under `docs-site/docs/` reload automatically.
 
-### 4. Database initialization & seeding (automatic)
+Equivalent entrypoint command:
+
+```bash
+./thesis.sh docs up
+```
+
+### 5. Database initialization & seeding (automatic)
 
 The Management API handles everything on startup — no manual commands needed.
 
-#### 4a. Schema creation
+#### 5a. Schema creation
 
 `src/main.py` calls `Base.metadata.create_all(bind=engine)` on startup, which creates all SQLAlchemy tables in `twin2multicloud_backend/data/app.db` if they don't exist yet. The `data/` directory is persisted on the host via a bind mount, so the DB survives container rebuilds.
 
-#### 4b. Dev user (always-on)
+#### 5b. Dev user (always-on)
 
 When `DEBUG=true` (set by default in `compose.yaml`) the backend uses a development auth bypass in [`src/api/dependencies.py`](twin2multicloud_backend/src/api/dependencies.py). The first API request with the header `Authorization: Bearer dev-token` will:
 - return the first existing user, **or**
@@ -119,7 +169,7 @@ When `DEBUG=true` (set by default in `compose.yaml`) the backend uses a developm
 
 The Flutter client hardcodes `dev-token` in [`lib/services/api_service.dart`](twin2multicloud_flutter/lib/services/api_service.dart), so **simply starting the Flutter app is enough to seed the dev user**.
 
-#### 4c. Sample twins (opt-in via `compose.cloud.local.yaml`)
+#### 5c. Sample twins (opt-in via `compose.cloud.local.yaml`)
 
 [`twin2multicloud_backend/scripts/seed_twins.py`](twin2multicloud_backend/scripts/seed_twins.py) creates user-scoped Cloud Connections plus five pre-configured sample twins under a dedicated `seed@twin2multicloud.dev` user:
 
@@ -178,7 +228,7 @@ rm twin2multicloud_backend/data/app.db
 docker compose up -d
 ```
 
-### 5. Run the Flutter app
+### 6. Run the Flutter app
 
 In a second terminal:
 
@@ -188,7 +238,7 @@ flutter pub get
 flutter run -d macos --dart-define-from-file=config/dev.json
 ```
 
-The first screen will auto-login as the mock developer user, hit the Management API, and thereby seed the DB (see step 4).
+The first screen will auto-login as the mock developer user, hit the Management API, and thereby seed the DB (see step 5).
 
 ---
 
@@ -200,14 +250,14 @@ The Management API ships with two **mock deployment endpoints** that simulate a 
 
 | Side | Flag | Location | Default |
 |------|------|----------|---------|
-| Backend | `ENABLE_TEST_ENDPOINTS` (env var) | [`compose.yaml`](compose.yaml) → `management-api` | `true` |
-| Flutter | `kUseTestDeploy` (compile-time const) | [`lib/bloc/twin_overview/twin_overview_bloc.dart`](twin2multicloud_flutter/lib/bloc/twin_overview/twin_overview_bloc.dart) | `true` |
+| Backend | `ENABLE_TEST_ENDPOINTS` (env var) | [`compose.yaml`](compose.yaml) → `management-api` | `false` unless explicitly enabled |
+| Flutter | `kUseTestDeploy` (compile-time const) | [`lib/bloc/twin_overview/twin_overview_bloc.dart`](twin2multicloud_flutter/lib/bloc/twin_overview/twin_overview_bloc.dart) | transitional UI setting |
 
 Both flags must be consistent:
 
 | Backend | Flutter | Result |
 |---------|---------|--------|
-| `true`  | `true`  | ✅ Mock deploys via the UI (current default) |
+| `true`  | `true`  | ✅ Mock deploys via the UI |
 | `false` | `true`  | ❌ UI calls the endpoint and gets a 404 |
 | `true`  | `false` | ⚠️ Real deploys — will incur cloud cost |
 | `false` | `false` | ✅ Production mode |
@@ -242,7 +292,7 @@ Subscribe to the returned `sse_url` (e.g. `/sse/deploy/<session_id>`) to see the
 
 ### Switching to real deployments
 
-1. Edit [`compose.yaml`](compose.yaml) → set `ENABLE_TEST_ENDPOINTS=false` on the `management-api` service and restart: `docker compose up -d --build management-api`
+1. Confirm [`compose.yaml`](compose.yaml) keeps `ENABLE_TEST_ENDPOINTS=false` or leaves the variable unset on the `management-api` service, then restart: `docker compose up -d --build management-api`
 2. Edit [`twin2multicloud_flutter/lib/bloc/twin_overview/twin_overview_bloc.dart`](twin2multicloud_flutter/lib/bloc/twin_overview/twin_overview_bloc.dart) → set `kUseTestDeploy = false` and `flutter run` again
 3. Create or select valid Cloud Connections for the providers you want to deploy to. Only use `compose.cloud.local.yaml` if you intentionally need `.secrets/local/` credential files for supervised local cloud testing or transitional sample seeding.
 
@@ -271,11 +321,24 @@ docker compose logs -f 3cloud-deployer
 
 **Run backend unit tests (safe — no cloud resources):**
 ```bash
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1   python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -v
+docker run --rm -v "$PWD/twin2multicloud_backend:/app" -w /app -e PYTHONPATH=/app -e DATABASE_URL=sqlite:////tmp/twin2multicloud_management_test.db -e SEED_DATA=false -e ENABLE_TEST_ENDPOINTS=false master-thesis-management-api:latest python -m pytest tests -q
+
+tmpdir=$(mktemp -d /tmp/optimizer-test.XXXXXX)
+printf '{"aws": {}}\n' > "$tmpdir/config_credentials.json"
+docker run --rm -v "$PWD/2-twin2clouds:/app" -v "$PWD/config.json:/config/config.json:ro" -v "$tmpdir/config_credentials.json:/config/config_credentials.json:ro" -w /app -e PYTHONPATH=/app 2twin2clouds:latest python -m pytest tests -q
+rm -rf "$tmpdir"
+
+docker run --rm -v "$PWD/3-cloud-deployer:/app" -w /app -e PYTHONPATH=/app 3cloud-deployer:latest python -m pytest tests/unit tests/api tests/integration tests/test_gcp_simulator.py -q
 ```
 
 > ⚠️ **Never run E2E tests (`tests/e2e/`) without explicit intent** — they deploy real cloud resources and cost money.
+
+**Run the service quality gates:**
+
+The canonical service-layer evidence is tracked in
+[`docs/plans/service_architecture_audit/PHASE_04_SERVICE_QUALITY_GATE.md`](docs/plans/service_architecture_audit/phases/PHASE_04_SERVICE_QUALITY_GATE.md).
+It includes OpenAPI contract snapshots, safe test gates, Bandit high-severity
+checks, observability review, documentation drift, and residual risks.
 
 **Compile the LaTeX thesis (on-demand profile):**
 ```bash
@@ -294,8 +357,9 @@ docker context ls
 docker context use orbstack    # or: desktop-linux
 ```
 
-**Flutter build errors about `FilePicker.platform` or `StateNotifier`**
-These are fixed on the `ai/dev` branch. Run `flutter pub get` and rebuild.
+**Flutter build errors after branch changes**
+Run `flutter pub get` in `twin2multicloud_flutter/` and rebuild the selected
+desktop/web target. Current refactoring branches are created from `master`.
 
 **Backend returns 401 on every request**
 Ensure `DEBUG=true` is set in the `management-api` service in `compose.yaml`, and that the client sends `Authorization: Bearer dev-token`.

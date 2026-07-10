@@ -2,26 +2,16 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
-
 from src.models.optimizer_config import OptimizerConfiguration
+from src.services.service_errors import DownstreamServiceError
 
 
-def _optimizer_response(payload: dict, status_code: int = 200):
-    response = MagicMock()
-    response.status_code = status_code
-    response.json.return_value = payload
-    return response
-
-
-def _mock_optimizer_statuses(mock_client, aws: dict, azure: dict, gcp: dict):
-    mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-        side_effect=[
-            _optimizer_response(aws),
-            _optimizer_response(azure),
-            _optimizer_response(gcp),
-        ]
+def _mock_optimizer_statuses(mock_factory, aws: dict, azure: dict, gcp: dict):
+    service = MagicMock()
+    service.get_pricing_status = AsyncMock(
+        return_value={"aws": aws, "azure": azure, "gcp": gcp}
     )
+    mock_factory.return_value = service
 
 
 def _aws_connection_request():
@@ -41,7 +31,7 @@ def _aws_connection_request():
 def test_pricing_health_returns_dashboard_ready_provider_cards(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
         _mock_optimizer_statuses(
             mock_client,
             aws={"age": "2 hours", "status": "valid", "is_fresh": True},
@@ -99,7 +89,7 @@ def test_pricing_health_uses_last_known_good_timestamp(auth_client, test_twin, d
     db.add(config)
     db.commit()
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
         _mock_optimizer_statuses(
             mock_client,
             aws={"age": "missing", "status": "missing", "is_fresh": False},
@@ -129,7 +119,7 @@ def test_pricing_health_response_is_secret_free(authenticated_client):
     )
     assert create_response.status_code == 200
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
         _mock_optimizer_statuses(
             mock_client,
             aws={"age": "1 day", "status": "valid", "is_fresh": True},
@@ -149,12 +139,14 @@ def test_pricing_health_response_is_secret_free(authenticated_client):
 def test_pricing_health_propagates_optimizer_connect_error(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-            side_effect=httpx.RequestError("optimizer down")
+    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
+        service = MagicMock()
+        service.get_pricing_status = AsyncMock(
+            side_effect=DownstreamServiceError(502, "Optimizer request failed")
         )
+        mock_client.return_value = service
 
         response = client.get("/optimizer/pricing-health", headers=headers)
 
     assert response.status_code == 502
-    assert response.json()["detail"] == "Request failed: RequestError"
+    assert response.json()["detail"] == "Optimizer request failed"
