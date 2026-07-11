@@ -92,7 +92,6 @@ class MockApiService {
   // Optimizer
   Future<Map<String, dynamic>> Function()? getPricingStatusResponse;
   Future<Map<String, dynamic>> Function()? getRegionsStatusResponse;
-  Future<Map<String, dynamic>> Function(String, String)? refreshPricingResponse;
   Future<Map<String, dynamic>> Function(Map<String, dynamic>)?
   calculateCostsResponse;
   Future<Map<String, dynamic>> Function(String)? getOptimizerConfigResponse;
@@ -320,19 +319,6 @@ class MockApiService {
         'azure': {'fresh': true},
         'gcp': {'fresh': true},
       };
-    });
-  }
-
-  Future<Map<String, dynamic>> refreshPricing(
-    String provider,
-    String twinId,
-  ) async {
-    return _maybeThrow('refreshPricing', () async {
-      _trackCall('refreshPricing', [provider, twinId]);
-      if (refreshPricingResponse != null) {
-        return refreshPricingResponse!(provider, twinId);
-      }
-      return {'success': true};
     });
   }
 

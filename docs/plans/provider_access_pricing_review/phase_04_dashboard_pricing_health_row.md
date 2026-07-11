@@ -1,6 +1,6 @@
 # Phase 4: Dashboard Pricing Health Row
 
-**Status:** planned
+**Status:** done
 **Primary owner:** Flutter Dashboard + Management API read contracts
 **Depends on:** Phase 1, Phase 3 API contract
 
@@ -111,9 +111,9 @@ The response combines current pricing status with provider-access metadata:
 
 ## Definition Of Done
 
-- [ ] Pricing Data Health appears below platform stats.
-- [ ] AWS/Azure/GCP cards show status, source, and last fetched age.
-- [ ] Missing credential state is clear.
-- [ ] Button navigates to Pricing Review Center.
-- [ ] No provider refresh is triggered from Dashboard cards.
-- [ ] Tests cover loading/error/empty/provider states.
+- [x] Pricing Data Health appears below platform stats.
+- [x] AWS/Azure/GCP cards show status, source, and last fetched age.
+- [x] Missing credential state is clear.
+- [x] Button navigates to Pricing Review Center.
+- [x] No provider refresh is triggered from Dashboard cards.
+- [x] Tests cover loading/error/empty/provider states.

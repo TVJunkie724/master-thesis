@@ -1,6 +1,6 @@
 # Phase 6: Pricing Review Center UI
 
-**Status:** planned
+**Status:** done
 **Primary owner:** Flutter + Management API + Optimizer proxy contracts
 **Depends on:** Phase 1, Phase 4, Phase 5, AI candidate review contracts
 
@@ -78,8 +78,7 @@ Fetch provider
   -> User confirms credential context
   -> PricingRefreshRequested(provider, pricing_connection_id)
   -> POST /optimizer/pricing-refresh/{provider}
-  -> SSE /optimizer/pricing-refresh/{refresh_run_id}/stream
-  -> refresh complete
+  -> await terminal pricing-refresh-run.v1 response
   -> reload pricing health and candidate report
 
 Approve candidate
@@ -95,8 +94,8 @@ Management API endpoints:
 
 - `GET /optimizer/pricing-health`
 - `POST /optimizer/pricing-refresh/{provider}`
-- `GET /optimizer/pricing-refresh/{refresh_run_id}/stream`
-- `GET /optimizer/pricing-review/{provider}/candidates`
+- `GET /optimizer/pricing-review/{provider}/candidate-reports`
+- `GET /optimizer/pricing-review/candidate-reports/{report_id}/trace`
 - `POST /optimizer/pricing-review/decisions`
 
 All endpoints are Management API routes. Flutter must not call Optimizer
@@ -120,6 +119,10 @@ Provider refreshes are independent. GCP/AWS may be long-running. The screen must
 support one active provider refresh at a time initially. A later `Refresh all`
 may only enqueue providers sequentially.
 
+The current synchronous refresh contract exposes no trustworthy intermediate
+progress. Flutter therefore shows provider-scoped indeterminate waiting until
+the terminal response arrives; it does not fabricate SSE progress.
+
 ## Verification
 
 - BLoC unit tests for provider selection, confirmation, fetch progress,
@@ -130,11 +133,11 @@ may only enqueue providers sequentially.
 
 ## Definition Of Done
 
-- [ ] Pricing Review Center route exists.
-- [ ] Provider refresh requires credential confirmation for AWS/GCP.
-- [ ] Azure shows public API/no credential required.
-- [ ] SSE progress is visible and cancellable/close-safe.
-- [ ] Candidate table and evidence drawer are implemented.
-- [ ] AI preselection is separate from approval.
-- [ ] Approvals persist through Management API only.
-- [ ] Tests cover happy/unhappy/edge states.
+- [x] Pricing Review Center route exists.
+- [x] Provider refresh requires credential confirmation for AWS/GCP.
+- [x] Azure shows public API/no credential required.
+- [x] Provider-scoped waiting reflects the synchronous refresh contract.
+- [x] Candidate review and collapsed evidence trace are implemented.
+- [x] AI preselection is separate from approval.
+- [x] Approvals persist through Management API only.
+- [x] Tests cover happy/unhappy/edge states.

@@ -1,6 +1,6 @@
 # Provider Access And Pricing Review Roadmap
 
-**Status:** planned
+**Status:** in progress
 **Scope:** Management API, Optimizer contracts, Flutter Dashboard/Profile/Pricing Review UI
 **No real cloud E2E:** all live cloud checks remain manual/supervised only.
 
@@ -37,9 +37,9 @@ reviewed-decision approval. Wizard Step 2 becomes a calculation screen only.
 | 1 | `phase_01_credential_purpose_model.md` | planned | Add explicit credential purpose/scope model |
 | 2 | `phase_02_bootstrap_output_split.md` | planned | Bootstrap separate pricing and deployment identities |
 | 3 | `phase_03_profile_cloud_accounts_access_ui.md` | planned | Show/manage profile-level cloud access |
-| 4 | `phase_04_dashboard_pricing_health_row.md` | planned | Add Dashboard provider health stat cards |
+| 4 | `phase_04_dashboard_pricing_health_row.md` | done | Add Dashboard provider health stat cards |
 | 5 | `phase_05_reviewed_decisions_persistence.md` | planned | Persist reviewed pricing choices in Management API DB |
-| 6 | `phase_06_pricing_review_center_ui.md` | planned | Add dedicated Pricing Review Center |
+| 6 | `phase_06_pricing_review_center_ui.md` | done | Add dedicated Pricing Review Center |
 | 7 | `phase_07_optimizer_step2_cleanup.md` | planned | Remove pricing maintenance from Wizard Step 2 |
 | 8 | `phase_08_tests_docs_thesis_evidence.md` | planned | Add final verification, docs, and thesis evidence |
 

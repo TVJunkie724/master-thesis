@@ -3,7 +3,7 @@ title: "Implementation Plan: Account-Scoped Pricing Review UI"
 description: "Replace twin-bound pricing refresh UI with a compact account-scoped provider review workflow."
 tags: [flutter, pricing, cloud-access, review]
 lastUpdated: "2026-07-11"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -18,10 +18,14 @@ version: "1.0"
 - twin2multicloud_backend/src/schemas/pricing_refresh.py
 - twin2multicloud_backend/src/schemas/pricing_review_contracts.py
 - User decision on 2026-07-11: every screen must remain visually lean
-EXTRACTED: 2026-07-11 | VERSION: 1.0
+EXTRACTED: 2026-07-11 | VERSION: 1.1
 -->
 
 # Implementation Plan: Account-Scoped Pricing Review UI
+
+**Revision 1.1:** Audit hardening made the confirmed connection id explicit in
+the refresh event, separated run/candidate presentation widgets, added inline
+retry/dismiss behavior, and permits independent lazy trace loads per report.
 
 **Review status:** Approved for implementation after architect and builder
 review against all mandatory plan-review criteria. The user's instruction to
@@ -147,6 +151,7 @@ bloc/     pricing_review_event.dart [MODIFY]
           pricing_review_bloc.dart [MODIFY]
 widgets/  pricing/pricing_provider_selector.dart [NEW]
           pricing/pricing_provider_workspace.dart [NEW]
+          pricing/pricing_refresh_run_summary.dart [NEW]
           pricing/pricing_candidate_review_panel.dart [NEW]
           pricing/pricing_review_strings.dart [NEW]
 screens/  pricing_review/pricing_review_screen.dart [MODIFY]
@@ -161,8 +166,9 @@ app.dart [MODIFY: remove twin query parameter]
 
 | Parameter | Type | Required | Default |
 |---|---|---:|---|
-| providers | `Map<String, ProviderPricingHealth>` | yes | - |
+| pricingHealth | `PricingHealthResponse?` | yes | - |
 | selectedProvider | `String` | yes | - |
+| enabled | `bool` | no | `true` |
 | onSelected | `ValueChanged<String>` | yes | - |
 
 Stateless and presentation-only. It uses three stable-width provider items on
@@ -173,10 +179,14 @@ shows provider, status, and a single short source label.
 
 | Parameter | Type | Required | Default |
 |---|---|---:|---|
-| health | `ProviderPricingHealth` | yes | - |
-| access | `CloudAccessEntry` | yes | - |
+| provider | `String` | yes | - |
+| health | `ProviderPricingHealth?` | yes | - |
+| access | `CloudAccessEntry?` | yes | - |
+| isLoading | `bool` | yes | - |
 | isRefreshing | `bool` | yes | - |
-| onRefresh | `VoidCallback?` | no | `null` |
+| canRefresh | `bool` | yes | - |
+| error / reportError | `String?` | yes | - |
+| onRefresh / onRetry | `VoidCallback` | yes | - |
 
 Stateless. AWS/GCP refresh is enabled only when `connectionId` exists and the
 access status is `active` or `stale`. `missing`, `needs_validation`, `invalid`,
@@ -214,7 +224,7 @@ Candidate actions:
 | selectedCandidateIds | `Map<String, String>` | yes | - |
 | traces | `Map<String, PricingTrace>` | yes | - |
 | traceErrors | `Map<String, String>` | yes | - |
-| loadingTraceReportId | `String?` | no | `null` |
+| loadingTraceReportIds | `Set<String>` | yes | - |
 | submittingReportIds | `Set<String>` | yes | - |
 | onCandidateSelected | callback `(reportId, candidateId)` | yes | - |
 | onTraceRequested | `ValueChanged<String>` | yes | - |
@@ -251,6 +261,7 @@ Required events:
 - `PricingReviewReloadRequested`
 - `PricingReviewProviderSelected(provider)`
 - `PricingReviewProviderRefreshRequested(provider, connectionId)`
+- `PricingReviewReportsReloadRequested(provider)`
 - `PricingReviewReportExpanded(reportId)`
 - `PricingReviewCandidateSelected(reportId, candidateId)`
 - `PricingReviewDecisionRequested(reportId, decision, candidateId?)`
@@ -267,7 +278,7 @@ Required state:
 - `Map<String, List<PricingCandidateReport>> reportsByProvider`
 - `Map<String, String> reportsErrorsByProvider`
 - `Map<String, String> selectedCandidateIds`
-- `String? loadingTraceReportId`
+- `Set<String> loadingTraceReportIds`
 - `Map<String, PricingTrace> traces`
 - `Map<String, String> traceErrors`
 - `Set<String> submittingDecisionReportIds`
@@ -391,21 +402,21 @@ not start AWS/GCP refresh or deploy cloud resources. Real cloud E2E is forbidden
 
 ## 12. Definition of Done
 
-- [ ] Twin selector and twin-bound pricing refresh API usage are removed.
-- [ ] Dashboard consumes typed global pricing health.
-- [ ] Pricing Review consumes typed health and cloud access inventory.
-- [ ] AWS/GCP refresh requires explicit account confirmation.
-- [ ] Azure refresh clearly uses the public API.
-- [ ] Typed refresh run status and safe errors are visible.
-- [ ] Candidate reports and sanitized traces are collapsed by default.
-- [ ] Decisions persist only through Management API.
-- [ ] Loading, error, empty, partial, and success states are implemented.
-- [ ] Main views remain visually lean at all breakpoints.
-- [ ] No direct Optimizer/Deployer call exists.
-- [ ] No hardcoded color/spacing additions exist.
-- [ ] `flutter analyze` passes with zero issues.
-- [ ] `flutter test` passes.
-- [ ] Web and macOS builds pass.
-- [ ] Frontend delta roadmap records completion of this account-scoped slice.
-- [ ] Only task files are committed; `pubspec.lock` remains untouched.
-- [ ] Implementation is ready for auditor verification.
+- [x] Twin selector and twin-bound pricing refresh API usage are removed.
+- [x] Dashboard consumes typed global pricing health.
+- [x] Pricing Review consumes typed health and cloud access inventory.
+- [x] AWS/GCP refresh requires explicit account confirmation.
+- [x] Azure refresh clearly uses the public API.
+- [x] Typed refresh run status and safe errors are visible.
+- [x] Candidate reports and sanitized traces are collapsed by default.
+- [x] Decisions persist only through Management API.
+- [x] Loading, error, empty, partial, and success states are implemented.
+- [x] Main views remain visually lean at all breakpoints.
+- [x] No direct Optimizer/Deployer call exists.
+- [x] No hardcoded color/spacing additions exist.
+- [x] `flutter analyze` passes with zero issues.
+- [x] `flutter test` passes.
+- [x] Web and macOS builds pass.
+- [x] Frontend delta roadmap records completion of this account-scoped slice.
+- [x] Only task files are committed; `pubspec.lock` remains untouched.
+- [x] Implementation is ready for auditor verification.

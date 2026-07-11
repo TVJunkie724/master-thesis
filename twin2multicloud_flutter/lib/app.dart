@@ -36,9 +36,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/pricing-review',
-        builder: (context, state) => PricingReviewScreen(
-          initialTwinId: state.uri.queryParameters['twin_id'],
-        ),
+        builder: (context, state) => const PricingReviewScreen(),
       ),
       GoRoute(
         path: '/auth/callback',

@@ -2,8 +2,8 @@
 title: "Phase 3: Dashboard Pricing Health"
 description: "Plan the Dashboard pricing readiness row and entry point into pricing review."
 tags: [flutter, frontend-delta, dashboard, pricing]
-lastUpdated: "2026-06-13"
-version: "1.0"
+lastUpdated: "2026-07-11"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -14,6 +14,9 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 -->
 
 # Phase 3: Dashboard Pricing Health
+
+**Status:** Done. Implemented through the typed `pricing-health.v1` Management
+API contract and verified by Dashboard widget tests.
 
 ## Summary
 

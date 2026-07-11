@@ -2,8 +2,8 @@
 title: "Phase 4: Pricing Review Center"
 description: "Plan the dedicated provider pricing refresh and candidate review workspace."
 tags: [flutter, frontend-delta, pricing, review]
-lastUpdated: "2026-06-13"
-version: "1.0"
+lastUpdated: "2026-07-11"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -15,6 +15,9 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 -->
 
 # Phase 4: Pricing Review Center
+
+**Status:** Done. The account-scoped provider workflow, explicit credential
+confirmation, candidate decisions, and lazy sanitized trace are implemented.
 
 ## Summary
 
