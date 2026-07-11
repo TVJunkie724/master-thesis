@@ -247,7 +247,11 @@ run_flutter() {
     flutter_pub_get
   fi
   info "Starting Flutter on device '$FLUTTER_DEVICE'."
-  (cd "$FLUTTER_DIR" && flutter run -d "$FLUTTER_DEVICE" --dart-define-from-file=config/dev.json "${FLUTTER_ARGS[@]}")
+  if [ "${#FLUTTER_ARGS[@]}" -gt 0 ]; then
+    (cd "$FLUTTER_DIR" && flutter run -d "$FLUTTER_DEVICE" --dart-define-from-file=config/dev.json "${FLUTTER_ARGS[@]}")
+  else
+    (cd "$FLUTTER_DIR" && flutter run -d "$FLUTTER_DEVICE" --dart-define-from-file=config/dev.json)
+  fi
 }
 
 wait_for_url() {
