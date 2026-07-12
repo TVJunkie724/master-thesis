@@ -532,10 +532,22 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
 
   void _onGoToStep(WizardGoToStep event, Emitter<WizardState> emit) {
-    // Only allow jumping to already-reached steps
-    if (event.step <= state.highestStepReached && event.step >= 0) {
-      emit(state.clearNotifications().copyWith(currentStep: event.step));
-    }
+    final reachable = switch (event.step) {
+      0 => true,
+      1 => state.twinName?.trim().isNotEmpty == true,
+      2 => state.calcResult != null,
+      _ => false,
+    };
+    if (!reachable) return;
+
+    emit(
+      state.clearNotifications().copyWith(
+        currentStep: event.step,
+        highestStepReached: event.step > state.highestStepReached
+            ? event.step
+            : state.highestStepReached,
+      ),
+    );
   }
 
   // ============================================================

@@ -45,7 +45,10 @@ class WizardPreviousStep extends WizardEvent {
   const WizardPreviousStep();
 }
 
-/// Jump to a specific step (only allowed for reached steps)
+/// Select the legacy content owner for a configuration-workspace task.
+///
+/// Reachability is derived from configuration prerequisites. The integer is a
+/// temporary API-compatibility boundary and must not be used by new UI widgets.
 class WizardGoToStep extends WizardEvent {
   final int step;
   const WizardGoToStep(this.step);

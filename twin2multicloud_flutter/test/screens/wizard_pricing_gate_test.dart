@@ -47,6 +47,9 @@ void main() {
     );
     await tester.pump();
 
+    await tester.tap(find.text('Calculate alternatives'));
+    await tester.pump();
+
     ElevatedButton calculateButton() => tester.widget<ElevatedButton>(
       find.widgetWithText(ElevatedButton, 'CALCULATE'),
     );

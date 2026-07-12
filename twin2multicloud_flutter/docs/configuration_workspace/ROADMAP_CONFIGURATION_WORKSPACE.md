@@ -12,15 +12,15 @@ The [target concept](CONCEPT_CONFIGURATION_WORKSPACE.md) is implemented in
 small vertical phases. Every phase preserves persisted configuration contracts,
 adds focused tests, receives two code reviews, and is committed independently.
 
-| Phase | Scope | Completion gate |
-|---|---|---|
-| 1 | Typed journey projection and responsive workspace shell | Every task status and navigation gate is deterministic and unit tested. |
-| 2 | Define twin and access timing | Identity is focused; deployment credentials move behind architecture selection. |
-| 3 | Describe workload | The 26 optimizer inputs are split into focused tasks without changing `CalcParams`. |
-| 4 | Choose architecture | Pricing health, calculation, comparison, invalidation, and selection form a coherent task flow. |
-| 5 | Prepare deployment | Step 3 sections become requirement-driven tasks for access, contracts, logic, and assets. |
-| 6 | Review and preflight | Summary, readiness findings, server validation, and Finish provide one authoritative completion path. |
-| 7 | Quality and migration gate | Legacy navigation is removed, docs are aligned, and full static/test/build evidence passes. |
+| Phase | Status | Scope | Completion gate |
+|---|---|---|---|
+| 1 | Done | Typed journey projection and responsive workspace shell | 378 Flutter tests and analyzer pass; wide/compact navigation and state projection are covered. |
+| 2 | Planned | Define twin and access timing | Identity is focused; deployment credentials move behind architecture selection. |
+| 3 | Planned | Describe workload | The 26 optimizer inputs are split into focused tasks without changing `CalcParams`. |
+| 4 | Planned | Choose architecture | Pricing health, calculation, comparison, invalidation, and selection form a coherent task flow. |
+| 5 | Planned | Prepare deployment | Step 3 sections become requirement-driven tasks for access, contracts, logic, and assets. |
+| 6 | Planned | Review and preflight | Summary, readiness findings, server validation, and Finish provide one authoritative completion path. |
+| 7 | Planned | Quality and migration gate | Legacy navigation is removed, docs are aligned, and full static/test/build evidence passes. |
 
 ## Cross-Phase Definition Of Done
 
@@ -63,4 +63,3 @@ spread into new widgets.
 | Deployment preparation | Requirement-matrix tests across provider paths and optional 3D assets. |
 | Completion | Tests proving client readiness cannot bypass server validation or preflight. |
 | Accessibility | Semantic labels, keyboard traversal, focus recovery, and no overflow at supported desktop widths. |
-
