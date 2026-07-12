@@ -986,6 +986,16 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
 
   Future<void> _onFinish(WizardFinish event, Emitter<WizardState> emit) async {
+    if (!state.isConfigurationReadyForFinish) {
+      emit(
+        state.copyWith(
+          status: WizardStatus.ready,
+          errorMessage:
+              'Resolve all configuration readiness findings before finishing',
+        ),
+      );
+      return;
+    }
     emit(state.copyWith(status: WizardStatus.saving));
 
     try {

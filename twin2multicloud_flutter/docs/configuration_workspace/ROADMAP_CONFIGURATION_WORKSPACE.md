@@ -19,7 +19,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 3 | Done | Describe workload | The 26 optimizer inputs are split into five focused tasks without changing `CalcParams`; aggregate hidden-field validation and 384 tests pass. |
 | 4 | Done | Choose architecture | Pricing health, compact calculation review, recommendation evidence, and invalidation form a focused task flow; 384 tests pass. |
 | 5 | Done | Prepare deployment | Existing validated editors are composed into focused access, contract, logic, and asset tasks; all 384 tests pass. |
-| 6 | Planned | Review and preflight | Summary, readiness findings, server validation, and Finish provide one authoritative completion path. |
+| 6 | Done | Review and preflight | Summary, actionable findings, centralized fail-closed readiness, and distributed server validation provide one completion path; 387 tests pass. |
 | 7 | Planned | Quality and migration gate | Legacy navigation is removed, docs are aligned, and full static/test/build evidence passes. |
 
 ## Cross-Phase Definition Of Done

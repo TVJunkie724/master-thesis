@@ -3,6 +3,7 @@ import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/features/configuration_workspace/domain/configuration_journey.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
+import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 
 void main() {
@@ -110,6 +111,42 @@ void main() {
         expect(journey.previousNavigableTaskId, ConfigurationTaskId.processing);
       },
     );
+
+    test('finish readiness includes access, artifacts and invalidation', () {
+      final ready = WizardState(
+        status: WizardStatus.ready,
+        twinName: 'Factory twin',
+        calcParams: CalcParams.defaultParams(),
+        calcResult: _result(const [
+          'L1_GCP',
+          'L2_GCP',
+          'L3_hot_GCP',
+          'L4_GCP',
+          'L5_GCP',
+        ]),
+        selectedCloudConnectionIds: const {CloudProvider.gcp: 'gcp-deploy'},
+        deployerDigitalTwinName: 'Factory twin',
+        configEventsJson: '[]',
+        configIotDevicesJson: '[]',
+        configJsonValidated: true,
+        configEventsValidated: true,
+        configIotDevicesValidated: true,
+        payloadsJson: '{}',
+        payloadsValidated: true,
+      );
+
+      expect(ready.isConfigurationReadyForFinish, isTrue);
+      expect(
+        ready.copyWith(step3Invalidated: true).isConfigurationReadyForFinish,
+        isFalse,
+      );
+      expect(
+        ready
+            .copyWith(selectedCloudConnectionIds: const {})
+            .isConfigurationReadyForFinish,
+        isFalse,
+      );
+    });
   });
 }
 

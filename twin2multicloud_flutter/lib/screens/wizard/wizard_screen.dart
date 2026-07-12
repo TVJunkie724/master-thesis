@@ -13,6 +13,7 @@ import '../../widgets/branded_app_bar.dart';
 import '../../widgets/selectable_scaffold.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
 import '../../features/configuration_workspace/presentation/cloud_access_task.dart';
+import '../../features/configuration_workspace/presentation/configuration_review_task.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_shell.dart';
 
 /// Wizard screen using BLoC pattern for state management
@@ -121,7 +122,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
                 child: ConfigurationWorkspaceShell(
                   journey: journey,
                   onTaskSelected: (taskId) => _selectTask(context, taskId),
-                  child: _buildTaskContent(journey.currentTaskId),
+                  child: _buildTaskContent(context, journey.currentTaskId),
                 ),
               ),
               _buildNavigationBar(context, state, journey),
@@ -461,15 +462,13 @@ class _WizardViewState extends ConsumerState<WizardView> {
                               Tooltip(
                                 message: !state.canModify
                                     ? 'Cannot modify a deployed twin'
-                                    : !(state.isSection2Valid &&
-                                          state.isSection3Valid)
+                                    : !state.isConfigurationReadyForFinish
                                     ? 'Complete and validate all required fields before finishing'
                                     : '',
                                 child: ElevatedButton.icon(
                                   onPressed:
                                       (state.canModify &&
-                                          state.isSection2Valid &&
-                                          state.isSection3Valid)
+                                          state.isConfigurationReadyForFinish)
                                       ? () => _handleFinishConfiguration(
                                           context,
                                           bloc,
@@ -548,23 +547,30 @@ class _WizardViewState extends ConsumerState<WizardView> {
     }
   }
 
-  Widget _buildTaskContent(ConfigurationTaskId taskId) => switch (taskId) {
-    ConfigurationTaskId.cloudAccess => const CloudAccessTask(),
-    ConfigurationTaskId.scenarioAndCurrency ||
-    ConfigurationTaskId.deviceTraffic ||
-    ConfigurationTaskId.processing ||
-    ConfigurationTaskId.retention ||
-    ConfigurationTaskId.twinCapabilities => Step2Optimizer(taskId: taskId),
-    ConfigurationTaskId.dataContracts ||
-    ConfigurationTaskId.userLogic ||
-    ConfigurationTaskId.twinAssets => Step3Deployer(taskId: taskId),
-    _ => switch (ConfigurationJourney.legacyStepFor(taskId)) {
-      0 => const Step1Configuration(),
-      1 => const Step2Optimizer(),
-      2 => const Step3Deployer(),
-      _ => const SizedBox.shrink(),
-    },
-  };
+  Widget _buildTaskContent(BuildContext context, ConfigurationTaskId taskId) =>
+      switch (taskId) {
+        ConfigurationTaskId.cloudAccess => const CloudAccessTask(),
+        ConfigurationTaskId.scenarioAndCurrency ||
+        ConfigurationTaskId.deviceTraffic ||
+        ConfigurationTaskId.processing ||
+        ConfigurationTaskId.retention ||
+        ConfigurationTaskId.twinCapabilities => Step2Optimizer(taskId: taskId),
+        ConfigurationTaskId.dataContracts ||
+        ConfigurationTaskId.userLogic ||
+        ConfigurationTaskId.twinAssets => Step3Deployer(taskId: taskId),
+        ConfigurationTaskId.summary ||
+        ConfigurationTaskId.readinessFindings ||
+        ConfigurationTaskId.validationAndPreflight => ConfigurationReviewTask(
+          taskId: taskId,
+          onOpenTask: (target) => _selectTask(context, target),
+        ),
+        _ => switch (ConfigurationJourney.legacyStepFor(taskId)) {
+          0 => const Step1Configuration(),
+          1 => const Step2Optimizer(),
+          2 => const Step3Deployer(),
+          _ => const SizedBox.shrink(),
+        },
+      };
 
   Future<void> _showExitConfirmation(
     BuildContext context,

@@ -139,6 +139,27 @@ void main() {
     );
 
     blocTest<WizardBloc, WizardState>(
+      'finish fails closed before API calls when readiness is incomplete',
+      build: () => WizardBloc(api: api),
+      seed: () => const WizardState(
+        mode: WizardMode.create,
+        twinName: 'Incomplete twin',
+      ),
+      act: (bloc) => bloc.add(const WizardFinish()),
+      expect: () => [
+        isA<WizardState>().having(
+          (state) => state.errorMessage,
+          'error',
+          contains('readiness findings'),
+        ),
+      ],
+      verify: (_) {
+        verifyNever(() => api.createTwin(any()));
+        verifyNever(() => api.updateTwin(any(), state: any(named: 'state')));
+      },
+    );
+
+    blocTest<WizardBloc, WizardState>(
       'saving cleared provider sends explicit provider null',
       build: () {
         when(

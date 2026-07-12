@@ -1,14 +1,14 @@
 import 'package:dio/dio.dart';
 
 /// Utility for extracting user-friendly error messages from API responses.
-/// 
+///
 /// This handles various error scenarios:
 /// - DioException with structured JSON error response (detail, message, error)
 /// - Connection timeouts and network errors
 /// - Generic exceptions
 class ApiErrorHandler {
   /// Extract a user-friendly error message from any exception.
-  /// 
+  ///
   /// Priority for DioException responses:
   /// 1. response.data['detail'] (FastAPI standard)
   /// 2. response.data['message'] (common alternative)
@@ -19,7 +19,7 @@ class ApiErrorHandler {
     if (error is DioException) {
       return _handleDioException(error);
     }
-    
+
     if (error is Exception) {
       final message = error.toString();
       // Remove "Exception: " prefix if present
@@ -28,7 +28,7 @@ class ApiErrorHandler {
       }
       return message;
     }
-    
+
     return 'An unexpected error occurred';
   }
 
@@ -37,7 +37,7 @@ class ApiErrorHandler {
     final response = error.response;
     if (response != null) {
       final data = response.data;
-      
+
       if (data is Map<String, dynamic>) {
         // FastAPI returns errors in 'detail' field
         if (data.containsKey('detail')) {
@@ -47,9 +47,26 @@ class ApiErrorHandler {
           } else if (detail is List && detail.isNotEmpty) {
             // Pydantic validation errors
             return detail.map((e) => e['msg'] ?? e.toString()).join(', ');
+          } else if (detail is Map) {
+            final message = detail['message']?.toString().trim();
+            final errors = detail['errors'];
+            final errorMessages = errors is List
+                ? errors
+                      .whereType<Map>()
+                      .map((item) => item['message']?.toString().trim())
+                      .whereType<String>()
+                      .where((item) => item.isNotEmpty)
+                      .toList(growable: false)
+                : const <String>[];
+            if (message?.isNotEmpty == true) {
+              return errorMessages.isEmpty
+                  ? message!
+                  : '$message: ${errorMessages.join('; ')}';
+            }
+            if (errorMessages.isNotEmpty) return errorMessages.join('; ');
           }
         }
-        
+
         // Alternative error fields
         if (data.containsKey('message')) {
           return data['message'].toString();
@@ -58,18 +75,19 @@ class ApiErrorHandler {
           return data['error'].toString();
         }
       }
-      
+
       // If response is a plain string
       if (data is String && data.isNotEmpty) {
         return data;
       }
-      
+
       // Fallback to status message
-      if (response.statusMessage != null && response.statusMessage!.isNotEmpty) {
+      if (response.statusMessage != null &&
+          response.statusMessage!.isNotEmpty) {
         return 'Server error: ${response.statusMessage}';
       }
     }
-    
+
     // Handle specific DioException types
     switch (error.type) {
       case DioExceptionType.connectionTimeout:

@@ -338,6 +338,13 @@ class WizardState extends Equatable {
   /// Is Section 3 validated? (all required L1-L5 fields complete)
   bool get isSection3Valid => deployerReadiness.deploymentArtifactsReady;
 
+  bool get isConfigurationReadyForFinish =>
+      twinName?.trim().isNotEmpty == true &&
+      calcResult != null &&
+      unconfiguredProviders.isEmpty &&
+      deployerReadiness.ready &&
+      !step3Invalidated;
+
   DeployerConfigData get deployerConfigData => DeployerConfigData(
     deployerDigitalTwinName: deployerDigitalTwinName,
     configEventsJson: configEventsJson,
