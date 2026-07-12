@@ -45,6 +45,19 @@ implicit schema rules.
 - Monolith reduction concept for splitting Step 3 into maintainable sections.
 - Compatibility behavior for uploaded project zips.
 
+## Implementation Subphases
+
+| Subphase | Scope | Status |
+|---|---|---|
+| 7A | Move all artifact validation into the Wizard BLoC and make editors controlled | planned |
+| 7B | Move flat deployer hydration DTOs into the model layer and define the typed field/requiredness projection | planned |
+| 7C | Split the monolithic screen into core config, user logic, assets, and architecture presentation components | planned |
+| 7D | Isolate ZIP/GLB import orchestration, add replacement confirmation, and run the final Step 3 integration gate | planned |
+
+Subphases are ordered. Visual restructuring must not begin before 7A removes
+widget-owned API orchestration, and import hardening must not be mixed into the
+editor/component split.
+
 ## Field Groups To Inventory
 
 | Group | Examples | Required decision |
