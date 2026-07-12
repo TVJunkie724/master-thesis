@@ -2,6 +2,7 @@
 // Unit tests for WizardInitService (stateless, no mocks required)
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:twin2multicloud_flutter/models/deployer_config.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/services/wizard_init_service.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard_state.dart';
 

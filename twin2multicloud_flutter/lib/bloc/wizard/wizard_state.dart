@@ -8,6 +8,7 @@ import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
+import '../../models/deployer_config.dart';
 import '../../models/pricing_health.dart';
 import '../../utils/twin_state_utils.dart';
 
@@ -328,77 +329,62 @@ class WizardState extends Equatable {
   }
 
   /// Is Section 2 validated? (gates save)
-  /// Includes hierarchy validation when L4 provider is AWS or Azure
-  /// Requires non-empty deployerDigitalTwinName
   bool get isSection2Valid {
-    // Core configs must always be validated
-    if (!configJsonValidated ||
-        !configEventsValidated ||
-        !configIotDevicesValidated) {
-      return false;
-    }
-
-    // deployerDigitalTwinName must be non-empty
-    if (deployerDigitalTwinName == null ||
-        deployerDigitalTwinName!.trim().isEmpty) {
-      return false;
-    }
-
-    // Hierarchy is required for AWS/Azure L4
-    final l4 = layer4Provider?.toUpperCase();
-    if (l4 == 'AWS' || l4 == 'AZURE') {
-      return hierarchyValidated;
-    }
-    return true;
+    final assets = deployerReadiness.section(
+      DeployerSectionId.digitalTwinAssets,
+    );
+    final hierarchy = assets.artifacts.firstWhere(
+      (artifact) => artifact.id == 'hierarchy',
+    );
+    return deployerReadiness.configurationReady && hierarchy.ready;
   }
 
   /// Is Section 3 validated? (all required L1-L5 fields complete)
-  bool get isSection3Valid {
-    // L1: Payloads always required
-    if (!payloadsValidated) return false;
+  bool get isSection3Valid => deployerReadiness.deploymentArtifactsReady;
 
-    // L2: All device processors must be validated
-    final devices = deviceIds;
-    if (devices.isNotEmpty) {
-      for (final deviceId in devices) {
-        if (processorValidated[deviceId] != true) return false;
-      }
-    }
+  DeployerConfigData get deployerConfigData => DeployerConfigData(
+    deployerDigitalTwinName: deployerDigitalTwinName,
+    configEventsJson: configEventsJson,
+    configIotDevicesJson: configIotDevicesJson,
+    configJsonValidated: configJsonValidated,
+    configEventsValidated: configEventsValidated,
+    configIotDevicesValidated: configIotDevicesValidated,
+    payloadsJson: payloadsJson,
+    payloadsValidated: payloadsValidated,
+    processorContents: processorContents,
+    processorValidated: processorValidated,
+    processorRequirements: processorRequirements,
+    eventFeedbackContent: eventFeedbackContent,
+    eventFeedbackValidated: eventFeedbackValidated,
+    eventFeedbackRequirements: eventFeedbackRequirements,
+    eventActionContents: eventActionContents,
+    eventActionValidated: eventActionValidated,
+    eventActionRequirements: eventActionRequirements,
+    stateMachineContent: stateMachineContent,
+    stateMachineValidated: stateMachineValidated,
+    hierarchyContent: hierarchyContent,
+    hierarchyValidated: hierarchyValidated,
+    sceneGlbUploaded: sceneGlbUploaded,
+    sceneConfigContent: sceneConfigContent,
+    sceneConfigValidated: sceneConfigValidated,
+    userConfigContent: userConfigContent,
+    userConfigValidated: userConfigValidated,
+  );
 
-    // L2: Event feedback (if enabled)
-    if (calcParams?.returnFeedbackToDevice == true) {
-      if (!eventFeedbackValidated) return false;
-    }
+  DeployerConfigRequirements get deployerRequirements =>
+      DeployerConfigRequirements.fromContext(
+        calcParams: calcParams,
+        layer4Provider: layer4Provider,
+        layer5Provider: layer5Provider,
+        deviceIds: deviceIds,
+        eventActionNames: eventActionFunctionNames,
+      );
 
-    // L2: Event actions (if enabled)
-    if (calcParams?.useEventChecking == true) {
-      final actionNames = eventActionFunctionNames;
-      for (final name in actionNames) {
-        if (eventActionValidated[name] != true) return false;
-      }
-    }
-
-    // L2: State machine (if enabled)
-    if (calcParams?.triggerNotificationWorkflow == true) {
-      if (!stateMachineValidated) return false;
-    }
-
-    // L4: Scene config (if needs3DModel && hierarchy validated && AWS/Azure)
-    final l4 = layer4Provider?.toUpperCase();
-    if (calcParams?.needs3DModel == true &&
-        hierarchyValidated &&
-        (l4 == 'AWS' || l4 == 'AZURE')) {
-      if (!sceneConfigValidated) return false;
-    }
-
-    // L5: User config (if AWS/Azure)
-    final l5 = layer5Provider?.toUpperCase();
-    if (l5 == 'AWS' || l5 == 'AZURE') {
-      if (!userConfigValidated) return false;
-    }
-
-    return true;
-  }
+  DeployerConfigReadiness get deployerReadiness =>
+      DeployerConfigReadiness.fromData(
+        data: deployerConfigData,
+        requirements: deployerRequirements,
+      );
 
   // ============================================================
   // L2 DERIVED GETTERS

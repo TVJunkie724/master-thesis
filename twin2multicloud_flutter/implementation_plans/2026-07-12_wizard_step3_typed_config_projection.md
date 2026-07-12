@@ -112,7 +112,9 @@ AWS/Azure-only artifacts.
 - Add pure getters `deployerConfigData`, `deployerRequirements`, and
   `deployerReadiness`.
 - Existing public `isSection2Valid` and `isSection3Valid` remain as temporary
-  compatibility aliases delegating to the projection; 7C removes section
+  compatibility aliases delegating to the projection. `isSection2Valid` also
+  includes hierarchy readiness because the current pre-7C screen renders that
+  editor in its first section; 7C removes this legacy grouping and section
   numbering from presentation.
 - Device/action parsing stays in state for this slice and is moved only if 7C
   proves a separate parser boundary is needed.
@@ -203,11 +205,20 @@ direct Optimizer/Deployer service calls are introduced.
 
 ## 12. Definition Of Done
 
-- [ ] Deployer config DTO lives in the model layer.
-- [ ] Hydration and update mapping have one typed implementation each.
-- [ ] Requiredness is centralized and provider/workload aware.
-- [ ] Section/overall readiness has one pure projection.
-- [ ] Missing required GLB blocks 3D configuration completion.
-- [ ] Duplicate dead helper logic is removed.
-- [ ] Full tests, analyzer, Web, and macOS builds pass.
-- [ ] Phase 7 roadmap and GitHub #38 are updated.
+- [x] Deployer config DTO lives in the model layer.
+- [x] Hydration and update mapping have one typed implementation each.
+- [x] Requiredness is centralized and provider/workload aware.
+- [x] Section/overall readiness has one pure projection.
+- [x] Missing required GLB blocks 3D configuration completion.
+- [x] Duplicate dead helper logic is removed.
+- [x] Analyzer, all 368 tests, Web, and macOS builds pass.
+- [x] Phase 7 roadmap and GitHub #38 are updated.
+
+## Completion Evidence
+
+- `flutter analyze`: zero issues.
+- `flutter test -r compact`: 368 passed.
+- Web and macOS release builds with `config/dev.json`: passed.
+- Full API hydration/update round-trip and malformed-map tests pass.
+- AWS/Azure/GCP, mixed-provider, dynamic-function, and missing-GLB readiness
+  variants are covered.

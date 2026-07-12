@@ -50,7 +50,7 @@ implicit schema rules.
 | Subphase | Scope | Status |
 |---|---|---|
 | 7A | Move all artifact validation into the Wizard BLoC and make editors controlled | done |
-| 7B | Move flat deployer hydration DTOs into the model layer and define the typed field/requiredness projection | in progress |
+| 7B | Move flat deployer hydration DTOs into the model layer and define the typed field/requiredness projection | done |
 | 7C | Split the monolithic screen into core config, user logic, assets, and architecture presentation components | planned |
 | 7D | Isolate ZIP/GLB import orchestration, add replacement confirmation, and run the final Step 3 integration gate | planned |
 
@@ -66,6 +66,19 @@ editor/component split.
   validation state.
 - Editors are controlled; no completed-event bypass remains.
 - Analyzer, 360 tests, and Web/macOS release builds pass.
+
+### 7B Evidence
+
+- `DeployerConfigData` owns typed hydration and update-request mapping.
+- `DeployerConfigRequirements` centralizes provider/workload conditions.
+- `DeployerConfigReadiness` is the single local projection for configuration,
+  payloads, user logic, and digital-twin assets.
+- Missing GLB now blocks AWS/Azure 3D completion in Flutter.
+- Analyzer, 368 tests, and Web/macOS release builds pass.
+
+The final 7D gate must verify that Management API configuration validation and
+deployment preflight enforce the same GLB/provider requiredness server-side;
+Flutter readiness is UX guidance, not the authoritative security boundary.
 
 ## Field Groups To Inventory
 
