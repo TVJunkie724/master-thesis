@@ -10,6 +10,7 @@ import '../../widgets/results/calculation_trace_summary.dart';
 import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
+import '../../widgets/pricing/pricing_readiness_summary.dart';
 
 /// Step 2: Optimizer - BLoC version
 ///
@@ -36,6 +37,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
     // If we have calcParams in BLoC state, skip loading
     final state = context.read<WizardBloc>().state;
+    context.read<WizardBloc>().add(const WizardPricingHealthLoadRequested());
     if (state.calcParams != null) {
       _loadingConfig = false;
     } else if (state.twinId != null) {
@@ -115,7 +117,14 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildPricingReviewNotice(context),
+                    PricingReadinessSummary(
+                      health: state.pricingHealth,
+                      isLoading: state.isPricingHealthLoading,
+                      error: state.pricingHealthError,
+                      onRetry: () => context.read<WizardBloc>().add(
+                        const WizardPricingHealthLoadRequested(),
+                      ),
+                    ),
                     const SizedBox(height: 32),
 
                     // Note: Step 3 invalidation warning now shown in header alert via warningMessage
@@ -136,46 +145,6 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildPricingReviewNotice(BuildContext context) {
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.price_check,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pricing review is managed from the dashboard',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Use Dashboard > Pricing Review to refresh provider pricing. '
-                    'This step focuses on workload inputs and calculation results for the current twin.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

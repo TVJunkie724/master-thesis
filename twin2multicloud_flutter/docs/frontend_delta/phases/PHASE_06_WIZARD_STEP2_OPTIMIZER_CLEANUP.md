@@ -17,6 +17,8 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 
 # Phase 6: Wizard Step 2 Optimizer Cleanup
 
+**Implementation status:** done (2026-07-12)
+
 ## Summary
 
 Refocus Wizard Step 2 on workload parameters, cost calculation, and result
@@ -83,11 +85,11 @@ Wizard Step 2
 
 ## Verification
 
-- Later implementation requires widget tests proving refresh controls and logs
-  are gone.
-- BLoC/unit tests cover calculation gating.
-- Regression tests cover fresh, stale, review-required, missing, and failed
-  pricing readiness states.
+- Widget tests prove refresh controls, logs, and direct Pricing Review
+  navigation are absent.
+- BLoC/unit tests cover loading, retry, stale/review-required calculation,
+  provider failure, missing providers, and unsupported contract versions.
+- `flutter analyze`, all 351 tests, and Web/macOS release builds pass.
 
 ## Roadmap Anchor
 

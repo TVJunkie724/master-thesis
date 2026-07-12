@@ -40,7 +40,7 @@ reviewed-decision approval. Wizard Step 2 becomes a calculation screen only.
 | 4 | `phase_04_dashboard_pricing_health_row.md` | done | Add Dashboard provider health stat cards |
 | 5 | `phase_05_reviewed_decisions_persistence.md` | planned | Persist reviewed pricing choices in Management API DB |
 | 6 | `phase_06_pricing_review_center_ui.md` | done | Add dedicated Pricing Review Center |
-| 7 | `phase_07_optimizer_step2_cleanup.md` | planned | Remove pricing maintenance from Wizard Step 2 |
+| 7 | `phase_07_optimizer_step2_cleanup.md` | done | Remove pricing maintenance from Wizard Step 2 |
 | 8 | `phase_08_tests_docs_thesis_evidence.md` | planned | Add final verification, docs, and thesis evidence |
 
 ## Cross-Phase Rules

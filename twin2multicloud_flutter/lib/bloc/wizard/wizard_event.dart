@@ -164,6 +164,10 @@ class WizardCloudConnectionDeleteRequested extends WizardEvent {
 // STEP 2: OPTIMIZER EVENTS
 // ============================================================
 
+class WizardPricingHealthLoadRequested extends WizardEvent {
+  const WizardPricingHealthLoadRequested();
+}
+
 /// Calculation parameters were changed
 class WizardCalcParamsChanged extends WizardEvent {
   final CalcParams params;

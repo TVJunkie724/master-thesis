@@ -1,6 +1,6 @@
 # Phase 7: Wizard Step 2 Optimizer Cleanup
 
-**Status:** planned
+**Status:** done
 **Primary owner:** Flutter Wizard
 **Depends on:** Phase 4 and Phase 6
 
@@ -57,8 +57,10 @@ Step2Optimizer [MODIFY]
 
 ## Definition Of Done
 
-- [ ] Step 2 has no pricing refresh controls.
-- [ ] Step 2 has compact readiness summary only.
-- [ ] Step 2 does not navigate to Pricing Review.
-- [ ] Calculation gating follows backend readiness.
-- [ ] Tests updated and old refresh expectations removed.
+- [x] Step 2 has no pricing refresh controls.
+- [x] Step 2 has compact readiness summary only.
+- [x] Step 2 does not navigate to Pricing Review.
+- [x] Calculation gating follows backend readiness and fails closed for an
+  incomplete or unsupported contract.
+- [x] BLoC, state, widget, analyzer, full-suite, Web, and macOS verification
+  passes.

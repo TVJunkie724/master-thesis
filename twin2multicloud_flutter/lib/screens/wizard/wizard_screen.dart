@@ -313,16 +313,9 @@ class _WizardViewState extends ConsumerState<WizardView> {
                     // Center: Calculate button (only on Step 2)
                     if (state.currentStep == 1)
                       Tooltip(
-                        message: !state.isCalcFormValid
-                            ? 'Fix form errors before calculating'
-                            : state.calcParams == null
-                            ? 'Configure parameters first'
-                            : '',
+                        message: _calculationDisabledReason(state),
                         child: ElevatedButton.icon(
-                          onPressed:
-                              (state.calcParams != null &&
-                                  state.isCalcFormValid &&
-                                  !state.isCalculating)
+                          onPressed: state.canRequestCalculation
                               ? () => bloc.add(const WizardCalculateRequested())
                               : null,
                           icon: state.isCalculating
@@ -460,6 +453,24 @@ class _WizardViewState extends ConsumerState<WizardView> {
         ),
       ],
     );
+  }
+
+  String _calculationDisabledReason(WizardState state) {
+    if (state.isPricingHealthLoading) return 'Checking pricing readiness';
+    if (state.pricingHealthError != null) {
+      return 'Retry pricing readiness before calculating';
+    }
+    if (!state.pricingCanCalculate) {
+      final providers = state.pricingBlockingProviders
+          .map((provider) => provider.toUpperCase())
+          .join(', ');
+      return providers.isEmpty
+          ? 'Pricing readiness is unavailable'
+          : 'Pricing unavailable for $providers';
+    }
+    if (!state.isCalcFormValid) return 'Fix form errors before calculating';
+    if (state.calcParams == null) return 'Configure parameters first';
+    return '';
   }
 
   bool _canProceedToNextStep(WizardState state) {

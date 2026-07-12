@@ -7,6 +7,7 @@ import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
+import '../../models/pricing_health.dart';
 import '../../utils/twin_state_utils.dart';
 
 // ============================================================
@@ -72,6 +73,7 @@ class ProviderCredentials extends Equatable {
 
 /// Immutable state for the wizard BLoC
 class WizardState extends Equatable {
+  static const requiredPricingProviders = {'aws', 'azure', 'gcp'};
   // === Mode & Navigation ===
   final WizardMode mode;
   final int currentStep; // 0, 1, 2
@@ -110,6 +112,9 @@ class WizardState extends Equatable {
   savedCalcResultRaw; // Last saved raw result (for revert)
   final Map<String, dynamic>? pricingSnapshots;
   final Map<String, String?>? pricingTimestamps;
+  final PricingHealthResponse? pricingHealth;
+  final bool isPricingHealthLoading;
+  final String? pricingHealthError;
 
   // === Persistent Data: Step 3 Section 2 ===
   final String?
@@ -198,6 +203,9 @@ class WizardState extends Equatable {
     this.savedCalcResultRaw,
     this.pricingSnapshots,
     this.pricingTimestamps,
+    this.pricingHealth,
+    this.isPricingHealthLoading = false,
+    this.pricingHealthError,
     this.deployerDigitalTwinName,
     this.configEventsJson,
     this.configIotDevicesJson,
@@ -256,6 +264,31 @@ class WizardState extends Equatable {
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 => calcResult != null;
+
+  bool get pricingCanCalculate {
+    if (isPricingHealthLoading || pricingHealthError != null) return false;
+    final health = pricingHealth;
+    if (health?.schemaVersion != PricingHealthResponse.supportedSchemaVersion) {
+      return false;
+    }
+    final providers = health?.providers;
+    if (providers == null) return false;
+    return requiredPricingProviders.every(
+      (provider) => providers[provider]?.canCalculate == true,
+    );
+  }
+
+  List<String> get pricingBlockingProviders => requiredPricingProviders
+      .where(
+        (provider) => pricingHealth?.providers[provider]?.canCalculate != true,
+      )
+      .toList(growable: false);
+
+  bool get canRequestCalculation =>
+      calcParams != null &&
+      isCalcFormValid &&
+      !isCalculating &&
+      pricingCanCalculate;
 
   /// Set of configured provider names (uppercase)
   Set<String> get configuredProviders => {
@@ -508,6 +541,10 @@ class WizardState extends Equatable {
     Map<String, dynamic>? savedCalcResultRaw,
     Map<String, dynamic>? pricingSnapshots,
     Map<String, String?>? pricingTimestamps,
+    PricingHealthResponse? pricingHealth,
+    bool? isPricingHealthLoading,
+    String? pricingHealthError,
+    bool clearPricingHealthError = false,
     String? deployerDigitalTwinName,
     String? configEventsJson,
     String? configIotDevicesJson,
@@ -597,6 +634,12 @@ class WizardState extends Equatable {
       savedCalcResultRaw: savedCalcResultRaw ?? this.savedCalcResultRaw,
       pricingSnapshots: pricingSnapshots ?? this.pricingSnapshots,
       pricingTimestamps: pricingTimestamps ?? this.pricingTimestamps,
+      pricingHealth: pricingHealth ?? this.pricingHealth,
+      isPricingHealthLoading:
+          isPricingHealthLoading ?? this.isPricingHealthLoading,
+      pricingHealthError: clearPricingHealthError
+          ? null
+          : (pricingHealthError ?? this.pricingHealthError),
       deployerDigitalTwinName:
           deployerDigitalTwinName ?? this.deployerDigitalTwinName,
       configEventsJson: configEventsJson ?? this.configEventsJson,
@@ -693,6 +736,9 @@ class WizardState extends Equatable {
     savedCalcResultRaw,
     pricingSnapshots,
     pricingTimestamps,
+    pricingHealth,
+    isPricingHealthLoading,
+    pricingHealthError,
     deployerDigitalTwinName, // FIXED: was missing
     configEventsJson,
     configIotDevicesJson,

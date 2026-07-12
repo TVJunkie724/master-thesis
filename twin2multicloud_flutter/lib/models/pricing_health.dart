@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 
 class PricingHealthResponse extends Equatable {
+  static const supportedSchemaVersion = 'pricing-health.v1';
+
   final String schemaVersion;
   final Map<String, ProviderPricingHealth> providers;
 

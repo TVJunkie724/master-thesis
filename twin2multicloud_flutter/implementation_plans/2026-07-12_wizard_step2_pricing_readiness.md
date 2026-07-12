@@ -84,6 +84,7 @@ communicated by text plus icon, never color alone.
 - `lib/bloc/wizard/wizard_event.dart`
 - `lib/bloc/wizard/wizard_state.dart`
 - `lib/bloc/wizard/wizard_bloc.dart`
+- `lib/models/pricing_health.dart`
 - `lib/screens/wizard/step2_optimizer.dart`
 - `lib/screens/wizard/wizard_screen.dart`
 - `lib/widgets/pricing/pricing_readiness_summary.dart` (new)
@@ -105,11 +106,20 @@ No live provider fetch, pricing mutation, or deployment E2E is run.
 
 ## Definition Of Done
 
-- [ ] Static notice is replaced by typed compact readiness.
-- [ ] All three providers are required and backend `can_calculate` is honored.
-- [ ] Widget and BLoC both enforce the calculation gate.
-- [ ] Stale/last-known-good remains calculable when backend permits it.
-- [ ] Load errors are retryable and fail closed.
-- [ ] Step 2 has no pricing maintenance or Pricing Review navigation.
-- [ ] Tests and desktop/web builds pass.
-- [ ] Roadmaps and Issue #38 are updated.
+- [x] Static notice is replaced by typed compact readiness.
+- [x] All three providers are required and backend `can_calculate` is honored.
+- [x] Widget and BLoC both enforce the calculation gate.
+- [x] Stale/last-known-good remains calculable when backend permits it.
+- [x] Load errors and unsupported/incomplete contracts are retryable and fail closed.
+- [x] Step 2 has no pricing maintenance or Pricing Review navigation.
+- [x] Analyzer, 351 tests, and macOS/Web release builds pass.
+- [x] Roadmaps and Issue #38 are updated.
+
+## Completion Evidence
+
+- `flutter analyze`: zero issues.
+- `flutter test -r compact`: 351 tests passed.
+- `flutter build web --dart-define-from-file=config/dev.json`: passed.
+- `flutter build macos --dart-define-from-file=config/dev.json`: passed.
+- Review findings fixed: unsupported schema versions fail closed; blocked
+  providers expose the typed backend reason without adding maintenance UI.
