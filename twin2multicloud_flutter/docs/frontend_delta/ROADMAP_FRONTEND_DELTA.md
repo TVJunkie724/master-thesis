@@ -2,8 +2,8 @@
 title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
-lastUpdated: "2026-07-11"
-version: "1.2"
+lastUpdated: "2026-07-12"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -69,10 +69,12 @@ Flutter App
 |   |-- collapsed intent-to-result trace details
 |   `-- reviewed decision submission
 |
-|-- Wizard
-|   |-- Step 1: twin name + deployment credential binding
-|   |-- Step 2: calculation inputs + pricing readiness only
-|   `-- Step 3: deployer configuration from typed DB-backed schema
+|-- Configuration Workspace
+|   |-- Define twin
+|   |-- Describe workload
+|   |-- Choose architecture
+|   |-- Prepare deployment
+|   `-- Review configuration and preflight
 |
 `-- Twin Overview
     |-- deploy/destroy/preflight state
@@ -89,7 +91,7 @@ Flutter App
   never rendered or accepted by Flutter outside explicit user upload forms.
 - Pricing refresh must identify the account/project/subscription used before a
   provider fetch starts.
-- Wizard Step 2 does not own pricing refresh.
+- The configuration workspace does not own pricing refresh.
 - Reviewed pricing decisions are persisted through the Management API database.
 - BLoC owns feature state and side effects; widgets render state.
 - Each implementation phase must receive an architect implementation plan before
@@ -103,9 +105,9 @@ Flutter App
 | 2 | Planned | [PHASE_02_PROFILE_CLOUD_ACCESS.md](phases/PHASE_02_PROFILE_CLOUD_ACCESS.md) | Settings/Profile | `GET /cloud-access` or approved backend plan |
 | 3 | Done | [PHASE_03_DASHBOARD_PRICING_HEALTH.md](phases/PHASE_03_DASHBOARD_PRICING_HEALTH.md) | Dashboard | `GET /optimizer/pricing-health` |
 | 4 | Done | [PHASE_04_PRICING_REVIEW_CENTER.md](phases/PHASE_04_PRICING_REVIEW_CENTER.md) | Pricing Review | Pricing refresh/review contracts |
-| 5 | Planned | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Wizard Step 1 | Purpose-aware CloudConnections |
+| 5 | Superseded | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Legacy Wizard Step 1 | Replaced by the configuration-workspace roadmap |
 | 6 | Done | [PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md](phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md) | Wizard Step 2 | Pricing readiness contract |
-| 7 | Planned | [PHASE_07_WIZARD_STEP3_CONFIG_SCHEMA.md](phases/PHASE_07_WIZARD_STEP3_CONFIG_SCHEMA.md) | Wizard Step 3 | Typed deployer config schema |
+| 7 | In progress | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
 | 8 | Planned | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) | Twin Overview | Preflight/log/output contracts and simulator/test contracts or approved backend plans |
 | 9 | Planned | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All prior contracts |
 
@@ -119,10 +121,11 @@ The order is intentional:
 2. Give users a profile-level place to understand provider access.
 3. Add Dashboard pricing readiness after the access inventory exists.
 4. Add Pricing Review Center after dashboard entry point and review persistence.
-5. Clean Wizard Step 1 so it no longer mixes pricing and deployment access.
-6. Remove pricing maintenance from Wizard Step 2 after replacement surfaces
-   exist.
-7. Refactor Step 3 once Step 2 produces a stable typed calculation result.
+5. Replace the technical three-step wizard with the dependency-aware
+   [Configuration Workspace](../configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md).
+6. Keep pricing maintenance in its dedicated replacement surfaces.
+7. Preserve the typed optimizer and deployment contracts while reorganizing
+   their inputs around user tasks.
 8. Harden Twin Overview deployment operations after credential/preflight state
    is visible.
 9. Run cross-cutting quality and thesis-evidence gates.
