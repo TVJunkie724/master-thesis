@@ -79,12 +79,15 @@ class ApiService {
     String id, {
     String? displayName,
     Map<String, dynamic>? cloudScope,
+    bool? isDefaultForPricing,
   }) async {
     final response = await _dio.patch(
       '/cloud-connections/$id',
       data: {
         if (displayName != null) 'display_name': displayName,
         if (cloudScope != null) 'cloud_scope': cloudScope,
+        if (isDefaultForPricing != null)
+          'is_default_for_pricing': isDefaultForPricing,
       },
     );
     return CloudConnection.fromJson(response.data as Map<String, dynamic>);

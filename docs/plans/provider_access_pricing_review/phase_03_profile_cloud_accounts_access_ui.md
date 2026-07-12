@@ -1,6 +1,6 @@
 # Phase 3: Profile Cloud Accounts & Access UI
 
-**Status:** planned
+**Status:** done
 **Primary owner:** Flutter + Management API
 **Depends on:** Phase 1
 
@@ -102,9 +102,12 @@ backend behavior before Flutter exposes a rotation action.
 
 ## Definition Of Done
 
-- [ ] Profile shows Cloud Accounts & Access.
-- [ ] Provider identity metadata is visible.
-- [ ] No secret values or file paths are rendered.
-- [ ] Validate/delete/blocked states are implemented.
-- [ ] Flutter calls only Management API.
-- [ ] Unit/widget/integration tests cover the workflow.
+- [x] Profile shows Cloud Accounts & Access.
+- [x] Provider identity metadata is visible.
+- [x] No secret values or file paths are rendered.
+- [x] Validate/delete/blocked states are implemented.
+- [x] Flutter calls only Management API.
+- [x] Unit, widget, screen, and local read-only integration checks cover the workflow.
+
+Implementation and verification detail is recorded in
+`twin2multicloud_flutter/implementation_plans/2026-07-12_profile_cloud_accounts_access.md`.

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dashboard_stats.dart';
-import '../models/cloud_connection.dart';
 import '../models/pricing_health.dart';
 import '../models/twin.dart';
 import '../services/api_service.dart';
@@ -34,11 +33,4 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
 
 final pricingHealthProvider = FutureProvider<PricingHealthResponse>((ref) {
   return ref.read(apiServiceProvider).getPricingHealth();
-});
-
-final cloudConnectionsProvider = FutureProvider<List<CloudConnection>>((
-  ref,
-) async {
-  final api = ref.read(apiServiceProvider);
-  return api.listCloudConnections();
 });

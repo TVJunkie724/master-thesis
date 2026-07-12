@@ -24,6 +24,17 @@ void main() {
               'bound_twin_labels': ['Factory', 'Office'],
               'actions': ['validate', 'delete'],
             },
+            'pricing_options': [
+              {
+                'connection_id': 'connection-2',
+                'provider': 'aws',
+                'purpose': 'pricing',
+                'scope': 'user',
+                'identity_label': 'AWS Pricing Alternative',
+                'status': 'needs_validation',
+                'is_default_for_pricing': false,
+              },
+            ],
             'deployment': [],
           },
         },
@@ -36,6 +47,10 @@ void main() {
       expect(pricing.canRefreshPricing, isTrue);
       expect(pricing.boundTwinCount, 2);
       expect(pricing.boundTwinLabels, ['Factory', 'Office']);
+      expect(
+        inventory.providers['aws']!.pricingOptions.single.connectionId,
+        'connection-2',
+      );
     });
 
     test('handles missing and public access defensively', () {

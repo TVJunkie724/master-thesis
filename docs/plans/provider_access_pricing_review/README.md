@@ -36,7 +36,7 @@ reviewed-decision approval. Wizard Step 2 becomes a calculation screen only.
 |---|---|---|---|
 | 1 | `phase_01_credential_purpose_model.md` | done | Add explicit credential purpose/scope model |
 | 2 | `phase_02_bootstrap_output_split.md` | planned | Bootstrap separate pricing and deployment identities |
-| 3 | `phase_03_profile_cloud_accounts_access_ui.md` | planned | Show/manage profile-level cloud access |
+| 3 | `phase_03_profile_cloud_accounts_access_ui.md` | done | Show/manage profile-level cloud access |
 | 4 | `phase_04_dashboard_pricing_health_row.md` | done | Add Dashboard provider health stat cards |
 | 5 | `phase_05_reviewed_decisions_persistence.md` | planned | Persist reviewed pricing choices in Management API DB |
 | 6 | `phase_06_pricing_review_center_ui.md` | done | Add dedicated Pricing Review Center |

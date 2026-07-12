@@ -31,11 +31,13 @@ class CloudAccessInventory extends Equatable {
 class CloudAccessProviderInventory extends Equatable {
   final String provider;
   final CloudAccessEntry pricing;
+  final List<CloudAccessEntry> pricingOptions;
   final List<CloudAccessEntry> deployment;
 
   const CloudAccessProviderInventory({
     required this.provider,
     required this.pricing,
+    this.pricingOptions = const [],
     this.deployment = const [],
   });
 
@@ -43,6 +45,9 @@ class CloudAccessProviderInventory extends Equatable {
     return CloudAccessProviderInventory(
       provider: json['provider']?.toString() ?? '',
       pricing: CloudAccessEntry.fromJson(_map(json['pricing'])),
+      pricingOptions: _list(
+        json['pricing_options'],
+      ).map((item) => CloudAccessEntry.fromJson(_map(item))).toList(),
       deployment: _list(
         json['deployment'],
       ).map((item) => CloudAccessEntry.fromJson(_map(item))).toList(),
@@ -50,7 +55,7 @@ class CloudAccessProviderInventory extends Equatable {
   }
 
   @override
-  List<Object?> get props => [provider, pricing, deployment];
+  List<Object?> get props => [provider, pricing, pricingOptions, deployment];
 }
 
 class CloudAccessEntry extends Equatable {

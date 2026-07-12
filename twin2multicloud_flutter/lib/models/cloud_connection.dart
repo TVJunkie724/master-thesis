@@ -23,9 +23,36 @@ enum CloudProvider {
   }
 }
 
+enum CloudConnectionPurpose {
+  pricing,
+  deployment;
+
+  String get apiValue => name;
+
+  String get label => switch (this) {
+    CloudConnectionPurpose.pricing => 'Pricing access',
+    CloudConnectionPurpose.deployment => 'Deployment access',
+  };
+
+  static CloudConnectionPurpose fromApiValue(String value) {
+    return switch (value.toLowerCase()) {
+      'pricing' => CloudConnectionPurpose.pricing,
+      'deployment' => CloudConnectionPurpose.deployment,
+      _ => throw ArgumentError.value(
+        value,
+        'value',
+        'Unknown Cloud Connection purpose',
+      ),
+    };
+  }
+}
+
 class CloudConnection extends Equatable {
   final String id;
   final CloudProvider provider;
+  final CloudConnectionPurpose purpose;
+  final String scope;
+  final bool isDefaultForPricing;
   final String displayName;
   final String authType;
   final Map<String, dynamic> cloudScope;
@@ -34,12 +61,16 @@ class CloudConnection extends Equatable {
   final String validationStatus;
   final String? validationMessage;
   final DateTime? lastValidatedAt;
+  final DateTime? lastUsedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   const CloudConnection({
     required this.id,
     required this.provider,
+    this.purpose = CloudConnectionPurpose.deployment,
+    this.scope = 'user',
+    this.isDefaultForPricing = false,
     required this.displayName,
     required this.authType,
     required this.cloudScope,
@@ -48,6 +79,7 @@ class CloudConnection extends Equatable {
     required this.validationStatus,
     this.validationMessage,
     this.lastValidatedAt,
+    this.lastUsedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -56,6 +88,11 @@ class CloudConnection extends Equatable {
     return CloudConnection(
       id: json['id'].toString(),
       provider: CloudProvider.fromApiValue(json['provider'].toString()),
+      purpose: CloudConnectionPurpose.fromApiValue(
+        json['purpose']?.toString() ?? 'deployment',
+      ),
+      scope: json['scope']?.toString() ?? 'user',
+      isDefaultForPricing: json['is_default_for_pricing'] == true,
       displayName: json['display_name']?.toString() ?? '',
       authType: json['auth_type']?.toString() ?? '',
       cloudScope: _mapFromJson(json['cloud_scope']),
@@ -64,6 +101,7 @@ class CloudConnection extends Equatable {
       validationStatus: json['validation_status']?.toString() ?? 'untested',
       validationMessage: json['validation_message']?.toString(),
       lastValidatedAt: _dateTimeOrNull(json['last_validated_at']),
+      lastUsedAt: _dateTimeOrNull(json['last_used_at']),
       createdAt:
           _dateTimeOrNull(json['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
@@ -79,6 +117,9 @@ class CloudConnection extends Equatable {
   List<Object?> get props => [
     id,
     provider,
+    purpose,
+    scope,
+    isDefaultForPricing,
     displayName,
     authType,
     cloudScope,
@@ -87,6 +128,7 @@ class CloudConnection extends Equatable {
     validationStatus,
     validationMessage,
     lastValidatedAt,
+    lastUsedAt,
     createdAt,
     updatedAt,
   ];
@@ -94,17 +136,21 @@ class CloudConnection extends Equatable {
 
 class CloudConnectionCreateRequest extends Equatable {
   final CloudProvider provider;
+  final CloudConnectionPurpose purpose;
   final String displayName;
   final String? authType;
   final Map<String, dynamic> cloudScope;
   final Map<String, dynamic> credentials;
+  final bool isDefaultForPricing;
 
   const CloudConnectionCreateRequest({
     required this.provider,
+    this.purpose = CloudConnectionPurpose.deployment,
     required this.displayName,
     this.authType,
     this.cloudScope = const {},
     required this.credentials,
+    this.isDefaultForPricing = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -118,6 +164,9 @@ class CloudConnectionCreateRequest extends Equatable {
 
     return {
       'provider': provider.apiValue,
+      'purpose': purpose.apiValue,
+      'scope': 'user',
+      if (isDefaultForPricing) 'is_default_for_pricing': true,
       'display_name': displayName,
       if (authType != null) 'auth_type': authType,
       'cloud_scope': cloudScope,
@@ -128,10 +177,12 @@ class CloudConnectionCreateRequest extends Equatable {
   @override
   List<Object?> get props => [
     provider,
+    purpose,
     displayName,
     authType,
     cloudScope,
     credentials,
+    isDefaultForPricing,
   ];
 }
 

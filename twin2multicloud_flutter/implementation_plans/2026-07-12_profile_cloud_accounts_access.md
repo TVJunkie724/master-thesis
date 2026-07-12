@@ -172,12 +172,16 @@ credentials, fetch provider prices, or deploy resources.
 
 ## 8. Definition Of Done
 
-- [ ] Settings consumes the purpose-aware inventory SSOT.
-- [ ] Three compact provider stat cards remain lean at all breakpoints.
-- [ ] Pricing/public/default and deployment/binding states are truthful.
-- [ ] Create, validate, default selection, and delete use Management API only.
-- [ ] No secret-adjacent technical metadata is rendered.
-- [ ] BLoC owns async state, duplicate guards, and uniform error feedback.
-- [ ] Model, BLoC, widget, and screen tests cover happy/unhappy/edge states.
-- [ ] Analyzer, full tests, and web/macOS builds pass.
-- [ ] Provider Access roadmap Phase 3 and Issue #6 are updated.
+- [x] Settings consumes the purpose-aware inventory SSOT.
+- [x] Three compact provider stat cards remain lean at all breakpoints.
+- [x] Pricing/public/default and deployment/binding states are truthful.
+- [x] Create, validate, default selection, and delete use Management API only.
+- [x] No secret-adjacent technical metadata is rendered.
+- [x] BLoC owns async state, duplicate guards, and uniform error feedback.
+- [x] Model, BLoC, widget, and screen tests cover happy/unhappy/edge states.
+- [x] Analyzer, 337 tests, and web/macOS builds pass.
+- [x] Read-only local `/cloud-access` integration smoke passes.
+- [x] Provider Access roadmap Phase 3 and Issue #6 are updated.
+
+The macOS gate uses Flutter's CocoaPods path because the current `file_saver`
+plugin does not yet support Flutter's experimental Swift Package Manager mode.
