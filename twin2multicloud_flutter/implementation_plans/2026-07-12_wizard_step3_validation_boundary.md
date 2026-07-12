@@ -80,6 +80,11 @@ FileEditorBlock [MODIFY]
 |-- Validate command [MODIFY: event callback only]
 `-- ArtifactValidationFeedbackView [NEW shared widget]
 
+ConfigJsonVisualizationBlock [MODIFY]
+|-- generated config preview [REUSE]
+|-- Validate command [MODIFY: event callback only]
+`-- ArtifactValidationFeedbackView [REUSE]
+
 FunctionPackageBlock [MODIFY]
 |-- FileEditorBlock [REUSE]
 |-- requirements.txt editor [REUSE]
@@ -201,6 +206,14 @@ Replace the async service-shaped callback with controlled parameters:
 - Feedback is rendered directly from constructor values; no
   `didUpdateWidget` synchronization or mirrored local validity is permitted.
 
+### `ConfigJsonVisualizationBlock`
+
+- The generated core-config editor uses the same controlled
+  `ValueChanged<Map<String, dynamic>>`, busy, and feedback contract.
+- Remove `onValidationSuccess` and all mirrored local API-validation state.
+- Local text editing remains widget-owned; canonical validity remains in the
+  Wizard BLoC.
+
 ### `FunctionPackageBlock`
 
 - Replace `Future<Map<String, dynamic>> Function(String)? onValidate` with
@@ -269,6 +282,8 @@ service interaction in `Step3Deployer` until subphase 7D.
 - Busy state uses the existing bounded progress indicator.
 - Success and invalid results show icon plus text; color is supplementary.
 - Content change immediately clears persisted validity and stale feedback.
+- Content change also cancels the UI busy marker; a later response for that
+  superseded request is ignored and cannot validate newer content.
 - Upload cancellation changes nothing.
 - File read failure remains local file-I/O feedback and never enters BLoC.
 - No automatic retry. The user may validate again explicitly.
@@ -349,13 +364,23 @@ Edge cases:
 
 ## 12. Definition Of Done
 
-- [ ] Every Step 3 validation is represented by a typed request.
-- [ ] Wizard BLoC is the single owner of validation progress and feedback.
-- [ ] Step 3 widgets perform no validation service or validation API calls.
-- [ ] File editors own presentation/file-picker state only.
-- [ ] Existing config/L2/L4/L5 validation mappings remain functional.
-- [ ] Duplicate and error paths clear busy state deterministically.
-- [ ] Touched UI uses theme/spacing tokens and remains overflow-safe.
-- [ ] Unit, BLoC, widget, regression, analyzer, Web, and macOS gates pass.
-- [ ] Phase 7 roadmap records subphase 7A completion evidence.
-- [ ] GitHub #38 is updated; it remains open for 7B-7D.
+- [x] Every Step 3 validation is represented by a typed request.
+- [x] Wizard BLoC is the single owner of validation progress and feedback.
+- [x] Step 3 widgets perform no validation service or validation API calls.
+- [x] File editors own presentation/file-picker state only.
+- [x] Existing config/L2/L4/L5 validation mappings remain functional.
+- [x] Duplicate, stale-response, invalid-request, and error paths clear busy
+  state deterministically.
+- [x] Touched feedback UI uses theme/spacing tokens and remains overflow-safe.
+- [x] Unit, BLoC, widget, regression, analyzer, Web, and macOS gates pass.
+- [x] Phase 7 roadmap records subphase 7A completion evidence.
+- [x] GitHub #38 is updated; it remains open for 7B-7D.
+
+## Completion Evidence
+
+- `flutter analyze`: zero issues.
+- Full Flutter suite: 360 tests passed.
+- Web and macOS release builds with `config/dev.json`: passed.
+- Old `...ValidationCompleted` bypass events and handlers removed.
+- In-flight validation results are ignored after the corresponding content
+  changes.

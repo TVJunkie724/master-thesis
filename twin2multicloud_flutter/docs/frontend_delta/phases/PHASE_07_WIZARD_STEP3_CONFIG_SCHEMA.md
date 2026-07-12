@@ -49,7 +49,7 @@ implicit schema rules.
 
 | Subphase | Scope | Status |
 |---|---|---|
-| 7A | Move all artifact validation into the Wizard BLoC and make editors controlled | planned |
+| 7A | Move all artifact validation into the Wizard BLoC and make editors controlled | done |
 | 7B | Move flat deployer hydration DTOs into the model layer and define the typed field/requiredness projection | planned |
 | 7C | Split the monolithic screen into core config, user logic, assets, and architecture presentation components | planned |
 | 7D | Isolate ZIP/GLB import orchestration, add replacement confirmation, and run the final Step 3 integration gate | planned |
@@ -57,6 +57,15 @@ implicit schema rules.
 Subphases are ordered. Visual restructuring must not begin before 7A removes
 widget-owned API orchestration, and import hardening must not be mixed into the
 editor/component split.
+
+### 7A Evidence
+
+- Typed artifact, endpoint, provider, and entity mapping is centralized in
+  `DeployerArtifactType`.
+- Wizard BLoC owns busy, feedback, stale-response rejection, and persisted
+  validation state.
+- Editors are controlled; no completed-event bypass remains.
+- Analyzer, 360 tests, and Web/macOS release builds pass.
 
 ## Field Groups To Inventory
 

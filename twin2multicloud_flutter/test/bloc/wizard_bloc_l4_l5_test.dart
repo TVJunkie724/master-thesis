@@ -1,8 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
+import 'package:twin2multicloud_flutter/models/deployer_artifact_validation.dart';
 
 /// Unit tests for L4/L5 WizardBloc events and WizardState properties.
-/// 
+///
 /// These tests verify that L4/L5 events are correctly processed and that
 /// the state properly reflects changes for hierarchy, scene config, GLB,
 /// and user config functionality.
@@ -10,7 +11,7 @@ void main() {
   // ============================================================
   // WizardState L4/L5 Fields Tests
   // ============================================================
-  
+
   group('WizardState L4/L5 Fields', () {
     test('initial state has null L4/L5 fields', () {
       const state = WizardState();
@@ -29,7 +30,7 @@ void main() {
         hierarchyContent: '{"entities": []}',
         hierarchyValidated: true,
       );
-      
+
       expect(updated.hierarchyContent, '{"entities": []}');
       expect(updated.hierarchyValidated, isTrue);
     });
@@ -41,7 +42,7 @@ void main() {
         sceneConfigValidated: true,
         sceneGlbUploaded: true,
       );
-      
+
       expect(updated.sceneConfigContent, '{"specVersion": "1.0"}');
       expect(updated.sceneConfigValidated, isTrue);
       expect(updated.sceneGlbUploaded, isTrue);
@@ -53,7 +54,7 @@ void main() {
         userConfigContent: '{"admin_email": "test@example.com"}',
         userConfigValidated: true,
       );
-      
+
       expect(updated.userConfigContent, '{"admin_email": "test@example.com"}');
       expect(updated.userConfigValidated, isTrue);
     });
@@ -65,7 +66,7 @@ void main() {
         currentStep: 3,
       );
       final updated = state.copyWith(hierarchyContent: 'new content');
-      
+
       expect(updated.twinName, 'My Twin');
       expect(updated.debugMode, isTrue);
       expect(updated.currentStep, 3);
@@ -97,7 +98,7 @@ void main() {
   // ============================================================
   // L4/L5 Event Class Tests
   // ============================================================
-  
+
   group('L4 Hierarchy Events', () {
     test('WizardHierarchyContentChanged has correct props', () {
       const event = WizardHierarchyContentChanged('{"entities": []}');
@@ -105,10 +106,14 @@ void main() {
       expect(event.props, ['{"entities": []}']);
     });
 
-    test('WizardHierarchyValidationCompleted has correct props', () {
-      const event = WizardHierarchyValidationCompleted(true);
-      expect(event.valid, isTrue);
-      expect(event.props, [true]);
+    test('hierarchy validation request has correct props', () {
+      const request = DeployerArtifactValidationRequest(
+        type: DeployerArtifactType.hierarchy,
+        content: '{"entities": []}',
+        provider: 'AWS',
+      );
+      const event = WizardArtifactValidationRequested(request);
+      expect(event.props, [request]);
     });
   });
 
@@ -117,12 +122,6 @@ void main() {
       const event = WizardSceneConfigContentChanged('{"specVersion": "1.0"}');
       expect(event.content, '{"specVersion": "1.0"}');
       expect(event.props, ['{"specVersion": "1.0"}']);
-    });
-
-    test('WizardSceneConfigValidationCompleted has correct props', () {
-      const event = WizardSceneConfigValidationCompleted(true);
-      expect(event.valid, isTrue);
-      expect(event.props, [true]);
     });
 
     test('WizardSceneGlbUploadStatusChanged has correct props', () {
@@ -134,15 +133,11 @@ void main() {
 
   group('L5 User Config Events', () {
     test('WizardUserConfigContentChanged has correct props', () {
-      const event = WizardUserConfigContentChanged('{"admin_email": "test@example.com"}');
+      const event = WizardUserConfigContentChanged(
+        '{"admin_email": "test@example.com"}',
+      );
       expect(event.content, '{"admin_email": "test@example.com"}');
       expect(event.props, ['{"admin_email": "test@example.com"}']);
-    });
-
-    test('WizardUserConfigValidationCompleted has correct props', () {
-      const event = WizardUserConfigValidationCompleted(true);
-      expect(event.valid, isTrue);
-      expect(event.props, [true]);
     });
   });
 

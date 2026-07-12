@@ -3,8 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../bloc/wizard/services/wizard_deployer_validation_service.dart';
 import '../../bloc/wizard/wizard.dart';
+import '../../models/deployer_artifact_validation.dart';
 import '../../config/step3_examples.dart';
 import '../../config/step3_constraints.dart';
 import '../../providers/twins_provider.dart';
@@ -40,101 +40,30 @@ class _Step3DeployerState extends State<Step3Deployer> {
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
 
-  WizardDeployerValidationService _validationService(BuildContext context) {
-    final api = ProviderScope.containerOf(context).read(apiServiceProvider);
-    return WizardDeployerValidationService(api: api);
-  }
-
-  Future<Map<String, dynamic>> _validateConfigFile(
+  void _requestValidation(
     BuildContext context,
-    String configType,
-    String content,
     WizardState state,
-  ) async {
-    final result = await _validationService(context).validateConfigFile(
-      twinId: state.twinId,
-      configType: configType,
-      content: content,
-    );
-    if (context.mounted) {
-      context.read<WizardBloc>().add(
-        WizardConfigValidationCompleted(configType, result.valid),
-      );
-    }
-    return result.toJson();
-  }
-
-  Future<Map<String, dynamic>> _validateL2Content(
-    BuildContext context,
-    String type,
-    String content,
-    WizardState state, {
+    DeployerArtifactType type,
+    String content, {
     String? entityId,
-  }) async {
-    final result = await _validationService(context).validateL2Content(
-      twinId: state.twinId,
-      provider: state.layer2Provider,
-      type: type,
-      content: content,
-    );
-    if (context.mounted && result.valid) {
-      _dispatchL2ValidationEvent(context, type, entityId, result.valid);
-    }
-    return result.toJson();
-  }
-
-  void _dispatchL2ValidationEvent(
-    BuildContext context,
-    String type,
-    String? entityId,
-    bool valid,
-  ) {
-    final bloc = context.read<WizardBloc>();
-    if (type == 'function-code') {
-      if (entityId != null && entityId.startsWith('processor:')) {
-        bloc.add(
-          WizardProcessorValidationCompleted(entityId.substring(10), valid),
-        );
-      } else if (entityId != null && entityId.startsWith('event-action:')) {
-        bloc.add(
-          WizardEventActionValidationCompleted(entityId.substring(13), valid),
-        );
-      } else if (entityId == 'feedback') {
-        bloc.add(WizardEventFeedbackValidationCompleted(valid));
-      }
-    } else if (type == 'state-machine') {
-      bloc.add(WizardStateMachineValidationCompleted(valid));
-    }
-  }
-
-  Future<Map<String, dynamic>> _validateL4Content(
-    BuildContext context,
-    String type,
-    String content,
-    WizardState state, {
     String? providerOverride,
-  }) async {
-    final result = await _validationService(context).validateL4Content(
-      twinId: state.twinId,
-      provider: providerOverride ?? state.layer4Provider,
-      type: type,
-      content: content,
+  }) {
+    final provider = switch (type.boundary) {
+      DeployerValidationBoundary.config => null,
+      DeployerValidationBoundary.layer2 => state.layer2Provider,
+      DeployerValidationBoundary.layer4Or5 =>
+        providerOverride ?? state.layer4Provider,
+    };
+    context.read<WizardBloc>().add(
+      WizardArtifactValidationRequested(
+        DeployerArtifactValidationRequest(
+          type: type,
+          content: content,
+          provider: provider,
+          entityId: entityId,
+        ),
+      ),
     );
-    if (context.mounted) {
-      final bloc = context.read<WizardBloc>();
-      switch (type) {
-        case 'hierarchy':
-          bloc.add(WizardHierarchyValidationCompleted(result.valid));
-          break;
-        case 'scene-config':
-          bloc.add(WizardSceneConfigValidationCompleted(result.valid));
-          break;
-        case 'user-config':
-          bloc.add(WizardUserConfigValidationCompleted(result.valid));
-          break;
-      }
-    }
-    return result.toJson();
   }
 
   /// Build dynamic L2 inputs based on Section 2 validation state
@@ -165,6 +94,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
             description: 'Processor Lambda for $deviceId',
             codeContent: state.processorContents[deviceId] ?? '',
             isCodeValidated: state.processorValidated[deviceId] ?? false,
+            isValidating: state.isArtifactValidating('processor:$deviceId'),
+            validationFeedback: state.artifactFeedback('processor:$deviceId'),
             onCodeChanged: (content) => context.read<WizardBloc>().add(
               WizardProcessorContentChanged(deviceId, content),
             ),
@@ -172,12 +103,12 @@ class _Step3DeployerState extends State<Step3Deployer> {
             onRequirementsChanged: (content) => context.read<WizardBloc>().add(
               WizardProcessorRequirementsChanged(deviceId, content),
             ),
-            onValidate: (content) => _validateL2Content(
+            onValidate: (content) => _requestValidation(
               context,
-              'function-code',
-              content,
               state,
-              entityId: 'processor:$deviceId',
+              DeployerArtifactType.processor,
+              content,
+              entityId: deviceId,
             ),
             constraints: Step3Constraints.getFunctionConstraints(
               state.layer2Provider,
@@ -201,6 +132,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
           description: 'Event feedback Lambda',
           codeContent: state.eventFeedbackContent ?? '',
           isCodeValidated: state.eventFeedbackValidated,
+          isValidating: state.isArtifactValidating('event-feedback'),
+          validationFeedback: state.artifactFeedback('event-feedback'),
           onCodeChanged: (content) => context.read<WizardBloc>().add(
             WizardEventFeedbackContentChanged(content),
           ),
@@ -208,12 +141,11 @@ class _Step3DeployerState extends State<Step3Deployer> {
           onRequirementsChanged: (content) => context.read<WizardBloc>().add(
             WizardEventFeedbackRequirementsChanged(content),
           ),
-          onValidate: (content) => _validateL2Content(
+          onValidate: (content) => _requestValidation(
             context,
-            'function-code',
-            content,
             state,
-            entityId: 'feedback',
+            DeployerArtifactType.eventFeedback,
+            content,
           ),
           constraints: Step3Constraints.getFunctionConstraints(
             state.layer2Provider,
@@ -252,6 +184,12 @@ class _Step3DeployerState extends State<Step3Deployer> {
               description: 'Event action: $funcName',
               codeContent: state.eventActionContents[funcName] ?? '',
               isCodeValidated: state.eventActionValidated[funcName] ?? false,
+              isValidating: state.isArtifactValidating(
+                'event-action:$funcName',
+              ),
+              validationFeedback: state.artifactFeedback(
+                'event-action:$funcName',
+              ),
               onCodeChanged: (content) => context.read<WizardBloc>().add(
                 WizardEventActionContentChanged(funcName, content),
               ),
@@ -259,12 +197,12 @@ class _Step3DeployerState extends State<Step3Deployer> {
               onRequirementsChanged: (content) => context
                   .read<WizardBloc>()
                   .add(WizardEventActionRequirementsChanged(funcName, content)),
-              onValidate: (content) => _validateL2Content(
+              onValidate: (content) => _requestValidation(
                 context,
-                'function-code',
-                content,
                 state,
-                entityId: 'event-action:$funcName',
+                DeployerArtifactType.eventAction,
+                content,
+                entityId: funcName,
               ),
               constraints: Step3Constraints.getFunctionConstraints(
                 state.layer2Provider,
@@ -308,11 +246,17 @@ class _Step3DeployerState extends State<Step3Deployer> {
             ),
             initialContent: state.stateMachineContent ?? '',
             isValidated: state.stateMachineValidated,
+            isValidating: state.isArtifactValidating('state-machine'),
+            validationFeedback: state.artifactFeedback('state-machine'),
             onContentChanged: (content) => context.read<WizardBloc>().add(
               WizardStateMachineContentChanged(content),
             ),
-            onValidate: (content) =>
-                _validateL2Content(context, 'state-machine', content, state),
+            onValidate: (content) => _requestValidation(
+              context,
+              state,
+              DeployerArtifactType.stateMachine,
+              content,
+            ),
             autoValidateOnUpload: true,
           ),
         ),
@@ -460,25 +404,22 @@ class _Step3DeployerState extends State<Step3Deployer> {
             coldStorageDays:
                 (state.calcParams?.coolStorageDurationInMonths ?? 3) * 30,
             isValidated: state.configJsonValidated,
+            isValidating: state.isArtifactValidating('config:core'),
+            validationFeedback: state.artifactFeedback('config:core'),
             onTwinNameChanged: (name) {
               context.read<WizardBloc>().add(
                 WizardDeployerTwinNameChanged(name),
               );
             },
-            onValidate: (config) async {
+            onValidate: (config) {
               final content = const JsonEncoder.withIndent(
                 '  ',
               ).convert(config);
-              return await _validateConfigFile(
+              _requestValidation(
                 context,
-                'config',
-                content,
                 state,
-              );
-            },
-            onValidationSuccess: () {
-              context.read<WizardBloc>().add(
-                const WizardConfigValidationCompleted('config', true),
+                DeployerArtifactType.config,
+                content,
               );
             },
           ),
@@ -505,17 +446,19 @@ class _Step3DeployerState extends State<Step3Deployer> {
             exampleContent: Step3Examples.configEvents,
             initialContent: state.configEventsJson ?? '',
             isValidated: state.configEventsValidated,
+            isValidating: state.isArtifactValidating('config:events'),
+            validationFeedback: state.artifactFeedback('config:events'),
             onContentChanged: (content) {
               context.read<WizardBloc>().add(
                 WizardConfigEventsChanged(content),
               );
             },
-            onValidate: (content) async {
-              return await _validateConfigFile(
+            onValidate: (content) {
+              _requestValidation(
                 context,
-                'events',
-                content,
                 state,
+                DeployerArtifactType.events,
+                content,
               );
             },
             autoValidateOnUpload: true,
@@ -543,14 +486,19 @@ class _Step3DeployerState extends State<Step3Deployer> {
             exampleContent: Step3Examples.configIotDevices,
             initialContent: state.configIotDevicesJson ?? '',
             isValidated: state.configIotDevicesValidated,
+            isValidating: state.isArtifactValidating('config:iot-devices'),
+            validationFeedback: state.artifactFeedback('config:iot-devices'),
             onContentChanged: (content) {
               context.read<WizardBloc>().add(
                 WizardConfigIotDevicesChanged(content),
               );
             },
-            onValidate: (content) async {
-              return await _validateConfigFile(context, 'iot', content, state);
-            },
+            onValidate: (content) => _requestValidation(
+              context,
+              state,
+              DeployerArtifactType.iotDevices,
+              content,
+            ),
             autoValidateOnUpload: true,
           ),
         ),
@@ -592,17 +540,19 @@ class _Step3DeployerState extends State<Step3Deployer> {
                       : Step3Examples.azureHierarchy,
                   initialContent: state.hierarchyContent ?? '',
                   isValidated: state.hierarchyValidated,
+                  isValidating: state.isArtifactValidating('hierarchy'),
+                  validationFeedback: state.artifactFeedback('hierarchy'),
                   onContentChanged: (content) {
                     context.read<WizardBloc>().add(
                       WizardHierarchyContentChanged(content),
                     );
                   },
-                  onValidate: (content) async {
-                    return await _validateL4Content(
+                  onValidate: (content) {
+                    _requestValidation(
                       context,
-                      'hierarchy',
-                      content,
                       state,
+                      DeployerArtifactType.hierarchy,
+                      content,
                     );
                   },
                   autoValidateOnUpload: true,
@@ -705,11 +655,17 @@ class _Step3DeployerState extends State<Step3Deployer> {
                 exampleContent: Step3Examples.payloads,
                 initialContent: state.payloadsJson ?? '',
                 isValidated: state.payloadsValidated,
+                isValidating: state.isArtifactValidating('payloads'),
+                validationFeedback: state.artifactFeedback('payloads'),
                 onContentChanged: (content) => context.read<WizardBloc>().add(
                   WizardPayloadsChanged(content),
                 ),
-                onValidate: (content) =>
-                    _validateConfigFile(context, 'payloads', content, state),
+                onValidate: (content) => _requestValidation(
+                  context,
+                  state,
+                  DeployerArtifactType.payloads,
+                  content,
+                ),
                 autoValidateOnUpload: true,
               ),
             ),
@@ -786,17 +742,23 @@ class _Step3DeployerState extends State<Step3Deployer> {
                               : Step3Examples.azureSceneConfig,
                           initialContent: state.sceneConfigContent ?? '',
                           isValidated: state.sceneConfigValidated,
+                          isValidating: state.isArtifactValidating(
+                            'scene-config',
+                          ),
+                          validationFeedback: state.artifactFeedback(
+                            'scene-config',
+                          ),
                           onContentChanged: (content) {
                             context.read<WizardBloc>().add(
                               WizardSceneConfigContentChanged(content),
                             );
                           },
-                          onValidate: (content) async {
-                            return await _validateL4Content(
+                          onValidate: (content) {
+                            _requestValidation(
                               context,
-                              'scene-config',
-                              content,
                               state,
+                              DeployerArtifactType.sceneConfig,
+                              content,
                             );
                           },
                           autoValidateOnUpload: true,
@@ -865,18 +827,20 @@ class _Step3DeployerState extends State<Step3Deployer> {
                       exampleContent: Step3Examples.userConfig,
                       initialContent: state.userConfigContent ?? '',
                       isValidated: state.userConfigValidated,
+                      isValidating: state.isArtifactValidating('user-config'),
+                      validationFeedback: state.artifactFeedback('user-config'),
                       onContentChanged: (content) {
                         context.read<WizardBloc>().add(
                           WizardUserConfigContentChanged(content),
                         );
                       },
-                      onValidate: (content) async {
+                      onValidate: (content) {
                         // User config is L5 - use layer5Provider instead of layer4Provider
-                        return await _validateL4Content(
+                        _requestValidation(
                           context,
-                          'user-config',
-                          content,
                           state,
+                          DeployerArtifactType.userConfig,
+                          content,
                           providerOverride: state.layer5Provider,
                         );
                       },

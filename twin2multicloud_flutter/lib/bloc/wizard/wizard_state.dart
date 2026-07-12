@@ -7,6 +7,7 @@ import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
+import '../../models/deployer_artifact_validation.dart';
 import '../../models/pricing_health.dart';
 import '../../utils/twin_state_utils.dart';
 
@@ -124,6 +125,9 @@ class WizardState extends Equatable {
   final bool configJsonValidated; // config.json validation state
   final bool configEventsValidated; // Validation state (gates save)
   final bool configIotDevicesValidated; // Validation state (gates save)
+  final Set<String> validatingArtifactIds;
+  final Map<String, DeployerArtifactValidationFeedback>
+  artifactValidationFeedback;
 
   // === Persistent Data: Step 3 Section 3 (L1) ===
   final Map<String, dynamic>? deployerConfig;
@@ -212,6 +216,8 @@ class WizardState extends Equatable {
     this.configJsonValidated = false,
     this.configEventsValidated = false,
     this.configIotDevicesValidated = false,
+    this.validatingArtifactIds = const {},
+    this.artifactValidationFeedback = const {},
     this.deployerConfig,
     this.payloadsJson,
     this.payloadsValidated = false,
@@ -264,6 +270,20 @@ class WizardState extends Equatable {
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 => calcResult != null;
+
+  bool isArtifactValidating(String artifactId) =>
+      validatingArtifactIds.contains(artifactId);
+
+  DeployerArtifactValidationFeedback? artifactFeedback(String artifactId) =>
+      artifactValidationFeedback[artifactId];
+
+  Map<String, DeployerArtifactValidationFeedback> feedbackWithout(
+    String artifactId,
+  ) => Map.unmodifiable(
+    Map<String, DeployerArtifactValidationFeedback>.from(
+      artifactValidationFeedback,
+    )..remove(artifactId),
+  );
 
   bool get pricingCanCalculate {
     if (isPricingHealthLoading || pricingHealthError != null) return false;
@@ -551,6 +571,8 @@ class WizardState extends Equatable {
     bool? configJsonValidated,
     bool? configEventsValidated,
     bool? configIotDevicesValidated,
+    Set<String>? validatingArtifactIds,
+    Map<String, DeployerArtifactValidationFeedback>? artifactValidationFeedback,
     Map<String, dynamic>? deployerConfig,
     String? payloadsJson,
     bool? payloadsValidated,
@@ -649,6 +671,10 @@ class WizardState extends Equatable {
           configEventsValidated ?? this.configEventsValidated,
       configIotDevicesValidated:
           configIotDevicesValidated ?? this.configIotDevicesValidated,
+      validatingArtifactIds:
+          validatingArtifactIds ?? this.validatingArtifactIds,
+      artifactValidationFeedback:
+          artifactValidationFeedback ?? this.artifactValidationFeedback,
       deployerConfig: deployerConfig ?? this.deployerConfig,
       payloadsJson: payloadsJson ?? this.payloadsJson,
       payloadsValidated: payloadsValidated ?? this.payloadsValidated,
@@ -745,6 +771,8 @@ class WizardState extends Equatable {
     configJsonValidated, // FIXED: was missing
     configEventsValidated,
     configIotDevicesValidated,
+    validatingArtifactIds,
+    artifactValidationFeedback,
     deployerConfig,
     payloadsJson,
     payloadsValidated,
