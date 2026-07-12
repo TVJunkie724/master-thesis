@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
+import '../../models/architecture_path.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/deployer_config.dart';
@@ -261,13 +262,8 @@ class WizardState extends Equatable {
   /// Returns false for deployed/deploying/destroying twins.
   bool get canModify => TwinStateUtils.canEdit(twinState);
 
-  /// Can proceed from Step 1 to Step 2?
-  bool get canProceedToStep2 =>
-      (twinName?.isNotEmpty ?? false) &&
-      (selectedCloudConnectionIds.values.any((id) => id != null) ||
-          aws.isValid ||
-          azure.isValid ||
-          gcp.isValid);
+  /// Legacy persistence gate for entering workload configuration.
+  bool get canProceedToStep2 => twinName?.trim().isNotEmpty == true;
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 => calcResult != null;
@@ -456,17 +452,7 @@ class WizardState extends Equatable {
   Map<String, String> get layerProviders {
     final path = calcResult?.cheapestPath;
     if (path == null || path.isEmpty) return {};
-    final result = <String, String>{};
-    for (final segment in path) {
-      final parts = segment.split('_');
-      if (parts.length >= 2) {
-        final layer = parts[0].toUpperCase(); // L1, L2, L3, L4, L5
-        // Provider is the last part (handles L3_hot_AWS format)
-        final provider = parts.last.toUpperCase();
-        result[layer] = provider;
-      }
-    }
-    return result;
+    return ArchitecturePath.layerProviders(path);
   }
 
   /// Get the L2 provider from calculation result

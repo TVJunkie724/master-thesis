@@ -209,7 +209,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       final grouped = <CloudProvider, List<CloudConnection>>{
         for (final provider in CloudProvider.values)
           provider: connections
-              .where((connection) => connection.provider == provider)
+              .where(
+                (connection) =>
+                    connection.provider == provider &&
+                    connection.purpose == CloudConnectionPurpose.deployment,
+              )
               .toList(growable: false),
       };
       emit(
@@ -475,8 +479,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         if (!state.canProceedToStep2) {
           emit(
             newState.copyWith(
-              errorMessage:
-                  'Enter twin name and validate at least one provider',
+              errorMessage: 'Enter a twin name before continuing',
             ),
           );
           return;

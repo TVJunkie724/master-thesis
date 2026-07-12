@@ -4,6 +4,7 @@
 
 import '../../../models/calc_params.dart';
 import '../../../models/calc_result.dart';
+import '../../../models/architecture_path.dart';
 import '../../../models/cloud_connection.dart';
 import '../../../models/deployer_config.dart';
 import '../helpers/credentials_helper.dart';
@@ -68,9 +69,8 @@ class WizardInitService {
     // Determine starting step
     int startStep = config['highest_step_reached'] as int? ?? 0;
 
-    // Validate startStep against actual data
-    if (startStep >= 1 &&
-        !_hasConfiguredProvider(selectedCloudConnectionIds, credentials)) {
+    // Workload configuration depends on identity, not deployment credentials.
+    if (startStep >= 1 && (twin['name']?.toString().trim().isEmpty ?? true)) {
       startStep = 0;
     }
 
@@ -164,28 +164,14 @@ class WizardInitService {
 
     final resultProviders = <String>{};
     for (final segment in loadedResult.cheapestPath) {
-      final parts = segment.split('_');
-      if (parts.length >= 3 && segment.startsWith('L3')) {
-        resultProviders.add(parts[2].toUpperCase());
-      } else if (parts.length >= 2) {
-        resultProviders.add(parts[1].toUpperCase());
-      }
+      final provider = ArchitecturePath.providerForSegment(segment);
+      if (provider != null) resultProviders.add(provider);
     }
     final unconfigured = resultProviders.difference(configuredProviders);
     if (unconfigured.isNotEmpty) {
-      return 'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to select Cloud Connections.';
+      return 'Deployment access is missing for: ${unconfigured.join(", ")}. Open Cloud access to bind the required connections.';
     }
     return null;
-  }
-
-  bool _hasConfiguredProvider(
-    Map<CloudProvider, String?> selectedCloudConnectionIds,
-    Map<String, ProviderCredentials> credentials,
-  ) {
-    return _configuredProviderNames(
-      selectedCloudConnectionIds,
-      credentials,
-    ).isNotEmpty;
   }
 
   Set<String> _configuredProviderNames(

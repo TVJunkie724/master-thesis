@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../bloc/wizard/wizard.dart';
 import '../../theme/spacing.dart';
-import '../../widgets/cloud_connections/cloud_connections_group.dart';
 
 class Step1Configuration extends StatefulWidget {
   const Step1Configuration({super.key});
@@ -96,54 +95,10 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const Divider(),
-                    const SizedBox(height: AppSpacing.md),
-                    CloudConnectionsGroup(
-                      connectionsByProvider: state.cloudConnections,
-                      selectedConnectionIds: state.selectedCloudConnectionIds,
-                      loadingByProvider: state.cloudConnectionLoading,
-                      errorByProvider: state.cloudConnectionErrors,
-                      validationByProvider: state.cloudConnectionValidation,
-                      onSelected: (provider, connectionId) {
-                        bloc.add(
-                          WizardCloudConnectionSelected(provider, connectionId),
-                        );
-                      },
-                      onCreate: (provider, request) {
-                        bloc.add(
-                          WizardCloudConnectionCreateRequested(
-                            provider,
-                            request,
-                          ),
-                        );
-                      },
-                      onValidate: (provider, connectionId) {
-                        bloc.add(
-                          WizardCloudConnectionValidateRequested(
-                            provider,
-                            connectionId,
-                          ),
-                        );
-                      },
-                      onUnbind: (provider) {
-                        bloc.add(WizardCloudConnectionUnbound(provider));
-                      },
-                      onDelete: (provider, connectionId) {
-                        bloc.add(
-                          WizardCloudConnectionDeleteRequested(
-                            provider,
-                            connectionId,
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const Divider(),
-                    if (!state.canProceedToStep2) ...[
+                    if (state.twinName?.trim().isEmpty ?? true) ...[
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        'To proceed: give your twin a name and select at least one provider Cloud Connection.',
+                        'Give the twin a name to continue.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.outline,
                         ),

@@ -58,7 +58,33 @@ void main() {
     );
 
     blocTest<WizardBloc, WizardState>(
-      'selecting a Cloud Connection makes Step 1 proceedable',
+      'wizard inventory excludes pricing-purpose connections',
+      build: () {
+        when(() => api.listCloudConnections()).thenAnswer(
+          (_) async => [
+            _connection('pricing', CloudConnectionPurpose.pricing),
+            _connection('deployment', CloudConnectionPurpose.deployment),
+          ],
+        );
+        return WizardBloc(api: api);
+      },
+      act: (bloc) => bloc.add(const WizardInitCreate()),
+      wait: const Duration(milliseconds: 1),
+      expect: () => [
+        isA<WizardState>(),
+        isA<WizardState>(),
+        isA<WizardState>().having(
+          (state) => state.cloudConnections[CloudProvider.aws]
+              ?.map((connection) => connection.id)
+              .toList(),
+          'deployment connection ids',
+          ['deployment'],
+        ),
+      ],
+    );
+
+    blocTest<WizardBloc, WizardState>(
+      'a named twin is proceedable independently of Cloud Connections',
       build: () => WizardBloc(api: api),
       seed: () => const WizardState(twinName: 'Twin'),
       act: (bloc) => bloc.add(
@@ -202,3 +228,18 @@ void main() {
     );
   });
 }
+
+CloudConnection _connection(String id, CloudConnectionPurpose purpose) =>
+    CloudConnection(
+      id: id,
+      provider: CloudProvider.aws,
+      purpose: purpose,
+      displayName: id,
+      authType: 'access_key',
+      cloudScope: const {},
+      payloadFingerprint: id,
+      payloadSummary: const {},
+      validationStatus: 'valid',
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+    );

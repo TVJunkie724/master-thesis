@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/selectable_scaffold.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
+import '../../features/configuration_workspace/presentation/cloud_access_task.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_shell.dart';
 
 /// Wizard screen using BLoC pattern for state management
@@ -529,9 +530,9 @@ class _WizardViewState extends ConsumerState<WizardView> {
           icon: const Icon(Icons.warning_amber, color: Colors.orange, size: 48),
           title: const Text('Unconfigured Providers'),
           content: Text(
-            'The following providers are required by your deployment but have not been configured in Step 1:\n\n'
+            'The following providers are required by your selected architecture but do not have deployment access:\n\n'
             '${unconfigured.map((p) => '• $p').join('\n')}\n\n'
-            'Please go back to Step 1 and enter valid credentials for these providers.',
+            'Open Cloud access and bind a valid deployment connection for each provider.',
           ),
           actions: [
             TextButton(
@@ -547,13 +548,15 @@ class _WizardViewState extends ConsumerState<WizardView> {
     }
   }
 
-  Widget _buildTaskContent(ConfigurationTaskId taskId) =>
-      switch (ConfigurationJourney.legacyStepFor(taskId)) {
-        0 => const Step1Configuration(),
-        1 => const Step2Optimizer(),
-        2 => const Step3Deployer(),
-        _ => const SizedBox.shrink(),
-      };
+  Widget _buildTaskContent(ConfigurationTaskId taskId) => switch (taskId) {
+    ConfigurationTaskId.cloudAccess => const CloudAccessTask(),
+    _ => switch (ConfigurationJourney.legacyStepFor(taskId)) {
+      0 => const Step1Configuration(),
+      1 => const Step2Optimizer(),
+      2 => const Step3Deployer(),
+      _ => const SizedBox.shrink(),
+    },
+  };
 
   Future<void> _showExitConfirmation(
     BuildContext context,
