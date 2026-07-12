@@ -50,7 +50,7 @@ implicit schema rules.
 | Subphase | Scope | Status |
 |---|---|---|
 | 7A | Move all artifact validation into the Wizard BLoC and make editors controlled | done |
-| 7B | Move flat deployer hydration DTOs into the model layer and define the typed field/requiredness projection | planned |
+| 7B | Move flat deployer hydration DTOs into the model layer and define the typed field/requiredness projection | in progress |
 | 7C | Split the monolithic screen into core config, user logic, assets, and architecture presentation components | planned |
 | 7D | Isolate ZIP/GLB import orchestration, add replacement confirmation, and run the final Step 3 integration gate | planned |
 
