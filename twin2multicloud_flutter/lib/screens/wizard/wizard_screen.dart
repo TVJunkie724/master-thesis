@@ -550,6 +550,11 @@ class _WizardViewState extends ConsumerState<WizardView> {
 
   Widget _buildTaskContent(ConfigurationTaskId taskId) => switch (taskId) {
     ConfigurationTaskId.cloudAccess => const CloudAccessTask(),
+    ConfigurationTaskId.scenarioAndCurrency ||
+    ConfigurationTaskId.deviceTraffic ||
+    ConfigurationTaskId.processing ||
+    ConfigurationTaskId.retention ||
+    ConfigurationTaskId.twinCapabilities => Step2Optimizer(taskId: taskId),
     _ => switch (ConfigurationJourney.legacyStepFor(taskId)) {
       0 => const Step1Configuration(),
       1 => const Step2Optimizer(),

@@ -11,12 +11,15 @@ import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 import '../../widgets/pricing/pricing_readiness_summary.dart';
+import '../../features/configuration_workspace/domain/configuration_journey.dart';
 
 /// Step 2: Optimizer - BLoC version
 ///
 /// Manages calculation parameters and displays optimization results.
 class Step2Optimizer extends ConsumerStatefulWidget {
-  const Step2Optimizer({super.key});
+  final ConfigurationTaskId? taskId;
+
+  const Step2Optimizer({super.key, this.taskId});
 
   @override
   ConsumerState<Step2Optimizer> createState() => _Step2OptimizerState();
@@ -37,7 +40,9 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
     // If we have calcParams in BLoC state, skip loading
     final state = context.read<WizardBloc>().state;
-    context.read<WizardBloc>().add(const WizardPricingHealthLoadRequested());
+    if (!_isWorkloadTask(widget.taskId)) {
+      context.read<WizardBloc>().add(const WizardPricingHealthLoadRequested());
+    }
     if (state.calcParams != null) {
       _loadingConfig = false;
     } else if (state.twinId != null) {
@@ -109,6 +114,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       },
       child: BlocBuilder<WizardBloc, WizardState>(
         builder: (context, state) {
+          final workloadTask = _isWorkloadTask(widget.taskId);
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Center(
@@ -117,22 +123,24 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    PricingReadinessSummary(
-                      health: state.pricingHealth,
-                      isLoading: state.isPricingHealthLoading,
-                      error: state.pricingHealthError,
-                      onRetry: () => context.read<WizardBloc>().add(
-                        const WizardPricingHealthLoadRequested(),
+                    if (!workloadTask) ...[
+                      PricingReadinessSummary(
+                        health: state.pricingHealth,
+                        isLoading: state.isPricingHealthLoading,
+                        error: state.pricingHealthError,
+                        onRetry: () => context.read<WizardBloc>().add(
+                          const WizardPricingHealthLoadRequested(),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 32),
+                    ],
 
                     // Note: Step 3 invalidation warning now shown in header alert via warningMessage
                     // Section 2: Calculation Inputs
                     _buildCalculationSection(context, state),
 
                     // Section 3: Results (if available)
-                    if (state.calcResult != null) ...[
+                    if (state.calcResult != null && !workloadTask) ...[
                       const SizedBox(height: 64),
                       Container(
                         key: _resultsKey,
@@ -158,7 +166,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
             Icon(Icons.tune, size: 28, color: Theme.of(context).primaryColor),
             const SizedBox(width: 12),
             Text(
-              'Calculation Inputs',
+              _taskTitle(widget.taskId),
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -167,7 +175,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Configure your digital twin workload parameters to calculate optimized costs.',
+          _taskDescription(widget.taskId),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -178,6 +186,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
           const Center(child: CircularProgressIndicator())
         else
           CalcForm(
+            section: _calcSectionForTask(widget.taskId),
             initialParams: state.calcParams,
             onChanged: _onCalcParamsChanged,
             onValidChanged: (isValid) {
@@ -189,6 +198,51 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       ],
     );
   }
+
+  CalcFormSection? _calcSectionForTask(ConfigurationTaskId? taskId) =>
+      switch (taskId) {
+        ConfigurationTaskId.scenarioAndCurrency =>
+          CalcFormSection.scenarioAndCurrency,
+        ConfigurationTaskId.deviceTraffic => CalcFormSection.deviceTraffic,
+        ConfigurationTaskId.processing => CalcFormSection.processing,
+        ConfigurationTaskId.retention => CalcFormSection.retention,
+        ConfigurationTaskId.twinCapabilities =>
+          CalcFormSection.twinCapabilities,
+        _ => null,
+      };
+
+  bool _isWorkloadTask(ConfigurationTaskId? taskId) => switch (taskId) {
+    ConfigurationTaskId.scenarioAndCurrency ||
+    ConfigurationTaskId.deviceTraffic ||
+    ConfigurationTaskId.processing ||
+    ConfigurationTaskId.retention ||
+    ConfigurationTaskId.twinCapabilities => true,
+    _ => false,
+  };
+
+  String _taskTitle(ConfigurationTaskId? taskId) => switch (taskId) {
+    ConfigurationTaskId.scenarioAndCurrency => 'Scenario and currency',
+    ConfigurationTaskId.deviceTraffic => 'Device traffic',
+    ConfigurationTaskId.processing => 'Processing',
+    ConfigurationTaskId.retention => 'Retention',
+    ConfigurationTaskId.twinCapabilities => 'Twin capabilities',
+    _ => 'Calculation inputs',
+  };
+
+  String _taskDescription(ConfigurationTaskId? taskId) => switch (taskId) {
+    ConfigurationTaskId.scenarioAndCurrency =>
+      'Start from a representative scenario and choose the reporting currency.',
+    ConfigurationTaskId.deviceTraffic =>
+      'Describe connected devices and the telemetry volume they produce.',
+    ConfigurationTaskId.processing =>
+      'Describe event evaluation, orchestration, and device feedback.',
+    ConfigurationTaskId.retention =>
+      'Define how long telemetry remains in each storage tier.',
+    ConfigurationTaskId.twinCapabilities =>
+      'Describe 3D representation and dashboard usage requirements.',
+    _ =>
+      'Configure your digital twin workload parameters to calculate optimized costs.',
+  };
 
   Widget _buildResultsSection(BuildContext context, WizardState state) {
     final result = state.calcResult!;
