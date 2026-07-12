@@ -122,32 +122,9 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
                 constraints: const BoxConstraints(maxWidth: 1000),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!workloadTask) ...[
-                      PricingReadinessSummary(
-                        health: state.pricingHealth,
-                        isLoading: state.isPricingHealthLoading,
-                        error: state.pricingHealthError,
-                        onRetry: () => context.read<WizardBloc>().add(
-                          const WizardPricingHealthLoadRequested(),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                    ],
-
-                    // Note: Step 3 invalidation warning now shown in header alert via warningMessage
-                    // Section 2: Calculation Inputs
-                    _buildCalculationSection(context, state),
-
-                    // Section 3: Results (if available)
-                    if (state.calcResult != null && !workloadTask) ...[
-                      const SizedBox(height: 64),
-                      Container(
-                        key: _resultsKey,
-                        child: _buildResultsSection(context, state),
-                      ),
-                    ],
-                  ],
+                  children: workloadTask
+                      ? [_buildCalculationSection(context, state)]
+                      : _buildArchitectureTask(context, state),
                 ),
               ),
             ),
@@ -156,6 +133,107 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       ),
     );
   }
+
+  List<Widget> _buildArchitectureTask(
+    BuildContext context,
+    WizardState state,
+  ) => switch (widget.taskId) {
+    ConfigurationTaskId.pricingReadiness => [
+      _buildPricingReadiness(context, state),
+    ],
+    ConfigurationTaskId.calculateAlternatives => [
+      _buildPricingReadiness(context, state),
+      const SizedBox(height: 32),
+      _buildCalculationSummary(context, state),
+    ],
+    ConfigurationTaskId.compareAndSelect => [
+      if (state.calcResult != null)
+        Container(key: _resultsKey, child: _buildResultsSection(context, state))
+      else
+        const Center(child: Text('Calculate an architecture first.')),
+    ],
+    _ => [
+      _buildPricingReadiness(context, state),
+      const SizedBox(height: 32),
+      _buildCalculationSection(context, state),
+      if (state.calcResult != null) ...[
+        const SizedBox(height: 64),
+        Container(
+          key: _resultsKey,
+          child: _buildResultsSection(context, state),
+        ),
+      ],
+    ],
+  };
+
+  Widget _buildPricingReadiness(BuildContext context, WizardState state) =>
+      PricingReadinessSummary(
+        health: state.pricingHealth,
+        isLoading: state.isPricingHealthLoading,
+        error: state.pricingHealthError,
+        onRetry: () => context.read<WizardBloc>().add(
+          const WizardPricingHealthLoadRequested(),
+        ),
+      );
+
+  Widget _buildCalculationSummary(BuildContext context, WizardState state) {
+    final params = state.calcParams;
+    if (_loadingConfig || params == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Workload summary',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 16),
+        Table(
+          columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(3)},
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            _summaryRow('Devices', '${params.numberOfDevices}'),
+            _summaryRow(
+              'Telemetry interval',
+              '${params.deviceSendingIntervalInMinutes} minutes',
+            ),
+            _summaryRow(
+              'Message size',
+              '${params.averageSizeOfMessageInKb} KB',
+            ),
+            _summaryRow(
+              'Retention',
+              '${params.hotStorageDurationInMonths} / ${params.coolStorageDurationInMonths} / ${params.archiveStorageDurationInMonths} months',
+            ),
+            _summaryRow(
+              'Event processing',
+              params.useEventChecking ? 'Enabled' : 'Not required',
+            ),
+            _summaryRow(
+              '3D representation',
+              params.needs3DModel ? 'Required' : 'Not required',
+            ),
+            _summaryRow('Currency', params.currency),
+          ],
+        ),
+      ],
+    );
+  }
+
+  TableRow _summaryRow(String label, String value) => TableRow(
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Text(label),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ),
+    ],
+  );
 
   Widget _buildCalculationSection(BuildContext context, WizardState state) {
     return Column(
