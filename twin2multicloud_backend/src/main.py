@@ -22,8 +22,11 @@ from src.api.routes.pricing_review import router as pricing_review_router
 from src.api.routes.dashboard import router as dashboard_router
 from src.api.routes.deployer import router as deployer_router
 from src.api.routes.sse import router as sse_router, start_reaper
+from migrations.add_cloud_connection_purpose import migrate as migrate_cloud_connection_purpose
 
-# Create tables
+# Apply the additive upgrade before SQLAlchemy inspects/creates current tables.
+if settings.DATABASE_URL.startswith("sqlite:///"):
+    migrate_cloud_connection_purpose(settings.DATABASE_URL)
 Base.metadata.create_all(bind=engine)
 
 

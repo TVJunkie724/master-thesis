@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from src.schemas.twin_config import AWSCredentials, AzureCredentials, GCPCredentials
 
 CloudProvider = Literal["aws", "azure", "gcp"]
+CloudConnectionPurpose = Literal["pricing", "deployment"]
+CloudConnectionScope = Literal["user"]
 CloudAuthType = Literal[
     "access_key",
     "service_principal",
@@ -18,6 +20,9 @@ class CloudConnectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: CloudProvider
+    purpose: CloudConnectionPurpose = "deployment"
+    scope: CloudConnectionScope = "user"
+    is_default_for_pricing: bool = False
     display_name: str = Field(..., min_length=1, max_length=120)
     auth_type: CloudAuthType | None = None
     permission_set_version: str | None = Field(
@@ -53,13 +58,23 @@ class CloudConnectionCreate(BaseModel):
             raise ValueError(f"{self.auth_type} is not supported for {self.provider} Cloud Connections yet")
         if self.provider == "gcp" and self.gcp and not self.gcp.service_account_json:
             raise ValueError("gcp service_account_json is required for service_account_key Cloud Connections")
+        if self.purpose == "pricing":
+            if self.provider == "azure":
+                raise ValueError("Azure pricing uses the public Retail Prices API")
+            if self.permission_set_version is not None:
+                raise ValueError("permission_set_version is only supported for deployment Cloud Connections")
+        elif self.is_default_for_pricing:
+            raise ValueError("Only pricing Cloud Connections may be selected as pricing default")
         return self
 
 
 class CloudConnectionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     permission_set_version: str | None = Field(default=None, min_length=1, max_length=80)
     cloud_scope: dict[str, Any] | None = None
+    is_default_for_pricing: bool | None = None
 
 
 class CloudConnectionResponse(BaseModel):
@@ -67,6 +82,9 @@ class CloudConnectionResponse(BaseModel):
 
     id: str
     provider: CloudProvider
+    purpose: CloudConnectionPurpose
+    scope: CloudConnectionScope
+    is_default_for_pricing: bool
     display_name: str
     auth_type: str
     permission_set_version: str | None = None
@@ -76,6 +94,7 @@ class CloudConnectionResponse(BaseModel):
     validation_status: str
     validation_message: str | None = None
     last_validated_at: datetime | None = None
+    last_used_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

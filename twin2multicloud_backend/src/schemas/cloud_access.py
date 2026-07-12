@@ -41,6 +41,7 @@ class CloudAccessEntry(BaseModel):
 class CloudAccessProviderInventory(BaseModel):
     provider: CloudAccessProvider
     pricing: CloudAccessEntry
+    pricing_options: list[CloudAccessEntry] = Field(default_factory=list)
     deployment: list[CloudAccessEntry] = Field(default_factory=list)
 
 

@@ -94,6 +94,10 @@ class PricingRefreshConnectionNotFound(DomainError):
     status_code = 404
 
 
+class CloudConnectionConflict(DomainError):
+    status_code = 409
+
+
 class PricingReviewReportNotFound(DomainError):
     status_code = 404
 

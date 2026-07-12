@@ -78,6 +78,7 @@ def test_cloud_access_inventory_returns_public_azure_and_missing_pricing(authent
     assert data["providers"]["aws"]["pricing"]["status"] == "missing"
     assert data["providers"]["gcp"]["pricing"]["status"] == "missing"
     assert data["providers"]["aws"]["deployment"] == []
+    assert data["providers"]["aws"]["pricing_options"] == []
 
 
 def test_cloud_access_inventory_lists_deployment_connections_without_secrets(
@@ -188,3 +189,93 @@ def test_cloud_access_inventory_ignores_inactive_twin_bindings(
     assert entry["scope"] == "user"
     assert entry["bound_twin_count"] == 0
     assert entry["bound_twin_labels"] == []
+
+
+def test_cloud_access_inventory_exposes_pricing_default_and_options(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    first_payload = _aws_request("AWS Pricing Primary")
+    first_payload.update({"purpose": "pricing", "permission_set_version": None})
+    first = client.post("/cloud-connections/", json=first_payload, headers=headers).json()
+    second_payload = _aws_request("AWS Pricing Alternative")
+    second_payload.update({"purpose": "pricing", "permission_set_version": None})
+    second = client.post("/cloud-connections/", json=second_payload, headers=headers).json()
+    stored = db_session.query(CloudConnection).filter_by(id=first["id"]).one()
+    stored.validation_status = "valid"
+    db_session.commit()
+
+    response = client.get("/cloud-access", headers=headers)
+
+    assert response.status_code == 200
+    inventory = response.json()["providers"]["aws"]
+    assert inventory["deployment"] == []
+    assert inventory["pricing"]["connection_id"] == first["id"]
+    assert inventory["pricing"]["status"] == "active"
+    assert "refresh_pricing" in inventory["pricing"]["actions"]
+    assert {item["connection_id"] for item in inventory["pricing_options"]} == {
+        first["id"],
+        second["id"],
+    }
+
+
+def test_cloud_access_inventory_does_not_substitute_pricing_option_without_default(
+    authenticated_client,
+):
+    client, headers = authenticated_client
+    payload = _aws_request("AWS Pricing")
+    payload.update({"purpose": "pricing", "permission_set_version": None})
+    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+    client.patch(
+        f"/cloud-connections/{created['id']}",
+        json={"is_default_for_pricing": False},
+        headers=headers,
+    )
+
+    response = client.get("/cloud-access", headers=headers)
+
+    inventory = response.json()["providers"]["aws"]
+    assert inventory["pricing"]["connection_id"] is None
+    assert inventory["pricing"]["actions"] == ["select_pricing_default"]
+    assert len(inventory["pricing_options"]) == 1
+
+
+def test_cloud_access_inventory_keeps_invalid_default_visible(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    payload = _aws_request("Invalid AWS Pricing")
+    payload.update({"purpose": "pricing", "permission_set_version": None})
+    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+    stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    stored.validation_status = "invalid"
+    stored.validation_message = "Pricing permission is missing."
+    db_session.commit()
+
+    response = client.get("/cloud-access", headers=headers)
+
+    effective = response.json()["providers"]["aws"]["pricing"]
+    assert effective["connection_id"] == created["id"]
+    assert effective["status"] == "invalid"
+    assert "refresh_pricing" not in effective["actions"]
+    assert "review_validation" in effective["actions"]
+
+
+def test_deleting_pricing_default_does_not_promote_alternative(authenticated_client):
+    client, headers = authenticated_client
+    first_payload = _aws_request("Pricing One")
+    first_payload.update({"purpose": "pricing", "permission_set_version": None})
+    second_payload = _aws_request("Pricing Two")
+    second_payload.update({"purpose": "pricing", "permission_set_version": None})
+    first = client.post("/cloud-connections/", json=first_payload, headers=headers).json()
+    second = client.post("/cloud-connections/", json=second_payload, headers=headers).json()
+
+    delete_response = client.delete(f"/cloud-connections/{first['id']}", headers=headers)
+    inventory_response = client.get("/cloud-access", headers=headers)
+
+    assert delete_response.status_code == 204
+    inventory = inventory_response.json()["providers"]["aws"]
+    assert inventory["pricing"]["connection_id"] is None
+    assert [item["connection_id"] for item in inventory["pricing_options"]] == [second["id"]]

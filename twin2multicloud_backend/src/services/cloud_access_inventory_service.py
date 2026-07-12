@@ -44,11 +44,16 @@ class CloudAccessInventoryService:
         providers = {
             provider: CloudAccessProviderInventory(
                 provider=provider,
-                pricing=self._pricing_entry(provider),
+                pricing=self._pricing_entry(provider, connections),
+                pricing_options=[
+                    self._pricing_connection_entry(connection)
+                    for connection in connections
+                    if connection.provider == provider and connection.purpose == "pricing"
+                ],
                 deployment=[
                     self._deployment_entry(connection, bindings.get(connection.id))
                     for connection in connections
-                    if connection.provider == provider
+                    if connection.provider == provider and connection.purpose == "deployment"
                 ],
             )
             for provider in SUPPORTED_PROVIDERS
@@ -95,7 +100,11 @@ class CloudAccessInventoryService:
             for connection_id, labels in labels_by_connection.items()
         }
 
-    def _pricing_entry(self, provider: CloudAccessProvider) -> CloudAccessEntry:
+    def _pricing_entry(
+        self,
+        provider: CloudAccessProvider,
+        connections: list[CloudConnection],
+    ) -> CloudAccessEntry:
         if provider == "azure":
             return CloudAccessEntry(
                 connection_id=None,
@@ -109,6 +118,24 @@ class CloudAccessInventoryService:
                 primary_message="Azure pricing uses the public Retail Prices API.",
             )
 
+        selected = next(
+            (
+                connection
+                for connection in connections
+                if connection.provider == provider
+                and connection.purpose == "pricing"
+                and connection.is_default_for_pricing
+            ),
+            None,
+        )
+        if selected is not None:
+            return self._pricing_connection_entry(selected)
+
+        has_options = any(
+            connection.provider == provider and connection.purpose == "pricing"
+            for connection in connections
+        )
+
         return CloudAccessEntry(
             connection_id=None,
             provider=provider,
@@ -117,10 +144,43 @@ class CloudAccessInventoryService:
             identity_label=f"{provider.upper()} pricing access not configured",
             status="missing",
             is_default_for_pricing=False,
-            actions=["create_pricing_connection"],
+            actions=["select_pricing_default"] if has_options else ["create_pricing_connection"],
             primary_message=(
-                "No user-scoped pricing credential is configured for this provider."
+                "Select a stored pricing credential before refreshing prices."
+                if has_options
+                else "No user-scoped pricing credential is configured for this provider."
             ),
+        )
+
+    def _pricing_connection_entry(self, connection: CloudConnection) -> CloudAccessEntry:
+        provider = _provider(connection.provider)
+        cloud_scope = _safe_json_object(connection.cloud_scope)
+        status = _status_from_validation(connection.validation_status)
+        actions = ["validate", "delete"]
+        if connection.is_default_for_pricing:
+            if status == "active":
+                actions.append("refresh_pricing")
+            else:
+                actions.append("review_validation")
+        else:
+            actions.append("set_pricing_default")
+
+        return CloudAccessEntry(
+            connection_id=connection.id,
+            provider=provider,
+            purpose="pricing",
+            scope="user",
+            identity_label=connection.display_name,
+            status=status,
+            provider_account_id=_string_or_none(cloud_scope.get("account_id")),
+            provider_project_id=_string_or_none(cloud_scope.get("project_id")),
+            provider_subscription_id=_string_or_none(cloud_scope.get("subscription_id")),
+            is_default_for_pricing=bool(connection.is_default_for_pricing),
+            last_validated_at=connection.last_validated_at,
+            last_used_at=connection.last_used_at,
+            permission_set_status=None,
+            actions=actions,
+            primary_message=_pricing_message(connection),
         )
 
     def _deployment_entry(
@@ -207,6 +267,14 @@ def _deployment_message(
     if connection.validation_status == "invalid":
         return connection.validation_message or "Deployment access validation failed."
     return "Deployment access has not been validated yet."
+
+
+def _pricing_message(connection: CloudConnection) -> str:
+    if connection.validation_status == "valid":
+        return "Pricing access is valid and available."
+    if connection.validation_status == "invalid":
+        return connection.validation_message or "Pricing access validation failed."
+    return "Pricing access has not been validated yet."
 
 
 def _string_or_none(value: object) -> str | None:

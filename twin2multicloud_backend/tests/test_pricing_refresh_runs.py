@@ -3,6 +3,7 @@ import json
 from src.api.routes.pricing_refresh import get_optimizer_client
 from src.main import app
 from src.models.pricing_refresh_run import PricingRefreshRun
+from src.models.cloud_connection import CloudConnection
 from src.services.errors import ExternalServiceUnavailable
 
 
@@ -34,8 +35,8 @@ def _override_optimizer():
 def _aws_request(display_name="AWS Pricing"):
     return {
         "provider": "aws",
+        "purpose": "pricing",
         "display_name": display_name,
-        "permission_set_version": "thesis-demo-v1",
         "cloud_scope": {"account_id": "123456789012", "region": "eu-central-1"},
         "aws": {
             "access_key_id": "TEST_ACCESS_KEY_ID",
@@ -48,8 +49,8 @@ def _aws_request(display_name="AWS Pricing"):
 def _gcp_request(display_name="GCP Pricing"):
     return {
         "provider": "gcp",
+        "purpose": "pricing",
         "display_name": display_name,
-        "permission_set_version": "thesis-demo-v1",
         "cloud_scope": {"project_id": "demo-project", "region": "europe-west1"},
         "gcp": {
             "project_id": "demo-project",
@@ -121,10 +122,14 @@ def test_start_aws_pricing_refresh_requires_explicit_connection(authenticated_cl
 
 def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_output(
     authenticated_client,
+    db_session,
 ):
     client, headers = authenticated_client
     fake = _override_optimizer()
     created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    db_session.commit()
 
     response = client.post(
         "/optimizer/pricing-refresh/aws",
@@ -148,10 +153,13 @@ def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_out
     assert "secret_access_key" not in response_text
 
 
-def test_start_gcp_pricing_refresh_maps_service_account_payload(authenticated_client):
+def test_start_gcp_pricing_refresh_maps_service_account_payload(authenticated_client, db_session):
     client, headers = authenticated_client
     fake = _override_optimizer()
     created = client.post("/cloud-connections/", json=_gcp_request(), headers=headers).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    db_session.commit()
 
     response = client.post(
         "/optimizer/pricing-refresh/gcp",
@@ -167,6 +175,41 @@ def test_start_gcp_pricing_refresh_maps_service_account_payload(authenticated_cl
     assert call["credentials"]["gcp_billing_account"] == "012345-6789AB-CDEF01"
     assert "gcp_credentials_file" not in call["credentials"]
     assert "TEST_PRIVATE_KEY" not in response.text
+    db_session.refresh(connection)
+    assert connection.last_used_at is not None
+
+
+def test_start_pricing_refresh_rejects_deployment_connection(authenticated_client):
+    client, headers = authenticated_client
+    _override_optimizer()
+    payload = _aws_request()
+    payload["purpose"] = "deployment"
+    payload["permission_set_version"] = "thesis-demo-v1"
+    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+
+    response = client.post(
+        "/optimizer/pricing-refresh/aws",
+        json={"pricing_connection_id": created["id"], "force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert "not configured for pricing" in response.json()["detail"]
+
+
+def test_start_pricing_refresh_rejects_unvalidated_pricing_connection(authenticated_client):
+    client, headers = authenticated_client
+    _override_optimizer()
+    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+
+    response = client.post(
+        "/optimizer/pricing-refresh/aws",
+        json={"pricing_connection_id": created["id"], "force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert "must be validated" in response.json()["detail"]
 
 
 def test_start_pricing_refresh_rejects_provider_mismatch(authenticated_client):

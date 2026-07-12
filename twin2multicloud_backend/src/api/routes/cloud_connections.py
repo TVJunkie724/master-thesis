@@ -16,8 +16,10 @@ from src.services.cloud_connection_service import CloudConnectionService
 from src.services.cloud_credential_validation_service import (
     build_preflight_result,
     perform_dual_validation,
+    perform_optimizer_validation,
     redact_validation_result,
 )
+from src.services.errors import CloudConnectionConflict
 from src.services.permission_sets import compare_permission_set_version
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
@@ -60,6 +62,8 @@ async def create_cloud_connection(
     service = CloudConnectionService(db)
     try:
         return service.create_connection(current_user.id, request)
+    except CloudConnectionConflict as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -106,7 +110,12 @@ async def update_cloud_connection(
     connection = service.get_connection(connection_id, current_user.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
-    return service.update_connection(connection, current_user.id, request)
+    try:
+        return service.update_connection(connection, current_user.id, request)
+    except CloudConnectionConflict as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.delete(
@@ -141,7 +150,7 @@ async def delete_cloud_connection(
     "/{connection_id}/validate",
     response_model=CloudConnectionValidationResponse,
     operation_id="validateCloudConnection",
-    summary="Validate a stored cloud connection against Optimizer and Deployer",
+    summary="Validate a stored cloud connection at its purpose-specific boundaries",
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -158,13 +167,17 @@ async def validate_cloud_connection(
         raise HTTPException(status_code=404, detail="Cloud connection not found")
 
     optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
-    deployer_creds = service.build_deployer_credentials(connection, current_user.id)
-    result = await perform_dual_validation(
-        connection.provider,
-        optimizer_creds,
-        deployer_creds,
-    )
-    result = redact_validation_result(result, optimizer_creds, deployer_creds)
+    if connection.purpose == "pricing":
+        result = await perform_optimizer_validation(connection.provider, optimizer_creds)
+        result = redact_validation_result(result, optimizer_creds)
+    else:
+        deployer_creds = service.build_deployer_credentials(connection, current_user.id)
+        result = await perform_dual_validation(
+            connection.provider,
+            optimizer_creds,
+            deployer_creds,
+        )
+        result = redact_validation_result(result, optimizer_creds, deployer_creds)
     service.record_validation_result(connection, result)
     return CloudConnectionValidationResponse(
         id=connection.id,
@@ -196,6 +209,11 @@ async def preflight_cloud_connection(
     connection = service.get_connection(connection_id, current_user.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
+    if connection.purpose != "deployment":
+        raise HTTPException(
+            status_code=400,
+            detail="Pricing Cloud Connections cannot run deployment preflight.",
+        )
 
     optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
     deployer_creds = service.build_deployer_credentials(connection, current_user.id)

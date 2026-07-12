@@ -34,7 +34,7 @@ reviewed-decision approval. Wizard Step 2 becomes a calculation screen only.
 
 | Phase | Plan | Status | Objective |
 |---|---|---|---|
-| 1 | `phase_01_credential_purpose_model.md` | planned | Add explicit credential purpose/scope model |
+| 1 | `phase_01_credential_purpose_model.md` | done | Add explicit credential purpose/scope model |
 | 2 | `phase_02_bootstrap_output_split.md` | planned | Bootstrap separate pricing and deployment identities |
 | 3 | `phase_03_profile_cloud_accounts_access_ui.md` | planned | Show/manage profile-level cloud access |
 | 4 | `phase_04_dashboard_pricing_health_row.md` | done | Add Dashboard provider health stat cards |

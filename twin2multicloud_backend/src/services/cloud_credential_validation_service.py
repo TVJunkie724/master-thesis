@@ -27,6 +27,47 @@ _SENSITIVE_KEY_PARTS = (
 _REDACTION = "[REDACTED]"
 
 
+async def perform_optimizer_validation(
+    provider: str,
+    optimizer_creds: dict,
+    *,
+    optimizer_client: OptimizerClient | None = None,
+) -> dict:
+    """Validate pricing access through the Optimizer boundary only."""
+    optimizer_client = optimizer_client or OptimizerClient()
+    try:
+        raw = await optimizer_client.verify_permissions(provider, optimizer_creds)
+        optimizer = {
+            "valid": raw.get("valid", False) or raw.get("status") == "valid",
+            "message": raw.get("message", "Validation complete"),
+        }
+    except ExternalServiceUnavailable:
+        optimizer = {
+            "valid": False,
+            "message": "Cannot connect to Optimizer API (port 5003)",
+        }
+    except ExternalServiceError as exc:
+        optimizer = {
+            "valid": False,
+            "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
+        }
+    except Exception as exc:
+        optimizer = {
+            "valid": False,
+            "message": f"Optimizer error: {redact_secret_like_text(str(exc))}",
+        }
+
+    return redact_validation_result(
+        {
+            "provider": provider,
+            "valid": optimizer["valid"],
+            "optimizer": optimizer,
+            "deployer": None,
+        },
+        optimizer_creds,
+    )
+
+
 async def perform_dual_validation(
     provider: str,
     optimizer_creds: dict,

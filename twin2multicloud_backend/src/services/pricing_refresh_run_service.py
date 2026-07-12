@@ -83,6 +83,8 @@ class PricingRefreshRunService:
             )
             run.status = "succeeded"
             run.result_summary_json = _json_dumps(_safe_result_summary(result))
+            if connection is not None:
+                self.cloud_connections.record_successful_use(connection)
         except ExternalServiceUnavailable:
             run.status = "failed"
             run.error_code = "OPTIMIZER_UNAVAILABLE"
@@ -159,6 +161,14 @@ class PricingRefreshRunService:
         if connection.provider != provider:
             raise PricingRefreshRequestError(
                 "Selected CloudConnection provider does not match the requested pricing provider."
+            )
+        if connection.purpose != "pricing":
+            raise PricingRefreshRequestError(
+                "Selected CloudConnection is not configured for pricing access."
+            )
+        if connection.validation_status != "valid":
+            raise PricingRefreshRequestError(
+                "Selected pricing CloudConnection must be validated before refresh."
             )
         return connection
 

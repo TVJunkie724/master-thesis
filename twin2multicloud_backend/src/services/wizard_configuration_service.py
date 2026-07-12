@@ -204,6 +204,11 @@ class WizardConfigurationService:
             raise HTTPException(status_code=404, detail=f"{provider.upper()} Cloud connection not found")
         if connection.provider != provider:
             raise HTTPException(status_code=400, detail=f"Cloud connection provider must be {provider}")
+        if connection.purpose != "deployment":
+            raise HTTPException(
+                status_code=400,
+                detail="Pricing Cloud Connections cannot be bound to a twin.",
+            )
 
         setattr(config, self._connection_id_attr(provider), connection.id)
         setattr(config, self._validation_attr(provider), connection.validation_status == "valid")
