@@ -20,7 +20,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 4 | Done | Choose architecture | Pricing health, compact calculation review, recommendation evidence, and invalidation form a focused task flow; 384 tests pass. |
 | 5 | Done | Prepare deployment | Existing validated editors are composed into focused access, contract, logic, and asset tasks; all 384 tests pass. |
 | 6 | Done | Review and preflight | Summary, actionable findings, centralized fail-closed readiness, and distributed server validation provide one completion path; 387 tests pass. |
-| 7 | Planned | Quality and migration gate | Legacy navigation is removed, docs are aligned, and full static/test/build evidence passes. |
+| 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 
 ## Cross-Phase Definition Of Done
 

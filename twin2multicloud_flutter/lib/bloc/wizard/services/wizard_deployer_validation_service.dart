@@ -52,7 +52,7 @@ class WizardDeployerValidationService {
     if (provider == null) {
       return const ValidationResult(
         valid: false,
-        message: 'Complete Step 2 first',
+        message: 'Choose an architecture first',
       );
     }
     if (content.trim().isEmpty) {
@@ -88,7 +88,7 @@ class WizardDeployerValidationService {
       final layer = type == 'user-config' ? 'L5' : 'L4';
       return ValidationResult(
         valid: false,
-        message: 'No $layer provider selected (Step 2)',
+        message: 'No $layer provider is present in the architecture decision',
       );
     }
 

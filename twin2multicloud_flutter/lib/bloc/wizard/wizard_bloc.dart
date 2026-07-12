@@ -791,10 +791,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       String? warning;
       if (invalidatesStep3) {
         warning =
-            'Calculation Changed: Step 3 configuration may need review. Proceeding will require confirmation.';
+            'The architecture changed. Deployment preparation requires review before continuing.';
       } else if (unconfigured.isNotEmpty) {
         warning =
-            'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to add credentials.';
+            'Deployment access is missing for: ${unconfigured.join(", ")}. Open Cloud access to continue.';
       }
 
       emit(

@@ -367,7 +367,7 @@ project.zip
         ),
         title: const Text('Replace Existing Data?'),
         content: const Text(
-          'Uploading this zip will replace your current Step 3 configuration.\n\n'
+          'Uploading this zip will replace your current deployment artifacts.\n\n'
           'This includes events, devices, payloads, processors, and other fields '
           'you have already entered.\n\n'
           'This action cannot be undone.',

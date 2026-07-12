@@ -596,8 +596,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
             ],
           ),
           content: const Text(
-            'Your new calculation affects Step 3.\n\n'
-            'If you save now, Step 3 configuration will be reset to match the new calculation.',
+            'Your new calculation affects deployment preparation.\n\n'
+            'If you save now, dependent deployment artifacts will be reset to match the new architecture.',
           ),
           actions: [
             TextButton(
@@ -686,7 +686,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
     }
   }
 
-  /// Show confirmation dialog when Step 3 will be invalidated
+  /// Show confirmation before dependent deployment preparation is invalidated.
   /// Returns: 'proceed' (keep new results), 'restore' (keep old data), or null (cancel)
   Future<String?> _showInvalidationConfirmation(
     BuildContext context,
@@ -705,7 +705,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           ],
         ),
         content: Text(
-          'Your new calculation has different parameters that may affect Step 3 configuration.\n\n'
+          'Your new calculation has different parameters that may affect deployment preparation.\n\n'
           'What would you like to do?'
           '${!canDiscard ? '\n\n(Discard not available - no saved version exists)' : ''}',
         ),

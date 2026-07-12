@@ -165,7 +165,7 @@ class _ConfigJsonVisualizationBlockState
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'From Step 1 & 2',
+                      'Generated from configuration',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -318,7 +318,7 @@ class _ConfigJsonVisualizationBlockState
                   _buildStaticField(
                     'Mode',
                     widget.mode ?? 'production',
-                    'From Step 1',
+                    'Identity and mode',
                     isDark,
                   ),
 
@@ -328,14 +328,14 @@ class _ConfigJsonVisualizationBlockState
                   _buildStaticField(
                     'Hot Storage',
                     '${widget.hotStorageDays} days',
-                    'From Step 2',
+                    'Workload intent',
                     isDark,
                   ),
                   const SizedBox(height: 4),
                   _buildStaticField(
                     'Cold Storage',
                     '${widget.coldStorageDays} days',
-                    'From Step 2',
+                    'Workload intent',
                     isDark,
                   ),
                 ],

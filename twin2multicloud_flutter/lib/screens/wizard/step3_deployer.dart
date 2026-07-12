@@ -271,7 +271,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
       widgets.add(
         Step3InfoCards.emptyState(
           context,
-          'Enable triggerNotificationWorkflow or returnFeedbackToDevice in Step 2 for L2 inputs.',
+          'Enable orchestration or device feedback in Processing to add user-logic inputs.',
         ),
       );
     }
@@ -446,7 +446,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             icon: Icons.settings,
             isValid: state.configJsonValidated ? true : null,
             showEditBadge: true,
-            autoBadge: 'From Step 1 & 2',
+            autoBadge: 'Generated',
             initiallyExpanded: !state.configJsonValidated,
             forceCollapsed: state.forceCollapseSections,
             child: ConfigJsonVisualizationBlock(
@@ -625,14 +625,14 @@ class _Step3DeployerState extends State<Step3Deployer> {
             title: 'config_optimization.json',
             subtitle: 'Optimizer calculation results',
             icon: Icons.calculate,
-            autoBadge: 'From Step 2',
+            autoBadge: 'Generated',
             copyContent: _buildConfigOptimizationJson(state),
             child: ConfigVisualizationBlock(
               showHeader: false,
               filename: 'config_optimization.json',
               description: 'Optimizer calculation results',
               icon: Icons.calculate,
-              sourceLabel: 'From Step 2',
+              sourceLabel: 'Architecture decision',
               jsonContent: _buildConfigOptimizationJson(state),
               visualContent: ConfigVisualizationBlock.buildOptimizationVisual(
                 inputParams: {
@@ -654,14 +654,14 @@ class _Step3DeployerState extends State<Step3Deployer> {
             title: 'config_providers.json',
             subtitle: 'Provider assignments per layer',
             icon: Icons.cloud,
-            autoBadge: 'From Step 2',
+            autoBadge: 'Generated',
             copyContent: _buildConfigProvidersJson(state),
             child: ConfigVisualizationBlock(
               showHeader: false,
               filename: 'config_providers.json',
               description: 'Provider assignments per layer',
               icon: Icons.cloud,
-              sourceLabel: 'From Step 2',
+              sourceLabel: 'Architecture decision',
               jsonContent: _buildConfigProvidersJson(state),
               visualContent: ConfigVisualizationBlock.buildProvidersVisual(
                 _buildProviderMap(),
