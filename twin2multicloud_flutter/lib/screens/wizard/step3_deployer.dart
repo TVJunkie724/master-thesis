@@ -19,6 +19,7 @@ import '../../widgets/file_inputs/config_visualization_block.dart';
 import '../../widgets/step3/info_cards.dart';
 import '../../widgets/step3/step3_glb_upload_card.dart';
 import '../../widgets/step3/step3_layout_widgets.dart';
+import '../../features/configuration_workspace/domain/configuration_journey.dart';
 
 /// Step 3: Deployer Configuration - BLoC version
 ///
@@ -27,7 +28,9 @@ import '../../widgets/step3/step3_layout_widgets.dart';
 /// 2. Configuration Files - Core deployment config
 /// 3. User Functions & Assets - Layer-aligned file editors
 class Step3Deployer extends StatefulWidget {
-  const Step3Deployer({super.key});
+  final ConfigurationTaskId? taskId;
+
+  const Step3Deployer({super.key, this.taskId});
 
   @override
   State<Step3Deployer> createState() => _Step3DeployerState();
@@ -291,11 +294,55 @@ class _Step3DeployerState extends State<Step3Deployer> {
             Expanded(
               child: state.calcResult == null
                   ? const Step3NoResultMessage()
-                  : _buildLayerAlignedLayout(context, state),
+                  : _buildTaskLayout(context, state),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildTaskLayout(BuildContext context, WizardState state) {
+    final focus = switch (widget.taskId) {
+      ConfigurationTaskId.dataContracts => _DeploymentTaskFocus.dataContracts,
+      ConfigurationTaskId.userLogic => _DeploymentTaskFocus.userLogic,
+      ConfigurationTaskId.twinAssets => _DeploymentTaskFocus.twinAssets,
+      _ => _DeploymentTaskFocus.all,
+    };
+    if (focus == _DeploymentTaskFocus.all) {
+      return _buildLayerAlignedLayout(context, state);
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (focus == _DeploymentTaskFocus.dataContracts) ...[
+                const Step3QuickUploadSection(),
+                const SizedBox(height: 24),
+                const Step3ManualSeparator(),
+                const SizedBox(height: 24),
+                _buildConfigSection(context, state, showHierarchy: false),
+                const SizedBox(height: 24),
+              ],
+              if (focus == _DeploymentTaskFocus.twinAssets) ...[
+                _buildConfigSection(
+                  context,
+                  state,
+                  showCore: false,
+                  showGenerated: false,
+                ),
+                const SizedBox(height: 24),
+              ],
+              _buildDataFlowSection(context, state, false, focus: focus),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -381,132 +428,141 @@ class _Step3DeployerState extends State<Step3Deployer> {
     );
   }
 
-  Widget _buildConfigSection(BuildContext context, WizardState state) {
+  Widget _buildConfigSection(
+    BuildContext context,
+    WizardState state, {
+    bool showCore = true,
+    bool showHierarchy = true,
+    bool showGenerated = true,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // config.json - editable with auto values
-        CollapsibleBlockWrapper(
-          title: 'config.json',
-          subtitle: 'Core deployment configuration',
-          icon: Icons.settings,
-          isValid: state.configJsonValidated ? true : null,
-          showEditBadge: true,
-          autoBadge: 'From Step 1 & 2',
-          initiallyExpanded: !state.configJsonValidated,
-          forceCollapsed: state.forceCollapseSections,
-          child: ConfigJsonVisualizationBlock(
-            showHeader: false,
-            twinName: state.deployerDigitalTwinName,
-            mode: state.debugMode == true ? 'debug' : 'production',
-            hotStorageDays:
-                (state.calcParams?.hotStorageDurationInMonths ?? 1) * 30,
-            coldStorageDays:
-                (state.calcParams?.coolStorageDurationInMonths ?? 3) * 30,
-            isValidated: state.configJsonValidated,
-            isValidating: state.isArtifactValidating('config:core'),
-            validationFeedback: state.artifactFeedback('config:core'),
-            onTwinNameChanged: (name) {
-              context.read<WizardBloc>().add(
-                WizardDeployerTwinNameChanged(name),
-              );
-            },
-            onValidate: (config) {
-              final content = const JsonEncoder.withIndent(
-                '  ',
-              ).convert(config);
-              _requestValidation(
-                context,
-                state,
-                DeployerArtifactType.config,
-                content,
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // config_events.json - editable
-        CollapsibleBlockWrapper(
-          title: 'config_events.json',
-          subtitle: 'Event-driven automation rules',
-          icon: Icons.bolt,
-          isValid: state.configEventsValidated ? true : null,
-          showEditBadge: true,
-          initiallyExpanded: !state.configEventsValidated,
-          forceCollapsed: state.forceCollapseSections,
-          child: FileEditorBlock(
-            showHeader: false,
-            filename: 'config_events.json',
-            description: 'Event-driven automation rules',
-            icon: Icons.bolt,
-            isHighlighted: true,
-            constraints:
-                '• JSON array of event conditions\n• Define actions for each condition',
-            exampleContent: Step3Examples.configEvents,
-            initialContent: state.configEventsJson ?? '',
-            isValidated: state.configEventsValidated,
-            isValidating: state.isArtifactValidating('config:events'),
-            validationFeedback: state.artifactFeedback('config:events'),
-            onContentChanged: (content) {
-              context.read<WizardBloc>().add(
-                WizardConfigEventsChanged(content),
-              );
-            },
-            onValidate: (content) {
-              _requestValidation(
-                context,
-                state,
-                DeployerArtifactType.events,
-                content,
-              );
-            },
-            autoValidateOnUpload: true,
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // config_iot_devices.json - editable
-        CollapsibleBlockWrapper(
-          title: 'config_iot_devices.json',
-          subtitle: 'IoT device definitions',
-          icon: Icons.sensors,
-          isValid: state.configIotDevicesValidated ? true : null,
-          showEditBadge: true,
-          initiallyExpanded: !state.configIotDevicesValidated,
-          forceCollapsed: state.forceCollapseSections,
-          child: FileEditorBlock(
-            showHeader: false,
-            filename: 'config_iot_devices.json',
-            description: 'IoT device definitions',
-            icon: Icons.sensors,
-            isHighlighted: true,
-            constraints:
-                '• JSON array of device configs\n• Define properties per device',
-            exampleContent: Step3Examples.configIotDevices,
-            initialContent: state.configIotDevicesJson ?? '',
-            isValidated: state.configIotDevicesValidated,
-            isValidating: state.isArtifactValidating('config:iot-devices'),
-            validationFeedback: state.artifactFeedback('config:iot-devices'),
-            onContentChanged: (content) {
-              context.read<WizardBloc>().add(
-                WizardConfigIotDevicesChanged(content),
-              );
-            },
-            onValidate: (content) => _requestValidation(
-              context,
-              state,
-              DeployerArtifactType.iotDevices,
-              content,
+        if (showCore) ...[
+          // config.json - editable with auto values
+          CollapsibleBlockWrapper(
+            title: 'config.json',
+            subtitle: 'Core deployment configuration',
+            icon: Icons.settings,
+            isValid: state.configJsonValidated ? true : null,
+            showEditBadge: true,
+            autoBadge: 'From Step 1 & 2',
+            initiallyExpanded: !state.configJsonValidated,
+            forceCollapsed: state.forceCollapseSections,
+            child: ConfigJsonVisualizationBlock(
+              showHeader: false,
+              twinName: state.deployerDigitalTwinName,
+              mode: state.debugMode == true ? 'debug' : 'production',
+              hotStorageDays:
+                  (state.calcParams?.hotStorageDurationInMonths ?? 1) * 30,
+              coldStorageDays:
+                  (state.calcParams?.coolStorageDurationInMonths ?? 3) * 30,
+              isValidated: state.configJsonValidated,
+              isValidating: state.isArtifactValidating('config:core'),
+              validationFeedback: state.artifactFeedback('config:core'),
+              onTwinNameChanged: (name) {
+                context.read<WizardBloc>().add(
+                  WizardDeployerTwinNameChanged(name),
+                );
+              },
+              onValidate: (config) {
+                final content = const JsonEncoder.withIndent(
+                  '  ',
+                ).convert(config);
+                _requestValidation(
+                  context,
+                  state,
+                  DeployerArtifactType.config,
+                  content,
+                );
+              },
             ),
-            autoValidateOnUpload: true,
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+
+          // config_events.json - editable
+          CollapsibleBlockWrapper(
+            title: 'config_events.json',
+            subtitle: 'Event-driven automation rules',
+            icon: Icons.bolt,
+            isValid: state.configEventsValidated ? true : null,
+            showEditBadge: true,
+            initiallyExpanded: !state.configEventsValidated,
+            forceCollapsed: state.forceCollapseSections,
+            child: FileEditorBlock(
+              showHeader: false,
+              filename: 'config_events.json',
+              description: 'Event-driven automation rules',
+              icon: Icons.bolt,
+              isHighlighted: true,
+              constraints:
+                  '• JSON array of event conditions\n• Define actions for each condition',
+              exampleContent: Step3Examples.configEvents,
+              initialContent: state.configEventsJson ?? '',
+              isValidated: state.configEventsValidated,
+              isValidating: state.isArtifactValidating('config:events'),
+              validationFeedback: state.artifactFeedback('config:events'),
+              onContentChanged: (content) {
+                context.read<WizardBloc>().add(
+                  WizardConfigEventsChanged(content),
+                );
+              },
+              onValidate: (content) {
+                _requestValidation(
+                  context,
+                  state,
+                  DeployerArtifactType.events,
+                  content,
+                );
+              },
+              autoValidateOnUpload: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // config_iot_devices.json - editable
+          CollapsibleBlockWrapper(
+            title: 'config_iot_devices.json',
+            subtitle: 'IoT device definitions',
+            icon: Icons.sensors,
+            isValid: state.configIotDevicesValidated ? true : null,
+            showEditBadge: true,
+            initiallyExpanded: !state.configIotDevicesValidated,
+            forceCollapsed: state.forceCollapseSections,
+            child: FileEditorBlock(
+              showHeader: false,
+              filename: 'config_iot_devices.json',
+              description: 'IoT device definitions',
+              icon: Icons.sensors,
+              isHighlighted: true,
+              constraints:
+                  '• JSON array of device configs\n• Define properties per device',
+              exampleContent: Step3Examples.configIotDevices,
+              initialContent: state.configIotDevicesJson ?? '',
+              isValidated: state.configIotDevicesValidated,
+              isValidating: state.isArtifactValidating('config:iot-devices'),
+              validationFeedback: state.artifactFeedback('config:iot-devices'),
+              onContentChanged: (content) {
+                context.read<WizardBloc>().add(
+                  WizardConfigIotDevicesChanged(content),
+                );
+              },
+              onValidate: (content) => _requestValidation(
+                context,
+                state,
+                DeployerArtifactType.iotDevices,
+                content,
+              ),
+              autoValidateOnUpload: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // L4 Hierarchy JSON - only shown when L4 provider is AWS or Azure
-        if (state.layer4Provider?.toUpperCase() == 'AWS' ||
-            state.layer4Provider?.toUpperCase() == 'AZURE') ...[
+        if (showHierarchy &&
+            (state.layer4Provider?.toUpperCase() == 'AWS' ||
+                state.layer4Provider?.toUpperCase() == 'AZURE')) ...[
           Builder(
             builder: (context) {
               final l4Provider = state.layer4Provider!.toLowerCase();
@@ -563,53 +619,56 @@ class _Step3DeployerState extends State<Step3Deployer> {
           const SizedBox(height: 16),
         ],
 
-        // config_optimization.json - read-only
-        CollapsibleBlockWrapper(
-          title: 'config_optimization.json',
-          subtitle: 'Optimizer calculation results',
-          icon: Icons.calculate,
-          autoBadge: 'From Step 2',
-          copyContent: _buildConfigOptimizationJson(state),
-          child: ConfigVisualizationBlock(
-            showHeader: false,
-            filename: 'config_optimization.json',
-            description: 'Optimizer calculation results',
+        if (showGenerated) ...[
+          // config_optimization.json - read-only
+          CollapsibleBlockWrapper(
+            title: 'config_optimization.json',
+            subtitle: 'Optimizer calculation results',
             icon: Icons.calculate,
-            sourceLabel: 'From Step 2',
-            jsonContent: _buildConfigOptimizationJson(state),
-            visualContent: ConfigVisualizationBlock.buildOptimizationVisual(
-              inputParams: {
-                'useEventChecking': state.calcParams?.useEventChecking ?? false,
-                'triggerNotificationWorkflow':
-                    state.calcParams?.triggerNotificationWorkflow ?? false,
-                'returnFeedbackToDevice':
-                    state.calcParams?.returnFeedbackToDevice ?? false,
-                'needs3DModel': state.calcParams?.needs3DModel ?? false,
-              },
+            autoBadge: 'From Step 2',
+            copyContent: _buildConfigOptimizationJson(state),
+            child: ConfigVisualizationBlock(
+              showHeader: false,
+              filename: 'config_optimization.json',
+              description: 'Optimizer calculation results',
+              icon: Icons.calculate,
+              sourceLabel: 'From Step 2',
+              jsonContent: _buildConfigOptimizationJson(state),
+              visualContent: ConfigVisualizationBlock.buildOptimizationVisual(
+                inputParams: {
+                  'useEventChecking':
+                      state.calcParams?.useEventChecking ?? false,
+                  'triggerNotificationWorkflow':
+                      state.calcParams?.triggerNotificationWorkflow ?? false,
+                  'returnFeedbackToDevice':
+                      state.calcParams?.returnFeedbackToDevice ?? false,
+                  'needs3DModel': state.calcParams?.needs3DModel ?? false,
+                },
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-        // config_providers.json - read-only
-        CollapsibleBlockWrapper(
-          title: 'config_providers.json',
-          subtitle: 'Provider assignments per layer',
-          icon: Icons.cloud,
-          autoBadge: 'From Step 2',
-          copyContent: _buildConfigProvidersJson(state),
-          child: ConfigVisualizationBlock(
-            showHeader: false,
-            filename: 'config_providers.json',
-            description: 'Provider assignments per layer',
+          // config_providers.json - read-only
+          CollapsibleBlockWrapper(
+            title: 'config_providers.json',
+            subtitle: 'Provider assignments per layer',
             icon: Icons.cloud,
-            sourceLabel: 'From Step 2',
-            jsonContent: _buildConfigProvidersJson(state),
-            visualContent: ConfigVisualizationBlock.buildProvidersVisual(
-              _buildProviderMap(),
+            autoBadge: 'From Step 2',
+            copyContent: _buildConfigProvidersJson(state),
+            child: ConfigVisualizationBlock(
+              showHeader: false,
+              filename: 'config_providers.json',
+              description: 'Provider assignments per layer',
+              icon: Icons.cloud,
+              sourceLabel: 'From Step 2',
+              jsonContent: _buildConfigProvidersJson(state),
+              visualContent: ConfigVisualizationBlock.buildProvidersVisual(
+                _buildProviderMap(),
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -617,85 +676,98 @@ class _Step3DeployerState extends State<Step3Deployer> {
   Widget _buildDataFlowSection(
     BuildContext context,
     WizardState state,
-    bool showFlowchart,
-  ) {
+    bool showFlowchart, {
+    _DeploymentTaskFocus focus = _DeploymentTaskFocus.all,
+  }) {
     final layerBuilder = _layerBuilder!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Step3FlowHeader(
-          showFlowchart: showFlowchart,
-          flowchartWidth: _flowchartWidth,
-        ),
-        const SizedBox(height: 24),
+        if (focus == _DeploymentTaskFocus.all)
+          Step3FlowHeader(
+            showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
+          ),
+        if (focus == _DeploymentTaskFocus.all) const SizedBox(height: 24),
 
         // L1 Row
-        Step3LayerRow(
-          showFlowchart: showFlowchart,
-          flowchartWidth: _flowchartWidth,
-          flowchart: layerBuilder.buildL1Layer(context),
-          editors: [
-            CollapsibleBlockWrapper(
-              title: 'payloads.json',
-              subtitle: 'IoT device payload schemas',
-              icon: Icons.data_object,
-              isValid: state.payloadsValidated ? true : null,
-              showEditBadge: true,
-              initiallyExpanded: !state.payloadsValidated,
-              forceCollapsed: state.forceCollapseSections,
-              child: FileEditorBlock(
-                showHeader: false,
-                filename: 'payloads.json',
-                description: 'IoT device payload schemas',
+        if (focus == _DeploymentTaskFocus.all ||
+            focus == _DeploymentTaskFocus.dataContracts) ...[
+          Step3LayerRow(
+            showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
+            flowchart: layerBuilder.buildL1Layer(context),
+            editors: [
+              CollapsibleBlockWrapper(
+                title: 'payloads.json',
+                subtitle: 'IoT device payload schemas',
                 icon: Icons.data_object,
-                isHighlighted: true,
-                constraints:
-                    '• Must be valid JSON\n• Define device ID and payload structure',
-                exampleContent: Step3Examples.payloads,
-                initialContent: state.payloadsJson ?? '',
-                isValidated: state.payloadsValidated,
-                isValidating: state.isArtifactValidating('payloads'),
-                validationFeedback: state.artifactFeedback('payloads'),
-                onContentChanged: (content) => context.read<WizardBloc>().add(
-                  WizardPayloadsChanged(content),
+                isValid: state.payloadsValidated ? true : null,
+                showEditBadge: true,
+                initiallyExpanded: !state.payloadsValidated,
+                forceCollapsed: state.forceCollapseSections,
+                child: FileEditorBlock(
+                  showHeader: false,
+                  filename: 'payloads.json',
+                  description: 'IoT device payload schemas',
+                  icon: Icons.data_object,
+                  isHighlighted: true,
+                  constraints:
+                      '• Must be valid JSON\n• Define device ID and payload structure',
+                  exampleContent: Step3Examples.payloads,
+                  initialContent: state.payloadsJson ?? '',
+                  isValidated: state.payloadsValidated,
+                  isValidating: state.isArtifactValidating('payloads'),
+                  validationFeedback: state.artifactFeedback('payloads'),
+                  onContentChanged: (content) => context.read<WizardBloc>().add(
+                    WizardPayloadsChanged(content),
+                  ),
+                  onValidate: (content) => _requestValidation(
+                    context,
+                    state,
+                    DeployerArtifactType.payloads,
+                    content,
+                  ),
+                  autoValidateOnUpload: true,
                 ),
-                onValidate: (content) => _requestValidation(
-                  context,
-                  state,
-                  DeployerArtifactType.payloads,
-                  content,
-                ),
-                autoValidateOnUpload: true,
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
 
-        if (showFlowchart) const Step3ArrowRow(flowchartWidth: _flowchartWidth),
+        if (showFlowchart && focus == _DeploymentTaskFocus.all)
+          const Step3ArrowRow(flowchartWidth: _flowchartWidth),
 
         // L2 Row (Dynamic)
-        Step3LayerRow(
-          showFlowchart: showFlowchart,
-          flowchartWidth: _flowchartWidth,
-          flowchart: layerBuilder.buildL2Layer(context),
-          editors: _buildL2DynamicInputs(context, state),
-        ),
+        if (focus == _DeploymentTaskFocus.all ||
+            focus == _DeploymentTaskFocus.userLogic) ...[
+          Step3LayerRow(
+            showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
+            flowchart: layerBuilder.buildL2Layer(context),
+            editors: _buildL2DynamicInputs(context, state),
+          ),
+        ],
 
         if (showFlowchart) const Step3ArrowRow(flowchartWidth: _flowchartWidth),
 
         // L3 Row
-        Step3LayerRow(
-          showFlowchart: showFlowchart,
-          flowchartWidth: _flowchartWidth,
-          flowchart: layerBuilder.buildL3Layer(context),
-          editors: [Step3InfoCards.autoConfigured(context)],
-        ),
+        if (focus == _DeploymentTaskFocus.all) ...[
+          Step3LayerRow(
+            showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
+            flowchart: layerBuilder.buildL3Layer(context),
+            editors: [Step3InfoCards.autoConfigured(context)],
+          ),
+        ],
 
         if (showFlowchart) const Step3ArrowRow(flowchartWidth: _flowchartWidth),
 
         // L4 Row - Scene Config (only when needs3DModel && L4 provider is AWS/Azure && hierarchy validated)
-        if (state.calcParams?.needs3DModel == true &&
+        if ((focus == _DeploymentTaskFocus.all ||
+                focus == _DeploymentTaskFocus.twinAssets) &&
+            state.calcParams?.needs3DModel == true &&
             state.hierarchyValidated &&
             (state.layer4Provider?.toUpperCase() == 'AWS' ||
                 state.layer4Provider?.toUpperCase() == 'AZURE')) ...[
@@ -778,7 +850,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
           ),
           if (showFlowchart)
             const Step3ArrowRow(flowchartWidth: _flowchartWidth),
-        ] else ...[
+        ] else if (focus == _DeploymentTaskFocus.all ||
+            focus == _DeploymentTaskFocus.twinAssets) ...[
           // No L4 Scene needed - show info card
           Step3LayerRow(
             showFlowchart: showFlowchart,
@@ -797,70 +870,78 @@ class _Step3DeployerState extends State<Step3Deployer> {
         ],
 
         // L5 Row - User Config (AWS/Azure only)
-        Step3LayerRow(
-          showFlowchart: showFlowchart,
-          flowchartWidth: _flowchartWidth,
-          flowchart: layerBuilder.buildL5Layer(context),
-          editors: [
-            if (state.layer5Provider?.toUpperCase() == 'AWS' ||
-                state.layer5Provider?.toUpperCase() == 'AZURE') ...[
-              Builder(
-                builder: (context) {
-                  // Provider already checked above, proceed with config
-                  return CollapsibleBlockWrapper(
-                    title: 'config_user.json',
-                    subtitle: 'Grafana dashboard configuration',
-                    icon: Icons.dashboard,
-                    isValid: state.userConfigValidated ? true : null,
-                    showEditBadge: true,
-                    initiallyExpanded: !state.userConfigValidated,
-                    forceCollapsed: state.forceCollapseSections,
-                    copyContent: state.userConfigContent,
-                    child: FileEditorBlock(
-                      showHeader: false,
-                      filename: 'config_user.json',
-                      description: 'Grafana dashboard user configuration',
+        if (focus == _DeploymentTaskFocus.all ||
+            focus == _DeploymentTaskFocus.twinAssets)
+          Step3LayerRow(
+            showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
+            flowchart: layerBuilder.buildL5Layer(context),
+            editors: [
+              if (state.layer5Provider?.toUpperCase() == 'AWS' ||
+                  state.layer5Provider?.toUpperCase() == 'AZURE') ...[
+                Builder(
+                  builder: (context) {
+                    // Provider already checked above, proceed with config
+                    return CollapsibleBlockWrapper(
+                      title: 'config_user.json',
+                      subtitle: 'Grafana dashboard configuration',
                       icon: Icons.dashboard,
-                      isHighlighted: true,
-                      constraints:
-                          '• Dashboard panels and queries\\n• Data source configuration',
-                      exampleContent: Step3Examples.userConfig,
-                      initialContent: state.userConfigContent ?? '',
-                      isValidated: state.userConfigValidated,
-                      isValidating: state.isArtifactValidating('user-config'),
-                      validationFeedback: state.artifactFeedback('user-config'),
-                      onContentChanged: (content) {
-                        context.read<WizardBloc>().add(
-                          WizardUserConfigContentChanged(content),
-                        );
-                      },
-                      onValidate: (content) {
-                        // User config is L5 - use layer5Provider instead of layer4Provider
-                        _requestValidation(
-                          context,
-                          state,
-                          DeployerArtifactType.userConfig,
-                          content,
-                          providerOverride: state.layer5Provider,
-                        );
-                      },
-                      autoValidateOnUpload: true,
-                    ),
-                  );
-                },
-              ),
-            ] else ...[
-              Step3InfoCards.l5Info(context, l5Provider: state.layer5Provider),
+                      isValid: state.userConfigValidated ? true : null,
+                      showEditBadge: true,
+                      initiallyExpanded: !state.userConfigValidated,
+                      forceCollapsed: state.forceCollapseSections,
+                      copyContent: state.userConfigContent,
+                      child: FileEditorBlock(
+                        showHeader: false,
+                        filename: 'config_user.json',
+                        description: 'Grafana dashboard user configuration',
+                        icon: Icons.dashboard,
+                        isHighlighted: true,
+                        constraints:
+                            '• Dashboard panels and queries\\n• Data source configuration',
+                        exampleContent: Step3Examples.userConfig,
+                        initialContent: state.userConfigContent ?? '',
+                        isValidated: state.userConfigValidated,
+                        isValidating: state.isArtifactValidating('user-config'),
+                        validationFeedback: state.artifactFeedback(
+                          'user-config',
+                        ),
+                        onContentChanged: (content) {
+                          context.read<WizardBloc>().add(
+                            WizardUserConfigContentChanged(content),
+                          );
+                        },
+                        onValidate: (content) {
+                          // User config is L5 - use layer5Provider instead of layer4Provider
+                          _requestValidation(
+                            context,
+                            state,
+                            DeployerArtifactType.userConfig,
+                            content,
+                            providerOverride: state.layer5Provider,
+                          );
+                        },
+                        autoValidateOnUpload: true,
+                      ),
+                    );
+                  },
+                ),
+              ] else ...[
+                Step3InfoCards.l5Info(
+                  context,
+                  l5Provider: state.layer5Provider,
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
 
         const SizedBox(height: 24),
-        Step3FlowFooter(
-          showFlowchart: showFlowchart,
-          flowchartWidth: _flowchartWidth,
-          legend: _layerBuilder!.buildLegend(context),
-        ),
+        if (focus == _DeploymentTaskFocus.all)
+          Step3FlowFooter(
+            showFlowchart: showFlowchart,
+            flowchartWidth: _flowchartWidth,
+            legend: _layerBuilder!.buildLegend(context),
+          ),
       ],
     );
   }
@@ -1007,3 +1088,5 @@ class _Step3DeployerState extends State<Step3Deployer> {
     }
   }
 }
+
+enum _DeploymentTaskFocus { all, dataContracts, userLogic, twinAssets }

@@ -18,7 +18,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 2 | Done | Define twin and access timing | Identity is focused; selected-path deployment access is purpose-filtered and gated after architecture selection; 382 tests pass. |
 | 3 | Done | Describe workload | The 26 optimizer inputs are split into five focused tasks without changing `CalcParams`; aggregate hidden-field validation and 384 tests pass. |
 | 4 | Done | Choose architecture | Pricing health, compact calculation review, recommendation evidence, and invalidation form a focused task flow; 384 tests pass. |
-| 5 | Planned | Prepare deployment | Step 3 sections become requirement-driven tasks for access, contracts, logic, and assets. |
+| 5 | Done | Prepare deployment | Existing validated editors are composed into focused access, contract, logic, and asset tasks; all 384 tests pass. |
 | 6 | Planned | Review and preflight | Summary, readiness findings, server validation, and Finish provide one authoritative completion path. |
 | 7 | Planned | Quality and migration gate | Legacy navigation is removed, docs are aligned, and full static/test/build evidence passes. |
 
