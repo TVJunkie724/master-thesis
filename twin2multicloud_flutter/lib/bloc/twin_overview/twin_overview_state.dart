@@ -3,6 +3,60 @@
 
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
+import '../../models/deployment_readiness.dart';
+
+enum DeploymentReadinessViewPhase {
+  initial,
+  loading,
+  ready,
+  reviewRequired,
+  failed,
+}
+
+class DeploymentReadinessViewState extends Equatable {
+  final DeploymentReadinessViewPhase phase;
+  final DeploymentReadinessSnapshot? snapshot;
+  final String? errorMessage;
+
+  const DeploymentReadinessViewState._({
+    required this.phase,
+    this.snapshot,
+    this.errorMessage,
+  });
+
+  const DeploymentReadinessViewState.initial()
+    : this._(phase: DeploymentReadinessViewPhase.initial);
+
+  const DeploymentReadinessViewState.loading({
+    DeploymentReadinessSnapshot? previous,
+  }) : this._(phase: DeploymentReadinessViewPhase.loading, snapshot: previous);
+
+  factory DeploymentReadinessViewState.fromSnapshot(
+    DeploymentReadinessSnapshot snapshot,
+  ) {
+    return DeploymentReadinessViewState._(
+      phase: snapshot.ready
+          ? DeploymentReadinessViewPhase.ready
+          : DeploymentReadinessViewPhase.reviewRequired,
+      snapshot: snapshot,
+    );
+  }
+
+  const DeploymentReadinessViewState.failed(
+    String message, {
+    DeploymentReadinessSnapshot? previous,
+  }) : this._(
+         phase: DeploymentReadinessViewPhase.failed,
+         snapshot: previous,
+         errorMessage: message,
+       );
+
+  bool get isDeployable =>
+      phase == DeploymentReadinessViewPhase.ready && snapshot?.ready == true;
+
+  @override
+  List<Object?> get props => [phase, snapshot, errorMessage];
+}
 
 abstract class TwinOverviewState extends Equatable {
   const TwinOverviewState();
@@ -38,6 +92,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final bool canDestroy;
   final bool canEdit;
   final bool canDelete;
+
+  final DeploymentReadinessViewState deploymentReadiness;
 
   // Transient states
   final bool isDeploying;
@@ -94,6 +150,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.canDestroy,
     required this.canEdit,
     required this.canDelete,
+    this.deploymentReadiness = const DeploymentReadinessViewState.initial(),
     this.isDeploying = false,
     this.isDestroying = false,
     this.isTracing = false,
@@ -134,6 +191,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool? canDestroy,
     bool? canEdit,
     bool? canDelete,
+    DeploymentReadinessViewState? deploymentReadiness,
     bool? isDeploying,
     bool? isDestroying,
     bool? isTracing,
@@ -182,6 +240,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
       canDestroy: canDestroy ?? this.canDestroy,
       canEdit: canEdit ?? this.canEdit,
       canDelete: canDelete ?? this.canDelete,
+      deploymentReadiness: deploymentReadiness ?? this.deploymentReadiness,
       isDeploying: isDeploying ?? this.isDeploying,
       isDestroying: isDestroying ?? this.isDestroying,
       isTracing: isTracing ?? this.isTracing,
@@ -237,6 +296,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     canDestroy,
     canEdit,
     canDelete,
+    deploymentReadiness,
     isDeploying,
     isDestroying,
     isTracing,

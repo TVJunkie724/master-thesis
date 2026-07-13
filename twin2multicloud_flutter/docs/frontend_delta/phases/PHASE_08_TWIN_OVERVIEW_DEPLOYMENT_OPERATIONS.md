@@ -3,7 +3,7 @@ title: "Phase 8: Twin Overview Deployment Operations"
 description: "Plan Twin Overview hardening for deploy, destroy, preflight, logs, outputs, and permission-set visibility."
 tags: [flutter, frontend-delta, twin-overview, deployment, preflight]
 lastUpdated: "2026-07-14"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -31,14 +31,22 @@ and the final responsive/accessibility quality gate.
 | Subphase | Status | Evidence |
 |---|---|---|
 | 8.1 Typed operation contracts and nullable state | Done | 55 focused tests, 451 complete Flutter tests, analyzer clean |
-| 8.2 Twin-scoped readiness and explicit preflight | Next | Pending implementation |
-| 8.3 Persisted log catch-up and SSE recovery | Planned | Pending implementation |
+| 8.2 Twin-scoped readiness and explicit preflight | Done | 25 focused backend tests, 582 complete backend tests, 463 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
+| 8.3 Persisted log catch-up and SSE recovery | Next | Pending implementation |
 | 8.4 Trace/simulator workflows and secure archives | Planned | Pending implementation |
 | 8.5 Responsive/accessibility release gate | Planned | Pending implementation |
 
 The 8.1 gate covers Management API and demo adapters, strict versioned parsers,
 session-scoped cursors, immutable output/download data, and stale-state clearing.
 Verification used no live cloud resources.
+
+The 8.2 gate covers a persisted secret-free readiness cache, owner and provider
+binding checks, credential-fingerprint and permission-set invalidation, bounded
+redacted evidence, explicit resource-free preflight, and server-side deployment
+enforcement. Flutter renders a compact readiness panel, keeps provider evidence
+collapsed when healthy, expands remediation when blocked, and independently
+guards the deploy command. The demo adapter implements the same fail-closed
+contract. Verification used no live cloud resources.
 
 ## Summary
 

@@ -10,6 +10,8 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.da
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
+import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 import 'package:twin2multicloud_flutter/services/log_stream_client.dart';
 
@@ -401,6 +403,130 @@ void main() {
     );
   });
 
+  group('TwinOverviewBloc - Deployment readiness', () {
+    late MockApiService mockApi;
+
+    setUp(() {
+      mockApi = MockApiService();
+    });
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'loads cached readiness without contacting preflight',
+      setUp: () {
+        when(
+          () => mockApi.getTwin('test-id'),
+        ).thenAnswer((_) async => {'id': 'test-id', 'name': 'Test Project'});
+        when(() => mockApi.getDeploymentStatus('test-id')).thenAnswer(
+          (_) async => const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.configured,
+          ),
+        );
+        when(
+          () => mockApi.getOptimizerConfig('test-id'),
+        ).thenThrow(Exception('not configured'));
+        when(
+          () => mockApi.getDeployerConfig('test-id'),
+        ).thenThrow(Exception('not configured'));
+        when(
+          () => mockApi.getDeploymentReadiness('test-id'),
+        ).thenAnswer((_) async => _readiness(ready: false));
+      },
+      build: () => buildBloc(mockApi),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.deploymentReadiness.phase,
+          'phase',
+          DeploymentReadinessViewPhase.reviewRequired,
+        ),
+      ],
+      verify: (_) {
+        verify(() => mockApi.getDeploymentReadiness('test-id')).called(1);
+        verifyNever(() => mockApi.runDeploymentPreflight(any()));
+      },
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'runs explicit preflight and publishes ready state',
+      seed: () => _loadedWithReadiness(ready: false),
+      setUp: () {
+        when(() => mockApi.runDeploymentPreflight('test-id')).thenAnswer(
+          (_) async => _readiness(
+            ready: true,
+            source: DeploymentReadinessSource.preflight,
+          ),
+        );
+      },
+      build: () => buildBloc(mockApi),
+      act: (bloc) => bloc.add(const TwinOverviewRunDeploymentPreflight()),
+      expect: () => [
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.deploymentReadiness.phase,
+          'phase',
+          DeploymentReadinessViewPhase.loading,
+        ),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.deploymentReadiness.phase,
+              'phase',
+              DeploymentReadinessViewPhase.ready,
+            )
+            .having(
+              (state) => state.deploymentReadiness.isDeployable,
+              'isDeployable',
+              isTrue,
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'preserves prior evidence when explicit preflight fails',
+      seed: () => _loadedWithReadiness(ready: false),
+      setUp: () {
+        when(
+          () => mockApi.runDeploymentPreflight('test-id'),
+        ).thenThrow(Exception('service unavailable'));
+      },
+      build: () => buildBloc(mockApi),
+      act: (bloc) => bloc.add(const TwinOverviewRunDeploymentPreflight()),
+      expect: () => [
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.deploymentReadiness.phase,
+          'phase',
+          DeploymentReadinessViewPhase.loading,
+        ),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.deploymentReadiness.phase,
+              'phase',
+              DeploymentReadinessViewPhase.failed,
+            )
+            .having(
+              (state) => state.deploymentReadiness.snapshot,
+              'prior snapshot',
+              isNotNull,
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'blocks deployment event before API I/O when readiness is not ready',
+      seed: () => _loadedWithReadiness(ready: false),
+      build: () => buildBloc(mockApi),
+      act: (bloc) => bloc.add(const TwinOverviewDeploy()),
+      expect: () => [
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.errorMessage,
+          'errorMessage',
+          contains('blocked'),
+        ),
+      ],
+      verify: (_) => verifyNever(() => mockApi.deployTwin(any())),
+    );
+  });
+
   // ============================================================
   // BLoC Error Cases Tests
   // ============================================================
@@ -613,4 +739,62 @@ void main() {
       ],
     );
   });
+}
+
+TwinOverviewLoaded _loadedWithReadiness({required bool ready}) {
+  return TwinOverviewLoaded(
+    twinId: 'test-id',
+    projectName: 'Test Project',
+    twinState: 'configured',
+    canDeploy: true,
+    canDestroy: false,
+    canEdit: true,
+    canDelete: true,
+    deploymentReadiness: DeploymentReadinessViewState.fromSnapshot(
+      _readiness(ready: ready),
+    ),
+  );
+}
+
+DeploymentReadinessSnapshot _readiness({
+  required bool ready,
+  DeploymentReadinessSource source = DeploymentReadinessSource.cached,
+}) {
+  final check = DeploymentReadinessCheck(
+    component: ready ? 'deployer' : 'configuration',
+    status: ready
+        ? DeploymentReadinessCheckStatus.passed
+        : DeploymentReadinessCheckStatus.failed,
+    code: ready ? 'OK' : 'PREFLIGHT_NOT_RUN',
+    message: ready ? 'Access passed.' : 'Preflight has not been run.',
+    action: ready ? 'No action required.' : 'Run preflight.',
+    permissions: const [],
+  );
+  return DeploymentReadinessSnapshot(
+    schemaVersion: source == DeploymentReadinessSource.cached
+        ? DeploymentReadinessSnapshot.cachedSchemaVersion
+        : DeploymentReadinessSnapshot.preflightSchemaVersion,
+    source: source,
+    twinId: 'test-id',
+    ready: ready,
+    summary: ready ? 'Ready.' : 'Review required.',
+    requiredProviders: const [CloudProvider.aws],
+    providers: [
+      ProviderDeploymentReadiness(
+        provider: CloudProvider.aws,
+        connectionId: 'connection-1',
+        connectionDisplayName: 'AWS deployment',
+        ready: ready,
+        status: ready
+            ? ProviderDeploymentReadinessStatus.ready
+            : ProviderDeploymentReadinessStatus.notChecked,
+        summary: check.message,
+        expectedPermissionSetVersion: 'thesis-demo-v1',
+        suppliedPermissionSetVersion: 'thesis-demo-v1',
+        permissionSetStatus: PermissionSetReadinessStatus.matched,
+        checks: [check],
+      ),
+    ],
+    issues: const [],
+  );
 }

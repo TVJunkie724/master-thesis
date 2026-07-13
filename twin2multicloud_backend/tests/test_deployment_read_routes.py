@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from src.models.deployment import Deployment
 from src.models.twin import TwinState
 from src.services.simulator_service import SimulatorDownload
+from src.services.service_errors import ValidationError
 
 
 def test_deployment_status_route_returns_current_twin_state(auth_client, test_twin):
@@ -82,6 +83,10 @@ def test_deployments_route_returns_limited_history(auth_client, db, test_twin):
 def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_twin, monkeypatch):
     calls = []
 
+    class FakeReadinessService:
+        def require_ready(self, twin_id, user_id):
+            calls.append({"readiness_twin_id": twin_id, "readiness_user_id": user_id})
+
     class FakeOrchestrator:
         async def deploy_twin(self, **kwargs):
             calls.append(kwargs)
@@ -91,14 +96,39 @@ def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_tw
         "src.api.routes.twin_operations._deployment_orchestrator",
         lambda _db: FakeOrchestrator(),
     )
+    monkeypatch.setattr(
+        "src.api.routes.twin_operations._deployment_readiness_service",
+        lambda _db: FakeReadinessService(),
+    )
 
     response = auth_client.post(f"/twins/{test_twin.id}/deploy")
 
     assert response.status_code == 200
     assert response.json()["session_id"] == "route-deploy"
-    assert calls[0]["twin_id"] == test_twin.id
-    assert calls[0]["test_mode"] is False
-    assert "test_stream_runner" not in calls[0]
+    assert calls[0]["readiness_twin_id"] == test_twin.id
+    assert calls[1]["twin_id"] == test_twin.id
+    assert calls[1]["test_mode"] is False
+    assert "test_stream_runner" not in calls[1]
+
+
+def test_deployment_command_route_does_not_bypass_readiness(auth_client, test_twin, monkeypatch):
+    class BlockedReadinessService:
+        def require_ready(self, _twin_id, _user_id):
+            raise ValidationError("Deployment preflight is required.")
+
+    monkeypatch.setattr(
+        "src.api.routes.twin_operations._deployment_readiness_service",
+        lambda _db: BlockedReadinessService(),
+    )
+    monkeypatch.setattr(
+        "src.api.routes.twin_operations._deployment_orchestrator",
+        lambda _db: (_ for _ in ()).throw(AssertionError("orchestrator must not run")),
+    )
+
+    response = auth_client.post(f"/twins/{test_twin.id}/deploy")
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Deployment preflight is required."}
 
 
 def test_deployment_verification_route_delegates_to_orchestrator(auth_client, test_twin, monkeypatch):

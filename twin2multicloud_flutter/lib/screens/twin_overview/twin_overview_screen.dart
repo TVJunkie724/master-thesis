@@ -11,6 +11,7 @@ import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../bloc/deployment_verification/deployment_verification.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../theme/spacing.dart';
 import '../../utils/file_download_utils.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/code_viewer_dialog.dart';
@@ -19,6 +20,7 @@ import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/twin_overview/twin_overview_code_artifact.dart';
 import '../../widgets/twin_overview/twin_overview_command_center.dart';
 import '../../widgets/twin_overview/twin_overview_configuration_review.dart';
+import '../../widgets/twin_overview/deployment_readiness_panel.dart';
 import '../../widgets/twin_overview/twin_overview_name_header.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
@@ -158,7 +160,9 @@ class TwinOverviewView extends ConsumerWidget {
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.maxContentWidthLarge,
+          ),
           child: Row(
             children: [
               TextButton.icon(
@@ -233,7 +237,9 @@ class TwinOverviewView extends ConsumerWidget {
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.maxContentWidthLarge,
+          ),
           child: Row(
             children: [
               Icon(icon, color: color.shade700),
@@ -296,7 +302,7 @@ class TwinOverviewView extends ConsumerWidget {
                 context,
               ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
               onPressed: () => context.read<TwinOverviewBloc>().add(
                 TwinOverviewLoad(twinId),
@@ -325,9 +331,11 @@ class TwinOverviewView extends ConsumerWidget {
     return SingleChildScrollView(
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.maxContentWidthLarge,
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -336,7 +344,16 @@ class TwinOverviewView extends ConsumerWidget {
                   projectName: state.projectName,
                   cloudResourceName: state.cloudResourceName,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.lg),
+
+                DeploymentReadinessPanel(
+                  state: state.deploymentReadiness,
+                  onRunPreflight: () => context.read<TwinOverviewBloc>().add(
+                    const TwinOverviewRunDeploymentPreflight(),
+                  ),
+                  onOpenCloudAccounts: () => context.go('/settings'),
+                ),
+                const SizedBox(height: AppSpacing.lg),
 
                 // Command Center (always visible)
                 TwinOverviewCommandCenter(
@@ -360,7 +377,7 @@ class TwinOverviewView extends ConsumerWidget {
                         TwinOverviewShowMessage(message, MessageType.success),
                       ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.lg),
 
                 // Deployment Verification (only for deployed twins)
                 if (state.twinState == 'deployed') ...[
@@ -380,7 +397,7 @@ class TwinOverviewView extends ConsumerWidget {
                               as String?,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.lg),
                 ],
 
                 TwinOverviewConfigurationReview(

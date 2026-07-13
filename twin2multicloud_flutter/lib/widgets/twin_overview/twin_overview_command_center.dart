@@ -65,6 +65,19 @@ class TwinOverviewCommandCenter extends StatelessWidget {
               onDeploy: onDeploy,
               onDestroy: onDestroy,
             ),
+            if (state.canDeploy && !state.deploymentReadiness.isDeployable) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Semantics(
+                label:
+                    'Deployment blocked. Run provider preflight successfully before deployment.',
+                child: Text(
+                  'Deployment is blocked until the current provider preflight passes.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            ],
             if (state.twinState == 'deployed') ...[
               const SizedBox(height: AppSpacing.md),
               _TestingUtilities(
@@ -165,13 +178,15 @@ class _DeploymentActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final deployEnabled =
+        state.canDeploy && state.deploymentReadiness.isDeployable;
     return LayoutBuilder(
       builder: (context, constraints) {
         final actions = [
           _PrimaryActionButton(
             label: state.twinState == 'error' ? 'RETRY DEPLOY' : 'DEPLOY',
             icon: Icons.rocket_launch,
-            enabled: state.canDeploy,
+            enabled: deployEnabled,
             busy: state.isDeploying,
             color: AppColors.success,
             onPressed: onDeploy,

@@ -7,6 +7,7 @@ import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
+import '../models/deployment_readiness.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
@@ -20,6 +21,7 @@ class DemoManagementApi implements ManagementApi {
   final Duration latency;
   String? _token = 'demo-token';
   final List<Map<String, dynamic>> _decisions = [];
+  final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
 
   DemoManagementApi({
     required this.store,
@@ -152,6 +154,7 @@ class DemoManagementApi implements ManagementApi {
       'is_default_for_pricing': request.isDefaultForPricing,
       'display_name': request.displayName.trim(),
       'auth_type': request.authType ?? _defaultAuthType(request.provider),
+      'permission_set_version': null,
       'cloud_scope': request.cloudScope,
       'payload_fingerprint': '$id-fingerprint',
       'payload_summary': payloadSummary,
@@ -355,6 +358,7 @@ class DemoManagementApi implements ManagementApi {
       );
     }
     store.removeTwin(twinId);
+    _deploymentReadinessCache.remove(twinId);
   }
 
   @override
@@ -393,6 +397,7 @@ class DemoManagementApi implements ManagementApi {
     }
     current.addAll(update);
     store.setTwinConfig(twinId, current);
+    _deploymentReadinessCache.remove(twinId);
     return {...current, 'twin_state': store.twin(twinId)['state']};
   }
 
@@ -941,6 +946,13 @@ class DemoManagementApi implements ManagementApi {
         'Twin "$twinId" is not ready for deployment.',
       );
     }
+    final readiness = _deploymentReadinessCache[twinId];
+    if (readiness == null || readiness['ready'] != true) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_PREFLIGHT_REQUIRED',
+        'Deployment preflight is required before infrastructure deployment.',
+      );
+    }
     final sessionId = store.nextId('demo-deploy-session');
     final now = store.clock().toIso8601String();
     store.updateTwin(twinId, {
@@ -970,6 +982,37 @@ class DemoManagementApi implements ManagementApi {
       sessionId: sessionId,
       sseUrl: '/demo/deployment/$twinId/$sessionId',
     );
+  }
+
+  @override
+  Future<DeploymentReadinessSnapshot> getDeploymentReadiness(
+    String twinId,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    final cached = _deploymentReadinessCache[twinId];
+    final document = cached == null
+        ? _buildDeploymentReadiness(twinId, executeChecks: false)
+        : _copyMap(cached);
+    document['schema_version'] =
+        DeploymentReadinessSnapshot.cachedSchemaVersion;
+    return DeploymentReadinessSnapshot.fromCachedJson(document);
+  }
+
+  @override
+  Future<DeploymentReadinessSnapshot> runDeploymentPreflight(
+    String twinId,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    final document = _buildDeploymentReadiness(twinId, executeChecks: true);
+    _deploymentReadinessCache[twinId] = {
+      ..._copyMap(document),
+      'schema_version': DeploymentReadinessSnapshot.cachedSchemaVersion,
+    };
+    document['schema_version'] =
+        DeploymentReadinessSnapshot.preflightSchemaVersion;
+    return DeploymentReadinessSnapshot.fromPreflightJson(document);
   }
 
   @override
@@ -1221,6 +1264,199 @@ class DemoManagementApi implements ManagementApi {
     return latency == Duration.zero
         ? Future<void>.value()
         : Future<void>.delayed(latency);
+  }
+
+  Map<String, dynamic> _buildDeploymentReadiness(
+    String twinId, {
+    required bool executeChecks,
+  }) {
+    final optimizer = store.optimizerConfig(twinId);
+    final rawPath = optimizer?['cheapest_path'];
+    final requiredProviders = <String>[];
+    if (rawPath is Map) {
+      requiredProviders.addAll(
+        rawPath.values
+            .where((value) => value != null && value.toString().isNotEmpty)
+            .map((value) => _provider(value.toString()))
+            .toSet(),
+      );
+      requiredProviders.sort();
+    }
+    final issues = <Map<String, dynamic>>[];
+    if (requiredProviders.isEmpty) {
+      issues.add(
+        _readinessCheck(
+          component: 'architecture',
+          code: 'DEPLOYMENT_ARCHITECTURE_MISSING',
+          message:
+              'No optimized provider architecture is stored for this twin.',
+          action:
+              'Complete cost optimization and save the selected provider path.',
+        ),
+      );
+    }
+
+    final config = store.twinConfig(twinId) ?? const <String, dynamic>{};
+    final checkedAt = store.clock().toIso8601String();
+    final providers = requiredProviders
+        .map(
+          (provider) => _buildProviderReadiness(
+            provider,
+            config['${provider}_cloud_connection_id']?.toString(),
+            executeChecks: executeChecks,
+            checkedAt: checkedAt,
+          ),
+        )
+        .toList(growable: false);
+    final ready =
+        requiredProviders.isNotEmpty &&
+        issues.isEmpty &&
+        providers.every((provider) => provider['ready'] == true);
+    final checkedProviders = providers.where(
+      (provider) => provider['checked_at'] != null,
+    );
+    return {
+      'schema_version': executeChecks
+          ? DeploymentReadinessSnapshot.preflightSchemaVersion
+          : DeploymentReadinessSnapshot.cachedSchemaVersion,
+      'twin_id': twinId,
+      'ready': ready,
+      'summary': issues.isNotEmpty
+          ? 'Deployment architecture must be completed before preflight.'
+          : ready
+          ? 'All required providers are ready for deployment.'
+          : '${providers.where((provider) => provider['ready'] != true).length} '
+                'of ${providers.length} required providers need review.',
+      'required_providers': requiredProviders,
+      'providers': providers,
+      'checked_at': checkedProviders.isEmpty ? null : checkedAt,
+      'issues': issues,
+    };
+  }
+
+  Map<String, dynamic> _buildProviderReadiness(
+    String provider,
+    String? connectionId, {
+    required bool executeChecks,
+    required String checkedAt,
+  }) {
+    Map<String, dynamic>? connection;
+    if (connectionId != null) {
+      try {
+        connection = store.cloudConnection(connectionId);
+      } on DemoApiException {
+        connection = null;
+      }
+    }
+    final expectedVersion = 'thesis-demo-v1';
+    final suppliedVersion = connection?['permission_set_version']?.toString();
+    final permissionStatus = suppliedVersion == null
+        ? 'missing'
+        : suppliedVersion == expectedVersion
+        ? 'matched'
+        : 'outdated';
+
+    String failureCode;
+    String failureMessage;
+    String failureAction;
+    if (connectionId == null) {
+      failureCode = 'CLOUD_CONNECTION_MISSING';
+      failureMessage =
+          'No deployment Cloud Connection is bound for this provider.';
+      failureAction =
+          'Open Cloud Accounts and bind deployment access to the twin.';
+    } else if (connection == null) {
+      failureCode = 'CLOUD_CONNECTION_UNAVAILABLE';
+      failureMessage = 'The bound deployment Cloud Connection is unavailable.';
+      failureAction = 'Select an available deployment Cloud Connection.';
+    } else if (connection['provider'] != provider) {
+      failureCode = 'CLOUD_CONNECTION_PROVIDER_MISMATCH';
+      failureMessage =
+          'The bound Cloud Connection belongs to a different provider.';
+      failureAction = 'Bind a matching deployment Cloud Connection.';
+    } else if (connection['purpose'] != 'deployment') {
+      failureCode = 'CLOUD_CONNECTION_PURPOSE_INVALID';
+      failureMessage =
+          'Pricing access cannot be used for infrastructure deployment.';
+      failureAction = 'Bind a deployment-purpose Cloud Connection.';
+    } else if (!executeChecks) {
+      failureCode = 'PREFLIGHT_NOT_RUN';
+      failureMessage =
+          'Deployment preflight has not been run for this provider binding.';
+      failureAction = 'Run deployment preflight before deploying this twin.';
+    } else if (permissionStatus != 'matched') {
+      failureCode = 'OUTDATED_PERMISSION_SET';
+      failureMessage =
+          'The deployment permission set does not match the active baseline.';
+      failureAction = 'Re-run provider bootstrap, then run preflight again.';
+    } else {
+      return {
+        'provider': provider,
+        'connection_id': connectionId,
+        'connection_display_name': connection['display_name'],
+        'ready': true,
+        'status': 'ready',
+        'summary': 'Cloud connection preflight passed',
+        'expected_permission_set_version': expectedVersion,
+        'supplied_permission_set_version': suppliedVersion,
+        'permission_set_status': permissionStatus,
+        'checked_at': checkedAt,
+        'checks': [
+          _readinessCheck(
+            component: 'optimizer',
+            status: 'passed',
+            code: 'OK',
+            message: 'Optimizer access passed.',
+            action: 'No action required.',
+          ),
+          _readinessCheck(
+            component: 'deployer',
+            status: 'passed',
+            code: 'OK',
+            message: 'Deployer access passed.',
+            action: 'No action required.',
+          ),
+        ],
+      };
+    }
+
+    return {
+      'provider': provider,
+      'connection_id': connection?['id'],
+      'connection_display_name': connection?['display_name'],
+      'ready': false,
+      'status': executeChecks ? 'review_required' : 'not_checked',
+      'summary': failureMessage,
+      'expected_permission_set_version': expectedVersion,
+      'supplied_permission_set_version': suppliedVersion,
+      'permission_set_status': permissionStatus,
+      'checked_at': null,
+      'checks': [
+        _readinessCheck(
+          component: 'configuration',
+          code: failureCode,
+          message: failureMessage,
+          action: failureAction,
+        ),
+      ],
+    };
+  }
+
+  Map<String, dynamic> _readinessCheck({
+    required String component,
+    String status = 'failed',
+    required String code,
+    required String message,
+    required String action,
+  }) {
+    return {
+      'component': component,
+      'status': status,
+      'code': code,
+      'message': message,
+      'action': action,
+      'permissions': <String>[],
+    };
   }
 
   String _provider(String value) {

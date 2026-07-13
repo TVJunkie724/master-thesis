@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
+import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_command_center.dart';
 
 void main() {
@@ -85,6 +87,32 @@ void main() {
       expect(downloaded, isTrue);
     });
 
+    testWidgets('blocks deploy with an adjacent readiness explanation', (
+      tester,
+    ) async {
+      var deployed = false;
+      await tester.pumpWidget(
+        buildWidget(
+          state: _state(
+            twinState: 'configured',
+            canDeploy: true,
+            readinessReady: false,
+          ),
+          onDeploy: () => deployed = true,
+        ),
+      );
+
+      expect(
+        find.text(
+          'Deployment is blocked until the current provider preflight passes.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('DEPLOY'));
+      await tester.pump();
+      expect(deployed, isFalse);
+    });
+
     testWidgets('shows error logs action for failed deployments', (
       tester,
     ) async {
@@ -145,6 +173,7 @@ TwinOverviewLoaded _state({
   String? lastError,
   bool showTerminal = false,
   List<String> terminalLogs = const [],
+  bool readinessReady = true,
 }) {
   return TwinOverviewLoaded(
     twinId: 'twin-1',
@@ -155,9 +184,56 @@ TwinOverviewLoaded _state({
     canDestroy: canDestroy,
     canEdit: canEdit,
     canDelete: canDelete,
+    deploymentReadiness: DeploymentReadinessViewState.fromSnapshot(
+      _readinessSnapshot(readinessReady),
+    ),
     cheapestPath: cheapestPath,
     lastError: lastError,
     showTerminal: showTerminal,
     terminalLogs: terminalLogs,
+  );
+}
+
+DeploymentReadinessSnapshot _readinessSnapshot(bool ready) {
+  const failedCheck = DeploymentReadinessCheck(
+    component: 'configuration',
+    status: DeploymentReadinessCheckStatus.failed,
+    code: 'PREFLIGHT_NOT_RUN',
+    message: 'Preflight has not been run.',
+    action: 'Run preflight.',
+    permissions: [],
+  );
+  const passedCheck = DeploymentReadinessCheck(
+    component: 'deployer',
+    status: DeploymentReadinessCheckStatus.passed,
+    code: 'OK',
+    message: 'Access passed.',
+    action: 'No action required.',
+    permissions: [],
+  );
+  return DeploymentReadinessSnapshot(
+    schemaVersion: DeploymentReadinessSnapshot.cachedSchemaVersion,
+    source: DeploymentReadinessSource.cached,
+    twinId: 'twin-1',
+    ready: ready,
+    summary: ready ? 'Ready.' : 'Review required.',
+    requiredProviders: const [CloudProvider.aws],
+    providers: [
+      ProviderDeploymentReadiness(
+        provider: CloudProvider.aws,
+        connectionId: 'connection-1',
+        connectionDisplayName: 'AWS deployment',
+        ready: ready,
+        status: ready
+            ? ProviderDeploymentReadinessStatus.ready
+            : ProviderDeploymentReadinessStatus.notChecked,
+        summary: ready ? 'Ready.' : 'Not checked.',
+        expectedPermissionSetVersion: 'thesis-demo-v1',
+        suppliedPermissionSetVersion: 'thesis-demo-v1',
+        permissionSetStatus: PermissionSetReadinessStatus.matched,
+        checks: [ready ? passedCheck : failedCheck],
+      ),
+    ],
+    issues: const [],
   );
 }

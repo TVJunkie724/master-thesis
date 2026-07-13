@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
+import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 void main() {
@@ -14,6 +15,12 @@ void main() {
     dio.httpClientAdapter = CallbackAdapter((options) {
       seen.add('${options.method} ${options.path}');
       return switch (options.path) {
+        '/twins/twin-1/deployment-readiness' => jsonResponse(
+          readinessResponse(DeploymentReadinessSnapshot.cachedSchemaVersion),
+        ),
+        '/twins/twin-1/deployment-preflight' => jsonResponse(
+          readinessResponse(DeploymentReadinessSnapshot.preflightSchemaVersion),
+        ),
         '/twins/twin-1/deploy' || '/twins/twin-1/destroy' => jsonResponse({
           'session_id': 'session-1',
           'sse_url': '/sse/deploy/session-1',
@@ -63,6 +70,11 @@ void main() {
     });
     final api = ApiService(dio: dio);
 
+    expect((await api.getDeploymentReadiness('twin-1')).ready, isTrue);
+    expect(
+      (await api.runDeploymentPreflight('twin-1')).source,
+      DeploymentReadinessSource.preflight,
+    );
     expect((await api.deployTwin('twin-1')).sessionId, 'session-1');
     expect((await api.destroyTwin('twin-1')).sseUrl, '/sse/deploy/session-1');
     expect(
@@ -88,6 +100,8 @@ void main() {
     expect((await api.startLogTrace('twin-1')).traceId, 'TRACE-1');
 
     expect(seen, [
+      'GET /twins/twin-1/deployment-readiness',
+      'POST /twins/twin-1/deployment-preflight',
       'POST /twins/twin-1/deploy',
       'POST /twins/twin-1/destroy',
       'GET /twins/twin-1/deployment-status',
@@ -241,3 +255,39 @@ Matcher get throwsRequestError => throwsA(
     'DEPLOYMENT_REQUEST_INVALID',
   ),
 );
+
+Map<String, dynamic> readinessResponse(String schemaVersion) {
+  return {
+    'schema_version': schemaVersion,
+    'twin_id': 'twin-1',
+    'ready': true,
+    'summary': 'All required providers are ready for deployment.',
+    'required_providers': ['aws'],
+    'providers': [
+      {
+        'provider': 'aws',
+        'connection_id': 'connection-1',
+        'connection_display_name': 'AWS deployment',
+        'ready': true,
+        'status': 'ready',
+        'summary': 'Cloud connection preflight passed',
+        'expected_permission_set_version': 'thesis-demo-v1',
+        'supplied_permission_set_version': 'thesis-demo-v1',
+        'permission_set_status': 'matched',
+        'checked_at': '2026-07-14T09:00:00Z',
+        'checks': [
+          {
+            'component': 'optimizer',
+            'status': 'passed',
+            'code': 'OK',
+            'message': 'Optimizer access passed.',
+            'action': 'No action required.',
+            'permissions': <String>[],
+          },
+        ],
+      },
+    ],
+    'checked_at': '2026-07-14T09:00:00Z',
+    'issues': <Object>[],
+  };
+}

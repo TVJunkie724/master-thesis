@@ -80,6 +80,9 @@ abstract class AppSpacing {
   /// Pricing review card layout breakpoint
   static const double pricingReviewCardBreakpoint = 900;
 
+  /// Twin Overview sections stack below this width.
+  static const double twinOverviewCompactBreakpoint = 900;
+
   /// Uppercase label letter spacing
   static const double labelLetterSpacing = 1.2;
 

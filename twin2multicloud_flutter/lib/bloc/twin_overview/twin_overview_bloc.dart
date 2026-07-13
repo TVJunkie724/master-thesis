@@ -29,6 +29,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
        super(const TwinOverviewLoading()) {
     on<TwinOverviewLoad>(_onLoad);
     on<TwinOverviewRefresh>(_onRefresh);
+    on<TwinOverviewRunDeploymentPreflight>(_onRunDeploymentPreflight);
     on<TwinOverviewDeploy>(_onDeploy);
     on<TwinOverviewDestroy>(_onDestroy);
     on<TwinOverviewDelete>(_onDelete);
@@ -74,6 +75,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       }
 
       final twinState = deploymentStatus.state.apiValue;
+      final deploymentReadiness = await _loadCachedReadiness(event.twinId);
 
       // Fetch outputs for deployed twins (page refresh persistence)
       Map<String, dynamic>? deploymentOutputs;
@@ -102,6 +104,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           deploymentOutputs: deploymentOutputs,
           outputsTimestamp: outputsTimestamp,
           outputsError: outputsError,
+          deploymentReadiness: deploymentReadiness,
         ),
       );
 
@@ -185,6 +188,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         }
 
         final twinState = deploymentStatus.state.apiValue;
+        final deploymentReadiness = await _loadCachedReadiness(
+          _currentTwinId!,
+          previous: currentState is TwinOverviewLoaded
+              ? currentState.deploymentReadiness
+              : null,
+        );
         Map<String, dynamic>? deploymentOutputs;
         DateTime? outputsTimestamp;
         String? outputsError;
@@ -221,6 +230,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           deploymentOutputs: deploymentOutputs,
           outputsTimestamp: outputsTimestamp,
           outputsError: outputsError,
+          deploymentReadiness: deploymentReadiness,
         );
 
         // Emit fresh state but preserve terminal state
@@ -249,6 +259,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) async {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+    if (!currentState.deploymentReadiness.isDeployable) {
+      emit(
+        currentState.copyWith(
+          errorMessage:
+              'Deployment is blocked until the current provider preflight passes.',
+        ),
+      );
+      return;
+    }
 
     final perms = _permissionsForState('deploying');
     emit(
@@ -300,6 +319,57 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
       // Refresh from backend to get the correct rolled-back state
       add(TwinOverviewRefresh());
+    }
+  }
+
+  Future<void> _onRunDeploymentPreflight(
+    TwinOverviewRunDeploymentPreflight event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded ||
+        currentState.deploymentReadiness.phase ==
+            DeploymentReadinessViewPhase.loading) {
+      return;
+    }
+
+    final previous = currentState.deploymentReadiness.snapshot;
+    emit(
+      currentState.copyWith(
+        deploymentReadiness: DeploymentReadinessViewState.loading(
+          previous: previous,
+        ),
+        clearError: true,
+      ),
+    );
+    try {
+      final snapshot = await _api.runDeploymentPreflight(currentState.twinId);
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != currentState.twinId) {
+        return;
+      }
+      emit(
+        activeState.copyWith(
+          deploymentReadiness: DeploymentReadinessViewState.fromSnapshot(
+            snapshot,
+          ),
+        ),
+      );
+    } catch (error) {
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != currentState.twinId) {
+        return;
+      }
+      emit(
+        activeState.copyWith(
+          deploymentReadiness: DeploymentReadinessViewState.failed(
+            'Preflight failed: ${ApiErrorHandler.extractMessage(error)}',
+            previous: previous,
+          ),
+        ),
+      );
     }
   }
 
@@ -832,6 +902,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     Map<String, dynamic>? deploymentOutputs,
     DateTime? outputsTimestamp,
     String? outputsError,
+    required DeploymentReadinessViewState deploymentReadiness,
   }) {
     final perms = _permissionsForState(twinState);
 
@@ -845,6 +916,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       canDestroy: perms['canDestroy']!,
       canEdit: perms['canEdit']!,
       canDelete: perms['canDelete']!,
+      deploymentReadiness: deploymentReadiness,
       lastError: lastError,
       lastDeploymentLogs: twin['last_deployment_logs'] as String?,
       // Optimizer result and params
@@ -871,6 +943,21 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       outputsTimestamp: outputsTimestamp,
       outputsError: outputsError,
     );
+  }
+
+  Future<DeploymentReadinessViewState> _loadCachedReadiness(
+    String twinId, {
+    DeploymentReadinessViewState? previous,
+  }) async {
+    try {
+      final snapshot = await _api.getDeploymentReadiness(twinId);
+      return DeploymentReadinessViewState.fromSnapshot(snapshot);
+    } catch (error) {
+      return DeploymentReadinessViewState.failed(
+        'Readiness unavailable: ${ApiErrorHandler.extractMessage(error)}',
+        previous: previous?.snapshot,
+      );
+    }
   }
 
   /// Handle simulator download request

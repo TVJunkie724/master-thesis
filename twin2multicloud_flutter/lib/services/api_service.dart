@@ -8,6 +8,7 @@ import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
+import '../models/deployment_readiness.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
@@ -604,6 +605,28 @@ class ApiService implements ManagementApi {
   // ==========================================================================
   // Deployment Operations
   // ==========================================================================
+
+  @override
+  Future<DeploymentReadinessSnapshot> getDeploymentReadiness(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/deployment-readiness');
+    return DeploymentReadinessSnapshot.fromCachedJson(
+      _responseMap(response.data),
+      expectedTwinId: twinId,
+    );
+  }
+
+  @override
+  Future<DeploymentReadinessSnapshot> runDeploymentPreflight(
+    String twinId,
+  ) async {
+    final response = await _dio.post('/twins/$twinId/deployment-preflight');
+    return DeploymentReadinessSnapshot.fromPreflightJson(
+      _responseMap(response.data),
+      expectedTwinId: twinId,
+    );
+  }
 
   /// Deploy a twin's infrastructure
   @override

@@ -7,6 +7,7 @@ from src.models.deployer_config import DeployerConfiguration
 from src.models.file_version import FileVersion
 from src.models.deployment import Deployment, DeploymentStatus
 from src.models.deployment_log import DeploymentLog, OperationType
+from src.models.deployment_preflight import DeploymentPreflightCache
 from src.models.cloud_connection import CloudConnection
 from src.models.cost_calculation import CostCalculationRun, CostCalculationResultItem
 from src.models.pricing_refresh_run import PricingRefreshRun
@@ -16,7 +17,7 @@ __all__ = [
     "Base", "get_db", "engine",
     "User", "DigitalTwin", "TwinState", "TwinConfiguration", "OptimizerConfiguration",
     "DeployerConfiguration", "FileVersion", "Deployment", "DeploymentStatus",
-    "DeploymentLog", "OperationType", "CloudConnection",
+    "DeploymentLog", "OperationType", "DeploymentPreflightCache", "CloudConnection",
     "CostCalculationRun", "CostCalculationResultItem", "PricingRefreshRun",
     "PricingCandidateReport", "PricingReviewDecision",
 ]

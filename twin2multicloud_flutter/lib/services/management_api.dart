@@ -4,6 +4,7 @@ import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
+import '../models/deployment_readiness.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
@@ -192,6 +193,10 @@ abstract interface class DeploymentConfigurationApi {
 }
 
 abstract interface class DeploymentLifecycleApi {
+  Future<DeploymentReadinessSnapshot> getDeploymentReadiness(String twinId);
+
+  Future<DeploymentReadinessSnapshot> runDeploymentPreflight(String twinId);
+
   Future<OperationSession> deployTwin(String twinId);
 
   Future<OperationSession> destroyTwin(String twinId);

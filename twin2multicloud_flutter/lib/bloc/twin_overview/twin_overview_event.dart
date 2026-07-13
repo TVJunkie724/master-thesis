@@ -25,6 +25,11 @@ class TwinOverviewRefresh extends TwinOverviewEvent {
   const TwinOverviewRefresh();
 }
 
+/// Explicitly validate the currently required deployment provider access.
+class TwinOverviewRunDeploymentPreflight extends TwinOverviewEvent {
+  const TwinOverviewRunDeploymentPreflight();
+}
+
 /// Trigger deployment
 class TwinOverviewDeploy extends TwinOverviewEvent {
   const TwinOverviewDeploy();

@@ -42,8 +42,8 @@ No verification step provisions or destroys real cloud resources.
 | Subphase | Status | Verification evidence |
 |---|---|---|
 | 8.1 | Done | Typed parser/API/demo/BLoC tests: 55 passed; complete Flutter suite: 451 passed; `flutter analyze --no-pub`: no issues |
-| 8.2 | Next | Not started |
-| 8.3 | Planned | Not started |
+| 8.2 | Done | Backend readiness matrix: 25 passed; complete backend suite: 582 passed; complete Flutter suite: 463 passed; Bandit and analyzer clean; Web/macOS release builds pass |
+| 8.3 | Next | Not started |
 | 8.4 | Planned | Not started |
 | 8.5 | Planned | Not started |
 
@@ -51,6 +51,17 @@ Subphase 8.1 also verified defensive copies for nested outputs and binary
 downloads, fail-fast pagination bounds, session-scoped demo cursors, safe server
 filenames, and explicit clearing of stale operation artifacts. No cloud E2E was
 executed.
+
+Subphase 8.2 added a persisted, secret-free, owner-scoped readiness cache keyed
+by twin, provider, Cloud Connection identity, credential fingerprint, permission-
+set version, and TTL. Cached reads never contact providers; only the explicit
+preflight command performs Optimizer and Deployer validation. Deployment now
+fails closed at both the Flutter command boundary and the Management API until
+the current provider architecture has a successful preflight. Response models
+and Flutter parsers enforce matching provider order, non-empty bounded evidence,
+permission-set consistency, timestamps, and aggregate readiness. Downstream
+messages are redacted before persistence or rendering. No cloud E2E or resource
+creation was executed.
 
 ## 2. Visual Layout (ASCII)
 

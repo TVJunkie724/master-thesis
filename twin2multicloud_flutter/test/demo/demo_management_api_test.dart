@@ -317,6 +317,17 @@ void main() {
     });
 
     test('deploys, exposes evidence, verifies, and destroys', () async {
+      final cached = await api.getDeploymentReadiness('demo-configured');
+      expect(cached.ready, isFalse);
+      expect(cached.providers.first.status.name, 'notChecked');
+      await expectLater(
+        api.deployTwin('demo-configured'),
+        throwsDemoCode('DEMO_DEPLOYMENT_PREFLIGHT_REQUIRED'),
+      );
+
+      final preflight = await api.runDeploymentPreflight('demo-configured');
+      expect(preflight.ready, isTrue);
+      expect(preflight.providers, hasLength(3));
       final deployment = await api.deployTwin('demo-configured');
       expect(deployment.sseUrl, startsWith('/demo/deployment/'));
       expect(
