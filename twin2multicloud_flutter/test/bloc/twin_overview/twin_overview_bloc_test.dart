@@ -1,12 +1,15 @@
 // test/bloc/twin_overview/twin_overview_bloc_test.dart
 // Unit tests for terminal state management in TwinOverviewBloc
 
+import 'dart:typed_data';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
+import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 import 'package:twin2multicloud_flutter/services/log_stream_client.dart';
 
@@ -105,6 +108,40 @@ void main() {
       expect(state1.props.contains(false), isTrue); // showTerminal
       expect(state2.props.contains(true), isTrue); // showTerminal
       expect(state1 == state2, isFalse); // Different due to showTerminal
+    });
+
+    test('copyWith explicitly clears every nullable operation artifact', () {
+      final state = TwinOverviewLoaded(
+        twinId: 'test-id',
+        projectName: 'Test Project',
+        twinState: 'error',
+        canDeploy: true,
+        canDestroy: true,
+        canEdit: true,
+        canDelete: true,
+        traceId: 'TRACE-1',
+        lastError: 'Old deployment error',
+        deploymentOutputs: const {'endpoint': 'old'},
+        outputsTimestamp: DateTime.utc(2026, 7, 14),
+        simulatorBytes: Uint8List.fromList([1, 2, 3]),
+        simulatorFilename: 'simulator_test.zip',
+      );
+
+      final cleared = state.copyWith(
+        clearTraceId: true,
+        clearLastError: true,
+        clearDeploymentOutputs: true,
+        clearOutputsTimestamp: true,
+        clearSimulatorBytes: true,
+        clearSimulatorFilename: true,
+      );
+
+      expect(cleared.traceId, isNull);
+      expect(cleared.lastError, isNull);
+      expect(cleared.deploymentOutputs, isNull);
+      expect(cleared.outputsTimestamp, isNull);
+      expect(cleared.simulatorBytes, isNull);
+      expect(cleared.simulatorFilename, isNull);
     });
   });
 
@@ -220,6 +257,145 @@ void main() {
             .having((s) => s.terminalLogs, 'logs preserved', [
               'Log 1',
               'Log 2',
+            ]),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'successful destroy clears stale error, outputs, and output timestamp',
+      seed: () => TwinOverviewLoaded(
+        twinId: 'test-id',
+        projectName: 'Test Project',
+        twinState: 'destroying',
+        canDeploy: false,
+        canDestroy: false,
+        canEdit: false,
+        canDelete: false,
+        isDestroying: true,
+        lastError: 'Previous deployment failed',
+        deploymentOutputs: const {'endpoint': 'old'},
+        outputsTimestamp: DateTime.utc(2026, 7, 14),
+      ),
+      build: () => buildBloc(mockApi),
+      act: (bloc) => bloc.add(
+        const TwinOverviewDeploymentComplete(
+          success: true,
+          newState: 'destroyed',
+          message: 'Resources destroyed',
+        ),
+      ),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having((state) => state.lastError, 'lastError', isNull)
+            .having(
+              (state) => state.deploymentOutputs,
+              'deploymentOutputs',
+              isNull,
+            )
+            .having(
+              (state) => state.outputsTimestamp,
+              'outputsTimestamp',
+              isNull,
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'completion without current outputs does not retain stale outputs',
+      seed: () => TwinOverviewLoaded(
+        twinId: 'test-id',
+        projectName: 'Test Project',
+        twinState: 'deploying',
+        canDeploy: false,
+        canDestroy: false,
+        canEdit: false,
+        canDelete: false,
+        isDeploying: true,
+        deploymentOutputs: const {'endpoint': 'previous-deployment'},
+        outputsTimestamp: DateTime.utc(2026, 7, 13),
+      ),
+      build: () => buildBloc(mockApi),
+      act: (bloc) => bloc.add(
+        const TwinOverviewDeploymentComplete(
+          success: true,
+          newState: 'deployed',
+          message: 'Deployment successful',
+        ),
+      ),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.deploymentOutputs,
+              'deploymentOutputs',
+              isNull,
+            )
+            .having(
+              (state) => state.outputsTimestamp,
+              'outputsTimestamp',
+              isNull,
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'simulator download keeps server filename with transient bytes',
+      seed: () => TwinOverviewLoaded(
+        twinId: 'test-id',
+        projectName: 'Test Project',
+        twinState: 'deployed',
+        canDeploy: false,
+        canDestroy: true,
+        canEdit: false,
+        canDelete: false,
+        errorMessage: 'Previous download failed',
+        simulatorBytes: Uint8List.fromList([9]),
+        simulatorFilename: 'simulator_old.zip',
+      ),
+      setUp: () {
+        when(() => mockApi.downloadSimulator('test-id')).thenAnswer(
+          (_) async => BinaryDownload(
+            bytes: Uint8List.fromList([1, 2, 3]),
+            filename: 'simulator_server_name.zip',
+            mediaType: 'application/zip',
+          ),
+        );
+      },
+      build: () => buildBloc(mockApi),
+      act: (bloc) => bloc.add(const TwinOverviewDownloadSimulator()),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.isDownloadingSimulator,
+              'isDownloadingSimulator',
+              true,
+            )
+            .having(
+              (state) => state.infoMessage,
+              'infoMessage',
+              'Downloading simulator...',
+            )
+            .having((state) => state.errorMessage, 'errorMessage', isNull)
+            .having((state) => state.simulatorBytes, 'simulatorBytes', isNull)
+            .having(
+              (state) => state.simulatorFilename,
+              'simulatorFilename',
+              isNull,
+            ),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.isDownloadingSimulator,
+              'isDownloadingSimulator',
+              false,
+            )
+            .having(
+              (state) => state.simulatorFilename,
+              'simulatorFilename',
+              'simulator_server_name.zip',
+            )
+            .having((state) => state.simulatorBytes, 'simulatorBytes', [
+              1,
+              2,
+              3,
             ]),
       ],
     );

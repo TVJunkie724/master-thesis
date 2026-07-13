@@ -51,7 +51,7 @@ void main() {
     for (final entry in routes.entries) {
       router.go(entry.key);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(seconds: 1));
 
       expect(find.byType(entry.value), findsOneWidget);
       expect(find.textContaining('Offline demo'), findsOneWidget);
@@ -59,5 +59,6 @@ void main() {
     }
 
     await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 }

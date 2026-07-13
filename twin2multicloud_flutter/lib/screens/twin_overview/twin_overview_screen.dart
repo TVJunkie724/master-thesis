@@ -70,9 +70,19 @@ class TwinOverviewView extends ConsumerWidget {
             if (state is! TwinOverviewLoaded || state.simulatorBytes == null) {
               return;
             }
-            final l1 = (state.cheapestPath?['l1'] as String?) ?? 'unknown';
-            final name = state.cloudResourceName ?? state.projectName;
-            final filename = 'simulator_${name}_$l1.zip';
+            final filename = state.simulatorFilename;
+            if (filename == null) {
+              context.read<TwinOverviewBloc>().add(
+                const TwinOverviewShowMessage(
+                  'Simulator download did not include a safe filename.',
+                  MessageType.error,
+                ),
+              );
+              context.read<TwinOverviewBloc>().add(
+                const TwinOverviewClearSimulatorBytes(),
+              );
+              return;
+            }
 
             final result = await saveBinaryFile(
               bytes: state.simulatorBytes!,

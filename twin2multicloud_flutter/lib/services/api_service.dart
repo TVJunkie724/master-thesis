@@ -7,6 +7,7 @@ import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
+import '../models/deployment_operations.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
@@ -15,20 +16,21 @@ import '../utils/api_error_handler.dart';
 import 'management_api.dart';
 
 class ApiService implements ManagementApi {
-  late final Dio _dio;
+  final Dio _dio;
   String? _token = ApiConfig.devAuthToken;
 
   /// Expose base URL for other services (e.g., SSE)
   static String get baseUrl => ApiConfig.baseUrl;
 
-  ApiService() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
-        headers: {'Content-Type': 'application/json'},
-      ),
-    );
-
+  ApiService({Dio? dio})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: ApiConfig.baseUrl,
+              headers: {'Content-Type': 'application/json'},
+            ),
+          ) {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -605,31 +607,43 @@ class ApiService implements ManagementApi {
 
   /// Deploy a twin's infrastructure
   @override
-  Future<Map<String, dynamic>> deployTwin(String twinId) async {
+  Future<OperationSession> deployTwin(String twinId) async {
     final response = await _dio.post('/twins/$twinId/deploy');
-    return response.data as Map<String, dynamic>;
+    return OperationSession.fromJson(_responseMap(response.data));
   }
 
   /// Destroy a twin's infrastructure
   @override
-  Future<Map<String, dynamic>> destroyTwin(String twinId) async {
+  Future<OperationSession> destroyTwin(String twinId) async {
     final response = await _dio.post('/twins/$twinId/destroy');
-    return response.data as Map<String, dynamic>;
+    return OperationSession.fromJson(_responseMap(response.data));
   }
 
   /// Get deployment status (polling fallback)
   @override
-  Future<Map<String, dynamic>> getDeploymentStatus(String twinId) async {
+  Future<DeploymentStatusSnapshot> getDeploymentStatus(String twinId) async {
     final response = await _dio.get('/twins/$twinId/deployment-status');
-    return response.data as Map<String, dynamic>;
+    return DeploymentStatusSnapshot.fromJson(_responseMap(response.data));
   }
 
   /// Get terraform outputs from most recent successful deployment
-  /// Returns {outputs: Map?, deployed_at: String?}
   @override
-  Future<Map<String, dynamic>> getDeploymentOutputs(String twinId) async {
+  Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId) async {
     final response = await _dio.get('/twins/$twinId/outputs');
-    return response.data as Map<String, dynamic>;
+    return DeploymentOutputsSnapshot.fromJson(_responseMap(response.data));
+  }
+
+  @override
+  Future<DeploymentHistory> getDeploymentHistory(
+    String twinId, {
+    int limit = 10,
+  }) async {
+    _validateRange('limit', limit, minimum: 1, maximum: 50);
+    final response = await _dio.get(
+      '/twins/$twinId/deployments',
+      queryParameters: {'limit': limit},
+    );
+    return DeploymentHistory.fromJson(_responseMap(response.data));
   }
 
   // ==========================================================================
@@ -648,12 +662,22 @@ class ApiService implements ManagementApi {
 
   /// Get deployment logs from database (for catchup after reconnection)
   @override
-  Future<Map<String, dynamic>> getDeploymentLogs(
+  Future<DeploymentLogPage> getDeploymentLogs(
     String twinId, {
     String? sessionId,
     int? afterEventId,
     int limit = 100,
   }) async {
+    _validateRange('limit', limit, minimum: 1, maximum: 500);
+    if (afterEventId != null) {
+      _validateRange('afterEventId', afterEventId, minimum: 0);
+    }
+    if (sessionId != null && sessionId.trim().isEmpty) {
+      throw const AppException(
+        'sessionId must be a non-empty string when provided.',
+        code: 'DEPLOYMENT_REQUEST_INVALID',
+      );
+    }
     final queryParams = <String, dynamic>{'limit': limit};
     if (sessionId != null) queryParams['session_id'] = sessionId;
     if (afterEventId != null) queryParams['after_event_id'] = afterEventId;
@@ -662,7 +686,7 @@ class ApiService implements ManagementApi {
       '/twins/$twinId/logs',
       queryParameters: queryParams,
     );
-    return response.data as Map<String, dynamic>;
+    return DeploymentLogPage.fromJson(_responseMap(response.data));
   }
 
   // ==========================================================================
@@ -674,11 +698,10 @@ class ApiService implements ManagementApi {
   /// Sends a test IoT message with a unique trace_id and returns
   /// the trace_id for SSE streaming.
   ///
-  /// Returns {trace_id, sent_at, l1_provider, providers, message}
   @override
-  Future<Map<String, dynamic>> startLogTrace(String twinId) async {
+  Future<LogTraceStartResult> startLogTrace(String twinId) async {
     final response = await _dio.post('/twins/$twinId/log-trace/start');
-    return response.data as Map<String, dynamic>;
+    return LogTraceStartResult.fromJson(_responseMap(response.data));
   }
 
   // ==========================================================================
@@ -712,9 +735,8 @@ class ApiService implements ManagementApi {
   }
 
   /// Download IoT simulator package (L1 provider determined by backend).
-  /// Returns binary ZIP data.
   @override
-  Future<Uint8List> downloadSimulator(String twinId) async {
+  Future<BinaryDownload> downloadSimulator(String twinId) async {
     final response = await _dio.get(
       '/twins/$twinId/simulator/download',
       options: Options(
@@ -722,6 +744,70 @@ class ApiService implements ManagementApi {
         receiveTimeout: const Duration(seconds: 60),
       ),
     );
-    return response.data as Uint8List;
+    final data = response.data;
+    final bytes = switch (data) {
+      Uint8List value => value,
+      List<int> value => Uint8List.fromList(value),
+      _ => throw const AppException(
+        'Simulator response was not a binary archive.',
+        code: 'DEPLOYMENT_CONTRACT_INVALID',
+      ),
+    };
+    final contentDisposition = response.headers.value('content-disposition');
+    return BinaryDownload(
+      bytes: bytes,
+      filename: _attachmentFilename(contentDisposition),
+      mediaType:
+          response.headers.value(Headers.contentTypeHeader) ??
+          'application/zip',
+    );
+  }
+}
+
+Map<String, dynamic> _responseMap(Object? value) {
+  if (value is! Map) {
+    throw const AppException(
+      'Management API returned an invalid deployment response.',
+      code: 'DEPLOYMENT_CONTRACT_INVALID',
+    );
+  }
+  return Map<String, dynamic>.from(value);
+}
+
+String _attachmentFilename(String? contentDisposition) {
+  if (contentDisposition == null) {
+    throw const AppException(
+      'Simulator response did not include a filename.',
+      code: 'DEPLOYMENT_CONTRACT_INVALID',
+    );
+  }
+  final match = RegExp(
+    r'(?:^|;)\s*filename\s*=\s*(?:"([^"]+)"|([^;\s]+))',
+    caseSensitive: false,
+  ).firstMatch(contentDisposition);
+  final filename = match?.group(1) ?? match?.group(2);
+  if (filename == null || filename.trim().isEmpty) {
+    throw const AppException(
+      'Simulator response contained an invalid filename.',
+      code: 'DEPLOYMENT_CONTRACT_INVALID',
+    );
+  }
+  return filename;
+}
+
+void _validateRange(
+  String field,
+  int value, {
+  required int minimum,
+  int? maximum,
+}) {
+  if (value < minimum || (maximum != null && value > maximum)) {
+    final range = maximum == null
+        ? 'at least $minimum'
+        : 'between $minimum and $maximum';
+    throw AppException(
+      '$field must be $range.',
+      code: 'DEPLOYMENT_REQUEST_INVALID',
+    );
   }
 }

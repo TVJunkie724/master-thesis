@@ -26,6 +26,20 @@ It divides this phase into five independently reviewed and committed subphases:
 typed contracts/state, twin-scoped readiness, resilient logs, testing utilities,
 and the final responsive/accessibility quality gate.
 
+## Progress
+
+| Subphase | Status | Evidence |
+|---|---|---|
+| 8.1 Typed operation contracts and nullable state | Done | 55 focused tests, 451 complete Flutter tests, analyzer clean |
+| 8.2 Twin-scoped readiness and explicit preflight | Next | Pending implementation |
+| 8.3 Persisted log catch-up and SSE recovery | Planned | Pending implementation |
+| 8.4 Trace/simulator workflows and secure archives | Planned | Pending implementation |
+| 8.5 Responsive/accessibility release gate | Planned | Pending implementation |
+
+The 8.1 gate covers Management API and demo adapters, strict versioned parsers,
+session-scoped cursors, immutable output/download data, and stale-state clearing.
+Verification used no live cloud resources.
+
 ## Summary
 
 Harden the Twin Overview deployment surface so deploy/destroy actions, preflight

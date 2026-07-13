@@ -83,6 +83,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
   // Simulator download state
   final bool isDownloadingSimulator;
   final Uint8List? simulatorBytes;
+  final String? simulatorFilename;
 
   const TwinOverviewLoaded({
     required this.twinId,
@@ -120,6 +121,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.outputsError,
     this.isDownloadingSimulator = false,
     this.simulatorBytes,
+    this.simulatorFilename,
   });
 
   /// Create copy with updated fields
@@ -159,11 +161,17 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? outputsError,
     bool? isDownloadingSimulator,
     Uint8List? simulatorBytes,
+    String? simulatorFilename,
     bool clearSuccess = false,
     bool clearError = false,
     bool clearInfo = false,
     bool clearOutputsError = false,
+    bool clearLastError = false,
+    bool clearDeploymentOutputs = false,
+    bool clearOutputsTimestamp = false,
+    bool clearTraceId = false,
     bool clearSimulatorBytes = false,
+    bool clearSimulatorFilename = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -177,8 +185,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
       isDeploying: isDeploying ?? this.isDeploying,
       isDestroying: isDestroying ?? this.isDestroying,
       isTracing: isTracing ?? this.isTracing,
-      traceId: traceId ?? this.traceId,
-      lastError: lastError ?? this.lastError,
+      traceId: clearTraceId ? null : (traceId ?? this.traceId),
+      lastError: clearLastError ? null : (lastError ?? this.lastError),
       lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
       showTerminal: showTerminal ?? this.showTerminal,
       terminalLogs: terminalLogs ?? this.terminalLogs,
@@ -199,8 +207,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
           : (successMessage ?? this.successMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       infoMessage: clearInfo ? null : (infoMessage ?? this.infoMessage),
-      deploymentOutputs: deploymentOutputs ?? this.deploymentOutputs,
-      outputsTimestamp: outputsTimestamp ?? this.outputsTimestamp,
+      deploymentOutputs: clearDeploymentOutputs
+          ? null
+          : (deploymentOutputs ?? this.deploymentOutputs),
+      outputsTimestamp: clearOutputsTimestamp
+          ? null
+          : (outputsTimestamp ?? this.outputsTimestamp),
       outputsError: clearOutputsError
           ? null
           : (outputsError ?? this.outputsError),
@@ -209,6 +221,9 @@ class TwinOverviewLoaded extends TwinOverviewState {
       simulatorBytes: clearSimulatorBytes
           ? null
           : (simulatorBytes ?? this.simulatorBytes),
+      simulatorFilename: clearSimulatorFilename
+          ? null
+          : (simulatorFilename ?? this.simulatorFilename),
     );
   }
 
@@ -249,5 +264,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     outputsError,
     isDownloadingSimulator,
     simulatorBytes,
+    simulatorFilename,
   ];
 }

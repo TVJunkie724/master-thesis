@@ -6,6 +6,7 @@ import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
+import '../models/deployment_operations.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
@@ -931,7 +932,7 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> deployTwin(String twinId) async {
+  Future<OperationSession> deployTwin(String twinId) async {
     await _pause();
     final twin = store.twin(twinId);
     if (!{'configured', 'destroyed', 'error'}.contains(twin['state'])) {
@@ -965,14 +966,14 @@ class DemoManagementApi implements ManagementApi {
       'message': 'Demo deployment completed successfully.',
       'timestamp': now,
     });
-    return {
-      'session_id': sessionId,
-      'sse_url': '/demo/deployment/$twinId/$sessionId',
-    };
+    return OperationSession(
+      sessionId: sessionId,
+      sseUrl: '/demo/deployment/$twinId/$sessionId',
+    );
   }
 
   @override
-  Future<Map<String, dynamic>> destroyTwin(String twinId) async {
+  Future<OperationSession> destroyTwin(String twinId) async {
     await _pause();
     final twin = store.twin(twinId);
     if (!{'deployed', 'error'}.contains(twin['state'])) {
@@ -987,28 +988,75 @@ class DemoManagementApi implements ManagementApi {
       'destroyed_at': store.clock().toIso8601String(),
     });
     store.setDeploymentOutput(twinId, null);
-    return {
-      'session_id': sessionId,
-      'sse_url': '/demo/destroy/$twinId/$sessionId',
-    };
+    return OperationSession(
+      sessionId: sessionId,
+      sseUrl: '/demo/destroy/$twinId/$sessionId',
+    );
   }
 
   @override
-  Future<Map<String, dynamic>> getDeploymentStatus(String twinId) async {
+  Future<DeploymentStatusSnapshot> getDeploymentStatus(String twinId) async {
     await _pause();
-    return {
-      'twin_id': twinId,
+    return DeploymentStatusSnapshot.fromJson({
+      'schema_version': DeploymentStatusSnapshot.supportedSchemaVersion,
       'state': store.twin(twinId)['state'],
+      'last_error': store.twin(twinId)['last_error'],
+      'deployed_at': store.twin(twinId)['last_deployed_at'],
+      'destroyed_at': store.twin(twinId)['destroyed_at'],
       'active_session': null,
-    };
+      'latest_deployment': null,
+    });
   }
 
   @override
-  Future<Map<String, dynamic>> getDeploymentOutputs(String twinId) async {
+  Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId) async {
     await _pause();
     store.twin(twinId);
-    return store.deploymentOutput(twinId) ??
-        {'outputs': null, 'deployed_at': null};
+    final fixture = store.deploymentOutput(twinId);
+    return DeploymentOutputsSnapshot.fromJson({
+      'schema_version': DeploymentOutputsSnapshot.supportedSchemaVersion,
+      'outputs': fixture?['outputs'],
+      'deployed_at': fixture?['deployed_at'],
+      'source_deployment': null,
+      'redacted': true,
+    });
+  }
+
+  @override
+  Future<DeploymentHistory> getDeploymentHistory(
+    String twinId, {
+    int limit = 10,
+  }) async {
+    await _pause();
+    if (limit < 1 || limit > 50) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_HISTORY_LIMIT_INVALID',
+        'Deployment history limit must be between 1 and 50.',
+      );
+    }
+    final twin = store.twin(twinId);
+    final logs = store.deploymentLogs(twinId);
+    final deployments = logs.isEmpty
+        ? <Map<String, dynamic>>[]
+        : [
+            {
+              'id': 'demo-deployment-$twinId',
+              'session_id': logs.last['session_id'],
+              'operation_id': null,
+              'operation_type': 'deploy',
+              'status': twin['state'] == 'error' ? 'failed' : 'success',
+              'error_code': twin['state'] == 'error'
+                  ? 'DEMO_DEPLOYMENT_FAILED'
+                  : null,
+              'error_message': twin['last_error'],
+              'started_at': logs.first['timestamp'],
+              'completed_at': logs.last['timestamp'],
+            },
+          ];
+    return DeploymentHistory.fromJson({
+      'schema_version': DeploymentHistory.supportedSchemaVersion,
+      'deployments': deployments.take(limit).toList(growable: false),
+    });
   }
 
   @override
@@ -1020,30 +1068,86 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> getDeploymentLogs(
+  Future<DeploymentLogPage> getDeploymentLogs(
     String twinId, {
     String? sessionId,
     int? afterEventId,
     int limit = 100,
   }) async {
     await _pause();
+    if (limit < 1 || limit > 500) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_LOG_LIMIT_INVALID',
+        'Deployment log limit must be between 1 and 500.',
+      );
+    }
+    if (afterEventId != null && afterEventId < 0) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_LOG_CURSOR_INVALID',
+        'Deployment log cursor cannot be negative.',
+      );
+    }
+    if (sessionId != null && sessionId.trim().isEmpty) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_LOG_SESSION_INVALID',
+        'Deployment log session ID cannot be empty.',
+      );
+    }
     var logs = store.deploymentLogs(twinId);
+    logs.sort(
+      (left, right) =>
+          _deploymentLogEventId(left).compareTo(_deploymentLogEventId(right)),
+    );
     if (sessionId != null) {
       logs = logs
           .where((item) => item['session_id'] == sessionId)
           .toList(growable: false);
     }
+    final scopedLogs = logs;
     if (afterEventId != null) {
       logs = logs
-          .where((item) => (item['id'] as num? ?? 0) > afterEventId)
+          .where((item) => _deploymentLogEventId(item) > afterEventId)
           .toList(growable: false);
     }
-    logs = logs.take(limit).toList(growable: false);
-    return {'logs': logs, 'count': logs.length};
+    final pageLogs = logs.take(limit).toList(growable: false);
+    final normalizedLogs = pageLogs
+        .map(
+          (item) => {
+            'event_id': _deploymentLogEventId(item),
+            'session_id': item['session_id'],
+            'timestamp': item['timestamp'],
+            'level': item['level'],
+            'message': item['message'],
+            'operation_type': item['operation_type'] ?? 'deploy',
+          },
+        )
+        .toList(growable: false);
+    final nextAfterEventId = normalizedLogs.isEmpty
+        ? afterEventId ?? 0
+        : normalizedLogs.last['event_id'] as int;
+    final latestEventId = scopedLogs.isEmpty
+        ? null
+        : scopedLogs
+              .map(_deploymentLogEventId)
+              .fold<int>(
+                0,
+                (current, value) => value > current ? value : current,
+              );
+    return DeploymentLogPage.fromJson({
+      'schema_version': DeploymentLogPage.supportedSchemaVersion,
+      'twin_id': twinId,
+      'session_id': sessionId,
+      'after_event_id': afterEventId ?? 0,
+      'limit': limit,
+      'logs': normalizedLogs,
+      'has_more': logs.length > pageLogs.length,
+      'next_after_event_id': nextAfterEventId,
+      'latest_event_id': latestEventId,
+    });
   }
 
   @override
-  Future<Map<String, dynamic>> startLogTrace(String twinId) async {
+  Future<LogTraceStartResult> startLogTrace(String twinId) async {
     await _pause();
     final twin = store.twin(twinId);
     if (twin['state'] != 'deployed') {
@@ -1053,14 +1157,15 @@ class DemoManagementApi implements ManagementApi {
       );
     }
     final traceId = store.nextId('demo-trace');
-    return {
+    return LogTraceStartResult.fromJson({
       'trace_id': traceId,
       'sent_at': store.clock().toIso8601String(),
       'l1_provider': 'aws',
       'providers': ['aws', 'azure', 'gcp'],
       'message': 'Demo trace message accepted.',
+      'session_id': traceId,
       'sse_url': '/demo/trace/$twinId/$traceId',
-    };
+    });
   }
 
   @override
@@ -1096,7 +1201,7 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Uint8List> downloadSimulator(String twinId) async {
+  Future<BinaryDownload> downloadSimulator(String twinId) async {
     await _pause();
     final twin = store.twin(twinId);
     if (twin['state'] != 'deployed') {
@@ -1105,7 +1210,11 @@ class DemoManagementApi implements ManagementApi {
         'Simulator packages are available only for deployed twins.',
       );
     }
-    return Uint8List.fromList(utf8.encode('Twin2MultiCloud demo simulator'));
+    return BinaryDownload(
+      bytes: Uint8List.fromList(utf8.encode('Twin2MultiCloud demo simulator')),
+      filename: 'simulator_${twinId}_demo.zip',
+      mediaType: 'application/zip',
+    );
   }
 
   Future<void> _pause() {
@@ -1334,4 +1443,15 @@ class DemoManagementApi implements ManagementApi {
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(value)) as Map);
   }
+}
+
+int _deploymentLogEventId(Map<String, dynamic> item) {
+  final value = item['event_id'] ?? item['id'];
+  if (value is! int || value <= 0) {
+    throw const DemoApiException(
+      'DEMO_DEPLOYMENT_LOG_EVENT_INVALID',
+      'Deployment log event IDs must be positive integers.',
+    );
+  }
+  return value;
 }

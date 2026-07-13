@@ -37,6 +37,21 @@ No verification step provisions or destroys real cloud resources.
 | 8.4 | Testing Utilities panel for trace and simulator workflows, collapsed diagnostics, and provider-specific least-privilege archive policy | Deployer packaging, Management API proxy, BLoC, and widget state matrices pass |
 | 8.5 | Responsive Twin Overview composition, token cleanup, accessibility, documentation, and release gate | Full backend/Flutter suites and Web/macOS builds pass |
 
+### Implementation progress
+
+| Subphase | Status | Verification evidence |
+|---|---|---|
+| 8.1 | Done | Typed parser/API/demo/BLoC tests: 55 passed; complete Flutter suite: 451 passed; `flutter analyze --no-pub`: no issues |
+| 8.2 | Next | Not started |
+| 8.3 | Planned | Not started |
+| 8.4 | Planned | Not started |
+| 8.5 | Planned | Not started |
+
+Subphase 8.1 also verified defensive copies for nested outputs and binary
+downloads, fail-fast pagination bounds, session-scoped demo cursors, safe server
+filenames, and explicit clearing of stale operation artifacts. No cloud E2E was
+executed.
+
 ## 2. Visual Layout (ASCII)
 
 ### Wide desktop, at least 1200 px content width

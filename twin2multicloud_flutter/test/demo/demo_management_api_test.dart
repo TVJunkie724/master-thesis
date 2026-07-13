@@ -318,21 +318,30 @@ void main() {
 
     test('deploys, exposes evidence, verifies, and destroys', () async {
       final deployment = await api.deployTwin('demo-configured');
-      expect(deployment['sse_url'], startsWith('/demo/deployment/'));
+      expect(deployment.sseUrl, startsWith('/demo/deployment/'));
       expect(
-        (await api.getDeploymentStatus('demo-configured'))['state'],
+        (await api.getDeploymentStatus('demo-configured')).state.apiValue,
         'deployed',
       );
       expect(
-        (await api.getDeploymentOutputs('demo-configured'))['outputs'],
+        (await api.getDeploymentOutputs('demo-configured')).outputs,
         isNotEmpty,
       );
-      expect((await api.getDeploymentLogs('demo-configured'))['count'], 1);
       expect(
-        (await api.startLogTrace('demo-configured'))['sse_url'],
+        (await api.getDeploymentLogs('demo-configured')).logs,
+        hasLength(1),
+      );
+      expect(
+        (await api.getDeploymentHistory('demo-configured')).deployments,
+        hasLength(1),
+      );
+      expect(
+        (await api.startLogTrace('demo-configured')).sseUrl,
         startsWith('/demo/trace/'),
       );
-      expect(await api.downloadSimulator('demo-configured'), isNotEmpty);
+      final simulator = await api.downloadSimulator('demo-configured');
+      expect(simulator.bytes, isNotEmpty);
+      expect(simulator.filename, endsWith('.zip'));
 
       expect(
         (await api.verifyInfrastructure('demo-configured'))['summary'],
@@ -350,12 +359,44 @@ void main() {
       );
 
       final destroy = await api.destroyTwin('demo-configured');
-      expect(destroy['sse_url'], startsWith('/demo/destroy/'));
+      expect(destroy.sseUrl, startsWith('/demo/destroy/'));
       expect(
-        (await api.getDeploymentStatus('demo-configured'))['state'],
+        (await api.getDeploymentStatus('demo-configured')).state.apiValue,
         'destroyed',
       );
     });
+
+    test(
+      'pages deployment logs in event order and within one session',
+      () async {
+        store.addDeploymentLog('demo-deployed', {
+          'event_id': 4,
+          'session_id': 'other-session',
+          'level': 'info',
+          'message': 'Other operation',
+          'timestamp': '2026-07-12T10:02:00Z',
+        });
+        store.addDeploymentLog('demo-deployed', {
+          'event_id': 3,
+          'session_id': 'demo-session-deployed',
+          'level': 'info',
+          'message': 'Final deployment event',
+          'timestamp': '2026-07-12T10:01:00Z',
+        });
+
+        final page = await api.getDeploymentLogs(
+          'demo-deployed',
+          sessionId: 'demo-session-deployed',
+          afterEventId: 1,
+          limit: 1,
+        );
+
+        expect(page.logs.single.eventId, 2);
+        expect(page.hasMore, isTrue);
+        expect(page.nextAfterEventId, 2);
+        expect(page.latestEventId, 3);
+      },
+    );
 
     test('rejects invalid lifecycle operations and payloads', () async {
       await expectLater(
