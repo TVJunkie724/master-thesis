@@ -277,6 +277,8 @@ class TestDeploymentStateReadModels:
         response = client.get(f"/twins/{twin.id}/deployment-status", headers=headers)
 
         assert response.status_code == 200
+        assert response.json()["schema_version"] == "deployment-status.v1"
+        assert response.json()["state"] == "error"
         latest = response.json()["latest_deployment"]
         assert latest["session_id"] == "session-1"
         assert latest["operation_id"] == "op-123"
@@ -307,7 +309,64 @@ class TestDeploymentStateReadModels:
         response = client.get(f"/twins/{twin.id}/deployments", headers=headers)
 
         assert response.status_code == 200
+        assert response.json()["schema_version"] == "deployment-history.v1"
         item = response.json()["deployments"][0]
         assert item["session_id"] == "session-history"
         assert item["operation_id"] == "op-history"
         assert item["error_code"] == "DESTRUCTION_ERROR"
+
+    def test_deployment_outputs_are_typed_and_redacted(self, authenticated_client, db_session):
+        client, headers = authenticated_client
+        user = db_session.query(User).first()
+        twin = DigitalTwin(name="Outputs Twin", user_id=user.id, state=TwinState.DEPLOYED)
+        db_session.add(twin)
+        db_session.commit()
+        db_session.refresh(twin)
+        deployment = Deployment(
+            twin_id=twin.id,
+            session_id="session-outputs",
+            operation_id="op-outputs",
+            operation_type="deploy",
+            status="success",
+            terraform_outputs={
+                "endpoint": {"value": "https://example.test"},
+                "client_secret": {"value": "do-not-return"},
+                "nested": {"private_key": "also-redacted"},
+            },
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(deployment)
+        db_session.commit()
+
+        response = client.get(f"/twins/{twin.id}/outputs", headers=headers)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["schema_version"] == "deployment-outputs.v1"
+        assert body["outputs"]["endpoint"]["value"] == "https://example.test"
+        assert body["outputs"]["client_secret"] == "[REDACTED]"
+        assert body["outputs"]["nested"]["private_key"] == "[REDACTED]"
+        assert body["redacted"] is True
+        assert body["source_deployment"]["session_id"] == "session-outputs"
+        assert "do-not-return" not in response.text
+        assert "also-redacted" not in response.text
+
+    def test_deployment_outputs_empty_response_is_typed(self, authenticated_client, db_session):
+        client, headers = authenticated_client
+        user = db_session.query(User).first()
+        twin = DigitalTwin(name="No Outputs Twin", user_id=user.id, state=TwinState.DRAFT)
+        db_session.add(twin)
+        db_session.commit()
+        db_session.refresh(twin)
+
+        response = client.get(f"/twins/{twin.id}/outputs", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "schema_version": "deployment-outputs.v1",
+            "outputs": None,
+            "deployed_at": None,
+            "source_deployment": None,
+            "redacted": False,
+        }

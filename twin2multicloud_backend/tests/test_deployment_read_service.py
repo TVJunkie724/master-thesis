@@ -172,4 +172,3 @@ def test_unknown_twin_raises_typed_not_found(db_session):
 
     with pytest.raises(EntityNotFoundError):
         _service(db_session).get_outputs("missing-twin", user.id)
-

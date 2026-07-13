@@ -12,6 +12,24 @@ from src.schemas.cloud_connection import (
     CloudConnectionUpdate,
     CloudConnectionValidationResponse,
 )
+from src.schemas.cloud_access import CloudAccessInventoryResponse
+from src.schemas.deployment_logs import DeploymentLogEntryResponse, DeploymentLogPageResponse
+from src.schemas.deployment_operations import (
+    DeploymentHistoryResponse,
+    DeploymentOutputsResponse,
+    DeploymentStatusResponse,
+)
+from src.schemas.deployer_config import DeployerConfigReadModelResponse
+from src.schemas.pricing_health import PricingHealthResponse
+from src.schemas.pricing_refresh import PricingRefreshRunResponse, PricingRefreshStartRequest
+from src.schemas.pricing_review_contracts import (
+    PricingCandidateReportListResponse,
+    PricingCandidateReportResponse,
+    PricingReviewDecisionCreate,
+    PricingReviewDecisionListResponse,
+    PricingReviewDecisionResponse,
+    PricingTraceResponse,
+)
 
 __all__ = [
     "UserBase", "UserResponse",
@@ -20,5 +38,14 @@ __all__ = [
     "AWSCredentials", "AzureCredentials", "GCPCredentials",
     "TwinConfigCreate", "TwinConfigUpdate", "TwinConfigResponse",
     "CredentialValidationResult", "CloudConnectionCreate", "CloudConnectionResponse",
-    "CloudConnectionUpdate", "CloudConnectionValidationResponse"
+    "CloudConnectionUpdate", "CloudConnectionValidationResponse",
+    "CloudAccessInventoryResponse", "PricingHealthResponse",
+    "DeploymentLogEntryResponse", "DeploymentLogPageResponse",
+    "DeploymentHistoryResponse", "DeploymentOutputsResponse",
+    "DeploymentStatusResponse",
+    "DeployerConfigReadModelResponse",
+    "PricingRefreshRunResponse", "PricingRefreshStartRequest",
+    "PricingCandidateReportListResponse", "PricingCandidateReportResponse",
+    "PricingReviewDecisionCreate", "PricingReviewDecisionListResponse",
+    "PricingReviewDecisionResponse", "PricingTraceResponse",
 ]

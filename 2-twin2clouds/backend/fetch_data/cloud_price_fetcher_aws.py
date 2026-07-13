@@ -35,7 +35,7 @@ STATIC_DEFAULTS = {
 AWS_SERVICE_KEYWORDS = {
     "iot": {
         "include": ["iot", "message", "rule", "device shadow", "registry"],
-        "exclude": ["lorawan", "fuota", "everynet"],
+        "exclude": ["lorawan", "fuota", "everynet", "direct message"],
         "fields": {
             "pricePerMessage": ["message"],
             "priceRulesTriggered": ["rule", "trigger"],
@@ -377,16 +377,148 @@ def _fetch_twinmaker_prices(region_human: str, pricing_client: Any, debug: bool 
 
     return prices
 
+
+def _extract_iot_message_tiers(price_list: List[str], debug: bool = False) -> Dict[str, float]:
+    """Extract standard AWS IoT Core MQTT message tiers from Price List rows."""
+    tiers: list[dict[str, Any]] = []
+    for prod_json in price_list:
+        prod = json.loads(prod_json)
+        attrs = prod.get("product", {}).get("attributes", {})
+        usage_type = (attrs.get("usagetype") or "").lower()
+        if not usage_type.endswith("-messages"):
+            continue
+        if any(blocked in usage_type for blocked in ("lorawan", "direct")):
+            continue
+
+        for term in prod.get("terms", {}).get("OnDemand", {}).values():
+            for dim in term.get("priceDimensions", {}).values():
+                price = float(dim.get("pricePerUnit", {}).get("USD", 0))
+                if price <= 0:
+                    continue
+                try:
+                    begin = float(dim.get("beginRange", "0"))
+                except ValueError:
+                    begin = 0.0
+                tiers.append({"begin": begin, "price": price})
+                if debug:
+                    logger.debug(
+                        "   ✔️ Matched IoT message tier: %s -> %s",
+                        dim.get("description", "").strip(),
+                        price,
+                    )
+
+    if not tiers:
+        return {}
+
+    tiers.sort(key=lambda item: item["begin"])
+    result = {}
+    for tier in tiers:
+        begin = tier["begin"]
+        if begin == 0:
+            result["tier_first"] = tier["price"]
+        elif begin < 5_000_000_000:
+            result["tier_next"] = tier["price"]
+        else:
+            result["tier_over"] = tier["price"]
+    return result
+
+
+def _extract_iot_connection_price_per_device_month(
+    price_list: List[str],
+    debug: bool = False,
+) -> float | None:
+    """Extract AWS IoT Core connection-minute price as an always-on device month."""
+    for prod_json in price_list:
+        prod = json.loads(prod_json)
+        attrs = prod.get("product", {}).get("attributes", {})
+        usage_type = (attrs.get("usagetype") or "").lower()
+        if not usage_type.endswith("-connectionminutes"):
+            continue
+
+        for term in prod.get("terms", {}).get("OnDemand", {}).values():
+            for dim in term.get("priceDimensions", {}).values():
+                price = float(dim.get("pricePerUnit", {}).get("USD", 0))
+                if price <= 0:
+                    continue
+                monthly_price = price * 60 * 24 * 30
+                if debug:
+                    logger.debug(
+                        "   ✔️ Matched IoT connection minutes: %s -> %s per device-month",
+                        dim.get("description", "").strip(),
+                        monthly_price,
+                    )
+                return monthly_price
+    return None
+
+
+def _fetch_iot_prices(
+    service_code: str,
+    region_human: str,
+    pricing_client: Any,
+    debug: bool = False,
+) -> Dict[str, Any]:
+    """Fetch AWS IoT Core prices plus tiered standard message pricing."""
+    service_config = AWS_SERVICE_KEYWORDS["iot"]
+    price_list = _fetch_api_products(pricing_client, service_code, region_human)
+    prices = _extract_prices_from_api_response(
+        price_list,
+        service_config["fields"],
+        include_keywords=service_config.get("include"),
+        exclude_keywords=service_config.get("exclude"),
+        debug=debug,
+    )
+    message_tiers = _extract_iot_message_tiers(price_list, debug=debug)
+    if message_tiers:
+        prices["messageTiers"] = message_tiers
+    connection_price = _extract_iot_connection_price_per_device_month(
+        price_list,
+        debug=debug,
+    )
+    if connection_price is not None:
+        prices["pricePerDeviceAndMonth"] = connection_price
+    return prices
+
+
 def _fetch_grafana_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, float]:
     """
     Specialized fetcher for Grafana.
-    Dynamic fetching is TODO; leave fallback handling to the canonical builder.
+    Fetches Managed Grafana editor/viewer user prices. Amazon Managed Grafana
+    uses the AWS Pricing API service code `AmazonGrafana`.
     """
-    _warn_static("grafana", "grafana", debug)
-    return {}
+    price_list = _fetch_api_products(
+        pricing_client,
+        "AmazonGrafana",
+        region_human,
+    )
+    if not price_list:
+        price_list = _fetch_api_products(
+            pricing_client,
+            "AmazonGrafana",
+            region_human,
+            with_location=False,
+        )
+
+    prices: Dict[str, float] = {}
+    for prod_json in price_list:
+        prod = json.loads(prod_json)
+        attrs = prod.get("product", {}).get("attributes", {})
+        usage_type = (attrs.get("usagetype") or "").lower()
+        for term in prod.get("terms", {}).get("OnDemand", {}).values():
+            for dim in term.get("priceDimensions", {}).values():
+                desc = (dim.get("description") or "").lower()
+                price = float(dim.get("pricePerUnit", {}).get("USD", 0))
+                if price <= 0 or "enterprise" in usage_type or "free" in usage_type:
+                    continue
+                if "editoruser" in usage_type or "per editor" in desc:
+                    prices.setdefault("editorPrice", price)
+                elif "vieweruser" in usage_type or "per viewer" in desc:
+                    prices.setdefault("viewerPrice", price)
+
+    return prices
 
 # Dispatch dictionary for specialized services
 SPECIALIZED_FETCHERS: Dict[str, Callable] = {
+    "iot": _fetch_iot_prices,
     "transfer": _fetch_transfer_prices,
     "twinmaker": _fetch_twinmaker_prices,
     "grafana": _fetch_grafana_prices,
@@ -428,7 +560,15 @@ def fetch_aws_price(service_name: str, service_code: str, region_code: str, regi
 
     # 2. Check for Specialized Fetcher
     if neutral_service_name in SPECIALIZED_FETCHERS:
-        prices = SPECIALIZED_FETCHERS[neutral_service_name](region_human, pricing_client, debug)
+        if neutral_service_name == "iot":
+            prices = SPECIALIZED_FETCHERS[neutral_service_name](
+                service_code,
+                region_human,
+                pricing_client,
+                debug,
+            )
+        else:
+            prices = SPECIALIZED_FETCHERS[neutral_service_name](region_human, pricing_client, debug)
         logger.info(f"✅ Final AWS {neutral_service_name} pricing: {prices}")
         print("")
         return prices

@@ -8,12 +8,14 @@ import json
 import uuid
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.models.cloud_connection import CloudConnection
 from src.repositories.cloud_connection_repository import CloudConnectionRepository
 from src.schemas.cloud_connection import CloudConnectionCreate, CloudConnectionResponse, CloudConnectionUpdate
 from src.services.credential_resolution_service import CredentialResolutionService
+from src.services.errors import CloudConnectionConflict
 from src.utils.crypto import decrypt_scoped, encrypt_scoped
 
 
@@ -35,11 +37,20 @@ class CloudConnectionService:
         payload = self._normalize_payload(request)
         payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         fingerprint = self.fingerprint_payload(request.provider, payload)
+        make_pricing_default = False
+        if request.purpose == "pricing":
+            existing_default = self._repo.get_default_pricing(user_id, request.provider)
+            make_pricing_default = request.is_default_for_pricing or existing_default is None
+            if request.is_default_for_pricing:
+                self._repo.clear_pricing_defaults(user_id, request.provider)
 
         connection = CloudConnection(
             id=connection_id,
             user_id=user_id,
             provider=request.provider,
+            purpose=request.purpose,
+            scope=request.scope,
+            is_default_for_pricing=make_pricing_default,
             display_name=request.display_name,
             cloud_scope=json.dumps(request.cloud_scope, sort_keys=True),
             auth_type=request.auth_type or self._default_auth_type(request.provider),
@@ -49,7 +60,7 @@ class CloudConnectionService:
             validation_status="untested",
         )
         self._repo.add(connection)
-        self._db.commit()
+        self._commit_default_change()
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
 
@@ -59,15 +70,23 @@ class CloudConnectionService:
         user_id: str,
         request: CloudConnectionUpdate,
     ) -> CloudConnectionResponse:
+        if connection.purpose == "pricing" and request.permission_set_version is not None:
+            raise ValueError("permission_set_version is only supported for deployment Cloud Connections")
+        if connection.purpose != "pricing" and request.is_default_for_pricing:
+            raise ValueError("Only pricing Cloud Connections may be selected as pricing default")
         if request.display_name is not None:
             connection.display_name = request.display_name
         if request.permission_set_version is not None:
             connection.permission_set_version = request.permission_set_version
         if request.cloud_scope is not None:
             connection.cloud_scope = json.dumps(request.cloud_scope, sort_keys=True)
+        if request.is_default_for_pricing is not None:
+            if request.is_default_for_pricing:
+                self._repo.clear_pricing_defaults(connection.user_id, connection.provider)
+            connection.is_default_for_pricing = request.is_default_for_pricing
         connection.updated_at = datetime.utcnow()
 
-        self._db.commit()
+        self._commit_default_change()
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
 
@@ -86,11 +105,27 @@ class CloudConnectionService:
         self._db.commit()
         self._db.refresh(connection)
 
+    def record_successful_use(self, connection: CloudConnection) -> None:
+        connection.last_used_at = datetime.utcnow()
+        connection.updated_at = datetime.utcnow()
+
+    def _commit_default_change(self) -> None:
+        try:
+            self._db.commit()
+        except IntegrityError as exc:
+            self._db.rollback()
+            raise CloudConnectionConflict(
+                "Another pricing default was selected concurrently; reload and retry."
+            ) from exc
+
     def to_response(self, connection: CloudConnection, user_id: str) -> CloudConnectionResponse:
         payload = self.decrypt_payload(connection, user_id)
         return CloudConnectionResponse(
             id=connection.id,
             provider=connection.provider,
+            purpose=connection.purpose,
+            scope=connection.scope,
+            is_default_for_pricing=bool(connection.is_default_for_pricing),
             display_name=connection.display_name,
             auth_type=connection.auth_type,
             permission_set_version=connection.permission_set_version,
@@ -100,6 +135,7 @@ class CloudConnectionService:
             validation_status=connection.validation_status,
             validation_message=connection.validation_message,
             last_validated_at=connection.last_validated_at,
+            last_used_at=connection.last_used_at,
             created_at=connection.created_at,
             updated_at=connection.updated_at,
         )
@@ -113,6 +149,8 @@ class CloudConnectionService:
         return CredentialResolutionService.build_optimizer_payload(connection.provider, payload)
 
     def build_deployer_credentials(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
+        if connection.purpose != "deployment":
+            raise ValueError("Pricing Cloud Connections cannot provide deployment credentials")
         payload = self.decrypt_payload(connection, user_id)
         deployer_payload = CredentialResolutionService.build_deployer_validation_payload(connection.provider, payload)
         if connection.permission_set_version:
@@ -195,6 +233,8 @@ class CloudConnectionService:
     @staticmethod
     def _validation_message(result: dict[str, Any]) -> str:
         if result.get("valid"):
+            if result.get("deployer") is None:
+                return "Optimizer pricing validation passed"
             return "Optimizer and Deployer validation passed"
         optimizer = result.get("optimizer") if isinstance(result.get("optimizer"), dict) else {}
         deployer = result.get("deployer") if isinstance(result.get("deployer"), dict) else {}

@@ -268,6 +268,7 @@ class TestEngineIntegration:
                     profile_id="cost_minimization_v1",
                     metric_provider_ids=("cost",),
                     scoring_strategy_id="min_total_cost_v1",
+                    optimization_bundle_id="cost_minimization_v1",
                     result_schema_version="cost-result.v1",
                 )
 
@@ -330,6 +331,7 @@ class TestEngineIntegration:
                     profile_id="cost_minimization_v1",
                     metric_provider_ids=("cost",),
                     scoring_strategy_id="min_total_cost_v1",
+                    optimization_bundle_id="cost_minimization_v1",
                     result_schema_version="cost-result.v1",
                 )
 

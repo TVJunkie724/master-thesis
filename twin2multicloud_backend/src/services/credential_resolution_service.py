@@ -77,6 +77,16 @@ class CredentialResolutionService:
                     "Configured Cloud Connection is no longer available",
                     source_id=connection_id,
                 )
+            # SQLAlchemy applies the deployment default on flush. Treat None as
+            # the legacy default for transient objects built by domain tests.
+            if getattr(connection, "purpose", None) not in (None, "deployment"):
+                raise self._failed(
+                    errors,
+                    provider,
+                    "INVALID_CLOUD_CONNECTION_PURPOSE",
+                    "Pricing Cloud Connections cannot provide deployment credentials",
+                    source_id=connection_id,
+                )
             payload = self._decrypt_cloud_connection(connection, user_id, provider, errors)
             if errors:
                 raise self._failed_from_errors(errors)

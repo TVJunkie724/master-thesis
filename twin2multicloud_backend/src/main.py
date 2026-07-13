@@ -4,16 +4,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.models.database import engine, Base
-from src.api.routes import auth, twins, twin_operations, health, cloud_connections, cloud_bootstrap
+from src.api.routes import (
+    auth,
+    cloud_access,
+    cloud_bootstrap,
+    cloud_connections,
+    health,
+    twin_operations,
+    twins,
+)
 from src.api.routes.config import router as config_router, inline_router as config_inline_router
 from src.api.routes.optimizer import router as optimizer_router
 from src.api.routes.optimizer_config import router as optimizer_config_router
 from src.api.routes.optimizer_runs import router as optimizer_runs_router
+from src.api.routes.pricing_refresh import router as pricing_refresh_router
+from src.api.routes.pricing_review import router as pricing_review_router
 from src.api.routes.dashboard import router as dashboard_router
 from src.api.routes.deployer import router as deployer_router
 from src.api.routes.sse import router as sse_router, start_reaper
+from migrations.add_cloud_connection_purpose import migrate as migrate_cloud_connection_purpose
 
-# Create tables
+# Apply the additive upgrade before SQLAlchemy inspects/creates current tables.
+if settings.DATABASE_URL.startswith("sqlite:///"):
+    migrate_cloud_connection_purpose(settings.DATABASE_URL)
 Base.metadata.create_all(bind=engine)
 
 
@@ -62,11 +75,14 @@ app.include_router(twin_operations.router)
 app.include_router(health.router)
 app.include_router(cloud_connections.router)
 app.include_router(cloud_bootstrap.router)
+app.include_router(cloud_access.router)
 app.include_router(config_router)
 app.include_router(config_inline_router)
 app.include_router(optimizer_router)
 app.include_router(optimizer_config_router)
 app.include_router(optimizer_runs_router)
+app.include_router(pricing_refresh_router)
+app.include_router(pricing_review_router)
 app.include_router(dashboard_router)
 app.include_router(deployer_router)
 app.include_router(sse_router)

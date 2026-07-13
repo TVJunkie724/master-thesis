@@ -51,6 +51,9 @@ def test_create_cloud_connection_masks_secret_response(authenticated_client, db_
     assert response.status_code == 200
     data = response.json()
     assert data["provider"] == "aws"
+    assert data["purpose"] == "deployment"
+    assert data["scope"] == "user"
+    assert data["is_default_for_pricing"] is False
     assert data["display_name"] == "AWS Dev"
     assert data["auth_type"] == "access_key"
     assert data["permission_set_version"] == "thesis-demo-v1"
@@ -273,6 +276,114 @@ def test_rejects_gcp_connection_without_service_account_json(authenticated_clien
     response = client.post("/cloud-connections/", json=payload, headers=headers)
 
     assert response.status_code == 422
+
+
+def test_rejects_persisted_azure_pricing_connection(authenticated_client, sample_azure_credentials):
+    client, headers = authenticated_client
+    response = client.post(
+        "/cloud-connections/",
+        json={
+            "provider": "azure",
+            "purpose": "pricing",
+            "display_name": "Azure Pricing",
+            "azure": sample_azure_credentials,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_first_pricing_connection_becomes_default_and_explicit_replacement_is_atomic(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    first_payload = _aws_request("Pricing One")
+    first_payload.update({"purpose": "pricing", "permission_set_version": None})
+    second_payload = _aws_request("Pricing Two")
+    second_payload.update(
+        {
+            "purpose": "pricing",
+            "permission_set_version": None,
+            "is_default_for_pricing": True,
+        }
+    )
+
+    first = client.post("/cloud-connections/", json=first_payload, headers=headers).json()
+    second = client.post("/cloud-connections/", json=second_payload, headers=headers).json()
+
+    assert first["is_default_for_pricing"] is True
+    assert second["is_default_for_pricing"] is True
+    defaults = db_session.query(CloudConnection).filter_by(
+        user_id=db_session.query(User).first().id,
+        provider="aws",
+        purpose="pricing",
+        is_default_for_pricing=True,
+    ).all()
+    assert [connection.id for connection in defaults] == [second["id"]]
+
+
+def test_patch_selects_pricing_default_and_demotes_previous(authenticated_client):
+    client, headers = authenticated_client
+    first_payload = _aws_request("Pricing One")
+    first_payload.update({"purpose": "pricing", "permission_set_version": None})
+    second_payload = _aws_request("Pricing Two")
+    second_payload.update({"purpose": "pricing", "permission_set_version": None})
+    first = client.post("/cloud-connections/", json=first_payload, headers=headers).json()
+    second = client.post("/cloud-connections/", json=second_payload, headers=headers).json()
+
+    response = client.patch(
+        f"/cloud-connections/{second['id']}",
+        json={"is_default_for_pricing": True},
+        headers=headers,
+    )
+    refreshed_first = client.get(f"/cloud-connections/{first['id']}", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["is_default_for_pricing"] is True
+    assert refreshed_first.json()["is_default_for_pricing"] is False
+
+
+def test_pricing_connection_validation_calls_optimizer_only(authenticated_client, monkeypatch):
+    client, headers = authenticated_client
+    payload = _aws_request("AWS Pricing")
+    payload.update({"purpose": "pricing", "permission_set_version": None})
+    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+    calls = []
+
+    async def fake_optimizer(provider, credentials):
+        calls.append((provider, credentials))
+        return {
+            "provider": provider,
+            "valid": True,
+            "optimizer": {"valid": True, "message": "pricing ok"},
+            "deployer": None,
+        }
+
+    monkeypatch.setattr(
+        "src.api.routes.cloud_connections.perform_optimizer_validation",
+        fake_optimizer,
+    )
+
+    response = client.post(f"/cloud-connections/{created['id']}/validate", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Optimizer pricing validation passed"
+    assert response.json()["deployer"] is None
+    assert len(calls) == 1
+
+
+def test_pricing_connection_cannot_run_deployment_preflight(authenticated_client):
+    client, headers = authenticated_client
+    payload = _aws_request("AWS Pricing")
+    payload.update({"purpose": "pricing", "permission_set_version": None})
+    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+
+    response = client.post(f"/cloud-connections/{created['id']}/preflight", headers=headers)
+
+    assert response.status_code == 400
+    assert "cannot run deployment preflight" in response.json()["detail"]
 
 
 def test_gcp_summary_extracts_service_account_email(authenticated_client):

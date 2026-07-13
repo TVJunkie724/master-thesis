@@ -4,28 +4,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../bloc/pricing_review/pricing_review.dart';
-import '../../models/pricing_review_state.dart';
-import '../../models/twin.dart';
+import '../../models/cloud_access_inventory.dart';
 import '../../providers/twins_provider.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../widgets/branded_app_bar.dart';
-import '../../widgets/data_freshness_card.dart';
-import '../../widgets/pricing/pricing_review_details.dart';
+import '../../widgets/pricing/pricing_candidate_review_panel.dart';
+import '../../widgets/pricing/pricing_provider_selector.dart';
+import '../../widgets/pricing/pricing_provider_workspace.dart';
+import '../../widgets/pricing/pricing_refresh_run_summary.dart';
+import '../../widgets/pricing/pricing_review_strings.dart';
 import '../../widgets/selectable_scaffold.dart';
 
 class PricingReviewScreen extends ConsumerWidget {
-  final String? initialTwinId;
-
-  const PricingReviewScreen({super.key, this.initialTwinId});
+  const PricingReviewScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return BlocProvider(
-      create: (_) => PricingReviewBloc(
-        api: ref.read(apiServiceProvider),
-        initialTwinId: initialTwinId,
-      )..add(const PricingReviewStarted()),
+      create: (_) =>
+          PricingReviewBloc(api: ref.read(apiServiceProvider))
+            ..add(const PricingReviewStarted()),
       child: const _PricingReviewView(),
     );
   }
@@ -38,23 +37,27 @@ class _PricingReviewView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<PricingReviewBloc, PricingReviewState>(
       builder: (context, state) {
+        final provider = state.selectedProvider;
+        final health = state.pricingHealth?.provider(provider);
+        final access = state.accessFor(provider);
+        final reports = state.reportsByProvider[provider];
         return SelectableScaffold(
           appBar: BrandedAppBar(
-            title: 'Pricing Review',
+            title: PricingReviewStrings.pageTitle,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              tooltip: 'Back to dashboard',
+              tooltip: PricingReviewStrings.backToDashboard,
               onPressed: () => context.go('/dashboard'),
             ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                tooltip: 'Reload pricing state',
-                onPressed: () {
-                  context.read<PricingReviewBloc>().add(
-                    const PricingReviewReloadRequested(),
-                  );
-                },
+                tooltip: PricingReviewStrings.reloadPricingState,
+                onPressed: state.refreshingProvider == null
+                    ? () => context.read<PricingReviewBloc>().add(
+                        const PricingReviewReloadRequested(),
+                      )
+                    : null,
               ),
               const SizedBox(width: AppSpacing.sm),
             ],
@@ -70,15 +73,91 @@ class _PricingReviewView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildHeader(context),
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildTwinSelector(context, state),
+                      Text(
+                        PricingReviewStrings.screenTitle,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        PricingReviewStrings.screenDescription,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      PricingProviderSelector(
+                        selectedProvider: state.selectedProvider,
+                        pricingHealth: state.pricingHealth,
+                        enabled: state.refreshingProvider == null,
+                        onSelected: (provider) => context
+                            .read<PricingReviewBloc>()
+                            .add(PricingReviewProviderSelected(provider)),
+                      ),
                       if (state.feedback != null) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        _buildFeedback(context, state.feedback!),
+                        const SizedBox(height: AppSpacing.sm),
+                        _InlineFeedback(
+                          feedback: state.feedback!,
+                          onDismiss: () => context
+                              .read<PricingReviewBloc>()
+                              .add(const PricingReviewFeedbackCleared()),
+                        ),
                       ],
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildReviewState(context, state),
+                      const SizedBox(height: AppSpacing.md),
+                      PricingProviderWorkspace(
+                        provider: provider,
+                        health: health,
+                        access: access,
+                        isLoading:
+                            state.isLoadingPricingHealth ||
+                            state.isLoadingCloudAccess,
+                        isRefreshing: state.refreshingProvider == provider,
+                        canRefresh: state.canRefresh(provider),
+                        error:
+                            state.pricingHealthError ?? state.cloudAccessError,
+                        reportError: state.reportErrorsByProvider[provider],
+                        onRefresh: () =>
+                            _confirmRefresh(context, provider, access),
+                        onRetry: () => context.read<PricingReviewBloc>().add(
+                          state.reportErrorsByProvider[provider] != null &&
+                                  state.latestRuns[provider]?.succeeded == true
+                              ? PricingReviewReportsReloadRequested(provider)
+                              : const PricingReviewReloadRequested(),
+                        ),
+                      ),
+                      if (state.latestRuns[provider] case final run?) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        PricingRefreshRunSummary(run: run),
+                      ],
+                      if (reports != null) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        PricingCandidateReviewPanel(
+                          reports: reports,
+                          selectedCandidateIds: state.selectedCandidateIds,
+                          tracesByReportId: state.tracesByReportId,
+                          traceErrorsByReportId: state.traceErrorsByReportId,
+                          loadingTraceReportIds: state.loadingTraceReportIds,
+                          savingDecisionReportIds:
+                              state.savingDecisionReportIds,
+                          decisionsByReportId: state.decisionsByReportId,
+                          onCandidateSelected: (reportId, candidateId) =>
+                              context.read<PricingReviewBloc>().add(
+                                PricingReviewCandidateSelected(
+                                  reportId,
+                                  candidateId,
+                                ),
+                              ),
+                          onTraceRequested: (reportId) => context
+                              .read<PricingReviewBloc>()
+                              .add(PricingReviewReportExpanded(reportId)),
+                          onDecisionRequested: (reportId, decision) =>
+                              context.read<PricingReviewBloc>().add(
+                                PricingReviewDecisionRequested(
+                                  reportId: reportId,
+                                  decision: decision,
+                                ),
+                              ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -90,305 +169,66 @@ class _PricingReviewView extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Cloud pricing readiness',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Review cached pricing state globally, then refresh individual '
-          'providers with an explicit twin credential context.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Future<void> _confirmRefresh(
+    BuildContext context,
+    String provider,
+    CloudAccessEntry? access,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(PricingReviewStrings.refreshDialogTitle(provider)),
+        content: Text(PricingReviewStrings.refreshDialogBody(access)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text(PricingReviewStrings.cancel),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTwinSelector(BuildContext context, PricingReviewState state) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: state.isLoadingTwins
-            ? const LinearProgressIndicator()
-            : state.twinsError != null
-            ? Row(
-                children: [
-                  const Icon(Icons.warning_amber),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'Twin list could not be loaded: ${state.twinsError}',
-                    ),
-                  ),
-                ],
-              )
-            : _TwinSelectorContent(
-                twins: state.twins,
-                selectedTwinId: state.selectedTwinId,
-                onSelected: (value) {
-                  context.read<PricingReviewBloc>().add(
-                    PricingReviewTwinSelected(value),
-                  );
-                },
-              ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.refresh),
+            label: const Text(PricingReviewStrings.refresh),
+          ),
+        ],
       ),
     );
-  }
-
-  Widget _buildReviewState(BuildContext context, PricingReviewState state) {
-    if (state.isLoadingReviewState) return const _PricingReviewLoading();
-
-    if (state.reviewStateError != null) {
-      return _PricingReviewError(
-        message: state.reviewStateError!,
-        onRetry: () {
-          context.read<PricingReviewBloc>().add(
-            const PricingReviewReloadRequested(),
-          );
-        },
+    if (confirmed == true && context.mounted) {
+      context.read<PricingReviewBloc>().add(
+        PricingReviewProviderRefreshRequested(
+          provider,
+          connectionId: access?.scope == 'public' ? null : access?.connectionId,
+        ),
       );
     }
-
-    final reviewState = state.reviewState;
-    if (reviewState == null) {
-      return _PricingReviewError(
-        message: 'Pricing review state is not available.',
-        onRetry: () {
-          context.read<PricingReviewBloc>().add(
-            const PricingReviewReloadRequested(),
-          );
-        },
-      );
-    }
-
-    return _PricingReviewContent(
-      reviewState: reviewState,
-      selectedTwinId: state.selectedTwinId,
-      refreshingProvider: state.refreshingProvider,
-      onRefreshProvider: (provider) {
-        context.read<PricingReviewBloc>().add(
-          PricingReviewProviderRefreshRequested(provider),
-        );
-      },
-    );
   }
+}
 
-  Widget _buildFeedback(BuildContext context, PricingReviewFeedback feedback) {
+class _InlineFeedback extends StatelessWidget {
+  final PricingReviewFeedback feedback;
+  final VoidCallback onDismiss;
+
+  const _InlineFeedback({required this.feedback, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
     final color = feedback.isError
         ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.primary;
-    final icon = feedback.isError ? Icons.error_outline : Icons.check_circle;
-
-    return Card(
-      color: color.withAlpha(24),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(feedback.message)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TwinSelectorContent extends StatelessWidget {
-  final List<Twin> twins;
-  final String? selectedTwinId;
-  final ValueChanged<String?> onSelected;
-
-  const _TwinSelectorContent({
-    required this.twins,
-    required this.selectedTwinId,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedExists = twins.any((twin) => twin.id == selectedTwinId);
-    final effectiveSelectedTwinId = selectedExists ? selectedTwinId : null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+        : AppColors.success;
+    return Row(
       children: [
-        Text(
-          'Credential context',
-          style: Theme.of(context).textTheme.titleMedium,
+        Icon(
+          feedback.isError ? Icons.error_outline : Icons.check_circle_outline,
+          color: color,
+          size: AppSpacing.iconMd,
         ),
-        const SizedBox(height: AppSpacing.sm),
-        DropdownButtonFormField<String>(
-          initialValue: effectiveSelectedTwinId,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.cloud_sync),
-            labelText: 'Twin used for provider credentials',
-          ),
-          hint: const Text('Select a twin before refreshing pricing'),
-          items: twins
-              .map(
-                (twin) => DropdownMenuItem<String>(
-                  value: twin.id,
-                  child: Text('${twin.name} (${twin.state})'),
-                ),
-              )
-              .toList(),
-          onChanged: twins.isEmpty ? null : onSelected,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          twins.isEmpty
-              ? 'Create and configure a twin before provider pricing can be refreshed.'
-              : 'The selected twin determines which stored cloud account credentials are used for refresh operations.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(child: Text(feedback.message)),
+        IconButton(
+          onPressed: onDismiss,
+          icon: const Icon(Icons.close),
+          tooltip: PricingReviewStrings.dismissMessage,
         ),
       ],
-    );
-  }
-}
-
-class _PricingReviewContent extends StatelessWidget {
-  static const _providers = ['aws', 'azure', 'gcp'];
-
-  final PricingReviewStateResponse reviewState;
-  final String? selectedTwinId;
-  final String? refreshingProvider;
-  final ValueChanged<String> onRefreshProvider;
-
-  const _PricingReviewContent({
-    required this.reviewState,
-    required this.selectedTwinId,
-    required this.refreshingProvider,
-    required this.onRefreshProvider,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final refreshEnabled = selectedTwinId != null && refreshingProvider == null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow =
-                constraints.maxWidth < AppSpacing.pricingReviewCardBreakpoint;
-            final cards = _providers.map((provider) {
-              final card = DataFreshnessCard(
-                provider: provider,
-                reviewState: reviewState.provider(provider),
-                enabled: refreshEnabled,
-                disabledReason: selectedTwinId == null
-                    ? 'Select a twin credential context before refreshing pricing.'
-                    : 'Another provider refresh is currently running.',
-                onRefresh: () => onRefreshProvider(provider),
-              );
-
-              if (refreshingProvider == provider) {
-                return Stack(
-                  children: [
-                    card,
-                    Positioned.fill(
-                      child: ColoredBox(
-                        color: Theme.of(context).colorScheme.surface.withValues(
-                          alpha: AppColors.loadingOverlayAlpha,
-                        ),
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                    ),
-                  ],
-                );
-              }
-              return card;
-            }).toList();
-
-            if (isNarrow) {
-              return Column(
-                children: cards
-                    .map(
-                      (card) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                        child: card,
-                      ),
-                    )
-                    .toList(),
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: cards
-                  .map(
-                    (card) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: AppSpacing.md),
-                        child: card,
-                      ),
-                    ),
-                  )
-                  .toList(),
-            );
-          },
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        PricingReviewDetails(reviewState: reviewState),
-      ],
-    );
-  }
-}
-
-class _PricingReviewLoading extends StatelessWidget {
-  const _PricingReviewLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(AppSpacing.lg),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-    );
-  }
-}
-
-class _PricingReviewError extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _PricingReviewError({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Row(
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: Text(message)),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

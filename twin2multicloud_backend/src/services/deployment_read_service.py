@@ -11,6 +11,11 @@ from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
 from src.services.provider_contract import is_gcp_provider
 from src.services.service_errors import EntityNotFoundError
+from src.services.deployment_operation_read_service import (
+    build_deployment_history_response,
+    build_deployment_outputs_response,
+    build_deployment_status_response,
+)
 
 ActiveSessionProvider = Callable[[str], Awaitable[list[Any]]]
 
@@ -63,49 +68,25 @@ class DeploymentReadService:
 
         latest_deployment = self.deployment_repository.get_latest_for_twin(twin_id)
 
-        return {
-            "state": twin.state,
-            "last_error": twin.last_error,
-            "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
-            "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
-            "active_session": active_session,
-            "latest_deployment": self._deployment_summary(latest_deployment),
-        }
+        return build_deployment_status_response(
+            twin,
+            active_session=active_session,
+            latest_deployment=latest_deployment,
+        ).model_dump(mode="json")
 
     def get_outputs(self, twin_id: str, user_id: str) -> dict[str, Any]:
         """Return outputs from the latest successful deploy/test deployment."""
         self._require_twin(twin_id, user_id)
         deployment = self.deployment_repository.latest_successful_deploy(twin_id)
 
-        if not deployment:
-            return {"outputs": None, "deployed_at": None}
-
-        return {
-            "outputs": deployment.terraform_outputs,
-            "deployed_at": deployment.completed_at.isoformat() if deployment.completed_at else None,
-        }
+        return build_deployment_outputs_response(deployment).model_dump(mode="json")
 
     def get_history(self, twin_id: str, user_id: str, limit: int) -> dict[str, Any]:
         """Return deployment history for a twin."""
         self._require_twin(twin_id, user_id)
         deployments = self.deployment_repository.list_for_twin(twin_id, limit)
 
-        return {
-            "deployments": [
-                {
-                    "id": deployment.id,
-                    "session_id": deployment.session_id,
-                    "operation_id": deployment.operation_id,
-                    "operation_type": deployment.operation_type,
-                    "status": deployment.status,
-                    "started_at": deployment.started_at.isoformat() if deployment.started_at else None,
-                    "completed_at": deployment.completed_at.isoformat() if deployment.completed_at else None,
-                    "error_code": deployment.error_code,
-                    "error_message": deployment.error_message,
-                }
-                for deployment in deployments
-            ]
-        }
+        return build_deployment_history_response(deployments).model_dump(mode="json")
 
     @staticmethod
     def _deployment_summary(deployment) -> dict[str, Any] | None:

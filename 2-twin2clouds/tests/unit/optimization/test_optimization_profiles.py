@@ -35,6 +35,35 @@ class FakePricingRegistryService:
         self.version_calls += 1
         return "test-registry.v1"
 
+    def get_optimization_bundle(self, bundle_id):
+        if bundle_id != "cost_minimization_v1":
+            raise KeyError(bundle_id)
+        return {
+            "id": "cost_minimization_v1",
+            "enabled": True,
+            "status": "ready",
+            "profile_id": "cost_minimization_v1",
+            "metric_provider_id": "cost",
+            "calculation_strategy_id": "cost_calculation_v2",
+            "formula_set_id": "cost_formula_set_v1",
+            "workload_contract_id": "digital_twin_workload_v1",
+            "pricing_contract_group": "cost_provider_pricing_contracts_v1",
+            "provider_pricing_contract_ids": ["aws.iot_message_ingest.pricing_contract.v1"],
+            "scoring_strategy_id": "min_total_cost_v1",
+            "result_schema_version": "cost-result.v1",
+        }
+
+    def get_calculation_strategy(self, strategy_id):
+        if strategy_id != "cost_calculation_v2":
+            raise KeyError(strategy_id)
+        return {
+            "id": "cost_calculation_v2",
+            "enabled": True,
+            "calculation_model_id": "cost_model_v1",
+            "formula_set_id": "cost_formula_set_v1",
+            "workload_contract_id": "digital_twin_workload_v1",
+        }
+
 
 def _profiles_with(**overrides):
     profiles = {
@@ -170,6 +199,17 @@ def test_disabled_tbd_profiles_do_not_affect_active_profile_metadata():
     assert metadata["profile_id"] == "cost_minimization_v1"
     assert metadata["metric_provider_ids"] == ["cost"]
     assert metadata["calculation_model_ids"] == ["cost_model_v1"]
+    assert metadata["optimization_bundle_id"] == "cost_minimization_v1"
+    assert metadata["optimization_bundle"] == {
+        "id": "cost_minimization_v1",
+        "calculation_strategy_id": "cost_calculation_v2",
+        "formula_set_id": "cost_formula_set_v1",
+        "workload_contract_id": "digital_twin_workload_v1",
+        "pricing_contract_group": "cost_provider_pricing_contracts_v1",
+        "provider_pricing_contract_count": 1,
+        "status": "ready",
+        "enabled": True,
+    }
     assert "latency" not in metadata["metric_provider_ids"]
     assert "weighted_sum_v1" != metadata["scoring_strategy_id"]
 
@@ -232,6 +272,7 @@ def test_result_metadata_is_management_api_serializable_and_uses_pricing_service
     assert metadata["calculation_model_ids"] == ["cost_model_v1"]
     assert metadata["scoring_strategy_id"] == "min_total_cost_v1"
     assert metadata["intent_group_ids"] == ["cost"]
+    assert metadata["optimization_bundle"]["calculation_strategy_id"] == "cost_calculation_v2"
     json.dumps(metadata)
 
 

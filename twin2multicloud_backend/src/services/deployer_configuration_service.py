@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session
 from src.models.deployer_config import DeployerConfiguration
 from src.models.twin import TwinState
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.deployer_config import DeployerConfigResponse, DeployerConfigUpdate
+from src.schemas.deployer_config import (
+    DeployerConfigReadModelResponse,
+    DeployerConfigResponse,
+    DeployerConfigUpdate,
+)
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.services.wizard_configuration_service import WizardConfigurationService
 
@@ -41,6 +45,19 @@ class DeployerConfigurationService:
         twin = self._require_twin(twin_id, user_id)
         config = self._ensure_config(twin_id, twin)
         return DeployerConfigResponse.from_db(config, twin_state=twin.state.value)
+
+    def get_read_model(
+        self,
+        twin_id: str,
+        user_id: str,
+    ) -> DeployerConfigReadModelResponse:
+        """Return the typed Flutter read model from the canonical config record."""
+        twin = self._require_twin(twin_id, user_id)
+        config = self._ensure_config(twin_id, twin)
+        return DeployerConfigReadModelResponse.from_db(
+            config,
+            twin_state=twin.state.value,
+        )
 
     def update_config(
         self,

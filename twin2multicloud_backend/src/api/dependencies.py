@@ -6,11 +6,11 @@ from src.auth.jwt import verify_token
 from src.config import settings
 
 async def _get_current_user_real(
-    authorization: str = Header(...),
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db)
 ) -> User:
     """Extract and validate JWT, return current user."""
-    if not authorization.startswith("Bearer "):
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid auth header")
     
     token = authorization.split(" ")[1]
@@ -48,4 +48,3 @@ async def _get_current_user_dev(
 
 # Export the correct dependency based on DEBUG mode
 get_current_user = _get_current_user_dev if settings.DEBUG else _get_current_user_real
-

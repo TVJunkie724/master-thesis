@@ -18,6 +18,7 @@ from src.api.dependencies import get_current_user
 from src.schemas.deployer_config import (
     DeployerConfigUpdate,
     DeployerConfigResponse,
+    DeployerConfigReadModelResponse,
     ConfigValidationRequest,
     ConfigValidationResponse,
 )
@@ -101,6 +102,43 @@ async def get_deployer_config(
     """Get deployer configuration for a twin. Creates default if none exists."""
     try:
         return _deployer_configuration_service(db).get_config(twin_id=twin_id, user_id=current_user.id)
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
+
+
+@router.get(
+    "/config/read-model",
+    response_model=DeployerConfigReadModelResponse,
+    operation_id="getDeployerConfigReadModel",
+    summary="Get typed deployer configuration read model for Flutter",
+    description=(
+        "**Purpose:** Retrieve Step 3 deployer configuration as typed sections "
+        "and artifacts instead of a flat dynamic map.\n\n"
+        "**When to call:** Flutter Wizard Step 3 and Twin Overview readiness "
+        "views that need predictable section/artifact state.\n\n"
+        "**Response fields:**\n"
+        "- `sections`: configuration, payloads, user_logic, digital_twin_assets\n"
+        "- `artifacts`: content, validation state, required flag, requirements\n"
+        "- `validation_summary`: stable key/value validation map\n"
+        "- `warnings`: parse issues for legacy JSON-map fields\n\n"
+        "**Compatibility:** Existing `/config` read/write routes remain "
+        "unchanged for legacy hydration and saves."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def get_deployer_config_read_model(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployer_configuration_service(db).get_read_model(
+            twin_id=twin_id,
+            user_id=current_user.id,
+        )
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
 

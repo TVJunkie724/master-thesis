@@ -20,7 +20,13 @@ def test_outputs_route_returns_empty_payload_without_successful_deployment(auth_
     response = auth_client.get(f"/twins/{test_twin.id}/outputs")
 
     assert response.status_code == 200
-    assert response.json() == {"outputs": None, "deployed_at": None}
+    assert response.json() == {
+        "schema_version": "deployment-outputs.v1",
+        "outputs": None,
+        "deployed_at": None,
+        "source_deployment": None,
+        "redacted": False,
+    }
 
 
 def test_outputs_route_returns_latest_successful_deployment(auth_client, db, test_twin):

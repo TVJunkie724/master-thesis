@@ -52,7 +52,10 @@ void main() {
       );
 
       expect(result.valid, isFalse);
-      expect(result.message, 'No L5 provider selected (Step 2)');
+      expect(
+        result.message,
+        'No L5 provider is present in the architecture decision',
+      );
     });
   });
 }

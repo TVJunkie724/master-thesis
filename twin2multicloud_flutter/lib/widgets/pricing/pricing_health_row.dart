@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/pricing_review_state.dart';
+import '../../models/pricing_health.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import 'pricing_review_strings.dart';
 
 class PricingHealthRow extends StatelessWidget {
-  final AsyncValue<PricingReviewStateResponse> reviewState;
+  final AsyncValue<PricingHealthResponse> pricingHealth;
   final VoidCallback onOpenReview;
   final VoidCallback onRetry;
 
   const PricingHealthRow({
     super.key,
-    required this.reviewState,
+    required this.pricingHealth,
     required this.onOpenReview,
     required this.onRetry,
   });
 
   @override
   Widget build(BuildContext context) {
-    return reviewState.when(
+    return pricingHealth.when(
       data: (data) => _PricingHealthContent(
         providers: data.providers,
         onOpenReview: onOpenReview,
@@ -39,14 +40,14 @@ class PricingHealthRow extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'Pricing readiness could not be loaded.',
+                  PricingReviewStrings.dashboardLoadError,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text(PricingReviewStrings.retry),
               ),
             ],
           ),
@@ -57,7 +58,7 @@ class PricingHealthRow extends StatelessWidget {
 }
 
 class _PricingHealthContent extends StatelessWidget {
-  final Map<String, ProviderPricingReviewState> providers;
+  final Map<String, ProviderPricingHealth> providers;
   final VoidCallback onOpenReview;
 
   const _PricingHealthContent({
@@ -95,24 +96,40 @@ class _PricingHealthShell extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.price_check,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Pricing readiness',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const Spacer(),
-                FilledButton.icon(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final title = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.price_check,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      PricingReviewStrings.dashboardTitle,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                );
+                final action = FilledButton.icon(
                   onPressed: onOpenReview,
                   icon: const Icon(Icons.manage_search),
-                  label: const Text('Review pricing'),
-                ),
-              ],
+                  label: const Text(PricingReviewStrings.reviewPricing),
+                );
+                if (constraints.maxWidth <
+                    AppSpacing.pricingReviewCardBreakpoint) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      title,
+                      const SizedBox(height: AppSpacing.sm),
+                      action,
+                    ],
+                  );
+                }
+                return Row(children: [title, const Spacer(), action]);
+              },
             ),
             const SizedBox(height: AppSpacing.md),
             LayoutBuilder(
@@ -159,7 +176,7 @@ class _PricingHealthShell extends StatelessWidget {
 
 class _PricingHealthCard extends StatelessWidget {
   final String provider;
-  final ProviderPricingReviewState? state;
+  final ProviderPricingHealth? state;
   final bool isLoading;
 
   const _PricingHealthCard({required this.provider, required this.state})
@@ -173,11 +190,14 @@ class _PricingHealthCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final providerColor = AppColors.getProviderColor(provider);
     final label = provider.toUpperCase();
-    final badgeLabel = isLoading ? 'Loading' : (state?.badgeLabel ?? 'Unknown');
+    final badgeLabel = isLoading
+        ? PricingReviewStrings.loading
+        : PricingReviewStrings.healthLabel(state?.state);
     final message = isLoading
-        ? 'Checking pricing state'
-        : (state?.primaryMessage ?? 'No pricing status available');
+        ? PricingReviewStrings.checkingPricingState
+        : (state?.primaryMessage ?? PricingReviewStrings.noPricingStatus);
     final source = isLoading ? null : state?.sourceLabel;
+    final age = isLoading ? null : state?.age;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -203,6 +223,15 @@ class _PricingHealthCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(
               source,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (age != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              PricingReviewStrings.age(age),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -253,4 +282,4 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-const _providers = ['aws', 'azure', 'gcp'];
+const _providers = PricingReviewStrings.providers;

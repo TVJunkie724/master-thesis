@@ -1,0 +1,1555 @@
+schema_version: pricing-registry-provider-pricing-contracts.v1
+registry_version: 2026.06.08
+provider_pricing_contracts:
+  aws.api_request_million.pricing_contract.v1:
+    id: aws.api_request_million.pricing_contract.v1
+    provider: aws
+    layer: api
+    service: AmazonApiGateway
+    field: api.request_million
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.api_request_million.model.v1
+    price_source_classification_id: aws.api_request_million.source.v1
+    allowed_price_source_types_by_field:
+      api.request_million:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_requests
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: api
+    consumed_workload_fields: &id001
+    - monthly_api_requests
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.digital_twin_query_unit.pricing_contract.v1:
+    id: aws.digital_twin_query_unit.pricing_contract.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.query_unit
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.digital_twin_query_unit.model.v1
+    price_source_classification_id: aws.digital_twin_query_unit.source.v1
+    allowed_price_source_types_by_field:
+      digital_twin.query_unit:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_query_unit
+    allowed_formula_refs:
+    - query_unit_cost
+    calculation_component: digital_twin
+    consumed_workload_fields: &id002
+    - monthly_digital_twin_query_units
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.event_bus_event_million.pricing_contract.v1:
+    id: aws.event_bus_event_million.pricing_contract.v1
+    provider: aws
+    layer: event_bus
+    service: AWSEvents
+    field: event_bus.event_million
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.event_bus_event_million.model.v1
+    price_source_classification_id: aws.event_bus_event_million.source.v1
+    allowed_price_source_types_by_field:
+      event_bus.event_million:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_events
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: event_bus
+    consumed_workload_fields: &id003
+    - monthly_events
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.functions_compute_gb_second.pricing_contract.v1:
+    id: aws.functions_compute_gb_second.pricing_contract.v1
+    provider: aws
+    layer: functions
+    service: AWSLambda
+    field: functions.compute_gb_second
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.functions_compute_gb_second.model.v1
+    price_source_classification_id: aws.functions_compute_gb_second.source.v1
+    allowed_price_source_types_by_field:
+      functions.compute_gb_second:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_second
+    allowed_formula_refs:
+    - duration_compute_cost
+    calculation_component: functions
+    consumed_workload_fields: &id004
+    - monthly_function_gb_seconds
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.functions_request.pricing_contract.v1:
+    id: aws.functions_request.pricing_contract.v1
+    provider: aws
+    layer: functions
+    service: AWSLambda
+    field: functions.request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.functions_request.model.v1
+    price_source_classification_id: aws.functions_request.source.v1
+    allowed_price_source_types_by_field:
+      functions.request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: functions
+    consumed_workload_fields: &id005
+    - monthly_function_requests
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.grafana_editor_user_month.pricing_contract.v1:
+    id: aws.grafana_editor_user_month.pricing_contract.v1
+    provider: aws
+    layer: grafana
+    service: AmazonGrafana
+    field: grafana.editor_user_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.grafana_editor_user_month.model.v1
+    price_source_classification_id: aws.grafana_editor_user_month.source.v1
+    allowed_price_source_types_by_field:
+      grafana.editor_user_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_user_month
+    allowed_formula_refs:
+    - user_seat_cost
+    calculation_component: grafana
+    consumed_workload_fields: &id006
+    - editor_user_months
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.grafana_viewer_user_month.pricing_contract.v1:
+    id: aws.grafana_viewer_user_month.pricing_contract.v1
+    provider: aws
+    layer: grafana
+    service: AmazonGrafana
+    field: grafana.viewer_user_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.grafana_viewer_user_month.model.v1
+    price_source_classification_id: aws.grafana_viewer_user_month.source.v1
+    allowed_price_source_types_by_field:
+      grafana.viewer_user_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_user_month
+    allowed_formula_refs:
+    - user_seat_cost
+    calculation_component: grafana
+    consumed_workload_fields: &id007
+    - viewer_user_months
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.iot_message_ingest.pricing_contract.v1:
+    id: aws.iot_message_ingest.pricing_contract.v1
+    provider: aws
+    layer: iot
+    service: AWSIoT
+    field: iot.message_ingest
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.iot_message_ingest.model.v1
+    price_source_classification_id: aws.iot_message_ingest.source.v1
+    allowed_price_source_types_by_field:
+      iot.message_ingest:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_messages
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: iot
+    consumed_workload_fields: &id008
+    - monthly_iot_messages
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.orchestration_state_transition.pricing_contract.v1:
+    id: aws.orchestration_state_transition.pricing_contract.v1
+    provider: aws
+    layer: orchestration
+    service: AmazonStates
+    field: orchestration.state_transition
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.orchestration_state_transition.model.v1
+    price_source_classification_id: aws.orchestration_state_transition.source.v1
+    allowed_price_source_types_by_field:
+      orchestration.state_transition:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_state_transition
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: orchestration
+    consumed_workload_fields: &id009
+    - monthly_state_transitions
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.storage_archive_storage_gb_month.pricing_contract.v1:
+    id: aws.storage_archive_storage_gb_month.pricing_contract.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.archive.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.storage_archive_storage_gb_month.model.v1
+    price_source_classification_id: aws.storage_archive_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.archive.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: &id010
+    - archive_storage_gb_month
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.storage_archive_write_request.pricing_contract.v1:
+    id: aws.storage_archive_write_request.pricing_contract.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.archive.write_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.storage_archive_write_request.model.v1
+    price_source_classification_id: aws.storage_archive_write_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.archive.write_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1k_requests
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: &id011
+    - monthly_archive_write_requests
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.storage_cool_storage_gb_month.pricing_contract.v1:
+    id: aws.storage_cool_storage_gb_month.pricing_contract.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.cool.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.storage_cool_storage_gb_month.model.v1
+    price_source_classification_id: aws.storage_cool_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.cool.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: &id012
+    - cool_storage_gb_month
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.storage_hot_read_request.pricing_contract.v1:
+    id: aws.storage_hot_read_request.pricing_contract.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.read_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.storage_hot_read_request.model.v1
+    price_source_classification_id: aws.storage_hot_read_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.read_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: &id013
+    - monthly_storage_read_requests
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.storage_hot_storage_gb_month.pricing_contract.v1:
+    id: aws.storage_hot_storage_gb_month.pricing_contract.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.storage_hot_storage_gb_month.model.v1
+    price_source_classification_id: aws.storage_hot_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: &id014
+    - hot_storage_gb_month
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.storage_hot_write_request.pricing_contract.v1:
+    id: aws.storage_hot_write_request.pricing_contract.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.write_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.storage_hot_write_request.model.v1
+    price_source_classification_id: aws.storage_hot_write_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.write_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: &id015
+    - monthly_storage_write_requests
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  aws.transfer_egress_gb.pricing_contract.v1:
+    id: aws.transfer_egress_gb.pricing_contract.v1
+    provider: aws
+    layer: transfer
+    service: AWSDataTransfer
+    field: transfer.egress_gb
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.transfer_egress_gb.model.v1
+    price_source_classification_id: aws.transfer_egress_gb.source.v1
+    allowed_price_source_types_by_field:
+      transfer.egress_gb:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb
+    allowed_formula_refs:
+    - transfer_tier_cost
+    calculation_component: transfer
+    consumed_workload_fields: &id016
+    - monthly_egress_gb
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.api_request_million.pricing_contract.v1:
+    id: azure.api_request_million.pricing_contract.v1
+    provider: azure
+    layer: api
+    service: API Management
+    field: api.request_million
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.api_request_million.model.v1
+    price_source_classification_id: azure.api_request_million.source.v1
+    allowed_price_source_types_by_field:
+      api.request_million:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_requests
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: api
+    consumed_workload_fields: *id001
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.digital_twin_query_unit.pricing_contract.v1:
+    id: azure.digital_twin_query_unit.pricing_contract.v1
+    provider: azure
+    layer: digital_twin
+    service: Digital Twins
+    field: digital_twin.query_unit
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.digital_twin_query_unit.model.v1
+    price_source_classification_id: azure.digital_twin_query_unit.source.v1
+    allowed_price_source_types_by_field:
+      digital_twin.query_unit:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_query_unit
+    allowed_formula_refs:
+    - query_unit_cost
+    calculation_component: digital_twin
+    consumed_workload_fields: *id002
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.event_bus_event_million.pricing_contract.v1:
+    id: azure.event_bus_event_million.pricing_contract.v1
+    provider: azure
+    layer: event_bus
+    service: Event Grid
+    field: event_bus.event_million
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.event_bus_event_million.model.v1
+    price_source_classification_id: azure.event_bus_event_million.source.v1
+    allowed_price_source_types_by_field:
+      event_bus.event_million:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_events
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: event_bus
+    consumed_workload_fields: *id003
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.functions_compute_gb_second.pricing_contract.v1:
+    id: azure.functions_compute_gb_second.pricing_contract.v1
+    provider: azure
+    layer: functions
+    service: Functions
+    field: functions.compute_gb_second
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.functions_compute_gb_second.model.v1
+    price_source_classification_id: azure.functions_compute_gb_second.source.v1
+    allowed_price_source_types_by_field:
+      functions.compute_gb_second:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_second
+    allowed_formula_refs:
+    - duration_compute_cost
+    calculation_component: functions
+    consumed_workload_fields: *id004
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.functions_request.pricing_contract.v1:
+    id: azure.functions_request.pricing_contract.v1
+    provider: azure
+    layer: functions
+    service: Functions
+    field: functions.request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.functions_request.model.v1
+    price_source_classification_id: azure.functions_request.source.v1
+    allowed_price_source_types_by_field:
+      functions.request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: functions
+    consumed_workload_fields: *id005
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.grafana_editor_user_month.pricing_contract.v1:
+    id: azure.grafana_editor_user_month.pricing_contract.v1
+    provider: azure
+    layer: grafana
+    service: Azure Grafana Service
+    field: grafana.editor_user_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.grafana_editor_user_month.model.v1
+    price_source_classification_id: azure.grafana_editor_user_month.source.v1
+    allowed_price_source_types_by_field:
+      grafana.editor_user_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_user_month
+    allowed_formula_refs:
+    - user_seat_cost
+    calculation_component: grafana
+    consumed_workload_fields: *id006
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.grafana_viewer_user_month.pricing_contract.v1:
+    id: azure.grafana_viewer_user_month.pricing_contract.v1
+    provider: azure
+    layer: grafana
+    service: Azure Grafana Service
+    field: grafana.viewer_user_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.grafana_viewer_user_month.model.v1
+    price_source_classification_id: azure.grafana_viewer_user_month.source.v1
+    allowed_price_source_types_by_field:
+      grafana.viewer_user_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_user_month
+    allowed_formula_refs:
+    - user_seat_cost
+    calculation_component: grafana
+    consumed_workload_fields: *id007
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.iot_message_ingest.pricing_contract.v1:
+    id: azure.iot_message_ingest.pricing_contract.v1
+    provider: azure
+    layer: iot
+    service: IoT Hub
+    field: iot.message_ingest
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.iot_message_ingest.model.v1
+    price_source_classification_id: azure.iot_message_ingest.source.v1
+    allowed_price_source_types_by_field:
+      iot.message_ingest:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_messages
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: iot
+    consumed_workload_fields: *id008
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.orchestration_state_transition.pricing_contract.v1:
+    id: azure.orchestration_state_transition.pricing_contract.v1
+    provider: azure
+    layer: orchestration
+    service: Logic Apps
+    field: orchestration.state_transition
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.orchestration_state_transition.model.v1
+    price_source_classification_id: azure.orchestration_state_transition.source.v1
+    allowed_price_source_types_by_field:
+      orchestration.state_transition:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1k_state_transitions
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: orchestration
+    consumed_workload_fields: *id009
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.storage_archive_storage_gb_month.pricing_contract.v1:
+    id: azure.storage_archive_storage_gb_month.pricing_contract.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.archive.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.storage_archive_storage_gb_month.model.v1
+    price_source_classification_id: azure.storage_archive_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.archive.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: *id010
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.storage_archive_write_request.pricing_contract.v1:
+    id: azure.storage_archive_write_request.pricing_contract.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.archive.write_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.storage_archive_write_request.model.v1
+    price_source_classification_id: azure.storage_archive_write_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.archive.write_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_10k_requests
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: *id011
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.storage_cool_storage_gb_month.pricing_contract.v1:
+    id: azure.storage_cool_storage_gb_month.pricing_contract.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.cool.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.storage_cool_storage_gb_month.model.v1
+    price_source_classification_id: azure.storage_cool_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.cool.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: *id012
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.storage_hot_read_request.pricing_contract.v1:
+    id: azure.storage_hot_read_request.pricing_contract.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.read_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.storage_hot_read_request.model.v1
+    price_source_classification_id: azure.storage_hot_read_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.read_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: *id013
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.storage_hot_storage_gb_month.pricing_contract.v1:
+    id: azure.storage_hot_storage_gb_month.pricing_contract.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.storage_hot_storage_gb_month.model.v1
+    price_source_classification_id: azure.storage_hot_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: *id014
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.storage_hot_write_request.pricing_contract.v1:
+    id: azure.storage_hot_write_request.pricing_contract.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.write_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.storage_hot_write_request.model.v1
+    price_source_classification_id: azure.storage_hot_write_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.write_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: *id015
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  azure.transfer_egress_gb.pricing_contract.v1:
+    id: azure.transfer_egress_gb.pricing_contract.v1
+    provider: azure
+    layer: transfer
+    service: Bandwidth
+    field: transfer.egress_gb
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: azure.transfer_egress_gb.model.v1
+    price_source_classification_id: azure.transfer_egress_gb.source.v1
+    allowed_price_source_types_by_field:
+      transfer.egress_gb:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb
+    allowed_formula_refs:
+    - transfer_tier_cost
+    calculation_component: transfer
+    consumed_workload_fields: *id016
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.api_request_million.pricing_contract.v1:
+    id: gcp.api_request_million.pricing_contract.v1
+    provider: gcp
+    layer: api
+    service: API Gateway
+    field: api.request_million
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.api_request_million.model.v1
+    price_source_classification_id: gcp.api_request_million.source.v1
+    allowed_price_source_types_by_field:
+      api.request_million:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_requests
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: api
+    consumed_workload_fields: *id001
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.digital_twin_query_unit.pricing_contract.v1:
+    id: gcp.digital_twin_query_unit.pricing_contract.v1
+    provider: gcp
+    layer: digital_twin
+    service: Compute Engine
+    field: digital_twin.query_unit
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.digital_twin_query_unit.model.v1
+    price_source_classification_id: gcp.digital_twin_query_unit.source.v1
+    allowed_price_source_types_by_field:
+      digital_twin.query_unit:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_query_unit
+    allowed_formula_refs:
+    - query_unit_cost
+    calculation_component: digital_twin
+    consumed_workload_fields: *id002
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.event_bus_event_million.pricing_contract.v1:
+    id: gcp.event_bus_event_million.pricing_contract.v1
+    provider: gcp
+    layer: event_bus
+    service: Cloud Pub/Sub
+    field: event_bus.event_million
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.event_bus_event_million.model.v1
+    price_source_classification_id: gcp.event_bus_event_million.source.v1
+    allowed_price_source_types_by_field:
+      event_bus.event_million:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_1m_events
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: event_bus
+    consumed_workload_fields: *id003
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.functions_compute_gb_second.pricing_contract.v1:
+    id: gcp.functions_compute_gb_second.pricing_contract.v1
+    provider: gcp
+    layer: functions
+    service: Cloud Run Functions
+    field: functions.compute_gb_second
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.functions_compute_gb_second.model.v1
+    price_source_classification_id: gcp.functions_compute_gb_second.source.v1
+    allowed_price_source_types_by_field:
+      functions.compute_gb_second:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_second
+    allowed_formula_refs:
+    - duration_compute_cost
+    calculation_component: functions
+    consumed_workload_fields: *id004
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.functions_request.pricing_contract.v1:
+    id: gcp.functions_request.pricing_contract.v1
+    provider: gcp
+    layer: functions
+    service: Cloud Run Functions
+    field: functions.request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.functions_request.model.v1
+    price_source_classification_id: gcp.functions_request.source.v1
+    allowed_price_source_types_by_field:
+      functions.request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: functions
+    consumed_workload_fields: *id005
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.grafana_editor_user_month.pricing_contract.v1:
+    id: gcp.grafana_editor_user_month.pricing_contract.v1
+    provider: gcp
+    layer: grafana
+    service: Compute Engine
+    field: grafana.editor_user_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.grafana_editor_user_month.model.v1
+    price_source_classification_id: gcp.grafana_editor_user_month.source.v1
+    allowed_price_source_types_by_field:
+      grafana.editor_user_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_user_month
+    allowed_formula_refs:
+    - user_seat_cost
+    calculation_component: grafana
+    consumed_workload_fields: *id006
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.grafana_viewer_user_month.pricing_contract.v1:
+    id: gcp.grafana_viewer_user_month.pricing_contract.v1
+    provider: gcp
+    layer: grafana
+    service: Compute Engine
+    field: grafana.viewer_user_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.grafana_viewer_user_month.model.v1
+    price_source_classification_id: gcp.grafana_viewer_user_month.source.v1
+    allowed_price_source_types_by_field:
+      grafana.viewer_user_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_user_month
+    allowed_formula_refs:
+    - user_seat_cost
+    calculation_component: grafana
+    consumed_workload_fields: *id007
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.iot_message_ingest.pricing_contract.v1:
+    id: gcp.iot_message_ingest.pricing_contract.v1
+    provider: gcp
+    layer: iot
+    service: Cloud Pub/Sub
+    field: iot.message_ingest
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.iot_message_ingest.model.v1
+    price_source_classification_id: gcp.iot_message_ingest.source.v1
+    allowed_price_source_types_by_field:
+      iot.message_ingest:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb
+    allowed_formula_refs:
+    - tiered_unit_cost
+    calculation_component: iot
+    consumed_workload_fields: *id008
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.orchestration_state_transition.pricing_contract.v1:
+    id: gcp.orchestration_state_transition.pricing_contract.v1
+    provider: gcp
+    layer: orchestration
+    service: Workflows
+    field: orchestration.state_transition
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.orchestration_state_transition.model.v1
+    price_source_classification_id: gcp.orchestration_state_transition.source.v1
+    allowed_price_source_types_by_field:
+      orchestration.state_transition:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_state_transition
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: orchestration
+    consumed_workload_fields: *id009
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.storage_archive_storage_gb_month.pricing_contract.v1:
+    id: gcp.storage_archive_storage_gb_month.pricing_contract.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.archive.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.storage_archive_storage_gb_month.model.v1
+    price_source_classification_id: gcp.storage_archive_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.archive.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: *id010
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.storage_archive_write_request.pricing_contract.v1:
+    id: gcp.storage_archive_write_request.pricing_contract.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.archive.write_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.storage_archive_write_request.model.v1
+    price_source_classification_id: gcp.storage_archive_write_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.archive.write_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_10k_requests
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: *id011
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.storage_cool_storage_gb_month.pricing_contract.v1:
+    id: gcp.storage_cool_storage_gb_month.pricing_contract.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.cool.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.storage_cool_storage_gb_month.model.v1
+    price_source_classification_id: gcp.storage_cool_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.cool.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: *id012
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.storage_hot_read_request.pricing_contract.v1:
+    id: gcp.storage_hot_read_request.pricing_contract.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.read_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.storage_hot_read_request.model.v1
+    price_source_classification_id: gcp.storage_hot_read_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.read_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: *id013
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.storage_hot_storage_gb_month.pricing_contract.v1:
+    id: gcp.storage_hot_storage_gb_month.pricing_contract.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.storage_gb_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.storage_hot_storage_gb_month.model.v1
+    price_source_classification_id: gcp.storage_hot_storage_gb_month.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.storage_gb_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb_month
+    allowed_formula_refs:
+    - storage_capacity_cost
+    calculation_component: storage
+    consumed_workload_fields: *id014
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.storage_hot_write_request.pricing_contract.v1:
+    id: gcp.storage_hot_write_request.pricing_contract.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.write_request
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.storage_hot_write_request.model.v1
+    price_source_classification_id: gcp.storage_hot_write_request.source.v1
+    allowed_price_source_types_by_field:
+      storage.hot.write_request:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_request
+    allowed_formula_refs:
+    - request_unit_cost
+    calculation_component: storage
+    consumed_workload_fields: *id015
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'
+  gcp.transfer_egress_gb.pricing_contract.v1:
+    id: gcp.transfer_egress_gb.pricing_contract.v1
+    provider: gcp
+    layer: transfer
+    service: Compute Engine
+    field: transfer.egress_gb
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: gcp.transfer_egress_gb.model.v1
+    price_source_classification_id: gcp.transfer_egress_gb.source.v1
+    allowed_price_source_types_by_field:
+      transfer.egress_gb:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_gb
+    allowed_formula_refs:
+    - transfer_tier_cost
+    calculation_component: transfer
+    consumed_workload_fields: *id016
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-06-10'

@@ -6,7 +6,11 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
+import '../../models/architecture_path.dart';
 import '../../models/cloud_connection.dart';
+import '../../models/deployer_artifact_validation.dart';
+import '../../models/deployer_config.dart';
+import '../../models/pricing_health.dart';
 import '../../utils/twin_state_utils.dart';
 
 // ============================================================
@@ -72,6 +76,7 @@ class ProviderCredentials extends Equatable {
 
 /// Immutable state for the wizard BLoC
 class WizardState extends Equatable {
+  static const requiredPricingProviders = {'aws', 'azure', 'gcp'};
   // === Mode & Navigation ===
   final WizardMode mode;
   final int currentStep; // 0, 1, 2
@@ -110,6 +115,9 @@ class WizardState extends Equatable {
   savedCalcResultRaw; // Last saved raw result (for revert)
   final Map<String, dynamic>? pricingSnapshots;
   final Map<String, String?>? pricingTimestamps;
+  final PricingHealthResponse? pricingHealth;
+  final bool isPricingHealthLoading;
+  final String? pricingHealthError;
 
   // === Persistent Data: Step 3 Section 2 ===
   final String?
@@ -119,6 +127,9 @@ class WizardState extends Equatable {
   final bool configJsonValidated; // config.json validation state
   final bool configEventsValidated; // Validation state (gates save)
   final bool configIotDevicesValidated; // Validation state (gates save)
+  final Set<String> validatingArtifactIds;
+  final Map<String, DeployerArtifactValidationFeedback>
+  artifactValidationFeedback;
 
   // === Persistent Data: Step 3 Section 3 (L1) ===
   final Map<String, dynamic>? deployerConfig;
@@ -198,12 +209,17 @@ class WizardState extends Equatable {
     this.savedCalcResultRaw,
     this.pricingSnapshots,
     this.pricingTimestamps,
+    this.pricingHealth,
+    this.isPricingHealthLoading = false,
+    this.pricingHealthError,
     this.deployerDigitalTwinName,
     this.configEventsJson,
     this.configIotDevicesJson,
     this.configJsonValidated = false,
     this.configEventsValidated = false,
     this.configIotDevicesValidated = false,
+    this.validatingArtifactIds = const {},
+    this.artifactValidationFeedback = const {},
     this.deployerConfig,
     this.payloadsJson,
     this.payloadsValidated = false,
@@ -246,16 +262,50 @@ class WizardState extends Equatable {
   /// Returns false for deployed/deploying/destroying twins.
   bool get canModify => TwinStateUtils.canEdit(twinState);
 
-  /// Can proceed from Step 1 to Step 2?
-  bool get canProceedToStep2 =>
-      (twinName?.isNotEmpty ?? false) &&
-      (selectedCloudConnectionIds.values.any((id) => id != null) ||
-          aws.isValid ||
-          azure.isValid ||
-          gcp.isValid);
+  /// Legacy persistence gate for entering workload configuration.
+  bool get canProceedToStep2 => twinName?.trim().isNotEmpty == true;
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 => calcResult != null;
+
+  bool isArtifactValidating(String artifactId) =>
+      validatingArtifactIds.contains(artifactId);
+
+  DeployerArtifactValidationFeedback? artifactFeedback(String artifactId) =>
+      artifactValidationFeedback[artifactId];
+
+  Map<String, DeployerArtifactValidationFeedback> feedbackWithout(
+    String artifactId,
+  ) => Map.unmodifiable(
+    Map<String, DeployerArtifactValidationFeedback>.from(
+      artifactValidationFeedback,
+    )..remove(artifactId),
+  );
+
+  bool get pricingCanCalculate {
+    if (isPricingHealthLoading || pricingHealthError != null) return false;
+    final health = pricingHealth;
+    if (health?.schemaVersion != PricingHealthResponse.supportedSchemaVersion) {
+      return false;
+    }
+    final providers = health?.providers;
+    if (providers == null) return false;
+    return requiredPricingProviders.every(
+      (provider) => providers[provider]?.canCalculate == true,
+    );
+  }
+
+  List<String> get pricingBlockingProviders => requiredPricingProviders
+      .where(
+        (provider) => pricingHealth?.providers[provider]?.canCalculate != true,
+      )
+      .toList(growable: false);
+
+  bool get canRequestCalculation =>
+      calcParams != null &&
+      isCalcFormValid &&
+      !isCalculating &&
+      pricingCanCalculate;
 
   /// Set of configured provider names (uppercase)
   Set<String> get configuredProviders => {
@@ -275,77 +325,69 @@ class WizardState extends Equatable {
   }
 
   /// Is Section 2 validated? (gates save)
-  /// Includes hierarchy validation when L4 provider is AWS or Azure
-  /// Requires non-empty deployerDigitalTwinName
   bool get isSection2Valid {
-    // Core configs must always be validated
-    if (!configJsonValidated ||
-        !configEventsValidated ||
-        !configIotDevicesValidated) {
-      return false;
-    }
-
-    // deployerDigitalTwinName must be non-empty
-    if (deployerDigitalTwinName == null ||
-        deployerDigitalTwinName!.trim().isEmpty) {
-      return false;
-    }
-
-    // Hierarchy is required for AWS/Azure L4
-    final l4 = layer4Provider?.toUpperCase();
-    if (l4 == 'AWS' || l4 == 'AZURE') {
-      return hierarchyValidated;
-    }
-    return true;
+    final assets = deployerReadiness.section(
+      DeployerSectionId.digitalTwinAssets,
+    );
+    final hierarchy = assets.artifacts.firstWhere(
+      (artifact) => artifact.id == 'hierarchy',
+    );
+    return deployerReadiness.configurationReady && hierarchy.ready;
   }
 
   /// Is Section 3 validated? (all required L1-L5 fields complete)
-  bool get isSection3Valid {
-    // L1: Payloads always required
-    if (!payloadsValidated) return false;
+  bool get isSection3Valid => deployerReadiness.deploymentArtifactsReady;
 
-    // L2: All device processors must be validated
-    final devices = deviceIds;
-    if (devices.isNotEmpty) {
-      for (final deviceId in devices) {
-        if (processorValidated[deviceId] != true) return false;
-      }
-    }
+  bool get isConfigurationReadyForFinish =>
+      twinName?.trim().isNotEmpty == true &&
+      calcResult != null &&
+      unconfiguredProviders.isEmpty &&
+      deployerReadiness.ready &&
+      !step3Invalidated;
 
-    // L2: Event feedback (if enabled)
-    if (calcParams?.returnFeedbackToDevice == true) {
-      if (!eventFeedbackValidated) return false;
-    }
+  DeployerConfigData get deployerConfigData => DeployerConfigData(
+    deployerDigitalTwinName: deployerDigitalTwinName,
+    configEventsJson: configEventsJson,
+    configIotDevicesJson: configIotDevicesJson,
+    configJsonValidated: configJsonValidated,
+    configEventsValidated: configEventsValidated,
+    configIotDevicesValidated: configIotDevicesValidated,
+    payloadsJson: payloadsJson,
+    payloadsValidated: payloadsValidated,
+    processorContents: processorContents,
+    processorValidated: processorValidated,
+    processorRequirements: processorRequirements,
+    eventFeedbackContent: eventFeedbackContent,
+    eventFeedbackValidated: eventFeedbackValidated,
+    eventFeedbackRequirements: eventFeedbackRequirements,
+    eventActionContents: eventActionContents,
+    eventActionValidated: eventActionValidated,
+    eventActionRequirements: eventActionRequirements,
+    stateMachineContent: stateMachineContent,
+    stateMachineValidated: stateMachineValidated,
+    hierarchyContent: hierarchyContent,
+    hierarchyValidated: hierarchyValidated,
+    sceneGlbUploaded: sceneGlbUploaded,
+    sceneConfigContent: sceneConfigContent,
+    sceneConfigValidated: sceneConfigValidated,
+    userConfigContent: userConfigContent,
+    userConfigValidated: userConfigValidated,
+  );
 
-    // L2: Event actions (if enabled)
-    if (calcParams?.useEventChecking == true) {
-      final actionNames = eventActionFunctionNames;
-      for (final name in actionNames) {
-        if (eventActionValidated[name] != true) return false;
-      }
-    }
+  DeployerConfigRequirements get deployerRequirements =>
+      DeployerConfigRequirements.fromContext(
+        calcParams: calcParams,
+        layer4Provider: layer4Provider,
+        layer5Provider: layer5Provider,
+        deviceIds: deviceIds,
+        eventActionNames: eventActionFunctionNames,
+      );
 
-    // L2: State machine (if enabled)
-    if (calcParams?.triggerNotificationWorkflow == true) {
-      if (!stateMachineValidated) return false;
-    }
-
-    // L4: Scene config (if needs3DModel && hierarchy validated && AWS/Azure)
-    final l4 = layer4Provider?.toUpperCase();
-    if (calcParams?.needs3DModel == true &&
-        hierarchyValidated &&
-        (l4 == 'AWS' || l4 == 'AZURE')) {
-      if (!sceneConfigValidated) return false;
-    }
-
-    // L5: User config (if AWS/Azure)
-    final l5 = layer5Provider?.toUpperCase();
-    if (l5 == 'AWS' || l5 == 'AZURE') {
-      if (!userConfigValidated) return false;
-    }
-
-    return true;
-  }
+  DeployerConfigReadiness get deployerReadiness =>
+      DeployerConfigReadiness.fromData(
+        data: deployerConfigData,
+        requirements: deployerRequirements,
+      );
 
   // ============================================================
   // L2 DERIVED GETTERS
@@ -417,17 +459,7 @@ class WizardState extends Equatable {
   Map<String, String> get layerProviders {
     final path = calcResult?.cheapestPath;
     if (path == null || path.isEmpty) return {};
-    final result = <String, String>{};
-    for (final segment in path) {
-      final parts = segment.split('_');
-      if (parts.length >= 2) {
-        final layer = parts[0].toUpperCase(); // L1, L2, L3, L4, L5
-        // Provider is the last part (handles L3_hot_AWS format)
-        final provider = parts.last.toUpperCase();
-        result[layer] = provider;
-      }
-    }
-    return result;
+    return ArchitecturePath.layerProviders(path);
   }
 
   /// Get the L2 provider from calculation result
@@ -508,12 +540,18 @@ class WizardState extends Equatable {
     Map<String, dynamic>? savedCalcResultRaw,
     Map<String, dynamic>? pricingSnapshots,
     Map<String, String?>? pricingTimestamps,
+    PricingHealthResponse? pricingHealth,
+    bool? isPricingHealthLoading,
+    String? pricingHealthError,
+    bool clearPricingHealthError = false,
     String? deployerDigitalTwinName,
     String? configEventsJson,
     String? configIotDevicesJson,
     bool? configJsonValidated,
     bool? configEventsValidated,
     bool? configIotDevicesValidated,
+    Set<String>? validatingArtifactIds,
+    Map<String, DeployerArtifactValidationFeedback>? artifactValidationFeedback,
     Map<String, dynamic>? deployerConfig,
     String? payloadsJson,
     bool? payloadsValidated,
@@ -597,6 +635,12 @@ class WizardState extends Equatable {
       savedCalcResultRaw: savedCalcResultRaw ?? this.savedCalcResultRaw,
       pricingSnapshots: pricingSnapshots ?? this.pricingSnapshots,
       pricingTimestamps: pricingTimestamps ?? this.pricingTimestamps,
+      pricingHealth: pricingHealth ?? this.pricingHealth,
+      isPricingHealthLoading:
+          isPricingHealthLoading ?? this.isPricingHealthLoading,
+      pricingHealthError: clearPricingHealthError
+          ? null
+          : (pricingHealthError ?? this.pricingHealthError),
       deployerDigitalTwinName:
           deployerDigitalTwinName ?? this.deployerDigitalTwinName,
       configEventsJson: configEventsJson ?? this.configEventsJson,
@@ -606,6 +650,10 @@ class WizardState extends Equatable {
           configEventsValidated ?? this.configEventsValidated,
       configIotDevicesValidated:
           configIotDevicesValidated ?? this.configIotDevicesValidated,
+      validatingArtifactIds:
+          validatingArtifactIds ?? this.validatingArtifactIds,
+      artifactValidationFeedback:
+          artifactValidationFeedback ?? this.artifactValidationFeedback,
       deployerConfig: deployerConfig ?? this.deployerConfig,
       payloadsJson: payloadsJson ?? this.payloadsJson,
       payloadsValidated: payloadsValidated ?? this.payloadsValidated,
@@ -693,12 +741,17 @@ class WizardState extends Equatable {
     savedCalcResultRaw,
     pricingSnapshots,
     pricingTimestamps,
+    pricingHealth,
+    isPricingHealthLoading,
+    pricingHealthError,
     deployerDigitalTwinName, // FIXED: was missing
     configEventsJson,
     configIotDevicesJson,
     configJsonValidated, // FIXED: was missing
     configEventsValidated,
     configIotDevicesValidated,
+    validatingArtifactIds,
+    artifactValidationFeedback,
     deployerConfig,
     payloadsJson,
     payloadsValidated,

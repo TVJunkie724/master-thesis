@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/user.dart';
+import '../bloc/cloud_access/cloud_access.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/twins_provider.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
-import '../utils/api_error_handler.dart';
 import '../widgets/branded_app_bar.dart';
 import '../widgets/cloud_connections/cloud_accounts_panel.dart';
 import '../widgets/selectable_scaffold.dart';
@@ -100,24 +101,58 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: user == null
           ? const Center(child: Text('Not logged in'))
-          : _SettingsContent(user: user),
+          : _SettingsCloudAccessScope(user: user),
     );
   }
 }
 
-class _SettingsContent extends ConsumerWidget {
+class _SettingsCloudAccessScope extends ConsumerStatefulWidget {
+  final User user;
+
+  const _SettingsCloudAccessScope({required this.user});
+
+  @override
+  ConsumerState<_SettingsCloudAccessScope> createState() =>
+      _SettingsCloudAccessScopeState();
+}
+
+class _SettingsCloudAccessScopeState
+    extends ConsumerState<_SettingsCloudAccessScope> {
+  late final CloudAccessBloc _cloudAccessBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _cloudAccessBloc = CloudAccessBloc(ref.read(apiServiceProvider))
+      ..add(const CloudAccessStarted());
+  }
+
+  @override
+  void dispose() {
+    _cloudAccessBloc.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider.value(
+      value: _cloudAccessBloc,
+      child: _SettingsContent(user: widget.user),
+    );
+  }
+}
+
+class _SettingsContent extends StatelessWidget {
   final User user;
 
   const _SettingsContent({required this.user});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cloudConnections = ref.watch(cloudConnectionsProvider);
-
+  Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(
-          maxWidth: AppSpacing.maxContentWidthMedium,
+          maxWidth: AppSpacing.maxContentWidthLarge,
         ),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -128,34 +163,45 @@ class _SettingsContent extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               _LoginAccountsSection(user: user),
               const SizedBox(height: AppSpacing.xl),
-              CloudAccountsPanel(
-                connections: cloudConnections,
-                onRetry: () => ref.invalidate(cloudConnectionsProvider),
-                onCreate: (request) => _runCloudAccountAction(
-                  context,
-                  ref,
-                  successMessage:
-                      '${request.provider.label} Cloud Connection created.',
-                  action: () => ref
-                      .read(apiServiceProvider)
-                      .createCloudConnection(request),
-                ),
-                onValidate: (connection) => _runCloudAccountAction(
-                  context,
-                  ref,
-                  successMessage:
-                      '${connection.displayName} validation completed.',
-                  action: () => ref
-                      .read(apiServiceProvider)
-                      .validateCloudConnection(connection.id),
-                ),
-                onDelete: (connection) => _runCloudAccountAction(
-                  context,
-                  ref,
-                  successMessage: '${connection.displayName} deleted.',
-                  action: () => ref
-                      .read(apiServiceProvider)
-                      .deleteCloudConnection(connection.id),
+              BlocConsumer<CloudAccessBloc, CloudAccessState>(
+                listenWhen: (previous, current) =>
+                    previous.feedback != current.feedback &&
+                    current.feedback != null,
+                listener: (context, state) {
+                  final feedback = state.feedback!;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(feedback.message),
+                      backgroundColor: feedback.isError
+                          ? Theme.of(context).colorScheme.error
+                          : null,
+                    ),
+                  );
+                  context.read<CloudAccessBloc>().add(
+                    const CloudAccessFeedbackCleared(),
+                  );
+                },
+                builder: (context, state) => CloudAccountsPanel(
+                  inventory: state.inventory,
+                  isLoading: state.isLoading,
+                  loadError: state.loadError,
+                  busyConnectionIds: state.busyConnectionIds,
+                  isCreating: state.isCreating,
+                  onRetry: () => context.read<CloudAccessBloc>().add(
+                    const CloudAccessReloadRequested(),
+                  ),
+                  onCreate: (request) => context.read<CloudAccessBloc>().add(
+                    CloudAccessCreateRequested(request),
+                  ),
+                  onValidate: (entry) => context.read<CloudAccessBloc>().add(
+                    CloudAccessValidateRequested(entry.connectionId!),
+                  ),
+                  onSetDefault: (entry) => context.read<CloudAccessBloc>().add(
+                    CloudAccessDefaultRequested(entry.connectionId!),
+                  ),
+                  onDelete: (entry) => context.read<CloudAccessBloc>().add(
+                    CloudAccessDeleteRequested(entry.connectionId!),
+                  ),
                 ),
               ),
             ],
@@ -163,29 +209,6 @@ class _SettingsContent extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _runCloudAccountAction(
-    BuildContext context,
-    WidgetRef ref, {
-    required String successMessage,
-    required Future<void> Function() action,
-  }) async {
-    try {
-      await action();
-      ref.invalidate(cloudConnectionsProvider);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(successMessage)));
-      }
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorHandler.extractMessage(error))),
-        );
-      }
-    }
   }
 }
 

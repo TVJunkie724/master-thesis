@@ -12,7 +12,7 @@ Pricing Model:
 
 from typing import Dict, Any
 from ..types import GCPComponent, FormulaType
-from ...formulas import execution_based_cost
+from ...formulas import execution_based_cost, required_first_unit_price
 
 
 class GCPCloudFunctionsCalculator:
@@ -22,8 +22,9 @@ class GCPCloudFunctionsCalculator:
     Uses: CE formula (execution-based)
     
     Pricing keys:
-        - pricing["gcp"]["functions"]["invocationPrice"]
-        - pricing["gcp"]["functions"]["gbSecondPrice"]
+        - pricing["gcp"]["functions"]["requestPrice"] or ["invocationPrice"]
+        - pricing["gcp"]["functions"]["durationPrice"] or ["gbSecondPrice"]
+        - per-million request keys are normalized at the calculator boundary
         - pricing["gcp"]["functions"]["freeInvocations"]
         - pricing["gcp"]["functions"]["freeGBSeconds"]
     """
@@ -58,6 +59,27 @@ class GCPCloudFunctionsCalculator:
         memory_mb = memory_mb or self.DEFAULT_MEMORY_MB
         
         p = pricing["gcp"]["functions"]
+        request_price = required_first_unit_price(
+            p,
+            (
+                ("requestPrice", 1),
+                ("invocationPrice", 1),
+                ("pricePerRequest", 1),
+                ("pricePerMillionRequests", 1_000_000),
+                ("pricePerMillionInvocations", 1_000_000),
+            ),
+            label="gcp.functions.request",
+        )
+        compute_price = required_first_unit_price(
+            p,
+            (
+                ("durationPrice", 1),
+                ("gbSecondPrice", 1),
+                ("pricePerGbSecond", 1),
+                ("pricePerGiBSecond", 1),
+            ),
+            label="gcp.functions.compute_gb_second",
+        )
         
         # Convert to GB-seconds
         memory_gb = memory_mb / 1024
@@ -65,10 +87,10 @@ class GCPCloudFunctionsCalculator:
         compute_gb_seconds = compute_seconds * memory_gb
         
         return execution_based_cost(
-            price_per_execution=p.get("invocationPrice", p.get("requestPrice", 0)),
+            price_per_execution=request_price,
             num_executions=executions,
             free_executions=p.get("freeInvocations", p.get("freeRequests", 0)),
-            price_per_compute_unit=p.get("gbSecondPrice", p.get("durationPrice", 0)),
+            price_per_compute_unit=compute_price,
             total_compute_units=compute_gb_seconds,
             free_compute_units=p.get("freeGBSeconds", p.get("freeComputeTime", 0))
         )

@@ -4,7 +4,9 @@
 
 import '../../../models/calc_params.dart';
 import '../../../models/calc_result.dart';
+import '../../../models/architecture_path.dart';
 import '../../../models/cloud_connection.dart';
+import '../../../models/deployer_config.dart';
 import '../helpers/credentials_helper.dart';
 import '../wizard_state.dart';
 
@@ -33,115 +35,6 @@ class TwinEditData {
     required this.config,
     this.deployerConfig,
   });
-}
-
-/// Data class to hold deployer config fields.
-/// Public for testing.
-class DeployerConfigData {
-  final String? deployerDigitalTwinName;
-  final String? configEventsJson;
-  final String? configIotDevicesJson;
-  final bool configJsonValidated;
-  final bool configEventsValidated;
-  final bool configIotDevicesValidated;
-  // Section 3 L1
-  final String? payloadsJson;
-  final bool payloadsValidated;
-  // Section 3 L2
-  final Map<String, String> processorContents;
-  final Map<String, bool> processorValidated;
-  final Map<String, String> processorRequirements;
-  final String? eventFeedbackContent;
-  final bool eventFeedbackValidated;
-  final String? eventFeedbackRequirements;
-  final Map<String, String> eventActionContents;
-  final Map<String, bool> eventActionValidated;
-  final Map<String, String> eventActionRequirements;
-  final String? stateMachineContent;
-  final bool stateMachineValidated;
-  // L4/L5 fields
-  final String? hierarchyContent;
-  final bool hierarchyValidated;
-  final bool sceneGlbUploaded;
-  final String? sceneConfigContent;
-  final bool sceneConfigValidated;
-  final String? userConfigContent;
-  final bool userConfigValidated;
-
-  const DeployerConfigData({
-    this.deployerDigitalTwinName,
-    this.configEventsJson,
-    this.configIotDevicesJson,
-    this.configJsonValidated = false,
-    this.configEventsValidated = false,
-    this.configIotDevicesValidated = false,
-    this.payloadsJson,
-    this.payloadsValidated = false,
-    this.processorContents = const {},
-    this.processorValidated = const {},
-    this.processorRequirements = const {},
-    this.eventFeedbackContent,
-    this.eventFeedbackValidated = false,
-    this.eventFeedbackRequirements,
-    this.eventActionContents = const {},
-    this.eventActionValidated = const {},
-    this.eventActionRequirements = const {},
-    this.stateMachineContent,
-    this.stateMachineValidated = false,
-    this.hierarchyContent,
-    this.hierarchyValidated = false,
-    this.sceneGlbUploaded = false,
-    this.sceneConfigContent,
-    this.sceneConfigValidated = false,
-    this.userConfigContent,
-    this.userConfigValidated = false,
-  });
-
-  /// Parse deployer config from API response
-  factory DeployerConfigData.fromJson(Map<String, dynamic> json) {
-    return DeployerConfigData(
-      deployerDigitalTwinName: json['deployer_digital_twin_name'] as String?,
-      configEventsJson: json['config_events_json'] as String?,
-      configIotDevicesJson: json['config_iot_devices_json'] as String?,
-      configJsonValidated: json['config_json_validated'] as bool? ?? false,
-      configEventsValidated: json['config_events_validated'] as bool? ?? false,
-      configIotDevicesValidated:
-          json['config_iot_devices_validated'] as bool? ?? false,
-      payloadsJson: json['payloads_json'] as String?,
-      payloadsValidated: json['payloads_validated'] as bool? ?? false,
-      processorContents: json['processor_contents'] != null
-          ? Map<String, String>.from(json['processor_contents'] as Map)
-          : const {},
-      processorValidated: json['processor_validated'] != null
-          ? Map<String, bool>.from(json['processor_validated'] as Map)
-          : const {},
-      processorRequirements: json['processor_requirements'] != null
-          ? Map<String, String>.from(json['processor_requirements'] as Map)
-          : const {},
-      eventFeedbackContent: json['event_feedback_content'] as String?,
-      eventFeedbackValidated:
-          json['event_feedback_validated'] as bool? ?? false,
-      eventFeedbackRequirements: json['event_feedback_requirements'] as String?,
-      eventActionContents: json['event_action_contents'] != null
-          ? Map<String, String>.from(json['event_action_contents'] as Map)
-          : const {},
-      eventActionValidated: json['event_action_validated'] != null
-          ? Map<String, bool>.from(json['event_action_validated'] as Map)
-          : const {},
-      eventActionRequirements: json['event_action_requirements'] != null
-          ? Map<String, String>.from(json['event_action_requirements'] as Map)
-          : const {},
-      stateMachineContent: json['state_machine_content'] as String?,
-      stateMachineValidated: json['state_machine_validated'] as bool? ?? false,
-      hierarchyContent: json['hierarchy_content'] as String?,
-      hierarchyValidated: json['hierarchy_validated'] as bool? ?? false,
-      sceneGlbUploaded: json['scene_glb_uploaded'] as bool? ?? false,
-      sceneConfigContent: json['scene_config_content'] as String?,
-      sceneConfigValidated: json['scene_config_validated'] as bool? ?? false,
-      userConfigContent: json['user_config_content'] as String?,
-      userConfigValidated: json['user_config_validated'] as bool? ?? false,
-    );
-  }
 }
 
 /// STATELESS service for initializing wizard state.
@@ -176,9 +69,8 @@ class WizardInitService {
     // Determine starting step
     int startStep = config['highest_step_reached'] as int? ?? 0;
 
-    // Validate startStep against actual data
-    if (startStep >= 1 &&
-        !_hasConfiguredProvider(selectedCloudConnectionIds, credentials)) {
+    // Workload configuration depends on identity, not deployment credentials.
+    if (startStep >= 1 && (twin['name']?.toString().trim().isEmpty ?? true)) {
       startStep = 0;
     }
 
@@ -272,28 +164,14 @@ class WizardInitService {
 
     final resultProviders = <String>{};
     for (final segment in loadedResult.cheapestPath) {
-      final parts = segment.split('_');
-      if (parts.length >= 3 && segment.startsWith('L3')) {
-        resultProviders.add(parts[2].toUpperCase());
-      } else if (parts.length >= 2) {
-        resultProviders.add(parts[1].toUpperCase());
-      }
+      final provider = ArchitecturePath.providerForSegment(segment);
+      if (provider != null) resultProviders.add(provider);
     }
     final unconfigured = resultProviders.difference(configuredProviders);
     if (unconfigured.isNotEmpty) {
-      return 'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to select Cloud Connections.';
+      return 'Deployment access is missing for: ${unconfigured.join(", ")}. Open Cloud access to bind the required connections.';
     }
     return null;
-  }
-
-  bool _hasConfiguredProvider(
-    Map<CloudProvider, String?> selectedCloudConnectionIds,
-    Map<String, ProviderCredentials> credentials,
-  ) {
-    return _configuredProviderNames(
-      selectedCloudConnectionIds,
-      credentials,
-    ).isNotEmpty;
   }
 
   Set<String> _configuredProviderNames(

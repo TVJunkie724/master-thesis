@@ -65,8 +65,24 @@ service_models:
         - GCP Catalog SKUs are converted into selected/candidate/rejected evidence records with service, SKU, category, region, unit, pricing expression, and tiered-rate details.
         - GCP fallback pricing remains calculation-compatible only as review-required emergency data.
       open_research:
-        - Verify exact Catalog mappings for Pub/Sub volume-based IoT equivalent, Firestore operations, Cloud Storage classes, Workflows, API Gateway/Service Control, and Compute Engine self-hosted equivalents.
-        - Final GCP formula/tiering changes are deferred until live Billing Catalog evidence is validated.
+        - Exact Catalog mappings for Pub/Sub volume-based IoT equivalent, Firestore operations, Cloud Storage classes, Workflows, API Gateway/Service Control, and Compute Engine self-hosted equivalents are the input to Phase 11.
+        - Final GCP formula/tiering changes are planned in issue 95 and must not be inferred from the evidence phase alone.
+    gcp_calculation_model:
+      status: reviewed_for_phase_11
+      issue: 95
+      assumptions:
+        - GCP calculation hardening starts from Billing Catalog evidence and official Google Cloud pricing documentation; existing fallback values remain emergency-only diagnostics.
+        - Pub/Sub throughput, storage, transfer, and request-size minimum behavior must be normalized separately when the thesis workload input exposes the required dimensions.
+        - Firestore reads, writes, deletes, storage, index-entry reads, named-database behavior, and free-tier applicability must be represented only where supported by evidence and executable workload inputs.
+        - Cloud Storage storage class, operation class, retrieval, minimum-duration, and early-deletion assumptions must be documented before formula changes are made.
+        - Workflows internal and external steps must be calculated separately with official increment/free-tier semantics where supported.
+        - Cloud Run functions pricing must be mapped to the current Cloud Run-backed pricing model, or missing dimensions must remain review-required.
+        - Compute Engine self-hosted equivalents must separate machine-price assumptions from disk/storage assumptions.
+        - GCP transfer pricing must distinguish route and network-tier assumptions where the optimizer intent can express them.
+        - Missing required supported GCP pricing fields fail visibly instead of producing silent zero cost or hidden defaults.
+      open_research:
+        - Live cloud deployment E2E remains out of scope until the remaining architecture refactorings are complete.
+        - Custom contracts, committed-use discounts, sustained-use discounts, Spot/preemptible pricing, and non-modeled regions remain out of scope unless explicit evidence is added.
     cross_provider_validation_model:
       status: implemented_for_phase_10
       issue: 94

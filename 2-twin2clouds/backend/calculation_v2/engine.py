@@ -22,17 +22,25 @@ from backend.calculation_v2.layers import (
     AzureLayerCalculators,
     GCPLayerCalculators,
 )
-from backend.calculation_v2.formulas import tiered_unit_cost
-from backend.config_loader import load_combined_pricing
-from backend.logger import logger
-from backend.optimization.context import OptimizationMetricContext
-from backend.optimization.metrics import MetricProvider
-from backend.optimization.profiles import build_default_profile_registry
-from backend.optimization.scoring import OptimizationCandidate
+from backend.calculation_v2.formulas import required_first_unit_price, tiered_unit_cost
+from backend.calculation_v2.strategy_context import (
+    CalculationStrategyExecutionContext,
+    resolve_calculation_strategy_execution_context,
+)
+from backend.calculation_v2.strategy_traceability import (
+    TRACE_SCHEMA_VERSION as STRATEGY_TRACE_SCHEMA_VERSION,
+    build_intent_result_trace as build_strategy_result_trace,
+)
 from backend.calculation_v2.traceability import (
     TRACE_SCHEMA_VERSION,
     build_intent_result_trace,
 )
+from backend.config_loader import load_combined_pricing
+from backend.logger import logger
+from backend.optimization.context import OptimizationMetricContext
+from backend.optimization.profiles import build_default_profile_registry
+from backend.optimization.scoring import OptimizationCandidate
+from backend.pricing_registry_service import PricingRegistryService
 
 
 # =============================================================================
@@ -106,8 +114,7 @@ def _ensure_supported_result_profile(
     metric_provider_ids: tuple[str, ...],
     primary_metric_id: str,
 ) -> None:
-    """Fail fast when a future profile is enabled without an engine implementation."""
-
+    """Fail fast when a profile exceeds this engine's executable contract."""
     if result_schema_version != "cost-result.v1":
         raise ValueError(
             "calculate_cheapest_costs currently supports only cost-result.v1. "
@@ -118,37 +125,6 @@ def _ensure_supported_result_profile(
             "Scoring strategy primary metric must be declared by the active "
             f"profile: {primary_metric_id!r}"
         )
-
-
-def _build_provider_candidates(
-    *,
-    layer: str,
-    provider_options: list[tuple[str, float]],
-    metric_providers: dict[str, MetricProvider],
-    pricing_registry_reference: str,
-) -> list[OptimizationCandidate]:
-    """Build provider candidates from declared metric providers only."""
-
-    candidates = []
-    for provider, cost in provider_options:
-        metric_results = {}
-        for metric_id, metric_provider in metric_providers.items():
-            metric_results[metric_id] = metric_provider.compute(
-                OptimizationMetricContext(
-                    candidate_id=provider,
-                    metric_inputs={"cost": cost},
-                    evidence_references=(pricing_registry_reference,),
-                    metadata={"layer": layer, "provider": provider},
-                )
-            )
-        candidates.append(
-            OptimizationCandidate(
-                candidate_id=provider,
-                dimensions={"layer": layer, "provider": provider},
-                metrics=metric_results,
-            )
-        )
-    return candidates
 
 
 # =============================================================================
@@ -317,7 +293,8 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
     l1 = _gcp_calc.calculate_l1_cost(
         data_volume_gb=derived["data_size_per_month_gb"],
         messages_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
+        average_message_size_kb=derived["msg_size_kb"],
     )
     
     # L2: Data Processing
@@ -375,15 +352,24 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
 # Cross-Cloud Transfer Costs
 # =============================================================================
 
-def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provider: str) -> float:
+def _calculate_egress_cost(
+    data_gb: float,
+    pricing: Dict[str, Any],
+    source_provider: str,
+    execution_context: CalculationStrategyExecutionContext | None = None,
+) -> float:
     """
     Calculate egress cost for data leaving a provider.
     
-    Standard egress rates (simplified fallback when tier data is unavailable):
-    - AWS: ~$0.09/GB
-    - Azure: ~$0.087/GB
-    - GCP: ~$0.12/GB
+    AWS/Azure preserve their historical fallback rates for compatibility.
+    GCP requires explicit egress pricing or tier data after Phase 11 hardening.
     """
+    if execution_context is not None:
+        execution_context.ensure_formula_ref(
+            "transfer_tier_cost",
+            provider=source_provider,
+            field="transfer.egress_gb",
+        )
     if source_provider == "AWS":
         aws_transfer = pricing.get("aws", {}).get("transfer", {})
         pricing_tiers = aws_transfer.get("pricing_tiers")
@@ -403,7 +389,19 @@ def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provi
             azure_transfer.get("egressPrice", 0.087),
         )
     elif source_provider == "GCP":
-        price = pricing.get("gcp", {}).get("egress", {}).get("pricePerGB", 0.12)
+        gcp_transfer = pricing.get("gcp", {}).get("transfer", {})
+        pricing_tiers = gcp_transfer.get("pricing_tiers")
+        if pricing_tiers:
+            return tiered_unit_cost(data_gb, pricing_tiers)
+        price = required_first_unit_price(
+            pricing.get("gcp", {}).get("egress", {}) or gcp_transfer,
+            (
+                ("pricePerGB", 1),
+                ("pricePerGiB", 1),
+                ("egressPrice", 1),
+            ),
+            label="gcp.transfer.egress",
+        )
     else:
         price = 0.10  # Default
     
@@ -429,6 +427,7 @@ def calculate_cheapest_costs(
     params: Dict[str, Any],
     pricing: Optional[Dict[str, Any]] = None,
     optimization_profile_id: Optional[str] = None,
+    pricing_registry_service: PricingRegistryService | None = None,
 ) -> Dict[str, Any]:
     """
     Orchestrate cost calculation and find the cheapest path across providers.
@@ -457,22 +456,26 @@ def calculate_cheapest_costs(
     if pricing is None:
         pricing = load_combined_pricing()
 
-    # TODO(future-optimization-entrypoint): This is the runtime profile
-    # selection boundary. Future optimizer types should enter through
-    # build_default_profile_registry() and profile validation, not by branching
-    # around the registry or manually mixing metric/model/scoring components.
-    profile_registry = build_default_profile_registry()
+    registry_service = pricing_registry_service or PricingRegistryService()
+    profile_registry = (
+        build_default_profile_registry(registry_service)
+        if pricing_registry_service is not None
+        else build_default_profile_registry()
+    )
+    execution_context = resolve_calculation_strategy_execution_context(
+        optimization_profile_id=optimization_profile_id,
+        profile_registry=profile_registry,
+        pricing_registry_service=registry_service,
+        publishable_mode=True,
+    )
     optimization_profile = profile_registry.select_profile(optimization_profile_id)
-    metric_providers = {
-        metric_id: profile_registry.get_metric_provider(metric_id)
-        for metric_id in optimization_profile.metric_provider_ids
-    }
+    cost_metric_provider = profile_registry.get_metric_provider("cost")
     scoring_strategy = profile_registry.get_scoring_strategy(
         optimization_profile.scoring_strategy_id
     )
     _ensure_supported_result_profile(
         optimization_profile.result_schema_version,
-        tuple(metric_providers),
+        tuple(optimization_profile.metric_provider_ids),
         scoring_strategy.primary_metric_id,
     )
     optimization_metadata = profile_registry.build_result_metadata(
@@ -483,8 +486,11 @@ def calculate_cheapest_costs(
     )
     
     # Calculate costs for each provider
+    execution_context.ensure_provider_context("aws")
     aws_costs = calculate_aws_costs(params, pricing)
+    execution_context.ensure_provider_context("azure")
     azure_costs = calculate_azure_costs(params, pricing)
+    execution_context.ensure_provider_context("gcp")
     gcp_costs = calculate_gcp_costs(params, pricing)
     
     derived = _calculate_derived_params(params)
@@ -495,7 +501,7 @@ def calculate_cheapest_costs(
     
     # Determine cheapest for each layer
     def get_cheapest(layer: str, include_gcp: bool = True) -> tuple:
-        """Return (provider, metric value) for the selected option at this layer."""
+        """Return (provider, cost) for cheapest option at this layer."""
         options = [
             ("AWS", aws_costs[layer]["cost"]),
             ("Azure", azure_costs[layer]["cost"]),
@@ -503,15 +509,28 @@ def calculate_cheapest_costs(
         if include_gcp:
             options.append(("GCP", gcp_costs[layer]["cost"]))
 
-        candidates = _build_provider_candidates(
-            layer=layer,
-            provider_options=options,
-            metric_providers=metric_providers,
-            pricing_registry_reference=pricing_registry_reference,
-        )
+        candidates = []
+        for provider, cost in options:
+            metric_result = cost_metric_provider.compute(
+                OptimizationMetricContext(
+                    candidate_id=provider,
+                    metric_inputs={"cost": cost},
+                    evidence_references=(
+                        pricing_registry_reference,
+                    ),
+                    metadata={"layer": layer, "provider": provider},
+                )
+            )
+            candidates.append(
+                OptimizationCandidate(
+                    candidate_id=provider,
+                    dimensions={"layer": layer, "provider": provider},
+                    metrics={"cost": metric_result},
+                )
+            )
 
         best = scoring_strategy.select_best(candidates)
-        return best.candidate_id, best.metric_value(scoring_strategy.primary_metric_id)
+        return best.candidate_id, best.metric_value("cost")
     
     # Find cheapest path
     result = {}
@@ -547,26 +566,46 @@ def calculate_cheapest_costs(
     
     # L1 → L2 transfer
     if l1_provider != l2_provider:
-        egress = _calculate_egress_cost(derived["data_size_per_month_gb"], pricing, l1_provider)
+        egress = _calculate_egress_cost(
+            derived["data_size_per_month_gb"],
+            pricing,
+            l1_provider,
+            execution_context,
+        )
         glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l2_provider)
         transfer_costs["L1_to_L2"] = egress + glue
     
     # L2 → L3_hot transfer
     if l2_provider != l3_hot_provider:
-        egress = _calculate_egress_cost(derived["data_size_per_month_gb"], pricing, l2_provider)
+        egress = _calculate_egress_cost(
+            derived["data_size_per_month_gb"],
+            pricing,
+            l2_provider,
+            execution_context,
+        )
         glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l3_hot_provider)
         transfer_costs["L2_to_L3_hot"] = egress + glue
     
     # L3_hot → L3_cool transfer
     if l3_hot_provider != l3_cool_provider:
-        egress = _calculate_egress_cost(derived["hot_storage_gb"], pricing, l3_hot_provider)
+        egress = _calculate_egress_cost(
+            derived["hot_storage_gb"],
+            pricing,
+            l3_hot_provider,
+            execution_context,
+        )
         # Glue runs with mover (daily = 30/month), not per-message
         glue = _calculate_glue_cost(30, pricing, l3_cool_provider)
         transfer_costs["L3_hot_to_L3_cool"] = egress + glue
     
     # L3_cool → L3_archive transfer
     if l3_cool_provider != l3_archive_provider:
-        egress = _calculate_egress_cost(derived["cool_storage_gb"], pricing, l3_cool_provider)
+        egress = _calculate_egress_cost(
+            derived["cool_storage_gb"],
+            pricing,
+            l3_cool_provider,
+            execution_context,
+        )
         # Glue runs with mover (weekly = 4/month), not per-message
         glue = _calculate_glue_cost(4, pricing, l3_archive_provider)
         transfer_costs["L3_cool_to_L3_archive"] = egress + glue
@@ -574,7 +613,12 @@ def calculate_cheapest_costs(
     # L3_hot → L4 transfer (Hot Reader for Digital Twin queries)
     if l3_hot_provider != l4_provider:
         # Queries from L4 go through Hot Reader Function URL
-        egress = _calculate_egress_cost(derived["queries_per_month"] * derived["msg_size_kb"] / (1024 * 1024), pricing, l3_hot_provider)
+        egress = _calculate_egress_cost(
+            derived["queries_per_month"] * derived["msg_size_kb"] / (1024 * 1024),
+            pricing,
+            l3_hot_provider,
+            execution_context,
+        )
         glue = _calculate_glue_cost(derived["queries_per_month"], pricing, l4_provider)
         transfer_costs["L3_hot_to_L4"] = egress + glue
     
@@ -597,32 +641,28 @@ def calculate_cheapest_costs(
         f"L5_{l5_provider}",
     ]
     
-    provider_costs = {
-        "aws": aws_costs,
-        "azure": azure_costs,
-        "gcp": gcp_costs,
-    }
-    intent_trace = build_intent_result_trace(
-        params=params,
-        derived=derived,
-        calculation_result=result,
-        provider_costs=provider_costs,
-        transfer_costs=transfer_costs,
-        optimization_metadata=optimization_metadata,
-        pricing_registry_reference=pricing_registry_reference,
-    )
-
-    return {
+    result_payload = {
         "optimization_profile_id": optimization_profile.profile_id,
+        "calculation_strategy_id": execution_context.calculation_strategy_id,
         "result_schema_version": optimization_profile.result_schema_version,
         "trace_schema_version": TRACE_SCHEMA_VERSION,
         "optimizationProfile": optimization_metadata,
+        "calculationStrategy": execution_context.to_result_metadata(),
         "evidenceReferences": {
             "pricing_registry": pricing_registry_reference,
             "pricing_evidence_contract": "pricing-evidence.v1",
             "intent_group_ids": list(optimization_metadata.get("intent_group_ids") or []),
+            "calculation_strategy": (
+                f"calculation_strategy:{execution_context.calculation_strategy_id}"
+            ),
+            "formula_set": f"formula_set:{execution_context.formula_set_id}",
+            "workload_contract": (
+                f"workload_contract:{execution_context.workload_contract_id}"
+            ),
+            "pricing_contract_group": (
+                f"pricing_contract_group:{execution_context.pricing_contract_group_id}"
+            ),
         },
-        "intentTrace": intent_trace,
         "calculationResult": result,
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,
@@ -631,3 +671,25 @@ def calculate_cheapest_costs(
         "cheapestPath": cheapest_path,
         "totalCost": round(total_cost, 2),
     }
+    result_payload["intentTrace"] = build_intent_result_trace(
+        params=params,
+        derived=derived,
+        calculation_result=result,
+        provider_costs={
+            "aws": aws_costs,
+            "azure": azure_costs,
+            "gcp": gcp_costs,
+        },
+        transfer_costs=transfer_costs,
+        optimization_metadata=optimization_metadata,
+        pricing_registry_reference=pricing_registry_reference,
+    )
+    result_payload["resultTraceSchemaVersion"] = STRATEGY_TRACE_SCHEMA_VERSION
+    result_payload["resultTrace"] = build_strategy_result_trace(
+        execution_context=execution_context,
+        pricing_registry_service=registry_service,
+        params=params,
+        derived_params=derived,
+        result_payload=result_payload,
+    )
+    return result_payload

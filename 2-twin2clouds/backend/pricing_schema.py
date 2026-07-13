@@ -211,9 +211,20 @@ DERIVED_FIELD_DEPENDENCIES = {
 
 CURATED_FIELDS = {
     "aws": {
+        "lambda.freeRequests",
+        "lambda.freeComputeTime",
+        "dynamoDB.freeStorage",
+        "s3InfrequentAccess.upfrontPrice",
         "transfer.pricing_tiers",
     },
     "azure": {
+        "azureDigitalTwins.queryUnitTiers",
+        "blobStorageCool.upfrontPrice",
+        "cosmosDB.minimumRequestUnits",
+        "cosmosDB.RUsPerRead",
+        "cosmosDB.RUsPerWrite",
+        "functions.freeRequests",
+        "functions.freeComputeTime",
         "transfer.pricing_tiers",
     },
     "gcp": {

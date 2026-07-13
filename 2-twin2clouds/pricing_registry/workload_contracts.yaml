@@ -1,0 +1,89 @@
+schema_version: pricing-registry-workload-contracts.v1
+registry_version: 2026.06.08
+workload_contracts:
+  digital_twin_workload_v1:
+    id: digital_twin_workload_v1
+    version: 2026.06.10
+    status: ready
+    description: Canonical thesis workload fields consumed by cost calculation.
+    fields:
+      monthly_egress_gb:
+        id: monthly_egress_gb
+        unit: gb
+        value_type: number
+        description: Monthly outbound transfer volume.
+      monthly_iot_messages:
+        id: monthly_iot_messages
+        unit: message
+        value_type: integer
+        description: Monthly IoT message ingestion volume.
+      monthly_function_requests:
+        id: monthly_function_requests
+        unit: request
+        value_type: integer
+        description: Monthly serverless function requests.
+      monthly_function_gb_seconds:
+        id: monthly_function_gb_seconds
+        unit: gb_second
+        value_type: number
+        description: Monthly serverless compute duration in GB-seconds.
+      hot_storage_gb_month:
+        id: hot_storage_gb_month
+        unit: gb_month
+        value_type: number
+        description: Average hot storage consumption per month.
+      monthly_storage_read_requests:
+        id: monthly_storage_read_requests
+        unit: request
+        value_type: integer
+        description: Monthly hot storage read operations.
+      monthly_storage_write_requests:
+        id: monthly_storage_write_requests
+        unit: request
+        value_type: integer
+        description: Monthly hot storage write operations.
+      cool_storage_gb_month:
+        id: cool_storage_gb_month
+        unit: gb_month
+        value_type: number
+        description: Average cool storage consumption per month.
+      archive_storage_gb_month:
+        id: archive_storage_gb_month
+        unit: gb_month
+        value_type: number
+        description: Average archive storage consumption per month.
+      monthly_archive_write_requests:
+        id: monthly_archive_write_requests
+        unit: request
+        value_type: integer
+        description: Monthly archive write operations.
+      monthly_api_requests:
+        id: monthly_api_requests
+        unit: request
+        value_type: integer
+        description: Monthly API gateway requests.
+      monthly_state_transitions:
+        id: monthly_state_transitions
+        unit: state_transition
+        value_type: integer
+        description: Monthly workflow state transitions.
+      monthly_events:
+        id: monthly_events
+        unit: event
+        value_type: integer
+        description: Monthly event bus events.
+      monthly_digital_twin_query_units:
+        id: monthly_digital_twin_query_units
+        unit: query_unit
+        value_type: number
+        description: Monthly digital twin query units.
+      editor_user_months:
+        id: editor_user_months
+        unit: user_month
+        value_type: number
+        description: Managed Grafana editor user-months.
+      viewer_user_months:
+        id: viewer_user_months
+        unit: user_month
+        value_type: number
+        description: Managed Grafana viewer user-months.

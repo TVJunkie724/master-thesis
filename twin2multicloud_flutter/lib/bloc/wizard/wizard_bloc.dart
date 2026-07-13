@@ -6,12 +6,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
+import '../../models/deployer_artifact_validation.dart';
+import '../../models/deployer_config.dart';
 import '../../services/api_service.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
 import 'helpers/helpers.dart';
 import 'services/wizard_glb_cleanup_service.dart';
+import 'services/wizard_deployer_validation_service.dart';
 import 'services/wizard_init_service.dart';
 import 'services/wizard_zip_service.dart';
 
@@ -26,6 +29,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final WizardInitService _initService;
   final WizardZipService _zipService;
   final WizardGlbCleanupService _glbCleanupService;
+  final WizardDeployerValidationService _deployerValidationService;
   final ApiService _api;
 
   WizardBloc({
@@ -38,6 +42,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
        _zipService = zipService ?? WizardZipService(),
        _glbCleanupService =
            glbCleanupService ?? WizardGlbCleanupService(api: api),
+       _deployerValidationService = WizardDeployerValidationService(api: api),
        super(const WizardState()) {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
@@ -64,6 +69,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardCloudConnectionDeleteRequested>(_onCloudConnectionDeleteRequested);
 
     // === Step 2: Optimizer ===
+    on<WizardPricingHealthLoadRequested>(_onPricingHealthLoadRequested);
     on<WizardCalcParamsChanged>(_onCalcParamsChanged);
     on<WizardCalcFormValidChanged>(_onCalcFormValidChanged);
     on<WizardCalculateRequested>(_onCalculateRequested);
@@ -84,11 +90,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardClearInvalidation>(_onClearInvalidation);
 
     // === Step 3 Section 2: Config Files ===
+    on<WizardArtifactValidationRequested>(_onArtifactValidationRequested);
     on<WizardDeployerTwinNameChanged>(_onDeployerTwinNameChanged);
     on<WizardConfigEventsChanged>(_onConfigEventsChanged);
     on<WizardConfigIotDevicesChanged>(_onConfigIotDevicesChanged);
-    on<WizardValidateDeployerConfig>(_onValidateDeployerConfig);
-    on<WizardConfigValidationCompleted>(_onConfigValidationCompleted);
 
     // === Step 3 Section 3: L1 Payloads ===
     on<WizardPayloadsChanged>(_onPayloadsChanged);
@@ -106,28 +111,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     );
     on<WizardEventActionRequirementsChanged>(_onEventActionRequirementsChanged);
 
-    // === Step 3 Section 3: L2 Validation ===
-    on<WizardProcessorValidationCompleted>(_onProcessorValidationCompleted);
-    on<WizardEventFeedbackValidationCompleted>(
-      _onEventFeedbackValidationCompleted,
-    );
-    on<WizardEventActionValidationCompleted>(_onEventActionValidationCompleted);
-    on<WizardStateMachineValidationCompleted>(
-      _onStateMachineValidationCompleted,
-    );
-
     // === Step 3: L4 Hierarchy ===
     on<WizardHierarchyContentChanged>(_onHierarchyContentChanged);
-    on<WizardHierarchyValidationCompleted>(_onHierarchyValidationCompleted);
 
     // === Step 3: L4 Scene ===
     on<WizardSceneConfigContentChanged>(_onSceneConfigContentChanged);
-    on<WizardSceneConfigValidationCompleted>(_onSceneConfigValidationCompleted);
     on<WizardSceneGlbUploadStatusChanged>(_onSceneGlbUploadStatusChanged);
 
     // === Step 3: L4/L5 User Config ===
     on<WizardUserConfigContentChanged>(_onUserConfigContentChanged);
-    on<WizardUserConfigValidationCompleted>(_onUserConfigValidationCompleted);
 
     // === Step 3: L4 Cleanup ===
     on<WizardL4CleanupRequested>(_onL4CleanupRequested);
@@ -217,7 +209,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       final grouped = <CloudProvider, List<CloudConnection>>{
         for (final provider in CloudProvider.values)
           provider: connections
-              .where((connection) => connection.provider == provider)
+              .where(
+                (connection) =>
+                    connection.provider == provider &&
+                    connection.purpose == CloudConnectionPurpose.deployment,
+              )
               .toList(growable: false),
       };
       emit(
@@ -483,8 +479,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         if (!state.canProceedToStep2) {
           emit(
             newState.copyWith(
-              errorMessage:
-                  'Enter twin name and validate at least one provider',
+              errorMessage: 'Enter a twin name before continuing',
             ),
           );
           return;
@@ -540,10 +535,22 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
 
   void _onGoToStep(WizardGoToStep event, Emitter<WizardState> emit) {
-    // Only allow jumping to already-reached steps
-    if (event.step <= state.highestStepReached && event.step >= 0) {
-      emit(state.clearNotifications().copyWith(currentStep: event.step));
-    }
+    final reachable = switch (event.step) {
+      0 => true,
+      1 => state.twinName?.trim().isNotEmpty == true,
+      2 => state.calcResult != null,
+      _ => false,
+    };
+    if (!reachable) return;
+
+    emit(
+      state.clearNotifications().copyWith(
+        currentStep: event.step,
+        highestStepReached: event.step > state.highestStepReached
+            ? event.step
+            : state.highestStepReached,
+      ),
+    );
   }
 
   // ============================================================
@@ -696,6 +703,36 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   // STEP 2 HANDLERS
   // ============================================================
 
+  Future<void> _onPricingHealthLoadRequested(
+    WizardPricingHealthLoadRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    if (state.isPricingHealthLoading) return;
+    emit(
+      state.copyWith(
+        isPricingHealthLoading: true,
+        clearPricingHealthError: true,
+      ),
+    );
+    try {
+      final health = await _api.getPricingHealth();
+      emit(
+        state.copyWith(
+          pricingHealth: health,
+          isPricingHealthLoading: false,
+          clearPricingHealthError: true,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          isPricingHealthLoading: false,
+          pricingHealthError: ApiErrorHandler.extractMessage(error),
+        ),
+      );
+    }
+  }
+
   void _onCalcParamsChanged(
     WizardCalcParamsChanged event,
     Emitter<WizardState> emit,
@@ -717,6 +754,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     if (state.calcParams == null) {
       emit(
         state.copyWith(errorMessage: 'Configure calculation parameters first'),
+      );
+      return;
+    }
+    if (!state.pricingCanCalculate) {
+      emit(
+        state.copyWith(
+          errorMessage:
+              'Pricing data is not ready for calculation. Retry pricing readiness.',
+        ),
       );
       return;
     }
@@ -745,10 +791,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       String? warning;
       if (invalidatesStep3) {
         warning =
-            'Calculation Changed: Step 3 configuration may need review. Proceeding will require confirmation.';
+            'The architecture changed. Deployment preparation requires review before continuing.';
       } else if (unconfigured.isNotEmpty) {
         warning =
-            'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to add credentials.';
+            'Deployment access is missing for: ${unconfigured.join(", ")}. Open Cloud access to continue.';
       }
 
       emit(
@@ -940,6 +986,16 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
 
   Future<void> _onFinish(WizardFinish event, Emitter<WizardState> emit) async {
+    if (!state.isConfigurationReadyForFinish) {
+      emit(
+        state.copyWith(
+          status: WizardStatus.ready,
+          errorMessage:
+              'Resolve all configuration readiness findings before finishing',
+        ),
+      );
+      return;
+    }
     emit(state.copyWith(status: WizardStatus.saving));
 
     try {
@@ -1131,6 +1187,176 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   // STEP 3 SECTION 2: CONFIG FILE HANDLERS
   // ============================================================
 
+  Future<void> _onArtifactValidationRequested(
+    WizardArtifactValidationRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    final request = event.request;
+    final artifactId = request.artifactId;
+    if (state.isArtifactValidating(artifactId)) return;
+
+    final requestError = request.validationError;
+    if (requestError != null) {
+      emit(
+        _applyArtifactValidation(
+          _withArtifactFeedback(
+            state,
+            artifactId,
+            DeployerArtifactValidationFeedback(
+              valid: false,
+              message: requestError,
+            ),
+          ),
+          request,
+          false,
+        ),
+      );
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        validatingArtifactIds: {...state.validatingArtifactIds, artifactId},
+        artifactValidationFeedback: state.feedbackWithout(artifactId),
+      ),
+    );
+
+    try {
+      final result = switch (request.boundary) {
+        DeployerValidationBoundary.config =>
+          await _deployerValidationService.validateConfigFile(
+            twinId: state.twinId,
+            configType: request.validationType,
+            content: request.content,
+          ),
+        DeployerValidationBoundary.layer2 =>
+          await _deployerValidationService.validateL2Content(
+            twinId: state.twinId,
+            provider: request.provider,
+            type: request.validationType,
+            content: request.content,
+          ),
+        DeployerValidationBoundary.layer4Or5 =>
+          await _deployerValidationService.validateL4Content(
+            twinId: state.twinId,
+            provider: request.provider,
+            type: request.validationType,
+            content: request.content,
+          ),
+      };
+
+      // Content-change handlers remove the busy marker. Ignore a result for
+      // content that changed while the request was in flight.
+      if (!state.isArtifactValidating(artifactId)) return;
+
+      final feedback = DeployerArtifactValidationFeedback(
+        valid: result.valid,
+        message: result.message,
+      );
+      emit(
+        _applyArtifactValidation(
+          _withArtifactFeedback(state, artifactId, feedback),
+          request,
+          result.valid,
+        ),
+      );
+    } catch (error) {
+      if (!state.isArtifactValidating(artifactId)) return;
+      emit(
+        _applyArtifactValidation(
+          _withArtifactFeedback(
+            state,
+            artifactId,
+            DeployerArtifactValidationFeedback(
+              valid: false,
+              message: ApiErrorHandler.extractMessage(error),
+            ),
+          ),
+          request,
+          false,
+        ),
+      );
+    }
+  }
+
+  WizardState _withArtifactFeedback(
+    WizardState current,
+    String artifactId,
+    DeployerArtifactValidationFeedback feedback,
+  ) {
+    final busy = Set<String>.from(current.validatingArtifactIds)
+      ..remove(artifactId);
+    return current.copyWith(
+      validatingArtifactIds: busy,
+      artifactValidationFeedback: {
+        ...current.artifactValidationFeedback,
+        artifactId: feedback,
+      },
+    );
+  }
+
+  WizardState _applyArtifactValidation(
+    WizardState current,
+    DeployerArtifactValidationRequest request,
+    bool valid,
+  ) => switch (request.type) {
+    DeployerArtifactType.config => current.copyWith(configJsonValidated: valid),
+    DeployerArtifactType.events => current.copyWith(
+      configEventsValidated: valid,
+    ),
+    DeployerArtifactType.iotDevices => current.copyWith(
+      configIotDevicesValidated: valid,
+    ),
+    DeployerArtifactType.payloads => current.copyWith(payloadsValidated: valid),
+    DeployerArtifactType.processor => current.copyWith(
+      processorValidated: {
+        ...current.processorValidated,
+        request.entityId!: valid,
+      },
+    ),
+    DeployerArtifactType.eventFeedback => current.copyWith(
+      eventFeedbackValidated: valid,
+    ),
+    DeployerArtifactType.eventAction => current.copyWith(
+      eventActionValidated: {
+        ...current.eventActionValidated,
+        request.entityId!: valid,
+      },
+    ),
+    DeployerArtifactType.stateMachine => current.copyWith(
+      stateMachineValidated: valid,
+    ),
+    DeployerArtifactType.hierarchy => current.copyWith(
+      hierarchyValidated: valid,
+    ),
+    DeployerArtifactType.sceneConfig => current.copyWith(
+      sceneConfigValidated: valid,
+    ),
+    DeployerArtifactType.userConfig => current.copyWith(
+      userConfigValidated: valid,
+    ),
+  };
+
+  WizardState _clearArtifactValidationState(
+    WizardState current, {
+    Set<String> artifactIds = const {},
+    Set<String> artifactPrefixes = const {},
+  }) {
+    bool matches(String id) =>
+        artifactIds.contains(id) ||
+        artifactPrefixes.any((prefix) => id.startsWith(prefix));
+    return current.copyWith(
+      validatingArtifactIds: current.validatingArtifactIds
+          .where((id) => !matches(id))
+          .toSet(),
+      artifactValidationFeedback: Map.fromEntries(
+        current.artifactValidationFeedback.entries.where(
+          (entry) => !matches(entry.key),
+        ),
+      ),
+    );
+  }
+
   void _onConfigEventsChanged(
     WizardConfigEventsChanged event,
     Emitter<WizardState> emit,
@@ -1141,7 +1367,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       (k, v) => MapEntry(k, false),
     );
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'config:events'},
+        artifactPrefixes: const {'event-action:'},
+      ).copyWith(
         configEventsJson: event.content,
         configEventsValidated: false, // Reset validation on content change
         // CASCADE: Reset validation for dependent L2 content (keep content)
@@ -1161,7 +1391,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       (k, v) => MapEntry(k, false),
     );
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'config:iot-devices', 'event-feedback'},
+        artifactPrefixes: const {'processor:'},
+      ).copyWith(
         configIotDevicesJson: event.content,
         configIotDevicesValidated: false, // Reset validation on content change
         // CASCADE: Reset validation for dependent L2 content (keep content)
@@ -1177,93 +1411,16 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) {
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'config:core'},
+      ).copyWith(
         deployerDigitalTwinName: event.name,
         configJsonValidated:
             false, // Reset validation when name changes (name is part of config.json)
         hasUnsavedChanges: true,
       ),
     );
-  }
-
-  Future<void> _onValidateDeployerConfig(
-    WizardValidateDeployerConfig event,
-    Emitter<WizardState> emit,
-  ) async {
-    final twinId = state.twinId;
-    if (twinId == null) {
-      emit(state.copyWith(errorMessage: 'No twin ID. Save draft first.'));
-      return;
-    }
-
-    final configType = event.configType;
-    final content = configType == 'events'
-        ? state.configEventsJson
-        : configType == 'iot'
-        ? state.configIotDevicesJson
-        : configType == 'payloads'
-        ? state.payloadsJson
-        : null;
-
-    if (content == null || content.trim().isEmpty) {
-      emit(state.copyWith(errorMessage: 'No content to validate.'));
-      return;
-    }
-
-    try {
-      final result = await _api.validateDeployerConfig(
-        twinId,
-        configType,
-        content,
-      );
-      final valid = result['valid'] == true;
-      final message =
-          result['message']?.toString() ?? (valid ? 'Valid' : 'Invalid');
-
-      if (configType == 'events') {
-        emit(
-          state.copyWith(
-            configEventsValidated: valid,
-            successMessage: valid ? message : null,
-            errorMessage: valid ? null : message,
-          ),
-        );
-      } else {
-        emit(
-          state.copyWith(
-            configIotDevicesValidated: valid,
-            successMessage: valid ? message : null,
-            errorMessage: valid ? null : message,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint(
-        '[WizardBloc] Validation failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
-      emit(
-        state.copyWith(
-          errorMessage:
-              'Validation failed: ${ApiErrorHandler.extractMessage(e)}',
-        ),
-      );
-    }
-  }
-
-  /// Handle validation result from widget (direct API call)
-  void _onConfigValidationCompleted(
-    WizardConfigValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    if (event.configType == 'config') {
-      emit(state.copyWith(configJsonValidated: event.valid));
-    } else if (event.configType == 'events') {
-      emit(state.copyWith(configEventsValidated: event.valid));
-    } else if (event.configType == 'iot') {
-      emit(state.copyWith(configIotDevicesValidated: event.valid));
-    } else if (event.configType == 'payloads') {
-      emit(state.copyWith(payloadsValidated: event.valid));
-    }
   }
 
   // ============================================================
@@ -1275,7 +1432,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) {
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'payloads'},
+      ).copyWith(
         payloadsJson: event.content,
         payloadsValidated: false, // Reset validation on content change
         hasUnsavedChanges: true,
@@ -1296,7 +1456,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     final validationUpdated = Map<String, bool>.from(state.processorValidated);
     validationUpdated[event.deviceId] = false; // Clear validation on change
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: {'processor:${event.deviceId}'},
+      ).copyWith(
         processorContents: updated,
         processorValidated: validationUpdated,
         hasUnsavedChanges: true,
@@ -1309,7 +1472,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) {
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'event-feedback'},
+      ).copyWith(
         eventFeedbackContent: event.content,
         eventFeedbackValidated: false,
         hasUnsavedChanges: true,
@@ -1328,7 +1494,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     );
     validationUpdated[event.functionName] = false;
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: {'event-action:${event.functionName}'},
+      ).copyWith(
         eventActionContents: updated,
         eventActionValidated: validationUpdated,
         hasUnsavedChanges: true,
@@ -1341,7 +1510,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) {
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'state-machine'},
+      ).copyWith(
         stateMachineContent: event.content,
         stateMachineValidated: false,
         hasUnsavedChanges: true,
@@ -1373,7 +1545,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) {
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'hierarchy', 'scene-config'},
+      ).copyWith(
         eventFeedbackRequirements: event.content,
         hasUnsavedChanges: true,
       ),
@@ -1396,42 +1571,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
 
   // ============================================================
-  // STEP 3 SECTION 3: L2 VALIDATION HANDLERS
-  // ============================================================
-
-  void _onProcessorValidationCompleted(
-    WizardProcessorValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    final updated = Map<String, bool>.from(state.processorValidated);
-    updated[event.deviceId] = event.valid;
-    emit(state.copyWith(processorValidated: updated));
-  }
-
-  void _onEventFeedbackValidationCompleted(
-    WizardEventFeedbackValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    emit(state.copyWith(eventFeedbackValidated: event.valid));
-  }
-
-  void _onEventActionValidationCompleted(
-    WizardEventActionValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    final updated = Map<String, bool>.from(state.eventActionValidated);
-    updated[event.functionName] = event.valid;
-    emit(state.copyWith(eventActionValidated: updated));
-  }
-
-  void _onStateMachineValidationCompleted(
-    WizardStateMachineValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    emit(state.copyWith(stateMachineValidated: event.valid));
-  }
-
-  // ============================================================
   // STEP 3: L4 HIERARCHY HANDLERS
   // ============================================================
 
@@ -1441,7 +1580,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   ) {
     // Reset validation for dependent scene config (content preserved)
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'scene-config'},
+      ).copyWith(
         hierarchyContent: event.content,
         hierarchyValidated: false, // Invalidate on content change
         // CASCADE: Reset scene config validation (content preserved)
@@ -1449,13 +1591,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         hasUnsavedChanges: true,
       ),
     );
-  }
-
-  void _onHierarchyValidationCompleted(
-    WizardHierarchyValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    emit(state.copyWith(hierarchyValidated: event.valid));
   }
 
   // ============================================================
@@ -1467,19 +1602,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) {
     emit(
-      state.copyWith(
+      _clearArtifactValidationState(
+        state,
+        artifactIds: const {'user-config'},
+      ).copyWith(
         sceneConfigContent: event.content,
         sceneConfigValidated: false, // Invalidate on content change
         hasUnsavedChanges: true,
       ),
     );
-  }
-
-  void _onSceneConfigValidationCompleted(
-    WizardSceneConfigValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    emit(state.copyWith(sceneConfigValidated: event.valid));
   }
 
   void _onSceneGlbUploadStatusChanged(
@@ -1506,13 +1637,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         hasUnsavedChanges: true,
       ),
     );
-  }
-
-  void _onUserConfigValidationCompleted(
-    WizardUserConfigValidationCompleted event,
-    Emitter<WizardState> emit,
-  ) {
-    emit(state.copyWith(userConfigValidated: event.valid));
   }
 
   // ============================================================

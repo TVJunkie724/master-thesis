@@ -7,6 +7,7 @@ import 'cloud_connection_section.dart';
 import 'cloud_connection_strings.dart';
 
 class CloudConnectionsGroup extends StatelessWidget {
+  final List<CloudProvider> providers;
   final Map<CloudProvider, List<CloudConnection>> connectionsByProvider;
   final Map<CloudProvider, String?> selectedConnectionIds;
   final Map<CloudProvider, bool> loadingByProvider;
@@ -25,6 +26,7 @@ class CloudConnectionsGroup extends StatelessWidget {
 
   const CloudConnectionsGroup({
     super.key,
+    this.providers = CloudProvider.values,
     required this.connectionsByProvider,
     required this.selectedConnectionIds,
     required this.loadingByProvider,
@@ -47,7 +49,7 @@ class CloudConnectionsGroup extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: AppSpacing.md),
-        for (final provider in CloudProvider.values) ...[
+        for (final provider in providers) ...[
           CloudConnectionSection(
             provider: provider,
             icon: _iconForProvider(provider),

@@ -1,0 +1,26 @@
+schema_version: pricing-registry-calculation-strategies.v1
+registry_version: 2026.06.08
+calculation_strategies:
+  cost_calculation_v2:
+    id: cost_calculation_v2
+    enabled: true
+    status: ready
+    metric_provider_id: cost
+    calculation_model_id: cost_model_v1
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_group: cost_pricing_models_v1
+    price_source_classification_group: cost_price_sources_v1
+    pricing_contract_group: cost_provider_pricing_contracts_v1
+    result_schema_version: cost-result.v1
+    description: Monthly cost calculation strategy bound to pricing model/source contracts.
+    calculation_components:
+    - transfer
+    - iot
+    - functions
+    - storage
+    - api
+    - orchestration
+    - event_bus
+    - digital_twin
+    - grafana

@@ -59,7 +59,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void _refreshDashboard(WidgetRef ref) {
     ref.invalidate(twinsProvider);
     ref.invalidate(dashboardStatsProvider);
-    ref.invalidate(pricingReviewStateProvider(null));
+    ref.invalidate(pricingHealthProvider);
   }
 
   @override
@@ -372,9 +372,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildPricingHealthRow(BuildContext context, WidgetRef ref) {
     return PricingHealthRow(
-      reviewState: ref.watch(pricingReviewStateProvider(null)),
+      pricingHealth: ref.watch(pricingHealthProvider),
       onOpenReview: () => context.go('/pricing-review'),
-      onRetry: () => ref.invalidate(pricingReviewStateProvider(null)),
+      onRetry: () => ref.invalidate(pricingHealthProvider),
     );
   }
 

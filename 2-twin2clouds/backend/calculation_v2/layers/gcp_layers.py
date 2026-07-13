@@ -54,7 +54,8 @@ class GCPLayerCalculators:
         self,
         data_volume_gb: float,
         messages_per_month: float,
-        pricing: Dict[str, Any]
+        pricing: Dict[str, Any],
+        average_message_size_kb: float | None = None,
     ) -> LayerResult:
         """
         Calculate L1 Data Acquisition layer cost.
@@ -68,7 +69,9 @@ class GCPLayerCalculators:
         # Pub/Sub cost
         pubsub_cost = self.pubsub.calculate_cost(
             data_volume_gb=data_volume_gb,
-            pricing=pricing
+            pricing=pricing,
+            messages_per_month=messages_per_month,
+            average_message_size_kb=average_message_size_kb,
         )
         components["pubsub"] = pubsub_cost
         
@@ -86,6 +89,7 @@ class GCPLayerCalculators:
             layer="L1",
             total_cost=total,
             data_size_gb=data_volume_gb,
+            messages=messages_per_month,
             components=components
         )
     
@@ -370,4 +374,3 @@ class GCPLayerCalculators:
             messages=messages,
             pricing=pricing
         )
-

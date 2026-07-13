@@ -73,7 +73,10 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
     },
     "iot": {"tiers": {"S1": "tier1", "S2": "tier2", "S3": "tier3"}},
     "storage_hot": {
-        "meters": {"storagePrice": {"meter_keywords": ["Data Stored"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]}},
+        "meters": {
+            "requestPrice": {"meter_keywords": ["100 RU/s"], "unit_keywords": ["1/Hour"]},
+            "storagePrice": {"meter_keywords": ["Data Stored"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]},
+        },
         "include": [], 
     },
     "storage_cool": {
@@ -102,7 +105,13 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
         },
         "include": ["Digital Twins"],
     },
-    "grafana": {},
+    "grafana": {
+        "meters": {
+            "userPrice": {"meter_keywords": ["Standard User", "Essential User"], "unit_keywords": ["1/Month"]},
+            "hourlyPrice": {"meter_keywords": ["Standard Node"], "unit_keywords": ["1/Hour"]},
+        },
+        "include": ["Azure Managed Grafana"],
+    },
     "orchestration": {
         "meters": {
             "pricePer1kStateTransitions": {"meter_keywords": ["Consumption Standard Connector Actions"], "unit_keywords": ["1"]}
@@ -477,6 +486,8 @@ def fetch_azure_price(service_name: str, region_code: str, region_map: Dict[str,
     
     # Handle case where service name might be a list (e.g. storage) or single string
     service_names = [azure_service_name] if isinstance(azure_service_name, str) else azure_service_name
+    if neutral == "grafana":
+        service_names = ["Azure Grafana Service"]
     
     # Special handling for storage types that map to multiple Azure services in our config
     if neutral in ["storage_cool", "storage_archive"] and not isinstance(service_names, list):

@@ -21,12 +21,15 @@ from src.api.dependencies import get_current_user
 from src.services.twin_helpers import get_user_twin
 from src.services.pricing_review_state_service import build_pricing_review_state_response
 from src.schemas.pricing_review import PricingReviewStateResponse
+from src.schemas.pricing_health import PricingHealthResponse
 from src.repositories.twin_repository import TwinRepository
 from src.services.optimizer_calculation_service import OptimizerCalculationService
 from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
 from src.services.optimizer_pricing_refresh_service import OptimizerPricingRefreshService
 from src.services.optimizer_pricing_stream_service import OptimizerPricingStreamService
 from src.services.optimizer_status_service import OptimizerStatusService
+from src.services.cloud_access_inventory_service import CloudAccessInventoryService
+from src.services.pricing_health_service import build_pricing_health_response
 from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
 from src.api.routes.error_models import ERROR_RESPONSES
 
@@ -145,6 +148,43 @@ async def get_pricing_review_state(
         )
     except DownstreamServiceError as exc:
         _raise_downstream_http_error(exc)
+
+
+@router.get(
+    "/pricing-health",
+    response_model=PricingHealthResponse,
+    operation_id="getPricingHealth",
+    summary="Get dashboard-ready pricing health for all providers",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        502: {"description": "Optimizer service request failed"},
+        503: {"description": "Cannot connect to Optimizer service"},
+        504: {"description": "Optimizer service timed out"},
+    },
+)
+async def get_pricing_health(
+    twin_id: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    config = None
+    if twin_id:
+        twin = await get_user_twin(twin_id, current_user, db)
+        config = twin.optimizer_config
+
+    try:
+        optimizer_statuses = await _optimizer_status_service().get_pricing_status()
+    except DownstreamServiceError as exc:
+        _raise_downstream_http_error(exc)
+
+    review_state = build_pricing_review_state_response(
+        optimizer_statuses,
+        saved_snapshots=_pricing_snapshots_from_config(config),
+        saved_timestamps=_pricing_timestamps_from_config(config),
+    )
+    cloud_access = CloudAccessInventoryService(db).build_inventory(current_user.id)
+    return build_pricing_health_response(review_state, cloud_access)
 
 
 @router.get(

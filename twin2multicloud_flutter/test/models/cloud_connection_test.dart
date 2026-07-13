@@ -7,6 +7,9 @@ void main() {
       final connection = CloudConnection.fromJson({
         'id': 'connection-aws',
         'provider': 'aws',
+        'purpose': 'pricing',
+        'scope': 'user',
+        'is_default_for_pricing': true,
         'display_name': 'AWS thesis dev',
         'auth_type': 'access_key',
         'cloud_scope': {'region': 'eu-central-1'},
@@ -18,12 +21,16 @@ void main() {
         'validation_status': 'valid',
         'validation_message': 'Validation complete',
         'last_validated_at': '2026-05-01T10:00:00Z',
+        'last_used_at': '2026-05-01T11:00:00Z',
         'created_at': '2026-05-01T09:00:00Z',
         'updated_at': '2026-05-01T10:00:00Z',
       });
 
       expect(connection.id, 'connection-aws');
       expect(connection.provider, CloudProvider.aws);
+      expect(connection.purpose, CloudConnectionPurpose.pricing);
+      expect(connection.isDefaultForPricing, true);
+      expect(connection.lastUsedAt, DateTime.parse('2026-05-01T11:00:00Z'));
       expect(connection.displayName, 'AWS thesis dev');
       expect(connection.payloadSummary['region'], 'eu-central-1');
       expect(connection.payloadSummary.containsKey('secret_access_key'), false);
@@ -44,9 +51,46 @@ void main() {
       final json = request.toJson();
 
       expect(json['provider'], 'aws');
+      expect(json['purpose'], 'deployment');
+      expect(json['scope'], 'user');
       expect(json['aws'], isA<Map<String, dynamic>>());
       expect(json.containsKey('azure'), false);
       expect(json.containsKey('gcp'), false);
+    });
+
+    test('pricing create request emits explicit purpose and default', () {
+      const request = CloudConnectionCreateRequest(
+        provider: CloudProvider.aws,
+        purpose: CloudConnectionPurpose.pricing,
+        displayName: 'AWS pricing',
+        isDefaultForPricing: true,
+        credentials: {
+          'access_key_id': 'AKIA12345678901234',
+          'secret_access_key': 'secretsecretsecret',
+          'region': 'eu-central-1',
+        },
+      );
+
+      expect(request.toJson()['purpose'], 'pricing');
+      expect(request.toJson()['is_default_for_pricing'], true);
+    });
+
+    test('rejects unknown explicit purpose instead of misclassifying it', () {
+      final payload = {
+        'id': 'connection-aws',
+        'provider': 'aws',
+        'purpose': 'bootstrap_admin',
+        'display_name': 'Unsupported',
+        'auth_type': 'access_key',
+        'cloud_scope': <String, dynamic>{},
+        'payload_fingerprint': 'opaque',
+        'payload_summary': <String, dynamic>{},
+        'validation_status': 'untested',
+        'created_at': '2026-07-12T10:00:00Z',
+        'updated_at': '2026-07-12T10:00:00Z',
+      };
+
+      expect(() => CloudConnection.fromJson(payload), throwsArgumentError);
     });
 
     test('GCP create request requires service account JSON', () {

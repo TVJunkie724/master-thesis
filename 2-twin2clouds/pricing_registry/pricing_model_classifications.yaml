@@ -1,0 +1,819 @@
+schema_version: pricing-registry-pricing-model-classifications.v1
+registry_version: 2026.06.08
+classifications:
+  aws.transfer_egress_gb.model.v1:
+    id: aws.transfer_egress_gb.model.v1
+    provider: aws
+    layer: transfer
+    service: AWSDataTransfer
+    field: transfer.egress_gb
+    pricing_model_type: tiered_egress_volume
+    billing_unit_semantics: egress_gb
+    tier_semantics: provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.transfer.egress_gb.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.iot_message_ingest.model.v1:
+    id: aws.iot_message_ingest.model.v1
+    provider: aws
+    layer: iot
+    service: AWSIoT
+    field: iot.message_ingest
+    pricing_model_type: tiered_message_unit
+    billing_unit_semantics: message_or_volume_usage
+    tier_semantics: provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.iot.message_ingest.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.functions_request.model.v1:
+    id: aws.functions_request.model.v1
+    provider: aws
+    layer: functions
+    service: AWSLambda
+    field: functions.request
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: request
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.functions.request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.functions_compute_gb_second.model.v1:
+    id: aws.functions_compute_gb_second.model.v1
+    provider: aws
+    layer: functions
+    service: AWSLambda
+    field: functions.compute_gb_second
+    pricing_model_type: duration_compute_unit
+    billing_unit_semantics: gb_second
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.functions.compute_gb_second.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.storage_hot_storage_gb_month.model.v1:
+    id: aws.storage_hot_storage_gb_month.model.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.storage.hot.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.storage_hot_read_request.model.v1:
+    id: aws.storage_hot_read_request.model.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.read_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.storage.hot.read_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.storage_hot_write_request.model.v1:
+    id: aws.storage_hot_write_request.model.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.write_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.storage.hot.write_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.storage_cool_storage_gb_month.model.v1:
+    id: aws.storage_cool_storage_gb_month.model.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.cool.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.storage.cool.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.storage_archive_storage_gb_month.model.v1:
+    id: aws.storage_archive_storage_gb_month.model.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.archive.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.storage.archive.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.storage_archive_write_request.model.v1:
+    id: aws.storage_archive_write_request.model.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.archive.write_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.storage.archive.write_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.api_request_million.model.v1:
+    id: aws.api_request_million.model.v1
+    provider: aws
+    layer: api
+    service: AmazonApiGateway
+    field: api.request_million
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: request
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.api.request_million.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.orchestration_state_transition.model.v1:
+    id: aws.orchestration_state_transition.model.v1
+    provider: aws
+    layer: orchestration
+    service: AmazonStates
+    field: orchestration.state_transition
+    pricing_model_type: state_transition_unit
+    billing_unit_semantics: state_transition
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.orchestration.state_transition.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.event_bus_event_million.model.v1:
+    id: aws.event_bus_event_million.model.v1
+    provider: aws
+    layer: event_bus
+    service: AWSEvents
+    field: event_bus.event_million
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: event
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.event_bus.event_million.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.digital_twin_query_unit.model.v1:
+    id: aws.digital_twin_query_unit.model.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.query_unit
+    pricing_model_type: query_unit
+    billing_unit_semantics: query_unit
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.digital_twin.query_unit.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.grafana_editor_user_month.model.v1:
+    id: aws.grafana_editor_user_month.model.v1
+    provider: aws
+    layer: grafana
+    service: AmazonGrafana
+    field: grafana.editor_user_month
+    pricing_model_type: user_month_unit
+    billing_unit_semantics: user_month
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.grafana.editor_user_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  aws.grafana_viewer_user_month.model.v1:
+    id: aws.grafana_viewer_user_month.model.v1
+    provider: aws
+    layer: grafana
+    service: AmazonGrafana
+    field: grafana.viewer_user_month
+    pricing_model_type: user_month_unit
+    billing_unit_semantics: user_month
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - aws.grafana.viewer_user_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.transfer_egress_gb.model.v1:
+    id: azure.transfer_egress_gb.model.v1
+    provider: azure
+    layer: transfer
+    service: Bandwidth
+    field: transfer.egress_gb
+    pricing_model_type: tiered_egress_volume
+    billing_unit_semantics: egress_gb
+    tier_semantics: provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.transfer.egress_gb.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.iot_message_ingest.model.v1:
+    id: azure.iot_message_ingest.model.v1
+    provider: azure
+    layer: iot
+    service: IoT Hub
+    field: iot.message_ingest
+    pricing_model_type: monthly_capacity_unit
+    billing_unit_semantics: message_or_volume_usage
+    tier_semantics: provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.iot.message_ingest.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.functions_request.model.v1:
+    id: azure.functions_request.model.v1
+    provider: azure
+    layer: functions
+    service: Functions
+    field: functions.request
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: request
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.functions.request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.functions_compute_gb_second.model.v1:
+    id: azure.functions_compute_gb_second.model.v1
+    provider: azure
+    layer: functions
+    service: Functions
+    field: functions.compute_gb_second
+    pricing_model_type: duration_compute_unit
+    billing_unit_semantics: gb_second
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.functions.compute_gb_second.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.storage_hot_storage_gb_month.model.v1:
+    id: azure.storage_hot_storage_gb_month.model.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.storage.hot.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.storage_hot_read_request.model.v1:
+    id: azure.storage_hot_read_request.model.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.read_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.storage.hot.read_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.storage_hot_write_request.model.v1:
+    id: azure.storage_hot_write_request.model.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.write_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.storage.hot.write_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.storage_cool_storage_gb_month.model.v1:
+    id: azure.storage_cool_storage_gb_month.model.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.cool.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.storage.cool.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.storage_archive_storage_gb_month.model.v1:
+    id: azure.storage_archive_storage_gb_month.model.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.archive.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.storage.archive.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.storage_archive_write_request.model.v1:
+    id: azure.storage_archive_write_request.model.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.archive.write_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.storage.archive.write_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.api_request_million.model.v1:
+    id: azure.api_request_million.model.v1
+    provider: azure
+    layer: api
+    service: API Management
+    field: api.request_million
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: request
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.api.request_million.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.orchestration_state_transition.model.v1:
+    id: azure.orchestration_state_transition.model.v1
+    provider: azure
+    layer: orchestration
+    service: Logic Apps
+    field: orchestration.state_transition
+    pricing_model_type: state_transition_unit
+    billing_unit_semantics: state_transition
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.orchestration.state_transition.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.event_bus_event_million.model.v1:
+    id: azure.event_bus_event_million.model.v1
+    provider: azure
+    layer: event_bus
+    service: Event Grid
+    field: event_bus.event_million
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: event
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.event_bus.event_million.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.digital_twin_query_unit.model.v1:
+    id: azure.digital_twin_query_unit.model.v1
+    provider: azure
+    layer: digital_twin
+    service: Digital Twins
+    field: digital_twin.query_unit
+    pricing_model_type: query_unit
+    billing_unit_semantics: query_unit
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.digital_twin.query_unit.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.grafana_editor_user_month.model.v1:
+    id: azure.grafana_editor_user_month.model.v1
+    provider: azure
+    layer: grafana
+    service: Azure Grafana Service
+    field: grafana.editor_user_month
+    pricing_model_type: user_month_unit
+    billing_unit_semantics: user_month
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.grafana.editor_user_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  azure.grafana_viewer_user_month.model.v1:
+    id: azure.grafana_viewer_user_month.model.v1
+    provider: azure
+    layer: grafana
+    service: Azure Grafana Service
+    field: grafana.viewer_user_month
+    pricing_model_type: user_month_unit
+    billing_unit_semantics: user_month
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - azure.grafana.viewer_user_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.transfer_egress_gb.model.v1:
+    id: gcp.transfer_egress_gb.model.v1
+    provider: gcp
+    layer: transfer
+    service: Compute Engine
+    field: transfer.egress_gb
+    pricing_model_type: tiered_egress_volume
+    billing_unit_semantics: egress_gb
+    tier_semantics: provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.transfer.egress_gb.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.iot_message_ingest.model.v1:
+    id: gcp.iot_message_ingest.model.v1
+    provider: gcp
+    layer: iot
+    service: Cloud Pub/Sub
+    field: iot.message_ingest
+    pricing_model_type: throughput_volume
+    billing_unit_semantics: message_or_volume_usage
+    tier_semantics: provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.iot.message_ingest.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.functions_request.model.v1:
+    id: gcp.functions_request.model.v1
+    provider: gcp
+    layer: functions
+    service: Cloud Run Functions
+    field: functions.request
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: request
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.functions.request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.functions_compute_gb_second.model.v1:
+    id: gcp.functions_compute_gb_second.model.v1
+    provider: gcp
+    layer: functions
+    service: Cloud Run Functions
+    field: functions.compute_gb_second
+    pricing_model_type: duration_compute_unit
+    billing_unit_semantics: gb_second
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.functions.compute_gb_second.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.storage_hot_storage_gb_month.model.v1:
+    id: gcp.storage_hot_storage_gb_month.model.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.storage.hot.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.storage_hot_read_request.model.v1:
+    id: gcp.storage_hot_read_request.model.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.read_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.storage.hot.read_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.storage_hot_write_request.model.v1:
+    id: gcp.storage_hot_write_request.model.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.write_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.storage.hot.write_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.storage_cool_storage_gb_month.model.v1:
+    id: gcp.storage_cool_storage_gb_month.model.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.cool.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.storage.cool.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.storage_archive_storage_gb_month.model.v1:
+    id: gcp.storage_archive_storage_gb_month.model.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.archive.storage_gb_month
+    pricing_model_type: storage_capacity_unit
+    billing_unit_semantics: gb_month
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.storage.archive.storage_gb_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.storage_archive_write_request.model.v1:
+    id: gcp.storage_archive_write_request.model.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.archive.write_request
+    pricing_model_type: operation_request_unit
+    billing_unit_semantics: request
+    tier_semantics: provider_storage_class_or_operation_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.storage.archive.write_request.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.api_request_million.model.v1:
+    id: gcp.api_request_million.model.v1
+    provider: gcp
+    layer: api
+    service: API Gateway
+    field: api.request_million
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: request
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.api.request_million.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.orchestration_state_transition.model.v1:
+    id: gcp.orchestration_state_transition.model.v1
+    provider: gcp
+    layer: orchestration
+    service: Workflows
+    field: orchestration.state_transition
+    pricing_model_type: state_transition_unit
+    billing_unit_semantics: state_transition
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.orchestration.state_transition.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.event_bus_event_million.model.v1:
+    id: gcp.event_bus_event_million.model.v1
+    provider: gcp
+    layer: event_bus
+    service: Cloud Pub/Sub
+    field: event_bus.event_million
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: event
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.event_bus.event_million.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.digital_twin_query_unit.model.v1:
+    id: gcp.digital_twin_query_unit.model.v1
+    provider: gcp
+    layer: digital_twin
+    service: Compute Engine
+    field: digital_twin.query_unit
+    pricing_model_type: self_hosted_equivalent_unit
+    billing_unit_semantics: query_unit
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.digital_twin.query_unit.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.grafana_editor_user_month.model.v1:
+    id: gcp.grafana_editor_user_month.model.v1
+    provider: gcp
+    layer: grafana
+    service: Compute Engine
+    field: grafana.editor_user_month
+    pricing_model_type: self_hosted_equivalent_unit
+    billing_unit_semantics: user_month
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.grafana.editor_user_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true
+  gcp.grafana_viewer_user_month.model.v1:
+    id: gcp.grafana_viewer_user_month.model.v1
+    provider: gcp
+    layer: grafana
+    service: Compute Engine
+    field: grafana.viewer_user_month
+    pricing_model_type: self_hosted_equivalent_unit
+    billing_unit_semantics: user_month
+    tier_semantics: single_or_provider_defined_tiers
+    included_usage_semantics: provider_evidence_or_official_static
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    evidence_source_refs:
+    - gcp.grafana.viewer_user_month.mapping:2026.06.08
+    review_status: verified
+    publishable: true

@@ -11,6 +11,10 @@ import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/selectable_scaffold.dart';
+import '../../features/configuration_workspace/domain/configuration_journey.dart';
+import '../../features/configuration_workspace/presentation/cloud_access_task.dart';
+import '../../features/configuration_workspace/presentation/configuration_review_task.dart';
+import '../../features/configuration_workspace/presentation/configuration_workspace_shell.dart';
 
 /// Wizard screen using BLoC pattern for state management
 ///
@@ -51,7 +55,7 @@ class WizardView extends ConsumerStatefulWidget {
 }
 
 class _WizardViewState extends ConsumerState<WizardView> {
-  // Note: Name error handling will be via BLoC state in future
+  ConfigurationTaskId? _currentTaskId;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +86,17 @@ class _WizardViewState extends ConsumerState<WizardView> {
           );
         }
 
+        final journey = ConfigurationJourney.fromWizardState(
+          state,
+          requestedTaskId: _currentTaskId,
+        );
+        if (_currentTaskId != journey.currentTaskId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _currentTaskId == journey.currentTaskId) return;
+            _selectTask(context, journey.currentTaskId);
+          });
+        }
+
         return SelectableScaffold(
           appBar: _buildAppBar(context, state),
           body: Column(
@@ -99,20 +114,18 @@ class _WizardViewState extends ConsumerState<WizardView> {
                   ],
                 ),
                 child: Column(
-                  children: [
-                    // Screen header with title
-                    _buildHeader(context, state),
-                    // Step indicator
-                    _buildStepIndicator(context, state),
-                    // Navigation bar
-                    _buildNavigationBar(context, state),
-                  ],
+                  children: [_buildHeader(context, state, journey)],
                 ),
               ),
-              // Alert banners
               _buildAlertBanners(context, state),
-              // Step content
-              Expanded(child: _buildStepContent(context, state)),
+              Expanded(
+                child: ConfigurationWorkspaceShell(
+                  journey: journey,
+                  onTaskSelected: (taskId) => _selectTask(context, taskId),
+                  child: _buildTaskContent(context, journey.currentTaskId),
+                ),
+              ),
+              _buildNavigationBar(context, state, journey),
             ],
           ),
         );
@@ -181,7 +194,11 @@ class _WizardViewState extends ConsumerState<WizardView> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, WizardState state) {
+  Widget _buildHeader(
+    BuildContext context,
+    WizardState state,
+    ConfigurationJourney journey,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
@@ -192,11 +209,25 @@ class _WizardViewState extends ConsumerState<WizardView> {
             tooltip: 'Close',
           ),
           const SizedBox(width: 8),
-          Text(
-            state.mode == WizardMode.create
-                ? 'Create Digital Twin'
-                : 'Edit Digital Twin',
-            style: Theme.of(context).textTheme.headlineSmall,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  state.mode == WizardMode.create
+                      ? 'Create Digital Twin'
+                      : 'Edit Digital Twin',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${journey.currentPhase.label} · ${journey.task(journey.currentTaskId).label}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -283,7 +314,11 @@ class _WizardViewState extends ConsumerState<WizardView> {
     );
   }
 
-  Widget _buildNavigationBar(BuildContext context, WizardState state) {
+  Widget _buildNavigationBar(
+    BuildContext context,
+    WizardState state,
+    ConfigurationJourney journey,
+  ) {
     final bloc = context.read<WizardBloc>();
     final isSaving = state.status == WizardStatus.saving;
 
@@ -304,25 +339,24 @@ class _WizardViewState extends ConsumerState<WizardView> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: OutlinedButton.icon(
-                          onPressed: () => _handleBack(context, state),
+                          onPressed: () =>
+                              _handleTaskBack(context, state, journey),
                           icon: const Icon(Icons.arrow_back),
-                          label: Text(state.currentStep == 0 ? 'Exit' : 'Back'),
+                          label: Text(
+                            journey.previousNavigableTaskId == null
+                                ? 'Exit'
+                                : 'Back',
+                          ),
                         ),
                       ),
                     ),
                     // Center: Calculate button (only on Step 2)
-                    if (state.currentStep == 1)
+                    if (journey.currentTaskId ==
+                        ConfigurationTaskId.calculateAlternatives)
                       Tooltip(
-                        message: !state.isCalcFormValid
-                            ? 'Fix form errors before calculating'
-                            : state.calcParams == null
-                            ? 'Configure parameters first'
-                            : '',
+                        message: _calculationDisabledReason(state),
                         child: ElevatedButton.icon(
-                          onPressed:
-                              (state.calcParams != null &&
-                                  state.isCalcFormValid &&
-                                  !state.isCalculating)
+                          onPressed: state.canRequestCalculation
                               ? () => bloc.add(const WizardCalculateRequested())
                               : null,
                           icon: state.isCalculating
@@ -412,28 +446,29 @@ class _WizardViewState extends ConsumerState<WizardView> {
                               ),
                             ),
                             const SizedBox(width: 16),
-                            // Next/Finish button
-                            if (state.currentStep < 2)
+                            if (journey.currentTaskId !=
+                                ConfigurationTaskId.validationAndPreflight)
                               FilledButton.icon(
-                                onPressed: _canProceedToNextStep(state)
-                                    ? () => _handleNextStep(context, state)
-                                    : null,
+                                onPressed: journey.nextNavigableTaskId == null
+                                    ? null
+                                    : () => _selectTask(
+                                        context,
+                                        journey.nextNavigableTaskId!,
+                                      ),
                                 icon: const Icon(Icons.arrow_forward),
-                                label: const Text('Next Step'),
+                                label: const Text('Continue'),
                               )
                             else
                               Tooltip(
                                 message: !state.canModify
                                     ? 'Cannot modify a deployed twin'
-                                    : !(state.isSection2Valid &&
-                                          state.isSection3Valid)
+                                    : !state.isConfigurationReadyForFinish
                                     ? 'Complete and validate all required fields before finishing'
                                     : '',
                                 child: ElevatedButton.icon(
                                   onPressed:
                                       (state.canModify &&
-                                          state.isSection2Valid &&
-                                          state.isSection3Valid)
+                                          state.isConfigurationReadyForFinish)
                                       ? () => _handleFinishConfiguration(
                                           context,
                                           bloc,
@@ -462,15 +497,22 @@ class _WizardViewState extends ConsumerState<WizardView> {
     );
   }
 
-  bool _canProceedToNextStep(WizardState state) {
-    switch (state.currentStep) {
-      case 0:
-        return state.canProceedToStep2;
-      case 1:
-        return state.canProceedToStep3;
-      default:
-        return true;
+  String _calculationDisabledReason(WizardState state) {
+    if (state.isPricingHealthLoading) return 'Checking pricing readiness';
+    if (state.pricingHealthError != null) {
+      return 'Retry pricing readiness before calculating';
     }
+    if (!state.pricingCanCalculate) {
+      final providers = state.pricingBlockingProviders
+          .map((provider) => provider.toUpperCase())
+          .join(', ');
+      return providers.isEmpty
+          ? 'Pricing readiness is unavailable'
+          : 'Pricing unavailable for $providers';
+    }
+    if (!state.isCalcFormValid) return 'Fix form errors before calculating';
+    if (state.calcParams == null) return 'Configure parameters first';
+    return '';
   }
 
   void _handleFinishConfiguration(
@@ -487,9 +529,9 @@ class _WizardViewState extends ConsumerState<WizardView> {
           icon: const Icon(Icons.warning_amber, color: Colors.orange, size: 48),
           title: const Text('Unconfigured Providers'),
           content: Text(
-            'The following providers are required by your deployment but have not been configured in Step 1:\n\n'
+            'The following providers are required by your selected architecture but do not have deployment access:\n\n'
             '${unconfigured.map((p) => '• $p').join('\n')}\n\n'
-            'Please go back to Step 1 and enter valid credentials for these providers.',
+            'Open Cloud access and bind a valid deployment connection for each provider.',
           ),
           actions: [
             TextButton(
@@ -505,119 +547,30 @@ class _WizardViewState extends ConsumerState<WizardView> {
     }
   }
 
-  Widget _buildStepIndicator(BuildContext context, WizardState state) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildStep(context, state, 0, '1. Configuration', Icons.settings),
-              _buildConnector(state, 0),
-              _buildStep(context, state, 1, '2. Optimizer', Icons.analytics),
-              _buildConnector(state, 1),
-              _buildStep(context, state, 2, '3. Deployer', Icons.cloud_upload),
-            ],
-          ),
+  Widget _buildTaskContent(BuildContext context, ConfigurationTaskId taskId) =>
+      switch (taskId) {
+        ConfigurationTaskId.cloudAccess => const CloudAccessTask(),
+        ConfigurationTaskId.scenarioAndCurrency ||
+        ConfigurationTaskId.deviceTraffic ||
+        ConfigurationTaskId.processing ||
+        ConfigurationTaskId.retention ||
+        ConfigurationTaskId.twinCapabilities => Step2Optimizer(taskId: taskId),
+        ConfigurationTaskId.dataContracts ||
+        ConfigurationTaskId.userLogic ||
+        ConfigurationTaskId.twinAssets => Step3Deployer(taskId: taskId),
+        ConfigurationTaskId.summary ||
+        ConfigurationTaskId.readinessFindings ||
+        ConfigurationTaskId.validationAndPreflight => ConfigurationReviewTask(
+          taskId: taskId,
+          onOpenTask: (target) => _selectTask(context, target),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.primaryContainer.withAlpha(100),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            'Step ${state.currentStep + 1} / 3',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  Widget _buildStep(
-    BuildContext context,
-    WizardState state,
-    int index,
-    String label,
-    IconData icon,
-  ) {
-    final isActive = state.currentStep == index;
-    final isCompleted = state.highestStepReached > index;
-
-    return InkWell(
-      onTap: () => _handleStepClick(context, state, index),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted
-                    ? Colors.green
-                    : isActive
-                    ? Theme.of(context).colorScheme.primary
-                    : (index <= state.highestStepReached)
-                    ? Theme.of(context).colorScheme.primary.withAlpha(150)
-                    : Colors.grey.shade300,
-              ),
-              child: Icon(
-                isCompleted ? Icons.check : icon,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: index <= state.highestStepReached
-                    ? null
-                    : Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConnector(WizardState state, int afterIndex) {
-    final isActive = state.highestStepReached > afterIndex;
-    return Container(
-      width: 60,
-      height: 2,
-      margin: const EdgeInsets.only(bottom: 20),
-      color: isActive ? Colors.green : Colors.grey.shade300,
-    );
-  }
-
-  Widget _buildStepContent(BuildContext context, WizardState state) {
-    switch (state.currentStep) {
-      case 0:
-        return const Step1Configuration();
-      case 1:
-        return const Step2Optimizer();
-      case 2:
-        return const Step3Deployer();
-      default:
-        return const SizedBox();
-    }
-  }
+        _ => switch (ConfigurationJourney.legacyStepFor(taskId)) {
+          0 => const Step1Configuration(),
+          1 => const Step2Optimizer(),
+          2 => const Step3Deployer(),
+          _ => const SizedBox.shrink(),
+        },
+      };
 
   Future<void> _showExitConfirmation(
     BuildContext context,
@@ -643,8 +596,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
             ],
           ),
           content: const Text(
-            'Your new calculation affects Step 3.\n\n'
-            'If you save now, Step 3 configuration will be reset to match the new calculation.',
+            'Your new calculation affects deployment preparation.\n\n'
+            'If you save now, dependent deployment artifacts will be reset to match the new architecture.',
           ),
           actions: [
             TextButton(
@@ -733,7 +686,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
     }
   }
 
-  /// Show confirmation dialog when Step 3 will be invalidated
+  /// Show confirmation before dependent deployment preparation is invalidated.
   /// Returns: 'proceed' (keep new results), 'restore' (keep old data), or null (cancel)
   Future<String?> _showInvalidationConfirmation(
     BuildContext context,
@@ -752,7 +705,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           ],
         ),
         content: Text(
-          'Your new calculation has different parameters that may affect Step 3 configuration.\n\n'
+          'Your new calculation has different parameters that may affect deployment preparation.\n\n'
           'What would you like to do?'
           '${!canDiscard ? '\n\n(Discard not available - no saved version exists)' : ''}',
         ),
@@ -800,92 +753,49 @@ class _WizardViewState extends ConsumerState<WizardView> {
     }
   }
 
-  /// Handle Next Step with potential invalidation confirmation
-  Future<void> _handleNextStep(BuildContext context, WizardState state) async {
-    if (state.step3Invalidated) {
-      final result = await _showInvalidationConfirmation(context, state);
-      if (!context.mounted) return;
-
-      switch (result) {
-        case 'proceed':
-          context.read<WizardBloc>().add(const WizardProceedAndNext());
-          break;
-        case 'restore':
-          context.read<WizardBloc>().add(const WizardRestoreOldResults());
-          break;
-        default:
-          // Cancel - do nothing
-          break;
-      }
-    } else {
-      context.read<WizardBloc>().add(const WizardNextStep());
-    }
-  }
-
-  /// Handle Back button with potential invalidation confirmation
-  Future<void> _handleBack(BuildContext context, WizardState state) async {
-    if (state.currentStep == 0) {
+  Future<void> _handleTaskBack(
+    BuildContext context,
+    WizardState state,
+    ConfigurationJourney journey,
+  ) async {
+    final previous = journey.previousNavigableTaskId;
+    if (previous == null) {
       await _showExitConfirmation(context, state);
       return;
     }
 
-    // Show invalidation confirmation if step3 is invalidated
-    if (state.step3Invalidated) {
-      final result = await _showInvalidationConfirmation(context, state);
-      if (!context.mounted) return;
-
-      switch (result) {
-        case 'proceed':
-          // Clear invalidation and go back
-          context.read<WizardBloc>().add(const WizardClearInvalidation());
-          context.read<WizardBloc>().add(const WizardPreviousStep());
-          break;
-        case 'restore':
-          context.read<WizardBloc>().add(const WizardRestoreOldResults());
-          context.read<WizardBloc>().add(const WizardPreviousStep());
-          break;
-        default:
-          // Cancel - do nothing
-          break;
-      }
-    } else {
-      context.read<WizardBloc>().add(const WizardPreviousStep());
-    }
+    await _selectTask(context, previous);
   }
 
-  /// Handle step indicator click with potential invalidation confirmation
-  Future<void> _handleStepClick(
+  Future<void> _selectTask(
     BuildContext context,
-    WizardState state,
-    int targetStep,
+    ConfigurationTaskId taskId,
   ) async {
-    // Ignore if step not reachable
-    if (targetStep > state.highestStepReached) return;
+    if (_currentTaskId == taskId) return;
 
-    // Ignore if already on this step
-    if (targetStep == state.currentStep) return;
+    final state = context.read<WizardBloc>().state;
+    final targetStep = ConfigurationJourney.legacyStepFor(taskId);
+    final isInitialSelection = _currentTaskId == null;
 
-    // Show invalidation confirmation if step3 is invalidated
-    if (state.step3Invalidated) {
+    if (!isInitialSelection &&
+        state.step3Invalidated &&
+        targetStep != state.currentStep) {
       final result = await _showInvalidationConfirmation(context, state);
       if (!context.mounted) return;
 
       switch (result) {
         case 'proceed':
-          // Clear invalidation and navigate
           context.read<WizardBloc>().add(const WizardClearInvalidation());
-          context.read<WizardBloc>().add(WizardGoToStep(targetStep));
           break;
         case 'restore':
           context.read<WizardBloc>().add(const WizardRestoreOldResults());
-          context.read<WizardBloc>().add(WizardGoToStep(targetStep));
           break;
         default:
-          // Cancel - do nothing
-          break;
+          return;
       }
-    } else {
-      context.read<WizardBloc>().add(WizardGoToStep(targetStep));
     }
+
+    if (mounted) setState(() => _currentTaskId = taskId);
+    context.read<WizardBloc>().add(WizardGoToStep(targetStep));
   }
 }

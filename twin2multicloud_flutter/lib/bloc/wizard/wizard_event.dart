@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/cloud_connection.dart';
+import '../../models/deployer_artifact_validation.dart';
 
 /// Base class for all wizard events
 abstract class WizardEvent extends Equatable {
@@ -44,7 +45,10 @@ class WizardPreviousStep extends WizardEvent {
   const WizardPreviousStep();
 }
 
-/// Jump to a specific step (only allowed for reached steps)
+/// Select the legacy content owner for a configuration-workspace task.
+///
+/// Reachability is derived from configuration prerequisites. The integer is a
+/// temporary API-compatibility boundary and must not be used by new UI widgets.
 class WizardGoToStep extends WizardEvent {
   final int step;
   const WizardGoToStep(this.step);
@@ -164,6 +168,10 @@ class WizardCloudConnectionDeleteRequested extends WizardEvent {
 // STEP 2: OPTIMIZER EVENTS
 // ============================================================
 
+class WizardPricingHealthLoadRequested extends WizardEvent {
+  const WizardPricingHealthLoadRequested();
+}
+
 /// Calculation parameters were changed
 class WizardCalcParamsChanged extends WizardEvent {
   final CalcParams params;
@@ -246,6 +254,15 @@ class WizardClearInvalidation extends WizardEvent {
 // STEP 3 SECTION 2: CONFIG FILE EVENTS
 // ============================================================
 
+class WizardArtifactValidationRequested extends WizardEvent {
+  final DeployerArtifactValidationRequest request;
+
+  const WizardArtifactValidationRequested(this.request);
+
+  @override
+  List<Object?> get props => [request];
+}
+
 /// config_events.json content changed
 class WizardConfigEventsChanged extends WizardEvent {
   final String content;
@@ -276,23 +293,6 @@ class WizardPayloadsChanged extends WizardEvent {
   const WizardPayloadsChanged(this.content);
   @override
   List<Object?> get props => [content];
-}
-
-/// Request validation of a deployer config file
-class WizardValidateDeployerConfig extends WizardEvent {
-  final String configType; // 'events' or 'iot'
-  const WizardValidateDeployerConfig(this.configType);
-  @override
-  List<Object?> get props => [configType];
-}
-
-/// Validation completed (called from widget after direct API call)
-class WizardConfigValidationCompleted extends WizardEvent {
-  final String configType; // 'events' or 'iot'
-  final bool valid;
-  const WizardConfigValidationCompleted(this.configType, this.valid);
-  @override
-  List<Object?> get props => [configType, valid];
 }
 
 // ============================================================
@@ -365,44 +365,6 @@ class WizardEventActionRequirementsChanged extends WizardEvent {
 }
 
 // ============================================================
-// STEP 3 SECTION 3: L2 VALIDATION COMPLETED EVENTS
-// ============================================================
-
-/// Processor validation completed
-class WizardProcessorValidationCompleted extends WizardEvent {
-  final String deviceId;
-  final bool valid;
-  const WizardProcessorValidationCompleted(this.deviceId, this.valid);
-  @override
-  List<Object?> get props => [deviceId, valid];
-}
-
-/// Event feedback validation completed
-class WizardEventFeedbackValidationCompleted extends WizardEvent {
-  final bool valid;
-  const WizardEventFeedbackValidationCompleted(this.valid);
-  @override
-  List<Object?> get props => [valid];
-}
-
-/// Event action validation completed
-class WizardEventActionValidationCompleted extends WizardEvent {
-  final String functionName;
-  final bool valid;
-  const WizardEventActionValidationCompleted(this.functionName, this.valid);
-  @override
-  List<Object?> get props => [functionName, valid];
-}
-
-/// State machine validation completed
-class WizardStateMachineValidationCompleted extends WizardEvent {
-  final bool valid;
-  const WizardStateMachineValidationCompleted(this.valid);
-  @override
-  List<Object?> get props => [valid];
-}
-
-// ============================================================
 // STEP 3 SECTION 2: L4 HIERARCHY EVENTS
 // ============================================================
 
@@ -412,14 +374,6 @@ class WizardHierarchyContentChanged extends WizardEvent {
   const WizardHierarchyContentChanged(this.content);
   @override
   List<Object?> get props => [content];
-}
-
-/// Hierarchy validation completed
-class WizardHierarchyValidationCompleted extends WizardEvent {
-  final bool valid;
-  const WizardHierarchyValidationCompleted(this.valid);
-  @override
-  List<Object?> get props => [valid];
 }
 
 // ============================================================
@@ -432,14 +386,6 @@ class WizardSceneConfigContentChanged extends WizardEvent {
   const WizardSceneConfigContentChanged(this.content);
   @override
   List<Object?> get props => [content];
-}
-
-/// Scene config validation completed
-class WizardSceneConfigValidationCompleted extends WizardEvent {
-  final bool valid;
-  const WizardSceneConfigValidationCompleted(this.valid);
-  @override
-  List<Object?> get props => [valid];
 }
 
 /// GLB file upload status changed
@@ -460,14 +406,6 @@ class WizardUserConfigContentChanged extends WizardEvent {
   const WizardUserConfigContentChanged(this.content);
   @override
   List<Object?> get props => [content];
-}
-
-/// User config validation completed
-class WizardUserConfigValidationCompleted extends WizardEvent {
-  final bool valid;
-  const WizardUserConfigValidationCompleted(this.valid);
-  @override
-  List<Object?> get props => [valid];
 }
 
 // ============================================================

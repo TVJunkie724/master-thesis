@@ -7,7 +7,10 @@ from src.api.routes import (
     deployer,
     cloud_connections,
     cloud_bootstrap,
+    cloud_access,
     optimizer_runs,
+    pricing_refresh,
+    pricing_review,
 )
 
 __all__ = [
@@ -19,5 +22,8 @@ __all__ = [
     "deployer",
     "cloud_connections",
     "cloud_bootstrap",
+    "cloud_access",
     "optimizer_runs",
+    "pricing_refresh",
+    "pricing_review",
 ]

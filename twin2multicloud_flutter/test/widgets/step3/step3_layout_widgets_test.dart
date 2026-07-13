@@ -35,12 +35,16 @@ void main() {
       expect(find.text('Or configure manually'), findsOneWidget);
     });
 
-    testWidgets('no result message guides user back to Step 2', (tester) async {
+    testWidgets('no result message guides user to architecture choice', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildWidget(const Step3NoResultMessage()));
 
       expect(find.text('No Optimization Result'), findsOneWidget);
       expect(
-        find.text('Please complete Step 2 (Optimizer) first.'),
+        find.text(
+          'Choose an architecture before preparing deployment artifacts.',
+        ),
         findsOneWidget,
       );
     });

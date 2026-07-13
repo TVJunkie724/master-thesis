@@ -2,6 +2,7 @@
 // Unit tests for WizardInitService (stateless, no mocks required)
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:twin2multicloud_flutter/models/deployer_config.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/services/wizard_init_service.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard_state.dart';
 
@@ -90,7 +91,7 @@ void main() {
         expect(result.state.gcp.source, CredentialSource.inherited);
       });
 
-      test('resets step to 0 if no credentials configured but step > 0', () {
+      test('restores workload step without deployment credentials', () {
         final data = TwinEditData(
           twin: {'name': 'Test', 'state': 'draft'},
           config: {
@@ -104,7 +105,7 @@ void main() {
           data: data,
         );
 
-        expect(result.state.currentStep, 0);
+        expect(result.state.currentStep, 1);
       });
 
       test('resets step to 1 if step >= 2 but no optimizer result', () {
@@ -261,7 +262,8 @@ void main() {
 
         expect(result.state.warningMessage, isNotNull);
         expect(result.state.warningMessage, contains('AZURE'));
-        expect(result.state.warningMessage, contains('Unconfigured'));
+        expect(result.state.warningMessage, contains('Deployment access'));
+        expect(result.state.warningMessage, isNot(contains('HOT')));
       });
 
       test('no warning when all providers in path are configured', () {

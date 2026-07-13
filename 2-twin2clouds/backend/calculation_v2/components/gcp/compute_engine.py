@@ -14,7 +14,7 @@ L4 and L5 are self-hosted on Compute Engine VMs.
 
 from typing import Dict, Any
 from ..types import GCPComponent, FormulaType
-from ...formulas import user_based_cost, storage_based_cost
+from ...formulas import required_first_unit_price, storage_based_cost, user_based_cost
 
 
 class GCPComputeEngineCalculator:
@@ -57,19 +57,28 @@ class GCPComputeEngineCalculator:
         hours = hours_per_month or self.HOURS_PER_MONTH
         p = pricing["gcp"]["twinmaker"]
         
-        # VM cost (CU formula - time-based)
+        vm_price = required_first_unit_price(
+            p,
+            (("e2MediumPrice", 1), ("vmPrice", 1), ("pricePerHour", 1)),
+            label="gcp.compute.twinmaker.vm_hour",
+        )
+        disk_price = required_first_unit_price(
+            p,
+            (("storagePrice", 1), ("diskStoragePrice", 1), ("storagePricePerGiBMonth", 1)),
+            label="gcp.compute.twinmaker.disk_storage",
+        )
+
         vm_cost = user_based_cost(
             price_per_editor=0,
             num_editors=0,
             price_per_viewer=0,
             num_viewers=0,
-            price_per_hour=p.get("e2MediumPrice", p.get("vmPrice", 0)),
+            price_per_hour=vm_price,
             total_hours=hours
         )
         
-        # Disk cost (CS formula)
         disk_cost = storage_based_cost(
-            price_per_gb_month=p.get("storagePrice", 0.04),
+            price_per_gb_month=disk_price,
             volume_gb=disk_gb,
             duration_months=1.0
         )
@@ -96,19 +105,28 @@ class GCPComputeEngineCalculator:
         hours = hours_per_month or self.HOURS_PER_MONTH
         p = pricing["gcp"]["grafana"]
         
-        # VM cost (CU formula - time-based)
+        vm_price = required_first_unit_price(
+            p,
+            (("e2MediumPrice", 1), ("vmPrice", 1), ("pricePerHour", 1)),
+            label="gcp.compute.grafana.vm_hour",
+        )
+        disk_price = required_first_unit_price(
+            p,
+            (("storagePrice", 1), ("diskStoragePrice", 1), ("storagePricePerGiBMonth", 1)),
+            label="gcp.compute.grafana.disk_storage",
+        )
+
         vm_cost = user_based_cost(
             price_per_editor=0,
             num_editors=0,
             price_per_viewer=0,
             num_viewers=0,
-            price_per_hour=p.get("e2MediumPrice", p.get("vmPrice", 0)),
+            price_per_hour=vm_price,
             total_hours=hours
         )
         
-        # Disk cost (CS formula)
         disk_cost = storage_based_cost(
-            price_per_gb_month=p.get("storagePrice", 0.04),
+            price_per_gb_month=disk_price,
             volume_gb=disk_gb,
             duration_months=1.0
         )

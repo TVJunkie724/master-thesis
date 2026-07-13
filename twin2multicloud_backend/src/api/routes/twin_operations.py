@@ -26,12 +26,16 @@ from src.models.twin import TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.management_contracts import (
-    DeploymentHistoryResponse,
-    DeploymentOutputsResponse,
-    DeploymentStatusResponse,
     OperationSessionResponse,
     RedeployReadinessResponse,
 )
+from src.schemas.deployment_logs import DeploymentLogPageResponse
+from src.schemas.deployment_operations import (
+    DeploymentHistoryResponse,
+    DeploymentOutputsResponse,
+    DeploymentStatusResponse,
+)
+from src.services.deployment_log_read_service import DeploymentLogReadService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
@@ -226,6 +230,32 @@ async def get_deployment_history(
         return _deployment_orchestrator(db).get_history(twin_id, current_user.id, limit)
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
+
+
+@router.get(
+    "/{twin_id}/logs",
+    response_model=DeploymentLogPageResponse,
+    operation_id="getDigitalTwinDeploymentLogs",
+    summary="Get a bounded page of persisted deployment logs",
+    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
+)
+async def get_deployment_logs(
+    twin_id: str,
+    session_id: str | None = Query(default=None),
+    after_event_id: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    twin = TwinRepository(db).get_active_for_user(twin_id, current_user.id)
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    return DeploymentLogReadService(db).get_page(
+        twin,
+        session_id=session_id,
+        after_event_id=after_event_id,
+        limit=limit,
+    )
 
 
 @router.post(

@@ -13,14 +13,6 @@ class SseService {
 
   SseService({required this.baseUrl, this.authToken});
 
-  /// Stream pricing refresh logs for a provider
-  /// Returns a stream of SseLogEvent objects
-  Stream<SseLogEvent> streamRefreshPricing(String provider, String twinId) {
-    final url =
-        '$baseUrl/optimizer/stream/refresh-pricing/$provider?twin_id=$twinId';
-    return _createEventStream(url);
-  }
-
   /// Stream deployment logs for a session
   /// Supports reconnection with lastEventId
   Stream<SseLogEvent> streamDeploymentLogs(String sseUrl, {int? lastEventId}) {

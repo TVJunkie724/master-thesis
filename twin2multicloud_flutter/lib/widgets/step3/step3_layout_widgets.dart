@@ -334,7 +334,7 @@ class Step3NoResultMessage extends StatelessWidget {
           Text('No Optimization Result', style: theme.textTheme.headlineSmall),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Please complete Step 2 (Optimizer) first.',
+            'Choose an architecture before preparing deployment artifacts.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

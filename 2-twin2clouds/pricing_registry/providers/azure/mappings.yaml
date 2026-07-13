@@ -71,14 +71,14 @@ mappings:
     review_status: draft
     normalization_rule: per_query_unit
     expected_cardinality: one_or_more_per_region
-    match: {service_name: Azure Digital Twins, meter_name: Standard Query Units}
+    match: {service_name: Digital Twins, meter_name: Standard Query Units}
   - intent_id: grafana.editor_user_month
     review_status: draft
     normalization_rule: per_user_month
     expected_cardinality: one_or_more_per_region
-    match: {service_name: Azure Managed Grafana, meter_name: Editor}
+    match: {service_name: Azure Grafana Service, product_name: Azure Managed Grafana, meter_name: Standard User}
   - intent_id: grafana.viewer_user_month
     review_status: draft
     normalization_rule: per_user_month
     expected_cardinality: one_or_more_per_region
-    match: {service_name: Azure Managed Grafana, meter_name: Viewer}
+    match: {service_name: Azure Grafana Service, product_name: Azure Managed Grafana, meter_name: Standard User}

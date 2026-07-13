@@ -589,6 +589,33 @@ class TestConfigRoutes:
 
         assert response.status_code == 400
 
+    def test_update_config_rejects_pricing_cloud_connection(self, authenticated_client):
+        client, headers = authenticated_client
+        connection = client.post(
+            "/cloud-connections/",
+            json={
+                "provider": "aws",
+                "purpose": "pricing",
+                "display_name": "AWS Pricing",
+                "aws": {
+                    "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                    "region": "eu-central-1",
+                },
+            },
+            headers=headers,
+        ).json()
+        twin_id = create_test_twin(client, headers)
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"cloud_connections": {"aws": connection["id"]}},
+            headers=headers,
+        )
+
+        assert response.status_code == 400
+        assert "cannot be bound" in response.json()["detail"]
+
     def test_update_config_rejects_unowned_cloud_connection(self, authenticated_client, db_session):
         """A twin cannot bind to another user's CloudConnection."""
         from src.models.cloud_connection import CloudConnection

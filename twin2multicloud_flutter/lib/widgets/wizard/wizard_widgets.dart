@@ -2,4 +2,3 @@
 // Barrel export for wizard widgets
 
 export 'exit_confirmation_dialog.dart';
-export 'step_indicator.dart';

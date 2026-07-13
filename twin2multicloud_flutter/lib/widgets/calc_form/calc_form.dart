@@ -1,14 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../models/calc_params.dart';
 
+enum CalcFormSection {
+  scenarioAndCurrency,
+  deviceTraffic,
+  processing,
+  retention,
+  twinCapabilities,
+}
+
 /// Main calculation form with all 26 input fields organized by layer
 class CalcForm extends StatefulWidget {
   final void Function(CalcParams params)? onChanged;
-  final void Function(bool isValid)? onValidChanged;  // Reports form validity
-  final CalcParams? initialParams;  // Load from saved config
-  final GlobalKey<FormState>? formKey;  // Optional external form key for validation
+  final void Function(bool isValid)? onValidChanged; // Reports form validity
+  final CalcParams? initialParams; // Load from saved config
+  final GlobalKey<FormState>?
+  formKey; // Optional external form key for validation
+  final CalcFormSection? section;
 
-  const CalcForm({super.key, this.onChanged, this.onValidChanged, this.initialParams, this.formKey});
+  const CalcForm({
+    super.key,
+    this.onChanged,
+    this.onValidChanged,
+    this.initialParams,
+    this.formKey,
+    this.section,
+  });
 
   @override
   State<CalcForm> createState() => _CalcFormState();
@@ -82,7 +99,7 @@ class _CalcFormState extends State<CalcForm> {
       currency: _currency,
     );
     widget.onChanged?.call(params);
-    
+
     // Report form validity after a frame to allow validators to run
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final isValid = _formKey.currentState?.validate() ?? true;
@@ -153,7 +170,7 @@ class _CalcFormState extends State<CalcForm> {
       _amountOfActiveEditors = p.amountOfActiveEditors;
       _amountOfActiveViewers = p.amountOfActiveViewers;
       _currency = p.currency;
-      _selectedPreset = null;  // No preset when loading saved
+      _selectedPreset = null; // No preset when loading saved
       _rebuildKey++;
     });
     _updateParams();
@@ -221,64 +238,64 @@ class _CalcFormState extends State<CalcForm> {
       child: KeyedSubtree(
         key: ValueKey(_rebuildKey),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Preset Scenarios
-          _buildPresetsSection(),
-          const SizedBox(height: 24),
-
-          // Currency Selection
-          _buildCurrencySection(),
-          const SizedBox(height: 24),
-
-          // Layer 1 & 2: Workload
-          _buildSectionHeader(
-            'Layer 1 & 2: IoT Workload',
-            icon: Icons.sensors,
-            description: 'Device count, message frequency, and message size drive ingestion and processing costs.',
-          ),
-          _buildWorkloadSection(),
-          const SizedBox(height: 24),
-
-          // Layer 2: Processing
-          _buildSectionHeader(
-            'Layer 2: Processing & Orchestration',
-            icon: Icons.memory,
-            description: 'Configure event handling, notifications, and error management.',
-          ),
-          _buildProcessingSection(),
-          const SizedBox(height: 24),
-
-          // Layer 3: Storage
-          _buildSectionHeader(
-            'Layer 3: Storage Tiers',
-            icon: Icons.storage,
-            description: 'Set data retention periods for hot, cool, and archive storage.',
-          ),
-          _buildStorageSection(),
-          const SizedBox(height: 24),
-
-          // Layer 4: Twin Management
-          _buildSectionHeader(
-            'Layer 4: Twin Management',
-            icon: Icons.view_in_ar,
-            description: 'Configure 3D model requirements for digital twin visualization.',
-          ),
-          _buildTwinManagementSection(),
-          const SizedBox(height: 24),
-
-          // Layer 5: Visualization
-          _buildSectionHeader(
-            'Layer 5: Visualization',
-            icon: Icons.dashboard,
-            description: 'Dashboard usage patterns and user access configuration.',
-          ),
-          _buildVisualizationSection(),
-        ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _section(CalcFormSection.scenarioAndCurrency, [
+              _buildPresetsSection(),
+              const SizedBox(height: 24),
+              _buildCurrencySection(),
+            ]),
+            _section(CalcFormSection.deviceTraffic, [
+              _buildSectionHeader(
+                'Device traffic',
+                icon: Icons.sensors,
+                description:
+                    'Describe connected devices and their telemetry volume.',
+              ),
+              _buildWorkloadSection(),
+            ]),
+            _section(CalcFormSection.processing, [
+              _buildSectionHeader(
+                'Processing',
+                icon: Icons.memory,
+                description:
+                    'Configure event handling, notifications, and device feedback.',
+              ),
+              _buildProcessingSection(),
+            ]),
+            _section(CalcFormSection.retention, [
+              _buildSectionHeader(
+                'Retention',
+                icon: Icons.storage,
+                description:
+                    'Set retention periods for hot, cool, and archive storage.',
+              ),
+              _buildStorageSection(),
+            ]),
+            _section(CalcFormSection.twinCapabilities, [
+              _buildSectionHeader(
+                'Twin capabilities',
+                icon: Icons.view_in_ar,
+                description:
+                    'Describe 3D representation and dashboard usage requirements.',
+              ),
+              _buildTwinManagementSection(),
+              const SizedBox(height: 24),
+              _buildVisualizationSection(),
+            ]),
+          ],
         ),
       ),
     );
   }
+
+  Widget _section(CalcFormSection section, List<Widget> children) => Offstage(
+    offstage: widget.section != null && widget.section != section,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    ),
+  );
 
   Widget _buildPresetsSection() {
     return Column(
@@ -290,9 +307,9 @@ class _CalcFormState extends State<CalcForm> {
             const SizedBox(width: 8),
             Text(
               'Quick Presets',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -313,7 +330,8 @@ class _CalcFormState extends State<CalcForm> {
               _buildPresetCard(
                 presetNumber: 1,
                 title: 'Smart Home',
-                description: 'Small scale, low frequency. Ideal for home automation.',
+                description:
+                    'Small scale, low frequency. Ideal for home automation.',
                 icon: Icons.home,
                 color: Colors.blue,
                 isSelected: _selectedPreset == 1,
@@ -345,7 +363,8 @@ class _CalcFormState extends State<CalcForm> {
               _buildPresetCard(
                 presetNumber: 2,
                 title: 'Smart Industrial',
-                description: 'Medium scale, high frequency. Factory monitoring.',
+                description:
+                    'Medium scale, high frequency. Factory monitoring.',
                 icon: Icons.factory,
                 color: Colors.orange,
                 isSelected: _selectedPreset == 2,
@@ -378,7 +397,8 @@ class _CalcFormState extends State<CalcForm> {
               _buildPresetCard(
                 presetNumber: 3,
                 title: 'Large Building',
-                description: 'Large scale, very high frequency. 3D digital twin.',
+                description:
+                    'Large scale, very high frequency. 3D digital twin.',
                 icon: Icons.apartment,
                 color: Colors.green,
                 isSelected: _selectedPreset == 3,
@@ -431,13 +451,11 @@ class _CalcFormState extends State<CalcForm> {
         elevation: isSelected ? 4 : 1,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: isSelected 
-            ? BorderSide(color: color, width: 2)
-            : BorderSide.none,
+          side: isSelected
+              ? BorderSide(color: color, width: 2)
+              : BorderSide.none,
         ),
-        color: isSelected 
-          ? color.withAlpha(25) 
-          : null,
+        color: isSelected ? color.withAlpha(25) : null,
         child: InkWell(
           onTap: onTap,
           child: Padding(
@@ -477,7 +495,11 @@ class _CalcFormState extends State<CalcForm> {
     );
   }
 
-  Widget _buildSectionHeader(String title, {String? description, IconData? icon}) {
+  Widget _buildSectionHeader(
+    String title, {
+    String? description,
+    IconData? icon,
+  }) {
     final headerColor = Theme.of(context).colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, top: 8),
@@ -553,7 +575,8 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Number of IoT Devices',
               value: _numberOfDevices,
               min: 1,
-              tooltip: 'The total number of IoT devices connecting to the system. Directly impacts ingestion and connection costs.',
+              tooltip:
+                  'The total number of IoT devices connecting to the system. Directly impacts ingestion and connection costs.',
               onChanged: (v) {
                 setState(() {
                   _numberOfDevices = v;
@@ -567,7 +590,8 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Sending Interval (minutes)',
               value: _deviceSendingIntervalInMinutes,
               min: 0.1,
-              tooltip: 'How often each device sends a message (in minutes). Lower intervals mean more messages and higher processing costs.',
+              tooltip:
+                  'How often each device sends a message (in minutes). Lower intervals mean more messages and higher processing costs.',
               onChanged: (v) {
                 setState(() {
                   _deviceSendingIntervalInMinutes = v;
@@ -581,7 +605,8 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Average Message Size (KB)',
               value: _averageSizeOfMessageInKb,
               min: 0.01,
-              tooltip: 'The average size of each telemetry message in Kilobytes. Larger messages increase storage and transfer costs.',
+              tooltip:
+                  'The average size of each telemetry message in Kilobytes. Larger messages increase storage and transfer costs.',
               onChanged: (v) {
                 setState(() {
                   _averageSizeOfMessageInKb = v;
@@ -595,7 +620,8 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Number of Device Types',
               value: _numberOfDeviceTypes,
               min: 1,
-              tooltip: 'Number of distinct device types. Each type requires a separate processor function for data transformation.',
+              tooltip:
+                  'Number of distinct device types. Each type requires a separate processor function for data transformation.',
               onChanged: (v) {
                 setState(() {
                   _numberOfDeviceTypes = v;
@@ -619,7 +645,8 @@ class _CalcFormState extends State<CalcForm> {
             // Event Checking - master toggle that controls dependent options
             _buildSwitchWithTooltip(
               title: 'Enable Event Checking',
-              tooltip: 'If enabled, incoming messages are checked against defined rules to trigger alerts. Adds processing cost.',
+              tooltip:
+                  'If enabled, incoming messages are checked against defined rules to trigger alerts. Adds processing cost.',
               value: _useEventChecking,
               onChanged: (v) {
                 setState(() {
@@ -642,7 +669,8 @@ class _CalcFormState extends State<CalcForm> {
                   label: 'Events per Message',
                   value: _eventsPerMessage,
                   min: 1,
-                  tooltip: 'The average number of event rules evaluated per message. More rules = higher compute cost.',
+                  tooltip:
+                      'The average number of event rules evaluated per message. More rules = higher compute cost.',
                   onChanged: (v) {
                     setState(() {
                       _eventsPerMessage = v;
@@ -661,7 +689,8 @@ class _CalcFormState extends State<CalcForm> {
               // Notification Workflow - requires event checking
               _buildSwitchWithTooltip(
                 title: 'Trigger Notification Workflow',
-                tooltip: 'If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket).',
+                tooltip:
+                    'If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket).',
                 value: _triggerNotificationWorkflow,
                 onChanged: (v) {
                   setState(() {
@@ -678,7 +707,8 @@ class _CalcFormState extends State<CalcForm> {
                     label: 'Orchestration Actions per Message',
                     value: _orchestrationActionsPerMessage,
                     min: 1,
-                    tooltip: 'The number of steps in the orchestration workflow. More steps increase orchestration costs.',
+                    tooltip:
+                        'The number of steps in the orchestration workflow. More steps increase orchestration costs.',
                     onChanged: (v) {
                       setState(() {
                         _orchestrationActionsPerMessage = v;
@@ -694,7 +724,8 @@ class _CalcFormState extends State<CalcForm> {
               // Feedback to Device - requires event checking
               _buildSwitchWithTooltip(
                 title: 'Return Feedback to Device',
-                tooltip: 'If enabled, the system sends a confirmation or command back to the device after processing. Increases egress traffic.',
+                tooltip:
+                    'If enabled, the system sends a confirmation or command back to the device after processing. Increases egress traffic.',
                 value: _returnFeedbackToDevice,
                 onChanged: (v) {
                   setState(() {
@@ -711,7 +742,8 @@ class _CalcFormState extends State<CalcForm> {
                     label: 'Number of Event Actions',
                     value: _numberOfEventActions,
                     min: 0,
-                    tooltip: 'Number of custom event action handlers from config_events.json. Each action is a separate serverless function.',
+                    tooltip:
+                        'Number of custom event action handlers from config_events.json. Each action is a separate serverless function.',
                     onChanged: (v) {
                       setState(() {
                         _numberOfEventActions = v;
@@ -729,7 +761,8 @@ class _CalcFormState extends State<CalcForm> {
             // Always disabled with "Not Implemented" badge (like GCP self-hosted options)
             _buildDisabledSwitchWithBadge(
               title: 'Integrate Error Handling',
-              tooltip: 'If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead.',
+              tooltip:
+                  'If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead.',
             ),
           ],
         ),
@@ -749,7 +782,8 @@ class _CalcFormState extends State<CalcForm> {
               min: 1,
               max: 12,
               suffix: 'months',
-              tooltip: 'How long data is kept in high-speed storage (e.g., DynamoDB). Expensive but fast access.',
+              tooltip:
+                  'How long data is kept in high-speed storage (e.g., DynamoDB). Expensive but fast access.',
               onChanged: (v) {
                 setState(() {
                   _hotStorageDurationInMonths = v;
@@ -765,7 +799,8 @@ class _CalcFormState extends State<CalcForm> {
               min: 1,
               max: 24,
               suffix: 'months',
-              tooltip: 'How long data is kept in cost-effective storage (e.g., S3 IA). Cheaper than hot storage.',
+              tooltip:
+                  'How long data is kept in cost-effective storage (e.g., S3 IA). Cheaper than hot storage.',
               onChanged: (v) {
                 setState(() {
                   _coolStorageDurationInMonths = v;
@@ -781,7 +816,8 @@ class _CalcFormState extends State<CalcForm> {
               min: 6,
               max: 36,
               suffix: 'months',
-              tooltip: 'How long data is kept in long-term archive storage (e.g., Glacier). Lowest cost, slow retrieval.',
+              tooltip:
+                  'How long data is kept in long-term archive storage (e.g., Glacier). Lowest cost, slow retrieval.',
               onChanged: (v) {
                 setState(() {
                   _archiveStorageDurationInMonths = v;
@@ -826,7 +862,8 @@ class _CalcFormState extends State<CalcForm> {
             // 3D Model Toggle
             _buildSwitchWithTooltip(
               title: 'Is a 3D Model Necessary?',
-              tooltip: 'Does your use case require a 3D visual representation of the assets?',
+              tooltip:
+                  'Does your use case require a 3D visual representation of the assets?',
               value: _needs3DModel,
               onChanged: (v) {
                 setState(() {
@@ -842,7 +879,8 @@ class _CalcFormState extends State<CalcForm> {
                 label: 'Number of 3D Entities',
                 value: _entityCount,
                 min: 0,
-                tooltip: 'The number of distinct 3D objects or components in your digital twin scene.',
+                tooltip:
+                    'The number of distinct 3D objects or components in your digital twin scene.',
                 onChanged: (v) {
                   setState(() {
                     _entityCount = v;
@@ -856,7 +894,8 @@ class _CalcFormState extends State<CalcForm> {
                 label: 'Average 3D Model Size (MB)',
                 value: _average3DModelSizeInMB,
                 min: 0.1,
-                tooltip: 'The average file size of each 3D model asset in Megabytes. Used to calculate storage costs.',
+                tooltip:
+                    'The average file size of each 3D model asset in Megabytes. Used to calculate storage costs.',
                 onChanged: (v) {
                   setState(() {
                     _average3DModelSizeInMB = v;
@@ -872,7 +911,8 @@ class _CalcFormState extends State<CalcForm> {
             // GCP Self-Hosted L4 (disabled)
             _buildDisabledSwitchWithBadge(
               title: 'Allow GCP Self-Hosted L4',
-              tooltip: 'GCP lacks a managed Twin service like AWS TwinMaker or Azure Digital Twins. Self-hosted Compute Engine option is not yet implemented.',
+              tooltip:
+                  'GCP lacks a managed Twin service like AWS TwinMaker or Azure Digital Twins. Self-hosted Compute Engine option is not yet implemented.',
             ),
           ],
         ),
@@ -890,7 +930,8 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Dashboard Refreshes per Hour',
               value: _dashboardRefreshesPerHour,
               min: 0,
-              tooltip: 'How many times per hour the dashboard data is updated. Frequent updates increase API costs.',
+              tooltip:
+                  'How many times per hour the dashboard data is updated. Frequent updates increase API costs.',
               onChanged: (v) {
                 setState(() {
                   _dashboardRefreshesPerHour = v;
@@ -904,7 +945,8 @@ class _CalcFormState extends State<CalcForm> {
               label: 'API Calls per Dashboard Refresh',
               value: _apiCallsPerDashboardRefresh,
               min: 1,
-              tooltip: 'Number of backend API calls made each time the dashboard refreshes. Depends on dashboard complexity.',
+              tooltip:
+                  'Number of backend API calls made each time the dashboard refreshes. Depends on dashboard complexity.',
               onChanged: (v) {
                 setState(() {
                   _apiCallsPerDashboardRefresh = v;
@@ -920,7 +962,8 @@ class _CalcFormState extends State<CalcForm> {
               min: 0,
               max: 24,
               suffix: 'hours',
-              tooltip: 'The number of hours per day the dashboard is actively being viewed by operators.',
+              tooltip:
+                  'The number of hours per day the dashboard is actively being viewed by operators.',
               onChanged: (v) {
                 setState(() {
                   _dashboardActiveHoursPerDay = v;
@@ -934,7 +977,8 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Monthly Active Editors',
               value: _amountOfActiveEditors,
               min: 0,
-              tooltip: 'Number of users who can create or edit dashboards. Usually incurs a higher license fee.',
+              tooltip:
+                  'Number of users who can create or edit dashboards. Usually incurs a higher license fee.',
               onChanged: (v) {
                 setState(() {
                   _amountOfActiveEditors = v;
@@ -963,7 +1007,8 @@ class _CalcFormState extends State<CalcForm> {
             // GCP Self-Hosted L5 (disabled)
             _buildDisabledSwitchWithBadge(
               title: 'Allow GCP Self-Hosted L5',
-              tooltip: 'GCP lacks a managed Grafana service. Self-hosted Grafana on Compute Engine option is not yet implemented.',
+              tooltip:
+                  'GCP lacks a managed Grafana service. Self-hosted Grafana on Compute Engine option is not yet implemented.',
             ),
           ],
         ),
@@ -1103,9 +1148,11 @@ class _CalcFormState extends State<CalcForm> {
               final parsed = int.tryParse(text);
               if (parsed != null) {
                 // Clamp to valid range
-                final clamped = max != null 
-                    ? parsed.clamp(min, max) 
-                    : parsed < min ? min : parsed;
+                final clamped = max != null
+                    ? parsed.clamp(min, max)
+                    : parsed < min
+                    ? min
+                    : parsed;
                 onChanged(clamped);
               }
             },
@@ -1150,9 +1197,11 @@ class _CalcFormState extends State<CalcForm> {
               final parsed = double.tryParse(text);
               if (parsed != null) {
                 // Clamp to valid range
-                final clamped = max != null 
-                    ? parsed.clamp(min, max) 
-                    : parsed < min ? min : parsed;
+                final clamped = max != null
+                    ? parsed.clamp(min, max)
+                    : parsed < min
+                    ? min
+                    : parsed;
                 onChanged(clamped);
               }
             },

@@ -4,9 +4,12 @@ import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../core/result.dart';
 import '../models/calc_result.dart';
+import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
-import '../models/pricing_review_state.dart';
+import '../models/pricing_candidate_review.dart';
+import '../models/pricing_health.dart';
+import '../models/pricing_refresh_run.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
 
@@ -55,6 +58,13 @@ class ApiService {
         .toList();
   }
 
+  Future<CloudAccessInventory> getCloudAccessInventory() async {
+    final response = await _dio.get('/cloud-access');
+    return CloudAccessInventory.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   ) async {
@@ -69,12 +79,15 @@ class ApiService {
     String id, {
     String? displayName,
     Map<String, dynamic>? cloudScope,
+    bool? isDefaultForPricing,
   }) async {
     final response = await _dio.patch(
       '/cloud-connections/$id',
       data: {
         if (displayName != null) 'display_name': displayName,
         if (cloudScope != null) 'cloud_scope': cloudScope,
+        if (isDefaultForPricing != null)
+          'is_default_for_pricing': isDefaultForPricing,
       },
     );
     return CloudConnection.fromJson(response.data as Map<String, dynamic>);
@@ -219,15 +232,67 @@ class ApiService {
     return response.data;
   }
 
-  /// Get typed pricing review state for all providers.
-  Future<PricingReviewStateResponse> getPricingReviewState([
-    String? twinId,
-  ]) async {
-    final response = await _dio.get(
-      '/optimizer/pricing-review-state',
-      queryParameters: {if (twinId != null) 'twin_id': twinId},
+  Future<PricingHealthResponse> getPricingHealth() async {
+    final response = await _dio.get('/optimizer/pricing-health');
+    return PricingHealthResponse.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
     );
-    return PricingReviewStateResponse.fromJson(
+  }
+
+  Future<PricingRefreshRun> startPricingRefresh(
+    String provider, {
+    String? connectionId,
+    bool force = true,
+  }) async {
+    final response = await _dio.post(
+      '/optimizer/pricing-refresh/${provider.toLowerCase()}',
+      data: {'pricing_connection_id': connectionId, 'force': force},
+      options: Options(receiveTimeout: const Duration(minutes: 20)),
+    );
+    return PricingRefreshRun.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
+  Future<PricingCandidateReportList> listPricingCandidateReports(
+    String provider,
+    String refreshRunId,
+  ) async {
+    final response = await _dio.get(
+      '/optimizer/pricing-review/${provider.toLowerCase()}/candidate-reports',
+      queryParameters: {'refresh_run_id': refreshRunId},
+    );
+    return PricingCandidateReportList.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
+  Future<PricingTrace> getPricingCandidateTrace(String reportId) async {
+    final response = await _dio.get(
+      '/optimizer/pricing-review/candidate-reports/$reportId/trace',
+    );
+    return PricingTrace.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
+  Future<PricingReviewDecision> createPricingReviewDecision(
+    String reportId,
+    String decision, {
+    String? candidateId,
+    String? rationale,
+  }) async {
+    final response = await _dio.post(
+      '/optimizer/pricing-review/decisions',
+      data: {
+        'report_id': reportId,
+        'decision': decision,
+        if (candidateId != null) 'selected_candidate_id': candidateId,
+        if (rationale != null && rationale.trim().isNotEmpty)
+          'rationale': rationale.trim(),
+      },
+    );
+    return PricingReviewDecision.fromJson(
       Map<String, dynamic>.from(response.data as Map),
     );
   }
@@ -235,19 +300,6 @@ class ApiService {
   /// Get regions data freshness status for all providers
   Future<Map<String, dynamic>> getRegionsStatus() async {
     final response = await _dio.get('/optimizer/regions-status');
-    return response.data;
-  }
-
-  /// Refresh pricing for a specific provider
-  /// Uses credentials from twin configuration
-  Future<Map<String, dynamic>> refreshPricing(
-    String provider,
-    String twinId,
-  ) async {
-    final response = await _dio.post(
-      '/optimizer/refresh-pricing/$provider',
-      queryParameters: {'twin_id': twinId},
-    );
     return response.data;
   }
 
