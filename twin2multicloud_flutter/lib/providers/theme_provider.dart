@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/management_api.dart';
-import 'twins_provider.dart'; // Use shared apiServiceProvider
+import 'runtime_providers.dart';
 
 final themeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(
   ThemeNotifier.new,
@@ -17,6 +17,13 @@ class ThemeNotifier extends Notifier<ThemeMode> {
   @override
   ThemeMode build() {
     _api = ref.read(apiServiceProvider);
+    final runtime = ref.read(appRuntimeProvider);
+    final initialUser = ref.read(initialUserProvider);
+    if (runtime.isDemo && initialUser != null) {
+      return initialUser.themePreference == 'light'
+          ? ThemeMode.light
+          : ThemeMode.dark;
+    }
     _loadFromStorage();
     ref.onDispose(() {
       _debounceTimer?.cancel();
