@@ -2,8 +2,8 @@
 title: "Phase 8: Twin Overview Deployment Operations"
 description: "Plan Twin Overview hardening for deploy, destroy, preflight, logs, outputs, and permission-set visibility."
 tags: [flutter, frontend-delta, twin-overview, deployment, preflight]
-lastUpdated: "2026-06-13"
-version: "1.0"
+lastUpdated: "2026-07-14"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -17,6 +17,14 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 -->
 
 # Phase 8: Twin Overview Deployment Operations
+
+**Status:** In progress on `codex/twin-overview-operations-hardening`.
+
+The binding implementation contract is
+[`2026-07-14_twin_overview_operations_hardening.md`](../../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md).
+It divides this phase into five independently reviewed and committed subphases:
+typed contracts/state, twin-scoped readiness, resilient logs, testing utilities,
+and the final responsive/accessibility quality gate.
 
 ## Summary
 
