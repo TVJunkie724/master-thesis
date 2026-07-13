@@ -3,10 +3,13 @@ import 'dart:convert';
 import 'package:flutter_client_sse/flutter_client_sse.dart';
 import 'package:flutter_client_sse/constants/sse_request_type_enum.dart';
 import '../utils/api_error_handler.dart';
+import 'log_stream_client.dart';
+
+export 'log_stream_client.dart' show SseLogEvent;
 
 /// Service for handling Server-Sent Events (SSE) streams
 /// Reusable for pricing refresh, deployment logs, etc.
-class SseService {
+class SseService implements LogStreamClient {
   final String baseUrl;
   final String? authToken;
   StreamSubscription? _currentSubscription;
@@ -15,6 +18,7 @@ class SseService {
 
   /// Stream deployment logs for a session
   /// Supports reconnection with lastEventId
+  @override
   Stream<SseLogEvent> streamDeploymentLogs(String sseUrl, {int? lastEventId}) {
     var url = '$baseUrl$sseUrl';
     if (lastEventId != null && lastEventId > 0) {
@@ -91,32 +95,9 @@ class SseService {
   }
 
   /// Cancel current SSE subscription
+  @override
   void cancel() {
     _currentSubscription?.cancel();
     _currentSubscription = null;
   }
-}
-
-/// Represents a single SSE log event
-class SseLogEvent {
-  final int id; // Event ID for reconnection support
-  final String message;
-  final String type; // 'log', 'complete', 'error', 'heartbeat', 'done'
-  final String? level; // 'info', 'error', 'warning'
-  final Map<String, dynamic>? outputs;
-  final Map<String, dynamic>? data; // Raw parsed data for custom event types
-
-  SseLogEvent({
-    this.id = 0,
-    required this.message,
-    required this.type,
-    this.level,
-    this.outputs,
-    this.data,
-  });
-
-  bool get isComplete => type == 'complete' || type == 'done';
-  bool get isError => type == 'error';
-  bool get isLog => type == 'log';
-  bool get isHeartbeat => type == 'heartbeat';
 }

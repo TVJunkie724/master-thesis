@@ -8,7 +8,7 @@ import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/deployer_config.dart';
-import '../../services/api_service.dart';
+import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
@@ -30,10 +30,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final WizardZipService _zipService;
   final WizardGlbCleanupService _glbCleanupService;
   final WizardDeployerValidationService _deployerValidationService;
-  final ApiService _api;
+  final ManagementApi _api;
 
   WizardBloc({
-    required ApiService api,
+    required ManagementApi api,
     WizardInitService? initService,
     WizardZipService? zipService,
     WizardGlbCleanupService? glbCleanupService,

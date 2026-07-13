@@ -2,9 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dashboard_stats.dart';
 import '../models/pricing_health.dart';
 import '../models/twin.dart';
-import '../services/api_service.dart';
+import 'runtime_providers.dart';
 
-final apiServiceProvider = Provider((ref) => ApiService());
+export 'runtime_providers.dart'
+    show apiServiceProvider, logStreamClientFactoryProvider;
 
 final twinsProvider = FutureProvider<List<Twin>>((ref) async {
   final api = ref.read(apiServiceProvider);

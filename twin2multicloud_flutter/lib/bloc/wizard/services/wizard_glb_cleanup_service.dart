@@ -1,9 +1,10 @@
-import '../../../services/api_service.dart';
+import '../../../services/management_api.dart';
 
 class WizardGlbCleanupService {
-  final ApiService _api;
+  final DeploymentConfigurationApi _api;
 
-  const WizardGlbCleanupService({required ApiService api}) : _api = api;
+  const WizardGlbCleanupService({required DeploymentConfigurationApi api})
+    : _api = api;
 
   Future<void> deleteUploadedGlb({
     required String? twinId,

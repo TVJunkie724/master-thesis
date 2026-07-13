@@ -1,11 +1,13 @@
 import '../../../models/validation_result.dart';
-import '../../../services/api_service.dart';
+import '../../../services/management_api.dart';
 import '../../../utils/api_error_handler.dart';
 
 class WizardDeployerValidationService {
-  final ApiService _api;
+  final DeploymentConfigurationApi _api;
 
-  const WizardDeployerValidationService({required ApiService api}) : _api = api;
+  const WizardDeployerValidationService({
+    required DeploymentConfigurationApi api,
+  }) : _api = api;
 
   Future<ValidationResult> validateConfigFile({
     required String? twinId,

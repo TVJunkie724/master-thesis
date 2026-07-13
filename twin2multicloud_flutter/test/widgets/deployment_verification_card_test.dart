@@ -42,7 +42,7 @@ void main() {
               create: (_) => DeploymentVerificationBloc(
                 twinId: 'twin-1',
                 api: api,
-                sseServiceFactory: () => sse,
+                logStreamClientFactory: () => sse,
               ),
               child: const DeploymentVerificationCard(),
             ),

@@ -2,14 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/api_service.dart';
-import 'twins_provider.dart';  // Use shared apiServiceProvider
+import '../services/management_api.dart';
+import 'twins_provider.dart'; // Use shared apiServiceProvider
 
-final themeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(ThemeNotifier.new);
+final themeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(
+  ThemeNotifier.new,
+);
 
 class ThemeNotifier extends Notifier<ThemeMode> {
   static const _storageKey = 'theme_preference';
-  late final ApiService _api;
+  late final UserPreferencesApi _api;
   Timer? _debounceTimer;
 
   @override
