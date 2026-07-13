@@ -5,25 +5,28 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../config/api_config.dart';
-import '../../services/api_service.dart';
-import '../../services/sse_service.dart';
+import '../../services/log_stream_client.dart';
+import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'twin_overview_event.dart';
 import 'twin_overview_state.dart';
 
 class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
-  final ApiService _api;
+  final ManagementApi _api;
+  final LogStreamClientFactory _logStreamClientFactory;
   String? _currentTwinId;
   Timer? _pollingTimer;
   StreamSubscription? _sseSubscription;
-  SseService? _sseService;
+  LogStreamClient? _sseService;
   StreamSubscription? _logTraceSseSubscription;
-  SseService? _logTraceSseService;
+  LogStreamClient? _logTraceSseService;
 
-  TwinOverviewBloc({required ApiService api})
-    : _api = api,
-      super(const TwinOverviewLoading()) {
+  TwinOverviewBloc({
+    required ManagementApi api,
+    required LogStreamClientFactory logStreamClientFactory,
+  }) : _api = api,
+       _logStreamClientFactory = logStreamClientFactory,
+       super(const TwinOverviewLoading()) {
     on<TwinOverviewLoad>(_onLoad);
     on<TwinOverviewRefresh>(_onRefresh);
     on<TwinOverviewDeploy>(_onDeploy);
@@ -592,10 +595,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   }) {
     _cancelLogTraceSseSubscription();
 
-    _logTraceSseService = SseService(
-      baseUrl: ApiConfig.baseUrl,
-      authToken: ApiConfig.devAuthToken,
-    );
+    _logTraceSseService = _logStreamClientFactory();
 
     // Use provided sseUrl (from test endpoint) or construct default URL
     final streamUrl = sseUrl ?? '/twins/$twinId/log-trace/stream/$traceId';
@@ -700,10 +700,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     _cancelSseSubscription();
 
     // Create SSE service with auth token
-    _sseService = SseService(
-      baseUrl: ApiConfig.baseUrl,
-      authToken: ApiConfig.devAuthToken,
-    );
+    _sseService = _logStreamClientFactory();
 
     _sseSubscription = _sseService!
         .streamDeploymentLogs(sseUrl)

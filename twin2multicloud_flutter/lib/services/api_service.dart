@@ -12,8 +12,9 @@ import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
+import 'management_api.dart';
 
-class ApiService {
+class ApiService implements ManagementApi {
   late final Dio _dio;
   String? _token = ApiConfig.devAuthToken;
 
@@ -40,11 +41,14 @@ class ApiService {
     );
   }
 
+  @override
   void setToken(String token) => _token = token;
 
   /// Get current auth token for SSE connections
+  @override
   Future<String?> getAuthToken() async => _token;
 
+  @override
   Future<List<CloudConnection>> listCloudConnections({
     CloudProvider? provider,
   }) async {
@@ -58,6 +62,7 @@ class ApiService {
         .toList();
   }
 
+  @override
   Future<CloudAccessInventory> getCloudAccessInventory() async {
     final response = await _dio.get('/cloud-access');
     return CloudAccessInventory.fromJson(
@@ -65,6 +70,7 @@ class ApiService {
     );
   }
 
+  @override
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   ) async {
@@ -75,6 +81,7 @@ class ApiService {
     return CloudConnection.fromJson(response.data as Map<String, dynamic>);
   }
 
+  @override
   Future<CloudConnection> updateCloudConnection(
     String id, {
     String? displayName,
@@ -93,10 +100,12 @@ class ApiService {
     return CloudConnection.fromJson(response.data as Map<String, dynamic>);
   }
 
+  @override
   Future<void> deleteCloudConnection(String id) async {
     await _dio.delete('/cloud-connections/$id');
   }
 
+  @override
   Future<CloudConnectionValidationResult> validateCloudConnection(
     String id,
   ) async {
@@ -107,6 +116,7 @@ class ApiService {
   }
 
   /// Update current user's preferences (e.g., theme)
+  @override
   Future<Map<String, dynamic>> updateUserPreferences({
     String? themePreference,
   }) async {
@@ -116,11 +126,13 @@ class ApiService {
     return response.data;
   }
 
+  @override
   Future<List<dynamic>> getTwins() async {
     final response = await _dio.get('/twins/');
     return response.data;
   }
 
+  @override
   Future<DashboardStats> getDashboardStats() async {
     final response = await _dio.get('/dashboard/stats');
     return DashboardStats.fromJson(
@@ -128,16 +140,19 @@ class ApiService {
     );
   }
 
+  @override
   Future<Map<String, dynamic>> getTwin(String twinId) async {
     final response = await _dio.get('/twins/$twinId');
     return response.data;
   }
 
+  @override
   Future<Map<String, dynamic>> createTwin(String name) async {
     final response = await _dio.post('/twins/', data: {'name': name});
     return response.data;
   }
 
+  @override
   Future<Map<String, dynamic>> updateTwin(
     String twinId, {
     String? name,
@@ -151,15 +166,18 @@ class ApiService {
     return response.data;
   }
 
+  @override
   Future<void> deleteTwin(String twinId) async {
     await _dio.delete('/twins/$twinId');
   }
 
+  @override
   Future<Map<String, dynamic>> getTwinConfig(String twinId) async {
     final response = await _dio.get('/twins/$twinId/config/');
     return response.data;
   }
 
+  @override
   Future<Map<String, dynamic>> updateTwinConfig(
     String twinId,
     Map<String, dynamic> config,
@@ -168,6 +186,7 @@ class ApiService {
     return response.data;
   }
 
+  @override
   Future<Map<String, dynamic>> updateTwinConfigRequest(
     String twinId,
     TwinConfigUpdateRequest request,
@@ -175,6 +194,7 @@ class ApiService {
     return updateTwinConfig(twinId, request.toJson());
   }
 
+  @override
   Future<Map<String, dynamic>> validateCredentials(
     String twinId,
     String provider,
@@ -186,6 +206,7 @@ class ApiService {
   }
 
   /// Validate credentials without storing them (inline validation)
+  @override
   Future<Map<String, dynamic>> validateCredentialsInline(
     String provider,
     Map<String, dynamic> credentials,
@@ -199,6 +220,7 @@ class ApiService {
 
   /// Validate credentials against BOTH Optimizer and Deployer APIs
   /// Returns: { provider, valid, optimizer: {valid, message}, deployer: {valid, message} }
+  @override
   Future<Map<String, dynamic>> validateCredentialsDual(
     String provider,
     Map<String, dynamic> credentials,
@@ -212,6 +234,7 @@ class ApiService {
 
   /// Validate STORED credentials against BOTH APIs
   /// Used when fields are empty (hidden secrets)
+  @override
   Future<Map<String, dynamic>> validateStoredCredentialsDual(
     String twinId,
     String provider,
@@ -227,11 +250,13 @@ class ApiService {
   // ============================================================
 
   /// Get pricing data freshness status for all providers
+  @override
   Future<Map<String, dynamic>> getPricingStatus() async {
     final response = await _dio.get('/optimizer/pricing-status');
     return response.data;
   }
 
+  @override
   Future<PricingHealthResponse> getPricingHealth() async {
     final response = await _dio.get('/optimizer/pricing-health');
     return PricingHealthResponse.fromJson(
@@ -239,6 +264,7 @@ class ApiService {
     );
   }
 
+  @override
   Future<PricingRefreshRun> startPricingRefresh(
     String provider, {
     String? connectionId,
@@ -254,6 +280,7 @@ class ApiService {
     );
   }
 
+  @override
   Future<PricingCandidateReportList> listPricingCandidateReports(
     String provider,
     String refreshRunId,
@@ -267,6 +294,7 @@ class ApiService {
     );
   }
 
+  @override
   Future<PricingTrace> getPricingCandidateTrace(String reportId) async {
     final response = await _dio.get(
       '/optimizer/pricing-review/candidate-reports/$reportId/trace',
@@ -276,6 +304,7 @@ class ApiService {
     );
   }
 
+  @override
   Future<PricingReviewDecision> createPricingReviewDecision(
     String reportId,
     String decision, {
@@ -298,6 +327,7 @@ class ApiService {
   }
 
   /// Get regions data freshness status for all providers
+  @override
   Future<Map<String, dynamic>> getRegionsStatus() async {
     final response = await _dio.get('/optimizer/regions-status');
     return response.data;
@@ -305,6 +335,7 @@ class ApiService {
 
   /// Calculate costs using Optimizer
   /// Returns full result including costs, cheapest path, and overrides
+  @override
   Future<Map<String, dynamic>> calculateCosts(
     Map<String, dynamic> params,
   ) async {
@@ -317,12 +348,14 @@ class ApiService {
   // ============================================================
 
   /// Get optimizer config (params + result + cheapest path)
+  @override
   Future<Map<String, dynamic>> getOptimizerConfig(String twinId) async {
     final response = await _dio.get('/twins/$twinId/optimizer-config');
     return response.data;
   }
 
   /// Save params only (before calculation)
+  @override
   Future<void> saveOptimizerParams(
     String twinId,
     Map<String, dynamic> params,
@@ -334,6 +367,7 @@ class ApiService {
   }
 
   /// Save full result with pricing snapshots (after calculation)
+  @override
   Future<void> saveOptimizerResult(
     String twinId, {
     required Map<String, dynamic> params,
@@ -355,6 +389,7 @@ class ApiService {
   }
 
   /// Export pricing data from Optimizer (for snapshotting)
+  @override
   Future<Map<String, dynamic>> exportPricing(String provider) async {
     final response = await _dio.get('/optimizer/pricing/export/$provider');
     return response.data;
@@ -365,12 +400,14 @@ class ApiService {
   // ============================================================
 
   /// Get deployer config for a twin
+  @override
   Future<Map<String, dynamic>> getDeployerConfig(String twinId) async {
     final response = await _dio.get('/twins/$twinId/deployer/config');
     return response.data;
   }
 
   /// Update deployer config for a twin
+  @override
   Future<Map<String, dynamic>> updateDeployerConfig(
     String twinId,
     Map<String, dynamic> config,
@@ -382,6 +419,7 @@ class ApiService {
     return response.data;
   }
 
+  @override
   Future<Map<String, dynamic>> updateDeployerConfigRequest(
     String twinId,
     DeployerConfigUpdateRequest request,
@@ -390,6 +428,7 @@ class ApiService {
   }
 
   /// Validate deployer config via Management API (proxies to Deployer)
+  @override
   Future<Map<String, dynamic>> validateDeployerConfig(
     String twinId,
     String configType, // 'config', 'events', or 'iot'
@@ -404,6 +443,7 @@ class ApiService {
 
   /// Validate L2 function code or state machine (proxies to Deployer)
   /// Returns normalized {valid: bool, message: String}
+  @override
   Future<Map<String, dynamic>> validateL2Content(
     String twinId,
     String type, // 'function-code' or 'state-machine'
@@ -423,6 +463,7 @@ class ApiService {
 
   /// Validate L4/L5 content (hierarchy, scene-config, user-config)
   /// Returns normalized {valid: bool, message: String}
+  @override
   Future<Map<String, dynamic>> validateL4Content(
     String twinId,
     String type, // 'hierarchy', 'scene-config', 'user-config'
@@ -442,6 +483,7 @@ class ApiService {
 
   /// Upload scene.glb file for 3D visualization
   /// Returns {message: String, size_mb: double}
+  @override
   Future<Map<String, dynamic>> uploadSceneGlb(
     String twinId,
     dynamic fileBytes, // Uint8List or File
@@ -458,6 +500,7 @@ class ApiService {
   }
 
   /// Delete scene.glb file for a twin
+  @override
   Future<void> deleteSceneGlb(String twinId) async {
     await _dio.delete('/twins/$twinId/deployer/upload-glb');
   }
@@ -473,6 +516,7 @@ class ApiService {
   ///
   /// Validation errors are aggregated (not fail-fast) to provide
   /// maximum feedback on first upload.
+  @override
   Future<Map<String, dynamic>> uploadProjectZip(
     String twinId,
     dynamic fileBytes, // Uint8List or File
@@ -500,6 +544,7 @@ class ApiService {
   ///
   /// Returns [Success] with [CalcResult] on success,
   /// or [Failure] with [AppException] on error.
+  @override
   Future<Result<CalcResult>> calculateCostsResult(
     Map<String, dynamic> params,
   ) async {
@@ -519,6 +564,7 @@ class ApiService {
   }
 
   /// Get pricing status with structured error handling.
+  @override
   Future<Result<Map<String, dynamic>>> getPricingStatusResult() async {
     try {
       final data = await getPricingStatus();
@@ -535,6 +581,7 @@ class ApiService {
   }
 
   /// Get twin config with structured error handling.
+  @override
   Future<Result<Map<String, dynamic>>> getTwinConfigResult(
     String twinId,
   ) async {
@@ -557,18 +604,21 @@ class ApiService {
   // ==========================================================================
 
   /// Deploy a twin's infrastructure
+  @override
   Future<Map<String, dynamic>> deployTwin(String twinId) async {
     final response = await _dio.post('/twins/$twinId/deploy');
     return response.data as Map<String, dynamic>;
   }
 
   /// Destroy a twin's infrastructure
+  @override
   Future<Map<String, dynamic>> destroyTwin(String twinId) async {
     final response = await _dio.post('/twins/$twinId/destroy');
     return response.data as Map<String, dynamic>;
   }
 
   /// Get deployment status (polling fallback)
+  @override
   Future<Map<String, dynamic>> getDeploymentStatus(String twinId) async {
     final response = await _dio.get('/twins/$twinId/deployment-status');
     return response.data as Map<String, dynamic>;
@@ -576,6 +626,7 @@ class ApiService {
 
   /// Get terraform outputs from most recent successful deployment
   /// Returns {outputs: Map?, deployed_at: String?}
+  @override
   Future<Map<String, dynamic>> getDeploymentOutputs(String twinId) async {
     final response = await _dio.get('/twins/$twinId/outputs');
     return response.data as Map<String, dynamic>;
@@ -586,6 +637,7 @@ class ApiService {
   // ==========================================================================
 
   /// Get full SSE URL for streaming deployment logs
+  @override
   String getSseUrl(String sseUrl, {int? lastEventId}) {
     final base = '${ApiConfig.baseUrl}$sseUrl';
     if (lastEventId != null && lastEventId > 0) {
@@ -595,6 +647,7 @@ class ApiService {
   }
 
   /// Get deployment logs from database (for catchup after reconnection)
+  @override
   Future<Map<String, dynamic>> getDeploymentLogs(
     String twinId, {
     String? sessionId,
@@ -622,6 +675,7 @@ class ApiService {
   /// the trace_id for SSE streaming.
   ///
   /// Returns {trace_id, sent_at, l1_provider, providers, message}
+  @override
   Future<Map<String, dynamic>> startLogTrace(String twinId) async {
     final response = await _dio.post('/twins/$twinId/log-trace/start');
     return response.data as Map<String, dynamic>;
@@ -633,6 +687,7 @@ class ApiService {
 
   /// Run structured infrastructure verification (L0-L5 checks)
   /// Returns {checks: List, summary: {pass_count, fail_count, skip_count, total, healthy}}
+  @override
   Future<Map<String, dynamic>> verifyInfrastructure(String twinId) async {
     final response = await _dio.post(
       '/twins/$twinId/verify/infrastructure',
@@ -643,6 +698,7 @@ class ApiService {
 
   /// Start data flow verification with SSE streaming.
   /// Returns {session_id, sse_url} for connecting to SSE.
+  @override
   Future<Map<String, dynamic>> verifyDataFlow(
     String twinId,
     Map<String, dynamic> payload,
@@ -657,6 +713,7 @@ class ApiService {
 
   /// Download IoT simulator package (L1 provider determined by backend).
   /// Returns binary ZIP data.
+  @override
   Future<Uint8List> downloadSimulator(String twinId) async {
     final response = await _dio.get(
       '/twins/$twinId/simulator/download',

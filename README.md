@@ -68,6 +68,16 @@ From the workspace root:
 ./thesis.sh up
 ```
 
+For a self-contained UI walkthrough without Docker, APIs, or cloud
+credentials:
+
+```bash
+./thesis.sh demo --setup
+```
+
+After the first dependency setup, use `./thesis.sh demo`. The optional
+`--scenario showcase|empty|degraded` selector starts a reproducible UI state.
+
 This starts the backend containers, checks the APIs, writes
 `twin2multicloud_flutter/config/dev.json`, and launches Flutter with
 `--dart-define-from-file=config/dev.json`.

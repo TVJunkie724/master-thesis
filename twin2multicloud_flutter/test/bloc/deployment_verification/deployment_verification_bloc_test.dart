@@ -29,7 +29,7 @@ void main() {
     return DeploymentVerificationBloc(
       twinId: 'twin-1',
       api: api,
-      sseServiceFactory: () => sse,
+      logStreamClientFactory: () => sse,
     );
   }
 

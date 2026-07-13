@@ -41,6 +41,15 @@ If Flutter dependencies still need to be resolved:
 ./thesis.sh up --setup
 ```
 
+For a backend-free product walkthrough from a clean clone:
+
+```bash
+./thesis.sh demo --setup
+```
+
+Subsequent starts can use `./thesis.sh demo`. No Docker service, cloud account,
+credential file, or generated development config is required.
+
 ## 2. The Root Entrypoint
 
 Use [`thesis.sh`](thesis.sh) from the repository root for day-to-day local work.
@@ -50,6 +59,8 @@ Use [`thesis.sh`](thesis.sh) from the repository root for day-to-day local work.
 | `./thesis.sh up` | Start backend stack, write Flutter config, smoke-check APIs, run Flutter. |
 | `./thesis.sh up --no-flutter` | Start backend stack and write Flutter config only. |
 | `./thesis.sh flutter --device macos` | Run Flutter against the generated dev config. |
+| `./thesis.sh demo` | Run the offline showcase with deterministic in-memory data. |
+| `./thesis.sh demo --scenario degraded` | Run the offline degraded-state scenario. |
 | `./thesis.sh config` | Generate `twin2multicloud_flutter/config/dev.json`. |
 | `./thesis.sh status` | Show service URLs and matching containers. |
 | `./thesis.sh logs management-api` | Follow logs for one service. |
@@ -71,6 +82,10 @@ Flutter is started with:
 ```bash
 --dart-define-from-file=config/dev.json
 ```
+
+Offline demo mode is started with the tracked, non-secret `config/demo.json`.
+The optional `--scenario showcase|empty|degraded` argument overrides its
+default fixture selection for that process.
 
 The generated file lives at:
 

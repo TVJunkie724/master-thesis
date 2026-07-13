@@ -1,12 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../services/api_service.dart';
+import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'cloud_access_event.dart';
 import 'cloud_access_state.dart';
 
 class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
-  final ApiService _api;
+  final CloudAccessApi _api;
 
   CloudAccessBloc(this._api) : super(const CloudAccessState()) {
     on<CloudAccessStarted>(_onLoad);

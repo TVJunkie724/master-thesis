@@ -8,9 +8,19 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.da
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
+import 'package:twin2multicloud_flutter/services/log_stream_client.dart';
 
 // Mock ApiService
 class MockApiService extends Mock implements ApiService {}
+
+class MockLogStreamClient extends Mock implements LogStreamClient {}
+
+TwinOverviewBloc buildBloc(MockApiService api) {
+  return TwinOverviewBloc(
+    api: api,
+    logStreamClientFactory: MockLogStreamClient.new,
+  );
+}
 
 void main() {
   // ============================================================
@@ -139,7 +149,7 @@ void main() {
         showTerminal: true,
         terminalLogs: ['Log 1', 'Log 2', 'Log 3'],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) => bloc.add(const TwinOverviewCloseTerminal()),
       expect: () => [
         isA<TwinOverviewLoaded>()
@@ -162,7 +172,7 @@ void main() {
         showTerminal: true,
         terminalLogs: ['> Starting deployment...'],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) {
         bloc.add(const TwinOverviewLogReceived('Initializing...'));
         bloc.add(const TwinOverviewLogReceived('Creating resources...'));
@@ -195,7 +205,7 @@ void main() {
         showTerminal: true,
         terminalLogs: ['Log 1', 'Log 2'],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) => bloc.add(
         const TwinOverviewDeploymentComplete(
           success: true,
@@ -228,7 +238,7 @@ void main() {
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'CloseTerminal on non-Loaded state is no-op',
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       // Initial state is TwinOverviewLoading
       act: (bloc) => bloc.add(const TwinOverviewCloseTerminal()),
       expect: () => [], // No state change
@@ -248,7 +258,7 @@ void main() {
         showTerminal: true,
         terminalLogs: ['Log 1', 'Error log'],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) => bloc.add(
         const TwinOverviewDeploymentComplete(
           success: false,
@@ -294,7 +304,7 @@ void main() {
         showTerminal: true,
         terminalLogs: ['Log 1'],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) => bloc.add(
         const TwinOverviewDeploymentComplete(
           success: true,
@@ -326,7 +336,7 @@ void main() {
         showTerminal: true,
         terminalLogs: ['Log 1'],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) => bloc.add(
         const TwinOverviewDeploymentComplete(
           success: false,
@@ -370,7 +380,7 @@ void main() {
         showTerminal: true,
         terminalLogs: [],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) {
         for (int i = 0; i < 5; i++) {
           bloc.add(TwinOverviewLogReceived('Log $i'));
@@ -417,7 +427,7 @@ void main() {
         showTerminal: true,
         terminalLogs: ['Active log'],
       ),
-      build: () => TwinOverviewBloc(api: mockApi),
+      build: () => buildBloc(mockApi),
       act: (bloc) => bloc.add(const TwinOverviewCloseTerminal()),
       expect: () => [
         isA<TwinOverviewLoaded>()

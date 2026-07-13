@@ -8,14 +8,17 @@ import 'screens/wizard/wizard_screen.dart';
 import 'screens/twin_overview/twin_overview_screen.dart';
 import 'screens/pricing_review/pricing_review_screen.dart';
 import 'providers/auth_provider.dart';
+import 'providers/runtime_providers.dart';
 import 'providers/theme_provider.dart';
+import 'widgets/demo_mode_banner.dart';
 
 // Router configuration
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final runtime = ref.watch(appRuntimeProvider);
 
-  return GoRouter(
-    initialLocation: '/login',
+  final router = GoRouter(
+    initialLocation: runtime.isDemo ? '/dashboard' : '/login',
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated;
       final isLoggingIn = state.matchedLocation == '/login';
@@ -62,6 +65,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 });
 
 class Twin2MultiCloudApp extends ConsumerWidget {
@@ -70,6 +75,7 @@ class Twin2MultiCloudApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final runtime = ref.watch(appRuntimeProvider);
 
     // Simple Material theme - uses Material 3 defaults with blue primary
     const Color primaryBlue = Color(0xFF1976D2);
@@ -99,6 +105,10 @@ class Twin2MultiCloudApp extends ConsumerWidget {
       darkTheme: darkTheme,
       themeMode: ref.watch(themeProvider),
       routerConfig: router,
+      builder: (context, child) {
+        if (!runtime.isDemo || child == null) return child ?? const SizedBox();
+        return DemoModeBanner(scenario: runtime.demoScenario, child: child);
+      },
     );
   }
 }

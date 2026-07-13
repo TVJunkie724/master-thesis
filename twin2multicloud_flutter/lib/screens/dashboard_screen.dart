@@ -489,58 +489,69 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      child: SizedBox(
-        width: double.infinity,
-        child: DataTable(
-          sortColumnIndex: _sortColumnIndex,
-          sortAscending: _sortAscending,
-          headingRowColor: WidgetStateProperty.all(
-            isDark
-                ? Colors.white.withValues(alpha: 0.05)
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: DataTable(
+            sortColumnIndex: _sortColumnIndex,
+            sortAscending: _sortAscending,
+            headingRowColor: WidgetStateProperty.all(
+              isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+            ),
+            columnSpacing: 24,
+            columns: [
+              DataColumn(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Name'),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.swap_vert,
+                      size: 16,
+                      color: Colors.grey.shade500,
+                    ),
+                  ],
+                ),
+                onSort: (columnIndex, ascending) {
+                  setState(() {
+                    _sortColumnIndex = columnIndex;
+                    _sortAscending = ascending;
+                  });
+                },
+              ),
+              const DataColumn(label: Text('State')),
+              DataColumn(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Last Updated'),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.swap_vert,
+                      size: 16,
+                      color: Colors.grey.shade500,
+                    ),
+                  ],
+                ),
+                onSort: (columnIndex, ascending) {
+                  setState(() {
+                    _sortColumnIndex = columnIndex;
+                    _sortAscending = ascending;
+                  });
+                },
+              ),
+              const DataColumn(label: Text('Last Deploy')),
+              const DataColumn(label: Text('Actions')),
+            ],
+            rows: _sortTwins(
+              _filterTwins(twins),
+            ).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
           ),
-          columnSpacing: 24,
-          columns: [
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Name'),
-                  const SizedBox(width: 4),
-                  Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
-                ],
-              ),
-              onSort: (columnIndex, ascending) {
-                setState(() {
-                  _sortColumnIndex = columnIndex;
-                  _sortAscending = ascending;
-                });
-              },
-            ),
-            const DataColumn(label: Text('State')),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Last Updated'),
-                  const SizedBox(width: 4),
-                  Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
-                ],
-              ),
-              onSort: (columnIndex, ascending) {
-                setState(() {
-                  _sortColumnIndex = columnIndex;
-                  _sortAscending = ascending;
-                });
-              },
-            ),
-            const DataColumn(label: Text('Last Deploy')),
-            const DataColumn(label: Text('Actions')),
-          ],
-          rows: _sortTwins(
-            _filterTwins(twins),
-          ).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
         ),
       ),
     );

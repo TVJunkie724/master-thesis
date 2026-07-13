@@ -30,10 +30,13 @@ class TwinOverviewScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.read(apiServiceProvider);
+    final logStreamClientFactory = ref.read(logStreamClientFactoryProvider);
 
     return BlocProvider(
-      create: (context) =>
-          TwinOverviewBloc(api: api)..add(TwinOverviewLoad(twinId)),
+      create: (context) => TwinOverviewBloc(
+        api: api,
+        logStreamClientFactory: logStreamClientFactory,
+      )..add(TwinOverviewLoad(twinId)),
       child: TwinOverviewView(twinId: twinId),
     );
   }
@@ -355,6 +358,9 @@ class TwinOverviewView extends ConsumerWidget {
                     create: (_) => DeploymentVerificationBloc(
                       twinId: state.twinId,
                       api: ref.read(apiServiceProvider),
+                      logStreamClientFactory: ref.read(
+                        logStreamClientFactoryProvider,
+                      ),
                     ),
                     child: DeploymentVerificationCard(
                       payloadsJson:

@@ -1,17 +1,17 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../models/pricing_candidate_review.dart';
-import '../../services/api_service.dart';
+import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import '../../widgets/pricing/pricing_review_strings.dart';
 import 'pricing_review_event.dart';
 import 'pricing_review_state.dart';
 
 class PricingReviewBloc extends Bloc<PricingReviewEvent, PricingReviewState> {
-  final ApiService _api;
+  final ManagementApi _api;
   final Set<String> _refreshInFlight = {};
 
-  PricingReviewBloc({required ApiService api})
+  PricingReviewBloc({required ManagementApi api})
     : _api = api,
       super(const PricingReviewState()) {
     on<PricingReviewStarted>(_onStarted);

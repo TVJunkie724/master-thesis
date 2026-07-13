@@ -3,35 +3,27 @@ import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../config/api_config.dart';
 import '../../models/deployment_verification.dart';
-import '../../services/api_service.dart';
-import '../../services/sse_service.dart';
+import '../../services/log_stream_client.dart';
+import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'deployment_verification_event.dart';
 import 'deployment_verification_state.dart';
 
-typedef SseServiceFactory = SseService Function();
-
 class DeploymentVerificationBloc
     extends Bloc<DeploymentVerificationEvent, DeploymentVerificationState> {
   final String twinId;
-  final ApiService _api;
-  final SseServiceFactory _sseServiceFactory;
-  SseService? _sseService;
+  final VerificationApi _api;
+  final LogStreamClientFactory _logStreamClientFactory;
+  LogStreamClient? _logStreamClient;
   StreamSubscription<SseLogEvent>? _sseSubscription;
 
   DeploymentVerificationBloc({
     required this.twinId,
-    required ApiService api,
-    SseServiceFactory? sseServiceFactory,
+    required VerificationApi api,
+    required LogStreamClientFactory logStreamClientFactory,
   }) : _api = api,
-       _sseServiceFactory =
-           sseServiceFactory ??
-           (() => SseService(
-             baseUrl: ApiConfig.baseUrl,
-             authToken: ApiConfig.devAuthToken,
-           )),
+       _logStreamClientFactory = logStreamClientFactory,
        super(const DeploymentVerificationState()) {
     on<DeploymentVerificationInfrastructureRequested>(_onInfrastructure);
     on<DeploymentVerificationDataFlowRequested>(_onDataFlow);
@@ -113,8 +105,8 @@ class DeploymentVerificationBloc
         throw StateError('Backend did not return SSE URL');
       }
 
-      _sseService = _sseServiceFactory();
-      _sseSubscription = _sseService!
+      _logStreamClient = _logStreamClientFactory();
+      _sseSubscription = _logStreamClient!
           .streamDeploymentLogs(sseUrl)
           .listen(
             (event) => add(DeploymentVerificationSseReceived(event)),
@@ -261,8 +253,8 @@ class DeploymentVerificationBloc
   Future<void> _cancelSse() async {
     await _sseSubscription?.cancel();
     _sseSubscription = null;
-    _sseService?.cancel();
-    _sseService = null;
+    _logStreamClient?.cancel();
+    _logStreamClient = null;
   }
 
   @override
