@@ -22,6 +22,16 @@ From the repository root:
 ./thesis.sh up
 ```
 
+For an offline UI walkthrough that requires neither Docker nor credentials:
+
+```bash
+./thesis.sh demo --setup
+```
+
+Use `--scenario showcase`, `empty`, or `degraded` to select a deterministic
+in-memory state. The demo never contacts the Management API, Optimizer,
+Deployer, or a cloud provider.
+
 This starts:
 
 | Service | URL |

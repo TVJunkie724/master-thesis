@@ -289,10 +289,6 @@
       "user_config_validated": true
     }
   },
-  "cloud_access": {
-    "schema_version": "cloud-access-inventory.v1",
-    "providers": {}
-  },
   "pricing_health": {
     "schema_version": "pricing-health.v1",
     "providers": {

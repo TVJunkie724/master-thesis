@@ -1,4 +1,5 @@
 {
+  "APP_MODE": "development",
   "API_BASE_URL": "http://localhost:5005",
   "DEV_AUTH_TOKEN": "dev-token"
 }

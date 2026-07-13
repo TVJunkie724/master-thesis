@@ -1,5 +1,7 @@
 # Implementation Plan: Offline Demo Mode
 
+**Status:** Implemented and verified on 2026-07-13.
+
 ## 0. Git Branch
 
 - **Branch name:** `codex/flutter-offline-demo-mode`
@@ -160,7 +162,6 @@ Required fixture collections:
 | `optimizer_configs` | object | Keyed by existing twin ID. |
 | `deployer_configs` | object | Keyed by existing twin ID. |
 | `cloud_connections` | array | Unique IDs; provider and purpose enums are validated. |
-| `cloud_access` | object | Provider inventory referencing existing connections. |
 | `pricing_health` | object | Contract-compatible AWS/Azure/GCP entries. |
 | `pricing_reports` | object | Provider-keyed reports with unique report/candidate IDs. |
 | `pricing_traces` | object | Keyed by existing report ID. |
@@ -403,22 +404,37 @@ boundaries remain unchanged.
 
 ## 12. Definition of Done
 
-- [ ] All five implementation slices are complete; none may be skipped.
-- [ ] Existing UI screens and BLoCs are reused, not duplicated.
-- [ ] `ApiService` and `SseService` implement explicit ports.
-- [ ] Twin overview and verification BLoCs construct no concrete SSE client.
-- [ ] All three fixture scenarios pass schema/reference validation.
-- [ ] Demo API implements and tests the complete Management API contract.
-- [ ] Demo mutations and streams are deterministic and stateful.
-- [ ] Demo mode performs zero HTTP/SSE network calls.
-- [ ] `./thesis.sh demo` starts without Docker, credentials, or generated files.
-- [ ] Demo runtime is visibly and accessibly marked on every screen.
-- [ ] Every route is reachable with representative fixture data.
-- [ ] Loading, data, empty, degraded, and terminal states are covered.
-- [ ] `flutter analyze` reports zero issues.
-- [ ] Full `flutter test` suite passes.
-- [ ] Web and macOS demo builds pass.
-- [ ] `bash -n thesis.sh` passes and help text is accurate.
-- [ ] README documents demo start, scenarios, reset semantics, and safety.
-- [ ] Worktree contains no generated or unrelated changes.
-- [ ] Implementation is ready for independent audit.
+- [x] All five implementation slices are complete; none may be skipped.
+- [x] Existing UI screens and BLoCs are reused, not duplicated.
+- [x] `ApiService` and `SseService` implement explicit ports.
+- [x] Twin overview and verification BLoCs construct no concrete SSE client.
+- [x] All three fixture scenarios pass schema/reference validation.
+- [x] Demo API implements and tests the complete Management API contract.
+- [x] Demo mutations and streams are deterministic and stateful.
+- [x] Demo mode performs zero HTTP/SSE network calls.
+- [x] `./thesis.sh demo` starts without Docker, credentials, or generated config.
+- [x] Demo runtime is visibly and accessibly marked on every screen.
+- [x] Every route is reachable with representative fixture data.
+- [x] Loading, data, empty, degraded, and terminal states are covered.
+- [x] `flutter analyze` reports zero issues.
+- [x] Full `flutter test` suite passes.
+- [x] Web and macOS demo builds pass.
+- [x] `bash -n thesis.sh` passes and help text is accurate.
+- [x] README documents demo start, scenarios, reset semantics, and safety.
+- [x] Worktree contains no generated or unrelated changes.
+- [x] Implementation is ready for independent audit.
+
+## 13. Verification Evidence
+
+- `flutter analyze --no-pub`: zero issues.
+- `flutter test --no-pub`: 421 tests passed.
+- Demo contract coverage includes all scenarios, API mutations, pricing review,
+  optimizer persistence, deployment lifecycle, simulator, verification, SSE
+  ordering/resume/cancellation, route rendering, and dependency boundaries.
+- `flutter build web --no-pub --dart-define-from-file=config/demo.json` passed.
+- The macOS release app built successfully and passed
+  `codesign --verify --deep --strict`.
+- `bash -n thesis.sh`, global/demo help, invalid-scenario failure, and captured
+  `flutter run` arguments passed without invoking Docker.
+- A live `./thesis.sh demo --device web-server` run rendered the showcase
+  dashboard without browser console warnings or errors.

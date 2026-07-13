@@ -17,7 +17,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
   final runtime = ref.watch(appRuntimeProvider);
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: runtime.isDemo ? '/dashboard' : '/login',
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated;
@@ -65,6 +65,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 });
 
 class Twin2MultiCloudApp extends ConsumerWidget {
@@ -105,12 +107,7 @@ class Twin2MultiCloudApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) {
         if (!runtime.isDemo || child == null) return child ?? const SizedBox();
-        return Column(
-          children: [
-            DemoModeBanner(scenario: runtime.demoScenario),
-            Expanded(child: child),
-          ],
-        );
+        return DemoModeBanner(scenario: runtime.demoScenario, child: child);
       },
     );
   }

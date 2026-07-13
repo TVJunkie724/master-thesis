@@ -2,6 +2,19 @@
 
 Flutter Web/Desktop UI for the Twin2MultiCloud Management API.
 
+## Offline Demo
+
+Start the application with deterministic in-memory data and no Docker,
+backend, cloud credentials, or network services:
+
+```bash
+./thesis.sh demo
+```
+
+Use `--scenario showcase`, `--scenario empty`, or `--scenario degraded` to
+inspect representative application states. Demo mutations remain in memory
+for the current process and are reset on restart.
+
 ## Local Runtime
 
 Start the application from the repository root:
@@ -24,6 +37,7 @@ Run Flutter only against the host-exposed Management API:
 
 `config/dev.example.json` documents the supported runtime keys. Use
 `./thesis.sh config` to generate `config/dev.json`; it is gitignored.
+`config/demo.json` is tracked and contains no service URL, token, or secret.
 
 ## Quality Checks
 

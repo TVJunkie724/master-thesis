@@ -5,6 +5,7 @@ import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -119,9 +120,26 @@ void main() {
         'cloud_connections': {'aws': 'demo-aws-deployment'},
       });
       expect(config['aws_cloud_connection_id'], 'demo-aws-deployment');
+      expect(
+        (await api.updateTwinConfigRequest(
+          id,
+          const TwinConfigUpdateRequest(highestStepReached: 1),
+        ))['highest_step_reached'],
+        1,
+      );
       expect((await api.validateCredentials(id, 'aws'))['valid'], isTrue);
       expect(
         (await api.validateCredentialsInline('gcp', {'json': '{}'}))['valid'],
+        isTrue,
+      );
+      expect(
+        (await api.validateCredentialsDual('aws', {
+          'access_key_id': 'demo',
+        }))['valid'],
+        isTrue,
+      );
+      expect(
+        (await api.validateStoredCredentialsDual(id, 'aws'))['valid'],
         isTrue,
       );
       expect((await api.getTwinConfigResult(id)).isSuccess, isTrue);
@@ -262,6 +280,18 @@ void main() {
       );
 
       await api.updateDeployerConfig('demo-draft', {'payloads_json': '{}'});
+      await api.updateDeployerConfigRequest(
+        'demo-draft',
+        const DeployerConfigUpdateRequest(
+          deployerDigitalTwinName: 'demo-draft',
+        ),
+      );
+      expect(
+        (await api.getDeployerConfig(
+          'demo-draft',
+        ))['deployer_digital_twin_name'],
+        'demo-draft',
+      );
       await api.uploadSceneGlb(
         'demo-draft',
         Uint8List.fromList([1, 2, 3]),

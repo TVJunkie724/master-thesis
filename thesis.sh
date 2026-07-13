@@ -6,6 +6,7 @@ REPO_ROOT="$SCRIPT_DIR"
 FLUTTER_DIR="$REPO_ROOT/twin2multicloud_flutter"
 FLUTTER_CONFIG_DIR="$FLUTTER_DIR/config"
 FLUTTER_DEV_CONFIG="$FLUTTER_CONFIG_DIR/dev.json"
+FLUTTER_DEMO_CONFIG="$FLUTTER_CONFIG_DIR/demo.json"
 
 THESIS_COMPOSE_PROJECT="${THESIS_COMPOSE_PROJECT:-master-thesis}"
 THESIS_OPTIMIZER_PORT="${THESIS_OPTIMIZER_PORT:-5003}"
@@ -15,6 +16,7 @@ THESIS_DOCS_PORT="${THESIS_DOCS_PORT:-5010}"
 THESIS_API_BASE_URL="${THESIS_API_BASE_URL:-http://localhost:${THESIS_MANAGEMENT_API_PORT}}"
 THESIS_DEV_AUTH_TOKEN="${THESIS_DEV_AUTH_TOKEN:-dev-token}"
 THESIS_FLUTTER_DEVICE="${THESIS_FLUTTER_DEVICE:-macos}"
+THESIS_DEMO_SCENARIO="${THESIS_DEMO_SCENARIO:-showcase}"
 THESIS_DOCKER_CONTEXT="${THESIS_DOCKER_CONTEXT:-}"
 export THESIS_OPTIMIZER_PORT
 export THESIS_DEPLOYER_PORT
@@ -27,13 +29,16 @@ NO_FLUTTER=0
 RUN_SETUP=0
 BUILD_IMAGES=0
 FLUTTER_DEVICE="$THESIS_FLUTTER_DEVICE"
+DEMO_SCENARIO="$THESIS_DEMO_SCENARIO"
 FLUTTER_ARGS=()
+FLUTTER_ARGS_COUNT=0
 
 usage() {
   cat <<'USAGE'
 Usage:
   ./thesis.sh up [options] [-- <extra flutter run args>]
   ./thesis.sh flutter [options] [-- <extra flutter run args>]
+  ./thesis.sh demo [options] [-- <extra flutter run args>]
   ./thesis.sh config
   ./thesis.sh setup
   ./thesis.sh status
@@ -47,6 +52,7 @@ App commands:
   up                 Start backend containers, smoke-check them, write Flutter
                      config/dev.json, then start Flutter.
   flutter            Write Flutter config and start Flutter only.
+  demo               Start the offline Flutter demo without Docker or APIs.
   config             Write twin2multicloud_flutter/config/dev.json only.
   setup              Write config and run flutter pub get.
   status             Print URLs and matching Docker containers.
@@ -75,6 +81,12 @@ Options for up/flutter/setup:
   --with-credentials Add compose.cloud.local.yaml and mount .secrets/local.
   -h, --help         Show this help.
 
+Options for demo:
+  --device ID        Flutter device id. Default: THESIS_FLUTTER_DEVICE or macos.
+  --scenario NAME    Fixture scenario: showcase, empty, or degraded.
+  --setup            Run flutter pub get before flutter run.
+  -h, --help         Show this help.
+
 Environment:
   THESIS_COMPOSE_PROJECT       Compose project name. Default: master-thesis.
   THESIS_OPTIMIZER_PORT        Host port for Optimizer. Default: 5003.
@@ -83,6 +95,7 @@ Environment:
   THESIS_DOCS_PORT             Host port for MkDocs. Default: 5010.
   THESIS_API_BASE_URL          Flutter API URL. Default: http://localhost:${THESIS_MANAGEMENT_API_PORT}.
   THESIS_DEV_AUTH_TOKEN        Flutter dev auth token. Default: dev-token.
+  THESIS_DEMO_SCENARIO         Offline fixture scenario. Default: showcase.
   THESIS_DOCKER_CONTEXT        Optional Docker context name.
 
 Default startup is credential-free. Use --with-credentials only when
@@ -201,6 +214,7 @@ parse_common_options() {
       --)
         shift
         FLUTTER_ARGS+=("$@")
+        FLUTTER_ARGS_COUNT=$#
         break
         ;;
       -h|--help)
@@ -212,6 +226,47 @@ parse_common_options() {
         ;;
     esac
   done
+}
+
+parse_demo_options() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --device)
+        [ "$#" -ge 2 ] || fail "--device requires a value."
+        FLUTTER_DEVICE="$2"
+        shift 2
+        ;;
+      --scenario)
+        [ "$#" -ge 2 ] || fail "--scenario requires a value."
+        DEMO_SCENARIO="$2"
+        shift 2
+        ;;
+      --setup)
+        RUN_SETUP=1
+        shift
+        ;;
+      --)
+        shift
+        FLUTTER_ARGS+=("$@")
+        FLUTTER_ARGS_COUNT=$#
+        break
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "Unknown demo option: $1"
+        ;;
+    esac
+  done
+}
+
+validate_demo_scenario() {
+  case "$DEMO_SCENARIO" in
+    showcase|empty|degraded) ;;
+    *) fail "Unknown demo scenario: $DEMO_SCENARIO. Expected showcase, empty, or degraded." ;;
+  esac
 }
 
 write_flutter_config() {
@@ -227,6 +282,7 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 payload = {
+    "APP_MODE": "development",
     "API_BASE_URL": os.environ["THESIS_API_BASE_URL"],
     "DEV_AUTH_TOKEN": os.environ["THESIS_DEV_AUTH_TOKEN"],
 }
@@ -247,10 +303,30 @@ run_flutter() {
     flutter_pub_get
   fi
   info "Starting Flutter on device '$FLUTTER_DEVICE'."
-  if [ "${#FLUTTER_ARGS[@]}" -gt 0 ]; then
+  if [ "$FLUTTER_ARGS_COUNT" -gt 0 ]; then
     (cd "$FLUTTER_DIR" && flutter run -d "$FLUTTER_DEVICE" --dart-define-from-file=config/dev.json "${FLUTTER_ARGS[@]}")
   else
     (cd "$FLUTTER_DIR" && flutter run -d "$FLUTTER_DEVICE" --dart-define-from-file=config/dev.json)
+  fi
+}
+
+run_demo() {
+  require_flutter
+  validate_demo_scenario
+  [ -f "$FLUTTER_DEMO_CONFIG" ] || fail "Missing tracked demo config: $FLUTTER_DEMO_CONFIG"
+  if [ "$RUN_SETUP" -eq 1 ]; then
+    flutter_pub_get
+  fi
+  info "Starting offline Flutter demo '$DEMO_SCENARIO' on device '$FLUTTER_DEVICE'."
+  if [ "$FLUTTER_ARGS_COUNT" -gt 0 ]; then
+    (cd "$FLUTTER_DIR" && flutter run -d "$FLUTTER_DEVICE" \
+      --dart-define-from-file=config/demo.json \
+      --dart-define="DEMO_SCENARIO=$DEMO_SCENARIO" \
+      "${FLUTTER_ARGS[@]}")
+  else
+    (cd "$FLUTTER_DIR" && flutter run -d "$FLUTTER_DEVICE" \
+      --dart-define-from-file=config/demo.json \
+      --dart-define="DEMO_SCENARIO=$DEMO_SCENARIO")
   fi
 }
 
@@ -393,6 +469,10 @@ main() {
     flutter)
       parse_common_options "$@"
       run_flutter
+      ;;
+    demo)
+      parse_demo_options "$@"
+      run_demo
       ;;
     config)
       parse_common_options "$@"

@@ -22,7 +22,6 @@ class DemoFixtureStore {
     'twin_configs',
     'optimizer_configs',
     'deployer_configs',
-    'cloud_access',
     'pricing_health',
     'pricing_reports',
     'pricing_traces',
@@ -96,8 +95,6 @@ class DemoFixtureStore {
 
   List<Map<String, dynamic>> get cloudConnections =>
       _copyMapList(_list('cloud_connections'));
-
-  Map<String, dynamic> get cloudAccess => _copyMap(_map('cloud_access'));
 
   Map<String, dynamic> get pricingHealth => _copyMap(_map('pricing_health'));
 

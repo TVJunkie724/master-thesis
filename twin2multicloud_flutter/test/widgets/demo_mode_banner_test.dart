@@ -15,7 +15,10 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: DemoModeBanner(scenario: scenario)),
+          home: DemoModeBanner(
+            scenario: scenario,
+            child: const Scaffold(body: SizedBox.expand()),
+          ),
         ),
       );
 

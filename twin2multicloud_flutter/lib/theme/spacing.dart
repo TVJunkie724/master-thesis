@@ -68,6 +68,9 @@ abstract class AppSpacing {
   /// Deployment verification terminal log viewport height
   static const double terminalLogHeight = 220;
 
+  /// Compact global marker height for the isolated offline demo runtime
+  static const double demoBannerMinHeight = 36;
+
   /// Profile avatar radius for account identity cards
   static const double profileAvatarRadius = 40;
 

@@ -5,49 +5,65 @@ import '../theme/spacing.dart';
 
 class DemoModeBanner extends StatelessWidget {
   final DemoScenario scenario;
+  final Widget child;
 
-  const DemoModeBanner({super.key, required this.scenario});
+  const DemoModeBanner({
+    super.key,
+    required this.scenario,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.tertiaryContainer,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 36),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: colors.outlineVariant)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.science_outlined,
-                size: AppSpacing.iconSm,
-                color: colors.onTertiaryContainer,
+    return Column(
+      children: [
+        Material(
+          color: colors.tertiaryContainer,
+          child: SafeArea(
+            bottom: false,
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: AppSpacing.demoBannerMinHeight,
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Text(
-                  'Offline demo | ${_scenarioLabel(scenario)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colors.onTertiaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: colors.outlineVariant),
                 ),
               ),
-            ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ExcludeSemantics(
+                    child: Icon(
+                      Icons.science_outlined,
+                      size: AppSpacing.iconSm,
+                      color: colors.onTertiaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    child: Text(
+                      'Offline demo | ${_scenarioLabel(scenario)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colors.onTertiaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+        Expanded(child: child),
+      ],
     );
   }
 
