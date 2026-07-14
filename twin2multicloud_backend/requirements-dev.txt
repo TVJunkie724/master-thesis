@@ -1,0 +1,7 @@
+-r requirements.txt
+
+bandit>=1.7.10
+httpx2>=2.6.0,<3
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+ruff>=0.15.0
