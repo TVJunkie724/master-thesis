@@ -8,6 +8,7 @@ python-multipart
 
 # AWS SDK packages
 boto3
+AWSIoTPythonSDK
 
 # Azure SDK packages
 azure-functions

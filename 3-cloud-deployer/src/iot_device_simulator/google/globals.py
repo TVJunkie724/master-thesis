@@ -6,6 +6,9 @@ Note: GCP uses Pub/Sub for IoT messaging (IoT Core deprecated Jan 2023).
 """
 import json
 import os
+import re
+
+_SAFE_DEVICE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 class Config:
     def __init__(self):
@@ -14,6 +17,8 @@ class Config:
         self.device_id = None
         self.service_account_key_path = None
         self.payload_path = None
+        self.configs_root = None
+        self.config_filename = None
 
 config = Config()
 
@@ -43,13 +48,15 @@ def load_config(config_path: str):
     config.payload_path = _resolve(
         data.get('payload_path'), '../payloads.json',
     )
-    
-    # Fallback: if resolved SA path doesn't exist, try gcp_credentials.json
-    # in the project upload root (two levels above the google device dir)
-    if not os.path.exists(config.service_account_key_path):
-        # config_dir = .../upload/<project>/iot_device_simulator/google/<device>
-        # project root = config_dir/../../../  (go up 3 levels)
-        project_root = os.path.normpath(os.path.join(config_dir, '..', '..', '..'))
-        alt = os.path.join(project_root, 'gcp_credentials.json')
-        if os.path.exists(alt):
-            config.service_account_key_path = alt
+    if os.path.basename(config_path) == "config_generated.json":
+        config.configs_root = os.path.dirname(config_dir)
+        config.config_filename = "config_generated.json"
+    else:
+        config.configs_root = os.path.join(config_dir, "configs")
+        config.config_filename = "config.json"
+
+
+def get_device_config_path(device_id):
+    if not isinstance(device_id, str) or not _SAFE_DEVICE_ID.fullmatch(device_id) or ".." in device_id:
+        raise ValueError("Invalid simulator device ID")
+    return os.path.join(config.configs_root, device_id, config.config_filename)

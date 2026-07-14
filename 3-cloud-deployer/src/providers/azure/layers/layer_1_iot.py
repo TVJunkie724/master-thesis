@@ -16,6 +16,7 @@ import logging
 import time
 
 from azure.core.exceptions import ResourceNotFoundError
+from src.core.secure_files import atomic_write_private_bytes
 
 if TYPE_CHECKING:
     from src.providers.azure.provider import AzureProvider
@@ -278,7 +279,7 @@ def _generate_azure_simulator_config(
         "connection_string": device_conn_str,
         "device_id": device_id,
         "digital_twin_name": digital_twin_name,
-        "payload_path": "../payloads.json",
+        "payload_path": "../../payloads.json",
         "credential_class": "azure_iot_hub_device_identity",
         "credential_contract_version": 1,
     }
@@ -289,8 +290,9 @@ def _generate_azure_simulator_config(
     sim_dir.mkdir(parents=True, exist_ok=True)
     config_path = sim_dir / "config_generated.json"
     
-    with open(config_path, "w") as f:
-        json.dump(config_data, f, indent=2)
-    config_path.chmod(0o600)
+    atomic_write_private_bytes(
+        config_path,
+        json.dumps(config_data, indent=2).encode("utf-8"),
+    )
     
     logger.info(f"  ✓ Generated simulator config: {config_path}")

@@ -8,7 +8,10 @@ Unlike AWS (which uses X.509 certificates), Azure uses connection strings
 with SAS (Shared Access Signature) authentication.
 """
 
-from . import globals
+if __package__:
+    from . import globals
+else:  # Standalone package executes this module directly.
+    import globals
 import json
 import os
 from datetime import datetime, timezone
@@ -24,13 +27,13 @@ def load_config_for_device(device_id: str) -> dict:
     """
     Load device-specific config for standalone multi-device mode.
     
-    In standalone mode, configs are stored in configs/{device_id}/config.json.
-    Falls back to root config.json if device-specific config not found.
+    Resolves either integrated generated configs or standalone package configs.
+    Unknown device identities fail closed instead of reusing default credentials.
     """
     if not device_id:
         return dict(globals.config)
     
-    device_config_path = f"configs/{device_id}/config.json"
+    device_config_path = globals.get_device_config_path(device_id)
     if os.path.exists(device_config_path):
         with open(device_config_path, 'r') as f:
             config_data = json.load(f)
@@ -49,8 +52,7 @@ def load_config_for_device(device_id: str) -> dict:
             "payload_path": resolve(config_data.get("payload_path", "../payloads.json"))
         }
     
-    # Fallback to default config
-    return dict(globals.config)
+    raise ValueError(f"No simulator configuration found for device '{device_id}'")
 
 
 def _get_client(config=None):
@@ -86,10 +88,9 @@ def send_mqtt(payload, device_config=None):
     # Get config - either device-specific or global
     if device_config is None:
         payload_device_id = payload.get("iotDeviceId")
-        if payload_device_id and os.path.exists(f"configs/{payload_device_id}/config.json"):
+        device_config = globals.config
+        if payload_device_id and payload_device_id != globals.config["device_id"]:
             device_config = load_config_for_device(payload_device_id)
-        else:
-            device_config = globals.config
     
     device_id = device_config["device_id"]
     

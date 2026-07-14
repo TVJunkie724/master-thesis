@@ -1,10 +1,10 @@
 import logging
-from unittest.mock import patch
+import json
 
 import pytest
 
-from src.api.simulator import _resolve_simulator_script_path
 from src.logger import RedactingColoredFormatter
+from src.simulator.session import SimulatorSessionInvalid, resolve_simulator_session
 from src.terraform_runner import TerraformRunner
 
 
@@ -47,15 +47,35 @@ def test_terraform_runner_builds_isolated_state_list_command(tmp_path):
         runner._build_command(["state", "rm", "resource.name"])
 
 
-def test_simulator_entrypoint_stays_within_allowlisted_source_root(tmp_path):
-    script = tmp_path / "src" / "iot_device_simulator" / "aws" / "main.py"
-    script.parent.mkdir(parents=True)
-    script.write_text("", encoding="utf-8")
+def test_simulator_entrypoint_is_selected_from_fixed_module_allowlist(tmp_path):
+    device = (
+        tmp_path
+        / "upload"
+        / "factory"
+        / "iot_device_simulator"
+        / "aws"
+        / "device-1"
+    )
+    device.mkdir(parents=True)
+    (device / "config_generated.json").write_text(
+        json.dumps({"device_id": "device-1"}),
+        encoding="utf-8",
+    )
+    (device.parents[1] / "payloads.json").write_text("[]", encoding="utf-8")
 
-    with patch("src.api.simulator.state.get_project_base_path", return_value=str(tmp_path)):
-        assert _resolve_simulator_script_path("aws") == script.resolve()
-        with pytest.raises(ValueError):
-            _resolve_simulator_script_path("../../outside")
+    spec = resolve_simulator_session(
+        project_name="factory",
+        provider="aws",
+        repository_root=tmp_path,
+    )
+
+    assert spec.module == "src.iot_device_simulator.aws.main"
+    with pytest.raises(SimulatorSessionInvalid):
+        resolve_simulator_session(
+            project_name="factory",
+            provider="../../outside",
+            repository_root=tmp_path,
+        )
 
 
 def test_console_formatter_redacts_interpolated_secrets():

@@ -12,11 +12,6 @@ endpoint for real-time simulator interaction.
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
-# The interpreter is fixed and the simulator script stays under an allowlisted root.
-import subprocess  # nosec B404
-import sys
-import asyncio
-import os
 from pathlib import Path
 from logger import logger
 import src.core.state as state
@@ -28,21 +23,28 @@ from src.core.simulator_package import (
     SimulatorPackageService,
     normalize_simulator_provider,
 )
+from src.simulator.session import (
+    SimulatorSessionBusy,
+    SimulatorSessionError,
+    SimulatorSessionInvalid,
+    SimulatorSessionNotFound,
+    SimulatorSessionRunner,
+    resolve_simulator_session,
+    session_registry,
+)
+from src.core.observability import redact_sensitive
 
 
 router = APIRouter()
 
 
-def _resolve_simulator_script_path(internal_provider: str) -> Path:
-    """Resolve an allowlisted simulator entrypoint below the source boundary."""
-    provider = _normalize_simulator_provider(internal_provider)
-    simulator_root = (
-        Path(state.get_project_base_path()) / "src" / "iot_device_simulator"
-    ).resolve()
-    script_path = (simulator_root / provider / "main.py").resolve()
-    if not script_path.is_relative_to(simulator_root) or not script_path.is_file():
-        raise ValueError(f"Simulator entrypoint is unavailable for provider: {provider}")
-    return script_path
+async def _send_websocket_error(websocket: WebSocket, message: str) -> None:
+    """Send a stable error event when the peer is still connected."""
+    try:
+        await websocket.send_json({"type": "error", "data": message})
+    except (RuntimeError, WebSocketDisconnect):
+        pass
+
 
 def _normalize_simulator_provider(provider: str) -> str:
     """Return the internal simulator provider directory name."""
@@ -52,22 +54,16 @@ def _normalize_simulator_provider(provider: str) -> str:
         raise ValueError(str(exc)) from exc
 
 
-def _resolve_payload_path(project_path: str, internal_provider: str) -> str | None:
-    """Resolve simulator payloads with shared path first, legacy path second."""
-    candidates = [
-        os.path.join(project_path, "iot_device_simulator", "payloads.json"),
-        os.path.join(project_path, "iot_device_simulator", internal_provider, "payloads.json"),
-    ]
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return candidate
-    return None
-
 # ==========================================
 # 1. WebSocket Stream
 # ==========================================
 @router.websocket("/projects/{project_name}/simulator/{provider}/stream")
-async def simulator_stream(websocket: WebSocket, project_name: str, provider: str):
+async def simulator_stream(
+    websocket: WebSocket,
+    project_name: str,
+    provider: str,
+    device_id: str | None = None,
+):
     """
     WebSocket endpoint for real-time IoT device simulation.
     
@@ -75,145 +71,46 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
     """
     await websocket.accept()
     
-    # 1. Validation
     try:
-        internal_provider = _normalize_simulator_provider(provider)
-    except ValueError as e:
-        await websocket.send_json({"type": "error", "data": str(e)})
-        await websocket.close()
-        return
-
-    # Check Project Existence
-    project_path = resolve_project_context_path(project_name)
-    if not project_path.exists():
-        await websocket.send_json({"type": "error", "data": f"Project '{project_name}' not found."})
-        await websocket.close()
-        return
-
-    # Check Config - look for device subdirectories
-    provider_dir = project_path / "iot_device_simulator" / internal_provider
-    if not provider_dir.exists():
-        await websocket.send_json({"type": "error", "data": "Simulator config not found. Please deploy L1 first."})
-        await websocket.close()
-        return
-    
-    device_dirs = [d.name for d in provider_dir.iterdir() if d.is_dir()]
-    if not device_dirs:
-        await websocket.send_json({"type": "error", "data": "No device configs found. Please deploy L1 first."})
-        await websocket.close()
-        return
-    
-    config_path = provider_dir / device_dirs[0] / "config_generated.json"
-    if not config_path.exists():
-        await websocket.send_json({"type": "error", "data": "Simulator config not found. Please deploy L1 first."})
-        await websocket.close()
-        return
-
-    # Check Payloads
-    payload_path = _resolve_payload_path(project_path, internal_provider)
-    if not payload_path:
-        await websocket.send_json({"type": "error", "data": "Payloads file not found. Please upload payloads.json."})
-        await websocket.close()
-        return
-
-    # 2. Start Subprocess
-    script_path = _resolve_simulator_script_path(internal_provider)
-    # _resolve_simulator_script_path validates the script before invocation.
-    process = subprocess.Popen(  # nosec B603
-        [sys.executable, str(script_path), "--project", project_name],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=0 # Unbuffered
-    )
-
-    logger.info(f"Started simulator subprocess for {project_name}/{internal_provider}")
-
-    async def read_stdout():
-        try:
-            while True:
-                # Non-blocking read line?? 
-                # Popen.stdout is a synchronous file object. 
-                # We need to run it in an executor or use asyncio.create_subprocess_exec (better).
-                # But refactoring to asyncio subprocess might be cleaner.
-                # Let's try asyncio.to_thread for blocking reads.
-                line = await asyncio.to_thread(process.stdout.readline)
-                if not line:
-                    break
-                await websocket.send_json({"type": "log", "data": line.strip()})
-        except Exception as e:
-            logger.error(f"Error reading simulator stdout: {e}")
-
-    stdout_task = asyncio.create_task(read_stdout())
-
-    try:
-        while True:
-            data = await websocket.receive_json()
-            command = data.get("command")
-            
-            if command:
-                if command == "exit":
-                    process.stdin.write("exit\n")
-                    process.stdin.flush()
-                    break
-                else:
-                    process.stdin.write(f"{command}\n")
-                    process.stdin.flush()
-
+        spec = resolve_simulator_session(
+            project_name=project_name,
+            provider=provider,
+            device_id=device_id,
+            repository_root=Path(state.get_project_base_path()),
+        )
+        async with session_registry.claim(spec.key):
+            logger.info(
+                "Started simulator session for %s/%s/%s",
+                project_name,
+                spec.public_provider,
+                spec.device_id,
+            )
+            await SimulatorSessionRunner(spec).run(websocket)
     except WebSocketDisconnect:
-        logger.info("WebSocket disconnected.")
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.info("Simulator WebSocket disconnected")
+    except (SimulatorSessionNotFound, SimulatorSessionInvalid, SimulatorSessionBusy) as exc:
+        await _send_websocket_error(websocket, str(exc))
+    except TimeoutError:
+        await _send_websocket_error(websocket, "Simulator session timed out.")
+    except SimulatorSessionError as exc:
+        logger.error("Simulator session failed: %s", exc)
+        await _send_websocket_error(websocket, "Simulator session failed.")
+    except Exception as exc:
+        logger.error(
+            "Unexpected simulator session failure (%s): %s",
+            type(exc).__name__,
+            redact_sensitive(exc),
+        )
+        await _send_websocket_error(websocket, "Simulator session failed.")
     finally:
-        # Cleanup
-        process.terminate()
         try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            process.kill()
-        
-        stdout_task.cancel()
-        logger.info("Simulator subprocess terminated.")
+            await websocket.close()
+        except RuntimeError:
+            pass
 
 
 # ==========================================
-# 2. Template Utilities
-# ==========================================
-def _get_template_dir(provider: str) -> str:
-    """Returns the path to the templates directory for the given provider."""
-    return os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider, "templates")
-
-
-def _load_template(provider: str, template_name: str, variables: dict = None) -> str:
-    """
-    Loads a template file and substitutes variables.
-    
-    Args:
-        provider: Cloud provider (aws, azure, google).
-        template_name: Name of the template file (e.g., 'README.md.template').
-        variables: Dictionary of variables to substitute (uses {{key}} syntax).
-    
-    Returns:
-        Template content with variables substituted.
-    """
-    template_path = os.path.join(_get_template_dir(provider), template_name)
-    
-    if not os.path.exists(template_path):
-        raise FileNotFoundError(f"Template not found: {template_path}")
-    
-    with open(template_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
-    if variables:
-        for key, value in variables.items():
-            content = content.replace(f"{{{{{key}}}}}", str(value))
-    
-    return content
-
-
-# ==========================================
-# 3. Download Package
+# 2. Download Package
 # ==========================================
 @router.get(
     "/projects/{project_name}/simulator/{provider}/download",

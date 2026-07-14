@@ -99,15 +99,19 @@ def interactive_mode():
 
 def main():
     parser = argparse.ArgumentParser(description="GCP IoT Device Simulator")
-    parser.add_argument("--project", required=True, help="Project name")
+    parser.add_argument("--project", help="Project name")
+    parser.add_argument("--config", help="Explicit simulator config path")
     parser.add_argument("--payload", help="Custom payload JSON (single-shot mode for log tracing)")
+    parser.add_argument("--payload-stdin", action="store_true", help="Read one payload from stdin")
     parser.add_argument("--device", help="Device ID for device-specific config")
     
     args = parser.parse_args()
     
     # Load configuration
     try:
-        config_path = get_config_path(args.project, args.device)
+        if not args.config and not args.project:
+            raise ValueError("Provide --config or --project")
+        config_path = args.config or get_config_path(args.project, args.device)
     except ValueError as e:
         print(f"ERROR: {e}")
         print("Deploy L1 first to generate simulator configuration.")
@@ -121,9 +125,10 @@ def main():
     globals.load_config(config_path)
     
     # Single-shot mode: send custom payload and exit
-    if args.payload:
+    payload_text = sys.stdin.read() if args.payload_stdin else args.payload
+    if payload_text:
         try:
-            payload = json.loads(args.payload)
+            payload = json.loads(payload_text)
             # Add timestamp if missing
             if "time" not in payload or payload["time"] == "":
                 payload["time"] = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')

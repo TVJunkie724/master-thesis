@@ -492,10 +492,12 @@ def _generate_aws_simulator_config(
         "endpoint": iot_endpoint,
         "topic": topic,
         "device_id": device_id,
-        "cert_path": f"../../iot_devices_auth/{device_id}/certificate.pem.crt",
-        "key_path": f"../../iot_devices_auth/{device_id}/private.pem.key",
-        "root_ca_path": str(Path(__file__).parent.parent / "aws" / "AmazonRootCA1.pem"),
-        "payload_path": "payloads.json",
+        "cert_path": f"../../../iot_devices_auth/{device_id}/certificate.pem.crt",
+        "key_path": f"../../../iot_devices_auth/{device_id}/private.pem.key",
+        "root_ca_path": str(
+            Path(__file__).parents[2] / "iot_device_simulator" / "aws" / "AmazonRootCA1.pem"
+        ),
+        "payload_path": "../../payloads.json",
         "credential_class": "aws_iot_device_certificate",
         "credential_contract_version": 1,
         "permission_scope": "exact_client_and_telemetry_topic",

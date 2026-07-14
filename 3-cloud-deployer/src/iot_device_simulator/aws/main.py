@@ -13,8 +13,11 @@ Migration Status:
     - This is a standalone utility - no migration needed.
 """
 
-import globals
-import transmission
+if __package__:
+    from . import globals, transmission
+else:  # Standalone package executes this file directly.
+    import globals
+    import transmission
 import argparse
 import json
 import sys
@@ -32,20 +35,27 @@ def help_menu():
 def main():
     parser = argparse.ArgumentParser(description="IoT Device Simulator")
     parser.add_argument("--project", help="Name of the project (for integrated mode)")
+    parser.add_argument("--config", help="Explicit simulator config path")
     parser.add_argument("--payload", help="Custom payload JSON (single-shot mode for log tracing)")
+    parser.add_argument("--payload-stdin", action="store_true", help="Read one payload from stdin")
     parser.add_argument("--device", help="Device ID for device-specific config (used with --project)")
     args = parser.parse_args()
 
     try:
-        globals.initialize_config(project_name=args.project, device_id=args.device)
+        globals.initialize_config(
+            project_name=args.project,
+            device_id=args.device,
+            config_path=args.config,
+        )
     except Exception as e:
         print(f"Error initializing simulator: {e}")
         sys.exit(1)
 
     # Single-shot mode: send custom payload and exit
-    if args.payload:
+    payload_text = sys.stdin.read() if args.payload_stdin else args.payload
+    if payload_text:
         try:
-            payload = json.loads(args.payload)
+            payload = json.loads(payload_text)
             # Add timestamp if missing
             if "time" not in payload or payload["time"] == "":
                 payload["time"] = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
@@ -86,4 +96,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-

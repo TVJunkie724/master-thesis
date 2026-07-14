@@ -1,10 +1,14 @@
 import os
 import json
+import re
 
 config = {}
+configs_root = None
+config_filename = None
+_SAFE_DEVICE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
-def initialize_config(project_name=None, device_id=None):
-    global config
+def initialize_config(project_name=None, device_id=None, config_path=None):
+    global config, configs_root, config_filename
     
     # Determine config file path
     # 1. Check for local config (standalone mode) in current directory
@@ -14,9 +18,12 @@ def initialize_config(project_name=None, device_id=None):
     
     local_config_path = "config.json"
     
-    if os.path.exists(local_config_path):
-        config_path = os.path.abspath(local_config_path)
-        print(f"Loading standalone config from: {config_path}")
+    if config_path:
+        selected_config_path = os.path.abspath(config_path)
+        print(f"Loading explicit config from: {selected_config_path}")
+    elif os.path.exists(local_config_path):
+        selected_config_path = os.path.abspath(local_config_path)
+        print(f"Loading standalone config from: {selected_config_path}")
     elif project_name:
         # 2. Integrated mode: `upload/{project}/iot_device_simulator/aws/{device_id}/config_generated.json`
         repo_root = os.getcwd()
@@ -24,31 +31,41 @@ def initialize_config(project_name=None, device_id=None):
         
         if device_id:
             # Device-specific config path
-            config_path = os.path.join(aws_sim_dir, device_id, "config_generated.json")
+            selected_config_path = os.path.join(aws_sim_dir, device_id, "config_generated.json")
         else:
             # Fallback: find first device subdirectory
             if os.path.exists(aws_sim_dir):
                 device_dirs = [d for d in os.listdir(aws_sim_dir) 
                               if os.path.isdir(os.path.join(aws_sim_dir, d))]
                 if device_dirs:
-                    config_path = os.path.join(aws_sim_dir, device_dirs[0], "config_generated.json")
+                    selected_config_path = os.path.join(
+                        aws_sim_dir,
+                        sorted(device_dirs)[0],
+                        "config_generated.json",
+                    )
                 else:
                     raise ValueError(f"No device configs found in {aws_sim_dir}")
             else:
                 raise ValueError(f"Simulator directory not found: {aws_sim_dir}")
         
-        print(f"Loading project config from: {config_path}")
+        print(f"Loading project config from: {selected_config_path}")
     else:
         raise ValueError("Configuration not found. Provide --project or run from a standalone package with config.json.")
 
-    if not os.path.exists(config_path):
-         raise FileNotFoundError(f"Config file not found at: {config_path}")
+    if not os.path.exists(selected_config_path):
+         raise FileNotFoundError(f"Config file not found at: {selected_config_path}")
 
-    with open(config_path, "r") as file:
+    with open(selected_config_path, "r") as file:
         config_data = json.load(file)
 
     # Resolve paths relative to config file directory
-    config_dir = os.path.dirname(config_path)
+    config_dir = os.path.dirname(selected_config_path)
+    if os.path.basename(selected_config_path) == "config_generated.json":
+        configs_root = os.path.dirname(config_dir)
+        config_filename = "config_generated.json"
+    else:
+        configs_root = os.path.join(config_dir, "configs")
+        config_filename = "config.json"
     
     def resolve(path):
         if os.path.isabs(path):
@@ -68,3 +85,9 @@ def initialize_config(project_name=None, device_id=None):
     for k in ["cert_path", "key_path", "root_ca_path", "payload_path"]:
         if not os.path.exists(config[k]):
             print(f"WARNING: File for {k} not found at {config[k]}")
+
+
+def get_device_config_path(device_id):
+    if not isinstance(device_id, str) or not _SAFE_DEVICE_ID.fullmatch(device_id) or ".." in device_id:
+        raise ValueError("Invalid simulator device ID")
+    return os.path.join(configs_root, device_id, config_filename)
