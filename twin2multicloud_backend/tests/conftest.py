@@ -18,16 +18,15 @@ os.environ.setdefault("ENCRYPTION_KEY", "test-encryption-key-with-at-least-32-ch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.main import app
-from src.models.database import Base, get_db
+from src.models.database import Base, create_database_engine, get_db
 
 
 # Test database (separate from production)
 TEST_DATABASE_URL = "sqlite:///./test.db"
-test_engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+test_engine = create_database_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
