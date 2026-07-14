@@ -1,8 +1,331 @@
 // lib/bloc/twin_overview/twin_overview_state.dart
 // State classes for the twin overview BLoC
 
-import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
+import '../../models/deployment_readiness.dart';
+import '../../models/deployment_operations.dart';
+
+enum DeploymentOperationViewPhase {
+  idle,
+  starting,
+  connecting,
+  streaming,
+  reconnecting,
+  completed,
+  failed,
+}
+
+class DeploymentOperationViewState extends Equatable {
+  static const maxLogEntries = 500;
+
+  final DeploymentOperationViewPhase phase;
+  final DeploymentOperationType? operationType;
+  final OperationSession? session;
+  final List<DeploymentLogEntry> logs;
+  final int lastEventId;
+  final int reconnectAttempt;
+  final bool showLogs;
+  final String? message;
+
+  const DeploymentOperationViewState({
+    this.phase = DeploymentOperationViewPhase.idle,
+    this.operationType,
+    this.session,
+    this.logs = const [],
+    this.lastEventId = 0,
+    this.reconnectAttempt = 0,
+    this.showLogs = false,
+    this.message,
+  });
+
+  factory DeploymentOperationViewState.starting(
+    DeploymentOperationType operationType,
+  ) => DeploymentOperationViewState(
+    phase: DeploymentOperationViewPhase.starting,
+    operationType: operationType,
+    showLogs: true,
+    message: operationType == DeploymentOperationType.destroy
+        ? 'Starting resource destruction.'
+        : 'Starting deployment.',
+  );
+
+  bool get isActive => const {
+    DeploymentOperationViewPhase.starting,
+    DeploymentOperationViewPhase.connecting,
+    DeploymentOperationViewPhase.streaming,
+    DeploymentOperationViewPhase.reconnecting,
+  }.contains(phase);
+
+  bool get isReconnecting => phase == DeploymentOperationViewPhase.reconnecting;
+
+  bool get isComplete => const {
+    DeploymentOperationViewPhase.completed,
+    DeploymentOperationViewPhase.failed,
+  }.contains(phase);
+
+  List<String> get formattedLogs => List.unmodifiable(
+    logs.map((entry) {
+      final time = entry.timestamp.toLocal();
+      final timestamp =
+          '${time.hour.toString().padLeft(2, '0')}:'
+          '${time.minute.toString().padLeft(2, '0')}:'
+          '${time.second.toString().padLeft(2, '0')}';
+      return '[${entry.level.toUpperCase()}] [$timestamp] ${entry.message}';
+    }),
+  );
+
+  DeploymentOperationViewState copyWith({
+    DeploymentOperationViewPhase? phase,
+    DeploymentOperationType? operationType,
+    OperationSession? session,
+    List<DeploymentLogEntry>? logs,
+    int? lastEventId,
+    int? reconnectAttempt,
+    bool? showLogs,
+    String? message,
+    bool clearMessage = false,
+  }) {
+    final requestedLogs = logs ?? this.logs;
+    final nextLogs = List<DeploymentLogEntry>.unmodifiable(
+      requestedLogs.length <= maxLogEntries
+          ? requestedLogs
+          : requestedLogs.sublist(requestedLogs.length - maxLogEntries),
+    );
+    return DeploymentOperationViewState(
+      phase: phase ?? this.phase,
+      operationType: operationType ?? this.operationType,
+      session: session ?? this.session,
+      logs: nextLogs,
+      lastEventId: lastEventId ?? this.lastEventId,
+      reconnectAttempt: reconnectAttempt ?? this.reconnectAttempt,
+      showLogs: showLogs ?? this.showLogs,
+      message: clearMessage ? null : (message ?? this.message),
+    );
+  }
+
+  DeploymentOperationViewState append(DeploymentLogEntry entry) {
+    if (session == null || entry.sessionId != session!.sessionId) {
+      throw StateError('Deployment log belongs to another operation session.');
+    }
+    if (entry.eventId <= lastEventId) return this;
+    if (entry.eventId != lastEventId + 1) {
+      throw StateError('Deployment log cursor contains a gap.');
+    }
+    return copyWith(
+      logs: [...logs, entry],
+      lastEventId: entry.eventId,
+      showLogs: true,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    phase,
+    operationType,
+    session,
+    logs,
+    lastEventId,
+    reconnectAttempt,
+    showLogs,
+    message,
+  ];
+}
+
+enum DeploymentReadinessViewPhase {
+  initial,
+  loading,
+  ready,
+  reviewRequired,
+  failed,
+}
+
+class DeploymentReadinessViewState extends Equatable {
+  final DeploymentReadinessViewPhase phase;
+  final DeploymentReadinessSnapshot? snapshot;
+  final String? errorMessage;
+
+  const DeploymentReadinessViewState._({
+    required this.phase,
+    this.snapshot,
+    this.errorMessage,
+  });
+
+  const DeploymentReadinessViewState.initial()
+    : this._(phase: DeploymentReadinessViewPhase.initial);
+
+  const DeploymentReadinessViewState.loading({
+    DeploymentReadinessSnapshot? previous,
+  }) : this._(phase: DeploymentReadinessViewPhase.loading, snapshot: previous);
+
+  factory DeploymentReadinessViewState.fromSnapshot(
+    DeploymentReadinessSnapshot snapshot,
+  ) {
+    return DeploymentReadinessViewState._(
+      phase: snapshot.ready
+          ? DeploymentReadinessViewPhase.ready
+          : DeploymentReadinessViewPhase.reviewRequired,
+      snapshot: snapshot,
+    );
+  }
+
+  const DeploymentReadinessViewState.failed(
+    String message, {
+    DeploymentReadinessSnapshot? previous,
+  }) : this._(
+         phase: DeploymentReadinessViewPhase.failed,
+         snapshot: previous,
+         errorMessage: message,
+       );
+
+  bool get isDeployable =>
+      phase == DeploymentReadinessViewPhase.ready && snapshot?.ready == true;
+
+  @override
+  List<Object?> get props => [phase, snapshot, errorMessage];
+}
+
+enum TraceViewPhase { idle, starting, streaming, completed, failed, cancelled }
+
+class TraceViewState extends Equatable {
+  static const maxDiagnosticEntries = 500;
+
+  final TraceViewPhase phase;
+  final String? traceId;
+  final DateTime? sentAt;
+  final String? l1Provider;
+  final List<String> providers;
+  final List<String> diagnostics;
+  final int? totalLogs;
+  final String? message;
+
+  const TraceViewState({
+    this.phase = TraceViewPhase.idle,
+    this.traceId,
+    this.sentAt,
+    this.l1Provider,
+    this.providers = const [],
+    this.diagnostics = const [],
+    this.totalLogs,
+    this.message,
+  });
+
+  bool get isActive =>
+      const {TraceViewPhase.starting, TraceViewPhase.streaming}.contains(phase);
+
+  bool get hasDiagnostics => diagnostics.isNotEmpty;
+
+  TraceViewState copyWith({
+    TraceViewPhase? phase,
+    String? traceId,
+    DateTime? sentAt,
+    String? l1Provider,
+    List<String>? providers,
+    List<String>? diagnostics,
+    int? totalLogs,
+    String? message,
+    bool clearTraceId = false,
+    bool clearMetadata = false,
+    bool clearTotalLogs = false,
+    bool clearMessage = false,
+  }) {
+    final requestedDiagnostics = diagnostics ?? this.diagnostics;
+    final boundedDiagnostics = List<String>.unmodifiable(
+      requestedDiagnostics.length <= maxDiagnosticEntries
+          ? requestedDiagnostics
+          : requestedDiagnostics.sublist(
+              requestedDiagnostics.length - maxDiagnosticEntries,
+            ),
+    );
+    return TraceViewState(
+      phase: phase ?? this.phase,
+      traceId: clearTraceId ? null : (traceId ?? this.traceId),
+      sentAt: clearMetadata ? null : (sentAt ?? this.sentAt),
+      l1Provider: clearMetadata ? null : (l1Provider ?? this.l1Provider),
+      providers: clearMetadata
+          ? const []
+          : List<String>.unmodifiable(providers ?? this.providers),
+      diagnostics: boundedDiagnostics,
+      totalLogs: clearTotalLogs ? null : (totalLogs ?? this.totalLogs),
+      message: clearMessage ? null : (message ?? this.message),
+    );
+  }
+
+  TraceViewState appendDiagnostic(String value) =>
+      copyWith(diagnostics: [...diagnostics, value]);
+
+  @override
+  List<Object?> get props => [
+    phase,
+    traceId,
+    sentAt,
+    l1Provider,
+    providers,
+    diagnostics,
+    totalLogs,
+    message,
+  ];
+}
+
+enum SimulatorDownloadViewPhase {
+  idle,
+  requesting,
+  readyToSave,
+  saving,
+  saved,
+  failed,
+}
+
+class SimulatorDownloadViewState extends Equatable {
+  final SimulatorDownloadViewPhase phase;
+  final String? filename;
+  final String? provider;
+  final String? message;
+  final int requestToken;
+
+  // Binary data is deliberately transient and excluded from Equatable props.
+  final BinaryDownload? pendingDownload;
+
+  const SimulatorDownloadViewState({
+    this.phase = SimulatorDownloadViewPhase.idle,
+    this.filename,
+    this.provider,
+    this.message,
+    this.requestToken = 0,
+    this.pendingDownload,
+  });
+
+  bool get isBusy => const {
+    SimulatorDownloadViewPhase.requesting,
+    SimulatorDownloadViewPhase.readyToSave,
+    SimulatorDownloadViewPhase.saving,
+  }.contains(phase);
+
+  SimulatorDownloadViewState copyWith({
+    SimulatorDownloadViewPhase? phase,
+    String? filename,
+    String? provider,
+    String? message,
+    int? requestToken,
+    BinaryDownload? pendingDownload,
+    bool clearFilename = false,
+    bool clearPendingDownload = false,
+    bool clearMessage = false,
+  }) {
+    return SimulatorDownloadViewState(
+      phase: phase ?? this.phase,
+      filename: clearFilename ? null : (filename ?? this.filename),
+      provider: provider ?? this.provider,
+      message: clearMessage ? null : (message ?? this.message),
+      requestToken: requestToken ?? this.requestToken,
+      pendingDownload: clearPendingDownload
+          ? null
+          : (pendingDownload ?? this.pendingDownload),
+    );
+  }
+
+  @override
+  List<Object?> get props => [phase, filename, provider, message, requestToken];
+}
 
 abstract class TwinOverviewState extends Equatable {
   const TwinOverviewState();
@@ -39,19 +362,16 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final bool canEdit;
   final bool canDelete;
 
-  // Transient states
-  final bool isDeploying;
-  final bool isDestroying;
-  final bool isTracing;
-  final String? traceId;
+  final DeploymentReadinessViewState deploymentReadiness;
+
+  // Deployment operation and independent testing utility states
+  final DeploymentOperationViewState deploymentOperation;
+  final TraceViewState trace;
+  final SimulatorDownloadViewState simulatorDownload;
 
   // Error handling
   final String? lastError;
   final String? lastDeploymentLogs;
-
-  // Terminal visibility and logs
-  final bool showTerminal;
-  final List<String> terminalLogs;
 
   // Optimization data
   final Map<String, dynamic>? optimizerResult;
@@ -75,14 +395,9 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String? errorMessage;
   final String? infoMessage;
 
-  // Terraform outputs from most recent successful deployment
-  final Map<String, dynamic>? deploymentOutputs;
-  final DateTime? outputsTimestamp;
+  // Typed Terraform outputs from the most recent successful deployment.
+  final DeploymentOutputsSnapshot? deploymentOutputs;
   final String? outputsError;
-
-  // Simulator download state
-  final bool isDownloadingSimulator;
-  final Uint8List? simulatorBytes;
 
   const TwinOverviewLoaded({
     required this.twinId,
@@ -93,14 +408,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.canDestroy,
     required this.canEdit,
     required this.canDelete,
-    this.isDeploying = false,
-    this.isDestroying = false,
-    this.isTracing = false,
-    this.traceId,
+    this.deploymentReadiness = const DeploymentReadinessViewState.initial(),
+    this.deploymentOperation = const DeploymentOperationViewState(),
+    this.trace = const TraceViewState(),
+    this.simulatorDownload = const SimulatorDownloadViewState(),
     this.lastError,
     this.lastDeploymentLogs,
-    this.showTerminal = false,
-    this.terminalLogs = const [],
     this.optimizerResult,
     this.optimizerParams,
     this.cheapestPath,
@@ -116,11 +429,20 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.errorMessage,
     this.infoMessage,
     this.deploymentOutputs,
-    this.outputsTimestamp,
     this.outputsError,
-    this.isDownloadingSimulator = false,
-    this.simulatorBytes,
   });
+
+  bool get isDeploying =>
+      deploymentOperation.isActive &&
+      deploymentOperation.operationType == DeploymentOperationType.deploy;
+
+  bool get isDestroying =>
+      deploymentOperation.isActive &&
+      deploymentOperation.operationType == DeploymentOperationType.destroy;
+
+  bool get showTerminal => deploymentOperation.showLogs;
+
+  List<String> get terminalLogs => deploymentOperation.formattedLogs;
 
   /// Create copy with updated fields
   TwinOverviewLoaded copyWith({
@@ -132,14 +454,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool? canDestroy,
     bool? canEdit,
     bool? canDelete,
-    bool? isDeploying,
-    bool? isDestroying,
-    bool? isTracing,
-    String? traceId,
+    DeploymentReadinessViewState? deploymentReadiness,
+    DeploymentOperationViewState? deploymentOperation,
+    TraceViewState? trace,
+    SimulatorDownloadViewState? simulatorDownload,
     String? lastError,
     String? lastDeploymentLogs,
-    bool? showTerminal,
-    List<String>? terminalLogs,
     Map<String, dynamic>? optimizerResult,
     Map<String, dynamic>? optimizerParams,
     Map<String, dynamic>? cheapestPath,
@@ -154,16 +474,14 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? successMessage,
     String? errorMessage,
     String? infoMessage,
-    Map<String, dynamic>? deploymentOutputs,
-    DateTime? outputsTimestamp,
+    DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
-    bool? isDownloadingSimulator,
-    Uint8List? simulatorBytes,
     bool clearSuccess = false,
     bool clearError = false,
     bool clearInfo = false,
     bool clearOutputsError = false,
-    bool clearSimulatorBytes = false,
+    bool clearLastError = false,
+    bool clearDeploymentOutputs = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -174,14 +492,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
       canDestroy: canDestroy ?? this.canDestroy,
       canEdit: canEdit ?? this.canEdit,
       canDelete: canDelete ?? this.canDelete,
-      isDeploying: isDeploying ?? this.isDeploying,
-      isDestroying: isDestroying ?? this.isDestroying,
-      isTracing: isTracing ?? this.isTracing,
-      traceId: traceId ?? this.traceId,
-      lastError: lastError ?? this.lastError,
+      deploymentReadiness: deploymentReadiness ?? this.deploymentReadiness,
+      deploymentOperation: deploymentOperation ?? this.deploymentOperation,
+      trace: trace ?? this.trace,
+      simulatorDownload: simulatorDownload ?? this.simulatorDownload,
+      lastError: clearLastError ? null : (lastError ?? this.lastError),
       lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
-      showTerminal: showTerminal ?? this.showTerminal,
-      terminalLogs: terminalLogs ?? this.terminalLogs,
       optimizerResult: optimizerResult ?? this.optimizerResult,
       optimizerParams: optimizerParams ?? this.optimizerParams,
       cheapestPath: cheapestPath ?? this.cheapestPath,
@@ -199,16 +515,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
           : (successMessage ?? this.successMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       infoMessage: clearInfo ? null : (infoMessage ?? this.infoMessage),
-      deploymentOutputs: deploymentOutputs ?? this.deploymentOutputs,
-      outputsTimestamp: outputsTimestamp ?? this.outputsTimestamp,
+      deploymentOutputs: clearDeploymentOutputs
+          ? null
+          : (deploymentOutputs ?? this.deploymentOutputs),
       outputsError: clearOutputsError
           ? null
           : (outputsError ?? this.outputsError),
-      isDownloadingSimulator:
-          isDownloadingSimulator ?? this.isDownloadingSimulator,
-      simulatorBytes: clearSimulatorBytes
-          ? null
-          : (simulatorBytes ?? this.simulatorBytes),
     );
   }
 
@@ -222,14 +534,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
     canDestroy,
     canEdit,
     canDelete,
-    isDeploying,
-    isDestroying,
-    isTracing,
-    traceId,
+    deploymentReadiness,
+    deploymentOperation,
+    trace,
+    simulatorDownload,
     lastError,
     lastDeploymentLogs,
-    showTerminal,
-    terminalLogs,
     optimizerResult,
     optimizerParams,
     cheapestPath,
@@ -245,9 +555,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     errorMessage,
     infoMessage,
     deploymentOutputs,
-    outputsTimestamp,
     outputsError,
-    isDownloadingSimulator,
-    simulatorBytes,
   ];
 }

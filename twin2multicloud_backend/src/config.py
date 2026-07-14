@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -47,6 +48,7 @@ class Settings(BaseSettings):
     # External APIs
     DEPLOYER_URL: str = "http://localhost:5004"
     OPTIMIZER_URL: str = "http://master-thesis-2twin2clouds-1:8000"
+    DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES: int = Field(default=1440, gt=0)
     
     # GLB File Storage (for scene.glb uploads)
     UPLOAD_DIR: str = "./uploads"

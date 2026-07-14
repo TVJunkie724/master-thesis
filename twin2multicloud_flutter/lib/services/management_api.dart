@@ -1,10 +1,10 @@
-import 'dart:typed_data';
-
 import '../core/result.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
+import '../models/deployment_operations.dart';
+import '../models/deployment_readiness.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
@@ -193,26 +193,35 @@ abstract interface class DeploymentConfigurationApi {
 }
 
 abstract interface class DeploymentLifecycleApi {
-  Future<Map<String, dynamic>> deployTwin(String twinId);
+  Future<DeploymentReadinessSnapshot> getDeploymentReadiness(String twinId);
 
-  Future<Map<String, dynamic>> destroyTwin(String twinId);
+  Future<DeploymentReadinessSnapshot> runDeploymentPreflight(String twinId);
 
-  Future<Map<String, dynamic>> getDeploymentStatus(String twinId);
+  Future<OperationSession> deployTwin(String twinId);
 
-  Future<Map<String, dynamic>> getDeploymentOutputs(String twinId);
+  Future<OperationSession> destroyTwin(String twinId);
+
+  Future<DeploymentStatusSnapshot> getDeploymentStatus(String twinId);
+
+  Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId);
+
+  Future<DeploymentHistory> getDeploymentHistory(
+    String twinId, {
+    int limit = 10,
+  });
 
   String getSseUrl(String sseUrl, {int? lastEventId});
 
-  Future<Map<String, dynamic>> getDeploymentLogs(
+  Future<DeploymentLogPage> getDeploymentLogs(
     String twinId, {
     String? sessionId,
     int? afterEventId,
     int limit = 100,
   });
 
-  Future<Map<String, dynamic>> startLogTrace(String twinId);
+  Future<LogTraceStartResult> startLogTrace(String twinId);
 
-  Future<Uint8List> downloadSimulator(String twinId);
+  Future<BinaryDownload> downloadSimulator(String twinId);
 }
 
 abstract interface class VerificationApi {

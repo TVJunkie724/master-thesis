@@ -1,4 +1,4 @@
-from src.api.routes.sse import LogSession, SessionState
+from src.services.deployment_stream_service import LogSession, SessionState
 
 
 def test_log_session_complete_event_carries_operation_metadata():
@@ -11,7 +11,7 @@ def test_log_session_complete_event_carries_operation_metadata():
         error_code="DEPLOYMENT_ERROR",
     )
 
-    event = session.queue.get_nowait()
+    event = session.logs[-1]
     assert session.state == SessionState.COMPLETED
     assert event["type"] == "error"
     assert event["operation_id"] == "op-123"

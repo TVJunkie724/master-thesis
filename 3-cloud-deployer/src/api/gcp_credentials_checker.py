@@ -86,6 +86,8 @@ REQUIRED_GCP_PERMISSIONS = {
             "iam.serviceAccounts.get",
             "iam.serviceAccounts.list",
             "iam.serviceAccounts.actAs",
+            "iam.serviceAccountKeys.create",
+            "iam.serviceAccountKeys.delete",
             "iam.roles.create",
             "iam.roles.delete",
             "iam.roles.get",
@@ -113,8 +115,10 @@ REQUIRED_GCP_PERMISSIONS = {
             "pubsub.topics.create",
             "pubsub.topics.delete",
             "pubsub.topics.get",
+            "pubsub.topics.getIamPolicy",
             "pubsub.topics.list",
             "pubsub.topics.publish",
+            "pubsub.topics.setIamPolicy",
             "pubsub.subscriptions.create",
             "pubsub.subscriptions.delete",
             "pubsub.subscriptions.get",
@@ -188,6 +192,8 @@ GCP_RESOURCE_SCOPED_PERMISSION_PREFIXES = (
     "storage.objects.",
 )
 GCP_RESOURCE_SCOPED_PERMISSIONS = {
+    "pubsub.topics.getIamPolicy",
+    "pubsub.topics.setIamPolicy",
     "storage.buckets.delete",
     "storage.buckets.get",
     "storage.buckets.update",

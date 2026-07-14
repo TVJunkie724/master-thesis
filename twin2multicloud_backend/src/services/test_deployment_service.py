@@ -38,6 +38,8 @@ class MockSimulatorArchive:
     content: io.BytesIO
     filename: str
     media_type: str = "application/zip"
+    provider: str = "gcp"
+    credential_class: str = "demo_non_secret"
 
 
 class TestDeploymentService:
@@ -142,6 +144,7 @@ python src/main.py --project {resource_name}
         return MockSimulatorArchive(
             content=zip_buffer,
             filename=f"simulator_{resource_name}_{l1_provider}.zip",
+            provider=l1_provider,
         )
 
     @staticmethod

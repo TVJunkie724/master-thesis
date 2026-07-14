@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import io
+import zipfile
+
 import pytest
 
+from src.clients.deployer_client import DeployerSimulatorArchive
 from src.models.deployer_config import DeployerConfiguration
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
@@ -33,8 +37,29 @@ async def _prepare_project(_twin, _user_id):
     return "simulator-project"
 
 
-async def _fetch_simulator(_resource_name, _provider):
-    return b"PK\x03\x04simulator"
+def _zip_bytes() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("README.md", "simulator")
+    return buffer.getvalue()
+
+
+def _archive(provider: str = "gcp") -> DeployerSimulatorArchive:
+    classes = {
+        "aws": "aws_iot_device_certificate",
+        "azure": "azure_iot_hub_device_identity",
+        "gcp": "gcp_pubsub_topic_publisher",
+    }
+    return DeployerSimulatorArchive(
+        content=_zip_bytes(),
+        filename=f"simulator_simulator-project_{provider}.zip",
+        provider=provider,
+        credential_class=classes[provider],
+    )
+
+
+async def _fetch_simulator(_resource_name, provider):
+    return _archive(provider)
 
 
 def _service(db, *, project_preparer=_prepare_project, simulator_fetcher=_fetch_simulator):
@@ -57,7 +82,7 @@ async def test_download_fetches_deployer_archive_for_optimizer_l1(db_session):
 
     async def fetcher(resource_name, provider):
         fetch_calls.append((resource_name, provider))
-        return b"PK\x03\x04gcp"
+        return _archive(provider)
 
     archive = await _service(db_session, simulator_fetcher=fetcher).download(
         twin_id=twin.id,
@@ -66,7 +91,7 @@ async def test_download_fetches_deployer_archive_for_optimizer_l1(db_session):
     )
 
     assert archive.filename == "simulator_simulator-project_gcp.zip"
-    assert archive.content.getvalue() == b"PK\x03\x04gcp"
+    assert archive.content.getvalue() == _zip_bytes()
     assert fetch_calls == [("simulator-project", "gcp")]
 
 
@@ -81,7 +106,7 @@ async def test_download_normalizes_google_alias_for_deployer_api(db_session):
 
     async def fetcher(resource_name, provider):
         fetch_calls.append((resource_name, provider))
-        return b"PK\x03\x04gcp"
+        return _archive(provider)
 
     archive = await _service(db_session, simulator_fetcher=fetcher).download(
         twin_id=twin.id,
@@ -161,3 +186,45 @@ async def test_download_uses_mock_archive_in_test_mode_without_optimizer(db_sess
 
     assert archive.filename == "simulator_simulator-service-twin_gcp.zip"
     assert archive.media_type == "application/zip"
+
+
+@pytest.mark.asyncio
+async def test_download_rejects_mismatched_deployer_provider_metadata(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
+    db_session.commit()
+
+    async def fetcher(_resource_name, _provider):
+        return _archive("gcp")
+
+    with pytest.raises(DownstreamServiceError, match="mismatched"):
+        await _service(db_session, simulator_fetcher=fetcher).download(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+
+@pytest.mark.asyncio
+async def test_download_rejects_mismatched_credential_class_metadata(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
+    db_session.commit()
+
+    async def fetcher(_resource_name, _provider):
+        archive = _archive("aws")
+        return DeployerSimulatorArchive(
+            content=archive.content,
+            filename=archive.filename,
+            provider=archive.provider,
+            credential_class="gcp_pubsub_topic_publisher",
+        )
+
+    with pytest.raises(DownstreamServiceError, match="credential metadata"):
+        await _service(db_session, simulator_fetcher=fetcher).download(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )

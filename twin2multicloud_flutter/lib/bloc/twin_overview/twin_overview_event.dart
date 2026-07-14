@@ -25,6 +25,11 @@ class TwinOverviewRefresh extends TwinOverviewEvent {
   const TwinOverviewRefresh();
 }
 
+/// Explicitly validate the currently required deployment provider access.
+class TwinOverviewRunDeploymentPreflight extends TwinOverviewEvent {
+  const TwinOverviewRunDeploymentPreflight();
+}
+
 /// Trigger deployment
 class TwinOverviewDeploy extends TwinOverviewEvent {
   const TwinOverviewDeploy();
@@ -40,33 +45,24 @@ class TwinOverviewDelete extends TwinOverviewEvent {
   const TwinOverviewDelete();
 }
 
-/// SSE log event received
-class TwinOverviewLogReceived extends TwinOverviewEvent {
-  final String log;
-  final String? timestamp;
-
-  const TwinOverviewLogReceived(this.log, {this.timestamp});
-
-  @override
-  List<Object?> get props => [log, timestamp];
-}
-
 /// SSE deployment complete
 class TwinOverviewDeploymentComplete extends TwinOverviewEvent {
   final bool success;
   final String? newState;
   final String? message;
   final Map<String, dynamic>? outputs; // Terraform outputs
+  final int? eventId;
 
   const TwinOverviewDeploymentComplete({
     required this.success,
     this.newState,
     this.message,
     this.outputs,
+    this.eventId,
   });
 
   @override
-  List<Object?> get props => [success, newState, message, outputs];
+  List<Object?> get props => [success, newState, message, outputs, eventId];
 }
 
 /// Clear success/error messages
@@ -103,39 +99,80 @@ class TwinOverviewLogTraceUpdate extends TwinOverviewEvent {
   final String logLine;
   final String? layer;
   final String? provider;
+  final String? traceId;
 
-  const TwinOverviewLogTraceUpdate(this.logLine, {this.layer, this.provider});
+  const TwinOverviewLogTraceUpdate(
+    this.logLine, {
+    this.layer,
+    this.provider,
+    this.traceId,
+  });
 
   @override
-  List<Object?> get props => [logLine, layer, provider];
+  List<Object?> get props => [logLine, layer, provider, traceId];
 }
 
 /// Log trace completed
 class TwinOverviewLogTraceComplete extends TwinOverviewEvent {
   final int? totalLogs;
+  final String? traceId;
 
-  const TwinOverviewLogTraceComplete({this.totalLogs});
+  const TwinOverviewLogTraceComplete({this.totalLogs, this.traceId});
 
   @override
-  List<Object?> get props => [totalLogs];
+  List<Object?> get props => [totalLogs, traceId];
 }
 
 /// Log trace error occurred
 class TwinOverviewLogTraceError extends TwinOverviewEvent {
   final String message;
+  final String? traceId;
 
-  const TwinOverviewLogTraceError(this.message);
+  const TwinOverviewLogTraceError(this.message, {this.traceId});
+
+  @override
+  List<Object?> get props => [message, traceId];
+}
+
+/// Cancel the active log trace stream without affecting deployment logs.
+class TwinOverviewCancelLogTrace extends TwinOverviewEvent {
+  const TwinOverviewCancelLogTrace();
+}
+
+/// Download simulator package
+class TwinOverviewDownloadSimulator extends TwinOverviewEvent {
+  final bool acknowledgedSensitiveCredentials;
+
+  const TwinOverviewDownloadSimulator({
+    required this.acknowledgedSensitiveCredentials,
+  });
+
+  @override
+  List<Object?> get props => [acknowledgedSensitiveCredentials];
+}
+
+class TwinOverviewSimulatorSaveStarted extends TwinOverviewEvent {
+  const TwinOverviewSimulatorSaveStarted();
+}
+
+class TwinOverviewSimulatorSaveCompleted extends TwinOverviewEvent {
+  final String message;
+
+  const TwinOverviewSimulatorSaveCompleted(this.message);
 
   @override
   List<Object?> get props => [message];
 }
 
-/// Download simulator package
-class TwinOverviewDownloadSimulator extends TwinOverviewEvent {
-  const TwinOverviewDownloadSimulator();
+class TwinOverviewSimulatorSaveCancelled extends TwinOverviewEvent {
+  const TwinOverviewSimulatorSaveCancelled();
 }
 
-/// Clear simulator bytes from state (after save dialog completes)
-class TwinOverviewClearSimulatorBytes extends TwinOverviewEvent {
-  const TwinOverviewClearSimulatorBytes();
+class TwinOverviewSimulatorSaveFailed extends TwinOverviewEvent {
+  final String message;
+
+  const TwinOverviewSimulatorSaveFailed(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }

@@ -11,6 +11,7 @@
   },
   "capabilities": [
     "l1_iot",
+    "l1_simulator_topic_publisher",
     "l2_compute",
     "l3_storage",
     "observability",
@@ -54,6 +55,11 @@
       "type": "workflow_permissions",
       "status": "implemented",
       "reason": "Terraform-managed google_workflows_workflow resources and workflows.googleapis.com API enablement are represented in the checker and custom role."
+    },
+    {
+      "type": "simulator_runtime_identity",
+      "status": "implemented",
+      "reason": "Terraform creates a dedicated service account, binds roles/pubsub.publisher on the twin telemetry topic only, and writes its key to the protected simulator runtime path."
     }
   ],
   "known_gaps": [
@@ -64,6 +70,10 @@
     {
       "area": "L4/L5 parity",
       "reason": "GCP does not currently provide first-class managed Digital Twin and Managed Grafana equivalents in this deployment model."
+    },
+    {
+      "area": "standalone simulator key lifecycle",
+      "reason": "A standalone downloadable simulator cannot use the container's deployment identity. Its dedicated topic-publisher key is stored in Terraform state and must be handled as sensitive runtime material until workload identity federation is practical for this client use case."
     }
   ],
   "verification": {

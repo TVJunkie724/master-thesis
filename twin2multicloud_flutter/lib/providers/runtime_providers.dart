@@ -16,10 +16,10 @@ final initialUserProvider = Provider<User?>((ref) => null);
 
 final apiServiceProvider = Provider<ManagementApi>((ref) => ApiService());
 
-final logStreamClientFactoryProvider = Provider<LogStreamClientFactory>(
-  (ref) =>
-      () => SseService(
-        baseUrl: ApiConfig.baseUrl,
-        authToken: ApiConfig.devAuthToken,
-      ),
-);
+final logStreamClientFactoryProvider = Provider<LogStreamClientFactory>((ref) {
+  final managementApi = ref.watch(apiServiceProvider);
+  return () => SseService(
+    baseUrl: ApiConfig.baseUrl,
+    authTokenProvider: managementApi.getAuthToken,
+  );
+});

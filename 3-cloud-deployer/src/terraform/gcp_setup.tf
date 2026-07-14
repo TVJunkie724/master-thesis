@@ -86,6 +86,7 @@ locals {
   gcp_l1_events_topic    = "${var.digital_twin_name}-events"
   gcp_l1_dispatcher_name = "${var.digital_twin_name}-dispatcher"
   gcp_l1_registry_id     = "${var.digital_twin_name}-registry"
+  gcp_l1_simulator_sa_id = substr("${var.digital_twin_name}-simulator", 0, 30)
 
   # L2 Compute
   gcp_l2_persister_name       = "${var.digital_twin_name}-persister"
@@ -309,4 +310,3 @@ resource "google_storage_bucket" "function_source" {
   
   labels = local.gcp_common_labels
 }
-

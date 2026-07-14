@@ -63,3 +63,8 @@ class DigitalTwin(Base):
         back_populates="twin",
         order_by="DeploymentLog.event_id.asc()"
     )
+    deployment_preflight_cache = relationship(
+        "DeploymentPreflightCache",
+        back_populates="twin",
+        cascade="all, delete-orphan",
+    )

@@ -40,6 +40,8 @@
         "iam.serviceAccounts.get",
         "iam.serviceAccounts.list",
         "iam.serviceAccounts.actAs",
+        "iam.serviceAccountKeys.create",
+        "iam.serviceAccountKeys.delete",
         "iam.roles.create",
         "iam.roles.delete",
         "iam.roles.get",
@@ -76,8 +78,10 @@
         "pubsub.topics.create",
         "pubsub.topics.delete",
         "pubsub.topics.get",
+        "pubsub.topics.getIamPolicy",
         "pubsub.topics.list",
         "pubsub.topics.publish",
+        "pubsub.topics.setIamPolicy",
         "pubsub.subscriptions.create",
         "pubsub.subscriptions.delete",
         "pubsub.subscriptions.get",
@@ -88,7 +92,7 @@
         "eventarc.triggers.list",
         "eventarc.triggers.update"
       ],
-      "reason": "Pub/Sub and Eventarc support L1 ingestion and function triggers."
+      "reason": "Pub/Sub and Eventarc support L1 ingestion and function triggers; topic IAM binds the dedicated simulator identity as publisher on only the twin telemetry topic."
     },
     {
       "name": "functions_run_build",
@@ -161,6 +165,7 @@
     "resourcemanager.projects.setIamPolicy is needed by google_project_iam_member in thesis-demo-v1 but should move to bootstrap-only setup in least-privilege-v2.",
     "serviceusage.services.enable/disable and iam.roles.* are setup permissions and should not remain on the runtime deployment identity after the bootstrap/deployment split is finalized.",
     "Project creation for organization-account mode remains outside the project-level custom role and requires bootstrap/admin credentials.",
+    "The standalone simulator requires a downloadable service-account key. Terraform state therefore contains this dedicated topic-publisher key; deployment/bootstrap credentials are never packaged.",
     "E2E deployment verification is intentionally deferred until the larger refactoring roadmap reaches an end-to-end testable state."
   ],
   "next_validation": [

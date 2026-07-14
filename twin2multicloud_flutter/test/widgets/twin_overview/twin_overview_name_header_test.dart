@@ -29,5 +29,20 @@ void main() {
 
       expect(find.text('Not configured'), findsOneWidget);
     });
+
+    testWidgets('stacks names below the Twin Overview compact breakpoint', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(buildWidget());
+
+      final projectTop = tester.getTopLeft(find.text('PROJECT NAME'));
+      final resourceTop = tester.getTopLeft(find.text('CLOUD RESOURCE NAME'));
+
+      expect(resourceTop.dy, greaterThan(projectTop.dy));
+      expect((resourceTop.dx - projectTop.dx).abs(), lessThan(1));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

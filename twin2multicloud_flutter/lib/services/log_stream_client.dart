@@ -13,6 +13,9 @@ class SseLogEvent {
   final String? level;
   final Map<String, dynamic>? outputs;
   final Map<String, dynamic>? data;
+  final DateTime? timestamp;
+  final String? operationId;
+  final String? errorCode;
 
   const SseLogEvent({
     this.id = 0,
@@ -21,6 +24,9 @@ class SseLogEvent {
     this.level,
     this.outputs,
     this.data,
+    this.timestamp,
+    this.operationId,
+    this.errorCode,
   });
 
   bool get isComplete => type == 'complete' || type == 'done';

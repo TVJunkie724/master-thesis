@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
@@ -25,10 +26,23 @@ class SessionState(Enum):
     COMPLETED = "completed"
 
 
+@dataclass(frozen=True)
+class StreamConnection:
+    """One isolated consumer generation plus its deterministic replay snapshot."""
+
+    generation: int
+    queue: asyncio.Queue
+    replay: tuple[dict[str, Any], ...]
+    completed: bool
+    replay_gap: bool
+
+
 class LogSession:
     """Manage one deployment log streaming session."""
 
     MAX_BUFFER_SIZE = 500
+    MAX_REPLAY_SIZE = 500
+    MAX_LIVE_QUEUE_SIZE = 500
     PENDING_TTL = timedelta(seconds=60)
     COMPLETED_TTL = timedelta(seconds=30)
     BATCH_SIZE = 50
@@ -38,13 +52,14 @@ class LogSession:
         self.session_id = session_id
         self.operation_type = operation_type
         self.state = SessionState.PENDING
-        self.queue: asyncio.Queue = asyncio.Queue()
+        self.queue: asyncio.Queue = asyncio.Queue(maxsize=self.MAX_LIVE_QUEUE_SIZE)
         self.buffer: list[dict[str, Any]] = []
         self.logs: list[dict[str, Any]] = []
         self.unpersisted_logs: list[dict[str, Any]] = []
         self.created_at = datetime.utcnow()
         self.last_activity = datetime.utcnow()
         self.event_counter = 0
+        self._connection_generation = 0
 
     def touch(self) -> None:
         self.last_activity = datetime.utcnow()
@@ -52,7 +67,7 @@ class LogSession:
     def is_expired(self) -> bool:
         now = datetime.utcnow()
         if self.state == SessionState.PENDING:
-            return now - self.created_at > self.PENDING_TTL
+            return now - self.last_activity > self.PENDING_TTL
         if self.state == SessionState.COMPLETED:
             return now - self.last_activity > self.COMPLETED_TTL
         return False
@@ -66,14 +81,14 @@ class LogSession:
             "level": level,
             "timestamp": datetime.utcnow().isoformat(),
         }
-        self.logs.append(event)
+        self._remember(event)
         self.unpersisted_logs.append(event)
         self.touch()
 
         if self.state == SessionState.STREAMING:
-            await self.queue.put(event)
-        elif len(self.buffer) < self.MAX_BUFFER_SIZE:
-            self.buffer.append(event)
+            self._enqueue_live(event)
+        else:
+            self._buffer(event)
 
         return self.event_counter
 
@@ -85,24 +100,67 @@ class LogSession:
             "data": data or {},
             "timestamp": datetime.utcnow().isoformat(),
         }
-        self.logs.append(event)
+        self._remember(event)
         self.touch()
 
         if self.state == SessionState.STREAMING:
-            await self.queue.put(event)
-        elif len(self.buffer) < self.MAX_BUFFER_SIZE:
-            self.buffer.append(event)
+            self._enqueue_live(event)
+        else:
+            self._buffer(event)
 
         return self.event_counter
 
-    def on_connect(self) -> None:
-        self.state = SessionState.STREAMING
-        self.touch()
-        for event in self.buffer:
-            self.queue.put_nowait(event)
-        self.buffer.clear()
+    def can_resume_after(self, last_event_id: int) -> bool:
+        """Return whether a reconnect cursor belongs to this session history."""
+        return 0 <= last_event_id <= self.event_counter
 
-    def on_complete(self, success: bool, message: str | None = None, outputs: dict | None = None) -> None:
+    def open_stream(self, last_event_id: int) -> StreamConnection:
+        """Replace any prior consumer and return replay isolated from live events."""
+        if not self.can_resume_after(last_event_id):
+            raise ValueError("Deployment stream cursor is outside session history")
+        self._connection_generation += 1
+        self.queue = asyncio.Queue(maxsize=self.MAX_LIVE_QUEUE_SIZE)
+        oldest_event_id = self.logs[0]["id"] if self.logs else None
+        replay_gap = bool(
+            oldest_event_id is not None
+            and oldest_event_id > last_event_id + 1
+        )
+        replay = tuple(
+            event.copy()
+            for event in self.logs
+            if event["id"] > last_event_id
+        )
+        completed = self.state == SessionState.COMPLETED
+        if not completed:
+            self.state = SessionState.STREAMING
+        self.touch()
+        self.buffer.clear()
+        return StreamConnection(
+            generation=self._connection_generation,
+            queue=self.queue,
+            replay=replay,
+            completed=completed,
+            replay_gap=replay_gap,
+        )
+
+    def close_stream(self, generation: int) -> None:
+        """Reset only the consumer generation that is actually disconnecting."""
+        if (
+            generation == self._connection_generation
+            and self.state == SessionState.STREAMING
+        ):
+            self.state = SessionState.PENDING
+            self.touch()
+
+    def on_complete(
+        self,
+        success: bool,
+        message: str | None = None,
+        outputs: dict | None = None,
+        operation_id: str | None = None,
+        error_code: str | None = None,
+    ) -> None:
+        was_streaming = self.state == SessionState.STREAMING
         self.state = SessionState.COMPLETED
         self.event_counter += 1
         final_event = {
@@ -112,11 +170,32 @@ class LogSession:
             "data": message or ("Deployment complete" if success else "Deployment failed"),
             "message": message,
             "outputs": outputs,
+            "operation_id": operation_id,
+            "error_code": error_code,
             "timestamp": datetime.utcnow().isoformat(),
         }
-        self.logs.append(final_event)
-        self.queue.put_nowait(final_event)
+        self._remember(final_event)
+        if was_streaming:
+            self._enqueue_live(final_event)
+        else:
+            self._buffer(final_event)
         self.touch()
+
+    def _enqueue_live(self, event: dict[str, Any]) -> None:
+        """Bound live delivery; cursor gaps force persisted client catch-up."""
+        if self.queue.full():
+            self.queue.get_nowait()
+        self.queue.put_nowait(event)
+
+    def _remember(self, event: dict[str, Any]) -> None:
+        self.logs.append(event)
+        if len(self.logs) > self.MAX_REPLAY_SIZE:
+            del self.logs[: len(self.logs) - self.MAX_REPLAY_SIZE]
+
+    def _buffer(self, event: dict[str, Any]) -> None:
+        self.buffer.append(event)
+        if len(self.buffer) > self.MAX_BUFFER_SIZE:
+            del self.buffer[: len(self.buffer) - self.MAX_BUFFER_SIZE]
 
     def should_batch_persist(self) -> bool:
         return len(self.unpersisted_logs) >= self.BATCH_SIZE
@@ -276,28 +355,32 @@ async def _flush_expired_session_logs(session: LogSession) -> None:
 
 async def stream_session_events(session: LogSession, request, last_event_id: int, db: Session):
     """Yield SSE frames for a session with replay, heartbeat, and persistence."""
+    connection = session.open_stream(last_event_id)
     try:
-        if session.state == SessionState.COMPLETED:
-            final_events = [event for event in session.logs if event.get("type") in ("complete", "error")]
-            if final_events:
-                event = final_events[-1]
-                yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
+        if connection.replay_gap:
+            event = {
+                "id": last_event_id,
+                "type": "catchup_required",
+                "data": "Persisted deployment log catch-up is required.",
+            }
+            yield _sse_frame(event)
             return
 
-        session.on_connect()
+        for event in connection.replay:
+            yield _sse_frame(event)
+            if event.get("type") in {"complete", "error"}:
+                return
 
-        if last_event_id > 0:
-            missed = [event for event in session.logs if event["id"] > last_event_id]
-            for event in missed:
-                yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
+        if connection.completed:
+            return
 
         while True:
             if await request.is_disconnected():
                 break
 
             try:
-                event = await asyncio.wait_for(session.queue.get(), timeout=30)
-                yield f"id: {event.get('id', 0)}\ndata: {json.dumps(event)}\n\n"
+                event = await asyncio.wait_for(connection.queue.get(), timeout=30)
+                yield _sse_frame(event)
 
                 if session.should_batch_persist():
                     logs = session.get_unpersisted_and_clear()
@@ -313,8 +396,11 @@ async def stream_session_events(session: LogSession, request, last_event_id: int
     finally:
         if session.unpersisted_logs:
             await persist_logs_batch(session, session.get_unpersisted_and_clear(), db)
-        if session.state == SessionState.STREAMING:
-            session.state = SessionState.PENDING
+        session.close_stream(connection.generation)
+
+
+def _sse_frame(event: dict[str, Any]) -> str:
+    return f"id: {event.get('id', 0)}\ndata: {json.dumps(event)}\n\n"
 
 
 registry = SseSessionRegistry()

@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
 from src.clients.deployer_client import DeployerClient
+from src.config import settings
 from src.models.database import get_db
 from src.models.twin import TwinState
 from src.models.user import User
@@ -35,8 +36,13 @@ from src.schemas.deployment_operations import (
     DeploymentOutputsResponse,
     DeploymentStatusResponse,
 )
+from src.schemas.deployment_readiness import (
+    DeploymentPreflightResponse,
+    DeploymentReadinessResponse,
+)
 from src.services.deployment_log_read_service import DeploymentLogReadService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
+from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
@@ -69,6 +75,16 @@ def _deployment_orchestrator(db: Session) -> DeploymentOrchestrator:
 def _twin_export_service(db: Session) -> TwinExportService:
     """Build the redacted twin export service for this request."""
     return TwinExportService(db=db, twin_repository=TwinRepository(db))
+
+
+def _deployment_readiness_service(db: Session) -> DeploymentReadinessService:
+    """Build the owner-scoped readiness service for one request."""
+    return DeploymentReadinessService(
+        db,
+        max_age=timedelta(
+            minutes=settings.DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES,
+        ),
+    )
 
 
 def _raise_service_http_error(exc: Exception) -> None:
@@ -128,6 +144,10 @@ async def deploy_twin(
     current_user: User = Depends(get_current_user),
 ):
     try:
+        _deployment_readiness_service(db).require_ready(
+            twin_id,
+            current_user.id,
+        )
         return await _deployment_orchestrator(db).deploy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
@@ -169,6 +189,57 @@ async def destroy_twin_infrastructure(
 
 
 @router.get(
+    "/{twin_id}/deployment-readiness",
+    response_model=DeploymentReadinessResponse,
+    operation_id="getDigitalTwinDeploymentReadiness",
+    summary="Get cached deployment readiness",
+    description=(
+        "Returns owner-scoped cached provider readiness for the currently selected "
+        "architecture. This read endpoint never contacts a cloud provider."
+    ),
+    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
+)
+async def get_deployment_readiness(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployment_readiness_service(db).get_cached(
+            twin_id,
+            current_user.id,
+        )
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
+
+
+@router.post(
+    "/{twin_id}/deployment-preflight",
+    response_model=DeploymentPreflightResponse,
+    operation_id="runDigitalTwinDeploymentPreflight",
+    summary="Run explicit deployment provider preflight",
+    description=(
+        "Validates only the deployment Cloud Connections required by the stored "
+        "provider architecture. It creates no cloud resources and persists only "
+        "redacted readiness evidence."
+    ),
+    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
+)
+async def run_deployment_preflight(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return await _deployment_readiness_service(db).run_preflight(
+            twin_id,
+            current_user.id,
+        )
+    except EntityNotFoundError as exc:
+        _raise_service_http_error(exc)
+
+
+@router.get(
     "/{twin_id}/deployment-status",
     response_model=DeploymentStatusResponse,
     operation_id="getDigitalTwinDeploymentStatus",
@@ -181,7 +252,7 @@ async def get_deployment_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from src.api.routes.sse import get_active_sessions_for_twin
+    from src.services.deployment_stream_service import get_active_sessions_for_twin
 
     try:
         return await _deployment_orchestrator(db).get_status(
@@ -289,7 +360,7 @@ async def start_log_trace(
         )
 
     if TEST_MODE:
-        from src.api.routes.sse import create_session
+        from src.services.deployment_stream_service import create_session
         from src.api.routes.test_endpoints import _run_test_log_trace_stream
 
         providers = ["aws"]
@@ -474,7 +545,15 @@ async def download_simulator(
     return StreamingResponse(
         archive.content,
         media_type=archive.media_type,
-        headers={"Content-Disposition": f"attachment; filename={archive.filename}"},
+        headers={
+            "Content-Disposition": f'attachment; filename="{archive.filename}"',
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+            "X-Twin2MultiCloud-Utility": "simulator",
+            "X-Twin2MultiCloud-Provider": archive.provider,
+            "X-Twin2MultiCloud-Credential-Class": archive.credential_class,
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
