@@ -3,10 +3,12 @@ Tests for file_manager CRUD operations.
 
 Tests delete_project and update_project_info functions.
 """
+
 import pytest
 import os
 import json
 import io
+import stat
 from pathlib import Path
 import zipfile
 
@@ -29,33 +31,44 @@ def temp_project_path(tmp_path):
 def valid_zip_bytes():
     """Create a valid project zip file in memory with unique credentials."""
     import uuid
+
     unique_id = uuid.uuid4().hex[:4]
-    
+
     bio = io.BytesIO()
-    with zipfile.ZipFile(bio, 'w') as zf:
+    with zipfile.ZipFile(bio, "w") as zf:
         config = {
             "digital_twin_name": f"tt-{unique_id}",
             "hot_storage_size_in_days": 30,
             "cold_storage_size_in_days": 90,
-            "mode": "DEBUG"
+            "mode": "DEBUG",
         }
         zf.writestr(CONSTANTS.CONFIG_FILE, json.dumps(config))
         zf.writestr(CONSTANTS.CONFIG_IOT_DEVICES_FILE, "[]")
         zf.writestr(CONSTANTS.CONFIG_EVENTS_FILE, "[]")
         zf.writestr(CONSTANTS.CONFIG_HIERARCHY_FILE, "[]")
-        zf.writestr(CONSTANTS.CONFIG_CREDENTIALS_FILE, json.dumps({
-            "aws": {
-                "aws_access_key_id": f"AKIA{unique_id}",
-                "aws_secret_access_key": f"secret{unique_id}",
-                "aws_region": "us-east-1"
-            }
-        }))
-        zf.writestr(CONSTANTS.CONFIG_PROVIDERS_FILE, json.dumps({
-            "layer_1_provider": "aws",
-            "layer_2_provider": "aws",
-            "layer_3_hot_provider": "aws",
-            "layer_4_provider": "aws"
-        }))
+        zf.writestr(
+            CONSTANTS.CONFIG_CREDENTIALS_FILE,
+            json.dumps(
+                {
+                    "aws": {
+                        "aws_access_key_id": f"AKIA{unique_id}",
+                        "aws_secret_access_key": f"secret{unique_id}",
+                        "aws_region": "us-east-1",
+                    }
+                }
+            ),
+        )
+        zf.writestr(
+            CONSTANTS.CONFIG_PROVIDERS_FILE,
+            json.dumps(
+                {
+                    "layer_1_provider": "aws",
+                    "layer_2_provider": "aws",
+                    "layer_3_hot_provider": "aws",
+                    "layer_4_provider": "aws",
+                }
+            ),
+        )
         zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
         # Add required hierarchy file for layer_4_provider=aws
         zf.writestr("twin_hierarchy/aws_hierarchy.json", "[]")
@@ -68,30 +81,37 @@ def valid_zip_bytes():
 def _valid_zip_with_manifest(resource_name: str) -> bytes:
     """Create a valid project ZIP with a DeploymentManifest contract."""
     import uuid
+
     unique_id = uuid.uuid4().hex[:4]
     files = {
-        CONSTANTS.CONFIG_FILE: json.dumps({
-            "digital_twin_name": resource_name,
-            "hot_storage_size_in_days": 30,
-            "cold_storage_size_in_days": 90,
-            "mode": "DEBUG",
-        }),
+        CONSTANTS.CONFIG_FILE: json.dumps(
+            {
+                "digital_twin_name": resource_name,
+                "hot_storage_size_in_days": 30,
+                "cold_storage_size_in_days": 90,
+                "mode": "DEBUG",
+            }
+        ),
         CONSTANTS.CONFIG_IOT_DEVICES_FILE: "[]",
         CONSTANTS.CONFIG_EVENTS_FILE: "[]",
         CONSTANTS.CONFIG_HIERARCHY_FILE: "[]",
-        CONSTANTS.CONFIG_CREDENTIALS_FILE: json.dumps({
-            "aws": {
-                "aws_access_key_id": f"AKIA{unique_id}",
-                "aws_secret_access_key": f"secret{unique_id}",
-                "aws_region": "us-east-1",
+        CONSTANTS.CONFIG_CREDENTIALS_FILE: json.dumps(
+            {
+                "aws": {
+                    "aws_access_key_id": f"AKIA{unique_id}",
+                    "aws_secret_access_key": f"secret{unique_id}",
+                    "aws_region": "us-east-1",
+                }
             }
-        }),
-        CONSTANTS.CONFIG_PROVIDERS_FILE: json.dumps({
-            "layer_1_provider": "aws",
-            "layer_2_provider": "aws",
-            "layer_3_hot_provider": "aws",
-            "layer_4_provider": "aws",
-        }),
+        ),
+        CONSTANTS.CONFIG_PROVIDERS_FILE: json.dumps(
+            {
+                "layer_1_provider": "aws",
+                "layer_2_provider": "aws",
+                "layer_3_hot_provider": "aws",
+                "layer_4_provider": "aws",
+            }
+        ),
         CONSTANTS.CONFIG_OPTIMIZATION_FILE: json.dumps({"result": {}}),
         "twin_hierarchy/aws_hierarchy.json": "[]",
         "lambda_functions/placeholder.txt": "placeholder",
@@ -117,7 +137,7 @@ def _valid_zip_with_manifest(resource_name: str) -> bytes:
     }
 
     bio = io.BytesIO()
-    with zipfile.ZipFile(bio, 'w') as zf:
+    with zipfile.ZipFile(bio, "w") as zf:
         for path, content in files.items():
             zf.writestr(path, content)
         zf.writestr(CONSTANTS.DEPLOYMENT_MANIFEST_FILE, json.dumps(manifest))
@@ -128,7 +148,10 @@ def _valid_zip_with_manifest(resource_name: str) -> bytes:
 def _wrap_archive(content: bytes, *, extra_root_file: bool = False) -> bytes:
     source = io.BytesIO(content)
     target = io.BytesIO()
-    with zipfile.ZipFile(source, "r") as source_zip, zipfile.ZipFile(target, "w") as target_zip:
+    with (
+        zipfile.ZipFile(source, "r") as source_zip,
+        zipfile.ZipFile(target, "w") as target_zip,
+    ):
         for member in source_zip.infolist():
             target_zip.writestr(f"wrapped/{member.filename}", source_zip.read(member))
         if extra_root_file:
@@ -141,10 +164,10 @@ def created_project(temp_project_path, valid_zip_bytes):
     """Create a project and return its name."""
     project_name = "test_crud_project"
     file_manager.create_project_from_zip(
-        project_name, 
-        valid_zip_bytes, 
+        project_name,
+        valid_zip_bytes,
         project_path=temp_project_path,
-        description="Test project"
+        description="Test project",
     )
     return project_name
 
@@ -158,54 +181,49 @@ class TestDeleteProject:
     def test_delete_removes_folder(self, temp_project_path, created_project):
         """Verify shutil.rmtree removes the project folder."""
         project_dir = os.path.join(
-            temp_project_path, 
-            CONSTANTS.PROJECT_UPLOAD_DIR_NAME, 
-            created_project
+            temp_project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, created_project
         )
         assert os.path.exists(project_dir)
-        
-        file_manager.delete_project(created_project, project_path=temp_project_path)
-        
-        assert not os.path.exists(project_dir)
 
+        file_manager.delete_project(created_project, project_path=temp_project_path)
+
+        assert not os.path.exists(project_dir)
 
     def test_delete_nonexistent_project_raises(self, temp_project_path):
         """Verify ValueError for missing project."""
         with pytest.raises(ValueError, match="does not exist"):
-            file_manager.delete_project("nonexistent_project", project_path=temp_project_path)
+            file_manager.delete_project(
+                "nonexistent_project", project_path=temp_project_path
+            )
 
     def test_delete_removes_all_contents(self, temp_project_path, created_project):
         """Verify all files and subdirectories are removed."""
         project_dir = os.path.join(
-            temp_project_path, 
-            CONSTANTS.PROJECT_UPLOAD_DIR_NAME, 
-            created_project
+            temp_project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, created_project
         )
-        
+
         # Add some additional files
         extra_dir = os.path.join(project_dir, "extra_subdir")
         os.makedirs(extra_dir)
-        with open(os.path.join(extra_dir, "extra_file.txt"), 'w') as f:
+        with open(os.path.join(extra_dir, "extra_file.txt"), "w") as f:
             f.write("extra content")
-        
+
         file_manager.delete_project(created_project, project_path=temp_project_path)
-        
+
         assert not os.path.exists(project_dir)
 
     def test_delete_with_versions(self, temp_project_path, created_project):
         """Verify deletion works when versions folder exists."""
         project_dir = os.path.join(
-            temp_project_path, 
-            CONSTANTS.PROJECT_UPLOAD_DIR_NAME, 
-            created_project
+            temp_project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, created_project
         )
         versions_dir = os.path.join(project_dir, CONSTANTS.PROJECT_VERSIONS_DIR_NAME)
-        
+
         # Versions should exist from creation
         assert os.path.exists(versions_dir)
-        
+
         file_manager.delete_project(created_project, project_path=temp_project_path)
-        
+
         assert not os.path.exists(project_dir)
 
 
@@ -219,12 +237,16 @@ class TestListProjects:
 
         assert file_manager.list_projects(temp_project_path) == ["runtime-twin"]
 
-    def test_list_projects_can_include_legacy_template_for_maintenance(self, temp_project_path):
+    def test_list_projects_can_include_legacy_template_for_maintenance(
+        self, temp_project_path
+    ):
         upload_dir = os.path.join(temp_project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
         os.makedirs(os.path.join(upload_dir, CONSTANTS.DEFAULT_PROJECT_NAME))
         os.makedirs(os.path.join(upload_dir, "runtime-twin"))
 
-        assert file_manager.list_projects(temp_project_path, include_templates=True) == [
+        assert file_manager.list_projects(
+            temp_project_path, include_templates=True
+        ) == [
             "runtime-twin",
             CONSTANTS.DEFAULT_PROJECT_NAME,
         ]
@@ -233,7 +255,9 @@ class TestListProjects:
 class TestCreateProjectManifestContract:
     """Tests for DeploymentManifest-backed project creation."""
 
-    def test_create_project_accepts_matching_manifest_resource_name(self, temp_project_path):
+    def test_create_project_accepts_matching_manifest_resource_name(
+        self, temp_project_path
+    ):
         project_name = "mfst-ok"
 
         result = file_manager.create_project_from_zip(
@@ -248,9 +272,13 @@ class TestCreateProjectManifestContract:
             CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
             project_name,
         )
-        assert os.path.exists(os.path.join(project_dir, CONSTANTS.DEPLOYMENT_MANIFEST_FILE))
+        assert os.path.exists(
+            os.path.join(project_dir, CONSTANTS.DEPLOYMENT_MANIFEST_FILE)
+        )
 
-    def test_create_project_rejects_manifest_resource_name_mismatch(self, temp_project_path):
+    def test_create_project_rejects_manifest_resource_name_mismatch(
+        self, temp_project_path
+    ):
         with pytest.raises(ValueError, match="resource_name does not match"):
             file_manager.create_project_from_zip(
                 "requested",
@@ -265,7 +293,9 @@ class TestCreateProjectManifestContract:
         )
         assert not os.path.exists(rejected_dir)
 
-    def test_update_project_rejects_manifest_resource_name_mismatch(self, temp_project_path):
+    def test_update_project_rejects_manifest_resource_name_mismatch(
+        self, temp_project_path
+    ):
         existing_project = "requested"
         file_manager.create_project_from_zip(
             existing_project,
@@ -292,6 +322,26 @@ class TestCreateProjectManifestContract:
 
 
 class TestProjectArchiveTransactions:
+    def test_create_writes_uploaded_credentials_with_owner_only_permissions(
+        self,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        file_manager.create_project_from_zip(
+            "private-credentials",
+            valid_zip_bytes,
+            project_path=temp_project_path,
+        )
+
+        credentials_path = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / "private-credentials"
+            / CONSTANTS.CONFIG_CREDENTIALS_FILE
+        )
+
+        assert stat.S_IMODE(credentials_path.stat().st_mode) == 0o600
+
     """Tests for atomic project creation and replacement."""
 
     def test_create_failure_leaves_no_partial_project(
@@ -329,9 +379,7 @@ class TestProjectArchiveTransactions:
             description="Preserved description",
         )
         project_dir = (
-            Path(temp_project_path)
-            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
-            / project_name
+            Path(temp_project_path) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
         )
         (project_dir / "stale.txt").write_text("stale", encoding="utf-8")
         (project_dir / ".build").mkdir()
@@ -380,9 +428,7 @@ class TestProjectArchiveTransactions:
             project_path=temp_project_path,
         )
         project_dir = (
-            Path(temp_project_path)
-            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
-            / project_name
+            Path(temp_project_path) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
         )
         marker = project_dir / "original.txt"
         marker.write_text("keep", encoding="utf-8")
@@ -481,7 +527,11 @@ class TestProjectFileBrowser:
 
     def test_file_tree_uses_explicit_project_context_path(self, tmp_path):
         canonical_template = tmp_path / "templates" / "digital-twin"
-        legacy_template = tmp_path / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / CONSTANTS.DEFAULT_PROJECT_NAME
+        legacy_template = (
+            tmp_path
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / CONSTANTS.DEFAULT_PROJECT_NAME
+        )
         canonical_template.mkdir(parents=True)
         legacy_template.mkdir(parents=True)
         (canonical_template / "config.json").write_text('{"source": "canonical"}')
@@ -546,41 +596,37 @@ class TestUpdateProjectInfo:
     def test_update_changes_description(self, temp_project_path, created_project):
         """Verify description is updated in project_info.json."""
         file_manager.update_project_info(
-            created_project, 
-            "Updated description", 
-            project_path=temp_project_path
+            created_project, "Updated description", project_path=temp_project_path
         )
-        
+
         info_path = os.path.join(
             temp_project_path,
             CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
             created_project,
-            CONSTANTS.PROJECT_INFO_FILE
+            CONSTANTS.PROJECT_INFO_FILE,
         )
-        
-        with open(info_path, 'r') as f:
+
+        with open(info_path, "r") as f:
             info = json.load(f)
-        
+
         assert info["description"] == "Updated description"
 
     def test_update_adds_updated_at_timestamp(self, temp_project_path, created_project):
         """Verify updated_at timestamp is added."""
         file_manager.update_project_info(
-            created_project, 
-            "New description", 
-            project_path=temp_project_path
+            created_project, "New description", project_path=temp_project_path
         )
-        
+
         info_path = os.path.join(
             temp_project_path,
             CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
             created_project,
-            CONSTANTS.PROJECT_INFO_FILE
+            CONSTANTS.PROJECT_INFO_FILE,
         )
-        
-        with open(info_path, 'r') as f:
+
+        with open(info_path, "r") as f:
             info = json.load(f)
-        
+
         assert "updated_at" in info
 
     def test_update_preserves_created_at(self, temp_project_path, created_project):
@@ -589,56 +635,50 @@ class TestUpdateProjectInfo:
             temp_project_path,
             CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
             created_project,
-            CONSTANTS.PROJECT_INFO_FILE
+            CONSTANTS.PROJECT_INFO_FILE,
         )
-        
+
         # Get original created_at
-        with open(info_path, 'r') as f:
+        with open(info_path, "r") as f:
             original_info = json.load(f)
         original_created_at = original_info.get("created_at")
-        
+
         file_manager.update_project_info(
-            created_project, 
-            "New description", 
-            project_path=temp_project_path
+            created_project, "New description", project_path=temp_project_path
         )
-        
-        with open(info_path, 'r') as f:
+
+        with open(info_path, "r") as f:
             updated_info = json.load(f)
-        
+
         assert updated_info.get("created_at") == original_created_at
 
     def test_update_nonexistent_project_raises(self, temp_project_path):
         """Verify ValueError for missing project."""
         with pytest.raises(ValueError, match="does not exist"):
             file_manager.update_project_info(
-                "nonexistent_project", 
-                "description",
-                project_path=temp_project_path
+                "nonexistent_project", "description", project_path=temp_project_path
             )
 
-    def test_update_creates_info_file_if_missing(self, temp_project_path, valid_zip_bytes):
+    def test_update_creates_info_file_if_missing(
+        self, temp_project_path, valid_zip_bytes
+    ):
         """Verify info file is created if it doesn't exist."""
         project_name = "project_no_info"
         project_dir = os.path.join(
-            temp_project_path,
-            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
-            project_name
+            temp_project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name
         )
         os.makedirs(project_dir)
-        
+
         # No project_info.json exists
         info_path = os.path.join(project_dir, CONSTANTS.PROJECT_INFO_FILE)
         assert not os.path.exists(info_path)
-        
+
         file_manager.update_project_info(
-            project_name, 
-            "New description",
-            project_path=temp_project_path
+            project_name, "New description", project_path=temp_project_path
         )
-        
+
         assert os.path.exists(info_path)
-        with open(info_path, 'r') as f:
+        with open(info_path, "r") as f:
             info = json.load(f)
         assert info["description"] == "New description"
 
@@ -657,7 +697,9 @@ class TestProjectFileBrowserSecurity:
             CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
             created_project,
         )
-        with open(os.path.join(project_dir, "config_credentials.json.example"), "w") as f:
+        with open(
+            os.path.join(project_dir, "config_credentials.json.example"), "w"
+        ) as f:
             f.write("{}")
         with open(os.path.join(project_dir, "config_credentials_aws.json"), "w") as f:
             f.write("{}")
@@ -696,7 +738,9 @@ class TestProjectFileBrowserSecurity:
             CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
             created_project,
         )
-        with open(os.path.join(project_dir, "config_credentials.json.example"), "w") as f:
+        with open(
+            os.path.join(project_dir, "config_credentials.json.example"), "w"
+        ) as f:
             f.write('{"aws": {"aws_access_key_id": "example"}}')
 
         result = file_manager.get_project_file_content(

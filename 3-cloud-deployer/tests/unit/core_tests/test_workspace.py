@@ -131,6 +131,20 @@ def test_sync_runtime_outputs_copies_only_durable_allowlisted_outputs(tmp_path):
     assert (project / "terraform" / "terraform.tfstate.backup").read_text() == "backup"
     assert (project / "iot_devices_auth" / "device-1" / "certificate.pem.crt").read_text() == "cert"
     assert (project / "iot_device_simulator" / "aws" / "device-1" / "config_generated.json").read_text() == "{}"
+    assert (project / "terraform" / "terraform.tfstate").stat().st_mode & 0o777 == 0o600
+    assert (project / "terraform" / "terraform.tfstate.backup").stat().st_mode & 0o777 == 0o600
+    assert (project / "iot_devices_auth").stat().st_mode & 0o777 == 0o700
+    assert (project / "iot_devices_auth" / "device-1").stat().st_mode & 0o777 == 0o700
+    assert (
+        project / "iot_devices_auth" / "device-1" / "certificate.pem.crt"
+    ).stat().st_mode & 0o777 == 0o600
+    assert (
+        project
+        / "iot_device_simulator"
+        / "aws"
+        / "device-1"
+        / "config_generated.json"
+    ).stat().st_mode & 0o777 == 0o600
     assert not (project / "terraform" / "generated.tfvars.json").exists()
     assert not (project / "iot_device_simulator" / "aws" / "device-1" / "payloads.json").exists()
     assert (project / ".build" / "metadata" / "processor.aws.json").read_text() == metadata_payload

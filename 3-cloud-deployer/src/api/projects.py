@@ -413,9 +413,11 @@ async def import_project(
     tags=["Projects"],
     summary="Export project as zip",
     description=(
-        "**Purpose:** Download a complete project as a ZIP file.\n\n"
+        "**Purpose:** Download a portable, non-secret project definition as a ZIP file.\n\n"
         "**When to call:** For backup, sharing, or migrating projects.\n\n"
-        "**Contents:** All configs, hierarchies, state machines, payloads, 3D assets."
+        "**Contents:** Non-secret configs, hierarchies, state machines, user code, "
+        "payloads, and 3D assets. Credentials, Terraform state, generated runtime "
+        "configuration, device keys, and internal metadata are excluded."
     ),
     responses={
         200: {"description": "Project zip file"},
@@ -427,12 +429,14 @@ async def export_project(
     project_name: str = Path(..., description="Name of the project to export")
 ):
     """
-    Export a project as a downloadable zip file.
+    Export a portable project definition as a downloadable ZIP file.
     
     **Package contents:**
-    - All configuration files (config.json, config_*.json)
+    - Non-secret configuration files
     - Twin hierarchy definitions
     - State machines, user functions, IoT payloads, 3D assets
+
+    Credentials and generated deployment/runtime artifacts are never exported.
     
     **Use case:** Backup, share, or migrate projects.
     """

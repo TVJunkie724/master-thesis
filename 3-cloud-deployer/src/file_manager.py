@@ -21,7 +21,12 @@ from uuid import uuid4
 
 import src.validator as validator
 from src.core.project_storage import ProjectStorage, is_sensitive_project_file
-from src.core.deterministic_zip import atomic_zip_archive, write_zip_bytes
+from src.core.secure_files import atomic_write_private_bytes
+from src.core.deterministic_zip import (
+    atomic_zip_archive,
+    write_zip_bytes,
+    write_zip_file,
+)
 from src.validation.accessors import ZipFileAccessor
 from src.project_archive.policy import (
     ArchiveLimitExceeded,
@@ -35,6 +40,14 @@ GENERATED_PROJECT_PATHS = (
     ".terraform_zips",
     "terraform",
     CONSTANTS.PROJECT_VERSIONS_DIR_NAME,
+)
+EXPORT_EXCLUDED_DIR_NAMES = frozenset(
+    {
+        *GENERATED_PROJECT_PATHS,
+        CONSTANTS.PROJECT_VERSIONS_DIR_NAME,
+        CONSTANTS.IOT_DATA_DIR_NAME,
+        "__pycache__",
+    }
 )
 
 
@@ -63,7 +76,9 @@ def _get_project_storage(project_path: str = None) -> ProjectStorage:
 # ==========================================
 # 1. Project Creation & Update (Zip Handling)
 # ==========================================
-def create_project_from_zip(project_name, zip_source, project_path: str = None, description: str = None):
+def create_project_from_zip(
+    project_name, zip_source, project_path: str = None, description: str = None
+):
     """
     Creates a new project from a validated zip file.
 
@@ -72,10 +87,10 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
         zip_source (str | BytesIO): Zip file source.
         project_path (str): Base project path. If None, auto-detected.
         description (str): Optional project description. If None, generated from digital_twin_name.
-        
+
     Returns:
         dict: Result with message and any warnings.
-        
+
     Raises:
         ValueError: If project name is invalid, project already exists, zip is invalid,
                     or duplicate project detected.
@@ -87,7 +102,7 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
     safe_name = os.path.basename(project_name)
     if safe_name != project_name:
         raise ValueError("Invalid project name.")
-    
+
     zip_source = _buffer_zip_source(zip_source)
 
     # Validate before extraction (Universal Validation)
@@ -96,12 +111,14 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
         warnings = []
 
     zip_source.seek(0)
-    _validate_project_name_matches_manifest(safe_name, _extract_deployment_manifest(zip_source))
-    
+    _validate_project_name_matches_manifest(
+        safe_name, _extract_deployment_manifest(zip_source)
+    )
+
     # Extract twin_name and creds from zip for duplicate check
     zip_source.seek(0)
     twin_name, creds = _extract_identity_from_zip(zip_source)
-    
+
     # Check for duplicate project (same twin_name + same credentials)
     conflicting_project = validator.check_duplicate_project(
         twin_name, creds, exclude_project=project_name, project_path=project_path
@@ -111,61 +128,65 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
             f"Duplicate project detected: '{conflicting_project}' has the same "
             f"digital_twin_name and credentials."
         )
-    
+
     storage = _get_project_storage(project_path)
     target_dir = storage.deployment_project_path(safe_name)
     if target_dir.exists():
         raise ValueError(f"Project '{project_name}' already exists.")
-        
+
     _replace_project_from_archive(
         target_dir,
         zip_source,
         description=description,
         existing_target=None,
     )
-        
+
     logger.info(f"Created project '{project_name}' from zip.")
     return {"message": f"Project '{project_name}' created.", "warnings": warnings}
 
 
-def update_project_from_zip(project_name, zip_source, project_path: str = None, description: str = None):
+def update_project_from_zip(
+    project_name, zip_source, project_path: str = None, description: str = None
+):
     """
     Updates an existing project from a zip file (Overwrites existing files).
     Archives the new version before extracting.
-    
+
     Args:
         project_name (str): Name of the project to update.
         zip_source (str | BytesIO): Zip file source.
         project_path (str): Base project path. If None, auto-detected.
         description (str): Optional project description. If None, keeps existing or generates.
-        
+
     Returns:
         dict: Result with message and any warnings.
-        
+
     Raises:
         ValueError: If project name is invalid, zip is invalid, or duplicate detected.
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
+
     safe_name = os.path.basename(project_name)
     if safe_name != project_name:
         raise ValueError("Invalid project name.")
-    
+
     zip_source = _buffer_zip_source(zip_source)
-        
+
     # Validate entire zip content first (Universal Validation)
     warnings = validator.validate_project_zip(zip_source)
     if warnings is None:
         warnings = []
 
     zip_source.seek(0)
-    _validate_project_name_matches_manifest(safe_name, _extract_deployment_manifest(zip_source))
-    
+    _validate_project_name_matches_manifest(
+        safe_name, _extract_deployment_manifest(zip_source)
+    )
+
     # Extract twin_name and creds from zip for duplicate check
     zip_source.seek(0)
     twin_name, creds = _extract_identity_from_zip(zip_source)
-    
+
     # Check for duplicate project (exclude self)
     conflicting_project = validator.check_duplicate_project(
         twin_name, creds, exclude_project=project_name, project_path=project_path
@@ -175,10 +196,10 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
             f"Duplicate project detected: '{conflicting_project}' has the same "
             f"digital_twin_name and credentials."
         )
-        
+
     storage = _get_project_storage(project_path)
     target_dir = storage.deployment_project_path(safe_name)
-    
+
     if not target_dir.is_dir() or target_dir.is_symlink():
         raise ValueError(f"Project '{project_name}' does not exist.")
 
@@ -188,7 +209,7 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
         description=description,
         existing_target=target_dir,
     )
-        
+
     logger.info(f"Updated project '{project_name}' from zip.")
     return {"message": f"Project '{project_name}' updated.", "warnings": warnings}
 
@@ -199,24 +220,28 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
 def list_projects(project_path: str = None, include_templates: bool = False):
     """
     Returns a list of available project names.
-    
+
     Args:
         project_path: Base project path. If None, auto-detected.
         include_templates: Include legacy template folders that still live under upload.
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
-    return _get_project_storage(project_path).list_projects(include_templates=include_templates)
+
+    return _get_project_storage(project_path).list_projects(
+        include_templates=include_templates
+    )
 
 
 # ==========================================
 # 3. Configuration Management
 # ==========================================
-def update_config_file(project_name, config_filename, config_content, project_path: str = None):
+def update_config_file(
+    project_name, config_filename, config_content, project_path: str = None
+):
     """
     Updates a specific configuration file for a project.
-    
+
     Args:
         project_name: Name of the project
         config_filename: Name of the config file
@@ -225,17 +250,17 @@ def update_config_file(project_name, config_filename, config_content, project_pa
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
+
     storage = _get_project_storage(project_path)
     target_dir = storage.deployment_project_path(project_name)
-    
+
     if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
-    
+
     # Verify content is valid JSON
     if isinstance(config_content, str):
         try:
-             json_content = json.loads(config_content)
+            json_content = json.loads(config_content)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON content for {config_filename}: {e}")
     else:
@@ -245,7 +270,7 @@ def update_config_file(project_name, config_filename, config_content, project_pa
     validator.validate_config_content(config_filename, json_content)
 
     storage.write_json(project_name, config_filename, json_content)
-        
+
     logger.info(f"Updated {config_filename} for project '{project_name}'.")
 
 
@@ -256,13 +281,17 @@ def get_provider_for_function(project_name, function_name, project_path: str = N
     """Proxy for validator.get_provider_for_function"""
     if project_path is None:
         project_path = _get_project_base_path()
-    return validator.get_provider_for_function(project_name, function_name, project_path)
+    return validator.get_provider_for_function(
+        project_name, function_name, project_path
+    )
 
 
-def update_function_code_file(project_name, function_name, file_name, code_content, project_path: str = None):
+def update_function_code_file(
+    project_name, function_name, file_name, code_content, project_path: str = None
+):
     """
     Updates the code file for a specific function, with provider-specific validation.
-    
+
     Args:
         project_name: Name of the project
         function_name: Name of the function
@@ -272,29 +301,37 @@ def update_function_code_file(project_name, function_name, file_name, code_conte
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
+
     storage = _get_project_storage(project_path)
     function_dir = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/{function_name}"
     target_dir = storage.resolve_file(project_name, function_dir)
-    
+
     if not target_dir.exists():
-        raise ValueError(f"Function directory '{function_name}' does not exist in project '{project_name}'.")
+        raise ValueError(
+            f"Function directory '{function_name}' does not exist in project '{project_name}'."
+        )
 
     # Validate Python Code
     if file_name.endswith(".py"):
-        provider = validator.get_provider_for_function(project_name, function_name, project_path)
+        provider = validator.get_provider_for_function(
+            project_name, function_name, project_path
+        )
         if provider == "aws":
             validator.validate_python_code_aws(code_content)
         elif provider == "azure":
             validator.validate_python_code_azure(code_content)
         elif provider == "google":
             validator.validate_python_code_google(code_content)
-            
+
     # Write File
-    target_file = storage.resolve_file(project_name, f"{function_dir}/{file_name}", for_write=True)
+    target_file = storage.resolve_file(
+        project_name, f"{function_dir}/{file_name}", for_write=True
+    )
     target_file.write_text(code_content, encoding="utf-8")
-        
-    logger.info(f"Updated function code '{file_name}' for function '{function_name}' in project '{project_name}'.")
+
+    logger.info(
+        f"Updated function code '{file_name}' for function '{function_name}' in project '{project_name}'."
+    )
 
 
 # ==========================================
@@ -368,7 +405,9 @@ def _extract_canonical_project(
             if member_name == root_entry:
                 continue
             if not member.filename.startswith(project_root):
-                raise ValueError("ZIP contains files outside the canonical project root")
+                raise ValueError(
+                    "ZIP contains files outside the canonical project root"
+                )
             relative_name = member.filename[len(project_root) :].rstrip("/")
         else:
             relative_name = member_name
@@ -380,8 +419,12 @@ def _extract_canonical_project(
             target.mkdir(parents=True, exist_ok=True)
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        with archive.open(member, "r") as source, target.open("xb") as destination:
-            shutil.copyfileobj(source, destination)
+        with archive.open(member, "r") as source:
+            if is_sensitive_project_file(relative_name):
+                atomic_write_private_bytes(target, source.read())
+            else:
+                with target.open("xb") as destination:
+                    shutil.copyfileobj(source, destination)
 
 
 def _remove_generated_project_paths(staging_dir: Path) -> None:
@@ -443,14 +486,14 @@ def _publish_staged_project(staging_dir: Path, target_dir: Path) -> None:
 def _archive_zip_version(zip_source, target_dir):
     """
     Archives the uploaded zip to {target_dir}/versions/{timestamp}.zip.
-    
+
     Args:
         zip_source: BytesIO containing the zip file.
         target_dir: Project directory to archive into.
     """
     versions_dir = os.path.join(target_dir, CONSTANTS.PROJECT_VERSIONS_DIR_NAME)
     os.makedirs(versions_dir, exist_ok=True)
-    
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
     version_path = Path(versions_dir) / f"{timestamp}.zip"
     zip_source.seek(0)
@@ -489,7 +532,7 @@ def _write_project_info(
     """
     Writes project_info.json with description and timestamps.
     If description is None, generates from config.json's digital_twin_name.
-    
+
     Args:
         target_dir: Project directory.
         zip_source: BytesIO containing the zip file.
@@ -500,7 +543,9 @@ def _write_project_info(
         description = existing_info.get("description")
     if not description:
         config = _read_archive_json(zip_source, CONSTANTS.CONFIG_FILE, required=True)
-        twin_name = config.get("digital_twin_name") if isinstance(config, dict) else None
+        twin_name = (
+            config.get("digital_twin_name") if isinstance(config, dict) else None
+        )
         if not twin_name:
             raise ValueError("Missing mandatory 'digital_twin_name' in config.json")
         description = f"Project builds the digital twin with prefix name '{twin_name}'"
@@ -521,10 +566,10 @@ def _write_project_info(
 def _extract_identity_from_zip(zip_source):
     """
     Extracts digital_twin_name and credentials from a zip file.
-    
+
     Args:
         zip_source: BytesIO containing the zip file.
-        
+
     Returns:
         tuple: (digital_twin_name, credentials_dict)
     """
@@ -565,14 +610,18 @@ def _read_archive_json(
         return json.loads(accessor.read_text(path))
 
 
-def _validate_project_name_matches_manifest(project_name: str, manifest: dict | None) -> None:
+def _validate_project_name_matches_manifest(
+    project_name: str, manifest: dict | None
+) -> None:
     """Ensure a manifest-backed upload lands under its declared resource name."""
     if not manifest:
         return
 
     twin = manifest.get("twin")
     if not isinstance(twin, dict):
-        raise ValueError("deployment_manifest.json twin metadata must be a JSON object.")
+        raise ValueError(
+            "deployment_manifest.json twin metadata must be a JSON object."
+        )
 
     resource_name = twin.get("resource_name")
     if not isinstance(resource_name, str) or not resource_name:
@@ -590,22 +639,24 @@ def _validate_project_name_matches_manifest(project_name: str, manifest: dict | 
 def delete_project(project_name, project_path: str = None):
     """
     Deletes an entire project directory.
-    
+
     Args:
         project_name: Name of the project to delete.
         project_path: Base project path. If None, auto-detected.
-        
+
     Raises:
         ValueError: If project does not exist.
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
-    target_dir = _get_project_storage(project_path).deployment_project_path(project_name)
-    
+
+    target_dir = _get_project_storage(project_path).deployment_project_path(
+        project_name
+    )
+
     if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
-    
+
     shutil.rmtree(target_dir)
     logger.info(f"Deleted project '{project_name}'.")
 
@@ -613,76 +664,95 @@ def delete_project(project_name, project_path: str = None):
 def update_project_info(project_name, description: str, project_path: str = None):
     """
     Updates the description in project_info.json.
-    
+
     Args:
         project_name: Name of the project.
         description: New description.
         project_path: Base project path. If None, auto-detected.
-        
+
     Raises:
         ValueError: If project does not exist.
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
+
     storage = _get_project_storage(project_path)
     target_dir = storage.deployment_project_path(project_name)
     info_path = target_dir / CONSTANTS.PROJECT_INFO_FILE
-    
+
     if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
-    
+
     info = {}
     if info_path.exists():
-        with info_path.open('r') as f:
+        with info_path.open("r") as f:
             info = json.load(f)
-    
+
     info["description"] = description
     info["updated_at"] = datetime.now().isoformat()
-    
+
     storage.write_json(project_name, CONSTANTS.PROJECT_INFO_FILE, info)
-    
+
     logger.info(f"Updated info for project '{project_name}'.")
 
 
 def export_project_to_zip(project_name: str, project_path: str = None) -> io.BytesIO:
     """
-    Exports an entire project directory to a zip file in memory.
-    
+    Export a portable, non-secret project definition to an in-memory ZIP.
+
     Args:
         project_name: Name of the project to export.
         project_path: Base project path. If None, auto-detected.
-        
+
     Returns:
         BytesIO: In-memory zip file buffer.
-        
+
     Raises:
         ValueError: If project does not exist.
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
-    target_dir = _get_project_storage(project_path).deployment_project_path(project_name)
-    
+
+    target_dir = _get_project_storage(project_path).deployment_project_path(
+        project_name
+    )
+
     if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
-    
+
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for root, dirs, files in os.walk(target_dir):
-            # Exclude versions, .build, and internal metadata
-            dirs[:] = [d for d in dirs if d not in [CONSTANTS.PROJECT_VERSIONS_DIR_NAME, ".build", "__pycache__"]]
-            
-            for file in files:
-                if file == CONSTANTS.PROJECT_INFO_FILE or file.endswith(".pyc"):
+        for root, dirs, files in os.walk(target_dir, followlinks=False):
+            dirs[:] = sorted(
+                directory
+                for directory in dirs
+                if directory not in EXPORT_EXCLUDED_DIR_NAMES
+                and not (Path(root) / directory).is_symlink()
+            )
+
+            for filename in sorted(files):
+                full_path = Path(root) / filename
+                rel_path = full_path.relative_to(target_dir)
+                if not _is_exportable_project_file(rel_path):
                     continue
-                    
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, target_dir)
-                zip_file.write(full_path, rel_path)
-                
+                write_zip_file(zip_file, full_path, rel_path)
+
     zip_buffer.seek(0)
     return zip_buffer
+
+
+def _is_exportable_project_file(relative_path: Path) -> bool:
+    """Return True only for portable project-definition artifacts."""
+    filename = relative_path.name
+    if filename == CONSTANTS.PROJECT_INFO_FILE or filename.endswith(".pyc"):
+        return False
+    if _is_sensitive_project_file(relative_path.as_posix()):
+        return False
+    if filename.startswith("config_generated") and filename.endswith(".json"):
+        return False
+    if filename.startswith("terraform.tfstate") or filename == "generated.tfvars.json":
+        return False
+    return True
 
 
 def _resolve_project_target_dir(
@@ -709,42 +779,46 @@ def get_project_file_tree(
     """
     Returns a recursive file tree structure for the project.
     """
-    target_dir = _resolve_project_target_dir(project_name, project_path, project_context_path)
-    
+    target_dir = _resolve_project_target_dir(
+        project_name, project_path, project_context_path
+    )
+
     if not os.path.exists(target_dir):
         raise ValueError(f"Project '{project_name}' does not exist.")
-        
+
     def build_tree(current_path, rel_base):
         items = []
         try:
             entries = sorted(os.listdir(current_path))
         except OSError:
             return []
-            
+
         for entry in entries:
             # Skip hidden/internal folders
-            if entry.startswith(".") or entry in [CONSTANTS.PROJECT_VERSIONS_DIR_NAME, "__pycache__"]:
+            if entry.startswith(".") or entry in [
+                CONSTANTS.PROJECT_VERSIONS_DIR_NAME,
+                "__pycache__",
+            ]:
                 continue
             if entry == CONSTANTS.PROJECT_INFO_FILE:
                 continue
-                
+
             full_path = os.path.join(current_path, entry)
-            rel_path = os.path.join(rel_base, entry).replace("\\", "/") # force posix path for API
+            rel_path = os.path.join(rel_base, entry).replace(
+                "\\", "/"
+            )  # force posix path for API
             if os.path.isfile(full_path) and _is_sensitive_project_file(rel_path):
                 continue
-            
-            item = {
-                "name": entry,
-                "path": rel_path
-            }
-            
+
+            item = {"name": entry, "path": rel_path}
+
             if os.path.isdir(full_path):
                 item["type"] = "directory"
                 item["children"] = build_tree(full_path, rel_path)
             else:
                 item["type"] = "file"
                 item["size"] = os.path.getsize(full_path)
-                
+
             items.append(item)
         return items
 
@@ -760,31 +834,34 @@ def get_project_file_content(
     """
     Returns the content of a specific file.
     """
-    target_dir = _resolve_project_target_dir(project_name, project_path, project_context_path)
-    
+    target_dir = _resolve_project_target_dir(
+        project_name, project_path, project_context_path
+    )
+
     # Security check: prevent directory traversal
     target_file = os.path.abspath(os.path.join(target_dir, relative_path))
-    if os.path.commonpath([os.path.abspath(target_dir), target_file]) != os.path.abspath(target_dir):
+    if os.path.commonpath(
+        [os.path.abspath(target_dir), target_file]
+    ) != os.path.abspath(target_dir):
         raise ValueError("Invalid file path: Traversal attempt detected.")
 
     if _is_sensitive_project_file(relative_path):
-        raise PermissionError(f"Access denied for protected sensitive project file '{relative_path}'.")
-        
+        raise PermissionError(
+            f"Access denied for protected sensitive project file '{relative_path}'."
+        )
+
     if not os.path.exists(target_file):
         raise ValueError(f"File '{relative_path}' not found.")
-        
+
     if os.path.isdir(target_file):
         raise ValueError(f"'{relative_path}' is a directory, not a file.")
-        
+
     try:
-        with open(target_file, 'r', encoding='utf-8') as f:
+        with open(target_file, "r", encoding="utf-8") as f:
             content = f.read()
-            
-        result = {
-            "path": relative_path,
-            "raw": content
-        }
-        
+
+        result = {"path": relative_path, "raw": content}
+
         # Try parsing JSON if applicable. Example files keep their source suffix
         # (for example config_credentials.json.example) but still carry JSON.
         if relative_path.endswith(".json") or relative_path.endswith(".json.example"):
@@ -792,7 +869,7 @@ def get_project_file_content(
                 result["content"] = json.loads(content)
             except json.JSONDecodeError:
                 pass
-                
+
         return result
     except UnicodeDecodeError:
         raise ValueError("Cannot read binary file as text.")

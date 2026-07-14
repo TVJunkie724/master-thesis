@@ -9,6 +9,7 @@ import json
 import io
 import zipfile
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import patch
 
 import file_manager
@@ -152,6 +153,54 @@ class TestArchiveZipVersion:
         with zipfile.ZipFile(archived_path, 'r') as zf:
             assert CONSTANTS.CONFIG_FILE in zf.namelist()
             assert CONSTANTS.CONFIG_CREDENTIALS_FILE not in zf.namelist()
+
+
+class TestProjectExport:
+    """Tests for the portable, non-secret project export contract."""
+
+    def test_export_is_deterministic_and_excludes_runtime_secrets(
+        self,
+        temp_project_path,
+    ):
+        project_dir = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / "factory"
+        )
+        (project_dir / "functions").mkdir(parents=True)
+        (project_dir / "terraform").mkdir()
+        (project_dir / "iot_devices_auth" / "device-1").mkdir(parents=True)
+        (project_dir / "iot_device_simulator" / "aws" / "device-1").mkdir(
+            parents=True
+        )
+        (project_dir / "config.json").write_text('{"digital_twin_name":"factory"}')
+        (project_dir / "config_credentials.json").write_text('{"secret":"value"}')
+        (project_dir / "functions" / "handler.py").write_text("def handler(): pass")
+        (project_dir / "terraform" / "terraform.tfstate").write_text("state-secret")
+        (
+            project_dir / "iot_devices_auth" / "device-1" / "private.pem.key"
+        ).write_text("private-key")
+        (
+            project_dir
+            / "iot_device_simulator"
+            / "aws"
+            / "device-1"
+            / "config_generated.json"
+        ).write_text('{"connection_string":"secret"}')
+
+        first = file_manager.export_project_to_zip(
+            "factory",
+            project_path=temp_project_path,
+        ).getvalue()
+        second = file_manager.export_project_to_zip(
+            "factory",
+            project_path=temp_project_path,
+        ).getvalue()
+
+        assert first == second
+        with zipfile.ZipFile(io.BytesIO(first)) as archive:
+            assert archive.namelist() == ["config.json", "functions/handler.py"]
+            assert "state-secret" not in archive.read("config.json").decode()
 
 
 # ==========================================

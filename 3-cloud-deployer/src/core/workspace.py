@@ -14,6 +14,7 @@ from typing import Iterator
 import constants as CONSTANTS
 from src.core.deployment_errors import WorkspaceSyncError
 from src.core.observability import OperationContext, operation_step, redact_sensitive
+from src.core.secure_files import atomic_write_private_bytes
 
 
 logger = logging.getLogger(__name__)
@@ -154,17 +155,17 @@ def sync_runtime_outputs(workspace: EphemeralWorkspace) -> None:
     state and simulator runtime assets are durable because subsequent destroy and
     simulator/download flows depend on them.
     """
-    _copy_file_if_exists(
+    _copy_private_file_if_exists(
         workspace.state_path,
         workspace.source_path / "terraform" / "terraform.tfstate",
         workspace.source_path,
     )
-    _copy_file_if_exists(
+    _copy_private_file_if_exists(
         workspace.terraform_dir / "terraform.tfstate.backup",
         workspace.source_path / "terraform" / "terraform.tfstate.backup",
         workspace.source_path,
     )
-    _copy_directory_if_exists(
+    _copy_private_directory_if_exists(
         workspace.workspace_path / "iot_devices_auth",
         workspace.source_path / "iot_devices_auth",
         workspace.source_path,
@@ -206,17 +207,46 @@ def _copy_file_if_exists(source: Path, destination: Path, destination_root: Path
     shutil.copy2(source, destination)
 
 
-def _copy_directory_if_exists(source: Path, destination: Path, destination_root: Path) -> None:
+def _copy_private_file_if_exists(
+    source: Path,
+    destination: Path,
+    destination_root: Path,
+) -> None:
+    """Atomically sync one secret-bearing file with owner-only permissions."""
     if not source.exists():
         return
-    if source.is_symlink():
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("Refusing to sync invalid private runtime output.")
+    _ensure_safe_destination(destination, destination_root)
+    atomic_write_private_bytes(destination, source.read_bytes())
+
+
+def _copy_private_directory_if_exists(
+    source: Path,
+    destination: Path,
+    destination_root: Path,
+) -> None:
+    """Merge a secret-bearing runtime tree using private directories and files."""
+    if not source.exists():
+        return
+    if source.is_symlink() or not source.is_dir():
         raise ValueError("Refusing to sync symlinked runtime output directory.")
     _assert_tree_has_no_symlinks(source)
     _ensure_safe_destination(destination, destination_root)
     if destination.exists():
         _assert_tree_has_no_symlinks(destination)
-    destination.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(source, destination, dirs_exist_ok=True)
+    destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+    destination.chmod(0o700)
+    for source_item in source.rglob("*"):
+        target = destination / source_item.relative_to(source)
+        _ensure_safe_destination(target, destination_root)
+        if source_item.is_dir():
+            target.mkdir(parents=True, exist_ok=True, mode=0o700)
+            target.chmod(0o700)
+        elif source_item.is_file():
+            atomic_write_private_bytes(target, source_item.read_bytes())
+        else:
+            raise ValueError("Refusing to sync unsupported private runtime output.")
 
 
 def _sync_generated_simulator_configs(workspace: EphemeralWorkspace) -> None:
@@ -230,7 +260,11 @@ def _sync_generated_simulator_configs(workspace: EphemeralWorkspace) -> None:
         if source.is_symlink():
             raise ValueError("Refusing to sync symlinked simulator output.")
         relative_path = source.relative_to(workspace.workspace_path)
-        _copy_file_if_exists(source, workspace.source_path / relative_path, workspace.source_path)
+        _copy_private_file_if_exists(
+            source,
+            workspace.source_path / relative_path,
+            workspace.source_path,
+        )
 
 
 def _sync_build_metadata(workspace: EphemeralWorkspace) -> None:
