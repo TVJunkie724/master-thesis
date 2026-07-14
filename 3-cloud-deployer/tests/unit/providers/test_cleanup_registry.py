@@ -70,6 +70,31 @@ def test_unknown_cleanup_provider_fails_with_supported_list():
         )
 
 
+@pytest.mark.parametrize("prefix", ["", "a", "../factory", "factory/other"])
+def test_destructive_cleanup_rejects_unsafe_or_underspecified_prefix(prefix):
+    with pytest.raises(ValueError, match="Cleanup prefix"):
+        cleanup_provider_resources(
+            CleanupRequest(
+                provider="aws",
+                credentials={"aws": {}},
+                prefix=prefix,
+                dry_run=True,
+            )
+        )
+
+
+def test_cleanup_rejects_cross_provider_credential_payloads():
+    with pytest.raises(ValueError, match="only scoped aws credentials"):
+        cleanup_provider_resources(
+            CleanupRequest(
+                provider="aws",
+                credentials={"aws": {}, "azure": {"secret": "not-for-aws"}},
+                prefix="factory",
+                dry_run=True,
+            )
+        )
+
+
 def test_aws_cleanup_dispatch_maps_contract_to_provider_signature(monkeypatch):
     calls = []
 

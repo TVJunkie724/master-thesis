@@ -140,6 +140,7 @@ class DestructionLifecycleMixin:
             )
         elif should_run_sdk:
             logger.warning("SDK fallback skipped because no context was provided")
+            result.sdk_fallback_results = {"context": False}
 
         return result
 
@@ -193,7 +194,7 @@ class DestructionLifecycleMixin:
 
     def _cleanup_requests(self, context: "DeploymentContext", dry_run: bool) -> list[CleanupRequest]:
         providers_config = context.config.providers
-        credentials = copy.deepcopy(context.credentials)
+        all_credentials = copy.deepcopy(context.credentials)
         prefix = context.config.digital_twin_name
         if not prefix or len(prefix) < 2:
             raise ValueError("A valid digital twin name is required for SDK cleanup")
@@ -202,12 +203,12 @@ class DestructionLifecycleMixin:
         email = context.config.user.get("admin_email", "")
         requests: list[CleanupRequest] = []
         if self._uses_provider(providers_config, "aws"):
-            if not credentials.get("aws"):
+            if not all_credentials.get("aws"):
                 raise ValueError("AWS cleanup credentials are required")
             requests.append(
                 CleanupRequest(
                     provider="aws",
-                    credentials=credentials,
+                    credentials={"aws": all_credentials["aws"]},
                     prefix=prefix,
                     cleanup_identity_user=bool(
                         outputs.get("aws_platform_user_created", False)
@@ -217,12 +218,12 @@ class DestructionLifecycleMixin:
                 )
             )
         if self._uses_provider(providers_config, "azure"):
-            if not credentials.get("azure"):
+            if not all_credentials.get("azure"):
                 raise ValueError("Azure cleanup credentials are required")
             requests.append(
                 CleanupRequest(
                     provider="azure",
-                    credentials=credentials,
+                    credentials={"azure": all_credentials["azure"]},
                     prefix=prefix,
                     cleanup_identity_user=bool(
                         outputs.get("azure_platform_user_created", False)
@@ -232,9 +233,9 @@ class DestructionLifecycleMixin:
                 )
             )
         if self._uses_provider(providers_config, "gcp"):
-            if not credentials.get("gcp"):
+            if not all_credentials.get("gcp"):
                 raise ValueError("GCP cleanup credentials are required")
-            gcp_credentials = credentials.get("gcp", {})
+            gcp_credentials = all_credentials.get("gcp", {})
             if not gcp_credentials.get("gcp_project_id") and outputs.get(
                 "gcp_project_id"
             ):
@@ -253,7 +254,7 @@ class DestructionLifecycleMixin:
             requests.append(
                 CleanupRequest(
                     provider="gcp",
-                    credentials=credentials,
+                    credentials={"gcp": gcp_credentials},
                     prefix=prefix,
                     dry_run=dry_run,
                 )

@@ -17,6 +17,30 @@ from src.providers.cleanup_registry import resource_name_owned_by_prefix
 logger = logging.getLogger(__name__)
 
 
+def _create_session(aws_creds: dict, region: str):
+    import boto3
+
+    session_args = {
+        "aws_access_key_id": aws_creds["aws_access_key_id"],
+        "aws_secret_access_key": aws_creds["aws_secret_access_key"],
+        "region_name": region,
+    }
+    if aws_creds.get("aws_session_token"):
+        session_args["aws_session_token"] = aws_creds["aws_session_token"]
+    return boto3.Session(**session_args)
+
+
+def _items(client, operation: str, result_key: str, **kwargs):
+    """Yield every item from a paginated or single-page boto3 list operation."""
+    can_paginate = getattr(client, "can_paginate", lambda _operation: False)
+    if can_paginate(operation):
+        for page in client.get_paginator(operation).paginate(**kwargs):
+            yield from page.get(result_key, [])
+        return
+    response = getattr(client, operation)(**kwargs)
+    yield from response.get(result_key, [])
+
+
 def cleanup_aws_resources(
     credentials: dict, 
     prefix: str, 
@@ -47,17 +71,11 @@ def cleanup_aws_resources(
         - IAM policies
         - Identity Store users (conditional)
     """
-    import boto3
-    
     aws_creds = credentials.get("aws", {})
     region = aws_creds.get("aws_region", "eu-central-1")
     sso_region = aws_creds.get("aws_sso_region", "us-east-1")
     
-    session = boto3.Session(
-        aws_access_key_id=aws_creds["aws_access_key_id"],
-        aws_secret_access_key=aws_creds["aws_secret_access_key"],
-        region_name=region
-    )
+    session = _create_session(aws_creds, region)
     
     logger.info(f"[AWS SDK] Fallback cleanup for prefix: {prefix}")
     if dry_run:
@@ -67,8 +85,7 @@ def cleanup_aws_resources(
     logger.info("[TwinMaker] Checking for orphans...")
     twinmaker = session.client('iottwinmaker')
     try:
-        workspaces = twinmaker.list_workspaces()['workspaceSummaries']
-        for ws in workspaces:
+        for ws in _items(twinmaker, "list_workspaces", "workspaceSummaries"):
             if resource_name_owned_by_prefix(ws['workspaceId'], prefix):
                 workspace_id = ws['workspaceId']
                 logger.info(f"  Found orphan: {workspace_id}")
@@ -77,14 +94,26 @@ def cleanup_aws_resources(
                 else:
                     try:
                         # Delete entities (async operation)
-                        for entity in twinmaker.list_entities(workspaceId=workspace_id).get('entitySummaries', []):
+                        for entity in _items(
+                            twinmaker,
+                            "list_entities",
+                            "entitySummaries",
+                            workspaceId=workspace_id,
+                        ):
                             twinmaker.delete_entity(workspaceId=workspace_id, entityId=entity['entityId'], isRecursive=True)
                         
                         # Wait for entities to be fully deleted (timeout-based)
                         start_time = time.time()
                         max_wait = 60  # seconds
                         while time.time() - start_time < max_wait:
-                            remaining = twinmaker.list_entities(workspaceId=workspace_id).get('entitySummaries', [])
+                            remaining = list(
+                                _items(
+                                    twinmaker,
+                                    "list_entities",
+                                    "entitySummaries",
+                                    workspaceId=workspace_id,
+                                )
+                            )
                             if not remaining:
                                 break
                             remaining_time = int(max_wait - (time.time() - start_time))
@@ -94,11 +123,21 @@ def cleanup_aws_resources(
                             logger.warning("    Timeout waiting for entities, proceeding anyway")
                         
                         # Delete scenes
-                        for scene in twinmaker.list_scenes(workspaceId=workspace_id).get('sceneSummaries', []):
+                        for scene in _items(
+                            twinmaker,
+                            "list_scenes",
+                            "sceneSummaries",
+                            workspaceId=workspace_id,
+                        ):
                             twinmaker.delete_scene(workspaceId=workspace_id, sceneId=scene['sceneId'])
                         
                         # Delete component types with retry (may still be referenced)
-                        for ct in twinmaker.list_component_types(workspaceId=workspace_id).get('componentTypeSummaries', []):
+                        for ct in _items(
+                            twinmaker,
+                            "list_component_types",
+                            "componentTypeSummaries",
+                            workspaceId=workspace_id,
+                        ):
                             if not ct['componentTypeId'].startswith('com.amazon'):
                                 ct_id = ct['componentTypeId']
                                 for attempt in range(3):
@@ -126,7 +165,7 @@ def cleanup_aws_resources(
     logger.info("[Grafana] Checking for orphans...")
     grafana = session.client('grafana')
     try:
-        for ws in grafana.list_workspaces()['workspaces']:
+        for ws in _items(grafana, "list_workspaces", "workspaces"):
             if resource_name_owned_by_prefix(ws['name'], prefix):
                 logger.info(f"  Found orphan: {ws['name']}")
                 if dry_run:
@@ -158,7 +197,7 @@ def cleanup_aws_resources(
     s3 = session.client('s3')
     s3_resource = session.resource('s3')
     try:
-        for bucket in s3.list_buckets()['Buckets']:
+        for bucket in _items(s3, "list_buckets", "Buckets"):
             if resource_name_owned_by_prefix(bucket['Name'], prefix):
                 logger.info(f"  Found orphan: {bucket['Name']}")
                 if dry_run:
@@ -195,7 +234,7 @@ def cleanup_aws_resources(
     logger.info("[IoT] Checking for orphans...")
     iot = session.client('iot')
     try:
-        for rule in iot.list_topic_rules()['rules']:
+        for rule in _items(iot, "list_topic_rules", "rules"):
             if resource_name_owned_by_prefix(rule['ruleName'], prefix):
                 logger.info(f"  Found orphan rule: {rule['ruleName']}")
                 if dry_run:
@@ -203,13 +242,18 @@ def cleanup_aws_resources(
                 else:
                     iot.delete_topic_rule(ruleName=rule['ruleName'])
                     logger.info("    ✓ Deleted")
-        for thing in iot.list_things()['things']:
+        for thing in _items(iot, "list_things", "things"):
             if resource_name_owned_by_prefix(thing['thingName'], prefix):
                 logger.info(f"  Found orphan thing: {thing['thingName']}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
                 else:
-                    for p in iot.list_thing_principals(thingName=thing['thingName'])['principals']:
+                    for p in _items(
+                        iot,
+                        "list_thing_principals",
+                        "principals",
+                        thingName=thing['thingName'],
+                    ):
                         iot.detach_thing_principal(thingName=thing['thingName'], principal=p)
                     iot.delete_thing(thingName=thing['thingName'])
                     logger.info("    ✓ Deleted")
@@ -220,7 +264,7 @@ def cleanup_aws_resources(
     logger.info("[DynamoDB] Checking for orphans...")
     dynamodb = session.client('dynamodb')
     try:
-        for table in dynamodb.list_tables()['TableNames']:
+        for table in _items(dynamodb, "list_tables", "TableNames"):
             if resource_name_owned_by_prefix(table, prefix):
                 logger.info(f"  Found orphan: {table}")
                 if dry_run:
@@ -263,9 +307,19 @@ def cleanup_aws_resources(
                         logger.info("    [DRY RUN] Would delete")
                     else:
                         try:
-                            for p in iam.list_attached_role_policies(RoleName=role['RoleName'])['AttachedPolicies']:
+                            for p in _items(
+                                iam,
+                                "list_attached_role_policies",
+                                "AttachedPolicies",
+                                RoleName=role['RoleName'],
+                            ):
                                 iam.detach_role_policy(RoleName=role['RoleName'], PolicyArn=p['PolicyArn'])
-                            for pn in iam.list_role_policies(RoleName=role['RoleName'])['PolicyNames']:
+                            for pn in _items(
+                                iam,
+                                "list_role_policies",
+                                "PolicyNames",
+                                RoleName=role['RoleName'],
+                            ):
                                 iam.delete_role_policy(RoleName=role['RoleName'], PolicyName=pn)
                             iam.delete_role(RoleName=role['RoleName'])
                             logger.info("    ✓ Deleted")
@@ -287,15 +341,33 @@ def cleanup_aws_resources(
                         try:
                             policy_arn = policy['Arn']
                             # Detach from all users
-                            for user in iam.list_entities_for_policy(PolicyArn=policy_arn, EntityFilter='User').get('PolicyUsers', []):
+                            for user in _items(
+                                iam,
+                                "list_entities_for_policy",
+                                "PolicyUsers",
+                                PolicyArn=policy_arn,
+                                EntityFilter="User",
+                            ):
                                 iam.detach_user_policy(UserName=user['UserName'], PolicyArn=policy_arn)
                                 logger.info(f"    Detached from user: {user['UserName']}")
                             # Detach from all roles
-                            for role in iam.list_entities_for_policy(PolicyArn=policy_arn, EntityFilter='Role').get('PolicyRoles', []):
+                            for role in _items(
+                                iam,
+                                "list_entities_for_policy",
+                                "PolicyRoles",
+                                PolicyArn=policy_arn,
+                                EntityFilter="Role",
+                            ):
                                 iam.detach_role_policy(RoleName=role['RoleName'], PolicyArn=policy_arn)
                                 logger.info(f"    Detached from role: {role['RoleName']}")
                             # Detach from all groups
-                            for group in iam.list_entities_for_policy(PolicyArn=policy_arn, EntityFilter='Group').get('PolicyGroups', []):
+                            for group in _items(
+                                iam,
+                                "list_entities_for_policy",
+                                "PolicyGroups",
+                                PolicyArn=policy_arn,
+                                EntityFilter="Group",
+                            ):
                                 iam.detach_group_policy(GroupName=group['GroupName'], PolicyArn=policy_arn)
                                 logger.info(f"    Detached from group: {group['GroupName']}")
                             # Delete all non-default versions
@@ -334,13 +406,9 @@ def cleanup_aws_resources(
     if cleanup_identity_user:
         logger.info("[Identity Store] Checking for user to clean up...")
         try:
-            sso_session = boto3.Session(
-                aws_access_key_id=aws_creds["aws_access_key_id"],
-                aws_secret_access_key=aws_creds["aws_secret_access_key"],
-                region_name=sso_region
-            )
+            sso_session = _create_session(aws_creds, sso_region)
             sso_admin = sso_session.client('sso-admin')
-            instances = sso_admin.list_instances()['Instances']
+            instances = list(_items(sso_admin, "list_instances", "Instances"))
             
             if instances:
                 identity_store_id = instances[0]['IdentityStoreId']

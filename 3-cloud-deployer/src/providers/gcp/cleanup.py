@@ -12,6 +12,54 @@ from src.providers.cleanup_registry import resource_name_owned_by_prefix
 logger = logging.getLogger(__name__)
 
 
+def _discovery_items(list_method, result_key: str, **kwargs):
+    """Yield all resources from a Google Discovery API list method."""
+    page_token = None
+    while True:
+        request_kwargs = dict(kwargs)
+        if page_token:
+            request_kwargs["pageToken"] = page_token
+        response = list_method(**request_kwargs).execute()
+        yield from response.get(result_key, [])
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            return
+
+
+def _delete_custom_role(roles_api, role: dict, *, dry_run: bool) -> bool:
+    """Delete active roles and preserve the provider's existing soft-delete clock."""
+    if dry_run:
+        return False
+    if role.get("deleted", False):
+        logger.info(
+            "    Already soft-deleted; role ID remains reserved "
+            "until GCP permanent deletion completes"
+        )
+        return False
+    roles_api.delete(name=role["name"]).execute()
+    return True
+
+
+def _delete_all_bucket_objects(storage_client, bucket_name: str) -> None:
+    """Drain live and noncurrent generations without mutation-sensitive page tokens."""
+    while True:
+        response = storage_client.objects().list(
+            bucket=bucket_name,
+            versions=True,
+        ).execute()
+        objects = response.get("items", [])
+        if not objects:
+            return
+        for item in objects:
+            delete_args = {
+                "bucket": bucket_name,
+                "object": item["name"],
+            }
+            if item.get("generation") is not None:
+                delete_args["generation"] = item["generation"]
+            storage_client.objects().delete(**delete_args).execute()
+
+
 def cleanup_gcp_resources(
     credentials: dict, 
     prefix: str, 
@@ -172,10 +220,8 @@ def cleanup_gcp_resources(
                     logger.info("    [DRY RUN] Would delete all documents")
                 else:
                     try:
-                        docs = collection.stream()
-                        for doc in docs:
-                            doc.reference.delete()
-                        logger.info("    ✓ Deleted all documents")
+                        db.recursive_delete(collection)
+                        logger.info("    ✓ Deleted all documents and subcollections")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except ImportError:
@@ -209,20 +255,7 @@ def cleanup_gcp_resources(
                         logger.info("    [DRY RUN] Would delete bucket and contents")
                     else:
                         try:
-                            # First delete all objects in bucket (with pagination)
-                            obj_page_token = None
-                            while True:
-                                if obj_page_token:
-                                    objects = storage_client.objects().list(bucket=bucket_name, pageToken=obj_page_token).execute()
-                                else:
-                                    objects = storage_client.objects().list(bucket=bucket_name).execute()
-                                
-                                for obj in objects.get('items', []):
-                                    storage_client.objects().delete(bucket=bucket_name, object=obj['name']).execute()
-                                
-                                obj_page_token = objects.get('nextPageToken')
-                                if not obj_page_token:
-                                    break
+                            _delete_all_bucket_objects(storage_client, bucket_name)
                             
                             # Then delete bucket
                             storage_client.buckets().delete(bucket=bucket_name).execute()
@@ -242,8 +275,12 @@ def cleanup_gcp_resources(
         workflows_client = discovery.build('workflows', 'v1', credentials=gcp_credentials)
         parent = f"projects/{project_id}/locations/{region}"
         
-        result = workflows_client.projects().locations().workflows().list(parent=parent).execute()
-        for workflow in result.get('workflows', []):
+        workflow_api = workflows_client.projects().locations().workflows()
+        for workflow in _discovery_items(
+            workflow_api.list,
+            "workflows",
+            parent=parent,
+        ):
             workflow_name = workflow['name'].split('/')[-1]
             if resource_name_owned_by_prefix(workflow_name, prefix):
                 logger.info(f"  Found orphan: {workflow_name}")
@@ -263,8 +300,12 @@ def cleanup_gcp_resources(
     try:
         iam_client = discovery.build('iam', 'v1', credentials=gcp_credentials)
         
-        result = iam_client.projects().serviceAccounts().list(name=f"projects/{project_id}").execute()
-        for sa in result.get('accounts', []):
+        service_accounts = iam_client.projects().serviceAccounts()
+        for sa in _discovery_items(
+            service_accounts.list,
+            "accounts",
+            name=f"projects/{project_id}",
+        ):
             sa_email = sa['email']
             sa_name = sa_email.split('@')[0]
             if resource_name_owned_by_prefix(sa_name, prefix):
@@ -289,11 +330,13 @@ def cleanup_gcp_resources(
     try:
         iam_client = discovery.build('iam', 'v1', credentials=gcp_credentials)
         
-        result = iam_client.projects().roles().list(
+        roles_api = iam_client.projects().roles()
+        for role in _discovery_items(
+            roles_api.list,
+            "roles",
             parent=f"projects/{project_id}",
-            showDeleted=True
-        ).execute()
-        for role in result.get('roles', []):
+            showDeleted=True,
+        ):
             role_id = role['name'].split('/')[-1]
             if resource_name_owned_by_prefix(role_id, prefix):
                 is_deleted = role.get('deleted', False)
@@ -303,16 +346,8 @@ def cleanup_gcp_resources(
                     logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
-                        # If role is already soft-deleted, undelete it first so we can
-                        # clean it up properly (and free the role_id for reuse)
-                        if is_deleted:
-                            iam_client.projects().roles().undelete(
-                                name=role['name'],
-                                body={}
-                            ).execute()
-                            logger.info("    ✓ Undeleted (was soft-deleted)")
-                        iam_client.projects().roles().delete(name=role['name']).execute()
-                        logger.info("    ✓ Deleted")
+                        if _delete_custom_role(roles_api, role, dry_run=False):
+                            logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -324,8 +359,12 @@ def cleanup_gcp_resources(
         firestore_admin = discovery.build('firestore', 'v1', credentials=gcp_credentials)
         parent = f"projects/{project_id}"
         
-        result = firestore_admin.projects().databases().list(parent=parent).execute()
-        for db in result.get('databases', []):
+        databases_api = firestore_admin.projects().databases()
+        for db in _discovery_items(
+            databases_api.list,
+            "databases",
+            parent=parent,
+        ):
             db_name = db['name'].split('/')[-1]
             # Skip default database
             if db_name == "(default)":

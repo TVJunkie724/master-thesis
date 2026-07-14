@@ -10,6 +10,58 @@ from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 logger = logging.getLogger(__name__)
 
+GRAPH_SCOPE = "https://graph.microsoft.com/.default"
+GRAPH_USERS_URL = "https://graph.microsoft.com/v1.0/users"
+
+
+def _cleanup_entra_user(
+    credential,
+    platform_user_email: str,
+    *,
+    dry_run: bool,
+    http_session=None,
+) -> bool:
+    """Delete one exact Entra principal through bounded Microsoft Graph REST calls."""
+    import requests
+
+    session = http_session or requests.Session()
+    token = credential.get_token(GRAPH_SCOPE).token
+    escaped_email = platform_user_email.replace("'", "''")
+    response = session.get(
+        GRAPH_USERS_URL,
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "$filter": f"userPrincipalName eq '{escaped_email}'",
+            "$select": "id,userPrincipalName",
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    users = response.json().get("value", [])
+    matching = [
+        user
+        for user in users
+        if str(user.get("userPrincipalName", "")).casefold()
+        == platform_user_email.casefold()
+    ]
+    if not matching:
+        logger.info("  User not found (may already be deleted)")
+        return False
+    if len(matching) > 1:
+        raise RuntimeError("Microsoft Graph returned multiple exact user matches")
+    user = matching[0]
+    logger.info("  Found platform user: %s", user["userPrincipalName"])
+    if dry_run:
+        return True
+    delete_response = session.delete(
+        f"{GRAPH_USERS_URL}/{user['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    delete_response.raise_for_status()
+    logger.info("    ✓ Deleted")
+    return True
+
 
 def cleanup_azure_resources(
     credentials: dict, 
@@ -175,7 +227,7 @@ def cleanup_azure_resources(
             for assignment in auth_client.role_assignments.list_for_scope(rg_scope):
                 # Skip inherited subscription-level role assignments (we can't delete those)
                 # Only delete assignments scoped to this RG or its child resources
-                if not assignment.scope.startswith(rg_scope):
+                if not assignment.scope.casefold().startswith(rg_scope.casefold()):
                     logger.debug(f"  Skipping inherited assignment at scope: {assignment.scope}")
                     continue
                 logger.info(f"  Found: {assignment.role_definition_id.split('/')[-1]} -> {assignment.principal_id[:8]}...")
@@ -415,40 +467,15 @@ def cleanup_azure_resources(
     if cleanup_entra_user:
         logger.info("[Entra ID] Checking for user to clean up...")
         try:
-            from msgraph import GraphServiceClient
-            from azure.identity import ClientSecretCredential as GraphCredential
-            
-            graph_credential = GraphCredential(
-                tenant_id=tenant_id,
-                client_id=azure_creds["azure_client_id"],
-                client_secret=azure_creds["azure_client_secret"]
-            )
-            
-            graph_client = GraphServiceClient(credentials=graph_credential)
-            
             if not platform_user_email:
                 logger.info("  No platform_user_email provided, skipping")
             else:
                 logger.info(f"  Looking for user: {platform_user_email}")
-                try:
-                    users = graph_client.users.get()
-                    if users and users.value:
-                        for user in users.value:
-                            if (user.user_principal_name and 
-                                user.user_principal_name.lower() == platform_user_email.lower()):
-                                logger.info(f"  Found user: {user.user_principal_name} (ID: {user.id})")
-                                if dry_run:
-                                    logger.info("    [DRY RUN] Would delete")
-                                else:
-                                    graph_client.users.by_user_id(user.id).delete()
-                                    logger.info("    ✓ Deleted")
-                                break
-                        else:
-                            logger.info("  User not found (may already be deleted)")
-                except Exception as e:
-                    logger.warning(f"  Error searching users: {e}")
-        except ImportError:
-            logger.warning("  msgraph SDK not installed, skipping Entra ID cleanup")
+                _cleanup_entra_user(
+                    credential,
+                    platform_user_email,
+                    dry_run=dry_run,
+                )
         except Exception as e:
             logger.warning(f"  Error: {e}")
     else:

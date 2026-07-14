@@ -143,6 +143,15 @@ def cleanup_provider_resources(request: CleanupRequest) -> None:
         raise ValueError(
             f"Unsupported cleanup provider '{request.provider}'. Supported providers: {supported}"
         )
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{1,127}", request.prefix):
+        raise ValueError(
+            "Cleanup prefix must contain 2 to 128 safe resource-name characters"
+        )
+    expected_credential_keys = {provider}
+    if set(request.credentials) != expected_credential_keys:
+        raise ValueError(
+            f"{provider.upper()} cleanup request must contain only scoped {provider} credentials"
+        )
 
     dispatcher(
         CleanupRequest(

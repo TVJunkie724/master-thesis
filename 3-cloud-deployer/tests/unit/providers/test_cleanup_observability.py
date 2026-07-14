@@ -32,6 +32,13 @@ def test_non_failure_retry_warning_does_not_fail_cleanup():
         logger.warning("Retry 1/3 after eventual-consistency response")
 
 
+def test_idempotent_not_found_warning_does_not_fail_cleanup():
+    logger = logging.getLogger("test.cleanup.not-found")
+
+    with enforce_cleanup_outcome(logger, "AWS"):
+        logger.warning("Resource not found; it was already deleted")
+
+
 def test_registry_wrapper_fails_closed_when_legacy_cleanup_swallows_error(
     monkeypatch,
     caplog,

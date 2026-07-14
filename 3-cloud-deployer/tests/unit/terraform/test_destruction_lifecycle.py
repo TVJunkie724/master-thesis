@@ -25,6 +25,22 @@ def test_destroy_rejects_unknown_fallback_policy(tmp_path, policy):
         strategy.destroy_all(sdk_fallback=policy)
 
 
+def test_required_cleanup_without_context_fails_closed(tmp_path):
+    strategy = _strategy(tmp_path)
+    strategy._terraform_outputs = {}
+    strategy.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
+    strategy.tfvars_path.touch()
+    strategy.runner.init = MagicMock()
+    strategy.runner.destroy = MagicMock()
+
+    result = strategy.destroy_all(context=None, sdk_fallback="always")
+
+    assert result.terraform_success is True
+    assert result.sdk_fallback_ran is False
+    assert result.sdk_fallback_results == {"context": False}
+    assert result.success is False
+
+
 def test_cleanup_requests_use_resource_prefix_and_normalize_google(tmp_path):
     strategy = _strategy(tmp_path)
     strategy._get_terraform_outputs_safe = MagicMock(return_value={})
@@ -43,7 +59,7 @@ def test_cleanup_requests_use_resource_prefix_and_normalize_google(tmp_path):
     assert requests == [
         CleanupRequest(
             provider="gcp",
-            credentials=context.credentials,
+            credentials={"gcp": context.credentials["gcp"]},
             prefix="factory-twin",
             dry_run=False,
         )
@@ -74,6 +90,35 @@ def test_cleanup_requests_resolve_gcp_project_and_workspace_credential_path(tmp_
         strategy.project_path / "credentials" / "service-account.json"
     )
     assert "gcp_project_id" not in context.credentials["gcp"]
+
+
+def test_cleanup_requests_scope_each_provider_credentials(tmp_path):
+    strategy = _strategy(tmp_path)
+    strategy._terraform_outputs = {}
+    context = SimpleNamespace(
+        credentials={
+            "aws": {"aws_access_key_id": "aws-key"},
+            "azure": {"azure_client_id": "azure-client"},
+            "gcp": {"gcp_project_id": "gcp-project"},
+        },
+        config=SimpleNamespace(
+            digital_twin_name="factory-twin",
+            providers={
+                "layer_1_provider": "aws",
+                "layer_2_provider": "azure",
+                "layer_3_hot_provider": "gcp",
+            },
+            user={},
+        ),
+    )
+
+    requests = strategy._cleanup_requests(context, dry_run=True)
+
+    assert {request.provider: set(request.credentials) for request in requests} == {
+        "aws": {"aws"},
+        "azure": {"azure"},
+        "gcp": {"gcp"},
+    }
 
 
 def test_cleanup_requests_fail_closed_when_provider_credentials_are_missing(tmp_path):

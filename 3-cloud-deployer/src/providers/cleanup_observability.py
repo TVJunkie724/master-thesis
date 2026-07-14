@@ -9,7 +9,7 @@ import re
 from src.api.deployment_trace import sanitize_deployment_message
 
 _FAILURE_PATTERN = re.compile(
-    r"\b(error|failed|failure|timeout|not found|could not|unable to)\b",
+    r"\b(error|failed|failure|timeout|could not|unable to)\b",
     re.IGNORECASE,
 )
 
