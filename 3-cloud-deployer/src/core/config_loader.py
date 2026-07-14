@@ -46,6 +46,13 @@ AWS_HIERARCHY_FILE = "aws_hierarchy.json"
 AZURE_HIERARCHY_FILE = "azure_hierarchy.json"
 
 PROVIDER_ALIASES = {"google": "gcp"}
+OPTIMIZATION_DEFAULTS = {
+    "useEventChecking": False,
+    "triggerNotificationWorkflow": False,
+    "returnFeedbackToDevice": False,
+    "integrateErrorHandling": False,
+    "needs3DModel": False,
+}
 
 
 @dataclass(frozen=True)
@@ -116,6 +123,20 @@ def normalize_provider_mapping(providers: Dict[str, Any]) -> Dict[str, Any]:
     for key, value in providers.items():
         normalized[key] = normalize_provider_name(value) if isinstance(value, str) else value
     return normalized
+
+
+def normalize_optimization_flags(data: Dict[str, Any]) -> Dict[str, bool]:
+    """Normalize optimizer-result and legacy flat files into domain flags."""
+    if not isinstance(data, dict):
+        return OPTIMIZATION_DEFAULTS.copy()
+    nested = data.get("result", {}).get("inputParamsUsed", {})
+    source = nested if isinstance(nested, dict) and nested else data
+    return {
+        key: source.get(key, default)
+        if isinstance(source.get(key, default), bool)
+        else default
+        for key, default in OPTIMIZATION_DEFAULTS.items()
+    }
 
 
 def _load_json_file(file_path: Path, required: bool = True) -> Dict[str, Any]:
@@ -275,7 +296,9 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     providers = normalize_provider_mapping(
         _load_json_file(project_path / CONFIG_PROVIDERS_FILE, required=True)
     )
-    optimization = _load_json_file(project_path / CONFIG_OPTIMIZATION_FILE, required=False)
+    optimization = normalize_optimization_flags(
+        _load_json_file(project_path / CONFIG_OPTIMIZATION_FILE, required=False)
+    )
     inter_cloud = _load_json_file(project_path / CONFIG_INTER_CLOUD_FILE, required=False)
     user = _load_json_file(project_path / CONFIG_USER_FILE, required=False)
     
@@ -337,13 +360,6 @@ def load_optimization_flags(project_path: Path) -> dict:
     import logging
     logger = logging.getLogger(__name__)
     
-    defaults = {
-        "useEventChecking": False,
-        "triggerNotificationWorkflow": False,
-        "returnFeedbackToDevice": False,
-        "needs3DModel": False,
-    }
-    
     optimization_file = project_path / CONFIG_OPTIMIZATION_FILE
     
     if not optimization_file.exists():
@@ -351,27 +367,17 @@ def load_optimization_flags(project_path: Path) -> dict:
             f"config_optimization.json not found in {project_path}. "
             f"All optimization features disabled (defaults to False)."
         )
-        return defaults
+        return OPTIMIZATION_DEFAULTS.copy()
     
     try:
         data = _load_json_file(optimization_file, required=False)
-        flags = data.get("result", {}).get("inputParamsUsed", {})
-        
-        result = {}
-        for key, default_val in defaults.items():
-            if key in flags:
-                result[key] = flags[key]
-            else:
-                logger.warning(f"  Missing optimization flag '{key}', defaulting to {default_val}")
-                result[key] = default_val
-        
-        return result
+        return normalize_optimization_flags(data)
     except Exception as e:
         logger.warning(
             f"Failed to load config_optimization.json: {e}. "
             f"Using defaults (all False)."
         )
-        return defaults
+        return OPTIMIZATION_DEFAULTS.copy()
 
 
 def save_inter_cloud_connection(

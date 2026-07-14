@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import re
 import traceback
 import boto3
 
@@ -32,6 +33,15 @@ USE_FEEDBACK = os.environ.get("USE_FEEDBACK", "false").lower() == "true"
 
 lambda_client = boto3.client("lambda")
 stepfunctions_client = boto3.client("stepfunctions")
+
+VERIFICATION_TRACE_PATTERN = re.compile(r"^VERIFY-[A-F0-9]{8}$")
+
+
+def _verification_trace_id(event: dict):
+    trace_id = event.get("trace_id") or event.get("detail", {}).get("trace_id")
+    if isinstance(trace_id, str) and VERIFICATION_TRACE_PATTERN.fullmatch(trace_id):
+        return trace_id
+    return None
 
 
 def fetch_value_from_event(event, property_name):
@@ -109,6 +119,9 @@ def _build_step_function_payload(event_rule: dict) -> dict:
 def lambda_handler(event, context):
     print("Hello from Event-Checker!")
     print("Event received")
+    trace_id = _verification_trace_id(event)
+    if trace_id:
+        print(f"T2MC_EVENT_CHECKER_RECEIVED trace_id={trace_id}")
     print("Events: " + json.dumps(DIGITAL_TWIN_INFO["config_events"]))
 
     for e in DIGITAL_TWIN_INFO["config_events"]:

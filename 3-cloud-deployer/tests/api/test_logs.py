@@ -218,12 +218,13 @@ class TestIoTMessageSending:
         """Should return True on successful subprocess execution."""
         mock_run.return_value = MagicMock(returncode=0, stdout="Message sent")
         
-        from src.api.logs import _send_test_message_via_simulator
+        from src.iot_device_simulator.sender import send_test_message
         
-        result = _send_test_message_via_simulator(
+        result = send_test_message(
             provider="aws",
             project_name="test_project",
-            trace_id="TRACE-ABC12345"
+            trace_id="TRACE-ABC12345",
+            payload_override={"iotDeviceId": "device-1"},
         )
         
         assert result is True
@@ -234,12 +235,13 @@ class TestIoTMessageSending:
         """Should return False on subprocess failure."""
         mock_run.return_value = MagicMock(returncode=1, stderr="Error occurred")
         
-        from src.api.logs import _send_test_message_via_simulator
+        from src.iot_device_simulator.sender import send_test_message
         
-        result = _send_test_message_via_simulator(
+        result = send_test_message(
             provider="aws",
             project_name="test_project",
-            trace_id="TRACE-ABC12345"
+            trace_id="TRACE-ABC12345",
+            payload_override={"iotDeviceId": "device-1"},
         )
         
         assert result is False
@@ -250,12 +252,13 @@ class TestIoTMessageSending:
         import subprocess
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=30)
         
-        from src.api.logs import _send_test_message_via_simulator
+        from src.iot_device_simulator.sender import send_test_message
         
-        result = _send_test_message_via_simulator(
+        result = send_test_message(
             provider="aws",
             project_name="test_project",
-            trace_id="TRACE-ABC12345"
+            trace_id="TRACE-ABC12345",
+            payload_override={"iotDeviceId": "device-1"},
         )
         
         assert result is False
@@ -265,24 +268,48 @@ class TestIoTMessageSending:
         """Should map provider names correctly."""
         mock_run.return_value = MagicMock(returncode=0)
         
-        from src.api.logs import _send_test_message_via_simulator
+        from src.iot_device_simulator.sender import send_test_message
         
         # Test gcp -> google mapping
-        _send_test_message_via_simulator("gcp", "test", "TRACE-123")
+        send_test_message(
+            "gcp",
+            "test",
+            "TRACE-1234ABCD",
+            payload_override={"iotDeviceId": "device-1"},
+        )
         call_args = mock_run.call_args[0][0]
         assert "google" in str(call_args)
 
     def test_unknown_provider(self):
         """Should return False for unknown provider."""
-        from src.api.logs import _send_test_message_via_simulator
+        from src.iot_device_simulator.sender import send_test_message
         
-        result = _send_test_message_via_simulator(
+        result = send_test_message(
             provider="unknown",
             project_name="test_project",
             trace_id="TRACE-ABC12345"
         )
         
         assert result is False
+
+    @patch("src.iot_device_simulator.sender._load_default_payload")
+    @patch("src.iot_device_simulator.sender.subprocess.run")
+    def test_missing_payload_fails_without_starting_process(
+        self,
+        mock_run,
+        mock_load_payload,
+    ):
+        mock_load_payload.return_value = None
+        from src.iot_device_simulator.sender import send_test_message
+
+        result = send_test_message(
+            provider="aws",
+            project_name="test_project",
+            trace_id="TRACE-ABC12345",
+        )
+
+        assert result is False
+        mock_run.assert_not_called()
 
 
 class TestConstants:

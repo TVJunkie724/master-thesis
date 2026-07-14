@@ -9,6 +9,7 @@ Editable: Yes - This is the runtime Cloud Function code
 """
 import json
 import os
+import re
 import sys
 import traceback
 import requests
@@ -33,6 +34,14 @@ class ConfigurationError(Exception):
 
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
 _digital_twin_info = None
+VERIFICATION_TRACE_PATTERN = re.compile(r"^VERIFY-[A-F0-9]{8}$")
+
+
+def _verification_trace_id(event: dict):
+    trace_id = event.get("trace_id") or event.get("detail", {}).get("trace_id")
+    if isinstance(trace_id, str) and VERIFICATION_TRACE_PATTERN.fullmatch(trace_id):
+        return trace_id
+    return None
 
 def _get_digital_twin_info():
     global _digital_twin_info
@@ -368,6 +377,9 @@ def main(request):
     try:
         event = request.get_json()
         print("Event received")
+        trace_id = _verification_trace_id(event)
+        if trace_id:
+            print(f"T2MC_EVENT_CHECKER_RECEIVED trace_id={trace_id}")
         
         # Get event rules from DIGITAL_TWIN_INFO
         event_rules = _get_digital_twin_info().get("config_events", [])

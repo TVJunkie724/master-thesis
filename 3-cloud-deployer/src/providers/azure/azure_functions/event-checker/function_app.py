@@ -37,6 +37,7 @@ Editable: Yes - This is the runtime Azure Function code
 """
 import json
 import os
+import re
 import sys
 import logging
 import urllib.request
@@ -64,6 +65,14 @@ class ConfigurationError(Exception):
 # DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
 # (module-level require_env would fail during import if env var is missing)
 _digital_twin_info = None
+VERIFICATION_TRACE_PATTERN = re.compile(r"^VERIFY-[A-F0-9]{8}$")
+
+
+def _verification_trace_id(event: dict):
+    trace_id = event.get("trace_id") or event.get("detail", {}).get("trace_id")
+    if isinstance(trace_id, str) and VERIFICATION_TRACE_PATTERN.fullmatch(trace_id):
+        return trace_id
+    return None
 
 def _get_digital_twin_info():
     """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
@@ -250,6 +259,9 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
     try:
         event = req.get_json()
         logging.info("Event received")
+        trace_id = _verification_trace_id(event)
+        if trace_id:
+            logging.info("T2MC_EVENT_CHECKER_RECEIVED trace_id=%s", trace_id)
         
         config_events = _get_digital_twin_info().get("config_events", [])
         logging.info(f"Checking {len(config_events)} configured events")

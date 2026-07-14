@@ -5,6 +5,7 @@ from src.core.config_loader import (
     load_project_config,
     load_credentials,
     get_required_providers,
+    normalize_optimization_flags,
     normalize_provider_mapping,
     normalize_provider_name,
     ConfigurationError,
@@ -55,6 +56,49 @@ def test_load_project_config_success(sample_project_dir):
     assert len(config.iot_devices) == 1
     assert config.iot_devices[0]["id"] == "d1"
     assert config.providers["layer_1_provider"] == "aws"
+
+
+def test_optimizer_result_flags_are_normalized_into_project_config(
+    sample_project_dir,
+):
+    (sample_project_dir / "config_optimization.json").write_text(
+        json.dumps(
+            {
+                "result": {
+                    "inputParamsUsed": {
+                        "useEventChecking": True,
+                        "returnFeedbackToDevice": True,
+                    }
+                }
+            }
+        )
+    )
+
+    config = load_project_config(sample_project_dir)
+
+    assert config.optimization["useEventChecking"] is True
+    assert config.optimization["returnFeedbackToDevice"] is True
+    assert config.optimization["triggerNotificationWorkflow"] is False
+    assert config.is_optimization_enabled("useEventChecking") is True
+
+
+def test_flat_optimization_flags_remain_supported_during_migration():
+    flags = normalize_optimization_flags(
+        {
+            "useEventChecking": True,
+            "triggerNotificationWorkflow": True,
+        }
+    )
+
+    assert flags["useEventChecking"] is True
+    assert flags["triggerNotificationWorkflow"] is True
+    assert flags["returnFeedbackToDevice"] is False
+
+
+def test_invalid_optimization_flag_type_fails_closed():
+    flags = normalize_optimization_flags({"useEventChecking": "true"})
+
+    assert flags["useEventChecking"] is False
 
 def test_load_project_config_missing_required_file(sample_project_dir):
     """Test that missing required file raises ConfigurationError."""

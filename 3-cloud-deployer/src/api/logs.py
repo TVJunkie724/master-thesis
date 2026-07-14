@@ -12,9 +12,6 @@ Supports:
 """
 import asyncio
 import json
-# Fixed argv list, shell disabled, local simulator module only.
-import subprocess  # nosec B404
-import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +24,8 @@ from api.error_models import ERROR_RESPONSES
 from logger import logger
 from src.core.config_loader import ProjectConfigLoader
 from src.core.paths import resolve_project_context_path
+from src.iot_device_simulator.sender import send_test_message
+from src.runtime_outputs import load_terraform_outputs
 
 
 router = APIRouter(prefix="/logs", tags=["Logs"])
@@ -68,31 +67,6 @@ def _get_project_path(project_name: str) -> Path:
 def _load_providers(project_name: str) -> Dict[str, str]:
     """Load layer-to-provider mapping from config_providers.json."""
     return ProjectConfigLoader().load_bundle(project_name).config.providers
-
-
-def _get_terraform_outputs(project_name: str) -> Dict:
-    """
-    Get Terraform outputs for the project.
-    Runs terraform output command to fetch current outputs.
-    """
-    from src.terraform_runner import TerraformRunner
-    
-    project_path = _get_project_path(project_name)
-    state_path = project_path / "terraform" / "terraform.tfstate"
-    
-    if not state_path.exists():
-        logger.warning(f"Terraform state not found for {project_name}")
-        return {}
-    
-    try:
-        runner = TerraformRunner(
-            terraform_dir="/app/src/terraform",
-            state_path=str(state_path)
-        )
-        return runner.output()
-    except Exception as e:
-        logger.error(f"Failed to get terraform outputs: {e}")
-        return {}
 
 
 def _get_providers_to_query(project_name: str) -> Set[str]:
@@ -299,110 +273,6 @@ def fetch_gcp_logs(
 
 
 # ==============================================================================
-# IoT Message Senders (via subprocess to existing simulators)
-# ==============================================================================
-
-def _send_test_message_via_simulator(
-    provider: str,
-    project_name: str,
-    trace_id: str,
-    payload_override: dict = None,
-) -> bool:
-    """
-    Send test message via existing IoT simulator using subprocess.
-    Uses the --payload CLI argument for single-shot mode.
-    
-    If payload_override is given (from verify.py), uses it directly.
-    Otherwise loads the first payload from payloads.json to determine
-    the device ID, then injects trace_id and sends via the correct 
-    device credentials.
-    """
-    # Map provider to simulator script path
-    provider_map = {
-        'aws': 'aws',
-        'azure': 'azure',
-        'google': 'google',
-        'gcp': 'google'
-    }
-    
-    simulator_provider = provider_map.get(provider)
-    if not simulator_provider:
-        logger.error(f"Unknown provider: {provider}")
-        return False
-    
-    # Try to load first payload from payloads.json (unless caller supplied one)
-    project_path = _get_project_path(project_name)
-    payloads_path = project_path / "iot_device_simulator" / "payloads.json"
-    device_id = None
-    payload = None
-    
-    if payload_override is not None:
-        payload = payload_override.copy()
-        device_id = payload.get("iotDeviceId")
-        logger.info(f"Using caller-supplied payload, device_id: {device_id}")
-    else:
-        try:
-            if payloads_path.exists():
-                with open(payloads_path, 'r') as f:
-                    payloads = json.load(f)
-                
-                if payloads and len(payloads) > 0:
-                    # Use first payload as template
-                    payload = payloads[0].copy()
-                    device_id = payload.get("iotDeviceId")
-                    logger.info(f"Using first payload from payloads.json, device_id: {device_id}")
-        except Exception as e:
-            logger.warning(f"Could not load payloads.json: {e}, using synthetic payload")
-    
-    # Fallback to synthetic payload if no payloads found
-    if payload is None:
-        payload = {
-            "iotDeviceId": "log-trace-test",
-            "type": "log_trace_test",
-            "value": 42.0
-        }
-        logger.info("Using synthetic payload, no device_id specified")
-    
-    # Inject trace_id and current timestamp
-    payload["trace_id"] = trace_id
-    payload["time"] = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
-    
-    try:
-        # Build command - include --device if we have a device_id
-        cmd = [
-            sys.executable, "-m", f"src.iot_device_simulator.{simulator_provider}.main",
-            "--project", project_name,
-            "--payload", json.dumps(payload)
-        ]
-        
-        if device_id:
-            cmd.extend(["--device", device_id])
-        
-        # Fixed argv list with shell=False and fixed cwd.
-        result = subprocess.run(  # nosec B603
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd="/app"
-        )
-        
-        if result.returncode != 0:
-            logger.error(f"Simulator failed: {result.stderr}")
-            return False
-            
-        logger.info(f"Test message sent via {provider} simulator: {trace_id}")
-        return True
-        
-    except subprocess.TimeoutExpired:
-        logger.error(f"Simulator timeout for {provider}")
-        return False
-    except Exception as e:
-        logger.error(f"Simulator error for {provider}: {e}")
-        return False
-
-
-# ==============================================================================
 # API Endpoints
 # ==============================================================================
 
@@ -469,7 +339,7 @@ async def start_log_trace(
         raise HTTPException(status_code=400, detail="L1 provider not configured")
     
     # Send test message via simulator
-    success = _send_test_message_via_simulator(l1_provider, project_name, trace_id)
+    success = send_test_message(l1_provider, project_name, trace_id)
     
     if not success:
         raise HTTPException(
@@ -550,7 +420,7 @@ async def stream_log_trace(
         try:
             providers_to_query = _get_providers_to_query(project_name)
             credentials = ProjectConfigLoader().load_bundle(project_name).credentials
-            tf_outputs = _get_terraform_outputs(project_name)
+            tf_outputs = load_terraform_outputs(project_name)
         except Exception as e:
             yield {"event": "error", "data": json.dumps({"message": f"Config load failed: {e}"})}
             return
