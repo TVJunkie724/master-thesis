@@ -12,11 +12,11 @@ This module is shared by both:
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 import json
-import sys
+import logging
 import os
 
-# Add src to path for imports when called from API
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from logger import logger
+from src.core.observability import redact_sensitive
 
 # ==========================================
 # Shared Permission Sets (avoid duplication)
@@ -358,8 +358,11 @@ def _validate_aws_region(session, region: str) -> dict:
         }
     except ClientError as e:
         return {"valid": False, "error": f"Failed to validate region: {e.response['Error']['Message']}"}
-    except Exception as e:
-        return {"valid": False, "error": f"Region validation error: {str(e)}"}
+    except Exception as exc:
+        return {
+            "valid": False,
+            "error": f"Region validation error: {redact_sensitive(exc)}",
+        }
 
 
 def _check_aws_account_status(session, account_id: str) -> dict:
@@ -437,8 +440,8 @@ def _check_aws_account_status(session, account_id: str) -> dict:
                     "reason": f"Organizations API error: {error_code}",
                 }
                 
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    except Exception as exc:
+        return {"status": "error", "error": redact_sensitive(exc)}
 
 
 class PolicyInspectionDenied(Exception):
@@ -842,9 +845,14 @@ def check_aws_credentials(credentials: dict) -> dict:
         
         return result
         
-    except Exception as e:
+    except Exception as exc:
+        logger.error(
+            "AWS credential check failed: %s",
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         result["status"] = "error"
-        result["message"] = f"Unexpected error: {str(e)}"
+        result["message"] = "AWS credential validation failed unexpectedly. Check logs."
         return result
 
 
@@ -940,10 +948,16 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
         # Check the credentials
         return check_aws_credentials(aws_creds)
         
-    except Exception as e:
+    except Exception as exc:
+        logger.error(
+            "Failed to load AWS credentials for project %s: %s",
+            project_name,
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         return {
             "status": "error",
-            "message": f"Failed to load credentials from config: {str(e)}",
+            "message": "Failed to load AWS credentials from project configuration.",
             "caller_identity": None,
             "can_list_policies": False,
             "missing_check_permission": None,

@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from pathlib import Path
 from logger import logger
 import src.core.state as state
+from src.api.error_handling import safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
 from src.core.paths import resolve_project_context_path
 from src.core.simulator_package import (
@@ -152,9 +153,9 @@ async def download_simulator_package(project_name: str, provider: str):
     try:
         package = service.build(project_name=project_name, provider=provider)
     except SimulatorPackageNotFound as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=safe_error_detail(exc)) from exc
     except SimulatorPackageInvalid as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
 
     return StreamingResponse(
         package.content,

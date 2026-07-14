@@ -7,8 +7,9 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 import src.validator as validator
 from src.api.dependencies import ProviderEnum
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
+from src.api.upload_limits import MAX_VALIDATION_UPLOAD_BYTES, read_upload_bounded
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ router = APIRouter()
     responses={
         200: {"description": "Hierarchy is valid"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -50,7 +52,10 @@ async def validate_hierarchy(
     ```
     """
     try:
-        content = await file.read()
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         content_str = content.decode('utf-8')
         
         if provider == ProviderEnum.aws:
@@ -61,13 +66,12 @@ async def validate_hierarchy(
             raise HTTPException(status_code=400, detail=f"Provider '{provider}' is not valid for L4. Use 'aws' or 'azure'.")
         
         return {"message": f"Hierarchy for {provider} is valid."}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Hierarchy validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+    except Exception as exc:
+        raise internal_server_error("Validate hierarchy", exc) from exc
 
 # ==========================================
 # 8. L4 User Config Validation
@@ -85,6 +89,7 @@ async def validate_hierarchy(
     responses={
         200: {"description": "User config is valid"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -110,13 +115,19 @@ async def validate_user_config(
     - Empty email allowed (skips user provisioning)
     """
     try:
-        content = await file.read()
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         content_str = content.decode('utf-8')
         
         try:
             user_config = json.loads(content_str)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON: {safe_error_detail(exc)}",
+            ) from exc
         
         if not isinstance(user_config, dict):
             raise HTTPException(status_code=400, detail="config_user.json must be a JSON object")
@@ -156,9 +167,8 @@ async def validate_user_config(
         return {"message": f"User configuration is valid. Platform user: {admin_email}"}
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"User config validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+    except Exception as exc:
+        raise internal_server_error("Validate user configuration", exc) from exc
 
 # ==========================================
 # 9. L4 Scene Config Validation
@@ -176,6 +186,7 @@ async def validate_user_config(
     responses={
         200: {"description": "Scene config is valid"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -196,22 +207,27 @@ async def validate_scene_config(
     - Cross-references primaryTwinID against hierarchy twins
     """
     try:
-        scene_content = await scene_file.read()
+        scene_content = await read_upload_bounded(
+            scene_file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         scene_str = scene_content.decode('utf-8')
         
         hierarchy_str = None
         if hierarchy_file:
-            hierarchy_content = await hierarchy_file.read()
+            hierarchy_content = await read_upload_bounded(
+                hierarchy_file,
+                max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+            )
             hierarchy_str = hierarchy_content.decode('utf-8')
         
         # Delegate to validator function
         validator.validate_scene_config_content(provider.value, scene_str, hierarchy_str)
         
         return {"message": "Scene configuration is valid."}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Scene config validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+    except Exception as exc:
+        raise internal_server_error("Validate scene configuration", exc) from exc

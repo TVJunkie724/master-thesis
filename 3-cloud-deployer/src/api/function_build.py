@@ -8,8 +8,9 @@ from io import BytesIO
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
+from src.api.upload_limits import read_upload_bounded
 
 router = APIRouter()
 
@@ -18,10 +19,12 @@ MAX_REQUIREMENTS_BYTES = 1024 * 1024
 
 
 async def _read_bounded_upload(upload: UploadFile, limit: int, description: str) -> bytes:
-    content = await upload.read(limit + 1)
-    if len(content) > limit:
-        raise HTTPException(status_code=413, detail=f"{description} exceeds the {limit}-byte limit")
-    return content
+    try:
+        return await read_upload_bounded(upload, max_bytes=limit)
+    except HTTPException as exc:
+        if exc.status_code == 413:
+            exc.detail = f"{description} exceeds the {limit}-byte limit"
+        raise
 
 def _validate_python_syntax(content: bytes, filename: str) -> None:
     """
@@ -241,8 +244,11 @@ async def build_function_zip(
     
     except HTTPException:
         raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error building function ZIP: {e}")
-        raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
+    except Exception as exc:
+        raise internal_server_error(
+            "Build function ZIP",
+            exc,
+            detail="Function operation failed. Check logs.",
+        ) from exc

@@ -7,11 +7,10 @@ import zipfile
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import ValidationError
 
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
 from src.api.models.zip_extraction import ValidationContextInput, ZipExtractionResponse
 from src.api.upload_limits import read_upload_bounded
-from src.core.observability import redact_sensitive
 from src.project_archive.extraction import extract_project_archive
 from src.project_archive.policy import (
     ArchiveLimitExceeded,
@@ -76,14 +75,14 @@ async def extract_zip(
     except zipfile.BadZipFile as exc:
         raise HTTPException(status_code=400, detail="Invalid or corrupted ZIP file") from exc
     except ArchiveLimitExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise HTTPException(status_code=413, detail=safe_error_detail(exc)) from exc
     except ArchivePolicyError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Project ZIP extraction failed: %s", redact_sensitive(exc))
-        raise HTTPException(
-            status_code=500,
+        raise internal_server_error(
+            "Extract project ZIP",
+            exc,
             detail="Internal extraction error. Check server logs.",
         ) from exc

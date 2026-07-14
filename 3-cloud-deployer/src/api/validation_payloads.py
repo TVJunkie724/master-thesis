@@ -5,8 +5,9 @@ import json
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 import src.validator as validator
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
+from src.api.upload_limits import MAX_VALIDATION_UPLOAD_BYTES, read_upload_bounded
 
 router = APIRouter()
 
@@ -25,6 +26,7 @@ router = APIRouter()
     ),
     responses={
         200: {"description": "Payloads structure is valid"},
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -53,7 +55,10 @@ async def validate_simulator_payloads(
     - `iotDeviceId`: String identifier matching a device in config_iot_devices.json
     """
     try:
-        content = await file.read()
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         content_str = content.decode('utf-8')
         
         is_valid, errors, warnings = validator.validate_simulator_payloads(content_str)
@@ -63,9 +68,10 @@ async def validate_simulator_payloads(
             "errors": errors,
             "warnings": warnings
         }
-    except Exception as e:
-        logger.error(f"Payload validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise internal_server_error("Validate simulator payloads", exc) from exc
 
 @router.post(
     "/validate/payloads-with-devices",
@@ -80,6 +86,7 @@ async def validate_simulator_payloads(
     responses={
         200: {"description": "All payload device IDs exist in devices config"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -105,8 +112,14 @@ async def validate_payloads_with_devices(
     - Payload structure is valid
     """
     try:
-        payloads_content = await payloads_file.read()
-        devices_content = await devices_file.read()
+        payloads_content = await read_upload_bounded(
+            payloads_file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
+        devices_content = await read_upload_bounded(
+            devices_file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         
         payloads_str = payloads_content.decode('utf-8')
         devices_str = devices_content.decode('utf-8')
@@ -114,13 +127,19 @@ async def validate_payloads_with_devices(
         # Parse both files
         try:
             payloads = json.loads(payloads_str)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON in payloads file: {e}")
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON in payloads file: {safe_error_detail(exc)}",
+            ) from exc
         
         try:
             devices = json.loads(devices_str)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON in devices file: {e}")
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON in devices file: {safe_error_detail(exc)}",
+            ) from exc
         
         errors = []
         warnings = []
@@ -159,8 +178,6 @@ async def validate_payloads_with_devices(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Cross-validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
-
+    except Exception as exc:
+        raise internal_server_error("Cross-validate simulator payloads", exc) from exc
 

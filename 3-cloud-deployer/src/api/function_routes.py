@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 import constants as CONSTANTS
 from src.api.dependencies import check_template_protection
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
 from src.api.function_artifacts import (
     _compute_source_hash,
@@ -25,7 +26,6 @@ from src.api.function_upload import _upload_aws_lambda, _upload_azure_function
 from src.api.function_upload import _upload_gcp_function
 from logger import logger
 from src.core.config_loader import ProjectConfigLoader
-from src.core.observability import redact_sensitive
 from src.function_metadata import (
     hash_bytes,
     mark_function_deployed,
@@ -187,11 +187,11 @@ def get_updatable_functions(
         }
     
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except Exception as exc:
-        logger.error("Error getting updatable functions: %s", redact_sensitive(exc))
-        raise HTTPException(
-            status_code=500,
+        raise internal_server_error(
+            "List updatable functions",
+            exc,
             detail="Function operation failed. Check logs.",
         ) from exc
 
@@ -351,18 +351,21 @@ def update_function(
             **result
         }
     
-    except FunctionProviderError as e:
-        logger.warning("Function provider update failed for %s: %s", function_name, e)
-        raise HTTPException(status_code=502, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(
-            "Error updating function %s: %s",
+    except FunctionProviderError as exc:
+        logger.warning(
+            "Function provider update failed for %s: %s",
             function_name,
-            redact_sensitive(e),
+            safe_error_detail(exc),
         )
-        raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")
+        raise HTTPException(status_code=502, detail=safe_error_detail(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
+    except Exception as exc:
+        raise internal_server_error(
+            f"Update function {function_name}",
+            exc,
+            detail="Function operation failed. Check logs.",
+        ) from exc
 
 
 # ==========================================

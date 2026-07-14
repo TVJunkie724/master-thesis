@@ -3,10 +3,9 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 import src.validator as validator
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
 from src.api.upload_limits import read_upload_bounded
-from src.core.observability import redact_sensitive
 from src.project_archive.policy import MAX_COMPRESSED_ARCHIVE_BYTES
 from src.project_archive.policy import ArchiveLimitExceeded, ArchivePolicyError
 
@@ -102,14 +101,13 @@ async def validate_zip(file: UploadFile = File(..., description="Project zip fil
         )
         validator.validate_project_zip(content)
         return {"message": "Project zip is valid and secure."}
-    except ArchiveLimitExceeded as e:
-        raise HTTPException(status_code=413, detail=str(e)) from e
-    except ArchivePolicyError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ArchiveLimitExceeded as exc:
+        raise HTTPException(status_code=413, detail=safe_error_detail(exc)) from exc
+    except ArchivePolicyError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("Validation error: %s", redact_sensitive(e))
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+    except Exception as exc:
+        raise internal_server_error("Validate project ZIP", exc) from exc

@@ -19,8 +19,8 @@ import os
 import logging
 from typing import Optional
 
-logger = logging.getLogger(__name__)
-
+from logger import logger
+from src.core.observability import redact_sensitive
 
 # ==========================================
 # Required GCP APIs by Layer
@@ -252,8 +252,8 @@ def _check_project_access(project_id: str, credentials=None) -> dict:
                 "display_name": project.display_name,
                 "state": project.state.name,
             }
-        except Exception as e:
-            error_str = str(e)
+        except Exception as exc:
+            error_str = str(exc)
             if "403" in error_str:
                 return {
                     "status": "access_denied", 
@@ -281,8 +281,8 @@ def _check_project_access(project_id: str, credentials=None) -> dict:
             
     except ImportError:
         return {"status": "sdk_not_installed", "error": "google-cloud-resourcemanager not installed"}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    except Exception as exc:
+        return {"status": "error", "error": redact_sensitive(exc)}
 
 
 
@@ -321,8 +321,11 @@ def _validate_gcp_region(project_id: str, region: str, credentials=None) -> dict
             "skipped": True,
             "warning": "google-cloud-compute not installed, region validation skipped"
         }
-    except Exception as e:
-        return {"valid": False, "error": f"Failed to validate region: {str(e)}"}  
+    except Exception as exc:
+        return {
+            "valid": False,
+            "error": f"Failed to validate region: {redact_sensitive(exc)}",
+        }
 
 
 
@@ -354,8 +357,8 @@ def _check_enabled_apis(project_id: str, credentials=None) -> dict:
                 # Service name format: projects/{p}/services/{service}
                 service_name = service.config.name
                 enabled_services.add(service_name)
-        except Exception as e:
-            return {"status": "check_failed", "error": str(e)}
+        except Exception as exc:
+            return {"status": "check_failed", "error": redact_sensitive(exc)}
         
         # Check each layer's requirements
         by_layer = {}
@@ -382,8 +385,8 @@ def _check_enabled_apis(project_id: str, credentials=None) -> dict:
         
     except ImportError:
         return {"status": "sdk_not_installed", "error": "google-cloud-service-usage not installed"}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    except Exception as exc:
+        return {"status": "error", "error": redact_sensitive(exc)}
 
 
 def _get_all_required_gcp_permissions() -> set[str]:
@@ -513,8 +516,8 @@ def _check_iam_permissions(project_id: str, credentials=None) -> dict:
             "status": "sdk_not_installed",
             "error": "google-cloud-resourcemanager not installed",
         }
-    except Exception as e:
-        return {"status": "check_failed", "error": str(e)}
+    except Exception as exc:
+        return {"status": "check_failed", "error": redact_sensitive(exc)}
 
 
 
@@ -545,8 +548,8 @@ def _check_billing_enabled(project_id: str, credentials=None) -> dict:
                 "billing_enabled": billing_info.billing_enabled,
                 "billing_account": billing_info.billing_account_name if billing_info.billing_enabled else None,
             }
-        except Exception as e:
-            if "403" in str(e):
+        except Exception as exc:
+            if "403" in str(exc):
                 # Permission denied - can't check billing, skip gracefully
                 return {
                     "status": "skipped",
@@ -561,8 +564,12 @@ def _check_billing_enabled(project_id: str, credentials=None) -> dict:
             "reason": "google-cloud-billing not installed",
             "billing_enabled": None,  # Unknown
         }
-    except Exception as e:
-        return {"status": "error", "error": str(e), "billing_enabled": None}
+    except Exception as exc:
+        return {
+            "status": "error",
+            "error": redact_sensitive(exc),
+            "billing_enabled": None,
+        }
 
 
 def _resolve_gcp_validation_project_id(credentials: dict, service_account_project_id: str) -> tuple[str, str]:
@@ -631,8 +638,8 @@ def check_gcp_credentials(credentials: dict) -> dict:
                 "service_account": sa_info["client_email"],
                 "private_key_id": sa_info["private_key_id"],
             }
-        except ValueError as e:
-            result["message"] = str(e)
+        except ValueError as exc:
+            result["message"] = redact_sensitive(exc)
             return result
         
         # Use the explicit deployment target in private account mode. In
@@ -758,10 +765,14 @@ def check_gcp_credentials(credentials: dict) -> dict:
         
         return result
         
-    except Exception as e:
-        logger.exception("GCP credential check failed")
+    except Exception as exc:
+        logger.error(
+            "GCP credential check failed: %s",
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         result["status"] = "error"
-        result["message"] = f"Unexpected error: {str(e)}"
+        result["message"] = "GCP credential validation failed unexpectedly. Check logs."
         return result
 
 
@@ -862,10 +873,16 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
         result["project_name"] = project_name
         return result
         
-    except Exception as e:
+    except Exception as exc:
+        logger.error(
+            "Failed to load GCP credentials for project %s: %s",
+            project_name,
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         return {
             "status": "error",
-            "message": f"Failed to load credentials from config: {str(e)}",
+            "message": "Failed to load GCP credentials from project configuration.",
             "caller_identity": None,
             "project_access": None,
             "api_status": None,

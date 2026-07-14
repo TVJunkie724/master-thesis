@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from src.api.error_handling import internal_server_error
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
-from src.core.observability import redact_sensitive
 from src.core.paths import resolve_project_context_path
 from src.core.config_loader import normalize_provider_name
 from src.status.metadata import check_function_artifacts
@@ -62,9 +61,9 @@ def check_endpoint(
             result["drift_detection"] = check_terraform_drift(project_name)
         return result
     except Exception as exc:
-        logger.error("Status operation failed: %s", redact_sensitive(exc))
-        raise HTTPException(
-            status_code=500,
+        raise internal_server_error(
+            "Read infrastructure status",
+            exc,
             detail="Status operation failed. Check logs.",
         ) from exc
 
@@ -89,8 +88,8 @@ def verify_endpoint(
     try:
         return verify_infrastructure(project_name, normalized_provider)
     except Exception as exc:
-        logger.error("Infrastructure verification failed: %s", redact_sensitive(exc))
-        raise HTTPException(
-            status_code=500,
+        raise internal_server_error(
+            "Verify infrastructure",
+            exc,
             detail="Verification failed. Check logs.",
         ) from exc

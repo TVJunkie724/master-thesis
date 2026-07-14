@@ -8,9 +8,8 @@ from datetime import timedelta
 from fastapi import APIRouter, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
-from src.core.observability import redact_sensitive
 from src.core.exceptions import DeploymentError
 from src.core.paths import resolve_project_context_path
 from src.log_tracing.registry import (
@@ -84,11 +83,11 @@ async def start_log_trace(
             headers={"Retry-After": str(exc.retry_after)},
         ) from exc
     except (DeploymentError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=redact_sensitive(exc)) from exc
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except Exception as exc:
-        logger.error("Failed to start log trace: %s", redact_sensitive(exc))
-        raise HTTPException(
-            status_code=500,
+        raise internal_server_error(
+            "Start log trace",
+            exc,
             detail="Failed to send test message. Check simulator configuration.",
         ) from exc
 

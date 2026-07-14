@@ -39,6 +39,7 @@ async def extract_file_content(
     content_type = request.headers.get("content-type", "").lower()
 
     if "multipart/form-data" in content_type:
+        form = None
         try:
             form = await request.form(
                 max_files=1,
@@ -49,13 +50,19 @@ async def extract_file_content(
             if exc.status_code == 400 and "maximum size" in str(exc.detail).lower():
                 _raise_too_large(max_bytes)
             raise
-        upload = form.get(file_field)
-        if not isinstance(upload, UploadFile):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Missing or invalid file field '{file_field}' in multipart request.",
-            )
-        return await read_upload_bounded(upload, max_bytes=max_bytes)
+        try:
+            upload = form.get(file_field)
+            if not isinstance(upload, UploadFile):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Missing or invalid file field '{file_field}' "
+                        "in multipart request."
+                    ),
+                )
+            return await read_upload_bounded(upload, max_bytes=max_bytes)
+        finally:
+            await form.close()
         
     elif "application/json" in content_type or not content_type:
         encoded_limit = ((max_bytes + 2) // 3) * 4 + _JSON_ENVELOPE_ALLOWANCE_BYTES

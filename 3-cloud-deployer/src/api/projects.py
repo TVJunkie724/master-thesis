@@ -22,10 +22,10 @@ from src.core.project_storage import (
 )
 from src.api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
-from logger import logger
 from src.api.utils import extract_file_content
 from src.api.functions import clear_all_function_metadata
 from src.api.error_models import ERROR_RESPONSES
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.upload_limits import read_upload_bounded
 from src.project_archive.policy import MAX_COMPRESSED_ARCHIVE_BYTES
 
@@ -86,9 +86,8 @@ def list_projects():
             projects.append(project_info)
         
         return {"projects": projects, "active_project": None}
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("List projects", exc) from exc
 
 @router.post(
     "/projects", 
@@ -139,12 +138,11 @@ async def create_project(
         result = file_manager.create_project_from_zip(project_name, content, description=description)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Create project", exc) from exc
 
 @router.get(
     "/projects/{project_name}/validate", 
@@ -185,12 +183,11 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
             "manifest": _build_manifest_summary(project_dir),
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Validate project structure", exc) from exc
 
 
 def _build_manifest_summary(project_dir) -> dict:
@@ -288,9 +285,8 @@ def get_project_config(
             
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Error reading config: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Read project config", exc) from exc
 
 # ==========================================
 # 3. Config Updates
@@ -345,12 +341,11 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON content.")
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Update project config", exc) from exc
 
 @router.post(
     "/projects/{project_name}/import",
@@ -405,12 +400,11 @@ async def import_project(
         
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Import project", exc) from exc
 
 
 @router.get(
@@ -454,10 +448,9 @@ async def export_project(
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+        raise HTTPException(status_code=404, detail=safe_error_detail(e))
+    except Exception as exc:
+        raise internal_server_error("Export project", exc) from exc
 
 
 @router.get(
@@ -522,7 +515,7 @@ def get_project_summary(
         summary["validation_status"] = "valid"
     except Exception as e:
         summary["validation_status"] = "invalid"
-        summary["validation_error"] = str(e)
+        summary["validation_error"] = safe_error_detail(e)
         
     return summary
 
@@ -553,10 +546,9 @@ def get_project_files(
         files = get_project_storage().file_tree(project_name)
         return {"files": files}
     except (FileNotFoundError, ProjectStorageError) as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+        raise HTTPException(status_code=404, detail=safe_error_detail(e))
+    except Exception as exc:
+        raise internal_server_error("List project files", exc) from exc
 
 
 @router.get(
@@ -587,14 +579,13 @@ def get_project_file_content_endpoint(
         content = get_project_storage().file_content(project_name, file_path)
         return content
     except ProjectFileAccessDenied as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=safe_error_detail(e))
     except (FileNotFoundError, ProjectStorageError) as e:
         if "not found" in str(e):
-             raise HTTPException(status_code=404, detail=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+             raise HTTPException(status_code=404, detail=safe_error_detail(e))
+        raise HTTPException(status_code=400, detail=safe_error_detail(e))
+    except Exception as exc:
+        raise internal_server_error("Read project file", exc) from exc
 
 
 @router.delete(
@@ -624,10 +615,9 @@ def delete_project_endpoint(project_name: str):
         file_manager.delete_project(project_name)
         return {"message": f"Project '{project_name}' deleted successfully."}
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+        raise HTTPException(status_code=404, detail=safe_error_detail(e))
+    except Exception as exc:
+        raise internal_server_error("Delete project", exc) from exc
 
 
 @router.patch(
@@ -662,14 +652,13 @@ async def update_project_info_endpoint(project_name: str, request: Request):
         file_manager.update_project_info(project_name, description)
         return {"message": f"Project info updated for '{project_name}'."}
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=safe_error_detail(e))
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Update project info", exc) from exc
 
 @router.put(
     "/projects/{project_name}/state_machines/{provider}",
@@ -731,12 +720,11 @@ async def upload_state_machine(
         return {"message": f"State machine '{target_filename}' uploaded and verified for provider '{provider_value}'."}
         
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Upload state machine", exc) from exc
 
 @router.put(
     "/projects/{project_name}/simulator/payloads",
@@ -784,12 +772,11 @@ async def upload_simulator_payloads(project_name: str, request: Request):
         return {"message": "Payloads uploaded successfully.", "warnings": warnings}
         
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except Exception as exc:
+        raise internal_server_error("Upload simulator payloads", exc) from exc
 
 
 # ==========================================
@@ -807,6 +794,8 @@ async def upload_simulator_payloads(project_name: str, request: Request):
     ),
     responses={
         200: {"description": "TwinMaker workspace deleted"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -825,27 +814,34 @@ def cleanup_aws_twinmaker(
     
     **Note:** AWS-specific operation. Only works for projects using AWS for L4.
     """
-    # NOTE: validate_project_context removed - blocking production use
+    check_template_protection(project_name, "clean up")
     try:
         from src.providers.aws.provider import AWSProvider
         from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace
         from src.core.config_loader import load_project_config, load_credentials
-        from logger import print_stack_trace
-        
+
         project_path = get_project_storage().context(project_name).project_path
+        if project_path.is_symlink() or not project_path.is_dir():
+            raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
         config = load_project_config(project_path)
+        if config.providers.get("layer_4_provider") != "aws":
+            raise ValueError("AWS TwinMaker cleanup requires AWS as the L4 provider")
         credentials = load_credentials(project_path)
-        
+        aws_credentials = credentials.get("aws")
+        if not isinstance(aws_credentials, dict) or not aws_credentials:
+            raise ValueError("AWS credentials are not configured for this project")
+
         provider = AWSProvider()
-        provider.initialize_clients(credentials.get("aws", {}), config.digital_twin_name)
-        
+        provider.initialize_clients(aws_credentials, config.digital_twin_name)
+
         result = force_delete_twinmaker_workspace(provider)
-        
         return {
             "message": "TwinMaker workspace deletion complete",
             "result": result
         }
-    except Exception as e:
-        print_stack_trace()
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise internal_server_error("Clean up AWS TwinMaker", exc) from exc

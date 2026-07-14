@@ -7,9 +7,11 @@ Uses lazy imports for globals to support the new provider pattern.
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from logger import logger
+from src.api.error_handling import internal_server_error
 
 # Import API routers
 from src.api import (
@@ -72,6 +74,21 @@ app = FastAPI(
     ],
     lifespan=lifespan
 )
+
+
+async def unhandled_exception_handler(
+    request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """Fail closed for exceptions that escape every route boundary."""
+    error = internal_server_error(f"{request.method} request", exc)
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"detail": error.detail},
+    )
+
+
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 # Include Routers
 app.include_router(info.router)

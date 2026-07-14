@@ -4,8 +4,9 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 import src.validator as validator
 from src.api.dependencies import ConfigType, ProviderEnum
+from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from logger import logger
+from src.api.upload_limits import MAX_VALIDATION_UPLOAD_BYTES, read_upload_bounded
 
 router = APIRouter()
 
@@ -25,6 +26,7 @@ router = APIRouter()
     responses={
         200: {"description": "Configuration is valid"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -95,7 +97,10 @@ async def validate_config(
     filename = config_map[config_type]
     
     try:
-        content = await file.read()
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         content_str = content.decode('utf-8')
         
         # Use provider-specific hierarchy validators
@@ -107,13 +112,12 @@ async def validate_config(
             validator.validate_config_content(filename, content_str)
         
         return {"message": f"Configuration '{filename}' is valid."}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Config validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+    except Exception as exc:
+        raise internal_server_error("Validate configuration", exc) from exc
 
 # ==========================================
 # 3. State Machine Validation
@@ -131,6 +135,7 @@ async def validate_config(
     responses={
         200: {"description": "State machine is valid"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -173,17 +178,19 @@ async def validate_state_machine(
     target_filename = filename_map[provider]
     
     try:
-        content = await file.read()
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         content_str = content.decode('utf-8')
         validator.validate_state_machine_content(target_filename, content_str)
         return {"message": f"State machine definition is valid for {provider.value}."}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"State machine validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+    except Exception as exc:
+        raise internal_server_error("Validate state machine", exc) from exc
 
 # ==========================================
 # 4. Function Code Validation
@@ -201,6 +208,7 @@ async def validate_state_machine(
     responses={
         200: {"description": "Code is valid"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -244,7 +252,10 @@ async def validate_function_code(
     **Note:** For processor files (process.py), use `/validate/processor` instead.
     """
     try:
-        content = await file.read()
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_VALIDATION_UPLOAD_BYTES,
+        )
         code = content.decode('utf-8')
         
         if provider == ProviderEnum.aws:
@@ -255,10 +266,10 @@ async def validate_function_code(
             validator.validate_python_code_google(code)
             
         return {"message": f"Code is valid for {provider.value}."}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Code validation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
-
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise internal_server_error("Validate function code", exc) from exc
 
