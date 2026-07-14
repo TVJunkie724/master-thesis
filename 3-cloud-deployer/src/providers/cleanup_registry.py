@@ -10,8 +10,6 @@ from dataclasses import dataclass
 import re
 from typing import Callable
 
-from src.providers.cleanup_observability import enforce_cleanup_outcome
-
 @dataclass(frozen=True)
 class CleanupRequest:
     """Inputs required to clean provider resources for one twin prefix."""
@@ -39,12 +37,10 @@ def cleanup_azure_resources(*args, **kwargs) -> None:
 
 
 def cleanup_gcp_resources(*args, **kwargs) -> None:
-    """Run GCP cleanup through its transitional fail-closed adapter."""
-    from src.providers.gcp import cleanup as cleanup_module
+    """Lazy wrapper kept monkeypatchable for tests and integration seams."""
     from src.providers.gcp.cleanup import cleanup_gcp_resources as provider_cleanup
 
-    with enforce_cleanup_outcome(cleanup_module.logger, "GCP"):
-        provider_cleanup(*args, **kwargs)
+    provider_cleanup(*args, **kwargs)
 
 
 def resource_name_owned_by_prefix(

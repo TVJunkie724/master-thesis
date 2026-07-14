@@ -7,7 +7,6 @@ import time
 from typing import TYPE_CHECKING, Iterator
 
 from src.api.deployment_trace import sanitize_deployment_message
-from src.providers.cleanup_observability import enforce_cleanup_outcome
 from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 if TYPE_CHECKING:
@@ -34,7 +33,6 @@ def cleanup_azure_diagnostics(
 
     from azure.identity import ClientSecretCredential
 
-    from src.providers.azure import diagnostic_settings_helper as helper_module
     from src.providers.azure.diagnostic_settings_helper import DiagnosticSettingsHelper
 
     credential = ClientSecretCredential(
@@ -46,11 +44,10 @@ def cleanup_azure_diagnostics(
         credential,
         azure_creds["azure_subscription_id"],
     )
-    with enforce_cleanup_outcome(helper_module.logger, "Azure diagnostic settings"):
-        result = helper.cleanup_orphaned_by_prefix(
-            context.config.digital_twin_name,
-            dry_run=dry_run,
-        )
+    result = helper.cleanup_orphaned_by_prefix(
+        context.config.digital_twin_name,
+        dry_run=dry_run,
+    )
     if result.get("errors"):
         raise RuntimeError(
             "Azure diagnostic settings cleanup reported "

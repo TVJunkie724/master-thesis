@@ -7,37 +7,10 @@ import pytest
 from src.providers import cleanup_registry
 from src.providers.aws import cleanup as aws_cleanup
 from src.providers.cleanup_observability import (
+    CleanupFailure,
     CleanupRun,
     ProviderCleanupError,
-    enforce_cleanup_outcome,
 )
-
-
-def test_cleanup_warning_becomes_sanitized_provider_failure():
-    logger = logging.getLogger("test.cleanup.failure")
-
-    with pytest.raises(ProviderCleanupError) as exc_info:
-        with enforce_cleanup_outcome(logger, "AWS"):
-            logger.warning(
-                "Deletion failed: aws_secret_access_key=super-secret-value"
-            )
-
-    assert "super-secret-value" not in str(exc_info.value)
-    assert "Sensitive deployment detail redacted" in str(exc_info.value)
-
-
-def test_non_failure_retry_warning_does_not_fail_cleanup():
-    logger = logging.getLogger("test.cleanup.retry")
-
-    with enforce_cleanup_outcome(logger, "AWS"):
-        logger.warning("Retry 1/3 after eventual-consistency response")
-
-
-def test_idempotent_not_found_warning_does_not_fail_cleanup():
-    logger = logging.getLogger("test.cleanup.not-found")
-
-    with enforce_cleanup_outcome(logger, "AWS"):
-        logger.warning("Resource not found; it was already deleted")
 
 
 def test_cleanup_run_aggregates_sanitized_failures_and_continues(caplog):
@@ -68,7 +41,14 @@ def test_cleanup_run_aggregates_sanitized_failures_and_continues(caplog):
 def test_registry_propagates_typed_provider_cleanup_failure(monkeypatch):
     failure = ProviderCleanupError(
         "AWS",
-        (),
+        (
+            CleanupFailure(
+                step="S3",
+                resource="factory-bucket",
+                error_type="RuntimeError",
+                detail="delete failed",
+            ),
+        ),
     )
 
     def failed_cleanup(*args, **kwargs):

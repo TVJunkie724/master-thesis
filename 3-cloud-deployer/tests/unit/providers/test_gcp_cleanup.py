@@ -1,4 +1,7 @@
+import pytest
+
 from src.providers.gcp import cleanup
+from src.providers.cleanup_observability import ProviderCleanupError
 
 
 def test_discovery_iterator_consumes_every_page():
@@ -123,3 +126,102 @@ def test_bucket_drain_deletes_every_generation_without_page_tokens():
         {"bucket": "factory-bucket", "object": "device.json", "generation": "2"},
         {"bucket": "factory-bucket", "object": "device.json", "generation": "1"},
     ]
+
+
+def test_bucket_drain_fails_instead_of_looping_without_progress(monkeypatch):
+    class Request:
+        def __init__(self, response=None):
+            self.response = response or {}
+
+        def execute(self):
+            return self.response
+
+    class Objects:
+        def list(self, **_kwargs):
+            return Request({"items": [{"name": "stuck", "generation": "1"}]})
+
+        def delete(self, **_kwargs):
+            return Request()
+
+    class StorageClient:
+        def objects(self):
+            return Objects()
+
+    monkeypatch.setattr(cleanup.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(RuntimeError, match="made no progress"):
+        cleanup._delete_all_bucket_objects(
+            StorageClient(),
+            "factory-bucket",
+            max_stalled_passes=2,
+        )
+
+
+def test_cleanup_runs_every_independent_step_and_raises_aggregate(monkeypatch):
+    calls = []
+
+    def failed_step(context):
+        calls.append("failed")
+        raise RuntimeError("private_key=must-not-leak")
+
+    def successful_step(context):
+        calls.append("successful")
+
+    monkeypatch.setattr(
+        "src.utils.gcp_utils.parse_gcp_service_account",
+        lambda _value: ("project", "email", object()),
+    )
+    monkeypatch.setattr(
+        cleanup,
+        "_CLEANUP_STEPS",
+        (("failed", failed_step), ("successful", successful_step)),
+    )
+
+    with pytest.raises(ProviderCleanupError) as exc_info:
+        cleanup.cleanup_gcp_resources(
+            {
+                "gcp": {
+                    "gcp_project_id": "project",
+                    "gcp_service_account_key": "{}",
+                }
+            },
+            "factory-twin",
+        )
+
+    assert calls == ["failed", "successful"]
+    assert exc_info.value.failures[0].step == "failed"
+    assert "must-not-leak" not in str(exc_info.value)
+
+
+def test_delete_helper_never_mutates_resources_during_dry_run():
+    deleted = []
+    context = cleanup._GcpCleanupContext(
+        credentials=object(),
+        project_id="project",
+        region="europe-west1",
+        prefix="factory-twin",
+        dry_run=True,
+        run=cleanup.CleanupRun("GCP", cleanup.logger),
+    )
+
+    cleanup._delete_or_log(
+        context,
+        "Cloud Storage",
+        "factory-twin-bucket",
+        lambda: deleted.append(True),
+    )
+
+    assert deleted == []
+    assert context.run.failures == ()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"gcp": {"gcp_service_account_key": "{}"}},
+        {"gcp": {"gcp_project_id": "project"}},
+    ],
+)
+def test_cleanup_rejects_incomplete_gcp_context(payload):
+    with pytest.raises(ValueError, match="GCP cleanup requires"):
+        cleanup.cleanup_gcp_resources(payload, "factory-twin", dry_run=True)
