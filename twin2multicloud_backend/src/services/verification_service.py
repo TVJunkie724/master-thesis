@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -25,6 +26,7 @@ ProjectPreparer = Callable[[DigitalTwin, str], Awaitable[str]]
 SessionCreator = Callable[[str, str, str], Awaitable[Any]]
 TaskScheduler = Callable[[Awaitable[Any]], Any]
 InfrastructureVerifier = Callable[[str, str], Awaitable[dict[str, Any]]]
+logger = logging.getLogger(__name__)
 
 
 class DeploymentVerificationService:
@@ -132,7 +134,8 @@ class DeploymentVerificationService:
             )
             session.on_complete(success=False, message=safe_error)
         except Exception as exc:
-            safe_error = redact_secret_like_text(str(exc))
+            logger.error("Unexpected dataflow verification failure (%s)", type(exc).__name__)
+            safe_error = "Verification failed unexpectedly"
             await session.push_log(
                 json.dumps(
                     {
@@ -175,9 +178,10 @@ class DeploymentVerificationService:
         try:
             return await self.project_preparer(twin, user_id)
         except Exception as exc:
+            logger.error("Project preparation for verification failed (%s)", type(exc).__name__)
             raise DownstreamServiceError(
                 status_code=500,
-                public_detail=f"{message}: {redact_secret_like_text(str(exc))}",
+                public_detail=message,
             ) from exc
 
     @staticmethod

@@ -157,7 +157,7 @@ async def test_download_wraps_project_preparation_failure(db_session):
 
 
 @pytest.mark.asyncio
-async def test_download_redacts_project_preparation_failure(db_session):
+async def test_download_hides_project_preparation_failure_details(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
@@ -174,7 +174,7 @@ async def test_download_redacts_project_preparation_failure(db_session):
         )
 
     assert "SIMULATOR-SECRET-123" not in exc.value.public_detail
-    assert "aws_secret_access_key=[REDACTED]" in exc.value.public_detail
+    assert exc.value.public_detail == "Failed to prepare project for simulator download"
 
 
 @pytest.mark.asyncio

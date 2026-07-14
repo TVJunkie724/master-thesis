@@ -398,7 +398,12 @@ async def start_log_trace(
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to prepare project for log trace: {str(exc)}") from exc
+        logger.error(
+            "Log trace preparation failed for twin %s (%s)",
+            twin_id,
+            type(exc).__name__,
+        )
+        raise HTTPException(status_code=500, detail="Failed to prepare project for log trace") from exc
 
     try:
         return await DeployerClient().start_log_trace(resource_name)

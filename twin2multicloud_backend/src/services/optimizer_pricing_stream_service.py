@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from src.services.service_errors import EntityNotFoundError, ValidationError
 
 
 SUPPORTED_PRICING_STREAM_PROVIDERS = {"aws", "azure", "gcp"}
+logger = logging.getLogger(__name__)
 
 
 class OptimizerPricingStreamService:
@@ -76,8 +78,15 @@ class OptimizerPricingStreamService:
         except ExternalServiceError as exc:
             status_code = exc.upstream_status_code or 502
             yield self._emit(f"❌ Optimizer error: {status_code}", "error")
+        except (EntityNotFoundError, ValidationError) as exc:
+            yield self._emit(f"Error: {exc}", "error")
         except Exception as exc:
-            yield self._emit(f"❌ Error: {str(exc)}", "error")
+            logger.error(
+                "Unexpected %s pricing refresh failure (%s)",
+                provider,
+                type(exc).__name__,
+            )
+            yield self._emit("Error: Pricing refresh failed unexpectedly", "error")
 
     def _build_credentials(self, provider: str, twin_id: str, user_id: str) -> dict[str, str]:
         twin = self.twin_repository.get_for_user(twin_id, user_id)

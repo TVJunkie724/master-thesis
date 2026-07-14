@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session, joinedload
 from src.models.twin import DigitalTwin
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_service import (
-    get_resource_name,
     prepare_project_for_deployment,
     run_real_deploy_stream,
     run_real_destroy_stream,
@@ -161,11 +160,26 @@ class DeploymentOperationService:
             return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
 
         twin = self._reload_for_deployment(twin_id, user_id)
-        resource_name = get_resource_name(twin)
         try:
-            await self.project_preparer(twin, user_id)
+            resource_name = await self.project_preparer(twin, user_id)
         except Exception as exc:
-            logger.warning("Project preparation failed during destroy: %s", exc)
+            status_code = getattr(exc, "status_code", None)
+            detail = getattr(exc, "detail", None)
+            public_detail = "Failed to prepare project for destroy"
+            if status_code:
+                public_detail = redact_secret_like_text(str(detail))
+            logger.error(
+                "Destroy preparation failed for twin '%s' (%s) (%s)",
+                twin.name,
+                twin_id,
+                type(exc).__name__,
+            )
+            self.lifecycle_service.rollback_destroy_start(twin, previous_state=previous_state)
+            self.db.commit()
+            raise DownstreamServiceError(
+                status_code=status_code or 500,
+                public_detail=public_detail,
+            ) from exc
 
         provider = self._main_provider(twin)
         session_id = str(uuid.uuid4())

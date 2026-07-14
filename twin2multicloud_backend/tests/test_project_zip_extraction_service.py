@@ -170,6 +170,49 @@ async def test_upload_project_zip_redacts_deployer_error_text(db_session, tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_upload_project_zip_hides_unexpected_exception_text(db_session, tmp_path):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    result = await _service(
+        db_session,
+        tmp_path,
+        _FakeDeployerClient(exc=RuntimeError("private_key=ZIP-INTERNAL-SECRET")),
+    ).upload_project_zip(twin.id, user.id, b"zip-bytes")
+
+    assert result["validation_errors"] == ["Project ZIP extraction failed unexpectedly"]
+    assert "ZIP-INTERNAL-SECRET" not in str(result)
+
+
+@pytest.mark.asyncio
+async def test_upload_project_zip_hides_glb_storage_exception_text(db_session, tmp_path, monkeypatch):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    encoded_glb = base64.b64encode(b"embedded-glb").decode()
+    service = _service(
+        db_session,
+        tmp_path,
+        _FakeDeployerClient(
+            response={
+                "success": True,
+                "assets": {"scene_glb": {"exists": True, "is_binary": True, "content": encoded_glb}},
+                "warnings": [],
+            }
+        ),
+    )
+
+    def failing_upload(**_kwargs):
+        raise RuntimeError("password=GLB-STORAGE-SECRET")
+
+    monkeypatch.setattr(service.scene_glb_service, "upload_scene_glb", failing_upload)
+
+    result = await service.upload_project_zip(twin.id, user.id, b"zip-bytes")
+
+    assert result["warnings"] == ["Failed to save extracted GLB"]
+    assert "GLB-STORAGE-SECRET" not in str(result)
+
+
+@pytest.mark.asyncio
 async def test_upload_project_zip_rejects_oversized_zip_before_downstream_call(db_session, tmp_path):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)

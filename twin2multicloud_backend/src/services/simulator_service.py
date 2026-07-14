@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import re
 import zipfile
 from collections.abc import Awaitable, Callable
@@ -34,6 +35,7 @@ _PROVIDER_CREDENTIAL_CLASSES = {
     "azure": "azure_iot_hub_device_identity",
     "gcp": "gcp_pubsub_topic_publisher",
 }
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -94,12 +96,10 @@ class SimulatorDownloadService:
         try:
             resource_name = await self.project_preparer(twin, user_id)
         except Exception as exc:
+            logger.error("Simulator project preparation failed (%s)", type(exc).__name__)
             raise DownstreamServiceError(
                 status_code=500,
-                public_detail=(
-                    "Failed to prepare project for simulator download: "
-                    f"{redact_secret_like_text(str(exc))}"
-                ),
+                public_detail="Failed to prepare project for simulator download",
             ) from exc
 
         archive = await self.simulator_fetcher(resource_name, l1_provider)

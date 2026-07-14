@@ -295,6 +295,36 @@ async def test_destroy_active_session_restores_original_state_when_validation_is
 
 
 @pytest.mark.asyncio
+async def test_destroy_fails_closed_and_restores_state_when_project_preparation_fails(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DEPLOYED)
+    session_records = []
+    scheduled = []
+
+    async def failing_preparer(_twin, _user_id):
+        raise RuntimeError("aws_secret_access_key=DESTROY-SECRET")
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _service(
+            db_session,
+            session_records=session_records,
+            scheduled=scheduled,
+            project_preparer=failing_preparer,
+        ).destroy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DEPLOYED
+    assert exc.value.public_detail == "Failed to prepare project for destroy"
+    assert "DESTROY-SECRET" not in exc.value.public_detail
+    assert session_records == []
+    assert scheduled == []
+
+
+@pytest.mark.asyncio
 async def test_test_mode_deploy_uses_test_session_type(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)

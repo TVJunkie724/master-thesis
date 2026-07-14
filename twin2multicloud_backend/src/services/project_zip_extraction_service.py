@@ -71,7 +71,8 @@ class ProjectZipExtractionService:
                 f"Deployer error: {redact_secret_like_text(exc.public_detail)}"
             )
         except Exception as exc:
-            return empty_zip_extraction_response(f"Request error: {redact_secret_like_text(str(exc))}")
+            logger.error("Unexpected project ZIP extraction failure (%s)", type(exc).__name__)
+            return empty_zip_extraction_response("Project ZIP extraction failed unexpectedly")
 
         self._save_scene_glb_if_present(twin_id, user_id, result)
         return result
@@ -138,4 +139,5 @@ class ProjectZipExtractionService:
                 "content": None,
             }
         except Exception as exc:
-            result["warnings"] = result.get("warnings", []) + [f"Failed to save GLB: {str(exc)}"]
+            logger.error("Failed to persist extracted GLB (%s)", type(exc).__name__)
+            result["warnings"] = result.get("warnings", []) + ["Failed to save extracted GLB"]

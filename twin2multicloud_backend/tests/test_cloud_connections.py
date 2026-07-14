@@ -203,7 +203,7 @@ async def test_cloud_credential_dual_validation_redacts_unexpected_client_errors
 
     assert result["valid"] is False
     assert secret not in str(result)
-    assert result["optimizer"]["message"] == "Optimizer error: client_secret=[REDACTED]"
+    assert result["optimizer"]["message"] == "Optimizer validation failed unexpectedly"
     assert result["deployer"]["message"] == "Deployer API error: 500"
 
 

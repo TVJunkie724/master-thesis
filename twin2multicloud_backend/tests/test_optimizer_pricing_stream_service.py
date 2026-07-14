@@ -126,3 +126,25 @@ async def test_stream_optimizer_unavailable_emits_safe_error_event(db_session):
 
     assert "event: error" in body
     assert "Cannot connect to Optimizer service" in body
+
+
+@pytest.mark.asyncio
+async def test_stream_unexpected_error_never_exposes_exception_text(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(
+        TwinConfiguration(
+            twin_id=twin.id,
+            aws_access_key_id=encrypt("AKIA_TEST", user.id, twin.id),
+            aws_secret_access_key=encrypt("secret-test", user.id, twin.id),
+            aws_region="eu-west-1",
+        )
+    )
+    db_session.commit()
+    fake = FakeOptimizerClient(exc=RuntimeError("aws_secret_access_key=STREAM-SECRET"))
+
+    body = await _collect(_service(db_session, fake).build_refresh_stream("aws", twin.id, user.id))
+
+    assert "event: error" in body
+    assert "Pricing refresh failed unexpectedly" in body
+    assert "STREAM-SECRET" not in body

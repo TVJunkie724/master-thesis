@@ -283,7 +283,7 @@ async def test_verification_wraps_project_preparation_failure(db_session):
 
 
 @pytest.mark.asyncio
-async def test_verification_redacts_project_preparation_failure(db_session):
+async def test_verification_hides_project_preparation_failure_details(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
@@ -298,4 +298,4 @@ async def test_verification_redacts_project_preparation_failure(db_session):
         )
 
     assert "verification-secret-token" not in exc.value.public_detail
-    assert "Authorization: Bearer [REDACTED]" in exc.value.public_detail
+    assert exc.value.public_detail == "Failed to prepare project"
