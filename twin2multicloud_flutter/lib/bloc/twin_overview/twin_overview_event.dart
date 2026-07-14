@@ -45,33 +45,24 @@ class TwinOverviewDelete extends TwinOverviewEvent {
   const TwinOverviewDelete();
 }
 
-/// SSE log event received
-class TwinOverviewLogReceived extends TwinOverviewEvent {
-  final String log;
-  final String? timestamp;
-
-  const TwinOverviewLogReceived(this.log, {this.timestamp});
-
-  @override
-  List<Object?> get props => [log, timestamp];
-}
-
 /// SSE deployment complete
 class TwinOverviewDeploymentComplete extends TwinOverviewEvent {
   final bool success;
   final String? newState;
   final String? message;
   final Map<String, dynamic>? outputs; // Terraform outputs
+  final int? eventId;
 
   const TwinOverviewDeploymentComplete({
     required this.success,
     this.newState,
     this.message,
     this.outputs,
+    this.eventId,
   });
 
   @override
-  List<Object?> get props => [success, newState, message, outputs];
+  List<Object?> get props => [success, newState, message, outputs, eventId];
 }
 
 /// Clear success/error messages

@@ -59,8 +59,8 @@ dependencies:
   url_launcher: ^6.3.2
   collection: ^1.19.0
   
-  # SSE (Server-Sent Events) for real-time logs
-  flutter_client_sse: ^2.0.1
+  # HTTP streaming for controlled Server-Sent Events
+  http: ^1.6.0
   
   # Graph visualization for architecture flowchart
   graphview: ^1.5.1

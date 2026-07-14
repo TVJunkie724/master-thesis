@@ -92,12 +92,86 @@ async def test_stream_session_events_resets_running_session_to_pending_on_discon
     frame = await anext(generator)
     assert "buffered" in frame
 
-    try:
-        await anext(generator)
-    except StopAsyncIteration:
-        pass
+    await generator.aclose()
 
     assert session.state == SessionState.PENDING
+
+
+@pytest.mark.asyncio
+async def test_reconnect_replays_each_event_once_after_cursor(db_session):
+    session = LogSession("twin-1", "session-replay", "deploy")
+    await session.push_log("already-consumed")
+    await session.push_log("missed")
+
+    generator = stream_session_events(
+        session=session,
+        request=NeverDisconnectedRequest(),
+        last_event_id=1,
+        db=db_session,
+    )
+    frame = await anext(generator)
+    await generator.aclose()
+
+    payload = json.loads(frame.split("data: ", 1)[1])
+    assert payload["id"] == 2
+    assert payload["data"] == "missed"
+    assert session.state == SessionState.PENDING
+
+
+def test_new_stream_generation_cannot_be_reset_by_stale_disconnect():
+    session = LogSession("twin-1", "session-generation", "deploy")
+
+    first = session.open_stream(0)
+    second = session.open_stream(0)
+    session.close_stream(first.generation)
+
+    assert first.queue is not second.queue
+    assert session.state == SessionState.STREAMING
+
+    session.close_stream(second.generation)
+    assert session.state == SessionState.PENDING
+
+
+def test_stream_rejects_cursor_ahead_of_session_history():
+    session = LogSession("twin-1", "session-cursor", "deploy")
+
+    with pytest.raises(ValueError, match="outside session history"):
+        session.open_stream(1)
+
+
+@pytest.mark.asyncio
+async def test_replay_buffer_is_bounded_and_requests_persisted_catchup():
+    session = LogSession("twin-1", "session-bounded", "deploy")
+    for index in range(LogSession.MAX_REPLAY_SIZE + 1):
+        await session.push_log(f"log-{index}")
+
+    connection = session.open_stream(0)
+
+    assert len(session.logs) == LogSession.MAX_REPLAY_SIZE
+    assert connection.replay_gap is True
+
+
+@pytest.mark.asyncio
+async def test_live_queue_is_bounded_and_exposes_cursor_gap_for_recovery():
+    session = LogSession("twin-1", "session-live-bounded", "deploy")
+    connection = session.open_stream(0)
+
+    for index in range(LogSession.MAX_LIVE_QUEUE_SIZE + 1):
+        await session.push_log(f"log-{index}")
+
+    assert connection.queue.qsize() == LogSession.MAX_LIVE_QUEUE_SIZE
+    oldest_retained = connection.queue.get_nowait()
+    assert oldest_retained["id"] == 2
+
+
+@pytest.mark.asyncio
+async def test_active_pending_session_ttl_uses_last_activity():
+    session = LogSession("twin-1", "session-active", "deploy")
+    session.created_at -= session.PENDING_TTL * 2
+
+    await session.push_log("operation is still producing logs")
+
+    assert session.is_expired() is False
 
 
 @pytest.mark.asyncio

@@ -488,16 +488,32 @@ class _DeploymentTerminalPanel extends StatelessWidget {
             ),
           ],
         ),
+        if (!state.showTraceTerminal &&
+            state.deploymentOperation.message != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              state.deploymentOperation.message!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
           height: _terminalHeight,
           child: DeploymentTerminal(
             logs: state.terminalLogs,
             isConnected:
-                state.isDeploying || state.isDestroying || state.isTracing,
-            isComplete:
-                !state.isDeploying && !state.isDestroying && !state.isTracing,
-            isReconnecting: false,
+                state.isTracing ||
+                state.deploymentOperation.phase ==
+                    DeploymentOperationViewPhase.streaming,
+            isComplete: state.showTraceTerminal
+                ? !state.isTracing
+                : state.deploymentOperation.isComplete,
+            isReconnecting: state.deploymentOperation.isReconnecting,
           ),
         ),
       ],

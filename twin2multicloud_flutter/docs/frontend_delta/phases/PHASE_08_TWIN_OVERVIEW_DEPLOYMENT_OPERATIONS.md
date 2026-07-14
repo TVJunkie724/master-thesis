@@ -32,8 +32,8 @@ and the final responsive/accessibility quality gate.
 |---|---|---|
 | 8.1 Typed operation contracts and nullable state | Done | 55 focused tests, 451 complete Flutter tests, analyzer clean |
 | 8.2 Twin-scoped readiness and explicit preflight | Done | 25 focused backend tests, 582 complete backend tests, 463 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
-| 8.3 Persisted log catch-up and SSE recovery | Next | Pending implementation |
-| 8.4 Trace/simulator workflows and secure archives | Planned | Pending implementation |
+| 8.3 Persisted log catch-up and SSE recovery | Done | 51 focused backend tests, 592 complete backend tests, 466 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
+| 8.4 Trace/simulator workflows and secure archives | Next | Pending implementation |
 | 8.5 Responsive/accessibility release gate | Planned | Pending implementation |
 
 The 8.1 gate covers Management API and demo adapters, strict versioned parsers,
@@ -47,6 +47,15 @@ enforcement. Flutter renders a compact readiness panel, keeps provider evidence
 collapsed when healthy, expands remediation when blocked, and independently
 guards the deploy command. The demo adapter implements the same fail-closed
 contract. Verification used no live cloud resources.
+
+The 8.3 gate consolidates deployment streaming on one owner-scoped Management
+API registry and adds bounded replay/live buffers with stale-generation safety.
+Flutter performs paginated persisted catch-up before cursor-based SSE, keeps one
+typed operation state, suppresses duplicate events, rejects gaps, bounds visible
+history, and exposes cancellable reconnect/status-recovery states. The custom
+SSE transport uses the current Management API auth token and validates relative
+URLs, cursors, payload shape, timestamps, and event size. Verification used no
+live cloud resources.
 
 ## Summary
 

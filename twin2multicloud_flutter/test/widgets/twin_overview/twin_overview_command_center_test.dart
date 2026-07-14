@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_command_center.dart';
 
@@ -160,6 +161,28 @@ void main() {
 
       expect(closed, isTrue);
     });
+
+    testWidgets('shows reconnect state and actionable operation detail', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildWidget(
+          state: _state(
+            twinState: 'deploying',
+            showTerminal: true,
+            operationPhase: DeploymentOperationViewPhase.reconnecting,
+            operationMessage: 'Connection lost. Reconnecting (1/3).',
+          ),
+        ),
+      );
+
+      expect(find.text('Reconnecting...'), findsOneWidget);
+      expect(find.text('Connection lost. Reconnecting (1/3).'), findsOneWidget);
+      expect(
+        find.text('Connection lost. Attempting to reconnect...'),
+        findsOneWidget,
+      );
+    });
   });
 }
 
@@ -174,6 +197,9 @@ TwinOverviewLoaded _state({
   bool showTerminal = false,
   List<String> terminalLogs = const [],
   bool readinessReady = true,
+  DeploymentOperationViewPhase operationPhase =
+      DeploymentOperationViewPhase.streaming,
+  String? operationMessage,
 }) {
   return TwinOverviewLoaded(
     twinId: 'twin-1',
@@ -189,8 +215,30 @@ TwinOverviewLoaded _state({
     ),
     cheapestPath: cheapestPath,
     lastError: lastError,
-    showTerminal: showTerminal,
-    terminalLogs: terminalLogs,
+    deploymentOperation: DeploymentOperationViewState(
+      phase: showTerminal ? operationPhase : DeploymentOperationViewPhase.idle,
+      operationType: showTerminal ? DeploymentOperationType.deploy : null,
+      session: showTerminal
+          ? const OperationSession(
+              sessionId: 'session-1',
+              sseUrl: '/sse/deploy/session-1',
+            )
+          : null,
+      logs: [
+        for (var index = 0; index < terminalLogs.length; index += 1)
+          DeploymentLogEntry(
+            eventId: index + 1,
+            sessionId: 'session-1',
+            timestamp: DateTime.utc(2026, 7, 14, 12, 0, index),
+            level: 'info',
+            message: terminalLogs[index],
+            operationType: 'deploy',
+          ),
+      ],
+      lastEventId: terminalLogs.length,
+      showLogs: showTerminal,
+      message: operationMessage,
+    ),
   );
 }
 

@@ -43,8 +43,8 @@ No verification step provisions or destroys real cloud resources.
 |---|---|---|
 | 8.1 | Done | Typed parser/API/demo/BLoC tests: 55 passed; complete Flutter suite: 451 passed; `flutter analyze --no-pub`: no issues |
 | 8.2 | Done | Backend readiness matrix: 25 passed; complete backend suite: 582 passed; complete Flutter suite: 463 passed; Bandit and analyzer clean; Web/macOS release builds pass |
-| 8.3 | Next | Not started |
-| 8.4 | Planned | Not started |
+| 8.3 | Done | Focused backend stream/route matrix: 51 passed; complete backend suite: 592 passed; complete Flutter suite: 466 passed; Bandit/analyzer clean; Web/macOS release builds pass |
+| 8.4 | Next | Not started |
 | 8.5 | Planned | Not started |
 
 Subphase 8.1 also verified defensive copies for nested outputs and binary
@@ -62,6 +62,17 @@ and Flutter parsers enforce matching provider order, non-empty bounded evidence,
 permission-set consistency, timestamps, and aggregate readiness. Downstream
 messages are redacted before persistence or rendering. No cloud E2E or resource
 creation was executed.
+
+Subphase 8.3 consolidated all deployment producers and the authenticated SSE
+route onto one canonical session registry. Server replay and live-delivery
+buffers are bounded, stale consumer generations cannot reset newer streams,
+pending expiry follows real activity, and replay gaps explicitly require
+persisted catch-up. Flutter now loads all persisted session pages before opening
+SSE with the last accepted cursor, suppresses duplicates, rejects gaps, limits
+visible history to 500 entries, and performs cancellable bounded reconnects
+followed by a typed status check. The SSE adapter has deterministic cancellation,
+strict event/URL/size validation, and reads the current Management API session
+token for every new connection. No live-cloud E2E was executed.
 
 ## 2. Visual Layout (ASCII)
 

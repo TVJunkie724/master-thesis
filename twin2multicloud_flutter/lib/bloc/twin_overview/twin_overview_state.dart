@@ -4,6 +4,133 @@
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/deployment_readiness.dart';
+import '../../models/deployment_operations.dart';
+
+enum DeploymentOperationViewPhase {
+  idle,
+  starting,
+  connecting,
+  streaming,
+  reconnecting,
+  completed,
+  failed,
+}
+
+class DeploymentOperationViewState extends Equatable {
+  static const maxLogEntries = 500;
+
+  final DeploymentOperationViewPhase phase;
+  final DeploymentOperationType? operationType;
+  final OperationSession? session;
+  final List<DeploymentLogEntry> logs;
+  final int lastEventId;
+  final int reconnectAttempt;
+  final bool showLogs;
+  final String? message;
+
+  const DeploymentOperationViewState({
+    this.phase = DeploymentOperationViewPhase.idle,
+    this.operationType,
+    this.session,
+    this.logs = const [],
+    this.lastEventId = 0,
+    this.reconnectAttempt = 0,
+    this.showLogs = false,
+    this.message,
+  });
+
+  factory DeploymentOperationViewState.starting(
+    DeploymentOperationType operationType,
+  ) => DeploymentOperationViewState(
+    phase: DeploymentOperationViewPhase.starting,
+    operationType: operationType,
+    showLogs: true,
+    message: operationType == DeploymentOperationType.destroy
+        ? 'Starting resource destruction.'
+        : 'Starting deployment.',
+  );
+
+  bool get isActive => const {
+    DeploymentOperationViewPhase.starting,
+    DeploymentOperationViewPhase.connecting,
+    DeploymentOperationViewPhase.streaming,
+    DeploymentOperationViewPhase.reconnecting,
+  }.contains(phase);
+
+  bool get isReconnecting => phase == DeploymentOperationViewPhase.reconnecting;
+
+  bool get isComplete => const {
+    DeploymentOperationViewPhase.completed,
+    DeploymentOperationViewPhase.failed,
+  }.contains(phase);
+
+  List<String> get formattedLogs => List.unmodifiable(
+    logs.map((entry) {
+      final time = entry.timestamp.toLocal();
+      final timestamp =
+          '${time.hour.toString().padLeft(2, '0')}:'
+          '${time.minute.toString().padLeft(2, '0')}:'
+          '${time.second.toString().padLeft(2, '0')}';
+      return '[${entry.level.toUpperCase()}] [$timestamp] ${entry.message}';
+    }),
+  );
+
+  DeploymentOperationViewState copyWith({
+    DeploymentOperationViewPhase? phase,
+    DeploymentOperationType? operationType,
+    OperationSession? session,
+    List<DeploymentLogEntry>? logs,
+    int? lastEventId,
+    int? reconnectAttempt,
+    bool? showLogs,
+    String? message,
+    bool clearMessage = false,
+  }) {
+    final requestedLogs = logs ?? this.logs;
+    final nextLogs = List<DeploymentLogEntry>.unmodifiable(
+      requestedLogs.length <= maxLogEntries
+          ? requestedLogs
+          : requestedLogs.sublist(requestedLogs.length - maxLogEntries),
+    );
+    return DeploymentOperationViewState(
+      phase: phase ?? this.phase,
+      operationType: operationType ?? this.operationType,
+      session: session ?? this.session,
+      logs: nextLogs,
+      lastEventId: lastEventId ?? this.lastEventId,
+      reconnectAttempt: reconnectAttempt ?? this.reconnectAttempt,
+      showLogs: showLogs ?? this.showLogs,
+      message: clearMessage ? null : (message ?? this.message),
+    );
+  }
+
+  DeploymentOperationViewState append(DeploymentLogEntry entry) {
+    if (session == null || entry.sessionId != session!.sessionId) {
+      throw StateError('Deployment log belongs to another operation session.');
+    }
+    if (entry.eventId <= lastEventId) return this;
+    if (entry.eventId != lastEventId + 1) {
+      throw StateError('Deployment log cursor contains a gap.');
+    }
+    return copyWith(
+      logs: [...logs, entry],
+      lastEventId: entry.eventId,
+      showLogs: true,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    phase,
+    operationType,
+    session,
+    logs,
+    lastEventId,
+    reconnectAttempt,
+    showLogs,
+    message,
+  ];
+}
 
 enum DeploymentReadinessViewPhase {
   initial,
@@ -95,9 +222,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
 
   final DeploymentReadinessViewState deploymentReadiness;
 
-  // Transient states
-  final bool isDeploying;
-  final bool isDestroying;
+  // Deployment operation and independent trace utility state
+  final DeploymentOperationViewState deploymentOperation;
   final bool isTracing;
   final String? traceId;
 
@@ -105,9 +231,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String? lastError;
   final String? lastDeploymentLogs;
 
-  // Terminal visibility and logs
-  final bool showTerminal;
-  final List<String> terminalLogs;
+  final bool showTraceTerminal;
+  final List<String> traceTerminalLogs;
 
   // Optimization data
   final Map<String, dynamic>? optimizerResult;
@@ -151,14 +276,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.canEdit,
     required this.canDelete,
     this.deploymentReadiness = const DeploymentReadinessViewState.initial(),
-    this.isDeploying = false,
-    this.isDestroying = false,
+    this.deploymentOperation = const DeploymentOperationViewState(),
     this.isTracing = false,
     this.traceId,
     this.lastError,
     this.lastDeploymentLogs,
-    this.showTerminal = false,
-    this.terminalLogs = const [],
+    this.showTraceTerminal = false,
+    this.traceTerminalLogs = const [],
     this.optimizerResult,
     this.optimizerParams,
     this.cheapestPath,
@@ -181,6 +305,20 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.simulatorFilename,
   });
 
+  bool get isDeploying =>
+      deploymentOperation.isActive &&
+      deploymentOperation.operationType == DeploymentOperationType.deploy;
+
+  bool get isDestroying =>
+      deploymentOperation.isActive &&
+      deploymentOperation.operationType == DeploymentOperationType.destroy;
+
+  bool get showTerminal => deploymentOperation.showLogs || showTraceTerminal;
+
+  List<String> get terminalLogs => showTraceTerminal
+      ? List.unmodifiable(traceTerminalLogs)
+      : deploymentOperation.formattedLogs;
+
   /// Create copy with updated fields
   TwinOverviewLoaded copyWith({
     String? twinId,
@@ -192,14 +330,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool? canEdit,
     bool? canDelete,
     DeploymentReadinessViewState? deploymentReadiness,
-    bool? isDeploying,
-    bool? isDestroying,
+    DeploymentOperationViewState? deploymentOperation,
     bool? isTracing,
     String? traceId,
     String? lastError,
     String? lastDeploymentLogs,
-    bool? showTerminal,
-    List<String>? terminalLogs,
+    bool? showTraceTerminal,
+    List<String>? traceTerminalLogs,
     Map<String, dynamic>? optimizerResult,
     Map<String, dynamic>? optimizerParams,
     Map<String, dynamic>? cheapestPath,
@@ -241,14 +378,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
       canEdit: canEdit ?? this.canEdit,
       canDelete: canDelete ?? this.canDelete,
       deploymentReadiness: deploymentReadiness ?? this.deploymentReadiness,
-      isDeploying: isDeploying ?? this.isDeploying,
-      isDestroying: isDestroying ?? this.isDestroying,
+      deploymentOperation: deploymentOperation ?? this.deploymentOperation,
       isTracing: isTracing ?? this.isTracing,
       traceId: clearTraceId ? null : (traceId ?? this.traceId),
       lastError: clearLastError ? null : (lastError ?? this.lastError),
       lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
-      showTerminal: showTerminal ?? this.showTerminal,
-      terminalLogs: terminalLogs ?? this.terminalLogs,
+      showTraceTerminal: showTraceTerminal ?? this.showTraceTerminal,
+      traceTerminalLogs: traceTerminalLogs ?? this.traceTerminalLogs,
       optimizerResult: optimizerResult ?? this.optimizerResult,
       optimizerParams: optimizerParams ?? this.optimizerParams,
       cheapestPath: cheapestPath ?? this.cheapestPath,
@@ -297,14 +433,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
     canEdit,
     canDelete,
     deploymentReadiness,
-    isDeploying,
-    isDestroying,
+    deploymentOperation,
     isTracing,
     traceId,
     lastError,
     lastDeploymentLogs,
-    showTerminal,
-    terminalLogs,
+    showTraceTerminal,
+    traceTerminalLogs,
     optimizerResult,
     optimizerParams,
     cheapestPath,

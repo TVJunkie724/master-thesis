@@ -252,7 +252,7 @@ async def get_deployment_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from src.api.routes.sse import get_active_sessions_for_twin
+    from src.services.deployment_stream_service import get_active_sessions_for_twin
 
     try:
         return await _deployment_orchestrator(db).get_status(
@@ -360,7 +360,7 @@ async def start_log_trace(
         )
 
     if TEST_MODE:
-        from src.api.routes.sse import create_session
+        from src.services.deployment_stream_service import create_session
         from src.api.routes.test_endpoints import _run_test_log_trace_stream
 
         providers = ["aws"]

@@ -16,7 +16,7 @@ import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch, MagicMock
 
-from src.api.routes.sse import LogSession
+from src.services.deployment_stream_service import LogSession
 from src.models.cloud_connection import CloudConnection
 from src.models.deployer_config import DeployerConfiguration
 from src.models.deployment import Deployment
@@ -74,7 +74,7 @@ def _patch_stream_dependencies(monkeypatch, lines: list[str], session: LogSessio
     async def fake_get_session(session_id: str):
         return session
 
-    monkeypatch.setattr("src.api.routes.sse.get_session", fake_get_session)
+    monkeypatch.setattr("src.services.deployment_stream_service.get_session", fake_get_session)
     monkeypatch.setattr("src.models.database.SessionLocal", TestingSessionLocal)
     return _FakeDeployerClient(lines)
 
@@ -176,7 +176,7 @@ class TestRealDeploymentStreamPersistence:
         db.expire_all()
         stored_twin = db.get(DigitalTwin, twin.id)
         deployment = db.query(Deployment).filter_by(session_id="session-deploy").one()
-        complete_event = session.queue.get_nowait()
+        complete_event = session.logs[-1]
 
         assert stored_twin.state == TwinState.DEPLOYED
         assert deployment.status == "success"
@@ -209,7 +209,7 @@ class TestRealDeploymentStreamPersistence:
         db.expire_all()
         stored_twin = db.get(DigitalTwin, twin.id)
         deployment = db.query(Deployment).filter_by(session_id="session-destroy").one()
-        final_event = session.queue.get_nowait()
+        final_event = session.logs[-1]
 
         assert stored_twin.state == TwinState.ERROR
         assert stored_twin.last_error == "client_secret=[REDACTED] in <project-path>"

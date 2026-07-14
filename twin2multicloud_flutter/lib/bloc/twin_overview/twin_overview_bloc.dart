@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../models/deployment_operations.dart';
 import '../../services/log_stream_client.dart';
 import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
@@ -18,14 +19,25 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   Timer? _pollingTimer;
   StreamSubscription? _sseSubscription;
   LogStreamClient? _sseService;
+  Timer? _deploymentReconnectTimer;
+  Timer? _postOperationRefreshTimer;
+  int _deploymentStreamGeneration = 0;
   StreamSubscription? _logTraceSseSubscription;
   LogStreamClient? _logTraceSseService;
+  final Duration _reconnectDelay;
+  final DateTime Function() _clock;
+
+  static const _maxReconnectAttempts = 3;
 
   TwinOverviewBloc({
     required ManagementApi api,
     required LogStreamClientFactory logStreamClientFactory,
+    Duration reconnectDelay = const Duration(seconds: 2),
+    DateTime Function()? clock,
   }) : _api = api,
        _logStreamClientFactory = logStreamClientFactory,
+       _reconnectDelay = reconnectDelay,
+       _clock = clock ?? DateTime.now,
        super(const TwinOverviewLoading()) {
     on<TwinOverviewLoad>(_onLoad);
     on<TwinOverviewRefresh>(_onRefresh);
@@ -33,8 +45,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewDeploy>(_onDeploy);
     on<TwinOverviewDestroy>(_onDestroy);
     on<TwinOverviewDelete>(_onDelete);
-    on<TwinOverviewLogReceived>(_onLogReceived);
     on<TwinOverviewDeploymentComplete>(_onDeploymentComplete);
+    on<_DeploymentStreamData>(_onDeploymentStreamData);
+    on<_DeploymentStreamDisconnected>(_onDeploymentStreamDisconnected);
+    on<_DeploymentReconnectDue>(_onDeploymentReconnectDue);
     on<TwinOverviewClearMessages>(_onClearMessages);
     on<TwinOverviewShowMessage>(_onShowMessage);
     on<TwinOverviewCloseTerminal>(_onCloseTerminal);
@@ -93,55 +107,37 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         }
       }
 
-      emit(
-        _buildLoadedState(
-          twinId: event.twinId,
-          twin: twin,
-          twinState: twinState,
-          lastError: deploymentStatus.lastError,
-          optimizerConfig: optimizerConfig,
-          deployerConfig: deployerConfig,
-          deploymentOutputs: deploymentOutputs,
-          outputsTimestamp: outputsTimestamp,
-          outputsError: outputsError,
-          deploymentReadiness: deploymentReadiness,
-        ),
+      var loadedState = _buildLoadedState(
+        twinId: event.twinId,
+        twin: twin,
+        twinState: twinState,
+        lastError: deploymentStatus.lastError,
+        optimizerConfig: optimizerConfig,
+        deployerConfig: deployerConfig,
+        deploymentOutputs: deploymentOutputs,
+        outputsTimestamp: outputsTimestamp,
+        outputsError: outputsError,
+        deploymentReadiness: deploymentReadiness,
       );
+      final activeSession = deploymentStatus.activeSession;
+      if (activeSession != null &&
+          ['deploying', 'destroying'].contains(twinState)) {
+        loadedState = loadedState.copyWith(
+          deploymentOperation: DeploymentOperationViewState(
+            phase: DeploymentOperationViewPhase.reconnecting,
+            operationType: activeSession.operationType,
+            session: activeSession,
+            reconnectAttempt: 0,
+            showLogs: true,
+            message: 'Restoring the active deployment log stream.',
+          ),
+        );
+      }
+      emit(loadedState);
 
-      // If the twin is deploying/destroying, try to reconnect to the active SSE session
-      // (handles the case where user navigated away and came back)
-      if (['deploying', 'destroying'].contains(twinState)) {
-        final isDestroy = twinState == 'destroying';
-        final activeSession = deploymentStatus.activeSession;
-        if (activeSession != null) {
-          try {
-            final sseUrl = activeSession.sseUrl;
-
-            // Update UI to show terminal with reconnection indicator
-            final currentState = state;
-            if (currentState is TwinOverviewLoaded) {
-              emit(
-                currentState.copyWith(
-                  isDeploying: !isDestroy,
-                  isDestroying: isDestroy,
-                  showTerminal: true,
-                  terminalLogs: ['> Reconnected to active session...'],
-                ),
-              );
-            }
-
-            // Reuse existing SSE subscription method
-            _subscribeToSseStream(
-              sseUrl: sseUrl,
-              sessionId: activeSession.sessionId,
-              twinId: event.twinId,
-              isDestroy: isDestroy,
-            );
-          } catch (e) {
-            debugPrint('[TwinOverviewBloc] SSE reconnect failed: $e');
-            // Non-fatal — the persisted operation state remains visible.
-          }
-        }
+      if (activeSession != null &&
+          ['deploying', 'destroying'].contains(twinState)) {
+        await _catchUpAndSubscribe(emit, reconnecting: true);
       }
     } catch (e) {
       debugPrint(
@@ -160,13 +156,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     Emitter<TwinOverviewState> emit,
   ) async {
     final currentState = state;
-    // Preserve terminal state during refresh
-    final preservedLogs = currentState is TwinOverviewLoaded
-        ? currentState.terminalLogs
-        : <String>[];
-    final preservedShowTerminal = currentState is TwinOverviewLoaded
-        ? currentState.showTerminal
-        : false;
     if (_currentTwinId != null) {
       try {
         // Load fresh data from API
@@ -220,6 +209,24 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
               ? currentState.outputsTimestamp
               : null;
         }
+        var deploymentOperation = currentState is TwinOverviewLoaded
+            ? currentState.deploymentOperation
+            : const DeploymentOperationViewState();
+        if (deploymentOperation.isActive &&
+            !{'deploying', 'destroying'}.contains(twinState)) {
+          deploymentOperation = deploymentOperation.copyWith(
+            phase: twinState == 'error'
+                ? DeploymentOperationViewPhase.failed
+                : DeploymentOperationViewPhase.completed,
+            message:
+                deploymentStatus.lastError ??
+                (twinState == 'destroyed'
+                    ? 'Resource destruction completed.'
+                    : 'Deployment completed.'),
+            showLogs: true,
+          );
+          _cancelSseSubscription();
+        }
         final freshState = _buildLoadedState(
           twinId: _currentTwinId!,
           twin: twin,
@@ -231,15 +238,38 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           outputsTimestamp: outputsTimestamp,
           outputsError: outputsError,
           deploymentReadiness: deploymentReadiness,
+          deploymentOperation: deploymentOperation,
         );
 
-        // Emit fresh state but preserve terminal state
         emit(
           freshState.copyWith(
-            terminalLogs: preservedLogs,
-            showTerminal: preservedShowTerminal,
+            showTraceTerminal: currentState is TwinOverviewLoaded
+                ? currentState.showTraceTerminal
+                : false,
+            traceTerminalLogs: currentState is TwinOverviewLoaded
+                ? currentState.traceTerminalLogs
+                : const [],
           ),
         );
+
+        final activeSession = deploymentStatus.activeSession;
+        if (activeSession != null && !deploymentOperation.isActive) {
+          final activeState = state;
+          if (activeState is TwinOverviewLoaded) {
+            emit(
+              activeState.copyWith(
+                deploymentOperation: DeploymentOperationViewState(
+                  phase: DeploymentOperationViewPhase.reconnecting,
+                  operationType: activeSession.operationType,
+                  session: activeSession,
+                  showLogs: true,
+                  message: 'Restoring the active deployment log stream.',
+                ),
+              ),
+            );
+            await _catchUpAndSubscribe(emit, reconnecting: true);
+          }
+        }
       } catch (e) {
         if (currentState is TwinOverviewLoaded) {
           emit(
@@ -272,14 +302,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final perms = _permissionsForState('deploying');
     emit(
       currentState.copyWith(
-        isDeploying: true,
+        deploymentOperation: DeploymentOperationViewState.starting(
+          DeploymentOperationType.deploy,
+        ),
         twinState: 'deploying',
         canDeploy: perms['canDeploy'],
         canDestroy: perms['canDestroy'],
         canEdit: perms['canEdit'],
         canDelete: perms['canDelete'],
-        showTerminal: true,
-        terminalLogs: ['> Starting deployment...'],
+        showTraceTerminal: false,
         clearDeploymentOutputs: true,
         clearOutputsTimestamp: true,
         clearOutputsError: true,
@@ -293,14 +324,21 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     try {
       // Call backend to start deployment - now returns session_id and sse_url
       final result = await _api.deployTwin(currentState.twinId);
-
-      // SSE streaming mode - subscribe to log stream
-      _subscribeToSseStream(
-        sseUrl: result.sseUrl,
-        sessionId: result.sessionId,
-        twinId: currentState.twinId,
-        isDestroy: false,
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != currentState.twinId) {
+        return;
+      }
+      emit(
+        activeState.copyWith(
+          deploymentOperation: activeState.deploymentOperation.copyWith(
+            phase: DeploymentOperationViewPhase.connecting,
+            session: result,
+            clearMessage: true,
+          ),
+        ),
       );
+      await _catchUpAndSubscribe(emit);
     } catch (e) {
       debugPrint(
         '[TwinOverviewBloc] Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
@@ -312,7 +350,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       }
       emit(
         activeState.copyWith(
-          isDeploying: false,
+          deploymentOperation: activeState.deploymentOperation.copyWith(
+            phase: DeploymentOperationViewPhase.failed,
+            message: 'Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
+            showLogs: true,
+          ),
           errorMessage:
               'Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
         ),
@@ -383,14 +425,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final perms = _permissionsForState('destroying');
     emit(
       currentState.copyWith(
-        isDestroying: true,
+        deploymentOperation: DeploymentOperationViewState.starting(
+          DeploymentOperationType.destroy,
+        ),
         twinState: 'destroying',
         canDeploy: perms['canDeploy'],
         canDestroy: perms['canDestroy'],
         canEdit: perms['canEdit'],
         canDelete: perms['canDelete'],
-        showTerminal: true,
-        terminalLogs: ['> Starting resource destruction...'],
+        showTraceTerminal: false,
         clearSuccess: true,
         clearError: true,
         clearInfo: true,
@@ -400,14 +443,21 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     try {
       // Call backend to start destruction - now returns session_id and sse_url
       final result = await _api.destroyTwin(currentState.twinId);
-
-      // SSE streaming mode - subscribe to log stream
-      _subscribeToSseStream(
-        sseUrl: result.sseUrl,
-        sessionId: result.sessionId,
-        twinId: currentState.twinId,
-        isDestroy: true,
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != currentState.twinId) {
+        return;
+      }
+      emit(
+        activeState.copyWith(
+          deploymentOperation: activeState.deploymentOperation.copyWith(
+            phase: DeploymentOperationViewPhase.connecting,
+            session: result,
+            clearMessage: true,
+          ),
+        ),
       );
+      await _catchUpAndSubscribe(emit);
     } catch (e) {
       debugPrint(
         '[TwinOverviewBloc] Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
@@ -419,7 +469,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       }
       emit(
         activeState.copyWith(
-          isDestroying: false,
+          deploymentOperation: activeState.deploymentOperation.copyWith(
+            phase: DeploymentOperationViewPhase.failed,
+            message: 'Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
+            showLogs: true,
+          ),
           errorMessage: 'Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
         ),
       );
@@ -452,23 +506,22 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     }
   }
 
-  void _onLogReceived(
-    TwinOverviewLogReceived event,
-    Emitter<TwinOverviewState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is! TwinOverviewLoaded) return;
-
-    final newLogs = [...currentState.terminalLogs, event.log];
-    emit(currentState.copyWith(terminalLogs: newLogs));
-  }
-
   void _onDeploymentComplete(
     TwinOverviewDeploymentComplete event,
     Emitter<TwinOverviewState> emit,
   ) {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+
+    _applyDeploymentComplete(currentState, event, emit);
+  }
+
+  void _applyDeploymentComplete(
+    TwinOverviewLoaded currentState,
+    TwinOverviewDeploymentComplete event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    _cancelSseSubscription();
 
     // Clear outputs on destroy, store on deploy
     final isDestroy = event.newState == 'destroyed';
@@ -480,10 +533,35 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         ? null
         : (event.message ?? 'Deployment operation failed.');
     final hasCurrentOutputs = !isDestroy && event.outputs != null;
+    final currentOperation = currentState.deploymentOperation;
+    final operationType =
+        currentOperation.operationType ??
+        (isDestroy
+            ? DeploymentOperationType.destroy
+            : DeploymentOperationType.deploy);
+    final completedOperation = currentOperation.copyWith(
+      phase: event.success
+          ? DeploymentOperationViewPhase.completed
+          : DeploymentOperationViewPhase.failed,
+      operationType: operationType,
+      lastEventId: event.eventId == null
+          ? currentOperation.lastEventId
+          : event.eventId! > currentOperation.lastEventId
+          ? event.eventId
+          : currentOperation.lastEventId,
+      reconnectAttempt: 0,
+      showLogs: true,
+      message:
+          event.message ??
+          (event.success
+              ? (isDestroy
+                    ? 'Resource destruction completed.'
+                    : 'Deployment completed.')
+              : 'Deployment operation failed.'),
+    );
     emit(
       currentState.copyWith(
-        isDeploying: false,
-        isDestroying: false,
+        deploymentOperation: completedOperation,
         twinState: newState,
         canDeploy: perms['canDeploy'],
         canDestroy: perms['canDestroy'],
@@ -497,16 +575,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         // Store outputs from SSE on successful deploy, clear on destroy
         deploymentOutputs: isDestroy ? null : event.outputs,
         clearDeploymentOutputs: !hasCurrentOutputs,
-        outputsTimestamp: hasCurrentOutputs ? DateTime.now() : null,
+        outputsTimestamp: hasCurrentOutputs ? _clock() : null,
         clearOutputsTimestamp: !hasCurrentOutputs,
         clearOutputsError: true,
-        // terminalLogs are preserved by copyWith's default behavior
       ),
     );
 
-    // Always refresh from backend to ensure state is synchronized
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!isClosed) add(TwinOverviewRefresh());
+    _postOperationRefreshTimer?.cancel();
+    _postOperationRefreshTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!isClosed) add(const TwinOverviewRefresh());
     });
   }
 
@@ -572,7 +649,22 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
-    emit(currentState.copyWith(showTerminal: false, terminalLogs: const []));
+    if (currentState.showTraceTerminal) {
+      emit(
+        currentState.copyWith(
+          showTraceTerminal: false,
+          traceTerminalLogs: const [],
+        ),
+      );
+      return;
+    }
+    emit(
+      currentState.copyWith(
+        deploymentOperation: currentState.deploymentOperation.copyWith(
+          showLogs: false,
+        ),
+      ),
+    );
   }
 
   // ==========================================================================
@@ -599,8 +691,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     emit(
       currentState.copyWith(
         isTracing: true,
-        showTerminal: true,
-        terminalLogs: ['> Starting log trace test...'],
+        deploymentOperation: currentState.deploymentOperation.copyWith(
+          showLogs: false,
+        ),
+        showTraceTerminal: true,
+        traceTerminalLogs: ['> Starting log trace test...'],
         clearTraceId: true,
         clearSuccess: true,
         clearError: true,
@@ -621,8 +716,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       emit(
         activeState.copyWith(
           traceId: result.traceId,
-          terminalLogs: [
-            ...activeState.terminalLogs,
+          traceTerminalLogs: [
+            ...activeState.traceTerminalLogs,
             '> Trace ID: ${result.traceId}',
             '> Providers: ${result.providers.join(", ")}',
             '> Streaming logs for 90 seconds...',
@@ -665,8 +760,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
-    final newLogs = [...currentState.terminalLogs, event.logLine];
-    emit(currentState.copyWith(terminalLogs: newLogs));
+    final newLogs = [...currentState.traceTerminalLogs, event.logLine];
+    emit(currentState.copyWith(traceTerminalLogs: newLogs));
   }
 
   void _onLogTraceComplete(
@@ -679,12 +774,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     _cancelLogTraceSseSubscription();
 
     final newLogs = [
-      ...currentState.terminalLogs,
+      ...currentState.traceTerminalLogs,
       '',
       '> Trace complete. Total logs: ${event.totalLogs ?? 0}',
     ];
 
-    emit(currentState.copyWith(isTracing: false, terminalLogs: newLogs));
+    emit(currentState.copyWith(isTracing: false, traceTerminalLogs: newLogs));
   }
 
   void _onLogTraceError(
@@ -801,70 +896,397 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   // SSE Streaming
   // ==========================================================================
 
-  /// Subscribe to SSE stream for real-time deployment/destroy logs
-  void _subscribeToSseStream({
-    required String sseUrl,
-    String? sessionId,
-    required String twinId,
-    required bool isDestroy,
-  }) {
+  Future<void> _catchUpAndSubscribe(
+    Emitter<TwinOverviewState> emit, {
+    bool reconnecting = false,
+  }) async {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+
+    final operation = currentState.deploymentOperation;
+    final session = operation.session;
+    final operationType = operation.operationType;
+    if (session == null || operationType == null || !operation.isActive) return;
+
     _cancelSseSubscription();
+    final generation = _deploymentStreamGeneration;
+    var recovered = operation.copyWith(
+      phase: reconnecting
+          ? DeploymentOperationViewPhase.reconnecting
+          : DeploymentOperationViewPhase.connecting,
+      showLogs: true,
+      message: reconnecting
+          ? 'Recovering persisted deployment logs.'
+          : 'Connecting to the deployment log stream.',
+    );
+    emit(currentState.copyWith(deploymentOperation: recovered));
 
-    // Create SSE service with auth token
+    try {
+      var hasMore = true;
+      while (hasMore) {
+        final page = await _api.getDeploymentLogs(
+          currentState.twinId,
+          sessionId: session.sessionId,
+          afterEventId: recovered.lastEventId,
+          limit: DeploymentOperationViewState.maxLogEntries,
+        );
+        _validateLogPage(
+          page,
+          twinId: currentState.twinId,
+          sessionId: session.sessionId,
+          expectedCursor: recovered.lastEventId,
+          operationType: operationType,
+        );
+        for (final entry in page.logs) {
+          recovered = recovered.append(entry);
+        }
+        hasMore = page.hasMore;
+        if (hasMore && page.logs.isEmpty) {
+          throw const _DeploymentStreamContractException(
+            'Deployment log pagination did not advance the cursor.',
+          );
+        }
+      }
+
+      final activeState = state;
+      if (!_isCurrentOperation(activeState, session.sessionId, generation)) {
+        return;
+      }
+      recovered = recovered.copyWith(
+        phase: DeploymentOperationViewPhase.streaming,
+        reconnectAttempt: reconnecting ? recovered.reconnectAttempt : 0,
+        clearMessage: true,
+      );
+      emit(
+        (activeState as TwinOverviewLoaded).copyWith(
+          deploymentOperation: recovered,
+        ),
+      );
+      _subscribeToDeploymentStream(
+        session: session,
+        lastEventId: recovered.lastEventId,
+        generation: generation,
+      );
+    } catch (error) {
+      final activeState = state;
+      if (!_isCurrentOperation(activeState, session.sessionId, generation)) {
+        return;
+      }
+      await _handleDeploymentConnectionFailure(
+        activeState as TwinOverviewLoaded,
+        emit,
+        'Log recovery failed: ${ApiErrorHandler.extractMessage(error)}',
+      );
+    }
+  }
+
+  void _validateLogPage(
+    DeploymentLogPage page, {
+    required String twinId,
+    required String sessionId,
+    required int expectedCursor,
+    required DeploymentOperationType operationType,
+  }) {
+    if (page.twinId != twinId || page.sessionId != sessionId) {
+      throw const _DeploymentStreamContractException(
+        'Deployment log page belongs to another twin or session.',
+      );
+    }
+    if (page.afterEventId != expectedCursor) {
+      throw const _DeploymentStreamContractException(
+        'Deployment log page returned an unexpected cursor.',
+      );
+    }
+    var cursor = expectedCursor;
+    for (final entry in page.logs) {
+      if (entry.sessionId != sessionId ||
+          entry.operationType != operationType.apiValue) {
+        throw const _DeploymentStreamContractException(
+          'Deployment log entry belongs to another operation.',
+        );
+      }
+      if (entry.eventId != cursor + 1) {
+        throw const _DeploymentStreamContractException(
+          'Deployment log history contains an event gap.',
+        );
+      }
+      cursor = entry.eventId;
+    }
+    if (page.nextAfterEventId != null && page.nextAfterEventId != cursor) {
+      throw const _DeploymentStreamContractException(
+        'Deployment log page returned an inconsistent next cursor.',
+      );
+    }
+  }
+
+  void _subscribeToDeploymentStream({
+    required OperationSession session,
+    required int lastEventId,
+    required int generation,
+  }) {
     _sseService = _logStreamClientFactory();
-
+    var terminalReceived = false;
+    var streamCursor = lastEventId;
     _sseSubscription = _sseService!
-        .streamDeploymentLogs(sseUrl)
+        .streamDeploymentLogs(session.sseUrl, lastEventId: lastEventId)
         .listen(
           (event) {
-            if (event.isHeartbeat) return; // Ignore heartbeats
-
-            if (event.isLog) {
-              // Emit log event
-              add(TwinOverviewLogReceived(event.message));
-            } else if (event.isComplete) {
-              // Success completion - pass outputs from SSE
-              _cancelSseSubscription();
+            final advancesCursor = event.id == streamCursor + 1;
+            if (advancesCursor) streamCursor = event.id;
+            terminalReceived =
+                terminalReceived ||
+                ((event.isComplete || event.isError) && advancesCursor);
+            if (!isClosed) {
               add(
-                TwinOverviewDeploymentComplete(
-                  success: true,
-                  newState: isDestroy ? 'destroyed' : 'deployed',
-                  message: event.message,
-                  outputs: event.outputs, // Pass outputs from SSE event
-                ),
-              );
-            } else if (event.isError) {
-              // Error completion
-              _cancelSseSubscription();
-              add(
-                TwinOverviewDeploymentComplete(
-                  success: false,
-                  newState: 'error',
-                  message: event.message,
+                _DeploymentStreamData(
+                  event: event,
+                  generation: generation,
+                  sessionId: session.sessionId,
                 ),
               );
             }
           },
-          onError: (e) {
-            // SSE connection error — don't decide state, poll backend instead
-            debugPrint(
-              '[TwinOverviewBloc] SSE connection lost: ${ApiErrorHandler.extractMessage(e)}',
-            );
-            _cancelSseSubscription();
-            // Wait briefly for the backend to finish its DB commit
-            Future.delayed(const Duration(seconds: 3), () {
-              if (!isClosed) add(TwinOverviewRefresh());
-            });
+          onError: (Object error, StackTrace stackTrace) {
+            if (!isClosed) {
+              add(
+                _DeploymentStreamDisconnected(
+                  error: error,
+                  generation: generation,
+                  sessionId: session.sessionId,
+                ),
+              );
+            }
           },
+          onDone: () {
+            if (!terminalReceived && !isClosed) {
+              add(
+                _DeploymentStreamDisconnected(
+                  generation: generation,
+                  sessionId: session.sessionId,
+                ),
+              );
+            }
+          },
+          cancelOnError: true,
         );
   }
 
-  /// Cancel current SSE subscription
+  Future<void> _onDeploymentStreamData(
+    _DeploymentStreamData event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (!_isCurrentOperation(currentState, event.sessionId, event.generation)) {
+      return;
+    }
+    if (event.event.isHeartbeat) return;
+
+    final loaded = currentState as TwinOverviewLoaded;
+    final operation = loaded.deploymentOperation;
+    if (event.event.type == 'catchup_required') {
+      await _handleDeploymentConnectionFailure(
+        loaded,
+        emit,
+        'The live stream requires persisted log catch-up.',
+      );
+      return;
+    }
+    if (event.event.id <= operation.lastEventId) return;
+    if (event.event.id != operation.lastEventId + 1) {
+      await _handleDeploymentConnectionFailure(
+        loaded,
+        emit,
+        'A deployment log event gap was detected.',
+      );
+      return;
+    }
+
+    if (event.event.isLog) {
+      final entry = DeploymentLogEntry(
+        eventId: event.event.id,
+        sessionId: event.sessionId,
+        timestamp: event.event.timestamp ?? _clock(),
+        level: event.event.level ?? 'info',
+        message: event.event.message,
+        operationType: operation.operationType!.apiValue,
+      );
+      emit(
+        loaded.copyWith(
+          deploymentOperation: operation
+              .append(entry)
+              .copyWith(
+                phase: DeploymentOperationViewPhase.streaming,
+                reconnectAttempt: 0,
+                clearMessage: true,
+              ),
+        ),
+      );
+      return;
+    }
+
+    if (event.event.isComplete || event.event.isError) {
+      _applyDeploymentComplete(
+        loaded,
+        TwinOverviewDeploymentComplete(
+          success: event.event.isComplete,
+          newState: event.event.isComplete
+              ? (operation.operationType == DeploymentOperationType.destroy
+                    ? 'destroyed'
+                    : 'deployed')
+              : 'error',
+          message: event.event.message,
+          outputs: event.event.outputs,
+          eventId: event.event.id,
+        ),
+        emit,
+      );
+      return;
+    }
+
+    await _handleDeploymentConnectionFailure(
+      loaded,
+      emit,
+      'The deployment stream returned an unsupported event type.',
+    );
+  }
+
+  Future<void> _onDeploymentStreamDisconnected(
+    _DeploymentStreamDisconnected event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (!_isCurrentOperation(currentState, event.sessionId, event.generation)) {
+      return;
+    }
+    final detail = event.error == null
+        ? 'The deployment log stream closed before a terminal event.'
+        : 'Deployment log connection lost: '
+              '${ApiErrorHandler.extractMessage(event.error!)}';
+    await _handleDeploymentConnectionFailure(
+      currentState as TwinOverviewLoaded,
+      emit,
+      detail,
+    );
+  }
+
+  Future<void> _handleDeploymentConnectionFailure(
+    TwinOverviewLoaded currentState,
+    Emitter<TwinOverviewState> emit,
+    String message,
+  ) async {
+    _cancelSseSubscription();
+    final operation = currentState.deploymentOperation;
+    final session = operation.session;
+    if (session == null || !operation.isActive) return;
+
+    final nextAttempt = operation.reconnectAttempt + 1;
+    if (nextAttempt > _maxReconnectAttempts) {
+      await _resolveDeploymentAfterReconnectExhausted(
+        currentState,
+        emit,
+        message,
+      );
+      return;
+    }
+
+    final reconnecting = operation.copyWith(
+      phase: DeploymentOperationViewPhase.reconnecting,
+      reconnectAttempt: nextAttempt,
+      showLogs: true,
+      message: '$message Reconnecting ($nextAttempt/$_maxReconnectAttempts).',
+    );
+    emit(currentState.copyWith(deploymentOperation: reconnecting));
+    final generation = _deploymentStreamGeneration;
+    _deploymentReconnectTimer = Timer(_reconnectDelay, () {
+      if (!isClosed) {
+        add(
+          _DeploymentReconnectDue(
+            generation: generation,
+            sessionId: session.sessionId,
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _resolveDeploymentAfterReconnectExhausted(
+    TwinOverviewLoaded currentState,
+    Emitter<TwinOverviewState> emit,
+    String connectionMessage,
+  ) async {
+    try {
+      final status = await _api.getDeploymentStatus(currentState.twinId);
+      final stateValue = status.state.apiValue;
+      if ({'deployed', 'destroyed', 'error'}.contains(stateValue)) {
+        _applyDeploymentComplete(
+          currentState,
+          TwinOverviewDeploymentComplete(
+            success: stateValue != 'error',
+            newState: stateValue,
+            message:
+                status.lastError ??
+                (stateValue == 'destroyed'
+                    ? 'Resource destruction completed.'
+                    : 'Deployment completed.'),
+          ),
+          emit,
+        );
+        return;
+      }
+    } catch (error) {
+      connectionMessage =
+          '$connectionMessage Status check failed: '
+          '${ApiErrorHandler.extractMessage(error)}';
+    }
+
+    emit(
+      currentState.copyWith(
+        deploymentOperation: currentState.deploymentOperation.copyWith(
+          phase: DeploymentOperationViewPhase.failed,
+          reconnectAttempt: _maxReconnectAttempts,
+          showLogs: true,
+          message:
+              '$connectionMessage Live logs are unavailable; refresh to retry.',
+        ),
+        errorMessage:
+            'Live deployment logs are unavailable. The cloud operation status was not changed.',
+      ),
+    );
+  }
+
+  Future<void> _onDeploymentReconnectDue(
+    _DeploymentReconnectDue event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    _deploymentReconnectTimer = null;
+    final currentState = state;
+    if (!_isCurrentOperation(currentState, event.sessionId, event.generation)) {
+      return;
+    }
+    await _catchUpAndSubscribe(emit, reconnecting: true);
+  }
+
+  bool _isCurrentOperation(
+    TwinOverviewState candidate,
+    String sessionId,
+    int generation,
+  ) {
+    return !isClosed &&
+        candidate is TwinOverviewLoaded &&
+        candidate.deploymentOperation.isActive &&
+        candidate.deploymentOperation.session?.sessionId == sessionId &&
+        generation == _deploymentStreamGeneration;
+  }
+
+  /// Cancel current SSE subscription and invalidate delayed stream events.
   void _cancelSseSubscription() {
+    _deploymentReconnectTimer?.cancel();
+    _deploymentReconnectTimer = null;
     _sseSubscription?.cancel();
     _sseSubscription = null;
     _sseService?.cancel();
     _sseService = null;
+    _deploymentStreamGeneration += 1;
   }
 
   void _stopPolling() {
@@ -876,6 +1298,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   Future<void> close() {
     _stopPolling();
     _cancelSseSubscription();
+    _postOperationRefreshTimer?.cancel();
+    _postOperationRefreshTimer = null;
     _cancelLogTraceSseSubscription();
     return super.close();
   }
@@ -903,6 +1327,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     DateTime? outputsTimestamp,
     String? outputsError,
     required DeploymentReadinessViewState deploymentReadiness,
+    DeploymentOperationViewState deploymentOperation =
+        const DeploymentOperationViewState(),
   }) {
     final perms = _permissionsForState(twinState);
 
@@ -917,6 +1343,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       canEdit: perms['canEdit']!,
       canDelete: perms['canDelete']!,
       deploymentReadiness: deploymentReadiness,
+      deploymentOperation: deploymentOperation,
       lastError: lastError,
       lastDeploymentLogs: twin['last_deployment_logs'] as String?,
       // Optimizer result and params
@@ -1030,4 +1457,56 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       ),
     );
   }
+}
+
+class _DeploymentStreamData extends TwinOverviewEvent {
+  final SseLogEvent event;
+  final int generation;
+  final String sessionId;
+
+  const _DeploymentStreamData({
+    required this.event,
+    required this.generation,
+    required this.sessionId,
+  });
+
+  @override
+  List<Object?> get props => [event, generation, sessionId];
+}
+
+class _DeploymentStreamDisconnected extends TwinOverviewEvent {
+  final Object? error;
+  final int generation;
+  final String sessionId;
+
+  const _DeploymentStreamDisconnected({
+    this.error,
+    required this.generation,
+    required this.sessionId,
+  });
+
+  @override
+  List<Object?> get props => [error, generation, sessionId];
+}
+
+class _DeploymentReconnectDue extends TwinOverviewEvent {
+  final int generation;
+  final String sessionId;
+
+  const _DeploymentReconnectDue({
+    required this.generation,
+    required this.sessionId,
+  });
+
+  @override
+  List<Object?> get props => [generation, sessionId];
+}
+
+class _DeploymentStreamContractException implements Exception {
+  final String message;
+
+  const _DeploymentStreamContractException(this.message);
+
+  @override
+  String toString() => message;
 }

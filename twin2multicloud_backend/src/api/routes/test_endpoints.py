@@ -284,7 +284,7 @@ async def _run_test_deploy_stream(
     Background task that simulates Terraform deployment and streams logs via SSE.
     Creates its own DB session to avoid session scoping issues.
     """
-    from src.api.routes.sse import get_session
+    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.deployment import Deployment
     
@@ -533,7 +533,7 @@ async def _run_test_destroy_stream(
     """
     Background task that simulates Terraform destruction and streams logs via SSE.
     """
-    from src.api.routes.sse import get_session
+    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.deployment import Deployment
     
@@ -659,7 +659,7 @@ async def _run_test_log_trace_stream(
     Background task that simulates multi-cloud log streaming via SSE.
     Generates realistic log events based on configured providers.
     """
-    from src.api.routes.sse import get_session
+    from src.services.deployment_stream_service import get_session
     
     session = await get_session(session_id)
     if not session:

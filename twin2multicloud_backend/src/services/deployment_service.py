@@ -252,7 +252,7 @@ async def run_real_deploy_stream(
         provider: Cloud provider (aws, azure, gcp)
     """
     # Late imports to avoid circular dependencies
-    from src.api.routes.sse import get_session
+    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin, TwinState
     
@@ -416,7 +416,7 @@ async def run_real_destroy_stream(
         provider: Cloud provider (aws, azure, gcp)
     """
     # Late imports to avoid circular dependencies
-    from src.api.routes.sse import get_session
+    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin, TwinState
     

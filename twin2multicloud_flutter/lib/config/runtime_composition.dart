@@ -41,12 +41,13 @@ class RuntimeComposition {
       );
     }
 
+    final managementApi = ApiService();
     return RuntimeComposition(
       config: config,
-      managementApi: ApiService(),
+      managementApi: managementApi,
       logStreamClientFactory: () => SseService(
         baseUrl: ApiConfig.baseUrl,
-        authToken: ApiConfig.devAuthToken,
+        authTokenProvider: managementApi.getAuthToken,
       ),
     );
   }
