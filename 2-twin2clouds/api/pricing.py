@@ -9,18 +9,28 @@ determine optimal cloud provider distribution.
 import asyncio
 import logging
 import os
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
+from uuid import uuid4
+
 from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Dict, List, Optional
 
 from backend.logger import logger
 from backend.utils import is_file_fresh
 from backend.config_loader import load_json_file
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 from backend.calculation_v2.pricing_source_inventory import pricing_source_inventory
-from backend.sse_utils import ThreadSafeSseHandler, emit_sse
+from backend.secret_redaction import credential_strings, redact_secret_like_text
+from backend.pricing_cache import PricingRefreshInProgressError
+from backend.sse_utils import (
+    PricingOperationFilter,
+    ThreadSafeSseHandler,
+    emit_sse,
+    pricing_operation_id,
+)
 import backend.constants as CONSTANTS
 from api.error_models import ERROR_RESPONSES
 
@@ -211,6 +221,8 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
     except FileNotFoundError as e:
         logger.error(f"Pricing file not found: {e}")
         raise HTTPException(status_code=404, detail="AWS pricing data not available. Run refresh first.")
+    except PricingRefreshInProgressError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -256,6 +268,8 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
     except FileNotFoundError as e:
         logger.error(f"Pricing file not found: {e}")
         raise HTTPException(status_code=404, detail="Azure pricing data not available. Run refresh first.")
+    except PricingRefreshInProgressError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(f"Error fetching Azure pricing: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch Azure pricing. Check server logs.")
@@ -303,6 +317,8 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
     except FileNotFoundError as e:
         logger.error(f"Pricing file not found: {e}")
         raise HTTPException(status_code=404, detail="GCP pricing data not available. Run refresh first.")
+    except PricingRefreshInProgressError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -354,8 +370,6 @@ def fetch_currency_rates():
 # Pricing Export (for snapshotting)
 # --------------------------------------------------
 
-from datetime import datetime, timezone
-
 @router.get(
     "/pricing/export/{provider}",
     operation_id="exportPricingSnapshot",
@@ -391,7 +405,6 @@ def export_pricing(provider: str):
     **Returns**: Provider name, last update timestamp, and full pricing data.
     """
     if provider not in ["aws", "azure", "gcp"]:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
     
     file_map = {
@@ -402,7 +415,6 @@ def export_pricing(provider: str):
     
     cache_file = file_map[provider]
     if not os.path.exists(cache_file):
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"No cached pricing for {provider}")
     
     data = load_json_file(cache_file)
@@ -419,10 +431,6 @@ def export_pricing(provider: str):
 # --------------------------------------------------
 # Credential-based Pricing Endpoint (for Management API)
 # --------------------------------------------------
-
-from fastapi import Body
-from pydantic import BaseModel
-from typing import Optional
 
 
 class CredentialRequest(BaseModel):
@@ -451,14 +459,10 @@ def _pricing_stream_failure_message(provider: str) -> str:
 
 def _redact_credential_values(message: str, credentials: CredentialRequest) -> str:
     """Remove known credential values from client-facing error text."""
-    redacted = message
-    for key, value in credentials.model_dump().items():
-        if not value:
-            continue
-        if not any(token in key.lower() for token in ("secret", "token", "key", "json")):
-            continue
-        redacted = redacted.replace(str(value), "[REDACTED]")
-    return redacted
+    return redact_secret_like_text(
+        message,
+        extra_secrets=credential_strings(credentials.model_dump()),
+    )
 
 
 @router.post(
@@ -539,8 +543,19 @@ def fetch_pricing_with_credentials(
                 400,
             ),
         )
+    except PricingRefreshInProgressError as e:
+        raise HTTPException(
+            status_code=409,
+            detail=_pricing_error_detail(
+                "PRICING_REFRESH_IN_PROGRESS",
+                str(e),
+                "Wait for the active provider refresh to finish, then retry.",
+                409,
+            ),
+        )
     except Exception as e:
-        logger.error(f"Error fetching {provider} pricing with credentials: {e}")
+        safe_error = _redact_credential_values(str(e), credentials)
+        logger.error("Error fetching %s pricing with credentials: %s", provider, safe_error)
         raise HTTPException(
             status_code=500,
             detail=_pricing_error_detail(
@@ -595,9 +610,11 @@ async def stream_fetch_pricing(
     async def event_generator():
         loop = asyncio.get_event_loop()
         queue = asyncio.Queue(maxsize=100)
+        operation_id = uuid4().hex
         handler = ThreadSafeSseHandler(queue, loop)
         handler.setFormatter(logging.Formatter('%(message)s'))
         handler.setLevel(logging.INFO)
+        handler.addFilter(PricingOperationFilter(operation_id))
         logger.addHandler(handler)
         
         try:
@@ -608,18 +625,18 @@ async def stream_fetch_pricing(
                 calculate_up_to_date_pricing_with_credentials
             )
             
-            # Run sync pricing function in thread pool
-            if provider == "azure":
-                # Azure uses public API - no credentials needed
-                task = loop.run_in_executor(
-                    None, calculate_up_to_date_pricing, provider, False
-                )
-            else:
-                creds_dict = credentials.model_dump()
-                task = loop.run_in_executor(
-                    None, calculate_up_to_date_pricing_with_credentials,
-                    provider, creds_dict, False
-                )
+            def run_refresh():
+                token = pricing_operation_id.set(operation_id)
+                try:
+                    if provider == "azure":
+                        return calculate_up_to_date_pricing(provider, False)
+                    return calculate_up_to_date_pricing_with_credentials(
+                        provider, credentials.model_dump(), False
+                    )
+                finally:
+                    pricing_operation_id.reset(token)
+
+            task = loop.run_in_executor(None, run_refresh)
             
             # Yield logs as they arrive, check for disconnect
             while not task.done():

@@ -36,8 +36,8 @@ STANDARD_PARAMS = {
     "orchestrationActionsPerMessage": 3,
     "eventsPerMessage": 1,
     "apiCallsPerDashboardRefresh": 1,
-    "allowGcpSelfHostedL4": True,
-    "allowGcpSelfHostedL5": True,
+    "allowGcpSelfHostedL4": False,
+    "allowGcpSelfHostedL5": False,
 }
 
 # Realistic pricing data

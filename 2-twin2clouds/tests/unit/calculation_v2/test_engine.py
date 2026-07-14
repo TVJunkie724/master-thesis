@@ -37,8 +37,8 @@ class TestEngineIntegration:
             "orchestrationActionsPerMessage": 3,
             "eventsPerMessage": 1,
             "apiCallsPerDashboardRefresh": 1,
-            "allowGcpSelfHostedL4": True,
-            "allowGcpSelfHostedL5": True,
+            "allowGcpSelfHostedL4": False,
+            "allowGcpSelfHostedL5": False,
         }
     
     @pytest.fixture
@@ -148,6 +148,25 @@ class TestEngineIntegration:
         for layer in ["L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"]:
             assert isinstance(result[layer]["cost"], (int, float))
             assert result[layer]["cost"] >= 0
+            assert result[layer]["supported"] is True
+
+    def test_gcp_unsupported_layers_are_explicit_in_engine_result(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import calculate_gcp_costs
+
+        result = calculate_gcp_costs(sample_params, sample_pricing)
+
+        for layer in ["L1", "L2", "L3_hot", "L3_cool", "L3_archive"]:
+            assert result[layer]["supported"] is True
+            assert "unsupportedReason" not in result[layer]
+
+        for layer in ["L4", "L5"]:
+            assert result[layer]["supported"] is False
+            assert result[layer]["cost"] == 0.0
+            assert result[layer]["unsupportedReason"]
     
     def test_calculate_cheapest_costs(self, sample_params, sample_pricing):
         """Test full calculation returns expected structure."""
@@ -205,6 +224,16 @@ class TestEngineIntegration:
                 optimization_profile_id="latency_minimization_v1",
             )
 
+    def test_unimplemented_gcp_self_hosted_paths_fail_closed(
+        self, sample_params, sample_pricing
+    ):
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+
+        sample_params["allowGcpSelfHostedL4"] = True
+
+        with pytest.raises(ValueError, match="cannot be enabled"):
+            calculate_cheapest_costs(sample_params, sample_pricing)
+
     def test_cost_profile_preserves_min_cost_provider_selection(self, sample_params, sample_pricing):
         """Selected providers must match the minimum cost for each executable layer."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
@@ -230,6 +259,7 @@ class TestEngineIntegration:
             options = {
                 provider: result[cost_key][layer]["cost"]
                 for provider, cost_key in provider_cost_key.items()
+                if provider != "GCP" or layer not in {"L4", "L5"}
             }
             assert selected_provider == min(options, key=options.get)
 

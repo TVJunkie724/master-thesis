@@ -13,7 +13,7 @@ L4 and L5 are self-hosted on Compute Engine VMs.
 """
 
 from typing import Dict, Any
-from ..types import GCPComponent, FormulaType
+from ..types import FormulaType
 from ...formulas import required_first_unit_price, storage_based_cost, user_based_cost
 
 

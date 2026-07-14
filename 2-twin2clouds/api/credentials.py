@@ -16,7 +16,7 @@ Supports AWS, Azure, and GCP credential validation.
 import os
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 from backend import credentials_checker

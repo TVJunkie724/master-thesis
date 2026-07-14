@@ -5,6 +5,14 @@ import traceback
 import json
 import os
 import backend.constants as CONSTANTS
+from backend.secret_redaction import redact_secret_like_text
+
+
+class RedactingColoredFormatter(ColoredFormatter):
+    """Apply defense-in-depth secret redaction to every console log line."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact_secret_like_text(super().format(record))
 
 global logger
 config = {}
@@ -18,7 +26,7 @@ def setup_logger(debug_mode=False):
     handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
 
     # Create colored formatter
-    formatter = ColoredFormatter(
+    formatter = RedactingColoredFormatter(
         "%(log_color)s[%(levelname)s] %(message)s",
         log_colors={
             "DEBUG":    "cyan",

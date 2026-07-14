@@ -1,11 +1,8 @@
 import boto3
 import json
-import re
-import os
 from typing import Dict, Any, Optional, List, Callable
 
 from backend.logger import logger
-import backend.constants as CONSTANTS
 import backend.config_loader as config_loader
 from backend.fetch_data.fetch_evidence import (
     FieldMatchEvidence,
@@ -222,14 +219,16 @@ def _extract_prices_with_evidence(
 
                 # Check inclusion keywords
                 if include_keywords and not any(k in desc for k in include_keywords):
-                    if debug: logger.debug(f"   ❌ No Match: {desc.strip()} {price}")
+                    if debug:
+                        logger.debug(f"   ❌ No Match: {desc.strip()} {price}")
                     for key in field_map:
                         rejected[key].append(RejectedCandidate("include keyword mismatch", {"description": desc, "price": price}))
                     continue
                 
                 # Check exclusion keywords
                 if any(x in desc for x in exclude_keywords):
-                    if debug: logger.debug(f"   ❌ Excluded: {desc.strip()} {price}")
+                    if debug:
+                        logger.debug(f"   ❌ Excluded: {desc.strip()} {price}")
                     for key in field_map:
                         rejected[key].append(RejectedCandidate("exclude keyword match", {"description": desc, "price": price}))
                     continue
@@ -238,8 +237,9 @@ def _extract_prices_with_evidence(
                 for key, patterns in field_map.items():
                     if any(p in desc for p in patterns):
                         selected_rows[key].append({"description": desc.strip(), "price": price})
-                        if debug: logger.debug(f"   ✔️ Matched:  {desc.strip()} → {key} = {price}")
-                        break # Stop checking other keys for this dimension
+                        if debug:
+                            logger.debug(f"   ✔️ Matched:  {desc.strip()} → {key} = {price}")
+                        break  # Stop checking other keys for this dimension
 
     evidence = {}
     for key, rows in selected_rows.items():
@@ -305,7 +305,6 @@ def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool =
     Specialized fetcher for Data Transfer.
     Fetches prices from AWSDataTransfer using fromLocation (Region) -> toLocation (External).
     """
-    field_map = AWS_SERVICE_KEYWORDS["transfer"]["fields"]
     egress_prices = []
     
     # We specifically want:
@@ -336,7 +335,8 @@ def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool =
             for dim in term.get("priceDimensions", {}).values():
                 desc = dim.get("description", "").lower()
                 price = float(dim.get("pricePerUnit", {}).get("USD", 0))
-                if price == 0: continue
+                if price == 0:
+                    continue
                 
                 # We trust the filters, but double check description just in case
                 if "data transfer" in desc or "out" in desc:
@@ -346,7 +346,8 @@ def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool =
                         "begin": float(dim.get("beginRange", "0")),
                         "end": float(dim.get("endRange", "inf")),
                     })
-                    if debug: logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
+                    if debug:
+                        logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
 
     if not egress_prices:
         logger.warning(f"⚠️ No egress prices found for {region_human}.")

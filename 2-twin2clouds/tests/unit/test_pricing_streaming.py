@@ -157,3 +157,49 @@ class TestThreadSafeSseHandler:
         # Check queue (may or may not have item depending on timing)
         # This is a basic smoke test
         loop.close()
+
+    def test_handler_redacts_secret_like_log_messages(self):
+        import logging
+        from backend.sse_utils import ThreadSafeSseHandler
+
+        loop = asyncio.new_event_loop()
+        queue = asyncio.Queue()
+        handler = ThreadSafeSseHandler(queue, loop)
+        handler.setFormatter(logging.Formatter('%(message)s'))
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="aws_secret_access_key=secret-value",
+            args=(),
+            exc_info=None,
+        )
+
+        handler.emit(record)
+        loop.run_until_complete(asyncio.sleep(0.01))
+
+        assert queue.get_nowait() == "aws_secret_access_key=[REDACTED]"
+        loop.close()
+
+    def test_operation_filter_isolates_concurrent_stream_logs(self):
+        import logging
+        from backend.sse_utils import PricingOperationFilter, pricing_operation_id
+
+        operation_filter = PricingOperationFilter("operation-a")
+        record = logging.LogRecord(
+            name="test", level=logging.INFO, pathname="", lineno=0,
+            msg="message", args=(), exc_info=None
+        )
+
+        token = pricing_operation_id.set("operation-a")
+        try:
+            assert operation_filter.filter(record)
+        finally:
+            pricing_operation_id.reset(token)
+
+        token = pricing_operation_id.set("operation-b")
+        try:
+            assert not operation_filter.filter(record)
+        finally:
+            pricing_operation_id.reset(token)

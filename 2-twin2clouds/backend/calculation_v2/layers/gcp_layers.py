@@ -9,7 +9,8 @@ implemented in the deployer (future work).
 """
 
 from typing import Dict, Any
-from dataclasses import dataclass, field
+
+from .contracts import LayerResult, SUPPORTED_LAYER_KEYS
 
 from ..components.gcp import (
     GCPPubSubCalculator,
@@ -21,18 +22,6 @@ from ..components.gcp import (
     GCPComputeEngineCalculator,
 )
 
-
-@dataclass
-class LayerResult:
-    """Result of a layer cost calculation."""
-    provider: str
-    layer: str
-    total_cost: float
-    data_size_gb: float = 0.0
-    messages: float = 0.0
-    components: Dict[str, float] = field(default_factory=dict)
-
-
 class GCPLayerCalculators:
     """
     GCP layer cost calculators for L1-L5.
@@ -41,6 +30,9 @@ class GCPLayerCalculators:
     implemented in the deployer (future work).
     """
     
+    provider = "GCP"
+    supported_layers = SUPPORTED_LAYER_KEYS - {"L4", "L5"}
+
     def __init__(self):
         self.pubsub = GCPPubSubCalculator()
         self.cloud_functions = GCPCloudFunctionsCalculator()
@@ -342,7 +334,9 @@ class GCPLayerCalculators:
             provider="GCP",
             layer="L4",
             total_cost=0.0,
-            components={"disabled_future_work": 0.0}
+            components={},
+            supported=False,
+            unsupported_reason="GCP self-hosted L4 is not implemented by the Deployer",
         )
     
     def calculate_l5_cost(
@@ -361,7 +355,9 @@ class GCPLayerCalculators:
             provider="GCP",
             layer="L5",
             total_cost=0.0,
-            components={"disabled_future_work": 0.0}
+            components={},
+            supported=False,
+            unsupported_reason="GCP self-hosted L5 is not implemented by the Deployer",
         )
     
     def calculate_glue_cost(

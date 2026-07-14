@@ -5,9 +5,9 @@ This module provides functions to validate cloud provider credentials
 for accessing pricing APIs (AWS, GCP, Azure).
 """
 import os
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
-from backend.logger import logger
+from backend.secret_redaction import credential_strings, redact_secret_like_text
 
 # =============================================================================
 # Constants
@@ -127,7 +127,10 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
         return result
     except Exception as e:
         result["status"] = "error"
-        result["message"] = f"Error validating AWS credentials: {str(e)}"
+        result["message"] = (
+            "Error validating AWS credentials: "
+            f"{redact_secret_like_text(e, extra_secrets=credential_strings(credentials))}"
+        )
         return result
     
     # Step 3: Test Pricing API access
@@ -162,7 +165,10 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
             result["message"] = f"Error accessing Pricing API: {error_code}"
     except Exception as e:
         result["status"] = "error"
-        result["message"] = f"Error testing Pricing API access: {str(e)}"
+        result["message"] = (
+            "Error testing Pricing API access: "
+            f"{redact_secret_like_text(e, extra_secrets=credential_strings(credentials))}"
+        )
     
     return result
 
@@ -182,7 +188,10 @@ def check_aws_credentials_from_config() -> Dict[str, Any]:
         return {
             "provider": "aws",
             "status": "error",
-            "message": f"Error loading AWS credentials from config: {str(e)}",
+            "message": (
+                "Error loading AWS credentials from config: "
+                f"{redact_secret_like_text(e)}"
+            ),
             "config_present": False,
             "credentials_valid": False,
             "can_fetch_pricing": False,
@@ -244,11 +253,17 @@ def check_gcp_credentials(credentials_input: Optional[str] = None) -> Dict[str, 
         
     except ValueError as e:
         result["status"] = "invalid"
-        result["message"] = str(e)
+        result["message"] = redact_secret_like_text(
+            e,
+            extra_secrets=(credentials_input,),
+        )
         return result
     except Exception as e:
         result["status"] = "invalid"
-        result["message"] = f"Error loading GCP credentials: {str(e)}"
+        result["message"] = (
+            "Error loading GCP credentials: "
+            f"{redact_secret_like_text(e, extra_secrets=(credentials_input,))}"
+        )
         return result
 
     
@@ -272,7 +287,10 @@ def check_gcp_credentials(credentials_input: Optional[str] = None) -> Dict[str, 
             
     except Exception as e:
         result["status"] = "error"
-        result["message"] = f"Error accessing Cloud Billing Catalog API: {str(e)}"
+        result["message"] = (
+            "Error accessing Cloud Billing Catalog API: "
+            f"{redact_secret_like_text(e, extra_secrets=(credentials_input,))}"
+        )
     
     return result
 
@@ -286,7 +304,6 @@ def check_gcp_credentials_from_config() -> Dict[str, Any]:
         Dictionary with validation results
     """
     try:
-        from backend import config_loader
         import backend.constants as CONSTANTS
         
         # GCP credentials file is mounted at a specific path in Docker
@@ -309,7 +326,10 @@ def check_gcp_credentials_from_config() -> Dict[str, Any]:
         return {
             "provider": "gcp",
             "status": "error",
-            "message": f"Error loading GCP credentials from config: {str(e)}",
+            "message": (
+                "Error loading GCP credentials from config: "
+                f"{redact_secret_like_text(e)}"
+            ),
             "config_present": False,
             "credentials_valid": False,
             "can_fetch_pricing": False,
@@ -403,7 +423,10 @@ def check_azure_credentials_from_config() -> Dict[str, Any]:
         return {
             "provider": "azure",
             "status": "error",
-            "message": f"Error loading Azure credentials from config: {str(e)}",
+            "message": (
+                "Error loading Azure credentials from config: "
+                f"{redact_secret_like_text(e)}"
+            ),
             "config_present": False,
             "credentials_valid": False,
             "can_fetch_pricing": True,  # Still true - public API
