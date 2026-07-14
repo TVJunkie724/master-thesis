@@ -27,7 +27,7 @@ from src.core.project_storage import get_project_storage
 from src.validation.directory_validator import validate_project_directory
 from logger import logger
 
-import providers.deployer as core_deployer
+import src.providers.deployer as core_deployer
 from src.core.factory import create_context
 
 

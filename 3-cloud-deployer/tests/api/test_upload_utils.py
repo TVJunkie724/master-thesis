@@ -37,7 +37,11 @@ def test_multipart_upload_is_bounded():
 def test_rest_api_uses_one_canonical_api_module_namespace():
     assert rest_api.projects is projects
     assert rest_api.projects.__name__ == "src.api.projects"
-    assert not any(name == "api" or name.startswith("api.") for name in sys.modules)
+    forbidden_roots = {"api", "core", "providers"}
+    assert not any(
+        name.split(".", 1)[0] in forbidden_roots
+        for name in sys.modules
+    )
 
 
 def test_json_base64_upload_is_strict_and_bounded():

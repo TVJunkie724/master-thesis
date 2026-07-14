@@ -3,9 +3,9 @@ import json
 
 import pytest
 
-import core.factory as factory
-import core.config_loader as config_loader
-from core.factory import get_upload_path
+import src.core.factory as factory
+import src.core.config_loader as config_loader
+from src.core.factory import get_upload_path
 from src.core.paths import (
     resolve_deployment_paths,
     resolve_project_context_path,
