@@ -9,7 +9,6 @@ Tests credential management including:
 
 import json
 
-import pytest
 from tests.conftest import create_test_twin
 
 
@@ -30,10 +29,10 @@ class TestConfigRoutes:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["aws_configured"] == False
-        assert data["azure_configured"] == False
-        assert data["gcp_configured"] == False
-        assert data["debug_mode"] == False
+        assert data["aws_configured"] is False
+        assert data["azure_configured"] is False
+        assert data["gcp_configured"] is False
+        assert data["debug_mode"] is False
         assert data["twin_state"] == "draft"
         assert data["configured_providers"] == []
         assert data["credential_sources"] == {
@@ -193,7 +192,7 @@ class TestConfigRoutes:
         assert response.status_code == 200
         
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
-        assert get_response.json()["debug_mode"] == True
+        assert get_response.json()["debug_mode"] is True
 
     # ============================================================
     # Security Tests
@@ -287,8 +286,8 @@ class TestConfigRoutes:
         
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         data = get_response.json()
-        assert data["aws_configured"] == True
-        assert data["azure_configured"] == True
+        assert data["aws_configured"] is True
+        assert data["azure_configured"] is True
 
     def test_partial_config_update(self, authenticated_client, sample_aws_credentials):
         """Update only AWS, other configs should remain unchanged."""
@@ -317,7 +316,7 @@ class TestConfigRoutes:
         
         # Debug mode should still be true
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
-        assert get_response.json()["debug_mode"] == True
+        assert get_response.json()["debug_mode"] is True
 
     def test_omitted_provider_does_not_treat_legacy_columns_as_configured(
         self,

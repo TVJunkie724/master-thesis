@@ -4,8 +4,6 @@ Tests for /dashboard API endpoints.
 Tests aggregate statistics for the dashboard overview.
 """
 
-import pytest
-from tests.conftest import create_test_twin
 
 
 class TestDashboardStats:

@@ -1,6 +1,5 @@
 """Unit tests for optimizer pricing SSE streaming endpoints."""
 
-import pytest
 import json
 
 from src.models.cloud_connection import CloudConnection

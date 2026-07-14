@@ -21,7 +21,7 @@ def test_get_config_creates_default():
     
     config_resp = client.get(f"/twins/{twin_id}/config/", headers=HEADERS)
     assert config_resp.status_code == 200
-    assert config_resp.json()["aws_configured"] == False
+    assert config_resp.json()["aws_configured"] is False
 
 
 def test_direct_twin_credentials_are_rejected():

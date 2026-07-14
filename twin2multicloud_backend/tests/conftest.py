@@ -166,8 +166,6 @@ def auth_client(client, auth_headers):
     Unlike authenticated_client, this returns a pre-configured TestClient
     with headers automatically included (uses custom request method).
     """
-    from src.models.user import User
-    from src.models.twin import DigitalTwin
     
     # First request triggers dev user creation
     client.get("/twins/", headers=auth_headers)

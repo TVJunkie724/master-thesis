@@ -6,7 +6,6 @@ Tests API health monitoring including:
 - Response format
 """
 
-import pytest
 
 
 class TestHealthRoutes:

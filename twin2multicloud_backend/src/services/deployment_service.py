@@ -254,7 +254,7 @@ async def run_real_deploy_stream(
     # Late imports to avoid circular dependencies
     from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
-    from src.models.twin import DigitalTwin, TwinState
+    from src.models.twin import DigitalTwin
     
     session = await get_session(session_id)
     if not session:
@@ -418,7 +418,7 @@ async def run_real_destroy_stream(
     # Late imports to avoid circular dependencies
     from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
-    from src.models.twin import DigitalTwin, TwinState
+    from src.models.twin import DigitalTwin
     
     session = await get_session(session_id)
     if not session:

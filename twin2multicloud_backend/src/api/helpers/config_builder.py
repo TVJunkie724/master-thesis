@@ -7,7 +7,7 @@ contract is CloudConnection-based and is implemented by
 `TwinConfigResponse.from_db` plus `WizardConfigurationService`.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from src.services.provider_contract import normalize_provider_id
 

@@ -1,15 +1,11 @@
 # tests/test_twin_state_transitions.py
 # Tests for twin state transitions: blocking, regression, and Finish Configuration
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from unittest.mock import patch, AsyncMock
 
-from src.main import app
 from src.models.twin import DigitalTwin, TwinState
-from src.models.twin_config import TwinConfiguration
-from src.models.deployer_config import DeployerConfiguration
 
 
 class TestConfigStateTransitions:

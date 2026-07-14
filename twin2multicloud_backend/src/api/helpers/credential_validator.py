@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from src.clients.deployer_client import DeployerClient
 from src.clients.optimizer_client import OptimizerClient

@@ -12,16 +12,14 @@ import os
 import json
 import logging
 import secrets
-import zipfile
 import asyncio
-import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin, TwinState
+from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -322,7 +320,7 @@ async def _run_test_deploy_stream(
             "aws_iot_topic_rule_name": f"{name}_telemetry_rule",
             "aws_iot_role_arn": f"arn:aws:iam::123456789012:role/{name}-iot-rule",
             "aws_l1_connector_function_name": f"{name}-l1-connector",
-            "aws_iot_endpoint": f"a1b2c3d4e5f6g7.iot.us-east-1.amazonaws.com",
+            "aws_iot_endpoint": "a1b2c3d4e5f6g7.iot.us-east-1.amazonaws.com",
             "aws_l2_persister_function_name": f"{name}-l2-persister",
             "aws_l2_event_checker_function_name": f"{name}-l2-event-checker",
             "aws_l2_step_function_arn": f"arn:aws:states:us-east-1:123456789012:stateMachine:{name}-workflow",
@@ -369,21 +367,21 @@ async def _run_test_deploy_stream(
             "gcp_function_source_bucket": f"{name}-function-source",
             "gcp_pubsub_telemetry_topic": f"projects/{name}-project/topics/telemetry",
             "gcp_pubsub_events_topic": f"projects/{name}-project/topics/events",
-            "gcp_dispatcher_url": f"https://dispatcher-abc123-uc.a.run.app",
-            "gcp_connector_url": f"https://connector-def456-uc.a.run.app",
-            "gcp_processor_url": f"https://processor-ghi789-uc.a.run.app",
-            "gcp_persister_url": f"https://persister-jkl012-uc.a.run.app",
-            "gcp_event_checker_url": f"https://event-checker-mno345-uc.a.run.app",
-            "gcp_user_functions_url": f"https://user-functions-pqr678-uc.a.run.app",
+            "gcp_dispatcher_url": "https://dispatcher-abc123-uc.a.run.app",
+            "gcp_connector_url": "https://connector-def456-uc.a.run.app",
+            "gcp_processor_url": "https://processor-ghi789-uc.a.run.app",
+            "gcp_persister_url": "https://persister-jkl012-uc.a.run.app",
+            "gcp_event_checker_url": "https://event-checker-mno345-uc.a.run.app",
+            "gcp_user_functions_url": "https://user-functions-pqr678-uc.a.run.app",
             "gcp_event_workflow_id": f"projects/{name}-project/locations/us-central1/workflows/event-workflow",
             "gcp_firestore_database": "(default)",
             "gcp_cold_bucket": f"{name}-cold-storage",
             "gcp_archive_bucket": f"{name}-archive-storage",
-            "gcp_hot_reader_url": f"https://hot-reader-stu901-uc.a.run.app",
-            "gcp_ingestion_url": f"https://ingestion-vwx234-uc.a.run.app",
-            "gcp_hot_writer_url": f"https://hot-writer-yza567-uc.a.run.app",
-            "gcp_cold_writer_url": f"https://cold-writer-bcd890-uc.a.run.app",
-            "gcp_archive_writer_url": f"https://archive-writer-efg123-uc.a.run.app",
+            "gcp_hot_reader_url": "https://hot-reader-stu901-uc.a.run.app",
+            "gcp_ingestion_url": "https://ingestion-vwx234-uc.a.run.app",
+            "gcp_hot_writer_url": "https://hot-writer-yza567-uc.a.run.app",
+            "gcp_cold_writer_url": "https://cold-writer-bcd890-uc.a.run.app",
+            "gcp_archive_writer_url": "https://archive-writer-efg123-uc.a.run.app",
             "inter_cloud_token": f"mock-{secrets.token_urlsafe(24)}",
         }
     

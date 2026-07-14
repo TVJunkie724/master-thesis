@@ -14,7 +14,7 @@ import json
 import zipfile
 import pytest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
 from src.services.deployment_stream_service import LogSession
 from src.models.cloud_connection import CloudConnection

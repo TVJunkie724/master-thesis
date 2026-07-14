@@ -7,7 +7,6 @@ Tests CRUD operations for digital twins including:
 - Error cases: not found, unauthorized access
 """
 
-import pytest
 from datetime import datetime, timezone
 from tests.conftest import create_test_twin
 from src.models.deployment import Deployment
@@ -220,8 +219,9 @@ class TestTwinsRoutes:
         client, headers = authenticated_client
         
         # Create two twins
-        r1 = client.post("/twins/", json={"name": "Twin One"}, headers=headers)
+        first_response = client.post("/twins/", json={"name": "Twin One"}, headers=headers)
         r2 = client.post("/twins/", json={"name": "Twin Two"}, headers=headers)
+        assert first_response.status_code == 200
         twin2_id = r2.json()["id"]
         
         # Try to rename Twin Two to Twin One
