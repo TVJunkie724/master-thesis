@@ -238,13 +238,11 @@ def configure_grafana_datasource(provider: 'AzureProvider', hot_reader_url: str)
     
     grafana_url = get_grafana_workspace_url(provider)
     if not grafana_url:
-        logger.warning("Grafana workspace not found, skipping datasource config")
-        return
+        raise RuntimeError("Azure Grafana workspace was not found")
     
     token = _get_grafana_service_account_token(provider)
     if not token:
-        logger.warning("Could not get Grafana API token, skipping datasource config")
-        return
+        raise RuntimeError("Azure Grafana service-account token was not created")
     
     datasource_name = f"{provider.twin_name}-hot-reader"
     
@@ -275,6 +273,8 @@ def configure_grafana_datasource(provider: 'AzureProvider', hot_reader_url: str)
             # Update existing datasource
             existing_ds = response.json()
             datasource_id = existing_ds.get("id")
+            if datasource_id is None:
+                raise RuntimeError("Grafana datasource response did not contain an id")
             
             response = requests.put(
                 f"{grafana_url}/api/datasources/{datasource_id}",
@@ -289,8 +289,10 @@ def configure_grafana_datasource(provider: 'AzureProvider', hot_reader_url: str)
             if response.status_code == 200:
                 logger.info(f"✓ Grafana datasource updated: {datasource_name}")
             else:
-                logger.warning(f"Failed to update datasource: {response.status_code} - {response.text}")
-        else:
+                raise RuntimeError(
+                    f"Grafana datasource update returned HTTP {response.status_code}"
+                )
+        elif response.status_code == 404:
             # Create new datasource
             response = requests.post(
                 f"{grafana_url}/api/datasources",
@@ -305,7 +307,13 @@ def configure_grafana_datasource(provider: 'AzureProvider', hot_reader_url: str)
             if response.status_code in (200, 201):
                 logger.info(f"✓ Grafana datasource created: {datasource_name}")
             else:
-                logger.warning(f"Failed to create datasource: {response.status_code} - {response.text}")
+                raise RuntimeError(
+                    f"Grafana datasource create returned HTTP {response.status_code}"
+                )
+        else:
+            raise RuntimeError(
+                f"Grafana datasource lookup returned HTTP {response.status_code}"
+            )
                 
     except requests.RequestException as e:
         logger.error(f"HTTP error configuring Grafana datasource: {e}")
