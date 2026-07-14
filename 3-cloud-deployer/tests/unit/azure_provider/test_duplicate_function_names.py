@@ -5,7 +5,6 @@ Ensures that the bundler detects and rejects ZIP bundles where multiple
 functions declare the same Azure function name.
 """
 import pytest
-from pathlib import Path
 
 from src.providers.azure.azure_bundler import (
     _extract_function_names,

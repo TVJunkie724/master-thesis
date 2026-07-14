@@ -149,7 +149,7 @@ def _query_cosmos_db(query_params: dict) -> dict:
         iot_device_id = component_name or entity_id
     
     # Query Cosmos DB
-    query = f"""
+    query = """
         SELECT * FROM c 
         WHERE c.device_id = @device_id 
         AND c.id >= @start_time 

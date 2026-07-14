@@ -8,8 +8,6 @@ import os
 import json
 import io
 import zipfile
-import shutil
-from unittest.mock import patch, MagicMock
 
 import file_manager
 import constants as CONSTANTS

@@ -9,12 +9,14 @@ Source: src/providers/azure/azure_functions/_shared/inter_cloud.py
 Editable: Yes - This is shared runtime code packaged with Azure Functions
 """
 import json
+import re
 import time
 import uuid
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
+from urllib.parse import urlsplit
 
 
 # ==========================================
@@ -24,6 +26,56 @@ from typing import Any, Optional
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1  # seconds
 DEFAULT_TIMEOUT = 30  # seconds
+
+_SECRET_JSON_PATTERN = re.compile(
+    r'(?i)(["\'](?:authorization|api[_-]?key|access[_-]?key|secret(?:[_-]?access)?[_-]?key|'
+    r'client[_-]?secret|password|token|code|connection[_-]?string)["\']\s*:\s*["\'])'
+    r'[^"\']*(["\'])'
+)
+_SECRET_ASSIGNMENT_PATTERN = re.compile(
+    r'(?i)(^|[?&,\s])((?:api[_-]?key|access[_-]?key|secret(?:[_-]?access)?[_-]?key|'
+    r'client[_-]?secret|password|token|code|connection[_-]?string)\s*=\s*)[^&\s,]+'
+)
+_BEARER_PATTERN = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+")
+_PRIVATE_KEY_PATTERN = re.compile(
+    r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----.*?"
+    r"-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----",
+    re.DOTALL,
+)
+
+
+def redact_diagnostic(value: object) -> str:
+    """Redact common credential forms before runtime diagnostics are emitted."""
+    text = str(value)
+    text = _SECRET_JSON_PATTERN.sub(r"\1<redacted>\2", text)
+    text = _SECRET_ASSIGNMENT_PATTERN.sub(r"\1\2<redacted>", text)
+    text = _BEARER_PATTERN.sub(r"\1<redacted>", text)
+    return _PRIVATE_KEY_PATTERN.sub("<redacted-private-key>", text)
+
+
+def validate_https_url(url: str) -> None:
+    """Reject non-HTTPS endpoints and URLs containing user credentials."""
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("Inter-cloud endpoint must be an absolute HTTPS URL")
+    if parsed.username or parsed.password:
+        raise ValueError("Inter-cloud endpoint must not contain user credentials")
+
+
+def safe_urlopen(request: urllib.request.Request, *, timeout: int):
+    """Open only explicit HTTPS requests without embedded user credentials."""
+    validate_https_url(request.full_url)
+    # The URL is validated immediately above and urllib never invokes a shell.
+    return urllib.request.urlopen(request, timeout=timeout)  # nosec B310
+
+
+def read_http_error_body(error: urllib.error.HTTPError, *, limit: int = 512) -> str:
+    """Return a bounded diagnostic body without failing the primary error path."""
+    try:
+        body = error.read(limit + 1).decode("utf-8", errors="replace")
+        return redact_diagnostic(body)[:limit]
+    except (OSError, TypeError, ValueError):
+        return "<unavailable>"
 
 
 # ==========================================
@@ -114,7 +166,7 @@ def post_to_remote(
     
     for attempt in range(max_retries + 1):
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            with safe_urlopen(req, timeout=timeout) as response:
                 return {
                     "statusCode": response.getcode(),
                     "body": response.read().decode('utf-8')
@@ -122,11 +174,7 @@ def post_to_remote(
         
         except urllib.error.HTTPError as e:
             # Read error body for better debugging
-            error_body = ""
-            try:
-                error_body = e.read().decode('utf-8')
-            except Exception:
-                pass
+            error_body = read_http_error_body(e)
             
             # Client error (4xx): Do not retry - fail fast
             if 400 <= e.code < 500:
@@ -155,11 +203,12 @@ def post_to_remote(
         except Exception as e:
             # Other errors: Retry with backoff
             if attempt < max_retries:
-                print(f"Error (attempt {attempt + 1}): {e}. Retrying in {retry_delay}s...")
+                diagnostic = redact_diagnostic(e)
+                print(f"Error (attempt {attempt + 1}): {diagnostic}. Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Error: {e}")
+                print(f"Max retries exceeded. Error: {redact_diagnostic(e)}")
                 raise e
 
 
@@ -207,7 +256,7 @@ def post_raw(
     
     for attempt in range(max_retries + 1):
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            with safe_urlopen(req, timeout=timeout) as response:
                 return {
                     "statusCode": response.getcode(),
                     "body": response.read().decode('utf-8')
@@ -215,11 +264,7 @@ def post_raw(
         
         except urllib.error.HTTPError as e:
             # Read error body for better debugging
-            error_body = ""
-            try:
-                error_body = e.read().decode('utf-8')
-            except Exception:
-                pass
+            error_body = read_http_error_body(e)
             
             if 400 <= e.code < 500:
                 print(f"Client Error ({e.code}): {e.reason}. Body: {error_body}. Not retrying.")
@@ -244,11 +289,12 @@ def post_raw(
         
         except Exception as e:
             if attempt < max_retries:
-                print(f"Error (attempt {attempt + 1}): {e}. Retrying in {retry_delay}s...")
+                diagnostic = redact_diagnostic(e)
+                print(f"Error (attempt {attempt + 1}): {diagnostic}. Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Error: {e}")
+                print(f"Max retries exceeded. Error: {redact_diagnostic(e)}")
                 raise e
 
 

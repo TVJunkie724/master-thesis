@@ -11,7 +11,6 @@ when Terraform is run by an IAM User (not assumed roles).
 """
 import logging
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +73,7 @@ def cleanup_aws_resources(
                 workspace_id = ws['workspaceId']
                 logger.info(f"  Found orphan: {workspace_id}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete workspace and contents")
+                    logger.info("    [DRY RUN] Would delete workspace and contents")
                 else:
                     try:
                         # Delete entities (async operation)
@@ -92,7 +91,7 @@ def cleanup_aws_resources(
                             logger.info(f"    Waiting for {len(remaining)} entities ({remaining_time}s remaining)...")
                             time.sleep(3)
                         else:
-                            logger.warning(f"    Timeout waiting for entities, proceeding anyway")
+                            logger.warning("    Timeout waiting for entities, proceeding anyway")
                         
                         # Delete scenes
                         for scene in twinmaker.list_scenes(workspaceId=workspace_id).get('sceneSummaries', []):
@@ -117,7 +116,7 @@ def cleanup_aws_resources(
                         
                         time.sleep(2)
                         twinmaker.delete_workspace(workspaceId=workspace_id)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -131,10 +130,10 @@ def cleanup_aws_resources(
             if prefix in ws['name']:
                 logger.info(f"  Found orphan: {ws['name']}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     grafana.delete_workspace(workspaceId=ws['id'])
-                    logger.info(f"    ✓ Deleted")
+                    logger.info("    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
@@ -147,10 +146,10 @@ def cleanup_aws_resources(
                 if prefix in sm['name'] or prefix_underscore in sm['name']:
                     logger.info(f"  Found orphan: {sm['name']}")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         sfn.delete_state_machine(stateMachineArn=sm['stateMachineArn'])
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
@@ -163,14 +162,14 @@ def cleanup_aws_resources(
             if prefix in bucket['Name']:
                 logger.info(f"  Found orphan: {bucket['Name']}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete bucket and contents")
+                    logger.info("    [DRY RUN] Would delete bucket and contents")
                 else:
                     try:
                         bucket_obj = s3_resource.Bucket(bucket['Name'])
                         bucket_obj.object_versions.all().delete()
                         bucket_obj.objects.all().delete()
                         s3.delete_bucket(Bucket=bucket['Name'])
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -185,10 +184,10 @@ def cleanup_aws_resources(
                 if prefix in func['FunctionName'] or prefix_underscore in func['FunctionName']:
                     logger.info(f"  Found orphan: {func['FunctionName']}")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         lambda_client.delete_function(FunctionName=func['FunctionName'])
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
@@ -200,20 +199,20 @@ def cleanup_aws_resources(
             if prefix in rule['ruleName'] or prefix_underscore in rule['ruleName']:
                 logger.info(f"  Found orphan rule: {rule['ruleName']}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     iot.delete_topic_rule(ruleName=rule['ruleName'])
-                    logger.info(f"    ✓ Deleted")
+                    logger.info("    ✓ Deleted")
         for thing in iot.list_things()['things']:
             if prefix in thing['thingName']:
                 logger.info(f"  Found orphan thing: {thing['thingName']}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     for p in iot.list_thing_principals(thingName=thing['thingName'])['principals']:
                         iot.detach_thing_principal(thingName=thing['thingName'], principal=p)
                     iot.delete_thing(thingName=thing['thingName'])
-                    logger.info(f"    ✓ Deleted")
+                    logger.info("    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
@@ -225,10 +224,10 @@ def cleanup_aws_resources(
             if prefix in table:
                 logger.info(f"  Found orphan: {table}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     dynamodb.delete_table(TableName=table)
-                    logger.info(f"    ✓ Deleted")
+                    logger.info("    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
@@ -241,10 +240,10 @@ def cleanup_aws_resources(
                 if prefix in lg['logGroupName'] or prefix_underscore in lg['logGroupName']:
                     logger.info(f"  Found orphan: {lg['logGroupName']}")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         logs.delete_log_group(logGroupName=lg['logGroupName'])
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
@@ -257,7 +256,7 @@ def cleanup_aws_resources(
                 if prefix in role['RoleName'] or prefix_underscore in role['RoleName']:
                     logger.info(f"  Found orphan role: {role['RoleName']}")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         try:
                             for p in iam.list_attached_role_policies(RoleName=role['RoleName'])['AttachedPolicies']:
@@ -265,7 +264,7 @@ def cleanup_aws_resources(
                             for pn in iam.list_role_policies(RoleName=role['RoleName'])['PolicyNames']:
                                 iam.delete_role_policy(RoleName=role['RoleName'], PolicyName=pn)
                             iam.delete_role(RoleName=role['RoleName'])
-                            logger.info(f"    ✓ Deleted")
+                            logger.info("    ✓ Deleted")
                         except Exception as e:
                             logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -279,7 +278,7 @@ def cleanup_aws_resources(
                 if prefix in policy['PolicyName'] or prefix_underscore in policy['PolicyName']:
                     logger.info(f"  Found orphan policy: {policy['PolicyName']}")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         try:
                             policy_arn = policy['Arn']
@@ -301,7 +300,7 @@ def cleanup_aws_resources(
                                     iam.delete_policy_version(PolicyArn=policy_arn, VersionId=version['VersionId'])
                             # Delete policy
                             iam.delete_policy(PolicyArn=policy_arn)
-                            logger.info(f"    ✓ Deleted")
+                            logger.info("    ✓ Deleted")
                         except Exception as e:
                             logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -317,11 +316,11 @@ def cleanup_aws_resources(
                 if prefix in group_name or prefix_underscore in group_name:
                     logger.info(f"  Found orphan: {group_name}")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         try:
                             rg.delete_group(Group=group_name)
-                            logger.info(f"    ✓ Deleted")
+                            logger.info("    ✓ Deleted")
                         except Exception as e:
                             logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -353,13 +352,13 @@ def cleanup_aws_resources(
                             if username.lower() == platform_user_email.lower():
                                 logger.info(f"  Found platform user: {username} (ID: {user['UserId']})")
                                 if dry_run:
-                                    logger.info(f"    [DRY RUN] Would delete")
+                                    logger.info("    [DRY RUN] Would delete")
                                 else:
                                     identitystore.delete_user(
                                         IdentityStoreId=identity_store_id,
                                         UserId=user['UserId']
                                     )
-                                    logger.info(f"    ✓ Deleted")
+                                    logger.info("    ✓ Deleted")
         except Exception as e:
             logger.warning(f"  Error: {e}")
     else:

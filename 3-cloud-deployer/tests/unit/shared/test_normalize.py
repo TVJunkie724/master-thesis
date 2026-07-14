@@ -1,5 +1,4 @@
 """Unit tests for telemetry normalization across all providers."""
-import pytest
 from datetime import datetime, timezone
 
 

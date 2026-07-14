@@ -12,21 +12,19 @@ Supports:
 """
 import asyncio
 import json
-import os
 # Fixed argv list, shell disabled, local simulator module only.
 import subprocess  # nosec B404
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Set, Optional
+from typing import List, Dict, Set
 
 from fastapi import APIRouter, Query, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
 from api.error_models import ERROR_RESPONSES
 from logger import logger
-import constants as CONSTANTS
 from src.core.config_loader import ProjectConfigLoader
 from src.core.paths import resolve_project_context_path
 

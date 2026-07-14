@@ -6,8 +6,6 @@ Tests the generation of Terraform variables from project configuration files.
 
 import pytest
 import json
-import tempfile
-from pathlib import Path
 
 from src.tfvars_generator import (
     generate_tfvars,

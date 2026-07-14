@@ -108,7 +108,7 @@ def _build_step_function_payload(event_rule: dict) -> dict:
 
 def lambda_handler(event, context):
     print("Hello from Event-Checker!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
     print("Events: " + json.dumps(DIGITAL_TWIN_INFO["config_events"]))
 
     for e in DIGITAL_TWIN_INFO["config_events"]:
@@ -138,9 +138,12 @@ def lambda_handler(event, context):
                 param2_value = extract_const_value(param2)
 
             match operation:
-                case "<": result = param1_value < param2_value
-                case ">": result = param1_value > param2_value
-                case "==": result = param1_value == param2_value
+                case "<":
+                    result = param1_value < param2_value
+                case ">":
+                    result = param1_value > param2_value
+                case "==":
+                    result = param1_value == param2_value
 
             if result:
                 # Handle Action
@@ -192,7 +195,7 @@ def lambda_handler(event, context):
                     print("Feedback sent.")
 
         except Exception as ex:
-            print(f"Event Check Failed for event {e}: {ex}")
+            print(f"Event check failed: {ex}")
             traceback.print_exc()
             # Continue checking other events despite one failure
             continue

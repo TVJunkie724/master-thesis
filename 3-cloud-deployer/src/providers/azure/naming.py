@@ -27,7 +27,6 @@ Usage:
     rg_name = naming.resource_group()  # "rg-my-twin"
 """
 
-from typing import Optional
 import re
 
 

@@ -15,18 +15,16 @@ This module provides endpoints for checking deployment status using a hybrid app
 
 import json
 import os
-# Terraform is invoked via a fixed argv list with shell disabled.
-import subprocess  # nosec B404
 import tempfile
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, Query
 
-import constants as CONSTANTS
-import src.validator as validator
 from src.core.paths import resolve_project_context_path
 from src.tfvars_generator import generate_tfvars
+from src.terraform_runner import TerraformRunner
+from src.core.observability import redact_sensitive
 from logger import print_stack_trace, logger
 from api.error_models import ERROR_RESPONSES
 
@@ -43,7 +41,7 @@ router = APIRouter()
 # Terraform State Check Functions
 # ==========================================
 
-def _run_terraform_command(args: List[str], project_name: str) -> subprocess.CompletedProcess:
+def _run_terraform_command(args: List[str], project_name: str):
     """
     Run a terraform command in the terraform directory.
     
@@ -57,44 +55,19 @@ def _run_terraform_command(args: List[str], project_name: str) -> subprocess.Com
     Raises:
         ValueError: If terraform command fails
     """
-    terraform_dir = "/app/src/terraform"
-    upload_dir = _get_upload_dir(project_name)
-    state_path = os.path.join(upload_dir, "terraform", "terraform.tfstate")
-    
-    # Build base command with correct Terraform syntax:
-    # terraform -chdir=X <subcommand> -state=Y [other args]
-    cmd = ["terraform", "-chdir=" + terraform_dir]
-    
-    stateful_commands = ["apply", "destroy", "plan", "output", "show", "import"]
-    
-    if len(args) > 0:
-        subcommand = args[0]
-        cmd.append(subcommand)
-        
-        # For 'state' subcommands (e.g. state list), -state= must go AFTER
-        # the sub-subcommand: terraform state list -state=Y
-        if subcommand == "state":
-            cmd.extend(args[1:])
-            cmd.append(f"-state={state_path}")
-        else:
-            # Add state path for stateful commands (per-project isolation)
-            if subcommand in stateful_commands:
-                cmd.append(f"-state={state_path}")
-            cmd.extend(args[1:])
-    
-    try:
-        # cmd is an argv list assembled from fixed Terraform arguments; shell stays disabled.
-        result = subprocess.run(  # nosec B603
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        return result
-    except subprocess.TimeoutExpired:
-        raise ValueError("Terraform command timed out")
-    except Exception as e:
-        raise ValueError(f"Terraform command failed: {e}")
+    upload_dir = Path(_get_upload_dir(project_name))
+    runner = TerraformRunner(
+        "/app/src/terraform",
+        state_path=str(upload_dir / "terraform" / "terraform.tfstate"),
+    )
+    if args == ["state", "list"]:
+        return runner.state_list()
+    if args[:3] == ["plan", "-refresh-only", "-detailed-exitcode"] and len(args) == 4:
+        prefix = "-var-file="
+        if not args[3].startswith(prefix):
+            raise ValueError("Drift plan requires an explicit var file")
+        return runner.refresh_only_plan(args[3][len(prefix):])
+    raise ValueError("Unsupported Terraform status command")
 
 
 def check_terraform_state(project_name: str) -> Dict[str, Any]:
@@ -123,7 +96,7 @@ def check_terraform_state(project_name: str) -> Dict[str, Any]:
                     "l4": {"deployed": False},
                     "l5": {"deployed": False}
                 }
-            logger.warning(f"Terraform state list warning: {result.stderr}")
+            logger.warning("Terraform state list warning: %s", redact_sensitive(result.stderr))
         
         resources = result.stdout.strip().split("\n") if result.stdout.strip() else []
         
@@ -163,10 +136,11 @@ def check_terraform_state(project_name: str) -> Dict[str, Any]:
             "total_resources": len(resources)
         }
     except Exception as e:
-        logger.warning(f"Terraform state check failed: {e}")
+        diagnostic = redact_sensitive(e)
+        logger.warning("Terraform state check failed: %s", diagnostic)
         return {
             "status": "error",
-            "error": str(e),
+            "error": diagnostic,
             "l1": {"deployed": False},
             "l2": {"deployed": False},
             "l3": {"hot": {"deployed": False}, "cold": {"deployed": False}, "archive": {"deployed": False}},
@@ -381,17 +355,17 @@ def check_terraform_drift(project_name: str) -> Dict[str, Any]:
             return {
                 "status": "drift_detected",
                 "message": "Infrastructure has drifted from Terraform state",
-                "details": result.stdout
+                "details": redact_sensitive(result.stdout)
             }
         else:
             return {
                 "status": "error",
-                "error": result.stderr or result.stdout
+                "error": redact_sensitive(result.stderr or result.stdout)
             }
     except Exception as e:
         return {
             "status": "error",
-            "error": str(e)
+            "error": redact_sensitive(e)
         }
 
 
@@ -562,9 +536,6 @@ def verify_infrastructure(project_name: str, provider: str) -> Dict[str, Any]:
                     logger.warning(f"Failed to initialize provider {prov_name}: {e}")
         
         # --- L0 Glue functions ---
-        glue_resources = [r for r in (tf_state.get("l2", {}).get("resources", []) 
-                          if tf_state.get("status") != "not_deployed" else [])
-                         if "cold_writer" in r.lower() or "hot_reader" in r.lower()]
         if tf_state.get("status") == "not_deployed":
             checks.append(_make_check("L0 Glue functions", "fail", all_providers_str, "Not deployed", "L0"))
         else:

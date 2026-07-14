@@ -6,14 +6,12 @@ state machines, zip archives, Python code, and project structure.
 """
 
 import os
-import zipfile
 import json
 import hashlib
 import re
 import constants as CONSTANTS
 from function_registry import get_function_by_name
 from logger import logger
-import io
 import ast
 
 
@@ -198,8 +196,8 @@ def validate_azure_region_for_consumption_plan(azure_region: str) -> None:
             f"\n"
             f"To fix: Change 'azure_region' in config_credentials.json to one of the recommended regions.\n"
             f"\n"
-            f"For more information, see: docs/azure_flex_consumption_migration.md"
-        ) # TODO: Add link to docs when docs html is updated
+            "For more information, see the Azure Flex Consumption migration guide in the documentation."
+        )
 
 
 
@@ -324,7 +322,7 @@ def validate_aws_hierarchy_content(content):
         _validate_item(item, f"[{i}]")
     
     if errors:
-        raise ValueError(f"AWS hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+        raise ValueError("AWS hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
     logger.info(f"✓ AWS hierarchy validated: {len(content)} top-level items")
 
@@ -435,7 +433,7 @@ def validate_azure_hierarchy_content(content):
             errors.append(f"Model '{model_id}': Duplicate content names {duplicates} - DTDL v3 requires unique names")
     
     if errors:
-        raise ValueError(f"Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+        raise ValueError("Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
     # Semantic check: Telemetry without matching last{Name} Property
     for i, model in enumerate(models):
@@ -645,7 +643,7 @@ def validate_state_machine_content(filename, content):
                     )
             
             if errors:
-                raise ValueError(f"Azure Logic App validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+                raise ValueError("Azure Logic App validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Azure validation complete
         
         # 2b. GCP Workflow: Special handling for 'main' structure
@@ -703,7 +701,7 @@ def validate_state_machine_content(filename, content):
                                             )
             
             if errors:
-                raise ValueError(f"GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+                raise ValueError("GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Valid GCP workflow
 
         
@@ -728,7 +726,7 @@ def validate_state_machine_content(filename, content):
                     )
             
             if errors:
-                raise ValueError(f"AWS Step Function validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+                raise ValueError("AWS Step Function validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # AWS validation complete
         
         # 2d. Other providers (fallback)
@@ -1043,8 +1041,12 @@ def check_duplicate_project(
             
             if existing_twin_name == new_twin_name and existing_creds_hash == new_creds_hash:
                 return project_name
-        except Exception:
-            # Skip corrupted or unreadable projects
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Skipping unreadable project %s during duplicate detection (%s)",
+                project_name,
+                type(exc).__name__,
+            )
             continue
     
     return None

@@ -24,7 +24,7 @@ from api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
 from logger import logger
 from api.utils import extract_file_content
-from api.functions import invalidate_function_cache, clear_all_hash_metadata
+from api.functions import clear_all_hash_metadata
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter()

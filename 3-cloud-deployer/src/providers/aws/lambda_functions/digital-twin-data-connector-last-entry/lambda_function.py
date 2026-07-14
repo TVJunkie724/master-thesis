@@ -17,11 +17,13 @@ import urllib.error
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import safe_urlopen
 except ModuleNotFoundError:
     _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _lambda_funcs_dir not in sys.path:
         sys.path.insert(0, _lambda_funcs_dir)
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import safe_urlopen
 
 
 # Required environment variables - fail fast if missing
@@ -75,7 +77,7 @@ def _query_remote_hot_reader(event: dict) -> dict:
     )
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             body = response.read().decode("utf-8")
             return json.loads(body)
     except urllib.error.HTTPError as e:
@@ -88,7 +90,7 @@ def _query_remote_hot_reader(event: dict) -> dict:
 def lambda_handler(event, context):
     """Route TwinMaker last entry query to local or remote Hot Reader."""
     print("Hello from Digital Twin Data Connector Last Entry!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
     
     try:
         if _is_multi_cloud():

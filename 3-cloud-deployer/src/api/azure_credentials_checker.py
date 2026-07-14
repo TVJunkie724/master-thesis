@@ -18,6 +18,7 @@ Authentication Flow:
        - Built-in: "Contributor" + "User Access Administrator" (development)
 """
 import base64
+import binascii
 import json
 import os
 import sys
@@ -230,7 +231,13 @@ def _decode_jwt_claims(token: str) -> dict:
         payload = token.split(".")[1]
         payload += "=" * (-len(payload) % 4)
         return json.loads(base64.urlsafe_b64decode(payload.encode("utf-8")))
-    except Exception:
+    except (
+        IndexError,
+        UnicodeDecodeError,
+        binascii.Error,
+        json.JSONDecodeError,
+        TypeError,
+    ):
         return {}
 
 
@@ -823,7 +830,7 @@ def check_azure_credentials(credentials: dict) -> dict:
             # Check if any region is invalid
             invalid_regions = [k for k, v in region_results.items() if not v.get("valid")]
             if invalid_regions:
-                errors = [region_results[k].get("error", f"Invalid region") for k in invalid_regions]
+                errors = [region_results[k].get("error", "Invalid region") for k in invalid_regions]
                 result["status"] = "invalid"
                 result["message"] = f"Invalid region(s): {'; '.join(errors)}"
                 return result

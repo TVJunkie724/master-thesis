@@ -28,7 +28,7 @@ Usage:
     status = provider.info_l1(context)
 """
 
-from typing import Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from src.providers.base import BaseProvider
 

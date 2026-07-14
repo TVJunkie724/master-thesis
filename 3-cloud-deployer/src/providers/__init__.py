@@ -34,7 +34,8 @@ Usage:
 
 # Import provider modules to trigger auto-registration
 # Each module's __init__.py calls ProviderRegistry.register()
-from . import aws
-from . import azure
-from . import gcp
+from . import aws as aws
+from . import azure as azure
+from . import gcp as gcp
 
+__all__ = ["aws", "azure", "gcp"]

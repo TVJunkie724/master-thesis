@@ -5,10 +5,8 @@ Tests the user-uploadable template functions in upload/template/azure_functions/
 These tests are skipped if the azure_functions directory does not exist.
 """
 import pytest
-import json
 import sys
 import os
-from unittest.mock import patch, MagicMock
 
 # Path to Azure template functions
 AZURE_TEMPLATES_PATH = os.path.join(

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import logging
 import time
 
-from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
+from azure.core.exceptions import ResourceNotFoundError
 
 if TYPE_CHECKING:
     from src.providers.azure.provider import AzureProvider
@@ -193,9 +193,6 @@ def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -
     infrastructure is created to register IoT devices via SDK.
     Also generates config_generated.json for the simulator.
     """
-    import json
-    import os
-    from pathlib import Path
     
     if provider is None:
         raise ValueError("provider is required")
@@ -273,7 +270,6 @@ def _generate_azure_simulator_config(
         project_path: Path to project directory
     """
     import json
-    import os
     from pathlib import Path
     
     device_id = iot_device["id"]

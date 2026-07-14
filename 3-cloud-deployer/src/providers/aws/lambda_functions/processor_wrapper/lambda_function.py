@@ -68,7 +68,7 @@ def lambda_handler(event, context):
             Payload=json.dumps(event).encode("utf-8")
         )
         processed_event = json.loads(response['Payload'].read().decode("utf-8"))
-        print("User Processor Complete. Result: " + json.dumps(processed_event))
+        print("User processor completed")
     except Exception as e:
         print(f"[USER_LOGIC_ERROR] Processor invocation failed: {e}")
         traceback.print_exc()

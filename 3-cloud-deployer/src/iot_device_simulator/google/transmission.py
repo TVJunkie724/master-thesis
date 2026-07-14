@@ -8,11 +8,11 @@ import json
 import os
 from datetime import datetime, timezone
 
+from . import globals
+
 # Lazy import to avoid issues in development environments without the SDK
 pubsub_v1 = None
 service_account = None
-
-from . import globals
 
 payload_index = 0
 

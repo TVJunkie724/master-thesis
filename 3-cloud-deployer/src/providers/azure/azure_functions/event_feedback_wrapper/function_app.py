@@ -14,11 +14,20 @@ Configuration Patterns:
 import json
 import logging
 import os
+import sys
 
 import azure.functions as func
 from azure.iot.hub import IoTHubRegistryManager
 import urllib.request
 import urllib.error
+
+try:
+    from _shared.inter_cloud import redact_diagnostic, safe_urlopen
+except ModuleNotFoundError:
+    _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _func_dir not in sys.path:
+        sys.path.insert(0, _func_dir)
+    from _shared.inter_cloud import redact_diagnostic, safe_urlopen
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -65,7 +74,6 @@ def _get_user_function_key():
     global _user_function_key
     if _user_function_key is None:
         # Import require_env here to avoid import issues
-        import sys
         try:
             from _shared.env_utils import require_env
         except ModuleNotFoundError:
@@ -88,7 +96,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     
     try:
         event = req.get_json()
-        logger.info(f"Received event: {json.dumps(event)}")
+        logger.info("Event received")
         
         detail = event["detail"]
         payload = detail["payload"]  # Extract payload for user processing
@@ -96,7 +104,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         
         # 1. Call User Event-Feedback Function via HTTP
         url = _get_event_feedback_function_url()
-        if not url or not url.startswith("http"):
+        if not url:
             logger.warning("EVENT_FEEDBACK_FUNCTION_URL not set - using passthrough")
             processed_payload = payload
         else:
@@ -110,12 +118,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 data = json.dumps(payload).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
                 req_feedback = urllib.request.Request(url_with_key, data=data, headers=headers, method="POST")
-                with urllib.request.urlopen(req_feedback, timeout=30) as response:
+                with safe_urlopen(req_feedback, timeout=30) as response:
                     processed_payload = json.loads(response.read().decode("utf-8"))
-                logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
+                logger.info("User logic completed")
             except Exception as e:
-                logger.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
-                raise e
+                logger.exception(
+                    "[USER_LOGIC_ERROR] Processing failed: %s",
+                    redact_diagnostic(e),
+                )
+                raise
         
         # 2. Build topic and send to IoT Device via C2D
         topic = f"{detail['digitalTwinName']}-{iot_device_id}"
@@ -135,9 +146,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logger.exception(f"Event Feedback Failed: {e}")
+        diagnostic = redact_diagnostic(e)
+        logger.exception("Event Feedback Failed: %s", diagnostic)
         return func.HttpResponse(
-            json.dumps({"statusCode": 500, "body": f"Error: {str(e)}"}),
+            json.dumps({"statusCode": 500, "body": f"Error: {diagnostic}"}),
             status_code=500,
             mimetype="application/json"
         )

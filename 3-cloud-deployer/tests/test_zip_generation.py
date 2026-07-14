@@ -12,6 +12,8 @@ import zipfile
 import tempfile
 from pathlib import Path
 
+import pytest
+
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
@@ -50,12 +52,10 @@ def test_l0_zip_generation():
     try:
         zip_bytes, functions = bundle_l0_functions(project_path, providers_config)
     except Exception as e:
-        print(f"❌ FAILED to build L0 ZIP: {e}")
-        return False
+        pytest.fail(f"Failed to build L0 ZIP: {e}")
     
     if not zip_bytes:
-        print("❌ FAILED: No ZIP generated (None returned)")
-        return False
+        pytest.fail("No L0 ZIP generated")
     
     # Check ZIP size
     zip_size = len(zip_bytes)
@@ -65,11 +65,9 @@ def test_l0_zip_generation():
     # Expected functions for this config:
     # - ingestion: L1 (google) → L2 (azure) cross-cloud
     # - adt-pusher: L3_hot (aws) → L4 (azure) cross-cloud
-    expected_functions = ["ingestion", "adt-pusher"]
     
     if zip_size < 1000:
-        print(f"❌ FAILED: ZIP too small ({zip_size} bytes), expected >1KB")
-        return False
+        pytest.fail(f"L0 ZIP too small ({zip_size} bytes), expected >1KB")
     
     # Extract and verify contents
     print("\nExtracting ZIP to verify contents...")
@@ -91,19 +89,15 @@ def test_l0_zip_generation():
         missing = [f for f in required_files if f not in file_list]
         
         if missing:
-            print(f"\n❌ FAILED: Missing required files: {missing}")
-            return False
+            pytest.fail(f"L0 ZIP is missing required files: {missing}")
         
         # Check for function directories (multi-function uses module pattern)
         has_function_code = any("ingestion" in f or "adt_pusher" in f for f in file_list)
         
         if not has_function_code:
-            print(f"\n❌ FAILED: No function code found in ZIP!")
-            print(f"   Expected to find 'ingestion' or 'adt_pusher' in file paths")
-            return False
+            pytest.fail("L0 ZIP contains neither ingestion nor adt_pusher code")
     
     print("\n✅ L0 ZIP PASSED all checks!")
-    return True
 
 
 def test_user_zip_generation():
@@ -122,20 +116,18 @@ def test_user_zip_generation():
     try:
         zip_bytes = bundle_user_functions(project_path)
     except Exception as e:
-        print(f"❌ FAILED to build User ZIP: {e}")
-        return False
+        pytest.fail(f"Failed to build user-functions ZIP: {e}")
     
     if not zip_bytes:
         print("⚠ No user functions found (this is OK if project has no user functions)")
-        return True
+        return
     
     # Check ZIP size
     zip_size = len(zip_bytes)
     print(f"\n✓ ZIP generated: {zip_size} bytes")
     
     if zip_size < 500:
-        print(f"❌ FAILED: ZIP too small ({zip_size} bytes), expected >500 bytes")
-        return False
+        pytest.fail(f"User-functions ZIP too small ({zip_size} bytes), expected >500 bytes")
     
     # Extract and verify contents
     print("\nExtracting ZIP to verify contents...")
@@ -157,32 +149,6 @@ def test_user_zip_generation():
         missing = [f for f in required_files if f not in file_list]
         
         if missing:
-            print(f"\n❌ FAILED: Missing required files: {missing}")
-            return False
+            pytest.fail(f"User-functions ZIP is missing required files: {missing}")
     
     print("\n✅ User ZIP PASSED all checks!")
-    return True
-
-
-if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("AZURE FUNCTION ZIP GENERATION TEST")
-    print("="*60)
-    
-    # Run tests
-    l0_passed = test_l0_zip_generation()
-    user_passed = test_user_zip_generation()
-    
-    # Summary
-    print("\n" + "="*60)
-    print("TEST SUMMARY")
-    print("="*60)
-    print(f"L0 Glue Functions: {'✅ PASS' if l0_passed else '❌ FAIL'}")
-    print(f"User Functions:    {'✅ PASS' if user_passed else '❌ FAIL'}")
-    
-    if l0_passed and user_passed:
-        print("\n🎉 ALL TESTS PASSED!")
-        sys.exit(0)
-    else:
-        print("\n❌ SOME TESTS FAILED")
-        sys.exit(1)

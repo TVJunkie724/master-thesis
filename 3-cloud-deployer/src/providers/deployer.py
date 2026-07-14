@@ -406,31 +406,3 @@ async def destroy_all_stream(
 def get_terraform_outputs(strategy) -> dict:
     """Return Terraform outputs from a canonical strategy instance."""
     return strategy.get_outputs()
-
-# ==========================================
-# Specialized Operations
-# ==========================================
-
-def redeploy_event_checker(context: 'DeploymentContext', provider: str) -> None:
-    """Redeploy the event checker function (AWS specific for now)."""
-    if provider != "aws":
-        raise NotImplementedError("Event checker redeployment only supported for AWS.")
-    
-    if "aws" not in context.providers:
-        raise ValueError("AWS provider not initialized in context.")
-        
-    aws_provider = context.providers["aws"]
-    
-    # helper import until generalized
-    from providers.aws.layers import layer_2_compute
-    
-    logger.info("[L2] Redeploying Event Checker Lambda...")
-    try:
-        layer_2_compute.destroy_event_checker_lambda_function(aws_provider)
-    except Exception as e:
-        logger.warning(
-            "Failed to destroy event checker (might not exist): %s",
-            redact_sensitive(e),
-        )
-        
-    layer_2_compute.create_event_checker_lambda_function(aws_provider, context.config, context.project_path)

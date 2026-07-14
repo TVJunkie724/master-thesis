@@ -8,9 +8,8 @@ import os
 import json
 import io
 import zipfile
-import shutil
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import file_manager
 import constants as CONSTANTS

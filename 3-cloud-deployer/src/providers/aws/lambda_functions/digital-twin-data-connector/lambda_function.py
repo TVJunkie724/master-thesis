@@ -244,7 +244,7 @@ def lambda_handler(event, context):
         TwinMaker-compatible response with propertyValues
     """
     print("Hello from Digital Twin Data Connector!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
     
     try:
         if _is_multi_cloud():

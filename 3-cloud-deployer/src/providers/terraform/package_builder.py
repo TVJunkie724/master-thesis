@@ -19,13 +19,15 @@ Azure: ZIPs are uploaded via Kudu after Terraform creates infrastructure
 import glob
 import hashlib
 import io
+import json
 import os
 import re
 import shutil
 import zipfile
 import logging
+import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 
 from src.function_registry import get_functions_for_provider_build
 from src.core.config_loader import load_optimization_flags as _load_optimization_flags
@@ -34,7 +36,6 @@ from src.providers.azure.azure_bundler import (
     bundle_l1_functions as _azure_bundle_l1,
     bundle_l2_functions as _azure_bundle_l2,
     bundle_l3_functions as _azure_bundle_l3,
-    _merge_function_files,
     _convert_functionapp_to_blueprint,
     _convert_require_env_to_lazy,
     _add_shared_files,
@@ -755,10 +756,6 @@ def get_gcp_zip_path(project_path: Path, function_name: str) -> str:
 # User Package Building (event actions, processors, feedback)
 # ==========================================
 
-import hashlib
-import json
-import datetime
-
 
 def _compute_directory_hash(dir_path: Path) -> str:
     """
@@ -887,9 +884,9 @@ def build_user_packages(
     devices_path = project_path / "config_iot_devices.json"
     
     if not events_path.exists():
-        raise ValueError(f"Missing required config: config_events.json")
+        raise ValueError("Missing required config: config_events.json")
     if not devices_path.exists():
-        raise ValueError(f"Missing required config: config_iot_devices.json")
+        raise ValueError("Missing required config: config_iot_devices.json")
     
     with open(events_path, 'r') as f:
         events_config = json.load(f)
@@ -1009,7 +1006,7 @@ def build_user_packages(
             logger.info(f"  ✓ Built processor: processor-{device_id}.zip")
         elif l2_provider == "azure":
             # Azure user functions are bundled together separately via build_azure_user_bundle()
-            logger.info(f"  → Skipping individual processor ZIP for Azure (bundled together)")
+            logger.info("  → Skipping individual processor ZIP for Azure (bundled together)")
         else:  # google
             # User provides standalone main.py
             _create_gcp_function_zip(
@@ -1033,15 +1030,15 @@ def build_user_packages(
             _create_lambda_zip(feedback_dir, shared_dir, zip_path)
             packages["event-feedback"] = zip_path
             _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
-            logger.info(f"  ✓ Built event-feedback.zip")
+            logger.info("  ✓ Built event-feedback.zip")
         elif l2_provider == "azure":
             # Azure bundles all user functions together via build_azure_user_bundle()
-            logger.info(f"  → Skipping individual event-feedback ZIP for Azure (bundled together)")
+            logger.info("  → Skipping individual event-feedback ZIP for Azure (bundled together)")
         else:  # google
             _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
             packages["event-feedback"] = zip_path
             _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
-            logger.info(f"  ✓ Built event-feedback.zip")
+            logger.info("  ✓ Built event-feedback.zip")
     
     logger.info(f"✓ Built {len(packages)} user packages")
     return packages
@@ -1166,4 +1163,3 @@ def get_user_package_path(project_path: Path, function_name: str, provider: str)
         Path to the ZIP file
     """
     return project_path / ".build" / provider / f"{function_name}.zip"
-

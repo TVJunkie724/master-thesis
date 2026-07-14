@@ -47,11 +47,13 @@ import azure.functions as func
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import safe_urlopen
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import safe_urlopen
 
 
 class ConfigurationError(Exception):
@@ -133,7 +135,7 @@ def _trigger_logic_app(payload: dict) -> None:
     req = urllib.request.Request(LOGIC_APP_TRIGGER_URL, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Logic App triggered: {response.getcode()}")
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to trigger Logic App: {e.code}")
@@ -185,7 +187,7 @@ def _invoke_function(function_name: str, payload: dict) -> None:
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Function {function_name} invoked: {response.getcode()}")
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to invoke {function_name}: {e.code}")
@@ -207,7 +209,7 @@ def _send_feedback(feedback_payload: dict) -> None:
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Feedback sent: {response.getcode()}")
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to send feedback: {e.code}")
@@ -247,7 +249,7 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
     
     try:
         event = req.get_json()
-        logging.info(f"Event: {json.dumps(event)}")
+        logging.info("Event received")
         
         config_events = _get_digital_twin_info().get("config_events", [])
         logging.info(f"Checking {len(config_events)} configured events")

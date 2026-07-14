@@ -17,9 +17,8 @@ Test Categories (per AI Layer Guide §5):
 import unittest
 import json
 import tempfile
-import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import src.validator as validator
 from src.core.config_loader import _load_hierarchy_for_provider, load_project_config

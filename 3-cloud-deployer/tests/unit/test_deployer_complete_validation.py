@@ -3,7 +3,8 @@ Unit tests for the Deployer complete validation endpoint.
 
 Tests D1-D13 from the implementation plan.
 """
-import pytest
+import json
+
 from fastapi.testclient import TestClient
 
 import rest_api
@@ -210,9 +211,24 @@ class TestDeployerCompleteValidation:
     
     def test_D11_device_not_in_payloads(self):
         """D11: Device in config_iot but missing from payloads - cross-reference check."""
-        # Note: This requires payloads validation against devices, which may be a future enhancement
-        # For now, this test documents the expected behavior
-        pass
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": '[{"id": "device-1"}, {"id": "device-2"}]',
+            "payloads": '[{"iotDeviceId": "device-1", "temperature": 25}]',
+            "processors": {
+                "device-1": VALID_AWS_PROCESSOR,
+                "device-2": VALID_AWS_PROCESSOR,
+            },
+            "cheapest_path": {"L2": "aws", "L4": "gcp"},
+        })
+
+        assert response.status_code == 200
+        assert any(
+            error["code"] == "MISSING_DEVICE_PAYLOAD"
+            and error["field"] == "payload:device-2"
+            for error in response.json()["errors"]
+        )
     
     def test_D12_action_name_mismatch(self):
         """D12: Action functionName not in event_actions keys - should error."""
@@ -234,9 +250,59 @@ class TestDeployerCompleteValidation:
     
     def test_D13_scene_entity_not_in_hierarchy(self):
         """D13: Scene references entity not in hierarchy - cross-reference check."""
-        # Note: This requires scene_config validation with hierarchy cross-reference
-        # The validator.validate_scene_config_content already handles this for Azure
-        pass
+        hierarchy = '{"twins": [{"$dtId": "room-1", "$metadata": {"$model": "dtmi:test;1"}}]}'
+        scene = json.dumps({
+            "configuration": {
+                "scenes": [{
+                    "id": "scene-1",
+                    "elements": [{
+                        "id": "missing-element",
+                        "primaryTwinID": "room-99",
+                        "type": "TwinToObjectMapping",
+                    }],
+                }],
+            },
+        })
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_AZURE_PROCESSOR},
+            "hierarchy": hierarchy,
+            "scene_config": scene,
+            "scene_glb_uploaded": True,
+            "cheapest_path": {"L2": "azure", "L4": "azure"},
+            "optimizer_params": {"needs3DModel": True},
+        })
+
+        assert response.status_code == 200
+        assert any(
+            error["code"] == "INVALID_SCENE_CONFIG"
+            and "room-99" in error["message"]
+            for error in response.json()["errors"]
+        )
+
+    def test_unknown_payload_device_is_rejected(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": '[{"iotDeviceId": "unknown-device"}]',
+            "processors": {"device-1": VALID_AWS_PROCESSOR},
+            "cheapest_path": {"L2": "aws", "L4": "gcp"},
+        })
+
+        assert response.status_code == 200
+        codes = {error["code"] for error in response.json()["errors"]}
+        assert {"UNKNOWN_PAYLOAD_DEVICE", "MISSING_DEVICE_PAYLOAD"} <= codes
+
+    def test_cheapest_path_requires_object_contract(self):
+        response = client.post("/validate/deployer-complete", json={
+            "cheapest_path": ["L1_AWS", "L2_AZURE"],
+        })
+
+        assert response.status_code == 422
     
     def test_trigger_notification_missing_state_machine(self):
         """triggerNotificationWorkflow=true but missing state_machine should error."""

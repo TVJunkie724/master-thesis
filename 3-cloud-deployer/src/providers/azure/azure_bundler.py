@@ -19,8 +19,7 @@ from pathlib import Path
 from typing import Optional, Tuple, List
 
 from src.function_registry import (
-    Layer, FunctionDefinition, PROVIDER_PATHS,
-    get_by_layer, get_l0_for_config, get_function_path
+    Layer, get_by_layer, get_l0_for_config
 )
 
 logger = logging.getLogger(__name__)

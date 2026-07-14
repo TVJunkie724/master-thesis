@@ -7,7 +7,7 @@
 # See: monolith_reduction_patterns KI for patterns.
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import src.validator as validator
 from api.dependencies import ConfigType, ProviderEnum
 from api.error_models import ERROR_RESPONSES
@@ -739,7 +739,7 @@ async def validate_scene_config(
         # Delegate to validator function
         validator.validate_scene_config_content(provider.value, scene_str, hierarchy_str)
         
-        return {"message": f"Scene configuration is valid."}
+        return {"message": "Scene configuration is valid."}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -794,8 +794,6 @@ async def extract_zip(
     import zipfile
     import io
     import base64
-    import re
-    import os
     from src.validation.core import (
         run_all_checks_aggregated,
         ValidationContext as CoreValidationContext,
@@ -1069,13 +1067,13 @@ class DeployerCompleteValidation(BaseModel):
     
     # Context from optimizer
     optimizer_params: dict | None = None
-    cheapest_path: list | dict | None = None  # Either ['L1_GCP', 'L2_AWS', ...] or {L1: "aws", ...}
+    cheapest_path: dict[str, str | dict] | None = None
 
 
 class DeployerValidationResponse(BaseModel):
     """Validation response with all errors."""
     valid: bool
-    errors: list[ValidationError] = []
+    errors: list[ValidationError] = Field(default_factory=list)
 
 
 def _parse_device_ids(config_iot_devices: str | None) -> list[str]:
@@ -1126,6 +1124,50 @@ def _get_state_machine_filename(provider: str) -> str:
         return "google_cloud_workflow.yaml"
     else:  # aws is default
         return "aws_step_function.json"
+
+
+def _validate_payload_device_coverage(
+    payloads_content: str,
+    device_ids: list[str],
+) -> list[ValidationError]:
+    """Validate payload structure and require coverage for every configured device."""
+    valid, validation_errors, _warnings = validator.validate_simulator_payloads(
+        payloads_content
+    )
+    if not valid:
+        return [
+            ValidationError(
+                code="INVALID_PAYLOADS",
+                field="payloads",
+                message=message,
+            )
+            for message in validation_errors
+        ]
+
+    payloads = json.loads(payloads_content)
+    payload_device_ids = {
+        payload.get("iotDeviceId")
+        for payload in payloads
+        if isinstance(payload, dict) and payload.get("iotDeviceId")
+    }
+    configured_device_ids = set(device_ids)
+    errors = [
+        ValidationError(
+            code="UNKNOWN_PAYLOAD_DEVICE",
+            field="payloads",
+            message=f"Payload references unknown device '{device_id}'",
+        )
+        for device_id in sorted(payload_device_ids - configured_device_ids)
+    ]
+    errors.extend(
+        ValidationError(
+            code="MISSING_DEVICE_PAYLOAD",
+            field=f"payload:{device_id}",
+            message=f"At least one simulator payload for device '{device_id}' is required",
+        )
+        for device_id in sorted(configured_device_ids - payload_device_ids)
+    )
+    return errors
 
 
 @router.post(
@@ -1225,8 +1267,10 @@ async def validate_deployer_complete(
             message="payloads.json is required"
         ))
     
-    # === PROCESSORS (per device) ===
+    # === PROCESSORS AND PAYLOADS (per device) ===
     device_ids = _parse_device_ids(config.config_iot_devices)
+    if config.payloads:
+        errors.extend(_validate_payload_device_coverage(config.payloads, device_ids))
     processors = config.processors or {}
     l2_provider = (config.cheapest_path or {}).get("L2", "aws").lower()
     
@@ -1387,5 +1431,4 @@ async def validate_deployer_complete(
         valid=len(errors) == 0,
         errors=errors
     )
-
 

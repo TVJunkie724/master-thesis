@@ -95,7 +95,9 @@ class ErrorResponse(BaseModel):
     documentation_url: Optional[str] = Field(
         None,
         description="URL to relevant documentation for this error or endpoint",
-        json_schema_extra={"example": "/documentation/docs-overview.html"}
+        json_schema_extra={
+            "example": "https://github.com/TVJunkie724/master-thesis/tree/master/docs-site"
+        }
     )
 
     model_config = ConfigDict(json_schema_extra={
@@ -112,7 +114,7 @@ class ErrorResponse(BaseModel):
                     "allowed_values": None
                 }
             ],
-            "documentation_url": "/documentation/docs-formulas.html"
+            "documentation_url": "https://github.com/TVJunkie724/master-thesis/tree/master/docs-site"
         }
     })
 
@@ -141,7 +143,10 @@ ERROR_RESPONSES = {
                 "example": {
                     "error_code": "INVALID_CREDENTIALS",
                     "message": "Cloud provider credentials are invalid or expired",
-                    "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                    "fix_suggestion": (
+                        "Verify the selected CloudConnection through the Management API "
+                        "or provide valid credentials to the request-body preflight endpoint."
+                    ),
                     "http_status": 401
                 }
             }

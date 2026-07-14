@@ -23,7 +23,6 @@ Usage:
     role_name = naming.dispatcher_iam_role()  # "my-twin-dispatcher"
 """
 
-from typing import Optional
 
 
 class AWSNaming:

@@ -200,7 +200,7 @@ class TestColdToArchiveMoverCrossCloud(unittest.TestCase):
             "Body": MagicMock(read=MagicMock(return_value=b'{"test": "data"}'))
         }
         
-        with patch.object(self.module, "post_raw") as mock_post:
+        with patch.object(self.module, "post_raw"):
             self.module.lambda_handler({}, None)
             
             # copy_object should NOT be called (using remote)

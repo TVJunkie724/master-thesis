@@ -5,9 +5,8 @@ Tests error handling for projects and validation endpoints.
 Focuses on real API endpoints that exist in the Deployer.
 """
 
-import pytest
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 import rest_api

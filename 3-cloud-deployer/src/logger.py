@@ -3,7 +3,15 @@ import sys
 from colorlog import ColoredFormatter
 import traceback
 import json
-from src import constants as CONSTANTS
+
+from src.core.observability import redact_sensitive
+
+
+class RedactingColoredFormatter(ColoredFormatter):
+    """Apply defense-in-depth redaction to every Deployer console log."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact_sensitive(super().format(record))
 
 global logger
 config = {}
@@ -17,7 +25,7 @@ def setup_logger(debug_mode=False):
     handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
 
     # Create colored formatter
-    formatter = ColoredFormatter(
+    formatter = RedactingColoredFormatter(
         "%(log_color)s[%(levelname)s] %(message)s",
         log_colors={
             "DEBUG":    "cyan",

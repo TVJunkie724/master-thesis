@@ -29,7 +29,7 @@ def process(event):
 
 def lambda_handler(event, context):
     print("Hello from Default Processor!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
 
     try:
         payload = process(event)

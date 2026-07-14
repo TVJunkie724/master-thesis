@@ -34,7 +34,7 @@ def test_bundled_imports():
             sys.exit(1)
         
         main_content = main_py.read_text()
-        print(f"\n=== Main function_app.py ===")
+        print("\n=== Main function_app.py ===")
         print(main_content[:500] + "..." if len(main_content) > 500 else main_content)
         
         # Check user function was transformed

@@ -9,15 +9,11 @@ Tests cover:
 - IoT message sending via subprocess
 - Trace ID validation and expiration
 """
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
-import json
-import uuid
 
 # Import the module under test
 from src.api.logs import (
-    router,
     generate_trace_id,
     get_providers_to_query,
     _rate_limit_store,

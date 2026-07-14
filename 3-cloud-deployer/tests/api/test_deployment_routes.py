@@ -190,7 +190,7 @@ def test_deploy_stream_redacts_workspace_paths_in_failure_event():
 
 def test_deploy_stream_redacts_secret_logs_and_outputs():
     context = MagicMock(name="deployment_context")
-    strategy = MagicMock(name="terraform_strategy")
+    MagicMock(name="terraform_strategy")
 
     with (
         patch.object(deployment, "check_template_protection"),

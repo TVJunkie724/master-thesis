@@ -81,7 +81,7 @@ def main(request):
                 response = requests.post(url, json=event, headers=get_id_token_headers(url), timeout=30)
                 response.raise_for_status()
                 processed_event = response.json()
-                print(f"User Logic Complete. Result: {json.dumps(processed_event)}")
+                print("User logic completed")
         except Exception as e:
             print(f"[USER_LOGIC_ERROR] Processing failed: {e}")
             traceback.print_exc()
@@ -103,4 +103,3 @@ def main(request):
         print(f"[SYSTEM_ERROR] Processor error: {e}")
         traceback.print_exc()
         return (json.dumps({"error": "System error", "message": str(e)}), 500, {"Content-Type": "application/json"})
-

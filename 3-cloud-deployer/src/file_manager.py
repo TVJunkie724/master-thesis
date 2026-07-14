@@ -11,7 +11,6 @@ import os
 import zipfile
 import json
 import shutil
-import hashlib
 from datetime import datetime
 from pathlib import Path
 import constants as CONSTANTS

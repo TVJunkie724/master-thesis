@@ -3,10 +3,8 @@ Comprehensive tests for the Credentials/Permissions API endpoints.
 
 Tests for /permissions endpoints covering AWS, Azure, and GCP credential validation.
 """
-import pytest
-import json
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import rest_api
 

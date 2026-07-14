@@ -11,12 +11,10 @@ Tests that verify AWS Lambda ZIP packages follow official AWS requirements:
 
 import pytest
 import zipfile
-import io
 import ast
 import os
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "src")))
@@ -24,7 +22,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from src.providers.terraform.package_builder import (
     _create_lambda_zip,
     build_aws_lambda_packages,
-    get_lambda_zip_path,
 )
 
 

@@ -81,15 +81,15 @@ def main(request):
     
     try:
         event = request.get_json()
-        print("Event: " + json.dumps(event))
+        print("Event received")
         
         # Extract payload from Pub/Sub envelope if present
         event = _extract_pubsub_payload(event)
-        print("Extracted payload: " + json.dumps(event))
+        print("Payload extracted")
         
         # Normalize event to canonical format (device_id, timestamp)
         event = normalize_telemetry(event)
-        print("Normalized event: " + json.dumps(event))
+        print("Payload normalized")
         
         # Extract ID (now using canonical device_id)
         device_id = event.get("device_id")
@@ -127,4 +127,3 @@ def main(request):
         print(f"Dispatcher Error: {e}")
         traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
-

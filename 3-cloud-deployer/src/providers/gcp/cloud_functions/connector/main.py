@@ -60,7 +60,7 @@ def main(request):
     
     try:
         event = request.get_json()
-        print("Event: " + json.dumps(event))
+        print("Event received")
         
         # POST to remote Ingestion API
         remote_url = _get_remote_ingestion_url()
@@ -81,4 +81,3 @@ def main(request):
         print(f"Connector Error: {e}")
         traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
-

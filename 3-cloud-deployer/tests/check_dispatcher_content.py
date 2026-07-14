@@ -16,7 +16,7 @@ if l1_bytes:
     
     # Print first 100 lines
     lines = content.split('\n')
-    print(f"\n  First 80 lines of dispatcher/function_app.py:\n")
+    print("\n  First 80 lines of dispatcher/function_app.py:\n")
     for i, line in enumerate(lines[:80], 1):
         print(f"    {i:3d}| {line}")
     

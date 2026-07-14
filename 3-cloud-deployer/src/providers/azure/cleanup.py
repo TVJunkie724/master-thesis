@@ -5,7 +5,6 @@ Provides fallback cleanup for Azure resources that may be orphaned after
 Terraform destroy fails or misses resources.
 """
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +72,11 @@ def cleanup_azure_resources(
                 rg = ws.id.split('/')[4]
                 logger.info(f"  Found Log Analytics: {ws.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         la_client.workspaces.begin_delete(rg, ws.name, force=True).result(timeout=300)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -92,11 +91,11 @@ def cleanup_azure_resources(
                 rg = comp.id.split('/')[4]
                 logger.info(f"  Found App Insights: {comp.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         ai_client.components.delete(rg, comp.name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -129,10 +128,10 @@ def cleanup_azure_resources(
                     setting_name = setting.get("name", "unknown")
                     logger.info(f"  Found: {setting_name} on {resource.name}")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         diag_helper.delete(resource.id, setting_name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
             
             # Handle storage sub-resources (blobServices/default) - reuse cached list
             for storage in [r for r in resources if r.type == "Microsoft.Storage/storageAccounts"]:
@@ -141,10 +140,10 @@ def cleanup_azure_resources(
                     setting_name = setting.get("name", "unknown")
                     logger.info(f"  Found: {setting_name} on {storage.name}/blobServices/default")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         diag_helper.delete(blob_uri, setting_name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
             
             # Handle EventGrid system topics - reuse cached list
             for eventgrid in [r for r in resources if r.type == "Microsoft.EventGrid/systemTopics"]:
@@ -152,10 +151,10 @@ def cleanup_azure_resources(
                     setting_name = setting.get("name", "unknown")
                     logger.info(f"  Found: {setting_name} on {eventgrid.name} (EventGrid)")
                     if dry_run:
-                        logger.info(f"    [DRY RUN] Would delete")
+                        logger.info("    [DRY RUN] Would delete")
                     else:
                         diag_helper.delete(eventgrid.id, setting_name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Diagnostic settings cleanup error: {e}")
     
@@ -179,11 +178,11 @@ def cleanup_azure_resources(
                     continue
                 logger.info(f"  Found: {assignment.role_definition_id.split('/')[-1]} -> {assignment.principal_id[:8]}...")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         auth_client.role_assignments.delete_by_id(assignment.id)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -204,13 +203,13 @@ def cleanup_azure_resources(
             for assignment in cosmos_client.sql_resources.list_sql_role_assignments(rg_name, account.name):
                 logger.info(f"  Found: SQL role on {account.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         cosmos_client.sql_resources.begin_delete_sql_role_assignment(
                             assignment.name, rg_name, account.name
                         ).result(timeout=120)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -229,13 +228,13 @@ def cleanup_azure_resources(
             if prefix in account.name:
                 logger.info(f"  Found orphan: {account.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = account.id.split('/')[4]
                         poller = cosmos_client.database_accounts.begin_delete(rg_name, account.name)
                         poller.result(timeout=600)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -250,13 +249,13 @@ def cleanup_azure_resources(
             if prefix in workspace.name:
                 logger.info(f"  Found orphan: {workspace.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = workspace.id.split('/')[4]
                         poller = dashboard_client.grafana.begin_delete(rg_name, workspace.name)
                         poller.result(timeout=600)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -271,13 +270,13 @@ def cleanup_azure_resources(
             if prefix in hub.name:
                 logger.info(f"  Found orphan: {hub.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = hub.id.split('/')[4]
                         poller = iothub_client.iot_hub_resource.begin_delete(rg_name, hub.name)
                         poller.result(timeout=600)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -292,13 +291,13 @@ def cleanup_azure_resources(
             if prefix in instance.name:
                 logger.info(f"  Found orphan: {instance.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = instance.id.split('/')[4]
                         poller = dt_client.digital_twins.begin_delete(rg_name, instance.name)
                         poller.result(timeout=600)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -313,12 +312,12 @@ def cleanup_azure_resources(
             if prefix in app.name:
                 logger.info(f"  Found orphan: {app.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = app.id.split('/')[4]
                         web_client.web_apps.delete(rg_name, app.name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -334,12 +333,12 @@ def cleanup_azure_resources(
             if prefix in account.name or prefix_nohyphen in account.name:
                 logger.info(f"  Found orphan: {account.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = account.id.split('/')[4]
                         storage_client.storage_accounts.delete(rg_name, account.name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -354,12 +353,12 @@ def cleanup_azure_resources(
             if prefix in workflow.name:
                 logger.info(f"  Found orphan: {workflow.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = workflow.id.split('/')[4]
                         logic_client.workflows.delete(rg_name, workflow.name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -374,12 +373,12 @@ def cleanup_azure_resources(
             if prefix in plan.name:
                 logger.info(f"  Found orphan: {plan.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete")
+                    logger.info("    [DRY RUN] Would delete")
                 else:
                     try:
                         rg_name = plan.id.split('/')[4]
                         web_client.app_service_plans.delete(rg_name, plan.name)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -394,12 +393,12 @@ def cleanup_azure_resources(
             if prefix in rg.name:
                 logger.info(f"  Found RG: {rg.name}")
                 if dry_run:
-                    logger.info(f"    [DRY RUN] Would delete RG and all contents")
+                    logger.info("    [DRY RUN] Would delete RG and all contents")
                 else:
                     try:
                         poller = resource_client.resource_groups.begin_delete(rg.name)
                         poller.result(timeout=600)
-                        logger.info(f"    ✓ Deleted")
+                        logger.info("    ✓ Deleted")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
@@ -434,13 +433,13 @@ def cleanup_azure_resources(
                                 user.user_principal_name.lower() == platform_user_email.lower()):
                                 logger.info(f"  Found user: {user.user_principal_name} (ID: {user.id})")
                                 if dry_run:
-                                    logger.info(f"    [DRY RUN] Would delete")
+                                    logger.info("    [DRY RUN] Would delete")
                                 else:
                                     graph_client.users.by_user_id(user.id).delete()
-                                    logger.info(f"    ✓ Deleted")
+                                    logger.info("    ✓ Deleted")
                                 break
                         else:
-                            logger.info(f"  User not found (may already be deleted)")
+                            logger.info("  User not found (may already be deleted)")
                 except Exception as e:
                     logger.warning(f"  Error searching users: {e}")
         except ImportError:

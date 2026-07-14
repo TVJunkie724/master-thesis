@@ -7,8 +7,6 @@ Tests the bundling of Azure Functions into per-app ZIP packages.
 import pytest
 import zipfile
 import io
-from pathlib import Path
-from unittest.mock import patch
 
 from src.providers.azure.layers.function_bundler import (
     bundle_l0_functions,
@@ -16,7 +14,6 @@ from src.providers.azure.layers.function_bundler import (
     bundle_l2_functions,
     bundle_l3_functions,
     _clean_function_app_imports,
-    BundleError,
 )
 
 
@@ -447,9 +444,9 @@ bp = func.Blueprint()
         lines = cleaned.split('\n')
         
         # Find positions of imports
-        logging_idx = next(i for i, l in enumerate(lines) if 'import logging' in l)
-        shared_idx = next(i for i, l in enumerate(lines) if 'from _shared' in l)
-        bp_idx = next(i for i, l in enumerate(lines) if 'bp = func.Blueprint()' in l)
+        logging_idx = next(i for i, line in enumerate(lines) if 'import logging' in line)
+        shared_idx = next(i for i, line in enumerate(lines) if 'from _shared' in line)
+        bp_idx = next(i for i, line in enumerate(lines) if 'bp = func.Blueprint()' in line)
         
         # _shared import should be after logging import and before bp definition
         assert shared_idx > logging_idx, "Shared import should be after standard imports"

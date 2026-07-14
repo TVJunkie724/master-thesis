@@ -6,9 +6,6 @@ Tests check_duplicate_project and _hash_credentials functions.
 import pytest
 import os
 import json
-import io
-import zipfile
-from unittest.mock import patch, MagicMock
 
 import src.validator as validator
 import constants as CONSTANTS

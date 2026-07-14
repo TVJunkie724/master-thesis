@@ -21,12 +21,14 @@ import azure.functions as func
 
 try:
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import read_http_error_body, safe_urlopen
     from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import read_http_error_body, safe_urlopen
     from _shared.normalize import normalize_telemetry
 
 
@@ -70,9 +72,6 @@ def _get_target_function_name(device_id: str) -> str:
     - "-processor" for device-specific processor (single-cloud)
     - "-connector" for connector (multi-cloud L1→L2 bridge)
     """
-    twin_info = _get_digital_twin_info()
-    twin_name = twin_info["config"]["digital_twin_name"]
-    
     if TARGET_FUNCTION_SUFFIX == "-connector":
         # Multi-cloud: route to connector (no device-specific naming)
         return "connector"
@@ -110,15 +109,11 @@ def _invoke_function(function_name: str, payload: dict) -> None:
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Successfully invoked {function_name}: {response.getcode()}")
     except urllib.error.HTTPError as e:
         # Read the error response body to get the actual error message
-        error_body = ""
-        try:
-            error_body = e.read().decode("utf-8")
-        except Exception:
-            pass
+        error_body = read_http_error_body(e)
         logging.error(f"Failed to invoke {function_name}: {e.code} {e.reason}")
         if error_body:
             logging.error(f"Error response from {function_name}: {error_body}")
@@ -142,7 +137,7 @@ def dispatcher(event: func.EventGridEvent) -> None:
     try:
         # Parse event data
         event_data = event.get_json()
-        logging.info(f"Event data: {json.dumps(event_data)}")
+        logging.info("Event received")
         
         # Extract device ID from event
         device_id = event_data.get("device_id") or event_data.get("iotDeviceId")

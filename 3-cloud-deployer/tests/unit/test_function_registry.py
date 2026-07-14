@@ -3,7 +3,6 @@ Tests for the function registry.
 
 Tests the new function registry system that replaces hardcoded function lists.
 """
-import pytest
 from src.function_registry import (
     STATIC_FUNCTIONS, Layer, FunctionDefinition,
     get_by_layer, get_by_provider, get_l0_for_config, get_terraform_output_map
@@ -37,7 +36,7 @@ class TestRegistryStructure:
                 assert f.boundary is None
                 continue
             assert f.boundary is not None, f"L0 function {f.name} missing boundary"
-            assert len(f.boundary) == 2, f"Boundary should be (source, target) tuple"
+            assert len(f.boundary) == 2, "Boundary should be (source, target) tuple"
     
     def test_safe_name_conversion(self):
         """safe_name should convert hyphens to underscores."""

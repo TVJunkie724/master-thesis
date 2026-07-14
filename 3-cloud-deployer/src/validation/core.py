@@ -16,7 +16,6 @@ import os
 import json
 import ast
 import re
-from pathlib import Path
 from typing import Dict, List, Set, Any, Optional, Protocol
 from dataclasses import dataclass, field
 
@@ -202,7 +201,7 @@ def check_required_files(accessor: FileAccessor, ctx: ValidationContext) -> None
             missing_files.append(required_file)
     
     if missing_files:
-        raise ValueError(f"Missing required configuration files:\n  ◦ " + "\n  ◦ ".join(missing_files))
+        raise ValueError("Missing required configuration files:\n  ◦ " + "\n  ◦ ".join(missing_files))
 
 
 def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None:
@@ -275,8 +274,11 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
                         ctx.iot_config = parsed
                     elif basename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
                         ctx.credentials_config = parsed
-                except:
-                    pass  # JSON parse failed, can't populate context
+                except json.JSONDecodeError:
+                    logger.debug(
+                        "Could not populate validation context from invalid %s",
+                        basename,
+                    )
                     
             except Exception as e:
                 all_errors.append(f"Validation failed for {basename}: {e}")
@@ -699,7 +701,7 @@ def check_payloads_vs_devices(accessor: FileAccessor, ctx: ValidationContext) ->
     
     if unknown_devices:
         raise ValueError(
-            f"Payload validation errors:\n  ◦ " + "\n  ◦ ".join(unknown_devices) +
+            "Payload validation errors:\n  ◦ " + "\n  ◦ ".join(unknown_devices) +
             f"\n\nValid devices: {sorted(valid_device_ids)}"
         )
 

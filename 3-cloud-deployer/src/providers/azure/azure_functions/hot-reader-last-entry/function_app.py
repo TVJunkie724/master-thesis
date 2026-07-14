@@ -105,8 +105,7 @@ def _query_last_entry(query_params: dict) -> dict:
     properties_metadata = query_params.get("properties", {})
     
     # Get IoT device ID from component
-    twin_info = _get_digital_twin_info()
-    twin_name = twin_info["config"]["digital_twin_name"]
+    _get_digital_twin_info()
     iot_device_id = component_name or entity_id
     
     # Query for the most recent item

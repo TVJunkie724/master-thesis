@@ -18,7 +18,6 @@ class TestAzureCredentialValidation:
     def test_check_azure_credentials_missing_fields(self):
         """Test validation fails with missing required fields."""
         from api.azure_credentials_checker import (
-            REQUIRED_AZURE_PERMISSIONS,
             check_azure_credentials,
         )
         
@@ -72,7 +71,7 @@ class TestAzureCredentialValidation:
         
         assert result["status"] == "valid"
         assert result["caller_identity"] is not None
-        assert result["can_list_roles"] == True
+        assert result["can_list_roles"]
 
     @patch('api.azure_credentials_checker._create_credential')
     @patch('api.azure_credentials_checker._get_caller_identity')

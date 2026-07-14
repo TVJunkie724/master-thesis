@@ -18,13 +18,22 @@ Usage:
     outputs = runner.output()
 """
 
-import subprocess
+import asyncio
+# The executable is fixed and every argument is validated before invocation.
+import subprocess  # nosec B404
 import json
 import logging
 from pathlib import Path
 from typing import Optional
 
+from src.core.observability import redact_sensitive
+
 logger = logging.getLogger(__name__)
+
+_ALLOWED_TERRAFORM_COMMANDS = frozenset(
+    {"apply", "destroy", "init", "output", "plan", "show", "state", "validate"}
+)
+_STATEFUL_COMMANDS = frozenset({"apply", "destroy", "output", "plan", "show"})
 
 
 class TerraformError(Exception):
@@ -75,6 +84,57 @@ class TerraformRunner:
         if self.state_path:
             return self.state_path.parent / "tfplan"
         return self.terraform_dir / "tfplan"
+
+    def _build_command(
+        self,
+        args: list[str],
+        *,
+        no_color: bool = False,
+    ) -> list[str]:
+        """Build one allowlisted Terraform command without shell interpretation."""
+        if not args:
+            raise ValueError("Terraform subcommand is required")
+        if args[0] not in _ALLOWED_TERRAFORM_COMMANDS:
+            raise ValueError(f"Terraform subcommand is not allowed: {args[0]}")
+        if any(
+            not isinstance(argument, str) or "\x00" in argument or "\n" in argument
+            for argument in args
+        ):
+            raise ValueError("Terraform arguments must be single-line strings")
+
+        subcommand = args[0]
+        command = ["terraform", f"-chdir={self.terraform_dir}", subcommand]
+        if subcommand == "state":
+            if len(args) != 2 or args[1] != "list":
+                raise ValueError("Only 'terraform state list' is allowed")
+            command.append("list")
+            if self.state_path:
+                command.append(f"-state={self.state_path}")
+            return command
+        if no_color:
+            command.append("-no-color")
+        if self.state_path and subcommand in _STATEFUL_COMMANDS:
+            command.append(f"-state={self.state_path}")
+        command.extend(args[1:])
+        return command
+
+    def state_list(self) -> subprocess.CompletedProcess:
+        """List resources from the isolated project state without cloud mutation."""
+        return self._run_command(["state", "list"], check=False)
+
+    def refresh_only_plan(self, var_file: str) -> subprocess.CompletedProcess:
+        """Run drift detection and preserve Terraform's detailed exit code."""
+        if not var_file:
+            raise ValueError("var_file is required")
+        return self._run_command(
+            [
+                "plan",
+                "-refresh-only",
+                "-detailed-exitcode",
+                f"-var-file={var_file}",
+            ],
+            check=False,
+        )
     
     def _run_command(
         self,
@@ -98,29 +158,14 @@ class TerraformRunner:
         Raises:
             TerraformError: If command fails and check=True
         """
-        # Build base command
-        cmd = ["terraform", f"-chdir={self.terraform_dir}"]
-        
-        # For stateful commands, insert -state flag AFTER the subcommand
-        # Terraform syntax: terraform -chdir=X <subcommand> -state=Y [other args]
-        stateful_commands = ["apply", "destroy", "plan", "output", "show", "import", "taint", "untaint"]
-        
-        if len(args) > 0:
-            subcommand = args[0]
-            cmd.append(subcommand)
-            
-            # Add state path for stateful commands (per-project isolation)
-            if self.state_path and subcommand in stateful_commands:
-                cmd.append(f"-state={self.state_path}")
-            
-            # Add remaining args
-            cmd.extend(args[1:])
+        cmd = self._build_command(args)
         
         logger.info(f"Running: {' '.join(cmd)}")
         
         if stream_output:
             # For long-running commands, stream output to console and capture for error handling
-            process = subprocess.Popen(
+            # Command comes exclusively from _build_command's allowlist.
+            process = subprocess.Popen(  # nosec B603
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -131,7 +176,7 @@ class TerraformRunner:
             # Stream output line by line and collect it
             output_lines = []
             for line in process.stdout:
-                print(line, end='', flush=True)
+                logger.info("%s", redact_sensitive(line.rstrip()))
                 output_lines.append(line)
             
             process.wait()
@@ -144,7 +189,8 @@ class TerraformRunner:
                 stderr=None
             )
         else:
-            result = subprocess.run(
+            # Command comes exclusively from _build_command's allowlist.
+            result = subprocess.run(  # nosec B603
                 cmd,
                 capture_output=capture_output,
                 text=True,
@@ -375,22 +421,7 @@ class TerraformRunner:
         Raises:
             TerraformError: If command fails
         """
-        import asyncio
-        
-        # Build base command (same logic as _run_command)
-        cmd = ["terraform", f"-chdir={self.terraform_dir}"]
-        stateful_commands = ["apply", "destroy", "plan", "output", "show", "import", "taint", "untaint"]
-        
-        if len(args) > 0:
-            subcommand = args[0]
-            cmd.append(subcommand)
-            # -no-color must come after the subcommand (it's a subcommand option, not global)
-            cmd.append("-no-color")
-            
-            if self.state_path and subcommand in stateful_commands:
-                cmd.append(f"-state={self.state_path}")
-            
-            cmd.extend(args[1:])
+        cmd = self._build_command(args, no_color=True)
         
         logger.info(f"Running (async): {' '.join(cmd)}")
         

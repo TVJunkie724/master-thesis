@@ -53,7 +53,7 @@ def _get_event_feedback_lambda_name():
 def lambda_handler(event, context):
     """Execute user processing logic and send feedback to IoT device."""
     logger.info("Event-Feedback Wrapper: Executing user logic...")
-    logger.info(f"Received event: {json.dumps(event)}")
+    logger.info("Event received")
     
     try:
         detail = event["detail"]
@@ -74,7 +74,7 @@ def lambda_handler(event, context):
                     Payload=json.dumps(payload).encode("utf-8")
                 )
                 processed_payload = json.loads(response['Payload'].read().decode("utf-8"))
-                logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
+                logger.info("User logic completed")
             except Exception as e:
                 logger.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
                 raise e

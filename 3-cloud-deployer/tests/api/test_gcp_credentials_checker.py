@@ -5,7 +5,6 @@ Tests the project state and billing validation logic with mocked GCP responses.
 """
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-import os
 from pathlib import Path
 
 

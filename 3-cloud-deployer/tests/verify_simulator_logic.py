@@ -2,13 +2,11 @@ import sys
 import os
 import json
 import unittest
-from unittest.mock import MagicMock, patch
 
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 import validator
-import iot_device_simulator.aws.globals as sim_globals
 
 class TestSimulatorLogic(unittest.TestCase):
 

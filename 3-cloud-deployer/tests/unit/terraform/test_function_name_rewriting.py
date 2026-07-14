@@ -5,8 +5,6 @@ Tests the _rewrite_azure_function_names function.
 Note: GCP and AWS renaming functions were removed as Terraform handles naming.
 """
 
-import pytest
-from pathlib import Path
 
 from src.providers.terraform.package_builder import (
     _rewrite_azure_function_names,

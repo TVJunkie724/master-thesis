@@ -12,7 +12,7 @@ from pathlib import Path
 
 from core.config_loader import ProjectConfigLoader
 from core.context import DeploymentContext
-from core.paths import get_project_root, resolve_deployment_paths, resolve_project_context_path
+from core.paths import get_project_root, resolve_deployment_paths
 
 def get_project_path() -> Path:
     """Get the project root path."""

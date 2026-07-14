@@ -8,14 +8,13 @@ Functions included: persister, event-checker
 """
 from _shared.env_utils import require_env
 from _shared.inter_cloud import post_to_remote
-from azure.cosmos import CosmosClient, PartitionKey
+from azure.cosmos import CosmosClient
 from azure.digitaltwins.core import DigitalTwinsClient
 from azure.identity import DefaultAzureCredential
 import azure.functions as func
 import json
 import logging
 import os
-import sys
 import urllib.error
 import urllib.request
 

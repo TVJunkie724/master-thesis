@@ -167,7 +167,7 @@ def main(request):
     
     try:
         event = request.get_json()
-        print("Event: " + json.dumps(event))
+        print("Event received")
         
         # After normalization, event has 'timestamp' field (canonical)
         if "timestamp" not in event:

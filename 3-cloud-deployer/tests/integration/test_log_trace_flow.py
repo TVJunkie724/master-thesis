@@ -10,9 +10,8 @@ Tests cover:
 - Timeout and error handling
 """
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 from datetime import datetime, timezone
-import json
 
 
 class TestCrossCloudLogAggregation:
@@ -233,7 +232,6 @@ class TestProviderScenarios:
     def test_aws_only_scenario(self):
         """AWS-only deployment (L1=AWS)."""
         providers = ["aws"]
-        expected_log_groups = ["l1-lambda", "iot-rule"]
         
         assert "aws" in providers
         assert len(providers) == 1

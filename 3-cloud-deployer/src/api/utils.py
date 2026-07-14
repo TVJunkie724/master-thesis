@@ -1,6 +1,5 @@
 import base64
-from fastapi import Request, HTTPException, UploadFile
-from api.dependencies import Base64FileRequest
+from fastapi import Request, HTTPException
 import json
 
 async def extract_file_content(request: Request, file_field: str = "file", base64_field: str = "file_base64") -> bytes:

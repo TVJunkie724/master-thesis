@@ -4,6 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from src.api import status
 
 
@@ -61,3 +63,40 @@ def test_drift_detection_uses_transient_tfvars_without_persisting_secrets(tmp_pa
     assert not generated_path.exists()
     assert f"-var-file={generated_path}" in command_args
     assert not (project / "terraform" / "generated.tfvars.json").exists()
+
+
+def test_drift_detection_redacts_terraform_diagnostics(tmp_path):
+    project = tmp_path / "upload" / "factory"
+    project.mkdir(parents=True)
+    completed = SimpleNamespace(
+        returncode=2,
+        stdout="azure_client_secret=sensitive-value",
+        stderr="",
+    )
+
+    with (
+        patch.object(status, "_get_upload_dir", return_value=str(project)),
+        patch.object(status, "generate_tfvars"),
+        patch.object(status, "_run_terraform_command", return_value=completed),
+    ):
+        result = status.check_terraform_drift("factory")
+
+    assert result["status"] == "drift_detected"
+    assert "sensitive-value" not in result["details"]
+    assert "<redacted>" in result["details"]
+
+
+def test_status_command_adapter_allows_only_read_only_contracts(tmp_path):
+    project = tmp_path / "upload" / "factory"
+    project.mkdir(parents=True)
+    state_result = SimpleNamespace(returncode=0, stdout="resource", stderr="")
+
+    with (
+        patch.object(status, "_get_upload_dir", return_value=str(project)),
+        patch.object(status.TerraformRunner, "state_list", return_value=state_result) as state_list,
+    ):
+        assert status._run_terraform_command(["state", "list"], "factory") is state_result
+        with pytest.raises(ValueError, match="Unsupported"):
+            status._run_terraform_command(["destroy", "-auto-approve"], "factory")
+
+    state_list.assert_called_once_with()

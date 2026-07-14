@@ -9,12 +9,9 @@ Tests that validation correctly identifies:
 Tests the fix from Phase 0 of the Zip Upload implementation plan.
 """
 import pytest
-from unittest.mock import MagicMock
 from src.validation.core import (
     check_processor_syntax,
-    _validate_entry_point_signature,
     ValidationContext,
-    FileAccessor,
 )
 
 

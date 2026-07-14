@@ -441,6 +441,14 @@ def _check_aws_account_status(session, account_id: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
+class PolicyInspectionDenied(Exception):
+    """Raised when IAM policy metadata cannot be inspected completely."""
+
+    def __init__(self, permission: str):
+        super().__init__(permission)
+        self.permission = permission
+
+
 def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
     """
     Get all permissions from attached policies.
@@ -537,6 +545,8 @@ def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
         else:
             return set(), "unknown_principal_type"
             
+    except PolicyInspectionDenied as e:
+        return set(), e.permission
     except ClientError as e:
         return set(), f"error:{e.response['Error']['Code']}"
     
@@ -546,16 +556,21 @@ def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
 def _get_policy_permissions(iam_client, policy_arn: str, permissions: set):
     """Get permissions from a managed policy and add to the set."""
     try:
-        # Get the policy version
         policy = iam_client.get_policy(PolicyArn=policy_arn)
-        version_id = policy["Policy"]["DefaultVersionId"]
-        
-        # Get the policy document
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] == "AccessDenied":
+            raise PolicyInspectionDenied("iam:GetPolicy") from exc
+        raise
+
+    version_id = policy["Policy"]["DefaultVersionId"]
+    try:
         version = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=version_id)
-        _extract_permissions(version["PolicyVersion"]["Document"], permissions)
-    except ClientError:
-        # Skip if we can't read the policy
-        pass
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] == "AccessDenied":
+            raise PolicyInspectionDenied("iam:GetPolicyVersion") from exc
+        raise
+
+    _extract_permissions(version["PolicyVersion"]["Document"], permissions)
 
 
 def _extract_permissions(policy_document: dict, permissions: set):

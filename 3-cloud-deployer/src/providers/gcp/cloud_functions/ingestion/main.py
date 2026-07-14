@@ -73,7 +73,7 @@ def main(request):
         
         # Normalize payload to canonical format (device_id, timestamp)
         payload = normalize_telemetry(payload)
-        print("Normalized payload: " + json.dumps(payload))
+        print("Payload normalized")
         
         # Get device ID to route to correct processor
         device_id = payload.get("device_id")
@@ -105,4 +105,3 @@ def main(request):
         print(f"Ingestion Error: {e}")
         traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
-

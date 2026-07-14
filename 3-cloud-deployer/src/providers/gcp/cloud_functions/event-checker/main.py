@@ -13,18 +13,17 @@ import sys
 import traceback
 import requests
 import functions_framework
-from google.cloud import firestore
 
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
-    from _shared.inter_cloud import get_id_token_headers, get_access_token_headers
+    from _shared.inter_cloud import get_access_token_headers, get_id_token_headers, validate_https_url
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.env_utils import require_env
-    from _shared.inter_cloud import get_id_token_headers, get_access_token_headers
+    from _shared.inter_cloud import get_access_token_headers, get_id_token_headers, validate_https_url
 
 
 class ConfigurationError(Exception):
@@ -249,6 +248,7 @@ def _trigger_action(event: dict, action: dict, condition = None) -> None:
         try:
             # Workflows API requires OAuth2 access tokens, not ID tokens
             workflow_payload = _build_workflow_payload(event, action)
+            validate_https_url(WORKFLOW_TRIGGER_URL)
             resp = requests.post(
                 WORKFLOW_TRIGGER_URL,
                 json={"argument": json.dumps(workflow_payload)},
@@ -367,7 +367,7 @@ def main(request):
     
     try:
         event = request.get_json()
-        print("Event: " + json.dumps(event))
+        print("Event received")
         
         # Get event rules from DIGITAL_TWIN_INFO
         event_rules = _get_digital_twin_info().get("config_events", [])
@@ -388,4 +388,3 @@ def main(request):
         print(f"Event Checker Error: {e}")
         traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
-

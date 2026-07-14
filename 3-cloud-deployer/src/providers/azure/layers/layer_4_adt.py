@@ -23,9 +23,8 @@ Note:
     handled by Terraform. This file handles SDK-managed dynamic resources.
 """
 
-from typing import TYPE_CHECKING, Optional, List, Dict, Any
+from typing import TYPE_CHECKING, Optional, Dict, Any
 import logging
-import json
 
 from azure.core.exceptions import (
     ResourceNotFoundError,
@@ -149,7 +148,7 @@ def check_twin(twin_id: str, provider: 'AzureProvider') -> bool:
     
     client = _get_adt_data_client(provider)
     if not client:
-        logger.info(f"✗ ADT instance not accessible")
+        logger.info("✗ ADT instance not accessible")
         return False
     
     try:
@@ -189,7 +188,7 @@ def check_model(model_id: str, provider: 'AzureProvider') -> bool:
     
     client = _get_adt_data_client(provider)
     if not client:
-        logger.info(f"✗ ADT instance not accessible")
+        logger.info("✗ ADT instance not accessible")
         return False
     
     try:

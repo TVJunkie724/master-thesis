@@ -15,13 +15,12 @@ Phases:
 import asyncio
 import json
 import os
-import sys
 import time
 import uuid
-import subprocess
+from collections import Counter
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import requests
 from fastapi import APIRouter, HTTPException, Query
@@ -31,6 +30,7 @@ from pydantic import BaseModel
 from logger import logger
 from core.config_loader import load_credentials
 from src.core.paths import resolve_project_context_path
+from src.core.observability import redact_sensitive
 
 # Reuse helpers from logs module
 from api.logs import _load_providers, _get_terraform_outputs, _send_test_message_via_simulator
@@ -245,8 +245,6 @@ def _check_cloud_logs(
     timeout: int, poll_interval: int
 ) -> dict:
     """Poll cloud logs for a specific pattern (event-checker, action, workflow, feedback)."""
-    start = time.time()
-
     if provider == "aws":
         return _check_aws_logs(search_pattern, step_name, outputs, credentials, timeout, poll_interval)
     elif provider == "azure":
@@ -267,7 +265,15 @@ def _check_aws_logs(
         return {"success": False, "error": "boto3 not available"}
 
     aws_creds = credentials.get("aws", {})
-    logs_client = boto3.client("logs")
+    client_args = {
+        key: aws_creds[key]
+        for key in ("aws_access_key_id", "aws_secret_access_key", "aws_session_token")
+        if aws_creds.get(key)
+    }
+    region = aws_creds.get("aws_region") or aws_creds.get("region_name")
+    if region:
+        client_args["region_name"] = region
+    logs_client = boto3.client("logs", **client_args)
     start = time.time()
 
     # Determine log group based on step name
@@ -460,7 +466,10 @@ async def verify_data_flow(
         optimization = _load_optimization_config(project_name)
         project_creds = load_credentials(project_path)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Config load failed: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Config load failed: {redact_sensitive(e)}",
+        )
 
     l1_provider = providers.get("layer_1_provider")
     if not l1_provider:
@@ -470,7 +479,7 @@ async def verify_data_flow(
 
     async def event_generator():
         total_start = time.time()
-        results = {"pass": 0, "fail": 0, "skip": 0}
+        results: Counter[str] = Counter()
         failed_phase = None
 
         # =====================================================================
@@ -746,7 +755,7 @@ async def verify_data_flow(
                 results["fail"] += 1
                 yield _sse_event("log", {
                     "timestamp": _timestamp(),
-                    "message": f"✗ Digital twin verification failed",
+                    "message": "✗ Digital twin verification failed",
                     "detail": twin_result.get("error", ""),
                     "status": "fail",
                 })
@@ -856,14 +865,15 @@ async def verify_data_flow(
             async for event in event_generator():
                 yield event
         except Exception as e:
-            logger.exception(f"Data flow verification crashed: {e}")
+            logger.exception("Data flow verification crashed: %s", redact_sensitive(e))
+            no_passes = 0
             yield _sse_event("log", {
                 "timestamp": _timestamp(),
-                "message": f"\u2717 Internal error: {e}",
+                "message": "\u2717 Internal verification error. Check redacted server logs.",
                 "status": "fail",
             })
             yield _sse_event("done", {
-                "pass_count": 0,
+                "pass_count": no_passes,
                 "fail_count": 1,
                 "skip_count": 0,
                 "total_time": round(time.time() - start, 1),

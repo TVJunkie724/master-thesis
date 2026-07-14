@@ -24,6 +24,7 @@ Function Types:
 - Event Feedback: Feedback function for sending responses back to devices
 """
 
+import ast
 import hashlib
 import json
 import os
@@ -890,8 +891,6 @@ def invalidate_function_cache(project_name: str) -> None:
 # ==========================================
 # Build Function ZIP Endpoint
 # ==========================================
-
-import ast
 
 
 def _validate_python_syntax(content: bytes, filename: str) -> None:

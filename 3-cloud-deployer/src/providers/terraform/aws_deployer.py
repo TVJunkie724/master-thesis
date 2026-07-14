@@ -8,15 +8,15 @@ TwinMaker entity creation, IoT Core device registration, and Grafana configurati
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Dict, Any
+from typing import TYPE_CHECKING
 from urllib.parse import unquote
+
+from src.function_registry import get_terraform_output_map
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
-
-from src.function_registry import get_terraform_output_map
 
 # Dynamically generated from function registry
 # Maps Terraform output keys to Lambda function directory names
@@ -327,8 +327,6 @@ def register_aws_iot_devices(
         raise RuntimeError("AWS provider not initialized - cannot register IoT devices")
     
     try:
-        import os
-        
         # Use pre-initialized client from provider
         iot = provider.clients["iot"]
         account_id = provider.clients["sts"].get_caller_identity()["Account"]
@@ -483,7 +481,6 @@ def _generate_aws_simulator_config(
         digital_twin_name: Name of the digital twin
         iot_endpoint: AWS IoT endpoint address
     """
-    import os
     
     device_id = iot_device['id']
     

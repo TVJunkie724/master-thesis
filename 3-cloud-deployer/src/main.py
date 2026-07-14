@@ -16,9 +16,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.factory import create_context
-from logger import logger
-from providers.deployer import deploy_all, destroy_all
+from core.factory import create_context  # noqa: E402 - supports direct script execution
+from logger import logger  # noqa: E402 - supports direct script execution
+from providers.deployer import deploy_all, destroy_all  # noqa: E402 - supports direct script execution
 
 
 VALID_PROVIDERS = {"aws", "azure", "gcp"}

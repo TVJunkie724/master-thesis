@@ -5,10 +5,9 @@ This module handles Azure Function App code deployment via Kudu,
 DTDL model upload, IoT device registration, and Grafana configuration.
 """
 
-import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext

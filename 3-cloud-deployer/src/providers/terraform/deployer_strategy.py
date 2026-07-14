@@ -23,15 +23,14 @@ Usage:
     strategy.destroy_all()
 """
 
-import json
 import logging
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Dict, TYPE_CHECKING
 
 from src.terraform_runner import TerraformRunner, TerraformError
 from src.tfvars_generator import generate_tfvars, ConfigurationError
-from src.core.config_loader import load_credentials, load_project_config, load_providers_config
+from src.core.config_loader import load_credentials, load_providers_config
 from src.api.deployment_trace import sanitize_deployment_message
 
 # Provider-specific deployers
@@ -825,7 +824,7 @@ class TerraformDeployerStrategy:
             logger.info(f"[Pre-Destroy] TwinMaker: Cleaning workspace {workspace_id}")
             
             if dry_run:
-                logger.info(f"  [DRY RUN] Would delete entities and component types")
+                logger.info("  [DRY RUN] Would delete entities and component types")
                 continue
             
             try:
@@ -851,9 +850,9 @@ class TerraformDeployerStrategy:
                         logger.info(f"  Waiting for {len(remaining)} entities ({remaining_time}s remaining)...")
                         time.sleep(3)
                     else:
-                        logger.warning(f"  Timeout waiting for entity deletion, proceeding anyway")
+                        logger.warning("  Timeout waiting for entity deletion, proceeding anyway")
                 else:
-                    logger.info(f"  No entities found")
+                    logger.info("  No entities found")
                 
                 # Delete component types (SDK-created, may still reference entities)
                 component_types = twinmaker.list_component_types(workspaceId=workspace_id).get('componentTypeSummaries', [])
@@ -901,10 +900,7 @@ class TerraformDeployerStrategy:
         max_retries: int
     ) -> Dict[str, bool]:
         """Run provider-specific SDK cleanup IN PARALLEL."""
-        import time
-        import threading
         from concurrent.futures import ThreadPoolExecutor
-        from typing import Callable
         
         credentials = context.credentials
         providers_config = context.config.providers  # Use context, not file loading

@@ -80,11 +80,11 @@ def extract_and_analyze(zip_bytes, label):
             print(f"\nFunction modules found: {sorted(module_folders)}")
             
             # Check Blueprint structure
-            print(f"\nBlueprint Analysis:")
+            print("\nBlueprint Analysis:")
             print(f"  - Has Blueprint imports: {'✓' if results['has_blueprint_imports'] else '✗'}")
             print(f"  - Has register_functions calls: {'✓' if results['has_register_calls'] else '✗'}")
             if results["modules"]:
-                print(f"  - Import statements:")
+                print("  - Import statements:")
                 for m in results["modules"]:
                     print(f"      {m}")
     
@@ -184,7 +184,7 @@ def main():
     print("SUMMARY")
     print("="*70)
     
-    print(f"\nZIP Sizes:")
+    print("\nZIP Sizes:")
     print(f"  L0 Glue:  {l0_results['size'] if l0_results else 'N/A':>10} bytes")
     print(f"  L2:       {l2_results['size'] if l2_results else 'N/A':>10} bytes")
     print(f"  User:     {user_results['size'] if user_results else 'N/A':>10} bytes")
@@ -194,7 +194,7 @@ def main():
         for issue in issues:
             print(f"  - {issue}")
     else:
-        print(f"\n✅ All checks passed!")
+        print("\n✅ All checks passed!")
     
     return all_passed
 

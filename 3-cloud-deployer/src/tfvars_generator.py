@@ -24,7 +24,6 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
 from src.core.config_loader import load_optimization_flags
 
@@ -103,7 +102,7 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
             scene_assets_path = str(scene_assets_dir)
             logger.info(f"  3D scene assets enabled: {scene_assets_path}")
         else:
-            logger.warning(f"  needs3DModel=true but scene_assets/ not found")
+            logger.warning("  needs3DModel=true but scene_assets/ not found")
     
     tfvars.update({
         "use_event_checking": optimization_flags["useEventChecking"],

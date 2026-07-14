@@ -27,7 +27,6 @@ import requests
 from azure.core.exceptions import (
     ResourceNotFoundError,
     ClientAuthenticationError,
-    HttpResponseError,
     AzureError
 )
 

@@ -25,7 +25,7 @@ lambda_client = boto3.client("lambda")
 
 def lambda_handler(event, context):
     print("Hello from Dispatcher!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
 
     try:
         # Normalize event to canonical format (device_id, timestamp)

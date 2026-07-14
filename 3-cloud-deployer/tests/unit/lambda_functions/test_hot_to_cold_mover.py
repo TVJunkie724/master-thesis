@@ -10,8 +10,7 @@ import os
 import sys
 import json
 import unittest
-from unittest.mock import patch, MagicMock, call
-from decimal import Decimal
+from unittest.mock import patch, MagicMock
 import importlib.util
 
 
@@ -211,7 +210,7 @@ class TestHotToColdMoverCrossCloud(unittest.TestCase):
     def test_posts_to_remote_cross_cloud(self, mock_post_raw):
         """Mover should POST to remote Cold Writer when L3-Cold is on different cloud."""
         # Reload with patched post_raw
-        with patch("_shared.inter_cloud.post_raw") as mock_post:
+        with patch("_shared.inter_cloud.post_raw"):
             # Need to reload module to pick up the patch
             module = load_lambda_module(MOVER_PATH)
             

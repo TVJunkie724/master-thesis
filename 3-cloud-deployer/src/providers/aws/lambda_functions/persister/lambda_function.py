@@ -202,7 +202,7 @@ def lambda_handler(event, context):
         ConfigurationError: If multi-cloud config is invalid
     """
     print("Hello from Persister!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
 
     try:
         # Fail-fast validation
