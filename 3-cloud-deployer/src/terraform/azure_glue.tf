@@ -30,7 +30,7 @@ resource "azurerm_service_plan" "l0" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1"  # Consumption plan
+  sku_name            = "Y1" # Consumption plan
 
   tags = local.common_tags
 }
@@ -77,9 +77,9 @@ resource "azurerm_linux_function_app" "l0_glue" {
     # Azure Functions runtime settings
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
-    AzureWebJobsStorage           = local.azure_storage_connection_string
+    AzureWebJobsStorage            = local.azure_storage_connection_string
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    ENABLE_ORYX_BUILD              = "true" # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Code version hash - triggers update-in-place when ZIP content changes

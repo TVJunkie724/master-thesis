@@ -22,17 +22,17 @@
 # ==============================================================================
 
 resource "google_firestore_database" "main" {
-  count      = local.gcp_l3_hot_enabled ? 1 : 0
-  project    = local.gcp_project_id
+  count   = local.gcp_l3_hot_enabled ? 1 : 0
+  project = local.gcp_project_id
   # Use unique database ID per digital twin with shared deployment suffix
   # Note: Database IDs must be 1-63 chars, lowercase letters, numbers, hyphens
-  name       = local.gcp_l3_firestore_database
+  name        = local.gcp_l3_firestore_database
   location_id = var.gcp_region
-  type       = "FIRESTORE_NATIVE"
-  
+  type        = "FIRESTORE_NATIVE"
+
   # Allow deletion without protection
   deletion_policy = "DELETE"
-  
+
   depends_on = [google_project_service.firestore]
 }
 
@@ -72,14 +72,14 @@ resource "google_storage_bucket" "cold" {
   location      = var.gcp_region
   storage_class = "NEARLINE"
   force_destroy = true
-  
+
   uniform_bucket_level_access = true
-  
+
   # Disable soft-delete to allow immediate bucket name reuse
   soft_delete_policy {
     retention_duration_seconds = 0
   }
-  
+
   # Lifecycle: Move to Archive after cold_to_archive_interval_days
   lifecycle_rule {
     condition {
@@ -90,9 +90,9 @@ resource "google_storage_bucket" "cold" {
       storage_class = "ARCHIVE"
     }
   }
-  
+
   labels = local.gcp_common_labels
-  
+
   depends_on = [google_project_service.storage]
 }
 
@@ -107,16 +107,16 @@ resource "google_storage_bucket" "archive" {
   location      = var.gcp_region
   storage_class = "ARCHIVE"
   force_destroy = true
-  
+
   uniform_bucket_level_access = true
-  
+
   # Disable soft-delete to allow immediate bucket name reuse
   soft_delete_policy {
     retention_duration_seconds = 0
   }
-  
+
   labels = local.gcp_common_labels
-  
+
   depends_on = [google_project_service.storage]
 }
 
@@ -155,7 +155,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -170,7 +170,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
@@ -204,7 +204,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -217,9 +217,9 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
     max_instance_count    = 1
     min_instance_count    = 0
     available_memory      = "512M"
-    timeout_seconds       = 540  # 9 minutes for batch processing
+    timeout_seconds       = 540 # 9 minutes for batch processing
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
@@ -259,17 +259,17 @@ resource "google_cloud_scheduler_job" "hot_to_cold" {
   name     = local.gcp_l3_hot_to_cold_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
-  schedule = "0 2 * * *"  # Run daily at 2 AM
-  
+  schedule = "0 2 * * *" # Run daily at 2 AM
+
   http_target {
     uri         = google_cloudfunctions2_function.hot_to_cold_mover[0].url
     http_method = "POST"
-    
+
     oidc_token {
       service_account_email = google_service_account.functions[0].email
     }
   }
-  
+
   depends_on = [google_project_service.cloudscheduler]
 }
 
@@ -319,7 +319,7 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -332,9 +332,9 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
     max_instance_count    = 1
     min_instance_count    = 0
     available_memory      = "512M"
-    timeout_seconds       = 540  # 9 minutes for batch processing
+    timeout_seconds       = 540 # 9 minutes for batch processing
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME   = var.digital_twin_name
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
@@ -373,17 +373,17 @@ resource "google_cloud_scheduler_job" "cold_to_archive" {
   name     = local.gcp_l3_cold_to_archive_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
-  schedule = "0 3 * * 0"  # Run weekly on Sunday at 3 AM
-  
+  schedule = "0 3 * * 0" # Run weekly on Sunday at 3 AM
+
   http_target {
     uri         = google_cloudfunctions2_function.cold_to_archive_mover[0].url
     http_method = "POST"
-    
+
     oidc_token {
       service_account_email = google_service_account.functions[0].email
     }
   }
-  
+
   depends_on = [google_project_service.cloudscheduler]
 }
 

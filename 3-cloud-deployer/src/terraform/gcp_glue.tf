@@ -37,7 +37,7 @@ resource "google_cloudfunctions2_function" "ingestion" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -52,7 +52,7 @@ resource "google_cloudfunctions2_function" "ingestion" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME = var.digital_twin_name
       DIGITAL_TWIN_INFO = var.digital_twin_info_json
@@ -95,7 +95,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -110,7 +110,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
@@ -154,7 +154,7 @@ resource "google_cloudfunctions2_function" "cold_writer" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -169,7 +169,7 @@ resource "google_cloudfunctions2_function" "cold_writer" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME = var.digital_twin_name
       COLD_BUCKET       = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : ""
@@ -210,7 +210,7 @@ resource "google_cloudfunctions2_function" "archive_writer" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -225,10 +225,10 @@ resource "google_cloudfunctions2_function" "archive_writer" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME = var.digital_twin_name
-      ARCHIVE_BUCKET    = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : (
+      ARCHIVE_BUCKET = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : (
         local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
       )
       INTER_CLOUD_TOKEN = local.inter_cloud_token_value
@@ -253,7 +253,7 @@ resource "google_cloud_run_service_iam_member" "ingestion_invoker" {
   location = var.gcp_region
   service  = google_cloudfunctions2_function.ingestion[0].name
   role     = "roles/run.invoker"
-  member   = "allUsers"  # Allow unauthenticated for cross-cloud (token validation in function)
+  member   = "allUsers" # Allow unauthenticated for cross-cloud (token validation in function)
 }
 
 resource "google_cloud_run_service_iam_member" "hot_writer_invoker" {

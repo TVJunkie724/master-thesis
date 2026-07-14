@@ -240,25 +240,25 @@ variable "layer_3_cold_to_archive_interval_days" {
 variable "trigger_notification_workflow" {
   description = "Enable notification workflows (Logic Apps/Step Functions)"
   type        = bool
-  default     = false  # Disabled by default for testing
+  default     = false # Disabled by default for testing
 }
 
 variable "logic_app_definition_file" {
   description = "Path to the Logic App workflow definition JSON file (set by tfvars_generator.py)"
   type        = string
-  default     = ""  # Set dynamically based on project path
+  default     = "" # Set dynamically based on project path
 }
 
 variable "step_function_definition_file" {
   description = "Path to the AWS Step Functions definition JSON file (set by tfvars_generator.py)"
   type        = string
-  default     = ""  # Set dynamically based on project path
+  default     = "" # Set dynamically based on project path
 }
 
 variable "gcp_workflow_definition_file" {
   description = "Path to the GCP Workflows definition YAML file (set by tfvars_generator.py)"
   type        = string
-  default     = ""  # Set dynamically based on project path
+  default     = "" # Set dynamically based on project path
 }
 
 variable "use_event_checking" {
@@ -319,7 +319,7 @@ variable "events" {
 variable "gcp_processors" {
   description = "List of processor configurations for GCP deployment"
   type = list(object({
-    name = string
+    name     = string
     zip_path = string
   }))
   default = []
@@ -328,7 +328,7 @@ variable "gcp_processors" {
 variable "gcp_event_actions" {
   description = "List of event action configurations for GCP deployment"
   type = list(object({
-    name = string
+    name     = string
     zip_path = string
   }))
   default = []

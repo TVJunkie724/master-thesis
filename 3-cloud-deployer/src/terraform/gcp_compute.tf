@@ -35,7 +35,7 @@ resource "google_cloudfunctions2_function" "persister" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -50,14 +50,14 @@ resource "google_cloudfunctions2_function" "persister" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
-      DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
-      GCP_PROJECT_ID         = local.gcp_project_id
-      FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
-      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
-      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
+      DIGITAL_TWIN_NAME    = var.digital_twin_name
+      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
+      GCP_PROJECT_ID       = local.gcp_project_id
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE   = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
 
       # Multi-cloud L2→L3: When GCP L2 sends to remote L3
       REMOTE_WRITER_URL = var.layer_2_provider == "google" && var.layer_3_hot_provider != "google" ? (
@@ -127,7 +127,7 @@ resource "google_cloudfunctions2_function" "connector" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -142,7 +142,7 @@ resource "google_cloudfunctions2_function" "connector" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_INFO = var.digital_twin_info_json
       INTER_CLOUD_TOKEN = local.inter_cloud_token_value
@@ -183,7 +183,7 @@ resource "google_cloud_run_service_iam_member" "connector_invoker" {
 # ==============================================================================
 
 resource "google_storage_bucket_object" "event_checker_source" {
-  count  = local.gcp_l2_enabled && var.use_event_checking ? 1 : 0
+  count = local.gcp_l2_enabled && var.use_event_checking ? 1 : 0
   # Use try() to gracefully fallback when file doesn't exist (count=0 case)
   name   = "event-checker-${try(filemd5("${var.project_path}/.build/gcp/event-checker.zip"), "disabled")}.zip"
   bucket = google_storage_bucket.function_source[0].name
@@ -203,7 +203,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -218,7 +218,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME     = var.digital_twin_name
       DIGITAL_TWIN_INFO     = var.digital_twin_info_json
@@ -226,14 +226,14 @@ resource "google_cloudfunctions2_function" "event_checker" {
       INTER_CLOUD_TOKEN     = local.inter_cloud_token_value
       GCP_FUNCTION_BASE_URL = local.gcp_function_base_url
       # Workflow trigger URL (if enabled)
-      WORKFLOW_TRIGGER_URL  = var.trigger_notification_workflow ? (
+      WORKFLOW_TRIGGER_URL = var.trigger_notification_workflow ? (
         local.gcp_l2_event_workflow_url
       ) : ""
       # Feedback function URL (if enabled)
       FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? (
         local.gcp_l2_event_feedback_url
       ) : ""
-      USE_FEEDBACK          = var.return_feedback_to_device ? "true" : "false"
+      USE_FEEDBACK = var.return_feedback_to_device ? "true" : "false"
     }
   }
 
@@ -254,7 +254,7 @@ resource "google_project_service" "workflows" {
   count   = local.gcp_l2_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   project = local.gcp_project_id
   service = "workflows.googleapis.com"
-  
+
   disable_on_destroy = false
 }
 
@@ -263,13 +263,13 @@ resource "google_project_service" "workflows" {
 # ==============================================================================
 
 resource "google_workflows_workflow" "event_workflow" {
-  count    = local.gcp_l2_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name     = local.gcp_l2_event_workflow_name
-  region   = var.gcp_region
-  project  = local.gcp_project_id
-  
+  count   = local.gcp_l2_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
+  name    = local.gcp_l2_event_workflow_name
+  region  = var.gcp_region
+  project = local.gcp_project_id
+
   service_account = google_service_account.functions[0].email
-  
+
   # Load definition from file as raw YAML (no placeholder processing)
   # User's workflow is deployed exactly as they uploaded it
   source_contents = var.gcp_workflow_definition_file != "" ? file(var.gcp_workflow_definition_file) : <<-EOT
@@ -305,8 +305,8 @@ resource "google_workflows_workflow" "event_workflow" {
 # ==============================================================================
 
 resource "google_storage_bucket_object" "processor_wrapper_source" {
-  count  = local.gcp_l2_enabled ? 1 : 0
-  
+  count = local.gcp_l2_enabled ? 1 : 0
+
   name   = "processor-wrapper-${filemd5("${var.project_path}/.build/gcp/processor_wrapper.zip")}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = "${var.project_path}/.build/gcp/processor_wrapper.zip"
@@ -321,7 +321,7 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -336,7 +336,7 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
@@ -369,7 +369,7 @@ resource "google_cloud_run_service_iam_member" "processor_wrapper_invoker" {
 
 resource "google_storage_bucket_object" "processor_source" {
   for_each = { for p in var.gcp_processors : p.name => p }
-  
+
   name   = "processor-${each.value.name}-${filemd5(each.value.zip_path)}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = each.value.zip_path
@@ -377,7 +377,7 @@ resource "google_storage_bucket_object" "processor_source" {
 
 resource "google_cloudfunctions2_function" "processor" {
   for_each = { for p in var.gcp_processors : p.name => p }
-  
+
   name     = format(local.gcp_l2_processor_name_pattern, each.value.name)
   location = var.gcp_region
   project  = local.gcp_project_id
@@ -385,7 +385,7 @@ resource "google_cloudfunctions2_function" "processor" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -400,7 +400,7 @@ resource "google_cloudfunctions2_function" "processor" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
@@ -423,7 +423,7 @@ resource "google_cloudfunctions2_function" "processor" {
 
 resource "google_cloud_run_service_iam_member" "processor_invoker" {
   for_each = { for p in var.gcp_processors : p.name => p }
-  
+
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.processor[each.key].name
@@ -437,7 +437,7 @@ resource "google_cloud_run_service_iam_member" "processor_invoker" {
 
 resource "google_storage_bucket_object" "event_action_source" {
   for_each = { for a in var.gcp_event_actions : a.name => a }
-  
+
   name   = "event-action-${each.value.name}-${filemd5(each.value.zip_path)}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = each.value.zip_path
@@ -445,7 +445,7 @@ resource "google_storage_bucket_object" "event_action_source" {
 
 resource "google_cloudfunctions2_function" "event_action" {
   for_each = { for a in var.gcp_event_actions : a.name => a }
-  
+
   name     = format(local.gcp_l2_event_action_pattern, each.value.name)
   location = var.gcp_region
   project  = local.gcp_project_id
@@ -453,7 +453,7 @@ resource "google_cloudfunctions2_function" "event_action" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -468,14 +468,14 @@ resource "google_cloudfunctions2_function" "event_action" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
-      DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
-      GCP_PROJECT_ID         = local.gcp_project_id
-      FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
-      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
-      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
+      DIGITAL_TWIN_NAME    = var.digital_twin_name
+      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
+      GCP_PROJECT_ID       = local.gcp_project_id
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE   = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
     }
   }
 
@@ -490,7 +490,7 @@ resource "google_cloudfunctions2_function" "event_action" {
 
 resource "google_cloud_run_service_iam_member" "event_action_invoker" {
   for_each = { for a in var.gcp_event_actions : a.name => a }
-  
+
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.event_action[each.key].name
@@ -503,16 +503,16 @@ resource "google_cloud_run_service_iam_member" "event_action_invoker" {
 # ==============================================================================
 
 resource "google_storage_bucket_object" "event_feedback_source" {
-  count  = var.gcp_event_feedback_enabled ? 1 : 0
-  
+  count = var.gcp_event_feedback_enabled ? 1 : 0
+
   name   = "event-feedback-${filemd5(var.gcp_event_feedback_zip_path)}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = var.gcp_event_feedback_zip_path
 }
 
 resource "google_cloudfunctions2_function" "event_feedback" {
-  count    = var.gcp_event_feedback_enabled ? 1 : 0
-  
+  count = var.gcp_event_feedback_enabled ? 1 : 0
+
   name     = local.gcp_l2_event_feedback_name
   location = var.gcp_region
   project  = local.gcp_project_id
@@ -520,7 +520,7 @@ resource "google_cloudfunctions2_function" "event_feedback" {
   build_config {
     runtime     = local.python_runtime_gcp
     entry_point = "main"
-    
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_source[0].name
@@ -535,15 +535,15 @@ resource "google_cloudfunctions2_function" "event_feedback" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
-    
+
     environment_variables = {
-      DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
-      GCP_PROJECT_ID         = local.gcp_project_id
-      FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
-      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
-      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
-      
+      DIGITAL_TWIN_NAME    = var.digital_twin_name
+      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
+      GCP_PROJECT_ID       = local.gcp_project_id
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE   = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
+
       # IoT Core vars - required for event_feedback_wrapper to send commands to devices
       GCP_IOT_REGION              = var.gcp_region
       GCP_IOT_REGISTRY_ID         = local.gcp_l1_registry_id
@@ -561,8 +561,8 @@ resource "google_cloudfunctions2_function" "event_feedback" {
 }
 
 resource "google_cloud_run_service_iam_member" "event_feedback_invoker" {
-  count    = var.gcp_event_feedback_enabled ? 1 : 0
-  
+  count = var.gcp_event_feedback_enabled ? 1 : 0
+
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.event_feedback[0].name

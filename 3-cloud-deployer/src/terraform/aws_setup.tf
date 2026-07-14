@@ -19,7 +19,7 @@ locals {
     Environment = var.environment
     ManagedBy   = "terraform"
   }
-  
+
   # Determine if any layer uses AWS
   aws_enabled = (
     var.layer_1_provider == "aws" ||
@@ -59,21 +59,21 @@ locals {
   aws_l1_iot_topic_pattern        = "dt/${var.digital_twin_name}/+/telemetry"
 
   # L2 Compute
-  aws_l2_role_name               = "${var.digital_twin_name}-l2-lambda-role"
-  aws_l2_dynamodb_policy_name    = "${var.digital_twin_name}-l2-dynamodb-policy"
-  aws_l2_s3_policy_name          = "${var.digital_twin_name}-l2-s3-policy"
-  aws_l2_invoke_policy_name      = "${var.digital_twin_name}-l2-invoke-policy"
-  aws_l2_persister_function_name = "${var.digital_twin_name}-l2-persister"
-  aws_l2_event_checker_name      = "${var.digital_twin_name}-l2-event-checker"
-  aws_l2_processor_function_name = "${var.digital_twin_name}-processor"
-  aws_l2_processor_name_pattern  = "${var.digital_twin_name}-%s-processor"
+  aws_l2_role_name                 = "${var.digital_twin_name}-l2-lambda-role"
+  aws_l2_dynamodb_policy_name      = "${var.digital_twin_name}-l2-dynamodb-policy"
+  aws_l2_s3_policy_name            = "${var.digital_twin_name}-l2-s3-policy"
+  aws_l2_invoke_policy_name        = "${var.digital_twin_name}-l2-invoke-policy"
+  aws_l2_persister_function_name   = "${var.digital_twin_name}-l2-persister"
+  aws_l2_event_checker_name        = "${var.digital_twin_name}-l2-event-checker"
+  aws_l2_processor_function_name   = "${var.digital_twin_name}-processor"
+  aws_l2_processor_name_pattern    = "${var.digital_twin_name}-%s-processor"
   aws_l2_event_action_name_pattern = "${var.digital_twin_name}-%s"
-  aws_l2_event_workflow_name     = "${var.digital_twin_name}-l2-event-workflow"
-  aws_l2_sfn_role_name           = "${var.digital_twin_name}-l2-sfn-role"
-  aws_l2_sfn_policy_name         = "${var.digital_twin_name}-l2-sfn-lambda-policy"
-  aws_l2_feedback_wrapper_name   = "${var.digital_twin_name}-event-feedback-wrapper"
-  aws_l2_event_feedback_name     = "${var.digital_twin_name}-event-feedback"
-  aws_l2_iot_publish_policy_name = "${var.digital_twin_name}-l2-iot-publish-policy"
+  aws_l2_event_workflow_name       = "${var.digital_twin_name}-l2-event-workflow"
+  aws_l2_sfn_role_name             = "${var.digital_twin_name}-l2-sfn-role"
+  aws_l2_sfn_policy_name           = "${var.digital_twin_name}-l2-sfn-lambda-policy"
+  aws_l2_feedback_wrapper_name     = "${var.digital_twin_name}-event-feedback-wrapper"
+  aws_l2_event_feedback_name       = "${var.digital_twin_name}-event-feedback"
+  aws_l2_iot_publish_policy_name   = "${var.digital_twin_name}-l2-iot-publish-policy"
 
   # L3 Storage
   aws_l3_dynamodb_table_name      = "${var.digital_twin_name}-${local.storage_tier_hot}"

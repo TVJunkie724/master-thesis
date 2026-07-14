@@ -23,39 +23,39 @@ locals {
     environment  = var.environment
     managed-by   = "terraform"
   }
-  
+
   # Dual-mode detection: private account (existing project) vs org account (auto-create)
   gcp_use_existing_project = var.gcp_project_id != ""
-  
+
   # Generated project ID (for org account mode)
   gcp_generated_project_id = "${var.digital_twin_name}-project"
-  
+
   # Unified project ID - used by all other GCP resources
   # Uses existing project if provided, otherwise uses the auto-created one
   gcp_project_id = local.gcp_use_existing_project ? var.gcp_project_id : (
     local.deploy_gcp && !local.gcp_use_existing_project ? google_project.main[0].project_id : ""
   )
-  
+
   # GCP-specific layer checks
-  gcp_l1_enabled           = var.layer_1_provider == "google"
-  gcp_l2_enabled           = var.layer_2_provider == "google"
-  gcp_l3_hot_enabled       = var.layer_3_hot_provider == "google"
-  gcp_l3_cold_enabled      = var.layer_3_cold_provider == "google"
-  gcp_l3_archive_enabled   = var.layer_3_archive_provider == "google"
-  
+  gcp_l1_enabled         = var.layer_1_provider == "google"
+  gcp_l2_enabled         = var.layer_2_provider == "google"
+  gcp_l3_hot_enabled     = var.layer_3_hot_provider == "google"
+  gcp_l3_cold_enabled    = var.layer_3_cold_provider == "google"
+  gcp_l3_archive_enabled = var.layer_3_archive_provider == "google"
+
   # Multi-cloud detection for GCP
-  gcp_needs_ingestion = local.gcp_l2_enabled && var.layer_1_provider != "google"
-  gcp_needs_hot_writer = local.gcp_l3_hot_enabled && var.layer_2_provider != "google"
-  gcp_needs_cold_writer = local.gcp_l3_cold_enabled && var.layer_3_hot_provider != "google"
+  gcp_needs_ingestion      = local.gcp_l2_enabled && var.layer_1_provider != "google"
+  gcp_needs_hot_writer     = local.gcp_l3_hot_enabled && var.layer_2_provider != "google"
+  gcp_needs_cold_writer    = local.gcp_l3_cold_enabled && var.layer_3_hot_provider != "google"
   gcp_needs_archive_writer = local.gcp_l3_archive_enabled && var.layer_3_cold_provider != "google"
   gcp_needs_hot_reader = (
     (var.layer_4_provider != "google" && var.layer_4_provider != "" && local.gcp_l3_hot_enabled) ||
     (var.layer_5_provider != "google" && var.layer_5_provider != "" && local.gcp_l3_hot_enabled)
   )
-  
+
   # Base URL for GCP Cloud Functions
   gcp_function_base_url = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
-  
+
   # Firestore database name with random suffix (used by Cloud Functions)
   # This must match the actual database ID created in gcp_storage.tf
   gcp_firestore_database_name = local.gcp_l3_hot_enabled ? google_firestore_database.main[0].name : ""
@@ -76,9 +76,9 @@ locals {
   gcp_function_source_bucket = "${local.gcp_project_id}-${var.digital_twin_name}-func-${local.deployment_suffix}"
 
   # L0 Glue
-  gcp_l0_ingestion_name    = "${var.digital_twin_name}-ingestion"
-  gcp_l0_hot_writer_name   = "${var.digital_twin_name}-hot-writer"
-  gcp_l0_cold_writer_name  = "${var.digital_twin_name}-cold-writer"
+  gcp_l0_ingestion_name      = "${var.digital_twin_name}-ingestion"
+  gcp_l0_hot_writer_name     = "${var.digital_twin_name}-hot-writer"
+  gcp_l0_cold_writer_name    = "${var.digital_twin_name}-cold-writer"
   gcp_l0_archive_writer_name = "${var.digital_twin_name}-archive-writer"
 
   # L1 IoT
@@ -89,31 +89,31 @@ locals {
   gcp_l1_simulator_sa_id = substr("${var.digital_twin_name}-simulator", 0, 30)
 
   # L2 Compute
-  gcp_l2_persister_name       = "${var.digital_twin_name}-persister"
-  gcp_l2_connector_name       = "${var.digital_twin_name}-connector"
-  gcp_l2_event_checker_name   = "${var.digital_twin_name}-event-checker"
-  gcp_l2_event_workflow_name  = "${var.digital_twin_name}-event-workflow"
-  gcp_l2_processor_name       = "${var.digital_twin_name}-processor"
+  gcp_l2_persister_name         = "${var.digital_twin_name}-persister"
+  gcp_l2_connector_name         = "${var.digital_twin_name}-connector"
+  gcp_l2_event_checker_name     = "${var.digital_twin_name}-event-checker"
+  gcp_l2_event_workflow_name    = "${var.digital_twin_name}-event-workflow"
+  gcp_l2_processor_name         = "${var.digital_twin_name}-processor"
   gcp_l2_processor_name_pattern = "${var.digital_twin_name}-%s-processor"
-  gcp_l2_event_action_pattern = "${var.digital_twin_name}-event-action-%s"
-  gcp_l2_event_feedback_name  = "${var.digital_twin_name}-event-feedback"
+  gcp_l2_event_action_pattern   = "${var.digital_twin_name}-event-action-%s"
+  gcp_l2_event_feedback_name    = "${var.digital_twin_name}-event-feedback"
 
   # L3 Storage
-  gcp_l3_firestore_database = "${var.digital_twin_name}-${local.deployment_suffix}"
-  gcp_l3_firestore_collection = "${var.digital_twin_name}-hot-data"
-  gcp_l3_cold_bucket         = "${local.gcp_project_id}-${var.digital_twin_name}-cold-${local.deployment_suffix}"
-  gcp_l3_archive_bucket      = "${local.gcp_project_id}-${var.digital_twin_name}-archive-${local.deployment_suffix}"
-  gcp_l3_hot_reader_name     = "${var.digital_twin_name}-hot-reader"
-  gcp_l3_hot_to_cold_mover   = "${var.digital_twin_name}-hot-to-cold-mover"
-  gcp_l3_hot_to_cold_schedule = "${var.digital_twin_name}-hot-to-cold-schedule"
-  gcp_l3_cold_to_archive_mover = "${var.digital_twin_name}-cold-to-archive-mover"
+  gcp_l3_firestore_database       = "${var.digital_twin_name}-${local.deployment_suffix}"
+  gcp_l3_firestore_collection     = "${var.digital_twin_name}-hot-data"
+  gcp_l3_cold_bucket              = "${local.gcp_project_id}-${var.digital_twin_name}-cold-${local.deployment_suffix}"
+  gcp_l3_archive_bucket           = "${local.gcp_project_id}-${var.digital_twin_name}-archive-${local.deployment_suffix}"
+  gcp_l3_hot_reader_name          = "${var.digital_twin_name}-hot-reader"
+  gcp_l3_hot_to_cold_mover        = "${var.digital_twin_name}-hot-to-cold-mover"
+  gcp_l3_hot_to_cold_schedule     = "${var.digital_twin_name}-hot-to-cold-schedule"
+  gcp_l3_cold_to_archive_mover    = "${var.digital_twin_name}-cold-to-archive-mover"
   gcp_l3_cold_to_archive_schedule = "${var.digital_twin_name}-cold-to-archive-schedule"
 
   # ===========================================================================
   # GCP URLs - Centralized function URLs
   # ===========================================================================
 
-  gcp_l2_event_checker_url = "${local.gcp_function_base_url}/${local.gcp_l2_event_checker_name}"
+  gcp_l2_event_checker_url  = "${local.gcp_function_base_url}/${local.gcp_l2_event_checker_name}"
   gcp_l2_event_feedback_url = "${local.gcp_function_base_url}/${local.gcp_l2_event_feedback_name}"
   gcp_l2_event_workflow_url = "https://workflowexecutions.googleapis.com/v1/projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${local.gcp_l2_event_workflow_name}/executions"
 }
@@ -141,7 +141,7 @@ resource "google_project_service" "cloudresourcemanager" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "cloudresourcemanager.googleapis.com"
-  
+
   disable_on_destroy = false
 }
 
@@ -149,81 +149,81 @@ resource "google_project_service" "pubsub" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "pubsub.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "cloudfunctions" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "cloudfunctions.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "run" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "run.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "firestore" {
   count   = local.gcp_l3_hot_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "firestore.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "storage" {
   count   = local.gcp_l3_cold_enabled || local.gcp_l3_archive_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "storage.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "eventarc" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "eventarc.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "cloudbuild" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "cloudbuild.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "cloudscheduler" {
   count   = local.gcp_l3_hot_enabled || local.gcp_l3_cold_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudscheduler.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "iam" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "iam.googleapis.com"
-  
+
   disable_on_destroy = false
-  depends_on = [google_project_service.cloudresourcemanager]
+  depends_on         = [google_project_service.cloudresourcemanager]
 }
 
 # ==============================================================================
@@ -235,7 +235,7 @@ resource "google_service_account" "functions" {
   project      = local.gcp_project_id
   account_id   = local.gcp_functions_sa_id
   display_name = local.gcp_functions_sa_display
-  
+
   depends_on = [google_project_service.iam]
 }
 
@@ -273,12 +273,12 @@ resource "google_project_iam_custom_role" "functions_role" {
 
     # Cloud Run (Function invocation)
     "run.routes.invoke",
-    
+
     # Cloud Workflows (Event workflow execution)
     "workflows.executions.create",
     "workflows.executions.get",
   ]
-  
+
   depends_on = [google_project_service.iam]
 }
 
@@ -300,13 +300,13 @@ resource "google_storage_bucket" "function_source" {
   name          = local.gcp_function_source_bucket
   location      = var.gcp_region
   force_destroy = true
-  
+
   uniform_bucket_level_access = true
-  
+
   # Disable soft-delete to allow immediate bucket name reuse
   soft_delete_policy {
     retention_duration_seconds = 0
   }
-  
+
   labels = local.gcp_common_labels
 }

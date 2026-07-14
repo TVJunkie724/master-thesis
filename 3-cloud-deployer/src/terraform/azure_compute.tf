@@ -24,7 +24,7 @@ resource "azurerm_service_plan" "l2" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1"  # Consumption plan
+  sku_name            = "Y1" # Consumption plan
 
   tags = local.common_tags
 }
@@ -66,9 +66,9 @@ resource "azurerm_linux_function_app" "l2" {
     # Azure Functions runtime
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
-    AzureWebJobsStorage           = local.azure_storage_connection_string
+    AzureWebJobsStorage            = local.azure_storage_connection_string
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    ENABLE_ORYX_BUILD              = "true" # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Code version hash - triggers update-in-place when ZIP content changes
@@ -175,7 +175,7 @@ resource "azurerm_linux_function_app" "user" {
   name                = local.azure_user_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.l2[0].id  # Share plan with L2
+  service_plan_id     = azurerm_service_plan.l2[0].id # Share plan with L2
 
   storage_account_name       = azurerm_storage_account.main[0].name
   storage_account_access_key = azurerm_storage_account.main[0].primary_access_key
@@ -202,9 +202,9 @@ resource "azurerm_linux_function_app" "user" {
     # Azure Functions runtime
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
-    AzureWebJobsStorage           = local.azure_storage_connection_string
+    AzureWebJobsStorage            = local.azure_storage_connection_string
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    ENABLE_ORYX_BUILD              = "true" # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Code version hash - triggers update-in-place when ZIP content changes
@@ -227,15 +227,15 @@ resource "azurerm_linux_function_app" "user" {
 
     # NEW: Required for HTTP call pattern (wrappers call user functions via HTTP)
     FUNCTION_APP_BASE_URL = local.azure_user_functions_url
-    
+
     DIGITAL_TWIN_INFO = jsonencode({
       config = {
         digital_twin_name = var.digital_twin_name
       }
     })
-    
+
     EVENT_FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "${local.azure_user_functions_url}/${local.api_paths.event_feedback}" : ""
-    
+
     PERSISTER_FUNCTION_URL = "${local.azure_l2_functions_url}/${local.api_paths.persister}"
 
     # NOTE: USER_FUNCTION_KEY deliberately NOT included in user app's app_settings.

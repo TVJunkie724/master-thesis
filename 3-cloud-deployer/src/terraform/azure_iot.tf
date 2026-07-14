@@ -63,7 +63,7 @@ resource "azurerm_service_plan" "l1" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1"  # Consumption plan
+  sku_name            = "Y1" # Consumption plan
 
   tags = local.common_tags
 }
@@ -105,9 +105,9 @@ resource "azurerm_linux_function_app" "l1" {
     # Azure Functions runtime
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
-    AzureWebJobsStorage           = local.azure_storage_connection_string
+    AzureWebJobsStorage            = local.azure_storage_connection_string
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    ENABLE_ORYX_BUILD              = "true" # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Code version hash - triggers update-in-place when ZIP content changes
@@ -186,7 +186,7 @@ resource "azurerm_eventgrid_system_topic" "iothub" {
 resource "time_sleep" "wait_for_function_sync" {
   count           = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
   depends_on      = [azurerm_linux_function_app.l1]
-  create_duration = "180s"  # Wait 3 minutes for Oryx build + function indexing
+  create_duration = "180s" # Wait 3 minutes for Oryx build + function indexing
 }
 
 # ==============================================================================
