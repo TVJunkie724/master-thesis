@@ -197,6 +197,10 @@ ERROR_RESPONSES = {
             }
         }
     },
+    413: {
+        "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit",
+        "model": ErrorResponse,
+    },
     500: {
         "description": "Internal Server Error - An unexpected error occurred",
         "model": ErrorResponse,
@@ -210,5 +214,9 @@ ERROR_RESPONSES = {
                 }
             }
         }
+    },
+    502: {
+        "description": "Bad Gateway - A cloud provider rejected or failed the operation",
+        "model": ErrorResponse,
     }
 }

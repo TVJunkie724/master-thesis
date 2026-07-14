@@ -10,6 +10,7 @@ from src.core.paths import (
     get_project_root,
     resolve_deployment_paths,
     resolve_project_context_path,
+    validate_path_component,
 )
 
 
@@ -210,10 +211,10 @@ class ProjectStorage:
         return items
 
     def _validate_project_name(self, project_name: str) -> str:
-        safe_name = Path(project_name).name
-        if not safe_name or safe_name != project_name:
-            raise ProjectStorageError("Invalid project name.")
-        return safe_name
+        try:
+            return validate_path_component(project_name, "project name")
+        except ValueError as exc:
+            raise ProjectStorageError("Invalid project name.") from exc
 
     def _normalize_relative_path(self, relative_path: str) -> str:
         path = Path(relative_path)
