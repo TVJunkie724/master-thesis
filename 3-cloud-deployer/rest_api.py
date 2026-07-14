@@ -7,8 +7,6 @@ Uses lazy imports for globals to support the new provider pattern.
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 import os
 import sys
 
@@ -32,12 +30,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Digital Twin Manager API",
     version="2.0",
-    description=(
-        "API for deploying, destroying, and inspecting Digital Twin environment resources."
-        "<h3>🔗 Useful Links</h3>"
-        "<h4>📘 Documentation</h4>"
-        "<ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
-        ),
+    description="Internal API for deploying, destroying, and inspecting Digital Twin resources.",
     openapi_tags=[
         {
             "name": "Projects", 
@@ -72,12 +65,6 @@ app = FastAPI(
     ],
     lifespan=lifespan
 )
-
-app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
-
-@app.get("/favicon.ico", include_in_schema=False)
-async def favicon():
-    return FileResponse("docs/references/favicon.ico")
 
 # Include Routers
 app.include_router(info.router)
