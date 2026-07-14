@@ -1,14 +1,25 @@
-from pydantic import Field
+from enum import StrEnum
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class AppEnvironment(StrEnum):
+    DEVELOPMENT = "development"
+    TEST = "test"
+    PRODUCTION = "production"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    APP_ENV: AppEnvironment = AppEnvironment.PRODUCTION
 
     # Database
     DATABASE_URL: str = "sqlite:///./data/app.db"
     
     # JWT
-    JWT_SECRET_KEY: str = "dev-secret-change-in-production"
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60
     
@@ -39,11 +50,15 @@ class Settings(BaseSettings):
     # Server
     HOST: str = "127.0.0.1"
     PORT: int = 5005
-    DEBUG: bool = True
+    DEBUG: bool = False
+
+    # Explicit local/test authentication capability. Never infer this from DEBUG.
+    DEV_AUTH_ENABLED: bool = False
+    DEV_AUTH_TOKEN: str = ""
     
     # Credential Encryption (Fernet key - 32 bytes base64)
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    ENCRYPTION_KEY: str = "your-fernet-key-here-generate-new-one"
+    ENCRYPTION_KEY: str = ""
     
     # External APIs
     DEPLOYER_URL: str = "http://localhost:5004"
@@ -63,5 +78,29 @@ class Settings(BaseSettings):
 
     # Test-only routes (disabled by default)
     ENABLE_TEST_ENDPOINTS: bool = False
-    
+
+    @model_validator(mode="after")
+    def validate_security_boundary(self) -> "Settings":
+        """Reject development capabilities and weak secrets in production."""
+        non_production = {AppEnvironment.DEVELOPMENT, AppEnvironment.TEST}
+        if self.DEV_AUTH_ENABLED and self.APP_ENV not in non_production:
+            raise ValueError("DEV_AUTH_ENABLED is only allowed in development or test")
+        if self.ENABLE_TEST_ENDPOINTS and self.APP_ENV not in non_production:
+            raise ValueError("ENABLE_TEST_ENDPOINTS is only allowed in development or test")
+        if self.SEED_DATA and self.APP_ENV not in non_production:
+            raise ValueError("SEED_DATA is only allowed in development or test")
+        if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
+            raise ValueError("DEV_AUTH_TOKEN is required when DEV_AUTH_ENABLED is true")
+
+        if self.APP_ENV == AppEnvironment.PRODUCTION:
+            if self.DEBUG:
+                raise ValueError("DEBUG must be false in production")
+            if len(self.JWT_SECRET_KEY) < 32:
+                raise ValueError("JWT_SECRET_KEY must contain at least 32 characters in production")
+            if len(self.ENCRYPTION_KEY) < 32:
+                raise ValueError("ENCRYPTION_KEY must contain at least 32 characters in production")
+
+        return self
+
+
 settings = Settings()

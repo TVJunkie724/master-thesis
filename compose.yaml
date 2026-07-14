@@ -52,8 +52,12 @@ services:
       - ./twin2multicloud_backend/data:/app/data
     environment:
       - DATABASE_URL=sqlite:///./data/app.db
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
+      - APP_ENV=development
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-local-development-jwt-secret-change-me}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-local-development-encryption-key-change-me}
       - DEBUG=true
+      - DEV_AUTH_ENABLED=true
+      - DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN:-dev-token}
       - PYTHONUNBUFFERED=1
       - SEED_DATA=false
       # - ENABLE_TEST_ENDPOINTS=true
