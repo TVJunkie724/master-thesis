@@ -108,7 +108,7 @@ Flutter App
 | 5 | Superseded | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Legacy Wizard Step 1 | Replaced by the configuration-workspace roadmap |
 | 6 | Done | [PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md](phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md) | Wizard Step 2 | Pricing readiness contract |
 | 7 | In progress | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
-| 8 | In progress | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [implementation plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) | Twin Overview | Typed deployment, readiness, preflight, log/output, simulator, and trace contracts |
+| 8 | Done | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [implementation plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) | Twin Overview | Typed deployment, readiness, preflight, log/output, simulator, and trace contracts |
 | 9 | Planned | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All prior contracts |
 
 ## Execution Order

@@ -1,5 +1,5 @@
 // lib/screens/twin_overview/twin_overview_screen.dart
-// Overview page for configured Digital Twins (Phase 2 implementation)
+// Operational overview for configured Digital Twins.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,11 +18,8 @@ import '../../widgets/code_viewer_dialog.dart';
 import '../../widgets/selectable_scaffold.dart';
 import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/twin_overview/twin_overview_code_artifact.dart';
-import '../../widgets/twin_overview/twin_overview_command_center.dart';
-import '../../widgets/twin_overview/twin_overview_configuration_review.dart';
-import '../../widgets/twin_overview/deployment_readiness_panel.dart';
-import '../../widgets/twin_overview/twin_overview_name_header.dart';
-import '../../widgets/twin_overview/testing_utilities_panel.dart';
+import '../../widgets/twin_overview/twin_overview_content.dart';
+import '../../widgets/twin_overview/twin_overview_operation_dialogs.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
 class TwinOverviewScreen extends ConsumerWidget {
@@ -140,7 +137,7 @@ class TwinOverviewView extends ConsumerWidget {
           onPressed: () => ref.read(themeProvider.notifier).toggle(),
           tooltip: 'Toggle theme',
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.sm),
       ],
     );
   }
@@ -148,7 +145,10 @@ class TwinOverviewView extends ConsumerWidget {
   Widget _buildHeader(BuildContext context, TwinOverviewState state) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(
           context,
@@ -180,12 +180,14 @@ class TwinOverviewView extends ConsumerWidget {
 
   Widget _buildAlertBanners(BuildContext context, TwinOverviewState state) {
     if (state is! TwinOverviewLoaded) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
 
     if (state.errorMessage != null) {
       return _buildBanner(
         context,
         message: state.errorMessage!,
-        color: Colors.red,
+        backgroundColor: colors.errorContainer,
+        foregroundColor: colors.onErrorContainer,
         icon: Icons.error,
         onDismiss: () => context.read<TwinOverviewBloc>().add(
           const TwinOverviewClearMessages(),
@@ -196,7 +198,8 @@ class TwinOverviewView extends ConsumerWidget {
       return _buildBanner(
         context,
         message: state.successMessage!,
-        color: Colors.green,
+        backgroundColor: colors.tertiaryContainer,
+        foregroundColor: colors.onTertiaryContainer,
         icon: Icons.check_circle,
         onDismiss: () => context.read<TwinOverviewBloc>().add(
           const TwinOverviewClearMessages(),
@@ -206,7 +209,8 @@ class TwinOverviewView extends ConsumerWidget {
       return _buildBanner(
         context,
         message: state.infoMessage!,
-        color: Colors.blue,
+        backgroundColor: colors.secondaryContainer,
+        foregroundColor: colors.onSecondaryContainer,
         icon: Icons.info,
         onDismiss: () => context.read<TwinOverviewBloc>().add(
           const TwinOverviewClearMessages(),
@@ -219,47 +223,53 @@ class TwinOverviewView extends ConsumerWidget {
   Widget _buildBanner(
     BuildContext context, {
     required String message,
-    required MaterialColor color,
+    required Color backgroundColor,
+    required Color foregroundColor,
     required IconData icon,
     required VoidCallback onDismiss,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.shade50,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: message,
+      child: Material(
+        color: backgroundColor,
+        elevation: AppSpacing.cardElevationLow,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
           ),
-        ],
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.maxContentWidthLarge,
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: color.shade700),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: TextStyle(
-                    color: color.shade700,
-                    fontWeight: FontWeight.w500,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.maxContentWidthLarge,
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, color: foregroundColor),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      color: foregroundColor,
+                      size: AppSpacing.iconMd,
+                    ),
+                    onPressed: onDismiss,
+                    tooltip: 'Dismiss message',
+                  ),
+                ],
               ),
-              IconButton(
-                icon: Icon(Icons.close, color: color.shade700, size: 20),
-                onPressed: onDismiss,
-                tooltip: 'Dismiss',
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -277,7 +287,7 @@ class TwinOverviewView extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
-            SizedBox(height: 16),
+            SizedBox(height: AppSpacing.md),
             Text('Loading twin configuration...'),
           ],
         ),
@@ -289,19 +299,23 @@ class TwinOverviewView extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
-            const SizedBox(height: 16),
+            Icon(
+              Icons.error_outline,
+              size: AppSpacing.xxl,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: AppSpacing.md),
             Text(
               'Failed to load twin',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               state.message,
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
@@ -329,103 +343,48 @@ class TwinOverviewView extends ConsumerWidget {
     TwinOverviewLoaded state,
     WidgetRef ref,
   ) {
-    return SingleChildScrollView(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.maxContentWidthLarge,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Dual Name Header
-                TwinOverviewNameHeader(
-                  projectName: state.projectName,
-                  cloudResourceName: state.cloudResourceName,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                DeploymentReadinessPanel(
-                  state: state.deploymentReadiness,
-                  onRunPreflight: () => context.read<TwinOverviewBloc>().add(
-                    const TwinOverviewRunDeploymentPreflight(),
-                  ),
-                  onOpenCloudAccounts: () => context.go('/settings'),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                // Command Center (always visible)
-                TwinOverviewCommandCenter(
-                  state: state,
-                  onEdit: () => context.go('/wizard/${state.twinId}'),
-                  onDelete: () => _showDeleteConfirmation(context, state),
-                  onDeploy: () => _showDeployConfirmation(context, state),
-                  onDestroy: () => _showDestroyConfirmation(context, state),
-                  onViewLogs: () => _showDeploymentLogs(context, state),
-                  onCloseTerminal: () => context.read<TwinOverviewBloc>().add(
-                    const TwinOverviewCloseTerminal(),
-                  ),
-                  onOutputCopyFeedback: (message) =>
-                      context.read<TwinOverviewBloc>().add(
-                        TwinOverviewShowMessage(message, MessageType.success),
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                if (state.twinState == 'deployed') ...[
-                  TestingUtilitiesPanel(
-                    provider:
-                        (state.cheapestPath?['l1'] as String?)?.toLowerCase() ??
-                        'l1',
-                    trace: state.trace,
-                    simulator: state.simulatorDownload,
-                    onStartTrace: () => context.read<TwinOverviewBloc>().add(
-                      const TwinOverviewStartLogTrace(),
-                    ),
-                    onCancelTrace: () => context.read<TwinOverviewBloc>().add(
-                      const TwinOverviewCancelLogTrace(),
-                    ),
-                    onDownloadSimulator: () =>
-                        _confirmSimulatorDownload(context, state),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-
-                // Deployment Verification (only for deployed twins)
-                if (state.twinState == 'deployed') ...[
-                  BlocProvider(
-                    create: (_) => DeploymentVerificationBloc(
-                      twinId: state.twinId,
-                      api: ref.read(apiServiceProvider),
-                      logStreamClientFactory: ref.read(
-                        logStreamClientFactoryProvider,
-                      ),
-                    ),
-                    child: DeploymentVerificationCard(
-                      payloadsJson:
-                          state.deployerConfig?['payloads_json'] as String?,
-                      configEventsJson:
-                          state.deployerConfig?['config_events_json']
-                              as String?,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-
-                TwinOverviewConfigurationReview(
-                  state: state,
-                  onViewArtifact: (artifact) =>
-                      _showCodeArtifact(context, artifact),
-                  onDownloadArtifact: (artifact) =>
-                      _downloadCodeArtifact(context, artifact),
-                ),
-              ],
+    final deploymentVerification = state.twinState == 'deployed'
+        ? BlocProvider(
+            create: (_) => DeploymentVerificationBloc(
+              twinId: state.twinId,
+              api: ref.read(apiServiceProvider),
+              logStreamClientFactory: ref.read(logStreamClientFactoryProvider),
             ),
-          ),
-        ),
+            child: DeploymentVerificationCard(
+              payloadsJson: state.deployerConfig?['payloads_json'] as String?,
+              configEventsJson:
+                  state.deployerConfig?['config_events_json'] as String?,
+            ),
+          )
+        : null;
+    return TwinOverviewContent(
+      state: state,
+      deploymentVerification: deploymentVerification,
+      onEdit: () => context.go('/wizard/${state.twinId}'),
+      onDelete: () => _confirmDelete(context, state),
+      onRunPreflight: () => context.read<TwinOverviewBloc>().add(
+        const TwinOverviewRunDeploymentPreflight(),
       ),
+      onOpenCloudAccounts: () => context.go('/settings'),
+      onDeploy: () => _confirmDeploy(context, state),
+      onDestroy: () => _confirmDestroy(context),
+      onViewLogs: () => _showDeploymentLogs(context, state),
+      onCloseTerminal: () => context.read<TwinOverviewBloc>().add(
+        const TwinOverviewCloseTerminal(),
+      ),
+      onStartTrace: () => context.read<TwinOverviewBloc>().add(
+        const TwinOverviewStartLogTrace(),
+      ),
+      onCancelTrace: () => context.read<TwinOverviewBloc>().add(
+        const TwinOverviewCancelLogTrace(),
+      ),
+      onDownloadSimulator: () => _confirmSimulatorDownload(context, state),
+      onOutputCopyFeedback: (message) => context.read<TwinOverviewBloc>().add(
+        TwinOverviewShowMessage(message, MessageType.success),
+      ),
+      onViewArtifact: (artifact) => _showCodeArtifact(context, artifact),
+      onDownloadArtifact: (artifact) =>
+          _downloadCodeArtifact(context, artifact),
     );
   }
 
@@ -482,55 +441,11 @@ class TwinOverviewView extends ConsumerWidget {
     BuildContext context,
     TwinOverviewLoaded state,
   ) async {
-    var acknowledged = false;
     final provider =
         (state.cheapestPath?['l1'] as String?)?.toUpperCase() ?? 'L1';
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Download simulator package?'),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'The $provider package contains narrowly scoped device/runtime '
-                  'authentication material that can send telemetry to this twin.',
-                ),
-                const SizedBox(height: AppSpacing.md),
-                CheckboxListTile(
-                  key: const Key('acknowledge-simulator-credentials'),
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  value: acknowledged,
-                  onChanged: (value) =>
-                      setDialogState(() => acknowledged = value ?? false),
-                  title: const Text(
-                    'I will store the archive securely and remove it when no longer needed.',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton.icon(
-              key: const Key('confirm-simulator-download'),
-              onPressed: acknowledged
-                  ? () => Navigator.of(dialogContext).pop(true)
-                  : null,
-              icon: const Icon(Icons.download_outlined),
-              label: const Text('Download'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => SimulatorDownloadConfirmationDialog(provider: provider),
     );
 
     if (confirmed == true && context.mounted) {
@@ -542,139 +457,42 @@ class TwinOverviewView extends ConsumerWidget {
     }
   }
 
-  void _showDeployConfirmation(BuildContext context, TwinOverviewLoaded state) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.rocket_launch, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('Deploy to Cloud?'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('This will provision cloud resources for:'),
-            const SizedBox(height: 8),
-            Text(
-              '• ${state.cloudResourceName ?? state.projectName}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Estimated time: 5-15 minutes',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<TwinOverviewBloc>().add(TwinOverviewDeploy());
-            },
-            child: const Text('Deploy Now'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDestroyConfirmation(
+  Future<void> _confirmDeploy(
     BuildContext context,
     TwinOverviewLoaded state,
-  ) {
-    bool confirmed = false;
-
-    showDialog(
+  ) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.warning_amber, color: Colors.red[700]),
-              const SizedBox(width: 8),
-              const Text('Destroy Cloud Resources?'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('This will PERMANENTLY delete:'),
-              const SizedBox(height: 8),
-              const Text('• All deployed infrastructure'),
-              const Text('• IoT device connections'),
-              const Text('• Stored data in hot/cold/archive storage'),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                value: confirmed,
-                onChanged: (v) => setState(() => confirmed = v ?? false),
-                title: const Text('I understand this action is irreversible'),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: confirmed
-                  ? () {
-                      Navigator.of(ctx).pop();
-                      context.read<TwinOverviewBloc>().add(
-                        TwinOverviewDestroy(),
-                      );
-                    }
-                  : null,
-              style: FilledButton.styleFrom(backgroundColor: Colors.red[700]),
-              child: const Text('Destroy'),
-            ),
-          ],
-        ),
+      builder: (_) => DeployTwinConfirmationDialog(
+        resourceName: state.cloudResourceName ?? state.projectName,
       ),
     );
+    if (confirmed == true && context.mounted) {
+      context.read<TwinOverviewBloc>().add(TwinOverviewDeploy());
+    }
   }
 
-  void _showDeleteConfirmation(BuildContext context, TwinOverviewLoaded state) {
-    showDialog(
+  Future<void> _confirmDestroy(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.delete_forever, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Delete Twin?'),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to delete "${state.projectName}"? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<TwinOverviewBloc>().add(TwinOverviewDelete());
-            },
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      builder: (_) => const DestroyTwinConfirmationDialog(),
     );
+    if (confirmed == true && context.mounted) {
+      context.read<TwinOverviewBloc>().add(TwinOverviewDestroy());
+    }
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    TwinOverviewLoaded state,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          DeleteTwinConfirmationDialog(projectName: state.projectName),
+    );
+    if (confirmed == true && context.mounted) {
+      context.read<TwinOverviewBloc>().add(TwinOverviewDelete());
+    }
   }
 }

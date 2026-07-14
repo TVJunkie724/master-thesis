@@ -77,8 +77,9 @@ void main() {
           operation: _operation(logs: [_log(1)], lastEventId: 1),
           trace: const TraceViewState(traceId: 'TRACE-1'),
           lastError: 'Old deployment error',
-          deploymentOutputs: const {'endpoint': 'old'},
-          outputsTimestamp: DateTime.utc(2026, 7, 14),
+          deploymentOutputs: _outputs(const {
+            'endpoint': 'old',
+          }, deployedAt: DateTime.utc(2026, 7, 14)),
           simulator: SimulatorDownloadViewState(
             phase: SimulatorDownloadViewPhase.readyToSave,
             filename: 'simulator_test.zip',
@@ -95,7 +96,6 @@ void main() {
           trace: state.trace.copyWith(clearTraceId: true),
           clearLastError: true,
           clearDeploymentOutputs: true,
-          clearOutputsTimestamp: true,
           simulatorDownload: state.simulatorDownload.copyWith(
             clearPendingDownload: true,
             clearFilename: true,
@@ -106,7 +106,6 @@ void main() {
         expect(cleared.trace.traceId, isNull);
         expect(cleared.lastError, isNull);
         expect(cleared.deploymentOutputs, isNull);
-        expect(cleared.outputsTimestamp, isNull);
         expect(cleared.simulatorDownload.pendingDownload, isNull);
         expect(cleared.simulatorDownload.filename, isNull);
       },
@@ -220,8 +219,9 @@ void main() {
         twinState: 'destroying',
         operation: _operation(operationType: DeploymentOperationType.destroy),
         lastError: 'Previous failure',
-        deploymentOutputs: const {'endpoint': 'old'},
-        outputsTimestamp: DateTime.utc(2026, 7, 14),
+        deploymentOutputs: _outputs(const {
+          'endpoint': 'old',
+        }, deployedAt: DateTime.utc(2026, 7, 14)),
       ),
       build: () => _buildBloc(api),
       act: (bloc) => bloc.add(
@@ -236,7 +236,6 @@ void main() {
             .having((state) => state.twinState, 'state', 'destroyed')
             .having((state) => state.lastError, 'lastError', isNull)
             .having((state) => state.deploymentOutputs, 'outputs', isNull)
-            .having((state) => state.outputsTimestamp, 'timestamp', isNull)
             .having((state) => state.canDeploy, 'canDeploy', isTrue)
             .having((state) => state.canDestroy, 'canDestroy', isFalse),
       ],
@@ -494,8 +493,14 @@ void main() {
           DeploymentOperationViewPhase.completed,
         );
         expect(loaded.deploymentOperation.lastEventId, 1);
-        expect(loaded.deploymentOutputs, {'endpoint': 'https://example.test'});
-        expect(loaded.outputsTimestamp, DateTime.utc(2026, 7, 14, 12));
+        expect(loaded.deploymentOutputs?.outputs, {
+          'endpoint': 'https://example.test',
+        });
+        expect(
+          loaded.deploymentOutputs?.deployedAt,
+          DateTime.utc(2026, 7, 14, 12),
+        );
+        expect(loaded.deploymentOutputs?.redacted, isTrue);
         expect(streams.clients.single.cancelled, isTrue);
         await bloc.close();
       },
@@ -809,6 +814,44 @@ void main() {
     );
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'reports a rate-limited trace start without retaining stale metadata',
+      seed: () => _loaded(
+        twinState: 'deployed',
+        trace: const TraceViewState(
+          phase: TraceViewPhase.completed,
+          traceId: 'TRACE-OLD',
+          diagnostics: ['Old diagnostic'],
+        ),
+      ),
+      setUp: () => when(
+        () => api.startLogTrace('test-id'),
+      ).thenThrow(Exception('Too many requests')),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewStartLogTrace()),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.trace.phase,
+              'phase',
+              TraceViewPhase.starting,
+            )
+            .having((state) => state.trace.traceId, 'stale trace ID', isNull),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.trace.phase,
+              'phase',
+              TraceViewPhase.failed,
+            )
+            .having((state) => state.trace.traceId, 'trace ID', isNull)
+            .having(
+              (state) => state.errorMessage,
+              'public error',
+              contains('Too many requests'),
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
       'completes trace while retaining diagnostics and total log count',
       seed: () => _loaded(
         twinState: 'deployed',
@@ -1090,6 +1133,43 @@ void main() {
     );
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'reports simulator transport failure and retains no binary payload',
+      seed: () => _loaded(twinState: 'deployed'),
+      setUp: () => when(
+        () => api.downloadSimulator('test-id'),
+      ).thenThrow(Exception('Request timed out')),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(
+        const TwinOverviewDownloadSimulator(
+          acknowledgedSensitiveCredentials: true,
+        ),
+      ),
+      expect: () => [
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.simulatorDownload.phase,
+          'phase',
+          SimulatorDownloadViewPhase.requesting,
+        ),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.simulatorDownload.phase,
+              'phase',
+              SimulatorDownloadViewPhase.failed,
+            )
+            .having(
+              (state) => state.simulatorDownload.pendingDownload,
+              'pending bytes',
+              isNull,
+            )
+            .having(
+              (state) => state.errorMessage,
+              'public error',
+              contains('Request timed out'),
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
       'clears transient binary immediately after save completes',
       seed: () => _loaded(
         twinState: 'deployed',
@@ -1124,6 +1204,76 @@ void main() {
               (state) => state.successMessage,
               'message',
               'Simulator package saved.',
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'clears transient binary immediately when saving is cancelled',
+      seed: () => _loaded(
+        twinState: 'deployed',
+        simulator: SimulatorDownloadViewState(
+          phase: SimulatorDownloadViewPhase.saving,
+          filename: 'simulator.zip',
+          pendingDownload: BinaryDownload(
+            bytes: Uint8List.fromList([1, 2, 3]),
+            filename: 'simulator.zip',
+            mediaType: 'application/zip',
+          ),
+        ),
+      ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewSimulatorSaveCancelled()),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.simulatorDownload.phase,
+              'phase',
+              SimulatorDownloadViewPhase.idle,
+            )
+            .having(
+              (state) => state.simulatorDownload.pendingDownload,
+              'pending bytes',
+              isNull,
+            )
+            .having((state) => state.errorMessage, 'error', isNull),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'clears transient binary immediately when saving fails',
+      seed: () => _loaded(
+        twinState: 'deployed',
+        simulator: SimulatorDownloadViewState(
+          phase: SimulatorDownloadViewPhase.saving,
+          filename: 'simulator.zip',
+          pendingDownload: BinaryDownload(
+            bytes: Uint8List.fromList([1, 2, 3]),
+            filename: 'simulator.zip',
+            mediaType: 'application/zip',
+          ),
+        ),
+      ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(
+        const TwinOverviewSimulatorSaveFailed('Could not save package.'),
+      ),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.simulatorDownload.phase,
+              'phase',
+              SimulatorDownloadViewPhase.failed,
+            )
+            .having(
+              (state) => state.simulatorDownload.pendingDownload,
+              'pending bytes',
+              isNull,
+            )
+            .having(
+              (state) => state.errorMessage,
+              'error',
+              'Could not save package.',
             ),
       ],
     );
@@ -1216,8 +1366,7 @@ TwinOverviewLoaded _loaded({
   DeploymentOperationViewState operation = const DeploymentOperationViewState(),
   TraceViewState trace = const TraceViewState(),
   String? lastError,
-  Map<String, dynamic>? deploymentOutputs,
-  DateTime? outputsTimestamp,
+  DeploymentOutputsSnapshot? deploymentOutputs,
   SimulatorDownloadViewState simulator = const SimulatorDownloadViewState(),
 }) {
   final canDeploy = {'configured', 'destroyed', 'error'}.contains(twinState);
@@ -1238,9 +1387,21 @@ TwinOverviewLoaded _loaded({
     trace: trace,
     lastError: lastError,
     deploymentOutputs: deploymentOutputs,
-    outputsTimestamp: outputsTimestamp,
     simulatorDownload: simulator,
   );
+}
+
+DeploymentOutputsSnapshot _outputs(
+  Map<String, dynamic> values, {
+  DateTime? deployedAt,
+}) {
+  return DeploymentOutputsSnapshot.fromJson({
+    'schema_version': DeploymentOutputsSnapshot.supportedSchemaVersion,
+    'outputs': values,
+    'deployed_at': deployedAt?.toIso8601String(),
+    'source_deployment': null,
+    'redacted': true,
+  });
 }
 
 DeploymentOperationViewState _operation({

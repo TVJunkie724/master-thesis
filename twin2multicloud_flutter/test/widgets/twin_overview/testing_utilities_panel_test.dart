@@ -122,4 +122,21 @@ void main() {
     expect(find.text('Simulator package saved.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('stacks utility actions below the 900 pixel breakpoint', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(buildPanel());
+
+    final traceTop = tester.getTopLeft(find.byKey(const Key('start-trace')));
+    final simulatorTop = tester.getTopLeft(
+      find.byKey(const Key('download-simulator')),
+    );
+
+    expect(simulatorTop.dy, greaterThan(traceTop.dy));
+    expect((simulatorTop.dx - traceTop.dx).abs(), lessThan(1));
+    expect(tester.takeException(), isNull);
+  });
 }

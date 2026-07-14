@@ -56,8 +56,20 @@ abstract class AppSpacing {
   /// Small icon size for inline hints
   static const double iconSm = 16;
 
+  /// Extra-small icon size for compact table affordances.
+  static const double iconXs = 12;
+
   /// Medium icon size for inline buttons and indicators
   static const double iconMd = 20;
+
+  /// Fixed label/key column width in Terraform output tables.
+  static const double outputTableColumnWidth = 160;
+
+  /// Compact output-table row padding.
+  static const double compactRowPadding = 6;
+
+  /// Hairline divider width for dense data rows.
+  static const double hairlineWidth = 0.5;
 
   /// Provider accent strip width
   static const double providerAccentWidth = 4;
@@ -82,6 +94,15 @@ abstract class AppSpacing {
 
   /// Twin Overview sections stack below this width.
   static const double twinOverviewCompactBreakpoint = 900;
+
+  /// Maximum width for confirmation-dialog content.
+  static const double dialogContentMaxWidth = 480;
+
+  /// Stable two-line status area in compact operational actions.
+  static const double utilityStatusHeight = 40;
+
+  /// Maximum height for collapsed operational diagnostic details.
+  static const double diagnosticViewportHeight = 260;
 
   /// Uppercase label letter spacing
   static const double labelLetterSpacing = 1.2;

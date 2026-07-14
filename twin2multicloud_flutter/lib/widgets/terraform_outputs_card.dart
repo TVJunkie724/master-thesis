@@ -1,7 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
 import 'package:twin2multicloud_flutter/theme/colors.dart';
+import 'package:twin2multicloud_flutter/theme/spacing.dart';
 import 'package:twin2multicloud_flutter/widgets/terraform_output_labels.dart';
 
 /// Card that displays terraform outputs from a successful deployment.
@@ -16,12 +18,14 @@ class TerraformOutputsCard extends StatefulWidget {
   final Map<String, dynamic> outputs;
   final DateTime? deployedAt;
   final void Function(String message) onCopyFeedback;
+  final bool embedded;
 
   const TerraformOutputsCard({
     super.key,
     required this.outputs,
     this.deployedAt,
     required this.onCopyFeedback,
+    this.embedded = false,
   });
 
   @override
@@ -31,9 +35,6 @@ class TerraformOutputsCard extends StatefulWidget {
 class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
   // Track which groups are expanded (first group expanded by default)
   final Map<String, bool> _expandedGroups = {};
-
-  // Toggle for showing/hiding sensitive values
-  bool _showSensitive = false;
 
   // Patterns that indicate sensitive output keys
   static const sensitivePatterns = [
@@ -53,9 +54,28 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
     return sensitivePatterns.any((p) => keyLower.contains(p));
   }
 
-  String _maskValue(String value) {
-    if (value.length <= 8) return '••••••••';
-    return '${value.substring(0, 4)}••••${value.substring(value.length - 4)}';
+  dynamic _redactOutputValue(String key, dynamic value) {
+    if (_isSensitiveKey(key)) return '[REDACTED]';
+    if (value is Map) {
+      return {
+        for (final entry in value.entries)
+          entry.key.toString(): _redactOutputValue(
+            entry.key.toString(),
+            entry.value,
+          ),
+      };
+    }
+    if (value is List) {
+      return [for (final item in value) _redactOutputValue(key, item)];
+    }
+    return value;
+  }
+
+  Map<String, dynamic> _redactedOutputs() {
+    return {
+      for (final entry in widget.outputs.entries)
+        entry.key: _redactOutputValue(entry.key, entry.value),
+    };
   }
 
   /// Group outputs by provider prefix
@@ -67,7 +87,7 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
       'Cross-Cloud': <String, dynamic>{},
     };
 
-    for (final entry in widget.outputs.entries) {
+    for (final entry in _redactedOutputs().entries) {
       final key = entry.key;
       if (key.startsWith('aws_')) {
         groups['AWS']![key.substring(4)] = entry.value; // Strip prefix
@@ -111,7 +131,9 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
   }
 
   void _copyAllOutputs() async {
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(widget.outputs);
+    final jsonStr = const JsonEncoder.withIndent(
+      ' ',
+    ).convert(_redactedOutputs());
     await Clipboard.setData(ClipboardData(text: jsonStr));
     widget.onCopyFeedback('Copied all outputs as JSON');
   }
@@ -146,78 +168,97 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
       _expandedGroups[groups.keys.first] = true;
     }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header (not collapsible - always visible)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.terminal,
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Terraform Outputs',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header (not collapsible - always visible)
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final title = Row(
+                children: [
+                  Icon(
+                    Icons.terminal,
+                    color: theme.colorScheme.primary,
+                    size: AppSpacing.iconMd,
                   ),
-                ),
-                if (widget.deployedAt != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    '• ${_formatRelativeTime(widget.deployedAt)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Terraform Outputs',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (widget.deployedAt != null)
+                          Text(
+                            _formatRelativeTime(widget.deployedAt),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
-                const Spacer(),
-                // Show/Hide sensitive toggle
-                TextButton.icon(
-                  onPressed: () =>
-                      setState(() => _showSensitive = !_showSensitive),
-                  icon: Icon(
-                    _showSensitive ? Icons.visibility_off : Icons.visibility,
-                    size: 16,
+              );
+              final actions = Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  TextButton.icon(
+                    onPressed: _copyAllOutputs,
+                    icon: const Icon(Icons.copy_all, size: AppSpacing.iconSm),
+                    label: const Text('Copy All'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
-                  label: Text(_showSensitive ? 'Hide' : 'Show'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Copy All JSON button
-                TextButton.icon(
-                  onPressed: _copyAllOutputs,
-                  icon: const Icon(Icons.copy_all, size: 16),
-                  label: const Text('Copy All'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-            ),
+                ],
+              );
+              if (constraints.maxWidth <
+                  AppSpacing.twinOverviewCompactBreakpoint) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    title,
+                    const SizedBox(height: AppSpacing.sm),
+                    actions,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: AppSpacing.md),
+                  actions,
+                ],
+              );
+            },
           ),
+        ),
 
-          // Content (provider groups - always visible, but individual groups are collapsible)
-          const Divider(height: 1),
-          // Provider groups
-          ...groups.entries.map((groupEntry) {
-            final provider = groupEntry.key;
-            final outputs = groupEntry.value;
-            final isGroupExpanded = _expandedGroups[provider] ?? false;
+        // Content (provider groups - always visible, but individual groups are collapsible)
+        const Divider(height: 1),
+        // Provider groups
+        ...groups.entries.map((groupEntry) {
+          final provider = groupEntry.key;
+          final outputs = groupEntry.value;
+          final isGroupExpanded = _expandedGroups[provider] ?? false;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Group header
-                InkWell(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Group header
+              Semantics(
+                button: true,
+                expanded: isGroupExpanded,
+                label: '$provider outputs, ${outputs.length} items',
+                child: InkWell(
                   onTap: () {
                     setState(() {
                       _expandedGroups[provider] = !isGroupExpanded;
@@ -237,16 +278,16 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                           isGroupExpanded
                               ? Icons.keyboard_arrow_down
                               : Icons.keyboard_arrow_right,
-                          size: 20,
+                          size: AppSpacing.iconMd,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpacing.sm),
                         Icon(
                           _getProviderIcon(provider),
-                          size: 18,
+                          size: AppSpacing.iconMd,
                           color: _getProviderColor(provider, theme),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpacing.sm),
                         Text(
                           provider,
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -254,7 +295,7 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                             color: _getProviderColor(provider, theme),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpacing.sm),
                         Text(
                           '(${outputs.length})',
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -265,13 +306,21 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                     ),
                   ),
                 ),
-                // Group content (compact table)
-                if (isGroupExpanded) _buildCompactTable(outputs, theme),
-              ],
-            );
-          }),
-        ],
+              ),
+              // Group content (compact table)
+              if (isGroupExpanded) _buildCompactTable(outputs, theme),
+            ],
+          );
+        }),
+      ],
+    );
+    if (widget.embedded) return content;
+    return Card(
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
+      child: content,
     );
   }
 
@@ -296,96 +345,91 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
           final value = entry.value?.toString() ?? '';
           final label = getOutputLabel(entry.key);
 
-          return InkWell(
-            onTap: () => _copyToClipboard(value, keyName: entry.key),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.dividerColor.withValues(alpha: 0.3),
-                    width: 0.5,
+          return Semantics(
+            button: true,
+            label: 'Copy $label output',
+            child: InkWell(
+              onTap: () => _copyToClipboard(value, keyName: entry.key),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.compactRowPadding,
+                ),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.dividerColor.withValues(alpha: 0.3),
+                      width: AppSpacing.hairlineWidth,
+                    ),
                   ),
                 ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Label (human-readable, first column)
-                  SizedBox(
-                    width: 160,
-                    child: Text(
-                      label,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.85,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label (human-readable, first column)
+                    SizedBox(
+                      width: AppSpacing.outputTableColumnWidth,
+                      child: Text(
+                        label,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.85,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  // Key (monospace, subtle, second column)
-                  SizedBox(
-                    width: 160,
-                    child: Text(
-                      entry.key,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.4,
+                    // Key (monospace, subtle, second column)
+                    SizedBox(
+                      width: AppSpacing.outputTableColumnWidth,
+                      child: Text(
+                        entry.key,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.4,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  // Value (wraps, multiline, masked if sensitive)
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        final isSensitive = _isSensitiveKey(entry.key);
-                        final displayValue = (isSensitive && !_showSensitive)
-                            ? _maskValue(value)
-                            : value;
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (isSensitive && !_showSensitive)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 4),
-                                child: Icon(
-                                  Icons.lock_outline,
-                                  size: 12,
-                                  color: theme.colorScheme.tertiary.withValues(
-                                    alpha: 0.7,
-                                  ),
-                                ),
+                    // Values are defensively redacted before display or copy.
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_isSensitiveKey(entry.key))
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                right: AppSpacing.xs,
                               ),
-                            Expanded(
-                              child: Text(
-                                displayValue,
-                                softWrap: true,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: isSensitive && !_showSensitive
-                                        ? 0.5
-                                        : 0.7,
-                                  ),
-                                ),
+                              child: Icon(
+                                Icons.lock_outline,
+                                size: AppSpacing.iconXs,
+                                color: theme.colorScheme.tertiary,
                               ),
                             ),
-                          ],
-                        );
-                      },
+                          Expanded(
+                            child: Text(
+                              value,
+                              softWrap: true,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  // Copy icon (subtle)
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.copy_outlined,
-                    size: 12,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                  ),
-                ],
+                    // Copy icon (subtle)
+                    const SizedBox(width: AppSpacing.xs),
+                    Icon(
+                      Icons.copy_outlined,
+                      size: AppSpacing.iconXs,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

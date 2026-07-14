@@ -395,9 +395,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String? errorMessage;
   final String? infoMessage;
 
-  // Terraform outputs from most recent successful deployment
-  final Map<String, dynamic>? deploymentOutputs;
-  final DateTime? outputsTimestamp;
+  // Typed Terraform outputs from the most recent successful deployment.
+  final DeploymentOutputsSnapshot? deploymentOutputs;
   final String? outputsError;
 
   const TwinOverviewLoaded({
@@ -430,7 +429,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.errorMessage,
     this.infoMessage,
     this.deploymentOutputs,
-    this.outputsTimestamp,
     this.outputsError,
   });
 
@@ -476,8 +474,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? successMessage,
     String? errorMessage,
     String? infoMessage,
-    Map<String, dynamic>? deploymentOutputs,
-    DateTime? outputsTimestamp,
+    DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
     bool clearSuccess = false,
     bool clearError = false,
@@ -485,7 +482,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool clearOutputsError = false,
     bool clearLastError = false,
     bool clearDeploymentOutputs = false,
-    bool clearOutputsTimestamp = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -522,9 +518,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
       deploymentOutputs: clearDeploymentOutputs
           ? null
           : (deploymentOutputs ?? this.deploymentOutputs),
-      outputsTimestamp: clearOutputsTimestamp
-          ? null
-          : (outputsTimestamp ?? this.outputsTimestamp),
       outputsError: clearOutputsError
           ? null
           : (outputsError ?? this.outputsError),
@@ -562,7 +555,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     errorMessage,
     infoMessage,
     deploymentOutputs,
-    outputsTimestamp,
     outputsError,
   ];
 }

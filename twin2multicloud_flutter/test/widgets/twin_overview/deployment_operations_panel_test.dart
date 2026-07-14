@@ -4,56 +4,53 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.d
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
-import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_command_center.dart';
+import 'package:twin2multicloud_flutter/widgets/twin_overview/deployment_operations_panel.dart';
 
 void main() {
   Widget buildWidget({
     required TwinOverviewLoaded state,
-    VoidCallback? onEdit,
-    VoidCallback? onDelete,
+    ThemeData? theme,
     VoidCallback? onDeploy,
     VoidCallback? onDestroy,
     VoidCallback? onViewLogs,
     VoidCallback? onCloseTerminal,
-    ValueChanged<String>? onOutputCopyFeedback,
   }) {
     return MaterialApp(
+      theme: theme,
       home: Scaffold(
         body: SingleChildScrollView(
-          child: TwinOverviewCommandCenter(
-            state: state,
-            onEdit: onEdit ?? () {},
-            onDelete: onDelete ?? () {},
+          child: DeploymentOperationsPanel(
+            twinState: state.twinState,
+            canDeploy: state.canDeploy,
+            canDestroy: state.canDestroy,
+            readiness: state.deploymentReadiness,
+            operation: state.deploymentOperation,
+            lastError: state.lastError,
             onDeploy: onDeploy ?? () {},
             onDestroy: onDestroy ?? () {},
             onViewLogs: onViewLogs ?? () {},
             onCloseTerminal: onCloseTerminal ?? () {},
-            onOutputCopyFeedback: onOutputCopyFeedback ?? (_) {},
           ),
         ),
       ),
     );
   }
 
-  group('TwinOverviewCommandCenter', () {
+  group('DeploymentOperationsPanel', () {
     testWidgets('renders deploy actions and invokes callbacks', (tester) async {
       var deployed = false;
-      var edited = false;
 
       await tester.pumpWidget(
         buildWidget(
           state: _state(twinState: 'configured', canDeploy: true),
           onDeploy: () => deployed = true,
-          onEdit: () => edited = true,
         ),
       );
 
       await tester.tap(find.text('DEPLOY'));
-      await tester.tap(find.text('Edit'));
       await tester.pump();
 
       expect(deployed, isTrue);
-      expect(edited, isTrue);
       expect(find.text('DESTROY'), findsOneWidget);
     });
 
@@ -151,6 +148,31 @@ void main() {
         find.text('Connection lost. Attempting to reconnect...'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('stacks commands at 640 pixels without overflowing', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(640, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        buildWidget(
+          theme: ThemeData.dark(),
+          state: _state(
+            twinState: 'error',
+            canDeploy: true,
+            canDestroy: true,
+            lastError:
+                'Terraform failed while reconciling the selected provider resources.',
+          ),
+        ),
+      );
+
+      final deployTop = tester.getTopLeft(find.text('RETRY DEPLOY'));
+      final destroyTop = tester.getTopLeft(find.text('CLEANUP'));
+      expect(destroyTop.dy, greaterThan(deployTop.dy));
+      expect(find.text('View Logs'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

@@ -96,14 +96,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       final deploymentReadiness = await _loadCachedReadiness(event.twinId);
 
       // Fetch outputs for deployed twins (page refresh persistence)
-      Map<String, dynamic>? deploymentOutputs;
-      DateTime? outputsTimestamp;
+      DeploymentOutputsSnapshot? deploymentOutputs;
       String? outputsError;
       if (twinState == 'deployed') {
         try {
           final outputsResponse = await _api.getDeploymentOutputs(event.twinId);
-          deploymentOutputs = outputsResponse.outputs;
-          outputsTimestamp = outputsResponse.deployedAt;
+          deploymentOutputs = outputsResponse;
         } catch (e) {
           // Not silent - surface error to user
           outputsError =
@@ -119,7 +117,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         optimizerConfig: optimizerConfig,
         deployerConfig: deployerConfig,
         deploymentOutputs: deploymentOutputs,
-        outputsTimestamp: outputsTimestamp,
         outputsError: outputsError,
         deploymentReadiness: deploymentReadiness,
       );
@@ -187,20 +184,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
               ? currentState.deploymentReadiness
               : null,
         );
-        Map<String, dynamic>? deploymentOutputs;
-        DateTime? outputsTimestamp;
+        DeploymentOutputsSnapshot? deploymentOutputs;
         String? outputsError;
         if (twinState == 'deployed') {
           try {
             final outputs = await _api.getDeploymentOutputs(_currentTwinId!);
-            deploymentOutputs = outputs.outputs;
-            outputsTimestamp = outputs.deployedAt;
+            deploymentOutputs = outputs;
           } catch (error) {
             deploymentOutputs = currentState is TwinOverviewLoaded
                 ? currentState.deploymentOutputs
-                : null;
-            outputsTimestamp = currentState is TwinOverviewLoaded
-                ? currentState.outputsTimestamp
                 : null;
             outputsError =
                 'Failed to refresh outputs: ${ApiErrorHandler.extractMessage(error)}';
@@ -208,9 +200,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         } else if (twinState == 'deploying') {
           deploymentOutputs = currentState is TwinOverviewLoaded
               ? currentState.deploymentOutputs
-              : null;
-          outputsTimestamp = currentState is TwinOverviewLoaded
-              ? currentState.outputsTimestamp
               : null;
         }
         var deploymentOperation = currentState is TwinOverviewLoaded
@@ -239,7 +228,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           optimizerConfig: optimizerConfig,
           deployerConfig: deployerConfig,
           deploymentOutputs: deploymentOutputs,
-          outputsTimestamp: outputsTimestamp,
           outputsError: outputsError,
           deploymentReadiness: deploymentReadiness,
           deploymentOperation: deploymentOperation,
@@ -321,7 +309,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         trace: trace,
         simulatorDownload: simulator,
         clearDeploymentOutputs: true,
-        clearOutputsTimestamp: true,
         clearOutputsError: true,
         clearLastError: true,
         clearSuccess: true,
@@ -586,11 +573,18 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         successMessage: event.success ? event.message : null,
         errorMessage: failureMessage,
         clearError: event.success,
-        // Store outputs from SSE on successful deploy, clear on destroy
-        deploymentOutputs: isDestroy ? null : event.outputs,
+        // Store typed, defensively copied outputs until the canonical refresh.
+        deploymentOutputs: isDestroy || !hasCurrentOutputs
+            ? null
+            : DeploymentOutputsSnapshot.fromJson({
+                'schema_version':
+                    DeploymentOutputsSnapshot.supportedSchemaVersion,
+                'outputs': event.outputs,
+                'deployed_at': _clock().toIso8601String(),
+                'source_deployment': null,
+                'redacted': true,
+              }),
         clearDeploymentOutputs: !hasCurrentOutputs,
-        outputsTimestamp: hasCurrentOutputs ? _clock() : null,
-        clearOutputsTimestamp: !hasCurrentOutputs,
         clearOutputsError: true,
       ),
     );
@@ -1431,8 +1425,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     String? lastError,
     Map<String, dynamic>? optimizerConfig,
     Map<String, dynamic>? deployerConfig,
-    Map<String, dynamic>? deploymentOutputs,
-    DateTime? outputsTimestamp,
+    DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
     required DeploymentReadinessViewState deploymentReadiness,
     DeploymentOperationViewState deploymentOperation =
@@ -1475,7 +1468,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       deployerConfig: deployerConfig,
       // Terraform outputs
       deploymentOutputs: deploymentOutputs,
-      outputsTimestamp: outputsTimestamp,
       outputsError: outputsError,
     );
   }

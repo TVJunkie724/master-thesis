@@ -3,7 +3,7 @@ title: "Phase 8: Twin Overview Deployment Operations"
 description: "Plan Twin Overview hardening for deploy, destroy, preflight, logs, outputs, and permission-set visibility."
 tags: [flutter, frontend-delta, twin-overview, deployment, preflight]
 lastUpdated: "2026-07-14"
-version: "1.2"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 
 # Phase 8: Twin Overview Deployment Operations
 
-**Status:** In progress on `codex/twin-overview-operations-hardening`.
+**Status:** Done on `codex/twin-overview-operations-hardening`.
 
 The binding implementation contract is
 [`2026-07-14_twin_overview_operations_hardening.md`](../../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md).
@@ -34,7 +34,7 @@ and the final responsive/accessibility quality gate.
 | 8.2 Twin-scoped readiness and explicit preflight | Done | 25 focused backend tests, 582 complete backend tests, 463 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
 | 8.3 Persisted log catch-up and SSE recovery | Done | 51 focused backend tests, 592 complete backend tests, 466 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
 | 8.4 Trace/simulator workflows and secure archives | Done | 34 focused and 1,131 offline Deployer tests; 53 focused and 601 complete Management API tests; 480 complete Flutter tests; Terraform/Bandit/analyzer/build gates pass |
-| 8.5 Responsive/accessibility release gate | Next | Pending implementation |
+| 8.5 Responsive/accessibility release gate | Done | 57 focused BLoC/widget/screen tests; 495 complete Flutter tests; analyzer clean; Web/macOS release builds pass |
 
 The 8.1 gate covers Management API and demo adapters, strict versioned parsers,
 session-scoped cursors, immutable output/download data, and stale-state clearing.
@@ -65,6 +65,14 @@ Management API boundaries. AWS uses exact client/topic permissions, Azure uses
 the device identity, and GCP uses a dedicated Pub/Sub topic-publisher identity;
 deployment, bootstrap, and CloudConnection credentials are never packaged.
 Verification used synthetic credentials and no live cloud resources.
+
+The 8.5 gate replaces the former command-center aggregate with sibling
+navigation, operations, outputs, and utility sections under a presentation-only
+content boundary. It uses one responsive breakpoint down to 640 px, theme and
+spacing tokens, isolated confirmation dialogs, keyboard/focus assertions, and
+defense-in-depth output redaction for rendering and clipboard copy. The typed
+deployment-output snapshot remains intact from the Management API adapter to
+the UI. Verification used the offline demo and no live cloud resources.
 
 ## Summary
 

@@ -1,6 +1,6 @@
 # Implementation Plan: Twin Overview Operations Hardening
 
-**Status:** Approved scope; implementation in progress.
+**Status:** Implemented and release-gated.
 
 ## 0. Git Branch
 
@@ -45,7 +45,7 @@ No verification step provisions or destroys real cloud resources.
 | 8.2 | Done | Backend readiness matrix: 25 passed; complete backend suite: 582 passed; complete Flutter suite: 463 passed; Bandit and analyzer clean; Web/macOS release builds pass |
 | 8.3 | Done | Focused backend stream/route matrix: 51 passed; complete backend suite: 592 passed; complete Flutter suite: 466 passed; Bandit/analyzer clean; Web/macOS release builds pass |
 | 8.4 | Done | Deployer archive/security matrix: 34 passed; complete offline Deployer suite: 1,131 passed, 1 skipped; Management API contract matrix: 53 passed; complete Management API suite: 601 passed; complete Flutter suite: 480 passed; scoped Bandit and analyzer clean; Terraform validates; Web/macOS release builds pass |
-| 8.5 | Next | Responsive/accessibility quality gate pending |
+| 8.5 | Done | 57 focused BLoC/widget/screen tests; complete Flutter suite: 495 passed; analyzer clean; Web/macOS release builds pass |
 
 Subphase 8.1 also verified defensive copies for nested outputs and binary
 downloads, fail-fast pagination bounds, session-scoped demo cursors, safe server
@@ -87,6 +87,17 @@ device identity, and GCP uses a dedicated topic-publisher service account rather
 than deployment/bootstrap credentials. The Management API revalidates the full
 binary contract and sends no-store/nosniff headers. Tests use synthetic secrets
 and archives only; no live-cloud E2E was executed.
+
+Subphase 8.5 removes the former command-center aggregate and composes navigation,
+readiness, operations, testing utilities, outputs, verification, and
+configuration review as sibling sections behind a presentation-only
+`TwinOverviewContent`. Confirmation dialogs are isolated from BLoC dispatch,
+destructive and credential-bearing actions require explicit acknowledgement,
+and keyboard tests prove disabled Enter handling, Escape cancellation, and
+focus restoration. A single 900 px breakpoint and named dimensions cover wide,
+narrow, and the supported 640 px viewport. Terraform outputs preserve their
+typed API snapshot through state and are redacted again before rendering or
+clipboard copy as defense in depth. No live-cloud E2E was executed.
 
 ## 2. Visual Layout (ASCII)
 
@@ -484,27 +495,27 @@ account remediation navigates to `/settings`.
 
 ## 12. Definition of Done
 
-- [ ] All five mandatory subphases are implemented and independently committed.
-- [ ] Operation-specific deployment contracts expose no dynamic map beyond the
+- [x] All five mandatory subphases are implemented and independently committed.
+- [x] Operation-specific deployment contracts expose no dynamic map beyond the
   API adapter; legacy configuration projection remains contained.
-- [ ] Nullable errors, outputs, timestamps, trace IDs, and bytes clear correctly.
-- [ ] Backend owns twin-scoped readiness and required-provider rules.
-- [ ] Preflight is explicit, redacted, owner-scoped, and creates no resources.
-- [ ] SSE reconnect catches up persisted logs without duplicates or gaps.
-- [ ] Operation and trace logs are bounded and subscriptions are disposed.
-- [ ] Simulator archives contain only allowlisted, provider-specific runtime
+- [x] Nullable errors, outputs, timestamps, trace IDs, and bytes clear correctly.
+- [x] Backend owns twin-scoped readiness and required-provider rules.
+- [x] Preflight is explicit, redacted, owner-scoped, and creates no resources.
+- [x] SSE reconnect catches up persisted logs without duplicates or gaps.
+- [x] Operation and trace logs are bounded and subscriptions are disposed.
+- [x] Simulator archives contain only allowlisted, provider-specific runtime
   credentials; GCP never exports deployment/bootstrap/CloudConnection keys.
-- [ ] Simulator archives are handled as transient sensitive binary downloads.
-- [ ] Existing deploy, destroy, verification, configuration review, and demo
+- [x] Simulator archives are handled as transient sensitive binary downloads.
+- [x] Existing deploy, destroy, verification, configuration review, and demo
   workflows remain functional.
-- [ ] Loading, empty, blocked, running, reconnecting, completed, failed, cancel,
+- [x] Loading, empty, blocked, running, reconnecting, completed, failed, cancel,
   and stale states have deterministic UI.
-- [ ] Touched UI uses theme and spacing tokens without nested cards.
-- [ ] Wide desktop, narrow desktop/Web, and compact Web layouts do not overflow.
-- [ ] Accessibility requirements in Section 9 are covered by hard assertions.
-- [ ] Backend suite excluding cloud E2E passes.
-- [ ] `flutter analyze` and the complete Flutter suite pass.
-- [ ] Web and macOS release builds pass.
-- [ ] Phase 8 roadmap and GitHub #73 contain final evidence.
-- [ ] No credentials, generated artifacts, provider secrets, or real-cloud test
+- [x] Touched UI uses theme and spacing tokens without nested cards.
+- [x] Wide desktop, narrow desktop/Web, and compact Web layouts do not overflow.
+- [x] Accessibility requirements in Section 9 are covered by hard assertions.
+- [x] Backend suite excluding cloud E2E passes.
+- [x] `flutter analyze` and the complete Flutter suite pass.
+- [x] Web and macOS release builds pass.
+- [x] Phase 8 roadmap and GitHub #73 contain final evidence.
+- [x] No credentials, generated artifacts, provider secrets, or real-cloud test
   output are committed.

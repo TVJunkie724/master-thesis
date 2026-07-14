@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../theme/spacing.dart';
 
-const _compactBreakpoint = 720.0;
-const _actionHeight = 44.0;
-
 class TestingUtilitiesPanel extends StatelessWidget {
   final String provider;
   final TraceViewState trace;
@@ -66,7 +63,8 @@ class TestingUtilitiesPanel extends StatelessWidget {
                   simulator: simulator,
                   onDownload: onDownloadSimulator,
                 );
-                if (constraints.maxWidth < _compactBreakpoint) {
+                if (constraints.maxWidth <
+                    AppSpacing.twinOverviewCompactBreakpoint) {
                   return Column(
                     children: [
                       traceAction,
@@ -98,7 +96,9 @@ class TestingUtilitiesPanel extends StatelessWidget {
                 children: [
                   Container(
                     width: double.infinity,
-                    constraints: const BoxConstraints(maxHeight: 260),
+                    constraints: const BoxConstraints(
+                      maxHeight: AppSpacing.diagnosticViewportHeight,
+                    ),
                     padding: const EdgeInsets.all(AppSpacing.md),
                     color: theme.colorScheme.surfaceContainerHighest,
                     child: SingleChildScrollView(
@@ -139,7 +139,7 @@ class _TraceAction extends StatelessWidget {
       status: _traceStatus(trace),
       icon: Icons.sensors_outlined,
       action: SizedBox(
-        height: _actionHeight,
+        height: AppSpacing.actionButtonHeight,
         width: double.infinity,
         child: active
             ? OutlinedButton.icon(
@@ -178,7 +178,7 @@ class _SimulatorAction extends StatelessWidget {
       status: simulator.message ?? 'Package for ${provider.toUpperCase()}.',
       icon: Icons.developer_board_outlined,
       action: SizedBox(
-        height: _actionHeight,
+        height: AppSpacing.actionButtonHeight,
         width: double.infinity,
         child: OutlinedButton.icon(
           key: const Key('download-simulator'),
@@ -219,19 +219,23 @@ class _UtilityAction extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: theme.colorScheme.primary),
+              Icon(
+                icon,
+                size: AppSpacing.iconMd,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(child: Text(title, style: theme.textTheme.labelLarge)),
               if (busy)
                 const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  dimension: AppSpacing.iconSm,
+                  child: CircularProgressIndicator(strokeWidth: AppSpacing.xxs),
                 ),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
           SizedBox(
-            height: 40,
+            height: AppSpacing.utilityStatusHeight,
             child: Text(
               status,
               maxLines: 2,

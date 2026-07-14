@@ -30,8 +30,9 @@ class TwinOverviewNameHeader extends StatelessWidget {
           ),
         ];
 
-        if (constraints.maxWidth < 720) {
+        if (constraints.maxWidth < AppSpacing.twinOverviewCompactBreakpoint) {
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final card in cards)
                 Padding(
@@ -81,7 +82,7 @@ class _NameCard extends StatelessWidget {
               label,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
-                letterSpacing: 1,
+                letterSpacing: AppSpacing.labelLetterSpacing,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
