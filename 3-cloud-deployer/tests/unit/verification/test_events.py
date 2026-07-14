@@ -17,6 +17,7 @@ def test_sse_event_recursively_redacts_nested_secrets():
             "message": "request failed",
             "details": [
                 {"error": "api_key=top-secret"},
+                {"api_key": "structured-secret"},
                 "Authorization: Bearer bearer-secret",
             ],
         },
@@ -25,6 +26,7 @@ def test_sse_event_recursively_redacts_nested_secrets():
     serialized = json.dumps(_event_data(event))
     assert "top-secret" not in serialized
     assert "bearer-secret" not in serialized
+    assert "structured-secret" not in serialized
     assert "<redacted>" in serialized
 
 

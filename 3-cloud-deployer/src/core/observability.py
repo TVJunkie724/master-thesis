@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 import logging
 import re
 from time import perf_counter
-from typing import Iterator
+from typing import Any, Iterator
 from uuid import uuid4
 
 
@@ -28,6 +28,10 @@ CONNECTION_STRING_SECRET_PATTERN = re.compile(r"(?i)\b(SharedAccessKey=)([^;,\s]
 UPLOAD_PATH_PATTERN = re.compile(r"(/[^\s:]+/upload/[^\s:]+)")
 APP_UPLOAD_PATH_PATTERN = re.compile(r"(/app/upload/[^\s:]+)")
 WORKSPACE_PATH_PATTERN = re.compile(r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)")
+SENSITIVE_FIELD_PATTERN = re.compile(
+    r"(?i)(?:^|_)(?:secret|password|private_key|api_key|access_key|"
+    r"access_token|refresh_token|session_token|authorization|credentials?)(?:$|_)"
+)
 
 
 @dataclass(frozen=True)
@@ -84,6 +88,24 @@ def redact_sensitive(value) -> str:
     text = APP_UPLOAD_PATH_PATTERN.sub("<project-path>", text)
     text = WORKSPACE_PATH_PATTERN.sub("<workspace-path>", text)
     return text
+
+
+def redact_structure(value: Any, *, parent_key: str = "") -> Any:
+    """Recursively redact secret fields and make diagnostics JSON-safe."""
+    if isinstance(value, dict):
+        return {
+            str(key): redact_structure(item, parent_key=str(key))
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [redact_structure(item, parent_key=parent_key) for item in value]
+    if SENSITIVE_FIELD_PATTERN.search(parent_key):
+        return "<redacted>"
+    if isinstance(value, str):
+        return redact_sensitive(value)
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return redact_sensitive(value)
 
 
 @contextmanager
