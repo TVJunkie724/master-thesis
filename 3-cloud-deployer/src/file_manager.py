@@ -16,8 +16,26 @@ from pathlib import Path
 import constants as CONSTANTS
 from logger import logger
 import io
+import tempfile
+from uuid import uuid4
+
 import src.validator as validator
 from src.core.project_storage import ProjectStorage, is_sensitive_project_file
+from src.core.deterministic_zip import atomic_zip_archive, write_zip_bytes
+from src.validation.accessors import ZipFileAccessor
+from src.project_archive.policy import (
+    ArchiveLimitExceeded,
+    MAX_COMPRESSED_ARCHIVE_BYTES,
+    validate_archive,
+)
+
+
+GENERATED_PROJECT_PATHS = (
+    ".build",
+    ".terraform_zips",
+    "terraform",
+    CONSTANTS.PROJECT_VERSIONS_DIR_NAME,
+)
 
 
 def _is_sensitive_project_file(relative_path: str) -> bool:
@@ -48,7 +66,7 @@ def _get_project_storage(project_path: str = None) -> ProjectStorage:
 def create_project_from_zip(project_name, zip_source, project_path: str = None, description: str = None):
     """
     Creates a new project from a validated zip file.
-    
+
     Args:
         project_name (str): Name of the project to create.
         zip_source (str | BytesIO): Zip file source.
@@ -64,15 +82,13 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
     """
     if project_path is None:
         project_path = _get_project_base_path()
-    
+
     # Simple validation using os.path to prevent directory traversal
     safe_name = os.path.basename(project_name)
     if safe_name != project_name:
         raise ValueError("Invalid project name.")
     
-    # If bytes, convert to BytesIO for multiple reads (validate + extract)
-    if isinstance(zip_source, bytes):
-        zip_source = io.BytesIO(zip_source)
+    zip_source = _buffer_zip_source(zip_source)
 
     # Validate before extraction (Universal Validation)
     warnings = validator.validate_project_zip(zip_source)
@@ -101,18 +117,12 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
     if target_dir.exists():
         raise ValueError(f"Project '{project_name}' already exists.")
         
-    target_dir.mkdir(parents=True)
-    
-    # Archive version before extracting
-    _archive_zip_version(zip_source, target_dir)
-    
-    # Extract only after validation passed
-    zip_source.seek(0)
-    with zipfile.ZipFile(zip_source, 'r') as zf:
-        zf.extractall(target_dir)
-    
-    # Write project_info.json
-    _write_project_info(target_dir, zip_source, description)
+    _replace_project_from_archive(
+        target_dir,
+        zip_source,
+        description=description,
+        existing_target=None,
+    )
         
     logger.info(f"Created project '{project_name}' from zip.")
     return {"message": f"Project '{project_name}' created.", "warnings": warnings}
@@ -142,8 +152,7 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
     if safe_name != project_name:
         raise ValueError("Invalid project name.")
     
-    if isinstance(zip_source, bytes):
-        zip_source = io.BytesIO(zip_source)
+    zip_source = _buffer_zip_source(zip_source)
         
     # Validate entire zip content first (Universal Validation)
     warnings = validator.validate_project_zip(zip_source)
@@ -170,20 +179,15 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
     storage = _get_project_storage(project_path)
     target_dir = storage.deployment_project_path(safe_name)
     
-    if not target_dir.exists():
-         target_dir.mkdir(parents=True)
-    
-    # Archive version before extracting
-    _archive_zip_version(zip_source, target_dir)
+    if not target_dir.is_dir() or target_dir.is_symlink():
+        raise ValueError(f"Project '{project_name}' does not exist.")
 
-    # Extract and Overwrite
-    zip_source.seek(0)
-    with zipfile.ZipFile(zip_source, 'r') as zf:
-        zf.extractall(target_dir)
-    
-    # Update project_info.json if description provided
-    if description:
-        _write_project_info(target_dir, zip_source, description)
+    _replace_project_from_archive(
+        target_dir,
+        zip_source,
+        description=description,
+        existing_target=target_dir,
+    )
         
     logger.info(f"Updated project '{project_name}' from zip.")
     return {"message": f"Project '{project_name}' updated.", "warnings": warnings}
@@ -296,6 +300,146 @@ def update_function_code_file(project_name, function_name, file_name, code_conte
 # ==========================================
 # 5. Versioning & Metadata Helpers
 # ==========================================
+def _buffer_zip_source(zip_source) -> io.BytesIO:
+    """Return a bounded, seekable copy of one supported ZIP source."""
+    if isinstance(zip_source, bytes):
+        content = zip_source
+    elif isinstance(zip_source, (str, os.PathLike)):
+        source_path = Path(zip_source)
+        if source_path.stat().st_size > MAX_COMPRESSED_ARCHIVE_BYTES:
+            raise ArchiveLimitExceeded("ZIP exceeds the 100MB compressed-size limit")
+        content = source_path.read_bytes()
+    elif hasattr(zip_source, "read") and hasattr(zip_source, "seek"):
+        zip_source.seek(0)
+        content = zip_source.read(MAX_COMPRESSED_ARCHIVE_BYTES + 1)
+    else:
+        raise TypeError("zip_source must be bytes, a path, or a seekable binary stream")
+
+    if len(content) > MAX_COMPRESSED_ARCHIVE_BYTES:
+        raise ArchiveLimitExceeded("ZIP exceeds the 100MB compressed-size limit")
+    return io.BytesIO(content)
+
+
+def _replace_project_from_archive(
+    target_dir: Path,
+    zip_source: io.BytesIO,
+    *,
+    description: str | None,
+    existing_target: Path | None,
+) -> None:
+    """Build a complete project in staging and atomically publish it."""
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging_dir = Path(
+        tempfile.mkdtemp(prefix=f".{target_dir.name}.staging-", dir=target_dir.parent)
+    )
+    try:
+        zip_source.seek(0)
+        with zipfile.ZipFile(zip_source, "r") as archive:
+            _extract_canonical_project(archive, staging_dir)
+        _remove_generated_project_paths(staging_dir)
+
+        existing_info = _read_project_info(existing_target)
+        if existing_target is not None:
+            _copy_version_history(existing_target, staging_dir)
+        _archive_zip_version(zip_source, staging_dir)
+        _write_project_info(
+            staging_dir,
+            zip_source,
+            description,
+            existing_info=existing_info,
+        )
+        _publish_staged_project(staging_dir, target_dir)
+    finally:
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir)
+
+
+def _extract_canonical_project(
+    archive: zipfile.ZipFile,
+    staging_dir: Path,
+) -> None:
+    """Extract only the validated project root and flatten one ZIP wrapper folder."""
+    validate_archive(archive)
+    project_root = ZipFileAccessor(archive).get_project_root()
+    root_entry = project_root.rstrip("/")
+    for member in archive.infolist():
+        member_name = member.filename.rstrip("/")
+        if project_root:
+            if member_name == root_entry:
+                continue
+            if not member.filename.startswith(project_root):
+                raise ValueError("ZIP contains files outside the canonical project root")
+            relative_name = member.filename[len(project_root) :].rstrip("/")
+        else:
+            relative_name = member_name
+        if not relative_name:
+            continue
+
+        target = staging_dir.joinpath(*relative_name.split("/"))
+        if member.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open(member, "r") as source, target.open("xb") as destination:
+            shutil.copyfileobj(source, destination)
+
+
+def _remove_generated_project_paths(staging_dir: Path) -> None:
+    """Prevent uploaded archives from restoring generated runtime state."""
+    for relative_path in GENERATED_PROJECT_PATHS:
+        generated_path = staging_dir / relative_path
+        if generated_path.is_dir() and not generated_path.is_symlink():
+            shutil.rmtree(generated_path)
+        else:
+            generated_path.unlink(missing_ok=True)
+    (staging_dir / CONSTANTS.PROJECT_INFO_FILE).unlink(missing_ok=True)
+
+
+def _copy_version_history(existing_target: Path, staging_dir: Path) -> None:
+    source = existing_target / CONSTANTS.PROJECT_VERSIONS_DIR_NAME
+    if source.is_dir() and not source.is_symlink():
+        destination = staging_dir / CONSTANTS.PROJECT_VERSIONS_DIR_NAME
+        destination.mkdir()
+        for version in sorted(source.iterdir()):
+            if version.is_symlink():
+                raise ValueError("Project version history contains a symbolic link")
+            if version.is_file() and version.suffix == ".zip":
+                shutil.copy2(version, destination / version.name)
+
+
+def _read_project_info(existing_target: Path | None) -> dict:
+    if existing_target is None:
+        return {}
+    info_path = existing_target / CONSTANTS.PROJECT_INFO_FILE
+    try:
+        value = json.loads(info_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _publish_staged_project(staging_dir: Path, target_dir: Path) -> None:
+    """Atomically replace a project and roll back if publication fails."""
+    backup_dir = target_dir.parent / f".{target_dir.name}.backup-{uuid4().hex}"
+    had_existing_target = target_dir.exists()
+    if had_existing_target:
+        target_dir.replace(backup_dir)
+    try:
+        staging_dir.replace(target_dir)
+    except BaseException:
+        if had_existing_target and backup_dir.exists() and not target_dir.exists():
+            backup_dir.replace(target_dir)
+        raise
+    if backup_dir.exists():
+        try:
+            shutil.rmtree(backup_dir)
+        except OSError as exc:
+            logger.warning(
+                "Published project but could not remove prior project backup (%s)",
+                type(exc).__name__,
+            )
+
+
 def _archive_zip_version(zip_source, target_dir):
     """
     Archives the uploaded zip to {target_dir}/versions/{timestamp}.zip.
@@ -307,17 +451,41 @@ def _archive_zip_version(zip_source, target_dir):
     versions_dir = os.path.join(target_dir, CONSTANTS.PROJECT_VERSIONS_DIR_NAME)
     os.makedirs(versions_dir, exist_ok=True)
     
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    version_path = os.path.join(versions_dir, f"{timestamp}.zip")
-    
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
+    version_path = Path(versions_dir) / f"{timestamp}.zip"
     zip_source.seek(0)
-    with open(version_path, 'wb') as f:
-        f.write(zip_source.read())
-    
-    logger.info(f"Archived version to {version_path}")
+    with zipfile.ZipFile(zip_source, "r") as source_archive:
+        accessor = ZipFileAccessor(source_archive)
+        project_root = accessor.get_project_root()
+        with atomic_zip_archive(version_path) as version_archive:
+            for member in source_archive.infolist():
+                if member.is_dir() or not member.filename.startswith(project_root):
+                    continue
+                relative_path = member.filename[len(project_root) :]
+                top_level = relative_path.split("/", 1)[0]
+                if (
+                    not relative_path
+                    or is_sensitive_project_file(relative_path)
+                    or top_level in GENERATED_PROJECT_PATHS
+                    or relative_path == CONSTANTS.PROJECT_INFO_FILE
+                ):
+                    continue
+                write_zip_bytes(
+                    version_archive,
+                    relative_path,
+                    accessor.read_binary(member.filename),
+                )
+
+    logger.info("Archived redacted project version to %s", version_path)
 
 
-def _write_project_info(target_dir, zip_source, description: str = None):
+def _write_project_info(
+    target_dir,
+    zip_source,
+    description: str = None,
+    *,
+    existing_info: dict | None = None,
+):
     """
     Writes project_info.json with description and timestamps.
     If description is None, generates from config.json's digital_twin_name.
@@ -327,26 +495,27 @@ def _write_project_info(target_dir, zip_source, description: str = None):
         zip_source: BytesIO containing the zip file.
         description: Optional description string.
     """
+    existing_info = existing_info or {}
     if not description:
-        # Read digital_twin_name from config.json in zip
-        zip_source.seek(0)
-        with zipfile.ZipFile(zip_source, 'r') as zf:
-            for name in zf.namelist():
-                if name.endswith(CONSTANTS.CONFIG_FILE):
-                    with zf.open(name) as f:
-                        config = json.load(f)
-                        twin_name = config.get("digital_twin_name")
-                        if not twin_name:
-                            raise ValueError("Missing mandatory 'digital_twin_name' in config.json")
-                        description = f"Project builds the digital twin with prefix name '{twin_name}'"
-                        break
-    
-    info_path = os.path.join(target_dir, CONSTANTS.PROJECT_INFO_FILE)
-    with open(info_path, 'w') as f:
-        json.dump({
-            "description": description, 
-            "created_at": datetime.now().isoformat()
-        }, f, indent=2)
+        description = existing_info.get("description")
+    if not description:
+        config = _read_archive_json(zip_source, CONSTANTS.CONFIG_FILE, required=True)
+        twin_name = config.get("digital_twin_name") if isinstance(config, dict) else None
+        if not twin_name:
+            raise ValueError("Missing mandatory 'digital_twin_name' in config.json")
+        description = f"Project builds the digital twin with prefix name '{twin_name}'"
+
+    now = datetime.now().isoformat()
+    info = {
+        "description": description,
+        "created_at": existing_info.get("created_at", now),
+    }
+    if existing_info:
+        info["updated_at"] = now
+    info_path = Path(target_dir) / CONSTANTS.PROJECT_INFO_FILE
+    temporary_path = info_path.with_suffix(".json.tmp")
+    temporary_path.write_text(json.dumps(info, indent=2), encoding="utf-8")
+    temporary_path.replace(info_path)
 
 
 def _extract_identity_from_zip(zip_source):
@@ -359,37 +528,41 @@ def _extract_identity_from_zip(zip_source):
     Returns:
         tuple: (digital_twin_name, credentials_dict)
     """
-    twin_name = None
-    creds = {}
-    
-    zip_source.seek(0)
-    with zipfile.ZipFile(zip_source, 'r') as zf:
-        for name in zf.namelist():
-            if name.endswith(CONSTANTS.CONFIG_FILE):
-                with zf.open(name) as f:
-                    config = json.load(f)
-                    twin_name = config.get("digital_twin_name")
-            elif name.endswith(CONSTANTS.CONFIG_CREDENTIALS_FILE):
-                with zf.open(name) as f:
-                    creds = json.load(f)
-    
-    return twin_name, creds
+    config = _read_archive_json(zip_source, CONSTANTS.CONFIG_FILE, required=False)
+    credentials = _read_archive_json(
+        zip_source,
+        CONSTANTS.CONFIG_CREDENTIALS_FILE,
+        required=False,
+    )
+    twin_name = config.get("digital_twin_name") if isinstance(config, dict) else None
+    return twin_name, credentials if isinstance(credentials, dict) else {}
 
 
 def _extract_deployment_manifest(zip_source):
     """Extract deployment_manifest.json from a validated ZIP, if present."""
+    return _read_archive_json(
+        zip_source,
+        CONSTANTS.DEPLOYMENT_MANIFEST_FILE,
+        required=False,
+    )
+
+
+def _read_archive_json(
+    zip_source,
+    filename: str,
+    *,
+    required: bool,
+):
+    """Read JSON from the archive's one canonical project root."""
     zip_source.seek(0)
-    with zipfile.ZipFile(zip_source, 'r') as zf:
-        manifest_paths = [
-            name for name in zf.namelist()
-            if os.path.basename(name) == CONSTANTS.DEPLOYMENT_MANIFEST_FILE
-        ]
-        if not manifest_paths:
+    with zipfile.ZipFile(zip_source, "r") as archive:
+        accessor = ZipFileAccessor(archive)
+        path = accessor.get_project_root() + filename
+        if not accessor.file_exists(path):
+            if required:
+                raise ValueError(f"Missing required archive file: {filename}")
             return None
-        if len(manifest_paths) > 1:
-            raise ValueError("Multiple deployment_manifest.json files found in project ZIP.")
-        with zf.open(manifest_paths[0]) as f:
-            return json.load(f)
+        return json.loads(accessor.read_text(path))
 
 
 def _validate_project_name_matches_manifest(project_name: str, manifest: dict | None) -> None:

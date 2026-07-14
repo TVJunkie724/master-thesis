@@ -20,6 +20,14 @@ def test_valid_archive_and_double_dot_filename_are_accepted():
         policy.validate_archive(zf)
 
 
+def test_compressed_archive_size_is_bounded(monkeypatch):
+    monkeypatch.setattr(policy, "MAX_COMPRESSED_ARCHIVE_BYTES", 8)
+
+    with _archive([("config.json", "{}")]) as zf:
+        with pytest.raises(policy.ArchiveLimitExceeded, match="compressed-size"):
+            policy.validate_archive(zf)
+
+
 @pytest.mark.parametrize(
     "name",
     ["../config.json", "/config.json", "C:/config.json", "dir\\config.json", "."],

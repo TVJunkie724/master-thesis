@@ -27,6 +27,7 @@ class ArchiveLimitExceeded(ArchivePolicyError):
 
 def validate_archive(zf: zipfile.ZipFile) -> None:
     """Reject ambiguous paths, special files, and decompression abuse."""
+    _validate_compressed_size(zf)
     members = zf.infolist()
     if len(members) > MAX_MEMBERS:
         raise ArchiveLimitExceeded(
@@ -55,6 +56,18 @@ def validate_archive(zf: zipfile.ZipFile) -> None:
             member.file_size / max(1, member.compress_size) > MAX_COMPRESSION_RATIO
         ):
             raise ArchiveLimitExceeded("ZIP entry has an unsafe compression ratio")
+
+
+def _validate_compressed_size(zf: zipfile.ZipFile) -> None:
+    source = zf.fp
+    if source is None or not hasattr(source, "seek") or not hasattr(source, "tell"):
+        return
+    position = source.tell()
+    source.seek(0, 2)
+    size = source.tell()
+    source.seek(position)
+    if size > MAX_COMPRESSED_ARCHIVE_BYTES:
+        raise ArchiveLimitExceeded("ZIP exceeds the 100MB compressed-size limit")
 
 
 def _validate_member_path(raw_name: str, names: set[str]) -> None:

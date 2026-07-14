@@ -26,6 +26,8 @@ from logger import logger
 from api.utils import extract_file_content
 from api.functions import clear_all_hash_metadata
 from api.error_models import ERROR_RESPONSES
+from src.api.upload_limits import read_upload_bounded
+from src.project_archive.policy import MAX_COMPRESSED_ARCHIVE_BYTES
 
 router = APIRouter()
 
@@ -383,7 +385,10 @@ async def import_project(
         )
     
     try:
-        content = await file.read()
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_COMPRESSED_ARCHIVE_BYTES,
+        )
         result = file_manager.update_project_from_zip(project_name, content, description=description)
         
         # Clear all hash metadata since project ZIP is fully replaced

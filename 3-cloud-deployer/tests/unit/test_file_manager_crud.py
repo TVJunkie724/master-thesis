@@ -7,6 +7,7 @@ import pytest
 import os
 import json
 import io
+from pathlib import Path
 import zipfile
 
 import file_manager
@@ -122,6 +123,17 @@ def _valid_zip_with_manifest(resource_name: str) -> bytes:
         zf.writestr(CONSTANTS.DEPLOYMENT_MANIFEST_FILE, json.dumps(manifest))
     bio.seek(0)
     return bio.getvalue()
+
+
+def _wrap_archive(content: bytes, *, extra_root_file: bool = False) -> bytes:
+    source = io.BytesIO(content)
+    target = io.BytesIO()
+    with zipfile.ZipFile(source, "r") as source_zip, zipfile.ZipFile(target, "w") as target_zip:
+        for member in source_zip.infolist():
+            target_zip.writestr(f"wrapped/{member.filename}", source_zip.read(member))
+        if extra_root_file:
+            target_zip.writestr("outside.txt", "ambiguous")
+    return target.getvalue()
 
 
 @pytest.fixture
@@ -277,6 +289,191 @@ class TestCreateProjectManifestContract:
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
         assert manifest["twin"]["resource_name"] == existing_project
+
+
+class TestProjectArchiveTransactions:
+    """Tests for atomic project creation and replacement."""
+
+    def test_create_failure_leaves_no_partial_project(
+        self,
+        monkeypatch,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        def fail_extraction(*_args, **_kwargs):
+            raise OSError("simulated extraction failure")
+
+        monkeypatch.setattr(file_manager.shutil, "copyfileobj", fail_extraction)
+
+        with pytest.raises(OSError, match="simulated extraction failure"):
+            file_manager.create_project_from_zip(
+                "atomic-create",
+                valid_zip_bytes,
+                project_path=temp_project_path,
+            )
+
+        upload_root = Path(temp_project_path) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+        assert not (upload_root / "atomic-create").exists()
+        assert list(upload_root.glob(".atomic-create.staging-*")) == []
+
+    def test_update_replaces_content_and_preserves_controlled_metadata(
+        self,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        project_name = "atomic-update"
+        file_manager.create_project_from_zip(
+            project_name,
+            valid_zip_bytes,
+            project_path=temp_project_path,
+            description="Preserved description",
+        )
+        project_dir = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / project_name
+        )
+        (project_dir / "stale.txt").write_text("stale", encoding="utf-8")
+        (project_dir / ".build").mkdir()
+        (project_dir / ".build" / "old.zip").write_bytes(b"stale")
+        original_info = json.loads(
+            (project_dir / CONSTANTS.PROJECT_INFO_FILE).read_text(encoding="utf-8")
+        )
+
+        file_manager.update_project_from_zip(
+            project_name,
+            valid_zip_bytes,
+            project_path=temp_project_path,
+        )
+
+        updated_info = json.loads(
+            (project_dir / CONSTANTS.PROJECT_INFO_FILE).read_text(encoding="utf-8")
+        )
+        versions = list(
+            (project_dir / CONSTANTS.PROJECT_VERSIONS_DIR_NAME).glob("*.zip")
+        )
+        assert not (project_dir / "stale.txt").exists()
+        assert not (project_dir / ".build").exists()
+        assert len(versions) == 2
+        assert updated_info["description"] == "Preserved description"
+        assert updated_info["created_at"] == original_info["created_at"]
+        assert "updated_at" in updated_info
+
+    def test_update_requires_existing_project(self, temp_project_path, valid_zip_bytes):
+        with pytest.raises(ValueError, match="does not exist"):
+            file_manager.update_project_from_zip(
+                "missing",
+                valid_zip_bytes,
+                project_path=temp_project_path,
+            )
+
+    def test_update_publication_failure_restores_previous_project(
+        self,
+        monkeypatch,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        project_name = "rollback-update"
+        file_manager.create_project_from_zip(
+            project_name,
+            valid_zip_bytes,
+            project_path=temp_project_path,
+        )
+        project_dir = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / project_name
+        )
+        marker = project_dir / "original.txt"
+        marker.write_text("keep", encoding="utf-8")
+        original_replace = Path.replace
+
+        def fail_staging_publish(path, target):
+            if path.name.startswith(f".{project_name}.staging-"):
+                raise OSError("simulated publication failure")
+            return original_replace(path, target)
+
+        monkeypatch.setattr(Path, "replace", fail_staging_publish)
+
+        with pytest.raises(OSError, match="simulated publication failure"):
+            file_manager.update_project_from_zip(
+                project_name,
+                valid_zip_bytes,
+                project_path=temp_project_path,
+            )
+
+        assert marker.read_text(encoding="utf-8") == "keep"
+        assert list(project_dir.parent.glob(f".{project_name}.backup-*")) == []
+
+    def test_uploaded_runtime_state_is_discarded(
+        self,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        archive = io.BytesIO(valid_zip_bytes)
+        with zipfile.ZipFile(archive, "a") as zf:
+            zf.writestr(".build/metadata.json", "secret")
+            zf.writestr("terraform/terraform.tfstate", "secret")
+            zf.writestr("versions/injected.zip", "secret")
+            zf.writestr(CONSTANTS.PROJECT_INFO_FILE, '{"description": "injected"}')
+
+        file_manager.create_project_from_zip(
+            "sanitized-project",
+            archive.getvalue(),
+            project_path=temp_project_path,
+            description="trusted",
+        )
+        project_dir = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / "sanitized-project"
+        )
+
+        assert not (project_dir / ".build").exists()
+        assert not (project_dir / "terraform").exists()
+        assert len(list((project_dir / "versions").glob("*.zip"))) == 1
+        info = json.loads(
+            (project_dir / CONSTANTS.PROJECT_INFO_FILE).read_text(encoding="utf-8")
+        )
+        assert info["description"] == "trusted"
+
+    def test_single_archive_wrapper_is_flattened(
+        self,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        file_manager.create_project_from_zip(
+            "wrapped-project",
+            _wrap_archive(valid_zip_bytes),
+            project_path=temp_project_path,
+        )
+        project_dir = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / "wrapped-project"
+        )
+
+        assert (project_dir / CONSTANTS.CONFIG_FILE).is_file()
+        assert not (project_dir / "wrapped").exists()
+
+    def test_archive_wrapper_rejects_files_outside_project_root(
+        self,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        with pytest.raises(ValueError, match="outside the canonical project root"):
+            file_manager.create_project_from_zip(
+                "ambiguous-project",
+                _wrap_archive(valid_zip_bytes, extra_root_file=True),
+                project_path=temp_project_path,
+            )
+
+        project_dir = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / "ambiguous-project"
+        )
+        assert not project_dir.exists()
 
 
 class TestProjectFileBrowser:

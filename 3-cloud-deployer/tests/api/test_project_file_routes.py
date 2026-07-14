@@ -61,3 +61,34 @@ def test_project_file_content_allows_credential_examples(project_storage):
 
     assert response.status_code == 200
     assert response.json()["content"]["aws"]["aws_access_key_id"] == "example"
+
+
+def test_project_import_rejects_oversized_upload_before_processing(
+    monkeypatch,
+):
+    class ExistingStorage:
+        @staticmethod
+        def exists(_project_name):
+            return True
+
+    update_called = False
+
+    def unexpected_update(*_args, **_kwargs):
+        nonlocal update_called
+        update_called = True
+
+    monkeypatch.setattr(project_routes, "get_project_storage", ExistingStorage)
+    monkeypatch.setattr(project_routes, "MAX_COMPRESSED_ARCHIVE_BYTES", 8)
+    monkeypatch.setattr(
+        project_routes.file_manager,
+        "update_project_from_zip",
+        unexpected_update,
+    )
+
+    response = client.post(
+        "/projects/test/import",
+        files={"file": ("project.zip", b"123456789", "application/zip")},
+    )
+
+    assert response.status_code == 413
+    assert update_called is False

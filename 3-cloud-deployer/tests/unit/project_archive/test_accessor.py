@@ -26,6 +26,11 @@ def test_dotted_project_root_is_preserved():
     assert _accessor("project.v1/config.json").get_project_root() == "project.v1/"
 
 
+def test_wrapper_directory_rejects_sibling_files():
+    with pytest.raises(ValueError, match="outside the canonical project root"):
+        _accessor("project/config.json", "outside.txt")
+
+
 def test_multiple_project_roots_are_rejected():
     with pytest.raises(ValueError, match="multiple project roots"):
         _accessor("one/config.json", "two/config.json")

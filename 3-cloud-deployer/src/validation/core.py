@@ -819,7 +819,8 @@ def check_provider_function_directory(accessor: FileAccessor, ctx: ValidationCon
         raise ValueError(f"Unknown layer_2_provider '{l2_provider}'. Expected: aws, azure, or google.")
     
     # Check if any file exists in the provider's function directory
-    has_files = any(f.startswith(func_dir + "/") for f in ctx.all_files)
+    function_prefix = f"{ctx.project_root}{func_dir}/"
+    has_files = any(f.startswith(function_prefix) for f in ctx.all_files)
     if not has_files:
         raise ValueError(
             f"Missing function directory '{func_dir}/' for layer_2_provider='{l2_provider}'."

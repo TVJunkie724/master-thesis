@@ -22,6 +22,7 @@ class ZipFileAccessor:
         self._zf = zf
         self._files = zf.namelist()
         self._project_root = self._find_project_root()
+        self._validate_project_boundary()
     
     def _find_project_root(self) -> str:
         """Resolve one unambiguous root from an exact ``config.json`` entry."""
@@ -38,6 +39,17 @@ class ZipFileAccessor:
             return ""
         root = roots.pop()
         return f"{root}/" if root else ""
+
+    def _validate_project_boundary(self) -> None:
+        """Reject sibling files when the project uses a wrapper directory."""
+        if not self._project_root:
+            return
+        root_entry = self._project_root.rstrip("/")
+        for filename in self._files:
+            if filename.rstrip("/") == root_entry:
+                continue
+            if not filename.startswith(self._project_root):
+                raise ValueError("ZIP contains files outside the canonical project root")
     
     def list_files(self) -> List[str]:
         return self._files

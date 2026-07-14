@@ -102,9 +102,9 @@ class TestArchiveZipVersion:
         zip_files = [f for f in os.listdir(versions_dir) if f.endswith('.zip')]
         
         assert len(zip_files) == 1
-        # Verify timestamp format: YYYY-MM-DD_HH-MM-SS.zip
+        # Verify collision-safe timestamp format: YYYY-MM-DD_HH-MM-SS.ffffff.zip
         filename = zip_files[0]
-        assert len(filename) == 23  # 2025-12-09_22-00-00.zip
+        assert len(filename) == 30
 
     def test_multiple_archives_create_multiple_files(self, temp_project_path, valid_zip_bytes):
         """Verify multiple uploads create multiple version files."""
@@ -151,6 +151,7 @@ class TestArchiveZipVersion:
         # Should be extractable
         with zipfile.ZipFile(archived_path, 'r') as zf:
             assert CONSTANTS.CONFIG_FILE in zf.namelist()
+            assert CONSTANTS.CONFIG_CREDENTIALS_FILE not in zf.namelist()
 
 
 # ==========================================
