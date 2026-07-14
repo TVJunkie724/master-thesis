@@ -1,4 +1,7 @@
+import pytest
+
 from src.providers.aws import cleanup
+from src.providers.cleanup_observability import ProviderCleanupError
 
 
 def test_cleanup_session_preserves_temporary_session_token(monkeypatch):
@@ -64,3 +67,59 @@ def test_cleanup_list_helper_supports_non_paginated_operations():
             scope="factory",
         )
     ) == ["factory"]
+
+
+def test_cleanup_runs_every_independent_step_and_raises_aggregate(monkeypatch):
+    calls = []
+
+    class Session:
+        pass
+
+    def failed_step(context):
+        calls.append("failed")
+        raise RuntimeError("aws_secret_access_key=must-not-leak")
+
+    def successful_step(context):
+        calls.append("successful")
+
+    monkeypatch.setattr(cleanup, "_create_session", lambda *_args: Session())
+    monkeypatch.setattr(
+        cleanup,
+        "_CLEANUP_STEPS",
+        (("failed", failed_step), ("successful", successful_step)),
+    )
+
+    with pytest.raises(ProviderCleanupError) as exc_info:
+        cleanup.cleanup_aws_resources(
+            {
+                "aws": {
+                    "aws_access_key_id": "key",
+                    "aws_secret_access_key": "secret",
+                }
+            },
+            "factory-twin",
+        )
+
+    assert calls == ["failed", "successful"]
+    assert exc_info.value.failures[0].step == "failed"
+    assert "must-not-leak" not in str(exc_info.value)
+
+
+def test_delete_helper_never_mutates_resources_during_dry_run():
+    deleted = []
+    context = cleanup._AwsCleanupContext(
+        session=object(),
+        prefix="factory-twin",
+        dry_run=True,
+        run=cleanup.CleanupRun("AWS", cleanup.logger),
+    )
+
+    cleanup._delete_or_log(
+        context,
+        "S3",
+        "factory-twin-bucket",
+        lambda: deleted.append(True),
+    )
+
+    assert deleted == []
+    assert context.run.failures == ()

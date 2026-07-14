@@ -26,15 +26,13 @@ class CleanupRequest:
 
 def cleanup_aws_resources(*args, **kwargs) -> None:
     """Lazy wrapper kept monkeypatchable for tests and integration seams."""
-    from src.providers.aws import cleanup as cleanup_module
     from src.providers.aws.cleanup import cleanup_aws_resources as provider_cleanup
 
-    with enforce_cleanup_outcome(cleanup_module.logger, "AWS"):
-        provider_cleanup(*args, **kwargs)
+    provider_cleanup(*args, **kwargs)
 
 
 def cleanup_azure_resources(*args, **kwargs) -> None:
-    """Lazy wrapper kept monkeypatchable for tests and integration seams."""
+    """Run Azure cleanup through its transitional fail-closed adapter."""
     from src.providers.azure import cleanup as cleanup_module
     from src.providers.azure.cleanup import cleanup_azure_resources as provider_cleanup
 
@@ -43,7 +41,7 @@ def cleanup_azure_resources(*args, **kwargs) -> None:
 
 
 def cleanup_gcp_resources(*args, **kwargs) -> None:
-    """Lazy wrapper kept monkeypatchable for tests and integration seams."""
+    """Run GCP cleanup through its transitional fail-closed adapter."""
     from src.providers.gcp import cleanup as cleanup_module
     from src.providers.gcp.cleanup import cleanup_gcp_resources as provider_cleanup
 
