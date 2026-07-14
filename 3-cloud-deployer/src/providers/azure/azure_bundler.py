@@ -21,6 +21,7 @@ from typing import Optional, Tuple, List
 from src.function_registry import (
     Layer, get_by_layer, get_l0_for_config
 )
+from src.core.deterministic_zip import write_zip_bytes, write_zip_file
 
 logger = logging.getLogger(__name__)
 
@@ -59,16 +60,16 @@ def _add_shared_files(zf: zipfile.ZipFile, azure_functions_dir: Path) -> None:
     # Add requirements.txt (or create default)
     requirements_path = azure_functions_dir / "requirements.txt"
     if requirements_path.exists():
-        zf.write(requirements_path, "requirements.txt")
+        write_zip_file(zf, requirements_path, "requirements.txt")
     else:
         # Create minimal requirements.txt for Azure Functions
         default_requirements = "azure-functions\n"
-        zf.writestr("requirements.txt", default_requirements)
+        write_zip_bytes(zf, "requirements.txt", default_requirements)
     
     # Add host.json (or create default for v2)
     host_path = azure_functions_dir / "host.json"
     if host_path.exists():
-        zf.write(host_path, "host.json")
+        write_zip_file(zf, host_path, "host.json")
     else:
         # Create minimal host.json for Azure Functions v2
         # NOTE: Sampling is disabled to ensure all logs are captured.
@@ -94,19 +95,20 @@ def _add_shared_files(zf: zipfile.ZipFile, azure_functions_dir: Path) -> None:
                 "version": "[4.*, 5.0.0)"
             }
         }, indent=2)
-        zf.writestr("host.json", default_host)
+        write_zip_bytes(zf, "host.json", default_host)
     
     # Add _shared directory if exists
     shared_dir = azure_functions_dir / "_shared"
     if shared_dir.exists() and shared_dir.is_dir():
-        for root, _, files in os.walk(shared_dir):
-            for file in files:
+        for root, directories, files in os.walk(shared_dir):
+            directories.sort()
+            for file in sorted(files):
                 # Skip __pycache__
                 if "__pycache__" in root or file.endswith(".pyc"):
                     continue
                 file_path = Path(root) / file
                 arcname = file_path.relative_to(azure_functions_dir)
-                zf.write(file_path, str(arcname))
+                write_zip_file(zf, file_path, arcname)
 
 
 def _clean_function_app_imports(content: str) -> str:
@@ -366,8 +368,9 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
         func_name = func_dir.name
         module_name = func_name.replace("-", "_")
         
-        for root, _, files in os.walk(func_dir):
-            for file in files:
+        for root, directories, files in os.walk(func_dir):
+            directories.sort()
+            for file in sorted(files):
                 if "__pycache__" in root or file.endswith(".pyc") or file == "__init__.py":
                     continue
                 file_path = Path(root) / file
@@ -394,15 +397,23 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
         module_name = func_name.replace("-", "_")
         
         # Add __init__.py to make folder a Python package
-        zf.writestr(f"{module_name}/__init__.py", "# Auto-generated to make this folder a Python package\n")
+        write_zip_bytes(
+            zf,
+            f"{module_name}/__init__.py",
+            "# Auto-generated to make this folder a Python package\n",
+        )
         
         # Write the processed function_app.py
         if module_name in processed_contents:
-            zf.writestr(f"{module_name}/function_app.py", processed_contents[module_name])
+            write_zip_bytes(
+                zf,
+                f"{module_name}/function_app.py",
+                processed_contents[module_name],
+            )
     
     # Write other files
-    for file_path, arcname, _ in other_files:
-        zf.write(file_path, arcname)
+    for file_path, arcname, _ in sorted(other_files, key=lambda item: item[1]):
+        write_zip_file(zf, file_path, arcname)
     
     # Generate main function_app.py with Blueprint registrations
     import_lines = []
@@ -438,7 +449,7 @@ app = func.FunctionApp()
 {register_section}
 '''
     
-    zf.writestr("function_app.py", main_content.strip())
+    write_zip_bytes(zf, "function_app.py", main_content.strip())
 
 
 def bundle_l0_functions(
@@ -688,7 +699,7 @@ def bundle_user_functions(project_path: str) -> Optional[bytes]:
                 found_folders.append(folder_path)
             else:
                 # Nested subfolders
-                for subfolder in folder_path.iterdir():
+                for subfolder in sorted(folder_path.iterdir()):
                     if subfolder.is_dir() and (subfolder / "function_app.py").exists():
                         found_folders.append(subfolder)
     
