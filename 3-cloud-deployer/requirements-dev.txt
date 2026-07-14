@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# Test and quality-gate dependencies are excluded from the production stage.
+bandit
+httpx2
+moto
+pytest
+ruff

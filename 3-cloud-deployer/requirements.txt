@@ -4,12 +4,7 @@ requests
 colorlog
 aiohttp
 
-# Testing packages
-pytest
-moto[server]
-httpx
 python-multipart
-bandit
 
 # AWS SDK packages
 boto3

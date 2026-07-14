@@ -32,6 +32,7 @@ services:
     build: 
       context: ./3-cloud-deployer
       dockerfile: Dockerfile
+      target: development
     ports:
       - "${THESIS_DEPLOYER_PORT:-5004}:8000"
     volumes: 

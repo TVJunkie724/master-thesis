@@ -30,16 +30,19 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.cache/
 *.egg-info/
 
 # -----------------------------------------------------------------------------
 # Terraform State (managed at runtime, not build time)
 # -----------------------------------------------------------------------------
-# .terraform/
-# .terraform.lock.hcl
-# *.tfstate
-# *.tfstate.backup
-# *.tfvars.json
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
+**/*.tfvars.json
+
+# Runtime project data and credentials must be mounted, never baked into images.
+upload/
 
 # -----------------------------------------------------------------------------
 # Zipped Lambda Functions (regenerated during deployment)
@@ -63,6 +66,7 @@ htmlcov/
 # -----------------------------------------------------------------------------
 # Documentation
 # -----------------------------------------------------------------------------
+docs/
 implementation_plans/
 *.md
 !README.md
