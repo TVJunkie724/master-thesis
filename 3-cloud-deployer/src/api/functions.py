@@ -2,14 +2,14 @@
 
 from fastapi import APIRouter
 
-from api.function_artifacts import (
+from src.api.function_artifacts import (
     _build_function_zip,
     _compute_source_hash,
     _get_metadata_path,
     clear_all_function_metadata,
     get_artifact_metadata,
 )
-from api.function_build import (
+from src.api.function_build import (
     _build_aws_zip,
     _build_azure_zip,
     _build_gcp_zip,
@@ -18,7 +18,7 @@ from api.function_build import (
     build_function_zip,
     router as build_router,
 )
-from api.function_discovery import (
+from src.api.function_discovery import (
     CACHE_TTL_SECONDS,
     _get_cached_functions,
     _get_updatable_functions,
@@ -26,13 +26,13 @@ from api.function_discovery import (
     _invalidate_cache,
     _set_cache,
 )
-from api.function_routes import (
+from src.api.function_routes import (
     get_updatable_functions,
     invalidate_function_cache,
     router as lifecycle_router,
     update_function,
 )
-from api.function_upload import (
+from src.api.function_upload import (
     HAS_BOTO3,
     HAS_GCP_FUNCTIONS,
     HAS_REQUESTS,

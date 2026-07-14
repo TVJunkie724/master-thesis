@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from api.error_models import ERROR_RESPONSES
+from src.api.error_models import ERROR_RESPONSES
 from logger import logger
 from src.core.observability import redact_sensitive
 from src.core.paths import resolve_project_context_path

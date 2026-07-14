@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from src.logger import RedactingColoredFormatter
+from logger import RedactingColoredFormatter
 from src.simulator.session import SimulatorSessionInvalid, resolve_simulator_session
 from src.terraform_runner import TerraformRunner
 

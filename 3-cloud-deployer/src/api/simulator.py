@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from pathlib import Path
 from logger import logger
 import src.core.state as state
-from api.error_models import ERROR_RESPONSES
+from src.api.error_models import ERROR_RESPONSES
 from src.core.paths import resolve_project_context_path
 from src.core.simulator_package import (
     SimulatorPackageInvalid,

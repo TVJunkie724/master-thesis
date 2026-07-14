@@ -30,13 +30,13 @@ def _make_mock_parse_return(project_id="test-project", client_email="sa@test.iam
 class TestGCPProjectStateValidation:
     """Tests for GCP project state validation."""
 
-    @patch('api.gcp_credentials_checker._check_billing_enabled')
-    @patch('api.gcp_credentials_checker._check_project_access')
-    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
     @patch.object(Path, 'exists', return_value=True)
     def test_deleted_project_detected(self, mock_path_exists, mock_parse, mock_project_access, mock_billing):
         """Test validation fails for projects marked for deletion."""
-        from api.gcp_credentials_checker import check_gcp_credentials
+        from src.api.gcp_credentials_checker import check_gcp_credentials
         
         mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
@@ -57,17 +57,17 @@ class TestGCPProjectStateValidation:
         assert "DELETE_REQUESTED" in result["message"]
         assert "project" in result["message"].lower()
 
-    @patch('api.gcp_credentials_checker._check_enabled_apis')
-    @patch('api.gcp_credentials_checker._check_iam_permissions')
-    @patch('api.gcp_credentials_checker._validate_gcp_region')
-    @patch('api.gcp_credentials_checker._check_billing_enabled')
-    @patch('api.gcp_credentials_checker._check_project_access')
-    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    @patch('src.api.gcp_credentials_checker._check_enabled_apis')
+    @patch('src.api.gcp_credentials_checker._check_iam_permissions')
+    @patch('src.api.gcp_credentials_checker._validate_gcp_region')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
     @patch.object(Path, 'exists', return_value=True)
     def test_active_project_proceeds(self, mock_path_exists, mock_parse, mock_project_access,
                                      mock_billing, mock_region, mock_iam, mock_apis):
         """Test active projects proceed with validation."""
-        from api.gcp_credentials_checker import check_gcp_credentials
+        from src.api.gcp_credentials_checker import check_gcp_credentials
         
         mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
@@ -101,12 +101,12 @@ class TestGCPProjectStateValidation:
         # Should proceed (project is active)
         assert result["status"] in ["valid", "partial"]
 
-    @patch('api.gcp_credentials_checker._check_enabled_apis')
-    @patch('api.gcp_credentials_checker._check_iam_permissions')
-    @patch('api.gcp_credentials_checker._validate_gcp_region')
-    @patch('api.gcp_credentials_checker._check_billing_enabled')
-    @patch('api.gcp_credentials_checker._check_project_access')
-    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    @patch('src.api.gcp_credentials_checker._check_enabled_apis')
+    @patch('src.api.gcp_credentials_checker._check_iam_permissions')
+    @patch('src.api.gcp_credentials_checker._validate_gcp_region')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
     def test_existing_project_mode_validates_explicit_target_project(
         self,
         mock_parse,
@@ -117,7 +117,7 @@ class TestGCPProjectStateValidation:
         mock_apis,
     ):
         """Private-mode preflight must validate gcp_project_id, not the SA key project."""
-        from api.gcp_credentials_checker import check_gcp_credentials
+        from src.api.gcp_credentials_checker import check_gcp_credentials
 
         mock_parse.return_value = _make_mock_parse_return(project_id="service-account-home")
         mock_project_access.return_value = {
@@ -159,13 +159,13 @@ class TestGCPProjectStateValidation:
 class TestGCPBillingValidation:
     """Tests for GCP billing account validation."""
 
-    @patch('api.gcp_credentials_checker._check_billing_enabled')
-    @patch('api.gcp_credentials_checker._check_project_access')
-    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
     @patch.object(Path, 'exists', return_value=True)
     def test_billing_disabled_detected(self, mock_path_exists, mock_parse, mock_project_access, mock_billing):
         """Test validation fails when billing is not enabled."""
-        from api.gcp_credentials_checker import check_gcp_credentials
+        from src.api.gcp_credentials_checker import check_gcp_credentials
         
         mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
@@ -190,17 +190,17 @@ class TestGCPBillingValidation:
         assert result["status"] == "invalid"
         assert "billing" in result["message"].lower()
 
-    @patch('api.gcp_credentials_checker._check_enabled_apis')
-    @patch('api.gcp_credentials_checker._check_iam_permissions')
-    @patch('api.gcp_credentials_checker._validate_gcp_region')
-    @patch('api.gcp_credentials_checker._check_billing_enabled')
-    @patch('api.gcp_credentials_checker._check_project_access')
-    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    @patch('src.api.gcp_credentials_checker._check_enabled_apis')
+    @patch('src.api.gcp_credentials_checker._check_iam_permissions')
+    @patch('src.api.gcp_credentials_checker._validate_gcp_region')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
     @patch.object(Path, 'exists', return_value=True)
     def test_billing_check_skipped_gracefully(self, mock_path_exists, mock_parse, mock_project_access, 
                                               mock_billing, mock_region, mock_iam, mock_apis):
         """Test that billing check is skipped gracefully if SDK not installed."""
-        from api.gcp_credentials_checker import check_gcp_credentials
+        from src.api.gcp_credentials_checker import check_gcp_credentials
         
         mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
@@ -241,7 +241,7 @@ class TestCheckBillingEnabledFunction:
 
     def test_billing_enabled_returns_true(self):
         """Test billing check when billing is enabled."""
-        from api.gcp_credentials_checker import _check_billing_enabled
+        from src.api.gcp_credentials_checker import _check_billing_enabled
         
         mock_billing_module = MagicMock()
         mock_client = Mock()
@@ -267,7 +267,7 @@ class TestCheckBillingEnabledFunction:
 
     def test_billing_disabled_returns_false(self):
         """Test billing check when billing is disabled."""
-        from api.gcp_credentials_checker import _check_billing_enabled
+        from src.api.gcp_credentials_checker import _check_billing_enabled
         
         mock_billing_module = MagicMock()
         mock_client = Mock()
@@ -295,7 +295,7 @@ class TestGCPPermissionContractMetadata:
     """Tests for GCP permission contract metadata in checker responses."""
 
     def test_missing_credentials_response_includes_permission_contract(self):
-        from api.gcp_credentials_checker import (
+        from src.api.gcp_credentials_checker import (
             REQUIRED_GCP_PERMISSIONS,
             check_gcp_credentials,
         )
@@ -309,7 +309,7 @@ class TestGCPPermissionContractMetadata:
         )
 
     def test_from_config_error_response_includes_permission_contract(self):
-        from api.gcp_credentials_checker import (
+        from src.api.gcp_credentials_checker import (
             REQUIRED_GCP_PERMISSIONS,
             check_gcp_credentials_from_config,
         )
@@ -322,16 +322,16 @@ class TestGCPPermissionContractMetadata:
             REQUIRED_GCP_PERMISSIONS
         )
 
-    @patch('api.gcp_credentials_checker._check_enabled_apis')
-    @patch('api.gcp_credentials_checker._check_iam_permissions')
-    @patch('api.gcp_credentials_checker._validate_gcp_region')
-    @patch('api.gcp_credentials_checker._check_billing_enabled')
-    @patch('api.gcp_credentials_checker._check_project_access')
-    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    @patch('src.api.gcp_credentials_checker._check_enabled_apis')
+    @patch('src.api.gcp_credentials_checker._check_iam_permissions')
+    @patch('src.api.gcp_credentials_checker._validate_gcp_region')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
     def test_missing_iam_permissions_returns_partial(self, mock_parse, mock_project_access,
                                                      mock_billing, mock_region, mock_iam,
                                                      mock_apis):
-        from api.gcp_credentials_checker import check_gcp_credentials
+        from src.api.gcp_credentials_checker import check_gcp_credentials
 
         mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
@@ -369,16 +369,16 @@ class TestGCPPermissionContractMetadata:
         assert "permissions are missing" in result["message"]
         assert result["permission_status"]["summary"]["missing"] == 1
 
-    @patch('api.gcp_credentials_checker._check_enabled_apis')
-    @patch('api.gcp_credentials_checker._check_iam_permissions')
-    @patch('api.gcp_credentials_checker._validate_gcp_region')
-    @patch('api.gcp_credentials_checker._check_billing_enabled')
-    @patch('api.gcp_credentials_checker._check_project_access')
-    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    @patch('src.api.gcp_credentials_checker._check_enabled_apis')
+    @patch('src.api.gcp_credentials_checker._check_iam_permissions')
+    @patch('src.api.gcp_credentials_checker._validate_gcp_region')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
     def test_iam_permission_check_failure_returns_partial(self, mock_parse, mock_project_access,
                                                           mock_billing, mock_region, mock_iam,
                                                           mock_apis):
-        from api.gcp_credentials_checker import check_gcp_credentials
+        from src.api.gcp_credentials_checker import check_gcp_credentials
 
         mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
@@ -410,8 +410,8 @@ class TestGCPPermissionContractMetadata:
         assert result["permission_status"]["status"] == "check_failed"
 
     def test_iam_permission_check_defers_resource_scoped_permissions(self):
-        from api import gcp_credentials_checker
-        from api.gcp_credentials_checker import _check_iam_permissions
+        from src.api import gcp_credentials_checker
+        from src.api.gcp_credentials_checker import _check_iam_permissions
 
         mock_resourcemanager = MagicMock()
         mock_client = Mock()

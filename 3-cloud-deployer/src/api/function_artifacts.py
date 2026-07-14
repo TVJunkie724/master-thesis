@@ -7,7 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional
 
-from api.function_discovery import _get_upload_dir, _invalidate_cache
+from src.api.function_discovery import _get_upload_dir, _invalidate_cache
 from logger import logger
 from src.core.deterministic_zip import write_zip_file
 from src.function_metadata import (

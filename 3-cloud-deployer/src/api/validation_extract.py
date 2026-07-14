@@ -7,7 +7,7 @@ import zipfile
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import ValidationError
 
-from api.error_models import ERROR_RESPONSES
+from src.api.error_models import ERROR_RESPONSES
 from logger import logger
 from src.api.models.zip_extraction import ValidationContextInput, ZipExtractionResponse
 from src.api.upload_limits import read_upload_bounded

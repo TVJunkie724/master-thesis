@@ -20,20 +20,19 @@ from src.core.project_storage import (
     ProjectStorageError,
     get_project_storage,
 )
-from api.dependencies import ConfigType, ProviderEnum, check_template_protection
+from src.api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
 from logger import logger
-from api.utils import extract_file_content
-from api.functions import clear_all_function_metadata
-from api.error_models import ERROR_RESPONSES
+from src.api.utils import extract_file_content
+from src.api.functions import clear_all_function_metadata
+from src.api.error_models import ERROR_RESPONSES
 from src.api.upload_limits import read_upload_bounded
 from src.project_archive.policy import MAX_COMPRESSED_ARCHIVE_BYTES
 
 router = APIRouter()
-
-
-
-
+MAX_CONFIG_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_STATE_MACHINE_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_SIMULATOR_PAYLOAD_UPLOAD_BYTES = 10 * 1024 * 1024
 
 # ==========================================
 # 1. Project Management
@@ -111,6 +110,7 @@ def list_projects():
     responses={
         200: {"description": "Project created successfully"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         422: ERROR_RESPONSES[422],
     }
 )
@@ -132,7 +132,10 @@ async def create_project(
     **If description not provided:** Auto-generated from digital_twin_name in config.json.
     """
     try:
-        content = await extract_file_content(request)
+        content = await extract_file_content(
+            request,
+            max_bytes=MAX_COMPRESSED_ARCHIVE_BYTES,
+        )
         result = file_manager.create_project_from_zip(project_name, content, description=description)
         return result
     except ValueError as e:
@@ -305,6 +308,7 @@ def get_project_config(
     responses={
         200: {"description": "Configuration updated"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }
@@ -331,7 +335,10 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
     filename = config_map[config_type]
     
     try:
-        content = await extract_file_content(request)
+        content = await extract_file_content(
+            request,
+            max_bytes=MAX_CONFIG_UPLOAD_BYTES,
+        )
         json_content = json.loads(content)
         file_manager.update_config_file(project_name, filename, json_content)
         return {"message": f"Configuration '{filename}' updated for project '{project_name}'."}
@@ -339,6 +346,8 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         raise HTTPException(status_code=400, detail="Invalid JSON content.")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
@@ -675,6 +684,7 @@ async def update_project_info_endpoint(project_name: str, request: Request):
     responses={
         200: {"description": "State machine uploaded"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }
@@ -702,7 +712,10 @@ async def upload_state_machine(
         else:
              raise ValueError("Invalid provider. Must be 'aws', 'azure', or 'google'.")
 
-        content = await extract_file_content(request)
+        content = await extract_file_content(
+            request,
+            max_bytes=MAX_STATE_MACHINE_UPLOAD_BYTES,
+        )
         content_str = content.decode('utf-8')
         
         # 1. Validate Content matches Provider Signature
@@ -738,6 +751,7 @@ async def upload_state_machine(
     responses={
         200: {"description": "Payloads uploaded"},
         400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
     }
 )
@@ -749,7 +763,10 @@ async def upload_simulator_payloads(project_name: str, request: Request):
     check_template_protection(project_name, "upload payloads to")
     
     try:
-        content = await extract_file_content(request)
+        content = await extract_file_content(
+            request,
+            max_bytes=MAX_SIMULATOR_PAYLOAD_UPLOAD_BYTES,
+        )
         content_str = content.decode('utf-8')
         
         is_valid, errors, warnings = validator.validate_simulator_payloads(content_str, project_name=project_name)
@@ -768,6 +785,8 @@ async def upload_simulator_payloads(project_name: str, request: Request):
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")

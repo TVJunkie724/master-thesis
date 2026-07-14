@@ -17,7 +17,7 @@ class TestAzureCredentialValidation:
 
     def test_check_azure_credentials_missing_fields(self):
         """Test validation fails with missing required fields."""
-        from api.azure_credentials_checker import (
+        from src.api.azure_credentials_checker import (
             check_azure_credentials,
         )
         
@@ -35,12 +35,12 @@ class TestAzureCredentialValidation:
         assert result["status"] == "invalid"
         assert "azure_client_id" in result["message"]
 
-    @patch('api.azure_credentials_checker._create_credential')
-    @patch('api.azure_credentials_checker._get_caller_identity')
-    @patch('api.azure_credentials_checker._get_role_assignments_with_permissions')
+    @patch('src.api.azure_credentials_checker._create_credential')
+    @patch('src.api.azure_credentials_checker._get_caller_identity')
+    @patch('src.api.azure_credentials_checker._get_role_assignments_with_permissions')
     def test_check_azure_credentials_valid(self, mock_roles, mock_identity, mock_cred):
         """Test successful credential validation with all permissions present."""
-        from api.azure_credentials_checker import (
+        from src.api.azure_credentials_checker import (
             REQUIRED_AZURE_PERMISSIONS,
             check_azure_credentials,
         )
@@ -73,12 +73,12 @@ class TestAzureCredentialValidation:
         assert result["caller_identity"] is not None
         assert result["can_list_roles"]
 
-    @patch('api.azure_credentials_checker._create_credential')
-    @patch('api.azure_credentials_checker._get_caller_identity')
-    @patch('api.azure_credentials_checker._get_role_assignments_with_permissions')
+    @patch('src.api.azure_credentials_checker._create_credential')
+    @patch('src.api.azure_credentials_checker._get_caller_identity')
+    @patch('src.api.azure_credentials_checker._get_role_assignments_with_permissions')
     def test_check_azure_credentials_partial(self, mock_roles, mock_identity, mock_cred):
         """Test partial credential validation when some actions are missing."""
-        from api.azure_credentials_checker import check_azure_credentials
+        from src.api.azure_credentials_checker import check_azure_credentials
         
         mock_identity.return_value = {
             "subscription_id": "sub-123",
@@ -104,11 +104,11 @@ class TestAzureCredentialValidation:
         
         assert result["status"] in ["partial", "invalid"]
 
-    @patch('api.azure_credentials_checker._create_credential')
-    @patch('api.azure_credentials_checker._get_caller_identity')
+    @patch('src.api.azure_credentials_checker._create_credential')
+    @patch('src.api.azure_credentials_checker._get_caller_identity')
     def test_check_azure_credentials_disabled_subscription(self, mock_identity, mock_cred):
         """Test validation fails early for disabled subscriptions."""
-        from api.azure_credentials_checker import check_azure_credentials
+        from src.api.azure_credentials_checker import check_azure_credentials
         
         # Simulate disabled subscription (billing issue, quota exceeded, etc.)
         mock_identity.return_value = {
@@ -131,11 +131,11 @@ class TestAzureCredentialValidation:
         assert "Disabled" in result["message"]
         assert "subscription" in result["message"].lower()
 
-    @patch('api.azure_credentials_checker._create_credential')
-    @patch('api.azure_credentials_checker._get_caller_identity')
+    @patch('src.api.azure_credentials_checker._create_credential')
+    @patch('src.api.azure_credentials_checker._get_caller_identity')
     def test_check_azure_credentials_fails_when_principal_id_is_unknown(self, mock_identity, mock_cred):
         """Permission validation must not aggregate unfiltered subscription roles."""
-        from api.azure_credentials_checker import check_azure_credentials
+        from src.api.azure_credentials_checker import check_azure_credentials
 
         mock_identity.return_value = {
             "subscription_id": "sub-123",
@@ -161,7 +161,7 @@ class TestAzureRoleAssignmentFiltering:
     """Tests for filtering Azure RBAC assignments to the authenticated principal."""
 
     def test_decode_jwt_claims_extracts_principal_identifiers(self):
-        from api.azure_credentials_checker import _decode_jwt_claims
+        from src.api.azure_credentials_checker import _decode_jwt_claims
         import base64
 
         payload = {
@@ -174,7 +174,7 @@ class TestAzureRoleAssignmentFiltering:
         assert _decode_jwt_claims(token) == payload
 
     def test_role_assignment_collection_filters_to_current_principal(self):
-        from api.azure_credentials_checker import _get_role_assignments_with_permissions
+        from src.api.azure_credentials_checker import _get_role_assignments_with_permissions
         from types import SimpleNamespace
 
         current_assignment = Mock(
@@ -243,12 +243,12 @@ class TestAzureRoleAssignmentFiltering:
 class TestAzureSPExpiration:
     """Tests for Azure Service Principal credential expiration checking."""
 
-    @patch('api.azure_credentials_checker._check_sp_credential_expiration')
-    @patch('api.azure_credentials_checker._get_caller_identity')
-    @patch('api.azure_credentials_checker._create_credential')
+    @patch('src.api.azure_credentials_checker._check_sp_credential_expiration')
+    @patch('src.api.azure_credentials_checker._get_caller_identity')
+    @patch('src.api.azure_credentials_checker._create_credential')
     def test_expired_sp_credentials_detected(self, mock_create_cred, mock_get_identity, mock_expiration):
         """Test that expired SP credentials are detected and fail early."""
-        from api.azure_credentials_checker import check_azure_credentials
+        from src.api.azure_credentials_checker import check_azure_credentials
         
         mock_create_cred.return_value = Mock()
         mock_get_identity.return_value = {
@@ -274,15 +274,15 @@ class TestAzureSPExpiration:
         assert result["status"] == "invalid"
         assert "expired" in result["message"].lower()
 
-    @patch('api.azure_credentials_checker._check_sp_credential_expiration')
-    @patch('api.azure_credentials_checker._validate_azure_regions')
-    @patch('api.azure_credentials_checker._get_role_assignments_with_permissions')
-    @patch('api.azure_credentials_checker._get_caller_identity')
-    @patch('api.azure_credentials_checker._create_credential')
+    @patch('src.api.azure_credentials_checker._check_sp_credential_expiration')
+    @patch('src.api.azure_credentials_checker._validate_azure_regions')
+    @patch('src.api.azure_credentials_checker._get_role_assignments_with_permissions')
+    @patch('src.api.azure_credentials_checker._get_caller_identity')
+    @patch('src.api.azure_credentials_checker._create_credential')
     def test_expiring_soon_is_warning_not_failure(self, mock_create_cred, mock_get_identity, 
                                                    mock_roles, mock_regions, mock_expiration):
         """Test that credentials expiring soon produce warning but don't fail."""
-        from api.azure_credentials_checker import check_azure_credentials
+        from src.api.azure_credentials_checker import check_azure_credentials
         
         mock_create_cred.return_value = Mock()
         mock_get_identity.return_value = {
@@ -322,7 +322,7 @@ class TestActionMatching:
 
     def test_action_matches_direct(self):
         """Test direct action match returns 'exact'."""
-        from api.azure_credentials_checker import _action_matches
+        from src.api.azure_credentials_checker import _action_matches
         
         user_actions = {"Microsoft.Web/sites/write", "Microsoft.Web/sites/read"}
         
@@ -333,7 +333,7 @@ class TestActionMatching:
 
     def test_action_matches_wildcard_all(self):
         """Test wildcard * matches everything and returns 'wildcard'."""
-        from api.azure_credentials_checker import _action_matches
+        from src.api.azure_credentials_checker import _action_matches
         
         user_actions = {"*"}
         
@@ -343,7 +343,7 @@ class TestActionMatching:
 
     def test_action_matches_suffix_wildcard(self):
         """Test suffix wildcard like Microsoft.Web/* returns 'wildcard'."""
-        from api.azure_credentials_checker import _action_matches
+        from src.api.azure_credentials_checker import _action_matches
         
         user_actions = {"Microsoft.Web/*"}
         
@@ -355,7 +355,7 @@ class TestActionMatching:
 
     def test_action_matches_read_wildcard(self):
         """Test */read wildcard returns 'wildcard' for read actions."""
-        from api.azure_credentials_checker import _action_matches
+        from src.api.azure_credentials_checker import _action_matches
         
         user_actions = {"*/read"}
         
@@ -371,7 +371,7 @@ class TestComparePermissions:
 
     def test_compare_permissions_all_valid(self):
         """Test all layers valid when all actions present."""
-        from api.azure_credentials_checker import (
+        from src.api.azure_credentials_checker import (
             REQUIRED_AZURE_PERMISSIONS,
             _compare_permissions,
         )
@@ -389,7 +389,7 @@ class TestComparePermissions:
 
     def test_compare_permissions_missing_actions(self):
         """Test layer invalid when required actions missing."""
-        from api.azure_credentials_checker import _compare_permissions
+        from src.api.azure_credentials_checker import _compare_permissions
         
         role_info = {
             "assignments": [{"role_name": "Reader"}],
@@ -404,7 +404,7 @@ class TestComparePermissions:
 
     def test_compare_permissions_none_role_info(self):
         """Test handling of None role_info (couldn't list)."""
-        from api.azure_credentials_checker import _compare_permissions
+        from src.api.azure_credentials_checker import _compare_permissions
         
         result = _compare_permissions(None)
         
@@ -412,7 +412,7 @@ class TestComparePermissions:
 
     def test_compare_permissions_honors_azure_not_actions(self):
         """Contributor-style wildcards must not grant actions excluded by notActions."""
-        from api.azure_credentials_checker import _compare_permissions
+        from src.api.azure_credentials_checker import _compare_permissions
 
         role_info = {
             "assignments": [{"role_name": "Contributor"}],
@@ -438,7 +438,7 @@ class TestComparePermissions:
 
     def test_compare_permissions_allows_action_when_second_role_grants_it(self):
         """Contributor plus a role-assignment role should satisfy excluded actions."""
-        from api.azure_credentials_checker import _compare_permissions
+        from src.api.azure_credentials_checker import _compare_permissions
 
         role_info = {
             "assignments": [{"role_name": "Contributor"}, {"role_name": "User Access Administrator"}],
@@ -486,10 +486,10 @@ def _all_required_azure_data_actions(required_permissions: dict) -> set[str]:
 class TestAzureCredentialsFromConfig:
     """Tests for loading credentials from project config."""
 
-    @patch('api.azure_credentials_checker.check_azure_credentials')
+    @patch('src.api.azure_credentials_checker.check_azure_credentials')
     def test_from_config_with_project_name(self, mock_check, tmp_path):
         """Test loading credentials from specific project."""
-        from api.azure_credentials_checker import check_azure_credentials_from_config
+        from src.api.azure_credentials_checker import check_azure_credentials_from_config
         project_dir = tmp_path / "my-project"
         project_dir.mkdir()
         (project_dir / "config_credentials.json").write_text(json.dumps({
@@ -512,7 +512,7 @@ class TestAzureCredentialsFromConfig:
 
     def test_from_config_missing_azure_section(self, tmp_path):
         """Test error when Azure section missing from config."""
-        from api.azure_credentials_checker import check_azure_credentials_from_config
+        from src.api.azure_credentials_checker import check_azure_credentials_from_config
         project_dir = tmp_path / "test-project"
         project_dir.mkdir()
         (project_dir / "config_credentials.json").write_text('{"aws": {}}')
@@ -531,7 +531,7 @@ class TestRequiredPermissionsStructure:
 
     def test_required_permissions_contains_all_layers(self):
         """Test all layers are defined in required permissions."""
-        from api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
+        from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
         
         expected_layers = ["setup", "layer_0", "layer_1", "layer_2", "layer_3", "layer_4", "layer_5"]
         
@@ -540,7 +540,7 @@ class TestRequiredPermissionsStructure:
 
     def test_layer_1_requires_authorization_actions(self):
         """Test layer_1 requires role assignment actions."""
-        from api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
+        from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
         
         layer_1 = REQUIRED_AZURE_PERMISSIONS["layer_1"]
         required_actions = layer_1.get("required_actions", [])
@@ -550,7 +550,7 @@ class TestRequiredPermissionsStructure:
 
     def test_layer_4_requires_data_actions(self):
         """Test layer_4 requires Digital Twins data plane actions."""
-        from api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
+        from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
         
         layer_4 = REQUIRED_AZURE_PERMISSIONS["layer_4"]
         data_actions = layer_4.get("required_data_actions", [])
@@ -560,7 +560,7 @@ class TestRequiredPermissionsStructure:
 
     def test_builtin_roles_contain_key_roles(self):
         """Test AZURE_BUILTIN_ROLES contains essential roles."""
-        from api.azure_credentials_checker import AZURE_BUILTIN_ROLES
+        from src.api.azure_credentials_checker import AZURE_BUILTIN_ROLES
         
         essential_roles = ["Owner", "Contributor", "Reader", "User Access Administrator"]
         

@@ -6,17 +6,24 @@ Uses lazy imports for globals to support the new provider pattern.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-import os
-import sys
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+from fastapi import FastAPI
 
 from logger import logger
 
 # Import API routers
-from src.api import projects, validation, deployment, status, info, simulator, credentials, functions, logs, verify
+from src.api import (
+    credentials,
+    deployment,
+    functions,
+    info,
+    logs,
+    projects,
+    simulator,
+    status,
+    validation,
+    verify,
+)
 
 # --------- Lifespan context manager ----------
 @asynccontextmanager

@@ -8,7 +8,7 @@ from io import BytesIO
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
-from api.error_models import ERROR_RESPONSES
+from src.api.error_models import ERROR_RESPONSES
 from logger import logger
 
 router = APIRouter()

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from api.dependencies import validate_provider, check_template_protection
+from src.api.dependencies import validate_provider, check_template_protection
 from src.api.models.deployment import (
     DeploymentOperation,
     DeploymentRequest,

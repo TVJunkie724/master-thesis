@@ -8,8 +8,8 @@ from typing import Any, Dict
 from urllib.parse import urljoin, urlparse
 
 import constants as CONSTANTS
-from api.function_discovery import _get_upload_dir
-from api.function_errors import FunctionProviderError
+from src.api.function_discovery import _get_upload_dir
+from src.api.function_errors import FunctionProviderError
 from logger import logger
 from src.core.config_loader import load_credentials
 

@@ -9,9 +9,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 import rest_api
-from api import function_artifacts, function_discovery, function_routes, function_upload
-from api.function_build import MAX_FUNCTION_SOURCE_BYTES
-from api.function_errors import FunctionProviderError
+from src.api import function_artifacts, function_discovery, function_routes, function_upload
+from src.api.function_build import MAX_FUNCTION_SOURCE_BYTES
+from src.api.function_errors import FunctionProviderError
 from src.core.paths import resolve_deployment_paths
 
 

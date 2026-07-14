@@ -5,7 +5,7 @@ import json
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 import src.validator as validator
-from api.error_models import ERROR_RESPONSES
+from src.api.error_models import ERROR_RESPONSES
 from logger import logger
 
 router = APIRouter()

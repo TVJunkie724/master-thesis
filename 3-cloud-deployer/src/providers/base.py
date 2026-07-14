@@ -12,7 +12,7 @@ Contents:
 """
 
 from typing import Optional
-from src.logger import logger
+from logger import logger
 
 
 class BaseProvider:

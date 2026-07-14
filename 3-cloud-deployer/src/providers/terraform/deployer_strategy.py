@@ -97,7 +97,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         }
 
         if "azure" in used_clouds:
-            from api.azure_credentials_checker import check_azure_credentials
+            from src.api.azure_credentials_checker import check_azure_credentials
 
             azure_credentials = credentials.get("azure")
             if not azure_credentials:
@@ -110,7 +110,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
             )
 
         if "aws" in used_clouds:
-            from api.credentials_checker import check_aws_credentials
+            from src.api.credentials_checker import check_aws_credentials
 
             aws_credentials = credentials.get("aws")
             if not aws_credentials:
@@ -121,7 +121,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
             )
 
         if "gcp" in used_clouds:
-            from api.gcp_credentials_checker import check_gcp_credentials
+            from src.api.gcp_credentials_checker import check_gcp_credentials
 
             gcp_credentials = credentials.get("gcp")
             if not gcp_credentials:

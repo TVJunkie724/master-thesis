@@ -33,7 +33,7 @@ def test_preflight_allows_valid_aws_credentials(tmp_path):
     )
 
     with patch(
-        "api.credentials_checker.check_aws_credentials",
+        "src.api.credentials_checker.check_aws_credentials",
         return_value={"status": "valid", "message": "ok"},
     ) as mock_check:
         strategy._validate_credentials()
@@ -49,7 +49,7 @@ def test_preflight_blocks_partial_aws_permissions(tmp_path):
     )
 
     with patch(
-        "api.credentials_checker.check_aws_credentials",
+        "src.api.credentials_checker.check_aws_credentials",
         return_value={"status": "partial", "message": "Missing iam:CreateRole"},
     ):
         with pytest.raises(ValueError, match="AWS credential preflight failed \\(partial\\)"):
@@ -64,7 +64,7 @@ def test_preflight_sanitizes_checker_messages(tmp_path):
     )
 
     with patch(
-        "api.credentials_checker.check_aws_credentials",
+        "src.api.credentials_checker.check_aws_credentials",
         return_value={
             "status": "error",
             "message": "Downstream echoed aws_secret_access_key=super-secret-value",
@@ -85,7 +85,7 @@ def test_preflight_validates_gcp_when_provider_uses_google_alias(tmp_path):
     )
 
     with patch(
-        "api.gcp_credentials_checker.check_gcp_credentials",
+        "src.api.gcp_credentials_checker.check_gcp_credentials",
         return_value={"status": "valid", "message": "ok"},
     ) as mock_check:
         strategy._validate_credentials()
@@ -101,7 +101,7 @@ def test_preflight_blocks_gcp_sdk_missing(tmp_path):
     )
 
     with patch(
-        "api.gcp_credentials_checker.check_gcp_credentials",
+        "src.api.gcp_credentials_checker.check_gcp_credentials",
         return_value={"status": "sdk_missing", "message": "google SDK missing"},
     ):
         with pytest.raises(ValueError, match="GCP credential preflight failed \\(sdk_missing\\)"):

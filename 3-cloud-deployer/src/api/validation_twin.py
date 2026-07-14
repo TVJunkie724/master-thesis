@@ -6,8 +6,8 @@ import re
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 import src.validator as validator
-from api.dependencies import ProviderEnum
-from api.error_models import ERROR_RESPONSES
+from src.api.dependencies import ProviderEnum
+from src.api.error_models import ERROR_RESPONSES
 from logger import logger
 
 router = APIRouter()

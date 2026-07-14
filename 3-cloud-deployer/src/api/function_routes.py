@@ -7,22 +7,22 @@ import tempfile
 from fastapi import APIRouter, HTTPException, Query
 
 import constants as CONSTANTS
-from api.dependencies import check_template_protection
-from api.error_models import ERROR_RESPONSES
-from api.function_artifacts import (
+from src.api.dependencies import check_template_protection
+from src.api.error_models import ERROR_RESPONSES
+from src.api.function_artifacts import (
     _compute_source_hash,
     get_artifact_metadata,
 )
-from api.function_errors import FunctionProviderError
-from api.function_discovery import (
+from src.api.function_errors import FunctionProviderError
+from src.api.function_discovery import (
     _get_cached_functions,
     _get_updatable_functions,
     _get_upload_dir,
     _invalidate_cache,
     _set_cache,
 )
-from api.function_upload import _upload_aws_lambda, _upload_azure_function
-from api.function_upload import _upload_gcp_function
+from src.api.function_upload import _upload_aws_lambda, _upload_azure_function
+from src.api.function_upload import _upload_gcp_function
 from logger import logger
 from src.core.config_loader import ProjectConfigLoader
 from src.core.observability import redact_sensitive

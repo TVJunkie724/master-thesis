@@ -15,7 +15,7 @@ from typing import AsyncIterator, Protocol
 from src.core.observability import redact_sensitive
 from src.core.paths import resolve_project_context_path
 from src.core.simulator_package import SimulatorPackageInvalid, normalize_simulator_provider
-import src.constants as CONSTANTS
+import constants as CONSTANTS
 
 
 MAX_ACTIVE_SESSIONS = 16
