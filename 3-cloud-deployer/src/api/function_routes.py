@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import tempfile
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -9,10 +10,8 @@ import constants as CONSTANTS
 from api.dependencies import check_template_protection
 from api.error_models import ERROR_RESPONSES
 from api.function_artifacts import (
-    _build_function_zip,
-    _compute_directory_hash,
-    _get_hash_metadata,
-    _save_hash_metadata,
+    _compute_source_hash,
+    get_artifact_metadata,
 )
 from api.function_errors import FunctionProviderError
 from api.function_discovery import (
@@ -26,10 +25,20 @@ from api.function_upload import _upload_aws_lambda, _upload_azure_function
 from api.function_upload import _upload_gcp_function
 from logger import logger
 from src.core.config_loader import ProjectConfigLoader
+from src.core.observability import redact_sensitive
+from src.function_metadata import (
+    hash_bytes,
+    mark_function_deployed,
+    mark_provider_artifact_deployed,
+    record_function_build,
+)
 from src.providers.terraform.package_builder import build_azure_user_bundle
+from src.providers.terraform.package_builders.aws import _create_lambda_zip
+from src.providers.terraform.package_builders.gcp import _create_gcp_function_zip
 from src.terraform_runner import TerraformRunner
 
 router = APIRouter()
+PROVIDERS_ROOT = Path(__file__).resolve().parents[1] / "providers"
 
 
 def _load_twin_name(project_name: str) -> str:
@@ -51,6 +60,47 @@ def _provider_function_name(provider: str, function_type: str, twin_name: str, n
     if function_type == "feedback":
         return f"{twin_name}-event-feedback"
     raise ValueError(f"Unknown function type: {function_type}")
+
+
+def _metadata_function_name(function_type: str, name: str) -> str:
+    if function_type == "processor":
+        return f"processor-{name}"
+    if function_type == "feedback":
+        return "event-feedback"
+    return name
+
+
+def _build_provider_update_artifact(
+    provider: str,
+    function_dir: str,
+    *,
+    twin_name: str,
+    function_type: str,
+    function_name: str,
+) -> bytes:
+    """Build the same provider artifact shape used by Terraform deployments."""
+    source = Path(function_dir)
+    with tempfile.TemporaryDirectory(prefix="function-update-") as temporary_dir:
+        target = Path(temporary_dir) / "function.zip"
+        if provider == "aws":
+            _create_lambda_zip(
+                source,
+                PROVIDERS_ROOT / "aws" / "lambda_functions" / "_shared",
+                target,
+                digital_twin_name=twin_name,
+                device_id=function_name if function_type == "processor" else None,
+            )
+        elif provider in {"gcp", "google"}:
+            _create_gcp_function_zip(
+                source,
+                PROVIDERS_ROOT / "gcp" / "cloud_functions" / "_shared",
+                target,
+                digital_twin_name=twin_name,
+                device_id=function_name if function_type == "processor" else None,
+            )
+        else:
+            raise ValueError(f"Unsupported individual function provider: {provider}")
+        return target.read_bytes()
 
 
 def _build_azure_bundle_and_resolve_app(project_name: str) -> tuple[bytes, str]:
@@ -107,8 +157,6 @@ def get_updatable_functions(
     
     Results are cached for 60 seconds.
     """
-    # NOTE: validate_project_context removed - blocking production use
-    
     try:
         # Check cache first
         cached = _get_cached_functions(project_name)
@@ -134,7 +182,7 @@ def get_updatable_functions(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error getting updatable functions: {e}")
+        logger.error("Error getting updatable functions: %s", redact_sensitive(e))
         raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")
 
 
@@ -146,7 +194,8 @@ def get_updatable_functions(
     description=(
         "**Purpose:** Deploy updated function code to cloud via SDK (boto3/Kudu/gcloud).\n\n"
         "**When to call:** After modifying function code locally.\n\n"
-        "**Process:** Build ZIP → Compare hash → Upload if changed → Save metadata."
+        "**Process:** Build provider artifact → Compare deployed evidence → Upload if changed "
+        "→ Record deployment evidence."
     ),
     responses={
         200: {"description": "Function updated"},
@@ -168,17 +217,19 @@ def update_function(
     
     **Process:**
     1. Verify `function_name` exists in the updatable functions list
-    2. Build deployment ZIP (with shared modules for AWS Lambda)
-    3. Compare hash - skip if unchanged (unless `force=True`)
-    4. Upload via SDK (boto3 for AWS, Kudu for Azure, gcloud for GCP)
-    5. Save hash metadata for future comparisons
+    2. Build the canonical provider deployment artifact
+    3. Compare it with successful deployment evidence (unless `force=True`)
+    4. Upload via SDK (boto3 for AWS, Kudu for Azure, Cloud Functions API for GCP)
+    5. Record deployment evidence only after provider success
     
-    **Returns:** Update result with status, version info, and hash.
+    Azure functions share one Function App bundle; updating one target can therefore
+    update all functions represented by that bundle.
+
+    **Returns:** Update result with status, provider details, artifact hash, source
+    hash, and all affected functions.
     """
     # Protect template project from modifications
     check_template_protection(project_name, "update function in")
-    # NOTE: validate_project_context removed - blocking production use
-    
     try:
         # Step 1: Get updatable functions list
         functions = _get_updatable_functions(project_name)
@@ -197,47 +248,85 @@ def update_function(
                 f"Function code not found: {func_info.get('error', 'Missing code directory')}"
             )
         
-        provider = func_info["provider"]
+        provider = "gcp" if func_info["provider"] == "google" else func_info["provider"]
         func_dir = func_info["path"]
-        
-        # Step 3: Compute hash and check for changes
-        current_hash = _compute_directory_hash(func_dir)
-        
-        existing_metadata = _get_hash_metadata(project_name, function_name, provider)
-        
-        if not force and existing_metadata:
-            if existing_metadata.get("zip_hash") == current_hash:
-                return {
-                    "function": function_name,
-                    "status": "unchanged",
-                    "message": "Code hash unchanged, skipping update. Use force=True to override.",
-                    "hash": current_hash
-                }
-        
-        # Step 4: Build the provider-specific deployment archive.
-        shared_dir = None
-        if provider == "aws":
-            shared_dir = str(Path(__file__).parent.parent / "providers" / "aws" / "lambda_functions" / "_shared")
-        zip_content = _build_function_zip(func_dir, shared_dir)
-
         twin_name = _load_twin_name(project_name)
         function_type = func_info["type"]
+        metadata_name = _metadata_function_name(function_type, function_name)
+        source_hash = _compute_source_hash(func_dir)
 
-        # Step 5: Upload via the provider adapter.
+        if provider == "azure":
+            zip_content, app_name = _build_azure_bundle_and_resolve_app(project_name)
+            artifact_hash = hash_bytes(zip_content)
+            existing_metadata = get_artifact_metadata(
+                project_name,
+                metadata_name,
+                provider,
+            )
+        else:
+            zip_content = _build_provider_update_artifact(
+                provider,
+                func_dir,
+                twin_name=twin_name,
+                function_type=function_type,
+                function_name=function_name,
+            )
+            artifact_hash = hash_bytes(zip_content)
+            target = record_function_build(
+                Path(_get_upload_dir(project_name)),
+                metadata_name,
+                provider,
+                source_hash,
+                artifact_hash,
+            )
+            existing_metadata = get_artifact_metadata(
+                project_name,
+                metadata_name,
+                provider,
+            )
+
+        if (
+            not force
+            and existing_metadata
+            and existing_metadata.get("deployed_artifact_hash") == artifact_hash
+        ):
+            return {
+                "function": function_name,
+                "status": "unchanged",
+                "message": "Deployment artifact unchanged; provider update skipped.",
+                "hash": artifact_hash,
+                "source_hash": source_hash,
+            }
+
         if provider == "aws":
             lambda_name = _provider_function_name(provider, function_type, twin_name, function_name)
             result = _upload_aws_lambda(lambda_name, zip_content, project_name)
         elif provider == "azure":
-            zip_content, app_name = _build_azure_bundle_and_resolve_app(project_name)
             result = _upload_azure_function(app_name, zip_content, project_name)
-        elif provider in {"gcp", "google"}:
+        elif provider == "gcp":
             gcp_name = _provider_function_name(provider, function_type, twin_name, function_name)
             result = _upload_gcp_function(gcp_name, zip_content, project_name)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
-        
-        # Step 6: Save hash metadata
-        _save_hash_metadata(project_name, function_name, provider, current_hash)
+
+        if provider == "azure":
+            affected_functions = mark_provider_artifact_deployed(
+                Path(_get_upload_dir(project_name)),
+                provider,
+                artifact_hash,
+            )
+        else:
+            evidence_recorded = mark_function_deployed(
+                target,
+                expected_artifact_hash=artifact_hash,
+            )
+            affected_functions = [metadata_name] if evidence_recorded else []
+            if not evidence_recorded:
+                logger.warning(
+                    "Function %s was updated, but newer build evidence superseded artifact %s",
+                    metadata_name,
+                    artifact_hash,
+                )
         
         # Invalidate cache since we made changes
         _invalidate_cache(project_name)
@@ -246,7 +335,9 @@ def update_function(
             "function": function_name,
             "status": "updated",
             "provider": provider,
-            "hash": current_hash,
+            "hash": artifact_hash,
+            "source_hash": source_hash,
+            "affected_functions": affected_functions,
             **result
         }
     
@@ -256,7 +347,11 @@ def update_function(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error updating function {function_name}: {e}")
+        logger.error(
+            "Error updating function %s: %s",
+            function_name,
+            redact_sensitive(e),
+        )
         raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")
 
 

@@ -121,9 +121,11 @@ def test_metadata_marks_only_current_built_hash_as_deployed(tmp_path):
     metadata_path.write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "function": "processor",
                 "provider": "aws",
-                "zip_hash": "sha256:current",
+                "source_hash": "sha256:" + "a" * 64,
+                "artifact_hash": "sha256:" + "b" * 64,
                 "last_built": "2026-01-01T00:00:00Z",
             }
         )
@@ -132,7 +134,7 @@ def test_metadata_marks_only_current_built_hash_as_deployed(tmp_path):
     assert mark_built_packages_deployed(tmp_path) == 1
 
     metadata = json.loads(metadata_path.read_text())
-    assert metadata["deployed_zip_hash"] == "sha256:current"
+    assert metadata["deployed_artifact_hash"] == "sha256:" + "b" * 64
     assert metadata["last_deployed"].endswith("Z")
     assert not metadata_path.with_suffix(".json.tmp").exists()
 

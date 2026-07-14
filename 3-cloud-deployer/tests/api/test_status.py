@@ -12,6 +12,10 @@ from src.status import metadata as metadata_status
 from src.status import terraform as terraform_status
 
 
+SOURCE_HASH = "sha256:" + "a" * 64
+ARTIFACT_HASH = "sha256:" + "b" * 64
+
+
 def test_request_validation_normalizes_google_alias(tmp_path):
     with patch.object(
         status,
@@ -36,7 +40,7 @@ def test_request_validation_rejects_missing_project(tmp_path):
     assert exc_info.value.status_code == 404
 
 
-def test_check_code_hashes_does_not_treat_built_package_as_deployed(tmp_path):
+def test_function_artifacts_do_not_treat_built_package_as_deployed(tmp_path):
     project = tmp_path / "upload" / "factory"
     metadata_dir = project / ".build" / "metadata"
     metadata_dir.mkdir(parents=True)
@@ -44,7 +48,9 @@ def test_check_code_hashes_does_not_treat_built_package_as_deployed(tmp_path):
         """{
   "function": "processor",
   "provider": "aws",
-  "zip_hash": "sha256:abc",
+  "schema_version": 2,
+  "source_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "artifact_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "last_built": "2026-05-10T21:00:00Z"
 }"""
     )
@@ -54,7 +60,7 @@ def test_check_code_hashes_does_not_treat_built_package_as_deployed(tmp_path):
         "resolve_project_context_path",
         return_value=project,
     ):
-        result = status.check_code_hashes("factory")
+        result = status.check_function_artifacts("factory")
 
     assert result == {
         "status": "built",
@@ -63,14 +69,15 @@ def test_check_code_hashes_does_not_treat_built_package_as_deployed(tmp_path):
                 "deployed": False,
                 "state": "built",
                 "provider": "aws",
-                "hash": "sha256:abc",
+                "hash": ARTIFACT_HASH,
+                "source_hash": SOURCE_HASH,
                 "last_updated": "2026-05-10T21:00:00Z",
             }
         },
     }
 
 
-def test_check_code_hashes_requires_deployed_hash_to_match_current_build(tmp_path):
+def test_function_artifacts_require_deployed_hash_to_match_current_build(tmp_path):
     project = tmp_path / "upload" / "factory"
     metadata_dir = project / ".build" / "metadata"
     metadata_dir.mkdir(parents=True)
@@ -78,8 +85,10 @@ def test_check_code_hashes_requires_deployed_hash_to_match_current_build(tmp_pat
         """{
   "function": "processor",
   "provider": "aws",
-  "zip_hash": "sha256:current",
-  "deployed_zip_hash": "sha256:current",
+  "schema_version": 2,
+  "source_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "artifact_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "deployed_artifact_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "last_built": "2026-05-10T21:00:00Z",
   "last_deployed": "2026-05-10T21:01:00Z"
 }"""
@@ -90,14 +99,15 @@ def test_check_code_hashes_requires_deployed_hash_to_match_current_build(tmp_pat
         "resolve_project_context_path",
         return_value=project,
     ):
-        result = status.check_code_hashes("factory")
+        result = status.check_function_artifacts("factory")
 
     assert result["status"] == "deployed"
     assert result["functions"]["processor"] == {
         "deployed": True,
         "state": "deployed",
         "provider": "aws",
-        "hash": "sha256:current",
+        "hash": ARTIFACT_HASH,
+        "source_hash": SOURCE_HASH,
         "last_updated": "2026-05-10T21:01:00Z",
     }
 
@@ -107,7 +117,7 @@ def test_hash_metadata_does_not_follow_directory_symlink(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir(parents=True)
     (outside / "secret.json").write_text(
-        '{"function":"leak","zip_hash":"sha256:secret"}'
+        '{"function":"leak","artifact_hash":"sha256:secret"}'
     )
     (project / ".build").mkdir(parents=True)
     (project / ".build" / "metadata").symlink_to(outside, target_is_directory=True)
@@ -117,7 +127,7 @@ def test_hash_metadata_does_not_follow_directory_symlink(tmp_path):
         "resolve_project_context_path",
         return_value=project,
     ):
-        result = metadata_status.check_code_hashes("factory")
+        result = metadata_status.check_function_artifacts("factory")
 
     assert result == {"status": "no_deployments", "functions": {}}
 
@@ -129,9 +139,12 @@ def test_duplicate_function_metadata_keeps_both_artifacts(tmp_path):
     for provider in ("aws", "azure"):
         (metadata_dir / f"processor.{provider}.json").write_text(
             "{"
+            '"schema_version":2,'
             '"function":"processor",'
             f'"provider":"{provider}",'
-            '"zip_hash":"sha256:current"'
+            f'"source_hash":"{SOURCE_HASH}",'
+            f'"artifact_hash":"{ARTIFACT_HASH}",'
+            '"last_built":"2026-05-10T21:00:00Z"'
             "}"
         )
 
@@ -140,7 +153,7 @@ def test_duplicate_function_metadata_keeps_both_artifacts(tmp_path):
         "resolve_project_context_path",
         return_value=project,
     ):
-        result = metadata_status.check_code_hashes("factory")
+        result = metadata_status.check_function_artifacts("factory")
 
     assert set(result["functions"]) == {"processor", "processor@azure"}
 

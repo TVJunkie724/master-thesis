@@ -13,6 +13,11 @@ from src.providers.terraform.package_builder import (
 )
 
 
+SOURCE_HASH = "sha256:" + "a" * 64
+ARTIFACT_HASH = "sha256:" + "b" * 64
+CHANGED_ARTIFACT_HASH = "sha256:" + "c" * 64
+
+
 def test_package_builder_rejects_symbolic_link_sources(tmp_path):
     source = tmp_path / "source"
     shared = tmp_path / "shared"
@@ -62,52 +67,91 @@ def test_atomic_archive_keeps_previous_artifact_when_build_fails(tmp_path):
 )
 def test_package_metadata_rejects_unsafe_components(tmp_path, function_name, provider):
     with pytest.raises(ValueError, match="Invalid"):
-        _save_user_hash_metadata(tmp_path, function_name, provider, "sha256:value")
+        _save_user_hash_metadata(
+            tmp_path,
+            function_name,
+            provider,
+            SOURCE_HASH,
+            ARTIFACT_HASH,
+        )
 
 
 def test_package_metadata_is_atomic_and_uses_utc_timestamp(tmp_path):
-    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:value")
+    _save_user_hash_metadata(
+        tmp_path,
+        "processor",
+        "aws",
+        SOURCE_HASH,
+        ARTIFACT_HASH,
+    )
 
     metadata_path = tmp_path / ".build" / "metadata" / "processor.aws.json"
     metadata = json.loads(metadata_path.read_text())
+    assert metadata["schema_version"] == 2
+    assert metadata["source_hash"] == SOURCE_HASH
+    assert metadata["artifact_hash"] == ARTIFACT_HASH
     assert metadata["last_built"].endswith("Z")
     assert not metadata_path.with_suffix(".json.tmp").exists()
 
 
 def test_unchanged_package_preserves_deployment_evidence(tmp_path):
-    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:value")
+    _save_user_hash_metadata(
+        tmp_path,
+        "processor",
+        "aws",
+        SOURCE_HASH,
+        ARTIFACT_HASH,
+    )
     metadata_path = tmp_path / ".build" / "metadata" / "processor.aws.json"
     metadata = json.loads(metadata_path.read_text())
-    metadata["deployed_zip_hash"] = "sha256:value"
+    metadata["deployed_artifact_hash"] = ARTIFACT_HASH
     metadata["last_deployed"] = "2026-07-14T10:00:00Z"
     metadata_path.write_text(json.dumps(metadata))
 
-    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:value")
+    _save_user_hash_metadata(
+        tmp_path,
+        "processor",
+        "aws",
+        SOURCE_HASH,
+        ARTIFACT_HASH,
+    )
 
     rebuilt = json.loads(metadata_path.read_text())
-    assert rebuilt["deployed_zip_hash"] == "sha256:value"
+    assert rebuilt["deployed_artifact_hash"] == ARTIFACT_HASH
     assert rebuilt["last_deployed"] == "2026-07-14T10:00:00Z"
 
 
 def test_changed_package_invalidates_deployment_evidence(tmp_path):
-    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:old")
+    _save_user_hash_metadata(
+        tmp_path,
+        "processor",
+        "aws",
+        SOURCE_HASH,
+        ARTIFACT_HASH,
+    )
     metadata_path = tmp_path / ".build" / "metadata" / "processor.aws.json"
     metadata = json.loads(metadata_path.read_text())
-    metadata["deployed_zip_hash"] = "sha256:old"
+    metadata["deployed_artifact_hash"] = ARTIFACT_HASH
     metadata["last_deployed"] = "2026-07-14T10:00:00Z"
     metadata_path.write_text(json.dumps(metadata))
 
-    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:new")
+    _save_user_hash_metadata(
+        tmp_path,
+        "processor",
+        "aws",
+        SOURCE_HASH,
+        CHANGED_ARTIFACT_HASH,
+    )
 
     rebuilt = json.loads(metadata_path.read_text())
-    assert "deployed_zip_hash" not in rebuilt
+    assert "deployed_artifact_hash" not in rebuilt
     assert "last_deployed" not in rebuilt
 
 
 def test_metadata_reconciliation_removes_stale_and_previous_provider_entries(tmp_path):
-    _save_user_hash_metadata(tmp_path, "active", "aws", "sha256:active")
-    _save_user_hash_metadata(tmp_path, "stale", "aws", "sha256:stale")
-    _save_user_hash_metadata(tmp_path, "other", "azure", "sha256:other")
+    _save_user_hash_metadata(tmp_path, "active", "aws", SOURCE_HASH, ARTIFACT_HASH)
+    _save_user_hash_metadata(tmp_path, "stale", "aws", SOURCE_HASH, ARTIFACT_HASH)
+    _save_user_hash_metadata(tmp_path, "other", "azure", SOURCE_HASH, ARTIFACT_HASH)
 
     _reconcile_user_hash_metadata(tmp_path, "aws", {"active"})
 

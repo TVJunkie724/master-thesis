@@ -7,7 +7,7 @@ from typing import Literal
 
 from src.core.factory import create_context
 from src.core.observability import redact_sensitive
-from src.status.metadata import check_code_hashes
+from src.status.metadata import check_function_artifacts
 from src.status.sdk import check_sdk_managed
 from src.status.terraform import check_terraform_state
 
@@ -208,7 +208,7 @@ def verify_infrastructure(project_name: str, provider: str | None = None) -> dic
         ]
     )
 
-    metadata = check_code_hashes(project_name)
+    metadata = check_function_artifacts(project_name)
     if metadata["functions"]:
         deployed = sum(
             1 for item in metadata["functions"].values() if item["deployed"]

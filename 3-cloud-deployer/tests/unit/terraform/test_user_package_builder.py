@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from src.providers.terraform.package_builders.azure import build_azure_user_bundle
 from src.providers.terraform.package_builders import user
 
 
@@ -44,7 +45,13 @@ def _source_tree(project, provider):
     ):
         directory = root / relative
         directory.mkdir(parents=True)
-        (directory / "handler.py").write_text("VALUE = 1\n", encoding="utf-8")
+        filename = "function_app.py" if provider == "azure" else "handler.py"
+        (directory / filename).write_text(
+            "import azure.functions as func\napp = func.FunctionApp()\n"
+            if provider == "azure"
+            else "VALUE = 1\n",
+            encoding="utf-8",
+        )
 
 
 @pytest.mark.parametrize(
@@ -53,7 +60,7 @@ def _source_tree(project, provider):
         ("aws", {"notify", "processor-device-1", "event-feedback"}, "aws"),
         ("google", {"notify", "processor-device-1", "event-feedback"}, "gcp"),
         ("gcp", {"notify", "processor-device-1", "event-feedback"}, "gcp"),
-        ("azure", {"notify"}, "azure"),
+        ("azure", set(), None),
     ],
 )
 def test_user_package_discovery_preserves_provider_contracts(
@@ -66,24 +73,29 @@ def test_user_package_discovery_preserves_provider_contracts(
     project = _project(tmp_path)
     _source_tree(project, provider)
     calls = []
+
+    def record_build(kind, source, shared, target, kwargs):
+        target.write_bytes(f"{kind}-artifact".encode("ascii"))
+        calls.append((kind, source, shared, target, kwargs))
+
     monkeypatch.setattr(
         user,
         "_create_lambda_zip",
-        lambda source, shared, target, **kwargs: calls.append(
-            ("aws", source, shared, target, kwargs)
+        lambda source, shared, target, **kwargs: record_build(
+            "aws", source, shared, target, kwargs
         ),
     )
     monkeypatch.setattr(
         user,
         "_create_gcp_function_zip",
-        lambda source, shared, target, **kwargs: calls.append(
-            ("gcp", source, shared, target, kwargs)
+        lambda source, shared, target, **kwargs: record_build(
+            "gcp", source, shared, target, kwargs
         ),
     )
     monkeypatch.setattr(
         user,
         "_create_azure_function_zip",
-        lambda source, target: calls.append(("azure", source, None, target, {})),
+        lambda source, target: record_build("azure", source, None, target, {}),
     )
 
     packages = user.build_user_packages(
@@ -92,15 +104,20 @@ def test_user_package_discovery_preserves_provider_contracts(
     )
 
     assert set(packages) == expected_packages
-    assert {call[0] for call in calls} == {expected_builder}
-    assert sum(call[1].name == "notify" for call in calls) == 1
+    assert {call[0] for call in calls} == (
+        {expected_builder} if expected_builder else set()
+    )
+    assert sum(call[1].name == "notify" for call in calls) == (
+        0 if provider == "azure" else 1
+    )
     metadata = project / ".build" / "metadata"
     metadata_provider = "gcp" if provider == "google" else provider
-    assert {path.stem for path in metadata.glob("*.json")} == {
+    expected_metadata = set() if provider == "azure" else {
         f"notify.{metadata_provider}",
         f"processor-device-1.{metadata_provider}",
         f"event-feedback.{metadata_provider}",
     }
+    assert {path.stem for path in metadata.glob("*.json")} == expected_metadata
 
 
 def test_processor_build_receives_twin_and_device_identity(monkeypatch, tmp_path):
@@ -108,7 +125,8 @@ def test_processor_build_receives_twin_and_device_identity(monkeypatch, tmp_path
     _source_tree(project, "aws")
     processor_kwargs = []
 
-    def build(source, _shared, _target, **kwargs):
+    def build(source, _shared, target, **kwargs):
+        target.write_bytes(b"artifact")
         if source.name == "device-1":
             processor_kwargs.append(kwargs)
 
@@ -155,7 +173,7 @@ def test_directory_hash_rejects_symlinked_source_files(tmp_path):
     (source / "handler.py").symlink_to(outside)
 
     with pytest.raises(ValueError, match="Symbolic links"):
-        user._compute_directory_hash(source)
+        user._compute_source_hash(source)
 
 
 def test_directory_hash_rejects_symlinked_source_directories(tmp_path):
@@ -167,19 +185,19 @@ def test_directory_hash_rejects_symlinked_source_directories(tmp_path):
     (source / "dependency").symlink_to(outside, target_is_directory=True)
 
     with pytest.raises(ValueError, match="Symbolic links"):
-        user._compute_directory_hash(source)
+        user._compute_source_hash(source)
 
 
 def test_directory_hash_ignores_files_excluded_from_package(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
     (source / "handler.py").write_text("VALUE = 1\n", encoding="utf-8")
-    baseline = user._compute_directory_hash(source)
+    baseline = user._compute_source_hash(source)
 
     (source / ".DS_Store").write_text("local metadata", encoding="utf-8")
     (source / "old.zip").write_bytes(b"old artifact")
 
-    assert user._compute_directory_hash(source) == baseline
+    assert user._compute_source_hash(source) == baseline
 
 
 def test_failed_package_build_does_not_publish_build_metadata(monkeypatch, tmp_path):
@@ -196,3 +214,31 @@ def test_failed_package_build_does_not_publish_build_metadata(monkeypatch, tmp_p
 
     metadata_dir = project / ".build" / "metadata"
     assert not metadata_dir.exists() or list(metadata_dir.iterdir()) == []
+
+
+def test_azure_bundle_records_one_shared_artifact_for_all_functions(tmp_path):
+    project = _project(tmp_path)
+    _source_tree(project, "azure")
+
+    artifact = build_azure_user_bundle(
+        project,
+        {"layer_2_provider": "azure"},
+        {
+            "useEventChecking": True,
+            "returnFeedbackToDevice": True,
+        },
+    )
+
+    assert artifact is not None
+    metadata_paths = sorted((project / ".build" / "metadata").glob("*.azure.json"))
+    assert {path.stem for path in metadata_paths} == {
+        "event-feedback.azure",
+        "notify.azure",
+        "processor-device-1.azure",
+    }
+    metadata = [json.loads(path.read_text(encoding="utf-8")) for path in metadata_paths]
+    assert {entry["schema_version"] for entry in metadata} == {2}
+    assert {entry["artifact_hash"] for entry in metadata} == {
+        user.hash_bytes(artifact.read_bytes())
+    }
+    assert len({entry["source_hash"] for entry in metadata}) == 1

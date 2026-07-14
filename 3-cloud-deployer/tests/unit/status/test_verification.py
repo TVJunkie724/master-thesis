@@ -54,7 +54,7 @@ def _install(monkeypatch, state):
     )
     monkeypatch.setattr(
         verification,
-        "check_code_hashes",
+        "check_function_artifacts",
         lambda name: {"status": "no_deployments", "functions": {}},
     )
 
@@ -90,7 +90,7 @@ def test_outdated_user_package_fails_verification(monkeypatch):
     _install(monkeypatch, _state())
     monkeypatch.setattr(
         verification,
-        "check_code_hashes",
+        "check_function_artifacts",
         lambda name: {
             "status": "built",
             "functions": {"processor": {"deployed": False}},

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from logger import logger
-from src.core.observability import redact_sensitive
 from src.core.paths import resolve_project_context_path
+from src.function_metadata import load_function_metadata
 
 
-def check_code_hashes(project_name: str) -> dict[str, Any]:
+def check_function_artifacts(project_name: str) -> dict[str, Any]:
     """Report deployed only when current build and deployed hashes agree."""
     project_path = resolve_project_context_path(project_name)
     metadata_dir = project_path / ".build" / "metadata"
@@ -26,42 +25,34 @@ def check_code_hashes(project_name: str) -> dict[str, Any]:
     for metadata_path in sorted(metadata_dir.glob("*.json")):
         if metadata_path.is_symlink() or not metadata_path.is_file():
             continue
-        try:
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            if not isinstance(metadata, dict):
-                raise ValueError("metadata root must be an object")
-            function_name = metadata.get("function") or metadata_path.stem
-            if not isinstance(function_name, str) or not function_name:
-                raise ValueError("function name must be a non-empty string")
-            built_hash = metadata.get("zip_hash")
-            deployed_hash = metadata.get("deployed_zip_hash")
-            deployed = bool(
-                metadata.get("last_deployed")
-                and isinstance(built_hash, str)
-                and built_hash
-                and deployed_hash == built_hash
-            )
-            function_key = function_name
-            if function_key in functions:
-                provider = metadata.get("provider") or metadata_path.stem
-                function_key = f"{function_name}@{provider}"
-            functions[function_key] = {
-                "deployed": deployed,
-                "state": "deployed" if deployed else "built",
-                "provider": metadata.get("provider"),
-                "hash": built_hash,
-                "last_updated": (
-                    metadata.get("last_deployed")
-                    if deployed
-                    else metadata.get("last_built")
-                ),
-            }
-        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        metadata = load_function_metadata(metadata_path)
+        if metadata is None:
             logger.warning(
-                "Failed to read hash metadata %s: %s",
+                "Ignoring invalid function metadata %s",
                 metadata_path.name,
-                redact_sensitive(exc),
             )
+            continue
+        function_name = metadata["function"]
+        artifact_hash = metadata["artifact_hash"]
+        deployed = bool(
+            metadata.get("last_deployed")
+            and metadata.get("deployed_artifact_hash") == artifact_hash
+        )
+        function_key = function_name
+        if function_key in functions:
+            function_key = f"{function_name}@{metadata['provider']}"
+        functions[function_key] = {
+            "deployed": deployed,
+            "state": "deployed" if deployed else "built",
+            "provider": metadata["provider"],
+            "hash": artifact_hash,
+            "source_hash": metadata["source_hash"],
+            "last_updated": (
+                metadata.get("last_deployed")
+                if deployed
+                else metadata["last_built"]
+            ),
+        }
 
     deployed_count = sum(
         1 for function in functions.values() if function["deployed"]

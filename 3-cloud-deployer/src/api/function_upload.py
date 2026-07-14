@@ -2,8 +2,10 @@
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict
+from urllib.parse import urljoin, urlparse
 
 import constants as CONSTANTS
 from api.function_discovery import _get_upload_dir
@@ -27,6 +29,59 @@ def _provider_request(method, operation: str, *args, **kwargs):
         return method(*args, **kwargs)
     except requests.RequestException as exc:
         raise FunctionProviderError(f"{operation} request failed") from exc
+
+
+def _wait_for_kudu_deployment(
+    status_url: str,
+    *,
+    auth: tuple[str, str],
+    timeout_seconds: float = 300,
+    poll_interval_seconds: float = 2,
+) -> None:
+    """Wait until Kudu reports a terminal deployment state."""
+    if timeout_seconds <= 0 or poll_interval_seconds <= 0:
+        raise ValueError("Kudu polling intervals must be positive")
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise FunctionProviderError("Kudu ZIP deployment timed out")
+        response = _provider_request(
+            requests.get,
+            "Azure ZIP deployment status",
+            status_url,
+            auth=auth,
+            timeout=min(30, remaining),
+        )
+        if response.status_code != 200:
+            raise FunctionProviderError(
+                f"Kudu deployment status failed (HTTP {response.status_code})"
+            )
+        try:
+            payload = response.json()
+        except (TypeError, ValueError) as exc:
+            raise FunctionProviderError("Kudu deployment status was not valid JSON") from exc
+        status = payload.get("status") if isinstance(payload, dict) else None
+        if not isinstance(status, int) or status not in {0, 1, 2, 3, 4}:
+            raise FunctionProviderError("Kudu deployment returned an unknown status")
+        if status == 4:
+            return
+        if status == 3:
+            raise FunctionProviderError("Kudu ZIP deployment failed")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise FunctionProviderError("Kudu ZIP deployment timed out")
+        time.sleep(min(poll_interval_seconds, remaining))
+
+
+def _resolve_kudu_status_url(location: str, kudu_url: str) -> str:
+    """Resolve a Kudu status URL without allowing a provider-driven host escape."""
+    status_url = urljoin(kudu_url, location)
+    expected = urlparse(kudu_url)
+    resolved = urlparse(status_url)
+    if resolved.scheme != "https" or resolved.netloc != expected.netloc:
+        raise FunctionProviderError("Kudu deployment status URL was outside the expected host")
+    return status_url
 
 try:
     import boto3
@@ -152,7 +207,10 @@ def _upload_azure_function(function_app_name: str, zip_content: bytes, project_n
             f"Failed to get Azure access token (HTTP {token_response.status_code})"
         )
     
-    access_token = token_response.json()["access_token"]
+    try:
+        access_token = token_response.json()["access_token"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise FunctionProviderError("Azure token response was missing access_token") from exc
     
     # Get publish credentials for the Function App
     # We need to find the resource group - check inter_cloud config or use naming convention
@@ -196,9 +254,14 @@ def _upload_azure_function(function_app_name: str, zip_content: bytes, project_n
             f"Failed to get Azure publish credentials (HTTP {creds_response.status_code})"
         )
     
-    pub_creds = creds_response.json()
-    pub_user = pub_creds["properties"]["publishingUserName"]
-    pub_pass = pub_creds["properties"]["publishingPassword"]
+    try:
+        properties = creds_response.json()["properties"]
+        pub_user = properties["publishingUserName"]
+        pub_pass = properties["publishingPassword"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise FunctionProviderError(
+            "Azure publishing credential response was incomplete"
+        ) from exc
     
     # Deploy via Kudu zipdeploy
     kudu_url = f"https://{function_app_name}.scm.azurewebsites.net/api/zipdeploy"
@@ -215,6 +278,16 @@ def _upload_azure_function(function_app_name: str, zip_content: bytes, project_n
     
     if deploy_response.status_code not in (200, 202):
         raise FunctionProviderError(f"Kudu zipdeploy failed (HTTP {deploy_response.status_code})")
+    if deploy_response.status_code == 202:
+        location = deploy_response.headers.get("Location")
+        if not location:
+            raise FunctionProviderError(
+                "Kudu accepted asynchronous deployment without a status URL"
+            )
+        _wait_for_kudu_deployment(
+            _resolve_kudu_status_url(location, kudu_url),
+            auth=(pub_user, pub_pass),
+        )
     
     logger.info(f"✓ Azure Function code updated: {function_app_name}")
     return {

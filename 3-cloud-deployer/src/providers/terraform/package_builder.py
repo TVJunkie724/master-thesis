@@ -38,7 +38,7 @@ from src.providers.terraform.package_builders.gcp import (
     get_gcp_zip_path,
 )
 from src.providers.terraform.package_builders.user import (
-    _compute_directory_hash,
+    _compute_source_hash,
     _reconcile_user_hash_metadata,
     _save_user_hash_metadata,
     build_user_packages,
@@ -73,7 +73,7 @@ __all__ = [
     "_add_azure_function_app_directly",
     "_clean_old_versioned_zips",
     "_compute_content_hash",
-    "_compute_directory_hash",
+    "_compute_source_hash",
     "_create_azure_function_zip",
     "_create_gcp_function_zip",
     "_create_gcp_processor_zip",

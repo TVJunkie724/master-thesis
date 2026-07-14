@@ -9,7 +9,7 @@ from logger import logger
 from src.core.observability import redact_sensitive
 from src.core.paths import resolve_project_context_path
 from src.core.config_loader import normalize_provider_name
-from src.status.metadata import check_code_hashes
+from src.status.metadata import check_function_artifacts
 from src.status.sdk import check_sdk_managed
 from src.status.terraform import check_terraform_drift, check_terraform_state
 from src.status.verification import verify_infrastructure
@@ -55,7 +55,7 @@ def check_endpoint(
             "project": project_name,
             "provider": normalized_provider,
             "infrastructure": check_terraform_state(project_name),
-            "user_functions": check_code_hashes(project_name),
+            "user_functions": check_function_artifacts(project_name),
             "sdk_managed": check_sdk_managed(project_name, normalized_provider),
         }
         if detailed:

@@ -24,7 +24,7 @@ from api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
 from logger import logger
 from api.utils import extract_file_content
-from api.functions import clear_all_hash_metadata
+from api.functions import clear_all_function_metadata
 from api.error_models import ERROR_RESPONSES
 from src.api.upload_limits import read_upload_bounded
 from src.project_archive.policy import MAX_COMPRESSED_ARCHIVE_BYTES
@@ -392,7 +392,7 @@ async def import_project(
         result = file_manager.update_project_from_zip(project_name, content, description=description)
         
         # Clear all hash metadata since project ZIP is fully replaced
-        clear_all_hash_metadata(project_name)
+        clear_all_function_metadata(project_name)
         
         return result
     except ValueError as e:

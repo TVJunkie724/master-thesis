@@ -67,7 +67,9 @@ def test_build_function_zip_rejects_oversized_source():
     assert "exceeds" in response.json()["detail"]
 
 
-def test_update_function_short_circuits_when_hash_is_unchanged(monkeypatch):
+def test_update_function_short_circuits_when_hash_is_unchanged(monkeypatch, tmp_path):
+    artifact = b"deployment artifact"
+    artifact_hash = function_routes.hash_bytes(artifact)
     monkeypatch.setattr(
         function_routes,
         "_get_updatable_functions",
@@ -80,11 +82,22 @@ def test_update_function_short_circuits_when_hash_is_unchanged(monkeypatch):
             }
         },
     )
-    monkeypatch.setattr(function_routes, "_compute_directory_hash", lambda _path: "sha256:same")
     monkeypatch.setattr(
         function_routes,
-        "_get_hash_metadata",
-        lambda *_args: {"zip_hash": "sha256:same"},
+        "_compute_source_hash",
+        lambda _path: "sha256:" + "a" * 64,
+    )
+    monkeypatch.setattr(function_routes, "_load_twin_name", lambda _project: "factory")
+    monkeypatch.setattr(
+        function_routes,
+        "_build_provider_update_artifact",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(function_routes, "_get_upload_dir", lambda _project: str(tmp_path))
+    monkeypatch.setattr(
+        function_routes,
+        "get_artifact_metadata",
+        lambda *_args: {"deployed_artifact_hash": artifact_hash},
     )
     monkeypatch.setattr(
         function_routes,
@@ -99,6 +112,60 @@ def test_update_function_short_circuits_when_hash_is_unchanged(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["status"] == "unchanged"
+    assert response.json()["hash"] == artifact_hash
+
+
+def test_update_function_does_not_skip_artifact_that_was_only_built(
+    monkeypatch,
+    tmp_path,
+):
+    artifact = b"deployment artifact"
+    uploads = []
+    monkeypatch.setattr(
+        function_routes,
+        "_get_updatable_functions",
+        lambda _project: {
+            "sensor-1": {
+                "provider": "aws",
+                "type": "processor",
+                "exists": True,
+                "path": "/runtime/processor",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        function_routes,
+        "_compute_source_hash",
+        lambda _path: "sha256:" + "a" * 64,
+    )
+    monkeypatch.setattr(function_routes, "_load_twin_name", lambda _project: "factory")
+    monkeypatch.setattr(
+        function_routes,
+        "_build_provider_update_artifact",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(function_routes, "_get_upload_dir", lambda _project: str(tmp_path))
+    monkeypatch.setattr(
+        function_routes,
+        "get_artifact_metadata",
+        lambda *_args: {"artifact_hash": function_routes.hash_bytes(artifact)},
+    )
+    monkeypatch.setattr(
+        function_routes,
+        "_upload_aws_lambda",
+        lambda name, content, project: uploads.append((name, content, project)) or {
+            "success": True
+        },
+    )
+
+    response = client.post(
+        "/functions/update_function/sensor-1",
+        params={"project_name": "runtime-project"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "updated"
+    assert uploads == [("factory-sensor-1-processor", artifact, "runtime-project")]
 
 
 def test_update_function_protects_template():
@@ -163,14 +230,51 @@ def test_function_discovery_accepts_canonical_google_provider(tmp_path, monkeypa
 
 def test_directory_hash_is_deterministic_and_tracks_content(tmp_path):
     (tmp_path / "handler.py").write_text("value = 1\n")
-    first = function_artifacts._compute_directory_hash(str(tmp_path))
-    second = function_artifacts._compute_directory_hash(str(tmp_path))
+    first = function_artifacts._compute_source_hash(str(tmp_path))
+    second = function_artifacts._compute_source_hash(str(tmp_path))
     (tmp_path / "handler.py").write_text("value = 2\n")
-    changed = function_artifacts._compute_directory_hash(str(tmp_path))
+    changed = function_artifacts._compute_source_hash(str(tmp_path))
 
     assert first == second
     assert changed != first
     assert first.startswith("sha256:")
+
+
+@pytest.mark.parametrize(
+    ("provider", "source_name"),
+    [("aws", "lambda_function.py"), ("gcp", "main.py")],
+)
+def test_provider_update_artifact_includes_shared_runtime(
+    tmp_path,
+    monkeypatch,
+    provider,
+    source_name,
+):
+    function_dir = tmp_path / "function"
+    function_dir.mkdir()
+    (function_dir / source_name).write_text("VALUE = 1\n", encoding="utf-8")
+    providers_root = tmp_path / "providers"
+    shared_dir = providers_root / provider / (
+        "lambda_functions" if provider == "aws" else "cloud_functions"
+    ) / "_shared"
+    shared_dir.mkdir(parents=True)
+    (shared_dir / "runtime.py").write_text("SHARED = True\n", encoding="utf-8")
+    monkeypatch.setattr(function_routes, "PROVIDERS_ROOT", providers_root)
+
+    artifact = function_routes._build_provider_update_artifact(
+        provider,
+        str(function_dir),
+        twin_name="factory",
+        function_type="event_action",
+        function_name="notify",
+    )
+
+    with zipfile.ZipFile(io.BytesIO(artifact)) as archive:
+        names = set(archive.namelist())
+    assert source_name in names
+    assert "_shared/runtime.py" in names
+    if provider == "gcp":
+        assert "requirements.txt" in names
 
 
 def test_function_artifacts_reject_symbolic_links(tmp_path):
@@ -179,7 +283,7 @@ def test_function_artifacts_reject_symbolic_links(tmp_path):
     (tmp_path / "linked.txt").symlink_to(outside)
 
     with pytest.raises(ValueError, match="Symbolic links"):
-        function_artifacts._compute_directory_hash(str(tmp_path))
+        function_artifacts._compute_source_hash(str(tmp_path))
     with pytest.raises(ValueError, match="Symbolic links"):
         function_artifacts._build_function_zip(str(tmp_path))
 
@@ -223,6 +327,117 @@ def test_azure_token_failure_does_not_echo_downstream_body(tmp_path, monkeypatch
 
     assert "HTTP 401" in str(exc_info.value)
     assert secret not in str(exc_info.value)
+
+
+def test_kudu_async_deployment_waits_for_terminal_success(monkeypatch):
+    statuses = iter([1, 2, 4])
+    calls = []
+    monkeypatch.setattr(
+        function_upload.requests,
+        "get",
+        lambda url, **kwargs: calls.append((url, kwargs))
+        or SimpleNamespace(status_code=200, json=lambda: {"status": next(statuses)}),
+    )
+    monkeypatch.setattr(function_upload.time, "sleep", lambda _seconds: None)
+
+    function_upload._wait_for_kudu_deployment(
+        "https://app.scm.example/deployments/1",
+        auth=("user", "password"),
+    )
+
+    assert len(calls) == 3
+    assert all(call[1]["timeout"] == 30 for call in calls)
+
+
+def test_kudu_async_deployment_fails_closed(monkeypatch):
+    monkeypatch.setattr(
+        function_upload.requests,
+        "get",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status_code=200,
+            json=lambda: {"status": 3},
+        ),
+    )
+
+    with pytest.raises(FunctionProviderError, match="deployment failed"):
+        function_upload._wait_for_kudu_deployment(
+            "https://app.scm.example/deployments/1",
+            auth=("user", "password"),
+        )
+
+
+def test_kudu_async_deployment_rejects_unknown_status(monkeypatch):
+    monkeypatch.setattr(
+        function_upload.requests,
+        "get",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status_code=200,
+            json=lambda: {"status": "complete"},
+        ),
+    )
+
+    with pytest.raises(FunctionProviderError, match="unknown status"):
+        function_upload._wait_for_kudu_deployment(
+            "https://app.scm.example/deployments/1",
+            auth=("user", "password"),
+        )
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "http://app.scm.azurewebsites.net/api/deployments/1",
+        "https://attacker.example/api/deployments/1",
+    ],
+)
+def test_kudu_status_url_cannot_escape_expected_https_host(location):
+    with pytest.raises(FunctionProviderError, match="expected host"):
+        function_upload._resolve_kudu_status_url(
+            location,
+            "https://app.scm.azurewebsites.net/api/zipdeploy",
+        )
+
+
+def test_azure_async_deployment_requires_status_location(tmp_path, monkeypatch):
+    (tmp_path / "config_credentials.json").write_text(
+        json.dumps(
+            {
+                "azure": {
+                    "azure_subscription_id": "subscription",
+                    "azure_tenant_id": "tenant",
+                    "azure_client_id": "client",
+                    "azure_client_secret": "secret",
+                }
+            }
+        )
+    )
+    (tmp_path / "config.json").write_text(
+        json.dumps({"digital_twin_name": "factory"})
+    )
+    responses = iter(
+        [
+            SimpleNamespace(status_code=200, json=lambda: {"access_token": "token"}),
+            SimpleNamespace(
+                status_code=200,
+                json=lambda: {
+                    "properties": {
+                        "publishingUserName": "user",
+                        "publishingPassword": "password",
+                    }
+                },
+            ),
+            SimpleNamespace(status_code=202, headers={}),
+        ]
+    )
+    monkeypatch.setattr(function_upload, "_get_upload_dir", lambda _project: str(tmp_path))
+    monkeypatch.setattr(
+        function_upload.requests,
+        "post",
+        lambda *_args, **_kwargs: next(responses),
+    )
+
+    with pytest.raises(FunctionProviderError, match="without a status URL"):
+        function_upload._upload_azure_function("app", b"zip", "runtime-project")
 
 
 @pytest.mark.parametrize(
@@ -323,7 +538,7 @@ def test_gcp_update_uses_v2_source_upload_contract(tmp_path, monkeypatch):
     assert calls["result_timeout"] == 900
 
 
-def test_update_function_maps_provider_failure_to_bad_gateway(monkeypatch):
+def test_update_function_maps_provider_failure_to_bad_gateway(monkeypatch, tmp_path):
     monkeypatch.setattr(
         function_routes,
         "_get_updatable_functions",
@@ -336,10 +551,19 @@ def test_update_function_maps_provider_failure_to_bad_gateway(monkeypatch):
             }
         },
     )
-    monkeypatch.setattr(function_routes, "_compute_directory_hash", lambda _path: "sha256:new")
-    monkeypatch.setattr(function_routes, "_get_hash_metadata", lambda *_args: None)
-    monkeypatch.setattr(function_routes, "_build_function_zip", lambda *_args: b"zip")
+    monkeypatch.setattr(
+        function_routes,
+        "_compute_source_hash",
+        lambda _path: "sha256:" + "a" * 64,
+    )
+    monkeypatch.setattr(function_routes, "get_artifact_metadata", lambda *_args: None)
+    monkeypatch.setattr(
+        function_routes,
+        "_build_provider_update_artifact",
+        lambda *_args, **_kwargs: b"zip",
+    )
     monkeypatch.setattr(function_routes, "_load_twin_name", lambda _project: "factory")
+    monkeypatch.setattr(function_routes, "_get_upload_dir", lambda _project: str(tmp_path))
     monkeypatch.setattr(
         function_routes,
         "_upload_aws_lambda",

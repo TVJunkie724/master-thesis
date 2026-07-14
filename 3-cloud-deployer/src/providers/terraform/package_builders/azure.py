@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from src.function_registry import get_functions_for_provider_build
+from src.function_metadata import (
+    hash_bytes,
+    hash_directory,
+    reconcile_function_metadata,
+    record_function_build,
+)
 from src.core.deterministic_zip import (
     atomic_write_bytes,
     atomic_zip_archive,
@@ -295,6 +301,7 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
     
     user_funcs_dir = project_path / "azure_functions"
     if not user_funcs_dir.exists():
+        reconcile_function_metadata(project_path, "azure", set())
         logger.info("  No azure_functions directory, skipping user bundle")
         return None
     
@@ -306,6 +313,7 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
     discovered = _discover_azure_user_functions(user_funcs_dir, optimization_flags)
     
     if not discovered:
+        reconcile_function_metadata(project_path, "azure", set())
         logger.info("  No user functions found")
         return None
     
@@ -358,6 +366,25 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
     _clean_old_versioned_zips(build_dir, "user_functions")
     output_path = build_dir / f"user_functions_{content_hash}.zip"
     atomic_write_bytes(output_path, zip_bytes)
+
+    artifact_hash = hash_bytes(zip_bytes)
+    active_functions = set()
+    for function_type, user_dir in discovered:
+        if function_type == "processor":
+            function_name = f"processor-{user_dir.name}"
+        elif function_type == "event_feedback":
+            function_name = "event-feedback"
+        else:
+            function_name = user_dir.name
+        record_function_build(
+            project_path,
+            function_name,
+            "azure",
+            hash_directory(user_dir),
+            artifact_hash,
+        )
+        active_functions.add(function_name)
+    reconcile_function_metadata(project_path, "azure", active_functions)
     
     logger.info(f"  ✓ Built user bundle: {len(all_modules)} functions")
     return output_path
@@ -380,4 +407,3 @@ def _create_azure_function_zip(app_dir: Path, output_path: Path) -> None:
 def get_azure_zip_path(project_path: Path, app_name: str) -> str:
     """Get the path to an Azure Function ZIP file."""
     return str(project_path / ".build" / "azure" / f"{app_name}.zip")
-
