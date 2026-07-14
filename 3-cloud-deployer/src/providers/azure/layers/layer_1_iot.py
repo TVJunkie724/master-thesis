@@ -282,7 +282,9 @@ def _generate_azure_simulator_config(
         "connection_string": device_conn_str,
         "device_id": device_id,
         "digital_twin_name": digital_twin_name,
-        "payload_path": "../payloads.json"
+        "payload_path": "../payloads.json",
+        "credential_class": "azure_iot_hub_device_identity",
+        "credential_contract_version": 1,
     }
     
     # Write to upload/{project}/iot_device_simulator/azure/{device_id}/
@@ -293,5 +295,6 @@ def _generate_azure_simulator_config(
     
     with open(config_path, "w") as f:
         json.dump(config_data, f, indent=2)
+    config_path.chmod(0o600)
     
     logger.info(f"  ✓ Generated simulator config: {config_path}")

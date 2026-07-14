@@ -4,6 +4,9 @@ Tests for IoT Simulator download endpoint.
 Tests GET /twins/{twin_id}/simulator/download which proxies to Deployer API.
 """
 
+import io
+import zipfile
+
 import pytest
 from unittest.mock import patch, AsyncMock
 
@@ -11,7 +14,29 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.deployer_config import DeployerConfiguration
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.clients.deployer_client import DeployerSimulatorArchive
 from tests.conftest import create_test_twin
+
+
+def _zip_bytes() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("README.md", "simulator")
+    return buffer.getvalue()
+
+
+def _archive(provider: str, project: str) -> DeployerSimulatorArchive:
+    classes = {
+        "aws": "aws_iot_device_certificate",
+        "azure": "azure_iot_hub_device_identity",
+        "gcp": "gcp_pubsub_topic_publisher",
+    }
+    return DeployerSimulatorArchive(
+        content=_zip_bytes(),
+        filename=f"simulator_package_{project}_{provider}.zip",
+        provider=provider,
+        credential_class=classes[provider],
+    )
 
 
 # ============================================================
@@ -59,7 +84,7 @@ def deployed_twin_with_optimizer(authenticated_client, db_session):
 @patch(
     "src.clients.deployer_client.DeployerClient.download_simulator",
     new_callable=AsyncMock,
-    return_value=b"PK\x03\x04mock-zip-content",
+    return_value=_archive("aws", "sim-test-project"),
 )
 def test_download_simulator_aws_success(mock_download, mock_prepare, deployed_twin_with_optimizer):
     """Successfully download AWS simulator package."""
@@ -77,7 +102,7 @@ def test_download_simulator_aws_success(mock_download, mock_prepare, deployed_tw
 @patch(
     "src.clients.deployer_client.DeployerClient.download_simulator",
     new_callable=AsyncMock,
-    return_value=b"PK\x03\x04azure-zip",
+    return_value=_archive("azure", "azure-project"),
 )
 def test_download_simulator_azure_success(mock_download, mock_prepare, authenticated_client, db_session):
     """Successfully download Azure simulator package."""
@@ -102,7 +127,7 @@ def test_download_simulator_azure_success(mock_download, mock_prepare, authentic
 @patch(
     "src.clients.deployer_client.DeployerClient.download_simulator",
     new_callable=AsyncMock,
-    return_value=b"PK\x03\x04gcp-zip",
+    return_value=_archive("gcp", "gcp-project"),
 )
 def test_download_simulator_gcp_success(mock_download, mock_prepare, authenticated_client, db_session):
     """Successfully download GCP simulator package."""

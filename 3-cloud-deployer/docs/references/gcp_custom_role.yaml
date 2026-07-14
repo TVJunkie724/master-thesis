@@ -36,6 +36,8 @@ includedPermissions:
   - iam.serviceAccounts.get
   - iam.serviceAccounts.list
   - iam.serviceAccounts.actAs
+  - iam.serviceAccountKeys.create
+  - iam.serviceAccountKeys.delete
   - iam.roles.create
   - iam.roles.delete
   - iam.roles.get
@@ -62,8 +64,10 @@ includedPermissions:
   - pubsub.topics.create
   - pubsub.topics.delete
   - pubsub.topics.get
+  - pubsub.topics.getIamPolicy
   - pubsub.topics.list
   - pubsub.topics.publish
+  - pubsub.topics.setIamPolicy
   - pubsub.subscriptions.create
   - pubsub.subscriptions.delete
   - pubsub.subscriptions.get

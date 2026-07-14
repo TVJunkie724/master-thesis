@@ -56,8 +56,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewLogTraceUpdate>(_onLogTraceUpdate);
     on<TwinOverviewLogTraceComplete>(_onLogTraceComplete);
     on<TwinOverviewLogTraceError>(_onLogTraceError);
+    on<TwinOverviewCancelLogTrace>(_onCancelLogTrace);
     on<TwinOverviewDownloadSimulator>(_onDownloadSimulator);
-    on<TwinOverviewClearSimulatorBytes>(_onClearSimulatorBytes);
+    on<TwinOverviewSimulatorSaveStarted>(_onSimulatorSaveStarted);
+    on<TwinOverviewSimulatorSaveCompleted>(_onSimulatorSaveCompleted);
+    on<TwinOverviewSimulatorSaveCancelled>(_onSimulatorSaveCancelled);
+    on<TwinOverviewSimulatorSaveFailed>(_onSimulatorSaveFailed);
   }
 
   Future<void> _onLoad(
@@ -243,12 +247,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
         emit(
           freshState.copyWith(
-            showTraceTerminal: currentState is TwinOverviewLoaded
-                ? currentState.showTraceTerminal
-                : false,
-            traceTerminalLogs: currentState is TwinOverviewLoaded
-                ? currentState.traceTerminalLogs
-                : const [],
+            trace: currentState is TwinOverviewLoaded
+                ? currentState.trace
+                : const TraceViewState(),
+            simulatorDownload: currentState is TwinOverviewLoaded
+                ? currentState.simulatorDownload
+                : const SimulatorDownloadViewState(),
           ),
         );
 
@@ -298,6 +302,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
       return;
     }
+    final trace = _cancelTraceForLifecycleChange(currentState.trace);
+    final simulator = _clearSimulatorForLifecycleChange(
+      currentState.simulatorDownload,
+    );
 
     final perms = _permissionsForState('deploying');
     emit(
@@ -310,7 +318,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         canDestroy: perms['canDestroy'],
         canEdit: perms['canEdit'],
         canDelete: perms['canDelete'],
-        showTraceTerminal: false,
+        trace: trace,
+        simulatorDownload: simulator,
         clearDeploymentOutputs: true,
         clearOutputsTimestamp: true,
         clearOutputsError: true,
@@ -421,6 +430,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) async {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+    final trace = _cancelTraceForLifecycleChange(currentState.trace);
+    final simulator = _clearSimulatorForLifecycleChange(
+      currentState.simulatorDownload,
+    );
 
     final perms = _permissionsForState('destroying');
     emit(
@@ -433,7 +446,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         canDestroy: perms['canDestroy'],
         canEdit: perms['canEdit'],
         canDelete: perms['canDelete'],
-        showTraceTerminal: false,
+        trace: trace,
+        simulatorDownload: simulator,
         clearSuccess: true,
         clearError: true,
         clearInfo: true,
@@ -649,15 +663,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
-    if (currentState.showTraceTerminal) {
-      emit(
-        currentState.copyWith(
-          showTraceTerminal: false,
-          traceTerminalLogs: const [],
-        ),
-      );
-      return;
-    }
     emit(
       currentState.copyWith(
         deploymentOperation: currentState.deploymentOperation.copyWith(
@@ -677,6 +682,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) async {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+    if (currentState.trace.isActive) return;
 
     // Must be deployed to trace logs
     if (currentState.twinState != 'deployed') {
@@ -690,13 +696,14 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
     emit(
       currentState.copyWith(
-        isTracing: true,
         deploymentOperation: currentState.deploymentOperation.copyWith(
           showLogs: false,
         ),
-        showTraceTerminal: true,
-        traceTerminalLogs: ['> Starting log trace test...'],
-        clearTraceId: true,
+        trace: const TraceViewState(
+          phase: TraceViewPhase.starting,
+          diagnostics: ['Starting log trace test.'],
+          message: 'Starting test message trace.',
+        ),
         clearSuccess: true,
         clearError: true,
         clearInfo: true,
@@ -710,19 +717,27 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       // Add trace info to terminal
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
-          activeState.twinId != currentState.twinId) {
+          activeState.twinId != currentState.twinId ||
+          activeState.twinState != 'deployed' ||
+          activeState.trace.phase != TraceViewPhase.starting) {
         return;
       }
       emit(
         activeState.copyWith(
-          traceId: result.traceId,
-          traceTerminalLogs: [
-            ...activeState.traceTerminalLogs,
-            '> Trace ID: ${result.traceId}',
-            '> Providers: ${result.providers.join(", ")}',
-            '> Streaming logs for 90 seconds...',
-            '',
-          ],
+          trace: activeState.trace.copyWith(
+            phase: TraceViewPhase.streaming,
+            traceId: result.traceId,
+            sentAt: result.sentAt,
+            l1Provider: result.l1Provider,
+            providers: result.providers,
+            diagnostics: [
+              ...activeState.trace.diagnostics,
+              'Trace ID: ${result.traceId}',
+              'Providers: ${result.providers.join(", ")}',
+              'Streaming provider logs.',
+            ],
+            message: result.message,
+          ),
         ),
       );
 
@@ -739,13 +754,17 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
-          activeState.twinId != currentState.twinId) {
+          activeState.twinId != currentState.twinId ||
+          activeState.trace.phase != TraceViewPhase.starting) {
         return;
       }
       emit(
         activeState.copyWith(
-          isTracing: false,
-          clearTraceId: true,
+          trace: activeState.trace.copyWith(
+            phase: TraceViewPhase.failed,
+            clearTraceId: true,
+            message: 'Log trace failed: ${ApiErrorHandler.extractMessage(e)}',
+          ),
           errorMessage:
               'Log trace failed: ${ApiErrorHandler.extractMessage(e)}',
         ),
@@ -760,8 +779,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
-    final newLogs = [...currentState.traceTerminalLogs, event.logLine];
-    emit(currentState.copyWith(traceTerminalLogs: newLogs));
+    if (!currentState.trace.isActive) return;
+    if (event.traceId != null && event.traceId != currentState.trace.traceId) {
+      return;
+    }
+    emit(
+      currentState.copyWith(
+        trace: currentState.trace.appendDiagnostic(event.logLine),
+      ),
+    );
   }
 
   void _onLogTraceComplete(
@@ -770,16 +796,27 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+    if (!currentState.trace.isActive ||
+        (event.traceId != null &&
+            event.traceId != currentState.trace.traceId)) {
+      return;
+    }
 
     _cancelLogTraceSseSubscription();
 
-    final newLogs = [
-      ...currentState.traceTerminalLogs,
-      '',
-      '> Trace complete. Total logs: ${event.totalLogs ?? 0}',
-    ];
-
-    emit(currentState.copyWith(isTracing: false, traceTerminalLogs: newLogs));
+    emit(
+      currentState.copyWith(
+        trace: currentState.trace.copyWith(
+          phase: TraceViewPhase.completed,
+          totalLogs: event.totalLogs ?? 0,
+          diagnostics: [
+            ...currentState.trace.diagnostics,
+            'Trace complete. Total logs: ${event.totalLogs ?? 0}',
+          ],
+          message: 'Trace completed.',
+        ),
+      ),
+    );
   }
 
   void _onLogTraceError(
@@ -788,10 +825,46 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
-
+    if (!currentState.trace.isActive ||
+        (event.traceId != null &&
+            event.traceId != currentState.trace.traceId)) {
+      return;
+    }
     _cancelLogTraceSseSubscription();
 
-    emit(currentState.copyWith(isTracing: false, errorMessage: event.message));
+    emit(
+      currentState.copyWith(
+        trace: currentState.trace.copyWith(
+          phase: TraceViewPhase.failed,
+          diagnostics: [...currentState.trace.diagnostics, event.message],
+          message: event.message,
+        ),
+        errorMessage: event.message,
+      ),
+    );
+  }
+
+  void _onCancelLogTrace(
+    TwinOverviewCancelLogTrace event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded || !currentState.trace.isActive) {
+      return;
+    }
+    _cancelLogTraceSseSubscription();
+    emit(
+      currentState.copyWith(
+        trace: currentState.trace.copyWith(
+          phase: TraceViewPhase.cancelled,
+          diagnostics: [
+            ...currentState.trace.diagnostics,
+            'Trace cancelled by user.',
+          ],
+          message: 'Trace cancelled.',
+        ),
+      ),
+    );
   }
 
   void _subscribeToLogTraceSseStream({
@@ -812,25 +885,34 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           (event) {
             // Handle events by SSE type (now consistent between mock and real)
             if (event.isHeartbeat) {
-              add(TwinOverviewLogTraceUpdate('...'));
               return;
             }
 
             if (event.type == 'done') {
               final data = event.data?['data'];
               final logCount = data is Map ? data['log_count'] as int? : null;
-              add(TwinOverviewLogTraceComplete(totalLogs: logCount));
+              add(
+                TwinOverviewLogTraceComplete(
+                  totalLogs: logCount,
+                  traceId: traceId,
+                ),
+              );
               return;
             }
 
             if (event.isError) {
-              add(TwinOverviewLogTraceError(event.message));
+              add(TwinOverviewLogTraceError(event.message, traceId: traceId));
               return;
             }
 
             // Regular log event - format with aligned columns
             if (event.type == 'log') {
-              add(TwinOverviewLogTraceUpdate(_formatLogEvent(event)));
+              add(
+                TwinOverviewLogTraceUpdate(
+                  _formatLogEvent(event),
+                  traceId: traceId,
+                ),
+              );
             }
           },
           onError: (e) {
@@ -838,6 +920,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
             add(
               TwinOverviewLogTraceError(
                 'Connection lost: ${ApiErrorHandler.extractMessage(e)}',
+                traceId: traceId,
               ),
             );
           },
@@ -849,6 +932,31 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     _logTraceSseSubscription = null;
     _logTraceSseService?.cancel();
     _logTraceSseService = null;
+  }
+
+  TraceViewState _cancelTraceForLifecycleChange(TraceViewState trace) {
+    if (!trace.isActive) return trace;
+    _cancelLogTraceSseSubscription();
+    return trace.copyWith(
+      phase: TraceViewPhase.cancelled,
+      diagnostics: [
+        ...trace.diagnostics,
+        'Trace cancelled because the deployment lifecycle changed.',
+      ],
+      message: 'Trace cancelled.',
+    );
+  }
+
+  SimulatorDownloadViewState _clearSimulatorForLifecycleChange(
+    SimulatorDownloadViewState simulator,
+  ) {
+    if (!simulator.isBusy) return simulator;
+    return simulator.copyWith(
+      phase: SimulatorDownloadViewPhase.idle,
+      message:
+          'Simulator download cancelled because the deployment lifecycle changed.',
+      clearPendingDownload: true,
+    );
   }
 
   /// Parse log data from SSE event.
@@ -1395,15 +1503,37 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
     if (currentState.twinState != 'deployed') return;
+    if (currentState.simulatorDownload.isBusy) return;
+    if (!event.acknowledgedSensitiveCredentials) {
+      emit(
+        currentState.copyWith(
+          simulatorDownload: currentState.simulatorDownload.copyWith(
+            phase: SimulatorDownloadViewPhase.failed,
+            message:
+                'Confirm the sensitive runtime credential warning before downloading.',
+            clearPendingDownload: true,
+          ),
+          errorMessage:
+              'Confirm the sensitive runtime credential warning before downloading.',
+        ),
+      );
+      return;
+    }
+
+    final provider =
+        (currentState.cheapestPath?['l1'] as String?)?.toLowerCase() ?? 'l1';
 
     emit(
       currentState.copyWith(
-        isDownloadingSimulator: true,
+        simulatorDownload: SimulatorDownloadViewState(
+          phase: SimulatorDownloadViewPhase.requesting,
+          provider: provider,
+          requestToken: currentState.simulatorDownload.requestToken,
+          message: 'Preparing the $provider simulator package.',
+        ),
         infoMessage: 'Downloading simulator...',
         clearSuccess: true,
         clearError: true,
-        clearSimulatorBytes: true,
-        clearSimulatorFilename: true,
       ),
     );
 
@@ -1411,14 +1541,22 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       final download = await _api.downloadSimulator(currentState.twinId);
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
-          activeState.twinId != currentState.twinId) {
+          activeState.twinId != currentState.twinId ||
+          activeState.twinState != 'deployed' ||
+          activeState.simulatorDownload.phase !=
+              SimulatorDownloadViewPhase.requesting) {
         return;
       }
       emit(
         activeState.copyWith(
-          isDownloadingSimulator: false,
-          simulatorBytes: download.bytes,
-          simulatorFilename: download.filename,
+          simulatorDownload: SimulatorDownloadViewState(
+            phase: SimulatorDownloadViewPhase.readyToSave,
+            filename: download.filename,
+            provider: provider,
+            requestToken: activeState.simulatorDownload.requestToken + 1,
+            pendingDownload: download,
+            message: 'Simulator package is ready to save.',
+          ),
           clearInfo: true,
         ),
       );
@@ -1428,32 +1566,102 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
-          activeState.twinId != currentState.twinId) {
+          activeState.twinId != currentState.twinId ||
+          activeState.simulatorDownload.phase !=
+              SimulatorDownloadViewPhase.requesting) {
         return;
       }
       emit(
         activeState.copyWith(
-          isDownloadingSimulator: false,
+          simulatorDownload: SimulatorDownloadViewState(
+            phase: SimulatorDownloadViewPhase.failed,
+            provider: provider,
+            requestToken: activeState.simulatorDownload.requestToken,
+            message: 'Download failed: ${ApiErrorHandler.extractMessage(e)}',
+          ),
           errorMessage: 'Download failed: ${ApiErrorHandler.extractMessage(e)}',
           clearInfo: true,
-          clearSimulatorBytes: true,
-          clearSimulatorFilename: true,
         ),
       );
     }
   }
 
-  /// Handle clearing simulator bytes from state
-  void _onClearSimulatorBytes(
-    TwinOverviewClearSimulatorBytes event,
+  void _onSimulatorSaveStarted(
+    TwinOverviewSimulatorSaveStarted event,
     Emitter<TwinOverviewState> emit,
   ) {
     final currentState = state;
-    if (currentState is! TwinOverviewLoaded) return;
+    if (currentState is! TwinOverviewLoaded ||
+        currentState.simulatorDownload.phase !=
+            SimulatorDownloadViewPhase.readyToSave ||
+        currentState.simulatorDownload.pendingDownload == null) {
+      return;
+    }
     emit(
       currentState.copyWith(
-        clearSimulatorBytes: true,
-        clearSimulatorFilename: true,
+        simulatorDownload: currentState.simulatorDownload.copyWith(
+          phase: SimulatorDownloadViewPhase.saving,
+          message: 'Choose where to save the simulator package.',
+        ),
+      ),
+    );
+  }
+
+  void _onSimulatorSaveCompleted(
+    TwinOverviewSimulatorSaveCompleted event,
+    Emitter<TwinOverviewState> emit,
+  ) => _finishSimulatorSave(
+    emit,
+    phase: SimulatorDownloadViewPhase.saved,
+    message: event.message,
+    success: true,
+  );
+
+  void _onSimulatorSaveCancelled(
+    TwinOverviewSimulatorSaveCancelled event,
+    Emitter<TwinOverviewState> emit,
+  ) => _finishSimulatorSave(
+    emit,
+    phase: SimulatorDownloadViewPhase.idle,
+    message: 'Simulator save cancelled.',
+  );
+
+  void _onSimulatorSaveFailed(
+    TwinOverviewSimulatorSaveFailed event,
+    Emitter<TwinOverviewState> emit,
+  ) => _finishSimulatorSave(
+    emit,
+    phase: SimulatorDownloadViewPhase.failed,
+    message: event.message,
+    error: true,
+  );
+
+  void _finishSimulatorSave(
+    Emitter<TwinOverviewState> emit, {
+    required SimulatorDownloadViewPhase phase,
+    required String message,
+    bool success = false,
+    bool error = false,
+  }) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+    final currentPhase = currentState.simulatorDownload.phase;
+    if (currentPhase != SimulatorDownloadViewPhase.saving &&
+        !(error && currentPhase == SimulatorDownloadViewPhase.readyToSave)) {
+      return;
+    }
+    emit(
+      currentState.copyWith(
+        simulatorDownload: currentState.simulatorDownload.copyWith(
+          phase: phase,
+          message: message,
+          clearPendingDownload: true,
+        ),
+        successMessage: success ? message : null,
+        errorMessage: error ? message : null,
+        clearSuccess: !success,
+        clearError: !error,
+        clearInfo: true,
       ),
     );
   }

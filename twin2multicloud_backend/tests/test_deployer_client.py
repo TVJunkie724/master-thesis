@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import io
+import zipfile
 
 import httpx
 import pytest
@@ -12,6 +14,28 @@ def _client_with_handler(handler):
         base_url="http://deployer.test",
         transport=httpx.MockTransport(handler),
     )
+
+
+def _zip_bytes() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("README.md", "simulator")
+    return buffer.getvalue()
+
+
+def _simulator_headers(provider: str = "azure") -> dict[str, str]:
+    classes = {
+        "aws": "aws_iot_device_certificate",
+        "azure": "azure_iot_hub_device_identity",
+        "gcp": "gcp_pubsub_topic_publisher",
+    }
+    return {
+        "Content-Type": "application/zip",
+        "Content-Disposition": f'attachment; filename="simulator_factory_{provider}.zip"',
+        "X-Twin2MultiCloud-Utility": "simulator",
+        "X-Twin2MultiCloud-Provider": provider,
+        "X-Twin2MultiCloud-Credential-Class": classes[provider],
+    }
 
 
 @pytest.mark.asyncio
@@ -146,17 +170,41 @@ async def test_log_trace_and_verification_methods_preserve_deployer_paths():
 
 
 @pytest.mark.asyncio
-async def test_download_simulator_returns_zip_bytes_from_exact_path():
+async def test_download_simulator_returns_validated_archive_from_exact_path():
     seen = {}
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["url"] = str(request.url)
-        return httpx.Response(200, content=b"zip-bytes")
+        return httpx.Response(200, content=_zip_bytes(), headers=_simulator_headers())
 
-    content = await _client_with_handler(handler).download_simulator("factory", "azure")
+    archive = await _client_with_handler(handler).download_simulator("factory", "azure")
 
-    assert content == b"zip-bytes"
+    assert archive.content == _zip_bytes()
+    assert archive.filename == "simulator_factory_azure.zip"
+    assert archive.provider == "azure"
+    assert archive.credential_class == "azure_iot_hub_device_identity"
     assert seen["url"] == "http://deployer.test/projects/factory/simulator/azure/download"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("headers", "content"),
+    [
+        ({**_simulator_headers(), "Content-Disposition": 'attachment; filename="../secret.zip"'}, _zip_bytes()),
+        ({**_simulator_headers(), "Content-Disposition": 'attachment; filename="simulator.zip'}, _zip_bytes()),
+        ({**_simulator_headers(), "Content-Disposition": 'attachment; filename=simulator.zip"'}, _zip_bytes()),
+        ({**_simulator_headers(), "Content-Type": "application/json"}, _zip_bytes()),
+        ({**_simulator_headers(), "X-Twin2MultiCloud-Provider": "aws"}, _zip_bytes()),
+        ({**_simulator_headers(), "X-Twin2MultiCloud-Credential-Class": "admin_key"}, _zip_bytes()),
+        (_simulator_headers(), b"not-a-zip"),
+    ],
+)
+async def test_download_simulator_rejects_invalid_binary_contract(headers, content):
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=content, headers=headers)
+
+    with pytest.raises(ExternalServiceError):
+        await _client_with_handler(handler).download_simulator("factory", "azure")
 
 
 @pytest.mark.asyncio

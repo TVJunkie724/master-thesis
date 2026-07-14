@@ -157,7 +157,12 @@ def test_simulator_route_streams_archive_from_orchestrator(auth_client, test_twi
     class FakeOrchestrator:
         async def download_simulator(self, **kwargs):
             calls.append(kwargs)
-            return SimulatorDownload(content=io.BytesIO(b"zip"), filename="simulator.zip")
+            return SimulatorDownload(
+                content=io.BytesIO(b"zip"),
+                filename="simulator.zip",
+                provider="aws",
+                credential_class="aws_iot_device_certificate",
+            )
 
     monkeypatch.setattr(
         "src.api.routes.twin_operations._deployment_orchestrator",
@@ -168,5 +173,8 @@ def test_simulator_route_streams_archive_from_orchestrator(auth_client, test_twi
 
     assert response.status_code == 200
     assert response.content == b"zip"
-    assert response.headers["content-disposition"] == "attachment; filename=simulator.zip"
+    assert response.headers["content-disposition"] == 'attachment; filename="simulator.zip"'
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-twin2multicloud-provider"] == "aws"
+    assert response.headers["x-twin2multicloud-credential-class"] == "aws_iot_device_certificate"
     assert calls == [{"twin_id": test_twin.id, "user_id": test_twin.user_id, "test_mode": False}]

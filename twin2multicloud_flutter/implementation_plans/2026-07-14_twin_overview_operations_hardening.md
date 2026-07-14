@@ -44,8 +44,8 @@ No verification step provisions or destroys real cloud resources.
 | 8.1 | Done | Typed parser/API/demo/BLoC tests: 55 passed; complete Flutter suite: 451 passed; `flutter analyze --no-pub`: no issues |
 | 8.2 | Done | Backend readiness matrix: 25 passed; complete backend suite: 582 passed; complete Flutter suite: 463 passed; Bandit and analyzer clean; Web/macOS release builds pass |
 | 8.3 | Done | Focused backend stream/route matrix: 51 passed; complete backend suite: 592 passed; complete Flutter suite: 466 passed; Bandit/analyzer clean; Web/macOS release builds pass |
-| 8.4 | Next | Not started |
-| 8.5 | Planned | Not started |
+| 8.4 | Done | Deployer archive/security matrix: 34 passed; complete offline Deployer suite: 1,131 passed, 1 skipped; Management API contract matrix: 53 passed; complete Management API suite: 601 passed; complete Flutter suite: 480 passed; scoped Bandit and analyzer clean; Terraform validates; Web/macOS release builds pass |
+| 8.5 | Next | Responsive/accessibility quality gate pending |
 
 Subphase 8.1 also verified defensive copies for nested outputs and binary
 downloads, fail-fast pagination bounds, session-scoped demo cursors, safe server
@@ -73,6 +73,20 @@ visible history to 500 entries, and performs cancellable bounded reconnects
 followed by a typed status check. The SSE adapter has deterministic cancellation,
 strict event/URL/size validation, and reads the current Management API session
 token for every new connection. No live-cloud E2E was executed.
+
+Subphase 8.4 separates trace and simulator state from deployment operation
+state, adds bounded diagnostics and stale-response guards, and keeps simulator
+bytes transient through an explicit request/save lifecycle. The compact Testing
+Utilities panel keeps diagnostics collapsed and requires acknowledgement before
+downloading credential-bearing archives. The Deployer now assembles archives
+from strict provider allowlists, rejects unsafe paths, symlinks, broad secret
+file permissions, invalid identities, malformed metadata, and oversized input,
+and emits exact provider/credential-class headers. AWS device policies allow
+only the exact client and telemetry topic, Azure packages contain only the
+device identity, and GCP uses a dedicated topic-publisher service account rather
+than deployment/bootstrap credentials. The Management API revalidates the full
+binary contract and sends no-store/nosniff headers. Tests use synthetic secrets
+and archives only; no live-cloud E2E was executed.
 
 ## 2. Visual Layout (ASCII)
 

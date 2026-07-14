@@ -33,8 +33,8 @@ and the final responsive/accessibility quality gate.
 | 8.1 Typed operation contracts and nullable state | Done | 55 focused tests, 451 complete Flutter tests, analyzer clean |
 | 8.2 Twin-scoped readiness and explicit preflight | Done | 25 focused backend tests, 582 complete backend tests, 463 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
 | 8.3 Persisted log catch-up and SSE recovery | Done | 51 focused backend tests, 592 complete backend tests, 466 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
-| 8.4 Trace/simulator workflows and secure archives | Next | Pending implementation |
-| 8.5 Responsive/accessibility release gate | Planned | Pending implementation |
+| 8.4 Trace/simulator workflows and secure archives | Done | 34 focused and 1,131 offline Deployer tests; 53 focused and 601 complete Management API tests; 480 complete Flutter tests; Terraform/Bandit/analyzer/build gates pass |
+| 8.5 Responsive/accessibility release gate | Next | Pending implementation |
 
 The 8.1 gate covers Management API and demo adapters, strict versioned parsers,
 session-scoped cursors, immutable output/download data, and stale-state clearing.
@@ -56,6 +56,15 @@ history, and exposes cancellable reconnect/status-recovery states. The custom
 SSE transport uses the current Management API auth token and validates relative
 URLs, cursors, payload shape, timestamps, and event size. Verification used no
 live cloud resources.
+
+The 8.4 gate introduces independent typed trace and simulator-download state,
+bounded collapsed diagnostics, acknowledgement before sensitive downloads, and
+race-safe cancellation across deployment lifecycle changes. Simulator archives
+are assembled from provider allowlists and validated at both the Deployer and
+Management API boundaries. AWS uses exact client/topic permissions, Azure uses
+the device identity, and GCP uses a dedicated Pub/Sub topic-publisher identity;
+deployment, bootstrap, and CloudConnection credentials are never packaged.
+Verification used synthetic credentials and no live cloud resources.
 
 ## Summary
 

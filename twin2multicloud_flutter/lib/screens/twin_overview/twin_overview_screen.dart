@@ -22,6 +22,7 @@ import '../../widgets/twin_overview/twin_overview_command_center.dart';
 import '../../widgets/twin_overview/twin_overview_configuration_review.dart';
 import '../../widgets/twin_overview/deployment_readiness_panel.dart';
 import '../../widgets/twin_overview/twin_overview_name_header.dart';
+import '../../widgets/twin_overview/testing_utilities_panel.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
 class TwinOverviewScreen extends ConsumerWidget {
@@ -62,47 +63,47 @@ class TwinOverviewView extends ConsumerWidget {
             context.go('/dashboard');
           },
         ),
-        // Handle simulator bytes - trigger save dialog
+        // Save the one-shot simulator payload outside Equatable state handling.
         BlocListener<TwinOverviewBloc, TwinOverviewState>(
-          listenWhen: (prev, curr) =>
-              curr is TwinOverviewLoaded &&
-              curr.simulatorBytes != null &&
-              (prev is! TwinOverviewLoaded || prev.simulatorBytes == null),
+          listenWhen: (previous, current) {
+            if (current is! TwinOverviewLoaded ||
+                current.simulatorDownload.phase !=
+                    SimulatorDownloadViewPhase.readyToSave) {
+              return false;
+            }
+            return previous is! TwinOverviewLoaded ||
+                previous.simulatorDownload.requestToken !=
+                    current.simulatorDownload.requestToken;
+          },
           listener: (context, state) async {
-            if (state is! TwinOverviewLoaded || state.simulatorBytes == null) {
+            if (state is! TwinOverviewLoaded) {
               return;
             }
-            final filename = state.simulatorFilename;
-            if (filename == null) {
+            final pending = state.simulatorDownload.pendingDownload;
+            if (pending == null) {
               context.read<TwinOverviewBloc>().add(
-                const TwinOverviewShowMessage(
-                  'Simulator download did not include a safe filename.',
-                  MessageType.error,
+                const TwinOverviewSimulatorSaveFailed(
+                  'Simulator package was not available for saving.',
                 ),
-              );
-              context.read<TwinOverviewBloc>().add(
-                const TwinOverviewClearSimulatorBytes(),
               );
               return;
             }
 
+            final bloc = context.read<TwinOverviewBloc>();
+            bloc.add(const TwinOverviewSimulatorSaveStarted());
             final result = await saveBinaryFile(
-              bytes: state.simulatorBytes!,
-              suggestedName: filename,
+              bytes: pending.bytes,
+              suggestedName: pending.filename,
             );
 
             if (!context.mounted) return;
-            final bloc = context.read<TwinOverviewBloc>();
             if (result.success) {
-              bloc.add(
-                TwinOverviewShowMessage(result.message!, MessageType.success),
-              );
+              bloc.add(TwinOverviewSimulatorSaveCompleted(result.message!));
+            } else if (result.cancelled) {
+              bloc.add(const TwinOverviewSimulatorSaveCancelled());
             } else if (!result.cancelled && result.error != null) {
-              bloc.add(
-                TwinOverviewShowMessage(result.error!, MessageType.error),
-              );
+              bloc.add(TwinOverviewSimulatorSaveFailed(result.error!));
             }
-            bloc.add(const TwinOverviewClearSimulatorBytes());
           },
         ),
       ],
@@ -362,12 +363,6 @@ class TwinOverviewView extends ConsumerWidget {
                   onDelete: () => _showDeleteConfirmation(context, state),
                   onDeploy: () => _showDeployConfirmation(context, state),
                   onDestroy: () => _showDestroyConfirmation(context, state),
-                  onStartLogTrace: () => context.read<TwinOverviewBloc>().add(
-                    const TwinOverviewStartLogTrace(),
-                  ),
-                  onDownloadSimulator: () => context
-                      .read<TwinOverviewBloc>()
-                      .add(const TwinOverviewDownloadSimulator()),
                   onViewLogs: () => _showDeploymentLogs(context, state),
                   onCloseTerminal: () => context.read<TwinOverviewBloc>().add(
                     const TwinOverviewCloseTerminal(),
@@ -378,6 +373,25 @@ class TwinOverviewView extends ConsumerWidget {
                       ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
+
+                if (state.twinState == 'deployed') ...[
+                  TestingUtilitiesPanel(
+                    provider:
+                        (state.cheapestPath?['l1'] as String?)?.toLowerCase() ??
+                        'l1',
+                    trace: state.trace,
+                    simulator: state.simulatorDownload,
+                    onStartTrace: () => context.read<TwinOverviewBloc>().add(
+                      const TwinOverviewStartLogTrace(),
+                    ),
+                    onCancelTrace: () => context.read<TwinOverviewBloc>().add(
+                      const TwinOverviewCancelLogTrace(),
+                    ),
+                    onDownloadSimulator: () =>
+                        _confirmSimulatorDownload(context, state),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
 
                 // Deployment Verification (only for deployed twins)
                 if (state.twinState == 'deployed') ...[
@@ -462,6 +476,70 @@ class TwinOverviewView extends ConsumerWidget {
       code: content,
       filename: '${state.projectName}_deployment_logs.txt',
     );
+  }
+
+  Future<void> _confirmSimulatorDownload(
+    BuildContext context,
+    TwinOverviewLoaded state,
+  ) async {
+    var acknowledged = false;
+    final provider =
+        (state.cheapestPath?['l1'] as String?)?.toUpperCase() ?? 'L1';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Download simulator package?'),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'The $provider package contains narrowly scoped device/runtime '
+                  'authentication material that can send telemetry to this twin.',
+                ),
+                const SizedBox(height: AppSpacing.md),
+                CheckboxListTile(
+                  key: const Key('acknowledge-simulator-credentials'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: acknowledged,
+                  onChanged: (value) =>
+                      setDialogState(() => acknowledged = value ?? false),
+                  title: const Text(
+                    'I will store the archive securely and remove it when no longer needed.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              key: const Key('confirm-simulator-download'),
+              onPressed: acknowledged
+                  ? () => Navigator.of(dialogContext).pop(true)
+                  : null,
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Download'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      context.read<TwinOverviewBloc>().add(
+        const TwinOverviewDownloadSimulator(
+          acknowledgedSensitiveCredentials: true,
+        ),
+      );
+    }
   }
 
   void _showDeployConfirmation(BuildContext context, TwinOverviewLoaded state) {

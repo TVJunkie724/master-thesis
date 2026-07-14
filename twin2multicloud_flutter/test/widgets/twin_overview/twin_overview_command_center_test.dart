@@ -13,8 +13,6 @@ void main() {
     VoidCallback? onDelete,
     VoidCallback? onDeploy,
     VoidCallback? onDestroy,
-    VoidCallback? onStartLogTrace,
-    VoidCallback? onDownloadSimulator,
     VoidCallback? onViewLogs,
     VoidCallback? onCloseTerminal,
     ValueChanged<String>? onOutputCopyFeedback,
@@ -28,8 +26,6 @@ void main() {
             onDelete: onDelete ?? () {},
             onDeploy: onDeploy ?? () {},
             onDestroy: onDestroy ?? () {},
-            onStartLogTrace: onStartLogTrace ?? () {},
-            onDownloadSimulator: onDownloadSimulator ?? () {},
             onViewLogs: onViewLogs ?? () {},
             onCloseTerminal: onCloseTerminal ?? () {},
             onOutputCopyFeedback: onOutputCopyFeedback ?? (_) {},
@@ -59,33 +55,6 @@ void main() {
       expect(deployed, isTrue);
       expect(edited, isTrue);
       expect(find.text('DESTROY'), findsOneWidget);
-    });
-
-    testWidgets('shows deployed testing utilities', (tester) async {
-      var traced = false;
-      var downloaded = false;
-
-      await tester.pumpWidget(
-        buildWidget(
-          state: _state(
-            twinState: 'deployed',
-            canDestroy: true,
-            canEdit: false,
-            canDelete: false,
-            cheapestPath: const {'l1': 'aws'},
-          ),
-          onStartLogTrace: () => traced = true,
-          onDownloadSimulator: () => downloaded = true,
-        ),
-      );
-
-      await tester.tap(find.text('Send Test Message'));
-      await tester.tap(find.text('Download AWS Simulator'));
-      await tester.pump();
-
-      expect(find.text('TESTING UTILITIES'), findsOneWidget);
-      expect(traced, isTrue);
-      expect(downloaded, isTrue);
     });
 
     testWidgets('blocks deploy with an adjacent readiness explanation', (

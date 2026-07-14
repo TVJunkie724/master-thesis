@@ -8,11 +8,8 @@ import '../deployment_terminal.dart';
 import '../terraform_outputs_card.dart';
 
 const _primaryActionHeight = 56.0;
-const _utilityActionHeight = 40.0;
 const _terminalHeight = 300.0;
 const _primaryActionSpinnerSize = 20.0;
-const _utilityActionSpinnerSize = 16.0;
-const _utilityActionIconSize = 18.0;
 
 class TwinOverviewCommandCenter extends StatelessWidget {
   final TwinOverviewLoaded state;
@@ -20,8 +17,6 @@ class TwinOverviewCommandCenter extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onDeploy;
   final VoidCallback onDestroy;
-  final VoidCallback onStartLogTrace;
-  final VoidCallback onDownloadSimulator;
   final VoidCallback onViewLogs;
   final VoidCallback onCloseTerminal;
   final ValueChanged<String> onOutputCopyFeedback;
@@ -33,8 +28,6 @@ class TwinOverviewCommandCenter extends StatelessWidget {
     required this.onDelete,
     required this.onDeploy,
     required this.onDestroy,
-    required this.onStartLogTrace,
-    required this.onDownloadSimulator,
     required this.onViewLogs,
     required this.onCloseTerminal,
     required this.onOutputCopyFeedback,
@@ -76,14 +69,6 @@ class TwinOverviewCommandCenter extends StatelessWidget {
                     color: theme.colorScheme.error,
                   ),
                 ),
-              ),
-            ],
-            if (state.twinState == 'deployed') ...[
-              const SizedBox(height: AppSpacing.md),
-              _TestingUtilities(
-                state: state,
-                onStartLogTrace: onStartLogTrace,
-                onDownloadSimulator: onDownloadSimulator,
               ),
             ],
             if (state.twinState == 'error' && state.lastError != null) ...[
@@ -277,127 +262,6 @@ class _PrimaryActionButton extends StatelessWidget {
   }
 }
 
-class _TestingUtilities extends StatelessWidget {
-  final TwinOverviewLoaded state;
-  final VoidCallback onStartLogTrace;
-  final VoidCallback onDownloadSimulator;
-
-  const _TestingUtilities({
-    required this.state,
-    required this.onStartLogTrace,
-    required this.onDownloadSimulator,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(child: Divider(color: theme.dividerColor)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Text(
-                'TESTING UTILITIES',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            Expanded(child: Divider(color: theme.dividerColor)),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final buttons = [
-              _UtilityButton(
-                label: state.isTracing ? 'Tracing...' : 'Send Test Message',
-                icon: Icons.sms_outlined,
-                busy: state.isTracing,
-                enabled: !state.isTracing,
-                onPressed: onStartLogTrace,
-              ),
-              _UtilityButton(
-                label: state.isDownloadingSimulator
-                    ? 'Downloading...'
-                    : 'Download ${_l1ProviderLabel(state)} Simulator',
-                icon: Icons.download_outlined,
-                busy: state.isDownloadingSimulator,
-                enabled: !state.isDownloadingSimulator,
-                onPressed: onDownloadSimulator,
-              ),
-            ];
-
-            if (constraints.maxWidth < 720) {
-              return Column(
-                children: [
-                  for (final button in buttons)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: button,
-                    ),
-                ],
-              );
-            }
-
-            return Row(
-              children: [
-                Expanded(child: buttons[0]),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: buttons[1]),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  String _l1ProviderLabel(TwinOverviewLoaded state) {
-    return (state.cheapestPath?['l1'] as String?)?.toUpperCase() ?? 'L1';
-  }
-}
-
-class _UtilityButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool busy;
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  const _UtilityButton({
-    required this.label,
-    required this.icon,
-    required this.busy,
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: _utilityActionHeight,
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: enabled ? onPressed : null,
-        icon: busy
-            ? const SizedBox(
-                width: _utilityActionSpinnerSize,
-                height: _utilityActionSpinnerSize,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(icon, size: _utilityActionIconSize),
-        label: Text(label, style: Theme.of(context).textTheme.labelSmall),
-      ),
-    );
-  }
-}
-
 class _DeploymentErrorBanner extends StatelessWidget {
   final String message;
   final VoidCallback onViewLogs;
@@ -476,10 +340,7 @@ class _DeploymentTerminalPanel extends StatelessWidget {
           children: [
             Icon(Icons.terminal, size: 16, color: theme.colorScheme.primary),
             const SizedBox(width: AppSpacing.sm),
-            Text(
-              state.isTracing ? 'Log Trace Output' : 'Deployment Output',
-              style: theme.textTheme.labelLarge,
-            ),
+            Text('Deployment Output', style: theme.textTheme.labelLarge),
             const Spacer(),
             IconButton(
               icon: const Icon(Icons.close, size: 18),
@@ -488,8 +349,7 @@ class _DeploymentTerminalPanel extends StatelessWidget {
             ),
           ],
         ),
-        if (!state.showTraceTerminal &&
-            state.deploymentOperation.message != null) ...[
+        if (state.deploymentOperation.message != null) ...[
           const SizedBox(height: AppSpacing.xs),
           Align(
             alignment: Alignment.centerLeft,
@@ -507,12 +367,9 @@ class _DeploymentTerminalPanel extends StatelessWidget {
           child: DeploymentTerminal(
             logs: state.terminalLogs,
             isConnected:
-                state.isTracing ||
                 state.deploymentOperation.phase ==
-                    DeploymentOperationViewPhase.streaming,
-            isComplete: state.showTraceTerminal
-                ? !state.isTracing
-                : state.deploymentOperation.isComplete,
+                DeploymentOperationViewPhase.streaming,
+            isComplete: state.deploymentOperation.isComplete,
             isReconnecting: state.deploymentOperation.isReconnecting,
           ),
         ),

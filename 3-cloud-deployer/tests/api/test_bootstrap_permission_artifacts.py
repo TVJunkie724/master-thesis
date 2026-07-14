@@ -237,6 +237,10 @@ def test_gcp_workflows_api_and_permissions_are_in_permission_contract():
     assert "workflows.operations.get" in required_permissions
     assert "workflows.operations.list" in required_permissions
     assert "resourcemanager.projects.setIamPolicy" in required_permissions
+    assert "iam.serviceAccountKeys.create" in required_permissions
+    assert "iam.serviceAccountKeys.delete" in required_permissions
+    assert "pubsub.topics.getIamPolicy" in required_permissions
+    assert "pubsub.topics.setIamPolicy" in required_permissions
 
 
 def test_permission_set_artifacts_bind_current_version_to_reference_artifacts():

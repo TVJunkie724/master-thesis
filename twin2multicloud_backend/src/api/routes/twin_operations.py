@@ -545,7 +545,15 @@ async def download_simulator(
     return StreamingResponse(
         archive.content,
         media_type=archive.media_type,
-        headers={"Content-Disposition": f"attachment; filename={archive.filename}"},
+        headers={
+            "Content-Disposition": f'attachment; filename="{archive.filename}"',
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+            "X-Twin2MultiCloud-Utility": "simulator",
+            "X-Twin2MultiCloud-Provider": archive.provider,
+            "X-Twin2MultiCloud-Credential-Class": archive.credential_class,
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

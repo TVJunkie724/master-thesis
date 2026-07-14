@@ -9,6 +9,7 @@ import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Dict, Any
+from urllib.parse import unquote
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -23,6 +24,74 @@ LAMBDA_FUNCTION_MAP = get_terraform_output_map("aws")
 # NOTE: Lambda code is now deployed via Terraform's filename property.
 # ZIPs are built in Step 2 by package_builder.build_aws_lambda_packages()
 # and deployed in Step 5 via Terraform apply.
+
+
+def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic: str) -> dict:
+    """Return the exact runtime permissions needed by one simulator device."""
+    return {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "ConnectAsDevice",
+                "Effect": "Allow",
+                "Action": "iot:Connect",
+                "Resource": f"arn:aws:iot:{region}:{account_id}:client/{device_id}",
+            },
+            {
+                "Sid": "PublishDeviceTelemetry",
+                "Effect": "Allow",
+                "Action": "iot:Publish",
+                "Resource": f"arn:aws:iot:{region}:{account_id}:topic/{topic}",
+            },
+        ],
+    }
+
+
+def _policy_document(value: object) -> dict:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        raise RuntimeError("AWS IoT policy response did not contain a valid document")
+    decoded = unquote(value)
+    parsed = json.loads(decoded)
+    if not isinstance(parsed, dict):
+        raise RuntimeError("AWS IoT policy response did not contain an object")
+    return parsed
+
+
+def _ensure_iot_policy(iot, *, policy_name: str, policy_document: dict) -> None:
+    """Create or atomically update an IoT policy to the required document."""
+    serialized = json.dumps(policy_document, separators=(",", ":"), sort_keys=True)
+    try:
+        policy = iot.get_policy(policyName=policy_name)
+    except iot.exceptions.ResourceNotFoundException:
+        iot.create_policy(policyName=policy_name, policyDocument=serialized)
+        return
+
+    current = iot.get_policy_version(
+        policyName=policy_name,
+        policyVersionId=policy["defaultVersionId"],
+    )
+    if _policy_document(current["policyDocument"]) == policy_document:
+        return
+
+    versions = iot.list_policy_versions(policyName=policy_name).get("policyVersions", [])
+    if len(versions) >= 5:
+        removable = sorted(
+            (version for version in versions if not version.get("isDefaultVersion")),
+            key=lambda version: str(version.get("createDate") or ""),
+        )
+        if not removable:
+            raise RuntimeError(f"AWS IoT policy '{policy_name}' has no removable version")
+        iot.delete_policy_version(
+            policyName=policy_name,
+            policyVersionId=removable[0]["versionId"],
+        )
+    iot.create_policy_version(
+        policyName=policy_name,
+        policyDocument=serialized,
+        setAsDefault=True,
+    )
 
 
 def create_twinmaker_entities(
@@ -262,6 +331,8 @@ def register_aws_iot_devices(
         
         # Use pre-initialized client from provider
         iot = provider.clients["iot"]
+        account_id = provider.clients["sts"].get_caller_identity()["Account"]
+        region = provider.region
         
         # Load config
         config_file = project_path / "config.json"
@@ -305,6 +376,7 @@ def register_aws_iot_devices(
                 
             thing_name = f"{digital_twin_name}-{device_id}"
             policy_name = f"{thing_name}-policy"
+            topic = f"dt/{digital_twin_name}/{device_id}/telemetry"
             
             try:
                 # 1. Create IoT Thing
@@ -324,57 +396,53 @@ def register_aws_iot_devices(
                 # Check if certificates already exist
                 if cert_path.exists() and key_path.exists():
                     logger.info(f"  Certificates already exist for: {device_id}")
+                    cert_path.chmod(0o600)
+                    key_path.chmod(0o600)
+                    principals = iot.list_thing_principals(thingName=thing_name).get("principals", [])
+                    certificate_arns = [
+                        principal for principal in principals if ":cert/" in principal
+                    ]
+                    if len(certificate_arns) != 1:
+                        raise RuntimeError(
+                            f"Cannot prove exactly one AWS certificate identity for '{device_id}'"
+                        )
+                    certificate_arn = certificate_arns[0]
                 else:
                     cert_response = iot.create_keys_and_certificate(setAsActive=True)
                     certificate_arn = cert_response['certificateArn']
                     
                     # Save certificates
-                    with open(cert_path, "w") as f:
-                        f.write(cert_response["certificatePem"])
-                    with open(key_path, "w") as f:
-                        f.write(cert_response["keyPair"]["PrivateKey"])
-                    with open(cert_dir / "public.pem.key", "w") as f:
-                        f.write(cert_response["keyPair"]["PublicKey"])
+                    cert_path.write_text(cert_response["certificatePem"], encoding="utf-8")
+                    key_path.write_text(cert_response["keyPair"]["PrivateKey"], encoding="utf-8")
+                    public_key_path = cert_dir / "public.pem.key"
+                    public_key_path.write_text(cert_response["keyPair"]["PublicKey"], encoding="utf-8")
+                    cert_path.chmod(0o600)
+                    key_path.chmod(0o600)
+                    public_key_path.chmod(0o600)
                     
                     logger.info(f"  ✓ Certificate created for: {device_id}")
                     
-                    # 3. Create IoT Policy
-                    policy_document = {
-                        "Version": "2012-10-17",
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Action": ["iot:*"],
-                            "Resource": "*"
-                        }]
-                    }
-                    
-                    try:
-                        iot.create_policy(
-                            policyName=policy_name,
-                            policyDocument=json.dumps(policy_document)
-                        )
-                        logger.info(f"  ✓ IoT Policy created: {policy_name}")
-                    except iot.exceptions.ResourceAlreadyExistsException:
-                        logger.info(f"  IoT Policy already exists: {policy_name}")
-                    
-                    # 4. Attach certificate to Thing and Policy
-                    try:
-                        iot.attach_thing_principal(
-                            thingName=thing_name,
-                            principal=certificate_arn
-                        )
-                        logger.info(f"  ✓ Certificate attached to Thing")
-                    except Exception as e:
-                        logger.warning(f"  Could not attach certificate to Thing: {e}")
-                    
-                    try:
-                        iot.attach_policy(
-                            policyName=policy_name,
-                            target=certificate_arn
-                        )
-                        logger.info(f"  ✓ Policy attached to Certificate")
-                    except Exception as e:
-                        logger.warning(f"  Could not attach policy to certificate: {e}")
+                # 3. Enforce the exact simulator policy even for existing devices.
+                _ensure_iot_policy(
+                    iot,
+                    policy_name=policy_name,
+                    policy_document=_simulator_iot_policy(
+                        region=region,
+                        account_id=account_id,
+                        device_id=device_id,
+                        topic=topic,
+                    ),
+                )
+
+                # 4. Attach the proven certificate identity to Thing and Policy.
+                iot.attach_thing_principal(
+                    thingName=thing_name,
+                    principal=certificate_arn,
+                )
+                iot.attach_policy(
+                    policyName=policy_name,
+                    target=certificate_arn,
+                )
                 
                 # 5. Generate simulator config
                 if iot_endpoint:
@@ -430,7 +498,10 @@ def _generate_aws_simulator_config(
         "cert_path": f"../../iot_devices_auth/{device_id}/certificate.pem.crt",
         "key_path": f"../../iot_devices_auth/{device_id}/private.pem.key",
         "root_ca_path": str(Path(__file__).parent.parent / "aws" / "AmazonRootCA1.pem"),
-        "payload_path": "payloads.json"
+        "payload_path": "payloads.json",
+        "credential_class": "aws_iot_device_certificate",
+        "credential_contract_version": 1,
+        "permission_scope": "exact_client_and_telemetry_topic",
     }
     
     # Write to upload/{project}/iot_device_simulator/aws/{device_id}/

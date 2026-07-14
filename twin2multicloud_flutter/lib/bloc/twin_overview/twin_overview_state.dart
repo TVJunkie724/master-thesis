@@ -1,7 +1,6 @@
 // lib/bloc/twin_overview/twin_overview_state.dart
 // State classes for the twin overview BLoC
 
-import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/deployment_readiness.dart';
 import '../../models/deployment_operations.dart';
@@ -185,6 +184,149 @@ class DeploymentReadinessViewState extends Equatable {
   List<Object?> get props => [phase, snapshot, errorMessage];
 }
 
+enum TraceViewPhase { idle, starting, streaming, completed, failed, cancelled }
+
+class TraceViewState extends Equatable {
+  static const maxDiagnosticEntries = 500;
+
+  final TraceViewPhase phase;
+  final String? traceId;
+  final DateTime? sentAt;
+  final String? l1Provider;
+  final List<String> providers;
+  final List<String> diagnostics;
+  final int? totalLogs;
+  final String? message;
+
+  const TraceViewState({
+    this.phase = TraceViewPhase.idle,
+    this.traceId,
+    this.sentAt,
+    this.l1Provider,
+    this.providers = const [],
+    this.diagnostics = const [],
+    this.totalLogs,
+    this.message,
+  });
+
+  bool get isActive =>
+      const {TraceViewPhase.starting, TraceViewPhase.streaming}.contains(phase);
+
+  bool get hasDiagnostics => diagnostics.isNotEmpty;
+
+  TraceViewState copyWith({
+    TraceViewPhase? phase,
+    String? traceId,
+    DateTime? sentAt,
+    String? l1Provider,
+    List<String>? providers,
+    List<String>? diagnostics,
+    int? totalLogs,
+    String? message,
+    bool clearTraceId = false,
+    bool clearMetadata = false,
+    bool clearTotalLogs = false,
+    bool clearMessage = false,
+  }) {
+    final requestedDiagnostics = diagnostics ?? this.diagnostics;
+    final boundedDiagnostics = List<String>.unmodifiable(
+      requestedDiagnostics.length <= maxDiagnosticEntries
+          ? requestedDiagnostics
+          : requestedDiagnostics.sublist(
+              requestedDiagnostics.length - maxDiagnosticEntries,
+            ),
+    );
+    return TraceViewState(
+      phase: phase ?? this.phase,
+      traceId: clearTraceId ? null : (traceId ?? this.traceId),
+      sentAt: clearMetadata ? null : (sentAt ?? this.sentAt),
+      l1Provider: clearMetadata ? null : (l1Provider ?? this.l1Provider),
+      providers: clearMetadata
+          ? const []
+          : List<String>.unmodifiable(providers ?? this.providers),
+      diagnostics: boundedDiagnostics,
+      totalLogs: clearTotalLogs ? null : (totalLogs ?? this.totalLogs),
+      message: clearMessage ? null : (message ?? this.message),
+    );
+  }
+
+  TraceViewState appendDiagnostic(String value) =>
+      copyWith(diagnostics: [...diagnostics, value]);
+
+  @override
+  List<Object?> get props => [
+    phase,
+    traceId,
+    sentAt,
+    l1Provider,
+    providers,
+    diagnostics,
+    totalLogs,
+    message,
+  ];
+}
+
+enum SimulatorDownloadViewPhase {
+  idle,
+  requesting,
+  readyToSave,
+  saving,
+  saved,
+  failed,
+}
+
+class SimulatorDownloadViewState extends Equatable {
+  final SimulatorDownloadViewPhase phase;
+  final String? filename;
+  final String? provider;
+  final String? message;
+  final int requestToken;
+
+  // Binary data is deliberately transient and excluded from Equatable props.
+  final BinaryDownload? pendingDownload;
+
+  const SimulatorDownloadViewState({
+    this.phase = SimulatorDownloadViewPhase.idle,
+    this.filename,
+    this.provider,
+    this.message,
+    this.requestToken = 0,
+    this.pendingDownload,
+  });
+
+  bool get isBusy => const {
+    SimulatorDownloadViewPhase.requesting,
+    SimulatorDownloadViewPhase.readyToSave,
+    SimulatorDownloadViewPhase.saving,
+  }.contains(phase);
+
+  SimulatorDownloadViewState copyWith({
+    SimulatorDownloadViewPhase? phase,
+    String? filename,
+    String? provider,
+    String? message,
+    int? requestToken,
+    BinaryDownload? pendingDownload,
+    bool clearFilename = false,
+    bool clearPendingDownload = false,
+    bool clearMessage = false,
+  }) {
+    return SimulatorDownloadViewState(
+      phase: phase ?? this.phase,
+      filename: clearFilename ? null : (filename ?? this.filename),
+      provider: provider ?? this.provider,
+      message: clearMessage ? null : (message ?? this.message),
+      requestToken: requestToken ?? this.requestToken,
+      pendingDownload: clearPendingDownload
+          ? null
+          : (pendingDownload ?? this.pendingDownload),
+    );
+  }
+
+  @override
+  List<Object?> get props => [phase, filename, provider, message, requestToken];
+}
+
 abstract class TwinOverviewState extends Equatable {
   const TwinOverviewState();
 
@@ -222,17 +364,14 @@ class TwinOverviewLoaded extends TwinOverviewState {
 
   final DeploymentReadinessViewState deploymentReadiness;
 
-  // Deployment operation and independent trace utility state
+  // Deployment operation and independent testing utility states
   final DeploymentOperationViewState deploymentOperation;
-  final bool isTracing;
-  final String? traceId;
+  final TraceViewState trace;
+  final SimulatorDownloadViewState simulatorDownload;
 
   // Error handling
   final String? lastError;
   final String? lastDeploymentLogs;
-
-  final bool showTraceTerminal;
-  final List<String> traceTerminalLogs;
 
   // Optimization data
   final Map<String, dynamic>? optimizerResult;
@@ -261,11 +400,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final DateTime? outputsTimestamp;
   final String? outputsError;
 
-  // Simulator download state
-  final bool isDownloadingSimulator;
-  final Uint8List? simulatorBytes;
-  final String? simulatorFilename;
-
   const TwinOverviewLoaded({
     required this.twinId,
     required this.projectName,
@@ -277,12 +411,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.canDelete,
     this.deploymentReadiness = const DeploymentReadinessViewState.initial(),
     this.deploymentOperation = const DeploymentOperationViewState(),
-    this.isTracing = false,
-    this.traceId,
+    this.trace = const TraceViewState(),
+    this.simulatorDownload = const SimulatorDownloadViewState(),
     this.lastError,
     this.lastDeploymentLogs,
-    this.showTraceTerminal = false,
-    this.traceTerminalLogs = const [],
     this.optimizerResult,
     this.optimizerParams,
     this.cheapestPath,
@@ -300,9 +432,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.deploymentOutputs,
     this.outputsTimestamp,
     this.outputsError,
-    this.isDownloadingSimulator = false,
-    this.simulatorBytes,
-    this.simulatorFilename,
   });
 
   bool get isDeploying =>
@@ -313,11 +442,9 @@ class TwinOverviewLoaded extends TwinOverviewState {
       deploymentOperation.isActive &&
       deploymentOperation.operationType == DeploymentOperationType.destroy;
 
-  bool get showTerminal => deploymentOperation.showLogs || showTraceTerminal;
+  bool get showTerminal => deploymentOperation.showLogs;
 
-  List<String> get terminalLogs => showTraceTerminal
-      ? List.unmodifiable(traceTerminalLogs)
-      : deploymentOperation.formattedLogs;
+  List<String> get terminalLogs => deploymentOperation.formattedLogs;
 
   /// Create copy with updated fields
   TwinOverviewLoaded copyWith({
@@ -331,12 +458,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool? canDelete,
     DeploymentReadinessViewState? deploymentReadiness,
     DeploymentOperationViewState? deploymentOperation,
-    bool? isTracing,
-    String? traceId,
+    TraceViewState? trace,
+    SimulatorDownloadViewState? simulatorDownload,
     String? lastError,
     String? lastDeploymentLogs,
-    bool? showTraceTerminal,
-    List<String>? traceTerminalLogs,
     Map<String, dynamic>? optimizerResult,
     Map<String, dynamic>? optimizerParams,
     Map<String, dynamic>? cheapestPath,
@@ -354,9 +479,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     Map<String, dynamic>? deploymentOutputs,
     DateTime? outputsTimestamp,
     String? outputsError,
-    bool? isDownloadingSimulator,
-    Uint8List? simulatorBytes,
-    String? simulatorFilename,
     bool clearSuccess = false,
     bool clearError = false,
     bool clearInfo = false,
@@ -364,9 +486,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool clearLastError = false,
     bool clearDeploymentOutputs = false,
     bool clearOutputsTimestamp = false,
-    bool clearTraceId = false,
-    bool clearSimulatorBytes = false,
-    bool clearSimulatorFilename = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -379,12 +498,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
       canDelete: canDelete ?? this.canDelete,
       deploymentReadiness: deploymentReadiness ?? this.deploymentReadiness,
       deploymentOperation: deploymentOperation ?? this.deploymentOperation,
-      isTracing: isTracing ?? this.isTracing,
-      traceId: clearTraceId ? null : (traceId ?? this.traceId),
+      trace: trace ?? this.trace,
+      simulatorDownload: simulatorDownload ?? this.simulatorDownload,
       lastError: clearLastError ? null : (lastError ?? this.lastError),
       lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
-      showTraceTerminal: showTraceTerminal ?? this.showTraceTerminal,
-      traceTerminalLogs: traceTerminalLogs ?? this.traceTerminalLogs,
       optimizerResult: optimizerResult ?? this.optimizerResult,
       optimizerParams: optimizerParams ?? this.optimizerParams,
       cheapestPath: cheapestPath ?? this.cheapestPath,
@@ -411,14 +528,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
       outputsError: clearOutputsError
           ? null
           : (outputsError ?? this.outputsError),
-      isDownloadingSimulator:
-          isDownloadingSimulator ?? this.isDownloadingSimulator,
-      simulatorBytes: clearSimulatorBytes
-          ? null
-          : (simulatorBytes ?? this.simulatorBytes),
-      simulatorFilename: clearSimulatorFilename
-          ? null
-          : (simulatorFilename ?? this.simulatorFilename),
     );
   }
 
@@ -434,12 +543,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
     canDelete,
     deploymentReadiness,
     deploymentOperation,
-    isTracing,
-    traceId,
+    trace,
+    simulatorDownload,
     lastError,
     lastDeploymentLogs,
-    showTraceTerminal,
-    traceTerminalLogs,
     optimizerResult,
     optimizerParams,
     cheapestPath,
@@ -457,8 +564,5 @@ class TwinOverviewLoaded extends TwinOverviewState {
     deploymentOutputs,
     outputsTimestamp,
     outputsError,
-    isDownloadingSimulator,
-    simulatorBytes,
-    simulatorFilename,
   ];
 }

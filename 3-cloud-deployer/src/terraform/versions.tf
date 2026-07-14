@@ -55,5 +55,11 @@ terraform {
       source  = "hashicorp/time"
       version = "~> 0.9"
     }
+
+    # Local provider for generated, permission-restricted simulator artifacts.
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.5"
+    }
   }
 }
