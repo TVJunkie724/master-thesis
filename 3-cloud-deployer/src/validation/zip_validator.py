@@ -6,12 +6,12 @@ All validation logic is centralized in core.py for reuse across ZIP and director
 """
 
 import io
-import os
 import zipfile
 from typing import Union
 
 from src.validation.core import run_all_checks
 from src.validation.accessors import ZipFileAccessor
+from src.project_archive.policy import validate_archive
 
 
 def validate_project_zip(zip_source: Union[str, bytes, io.BytesIO]) -> None:
@@ -32,21 +32,8 @@ def validate_project_zip(zip_source: Union[str, bytes, io.BytesIO]) -> None:
 
     with zipfile.ZipFile(zip_source, 'r') as zf:
         # ZIP-specific security check (not applicable to directories)
-        _check_zip_slip(zf)
+        validate_archive(zf)
         
         # Delegate to shared core
         accessor = ZipFileAccessor(zf)
         run_all_checks(accessor)
-
-
-def _check_zip_slip(zf: zipfile.ZipFile) -> None:
-    """
-    Prevent Zip Slip attacks (path traversal).
-    
-    ZIP-only security check that rejects paths containing '..' or absolute paths.
-    """
-    for member in zf.infolist():
-        if member.is_dir():
-            continue
-        if ".." in member.filename or os.path.isabs(member.filename):
-            raise ValueError("Malicious file path detected in zip (Zip Slip Prevention).")

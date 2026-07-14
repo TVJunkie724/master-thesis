@@ -79,8 +79,8 @@ class TestExtractionHappyPaths:
         assert "device-1" in data["functions"]["processors"]
         assert data["functions"]["processors"]["device-1"]["exists"]
     
-    def test_mode_b_includes_credentials(self):
-        """Mode B: With include_credentials=true, credentials are returned."""
+    def test_credential_extraction_is_rejected(self):
+        """Credential content is never returned through the wizard endpoint."""
         zip_bytes = create_test_zip({
             "config.json": '{"digital_twin_name": "test", "hot_storage_size_in_days": 7, "cold_storage_size_in_days": 30}',
             "config_providers.json": '{"layer_2_provider": "aws"}',
@@ -96,12 +96,8 @@ class TestExtractionHappyPaths:
             params={"include_credentials": True}
         )
         
-        assert response.status_code == 200
-        data = response.json()
-        
-        # Verify credentials ARE returned
-        assert "config_credentials.json" in data["files"]
-        assert data["files"]["config_credentials.json"]["exists"]
+        assert response.status_code == 400
+        assert "Credential extraction is not supported" in response.json()["detail"]
 
 
 # ==========================================
@@ -134,7 +130,18 @@ class TestExtractionErrors:
         )
         
         assert response.status_code == 422
-        assert "Invalid JSON" in response.json()["detail"]
+        assert response.json()["detail"] == "Invalid validation_context"
+
+    def test_context_cannot_enable_credential_validation(self):
+        zip_bytes = create_test_zip({"config.json": "{}"})
+
+        response = client.post(
+            "/validate/zip/extract",
+            files={"file": ("test.zip", zip_bytes, "application/zip")},
+            params={"validation_context": '{"skip_credentials":false}'},
+        )
+
+        assert response.status_code == 422
 
 
 # ==========================================
@@ -157,7 +164,20 @@ class TestExtractionEdgeCases:
         )
         
         assert response.status_code == 400
-        assert "Unsafe path" in response.json()["detail"]
+        assert "outside the project root" in response.json()["detail"]
+
+    def test_backslash_path_is_rejected(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("..\\config.json", "{}")
+
+        response = client.post(
+            "/validate/zip/extract",
+            files={"file": ("evil.zip", buffer.getvalue(), "application/zip")},
+        )
+
+        assert response.status_code == 400
+        assert "unsafe or ambiguous path" in response.json()["detail"]
     
     def test_glb_extracted_as_base64(self):
         """GLB binary file is extracted as base64."""
