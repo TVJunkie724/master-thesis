@@ -13,8 +13,60 @@ from src.providers.azure.layers.function_bundler import (
     bundle_l1_functions,
     bundle_l2_functions,
     bundle_l3_functions,
+    bundle_user_functions,
     _clean_function_app_imports,
 )
+
+
+class TestBundleUserFunctions:
+    """Provider-neutral tests for user-owned Azure Function bundles."""
+
+    def test_returns_none_without_user_function_sources(self, tmp_path):
+        assert bundle_user_functions(str(tmp_path)) is None
+
+    def test_bundles_nested_functions_as_registered_blueprints(self, tmp_path):
+        azure_functions = tmp_path / "azure_functions"
+        processor = azure_functions / "processors" / "device-1"
+        action = azure_functions / "event_actions" / "notify"
+        processor.mkdir(parents=True)
+        action.mkdir(parents=True)
+
+        for directory, function_name in (
+            (processor, "processor-device-1"),
+            (action, "notify"),
+        ):
+            (directory / "function_app.py").write_text(
+                "\n".join(
+                    (
+                        "import azure.functions as func",
+                        "app = func.FunctionApp()",
+                        "",
+                        f'@app.function_name(name="{function_name}")',
+                        f'@app.route(route="{function_name}", methods=["POST"])',
+                        f"def {function_name.replace('-', '_')}(req):",
+                        '    return func.HttpResponse("OK")',
+                    )
+                ),
+                encoding="utf-8",
+            )
+
+        archive = bundle_user_functions(str(tmp_path))
+
+        assert archive is not None
+        with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
+            names = set(bundle.namelist())
+            main = bundle.read("function_app.py").decode("utf-8")
+            processor_source = bundle.read("device_1/function_app.py").decode("utf-8")
+            action_source = bundle.read("notify/function_app.py").decode("utf-8")
+
+        assert {"host.json", "requirements.txt", "function_app.py"} <= names
+        assert main.count("register_functions") == 2
+        assert "from device_1.function_app import bp as device_1_bp" in main
+        assert "from notify.function_app import bp as notify_bp" in main
+        for source in (processor_source, action_source):
+            assert "bp = func.Blueprint()" in source
+            assert "@bp." in source
+            assert "app = func.FunctionApp()" not in source
 
 
 class TestBundleL0Functions:
