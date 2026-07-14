@@ -40,6 +40,7 @@ from src.providers.terraform.package_builders.gcp import (
 from src.providers.terraform.package_builders.user import (
     _compute_directory_hash,
     _create_event_feedback_with_wrapper,
+    _reconcile_user_hash_metadata,
     _save_user_hash_metadata,
     build_user_packages,
     get_user_package_path,
@@ -84,6 +85,7 @@ __all__ = [
     "_merge_requirements",
     "_rewrite_azure_function_names",
     "_rewrite_gcp_function_names",
+    "_reconcile_user_hash_metadata",
     "_save_user_hash_metadata",
     "_should_include_file",
     "build_all_packages",

@@ -8,6 +8,7 @@ import time
 
 import requests
 from azure.core.exceptions import ClientAuthenticationError
+from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -164,11 +165,14 @@ class DiagnosticSettingsHelper:
         try:
             adt_client = AzureDigitalTwinsManagementClient(self.credential, self.subscription_id)
             for adt in adt_client.digital_twins.list():
-                if prefix in adt.name.lower():
+                if resource_name_owned_by_prefix(adt.name.lower(), prefix.lower()):
                     results["resources_checked"] += 1
                     for setting in self.list(adt.id):
                         setting_name = setting.get("name", "unknown")
-                        if prefix in setting_name.lower():
+                        if resource_name_owned_by_prefix(
+                            setting_name.lower(),
+                            prefix.lower(),
+                        ):
                             logger.info(f"  ADT '{adt.name}': {setting_name}")
                             if dry_run:
                                 logger.info("    [DRY RUN] Would delete")
@@ -187,12 +191,19 @@ class DiagnosticSettingsHelper:
         try:
             storage_client = StorageManagementClient(self.credential, self.subscription_id)
             for account in storage_client.storage_accounts.list():
-                if prefix in account.name.lower():
+                if resource_name_owned_by_prefix(
+                    account.name.lower(),
+                    prefix.lower(),
+                    allow_compact=True,
+                ):
                     results["resources_checked"] += 1
                     # Storage account itself
                     for setting in self.list(account.id):
                         setting_name = setting.get("name", "unknown")
-                        if prefix in setting_name.lower():
+                        if resource_name_owned_by_prefix(
+                            setting_name.lower(),
+                            prefix.lower(),
+                        ):
                             logger.info(f"  Storage '{account.name}': {setting_name}")
                             if dry_run:
                                 logger.info("    [DRY RUN] Would delete")
@@ -209,7 +220,10 @@ class DiagnosticSettingsHelper:
                     blob_id = f"{account.id}/blobServices/default"
                     for setting in self.list(blob_id):
                         setting_name = setting.get("name", "unknown")
-                        if prefix in setting_name.lower():
+                        if resource_name_owned_by_prefix(
+                            setting_name.lower(),
+                            prefix.lower(),
+                        ):
                             logger.info(f"  Storage '{account.name}/blobServices/default': {setting_name}")
                             if dry_run:
                                 logger.info("    [DRY RUN] Would delete")

@@ -7,6 +7,8 @@ Terraform destroy fails or misses resources.
 import json
 import logging
 
+from src.providers.cleanup_registry import resource_name_owned_by_prefix
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,56 +37,24 @@ def cleanup_gcp_resources(
         - Firestore Named Databases
         - Cloud Scheduler Jobs
     """
-    from google.oauth2 import service_account
     from googleapiclient import discovery
+    from src.utils.gcp_utils import parse_gcp_service_account
     
     gcp_creds = credentials.get("gcp", {})
     project_id = gcp_creds.get("gcp_project_id")
     region = gcp_creds.get("gcp_region", "europe-west1")
     
     if not project_id:
-        logger.info("[GCP SDK] No project_id found, skipping cleanup")
-        return
-    
-    # Build credentials from service account info
-    try:
-        if "gcp_service_account_key" in gcp_creds:
-            # Inline key provided
-            sa_key = gcp_creds["gcp_service_account_key"]
-            if isinstance(sa_key, str):
-                sa_key = json.loads(sa_key)
-            gcp_credentials = service_account.Credentials.from_service_account_info(sa_key)
-        elif "gcp_credentials_file" in gcp_creds:
-            # Path to credentials file provided
-            from pathlib import Path
-            creds_filename = gcp_creds["gcp_credentials_file"]
-            # Try multiple locations
-            possible_paths = [
-                Path(f"/app/{creds_filename}"),
-                Path(f"/app/upload/template/{creds_filename}"),
-                Path(creds_filename),  # Absolute path
-            ]
-            credentials_path = None
-            for path in possible_paths:
-                if path.exists():
-                    credentials_path = path
-                    break
-            
-            if credentials_path:
-                gcp_credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
-                logger.info(f"[GCP SDK] Loaded credentials from {credentials_path}")
-            else:
-                logger.warning(f"[GCP SDK] Credentials file not found: {creds_filename}")
-                logger.warning(f"          Searched: {[str(p) for p in possible_paths]}")
-                return
-        else:
-            logger.info("[GCP SDK] No service account key or credentials file found, skipping cleanup")
-            return
-    except Exception as e:
-        logger.warning(f"[GCP SDK] Error creating credentials: {e}")
-        return
-    
-    prefix_underscore = prefix.replace("-", "_")
+        raise ValueError("GCP cleanup requires gcp_project_id")
+
+    credentials_input = gcp_creds.get("gcp_service_account_key") or gcp_creds.get(
+        "gcp_credentials_file"
+    )
+    if isinstance(credentials_input, dict):
+        credentials_input = json.dumps(credentials_input)
+    if not isinstance(credentials_input, str) or not credentials_input.strip():
+        raise ValueError("GCP cleanup requires service account credentials")
+    _, _, gcp_credentials = parse_gcp_service_account(credentials_input)
     
     logger.info(f"[GCP SDK] Fallback cleanup for prefix: {prefix}")
     logger.info(f"[GCP SDK] Project: {project_id}, Region: {region}")
@@ -106,7 +76,7 @@ def cleanup_gcp_resources(
             
             for func in result.get('functions', []):
                 func_name = func['name'].split('/')[-1]
-                if prefix in func_name or prefix_underscore in func_name:
+                if resource_name_owned_by_prefix(func_name, prefix):
                     logger.info(f"  Found orphan: {func_name}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -138,7 +108,7 @@ def cleanup_gcp_resources(
             
             for topic in result.get('topics', []):
                 topic_name = topic['name'].split('/')[-1]
-                if prefix in topic_name or prefix_underscore in topic_name:
+                if resource_name_owned_by_prefix(topic_name, prefix):
                     logger.info(f"  Found orphan: {topic_name}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -170,7 +140,7 @@ def cleanup_gcp_resources(
             
             for sub in result.get('subscriptions', []):
                 sub_name = sub['name'].split('/')[-1]
-                if prefix in sub_name or prefix_underscore in sub_name:
+                if resource_name_owned_by_prefix(sub_name, prefix):
                     logger.info(f"  Found orphan: {sub_name}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -196,7 +166,7 @@ def cleanup_gcp_resources(
         
         collections = db.collections()
         for collection in collections:
-            if prefix in collection.id or prefix_underscore in collection.id:
+            if resource_name_owned_by_prefix(collection.id, prefix):
                 logger.info(f"  Found orphan collection: {collection.id}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete all documents")
@@ -227,7 +197,13 @@ def cleanup_gcp_resources(
             
             for bucket in result.get('items', []):
                 bucket_name = bucket['name']
-                if prefix in bucket_name or prefix_underscore in bucket_name:
+                if resource_name_owned_by_prefix(
+                    bucket_name,
+                    prefix,
+                ) or resource_name_owned_by_prefix(
+                    bucket_name,
+                    f"{project_id}-{prefix}",
+                ):
                     logger.info(f"  Found orphan: {bucket_name}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete bucket and contents")
@@ -269,7 +245,7 @@ def cleanup_gcp_resources(
         result = workflows_client.projects().locations().workflows().list(parent=parent).execute()
         for workflow in result.get('workflows', []):
             workflow_name = workflow['name'].split('/')[-1]
-            if prefix in workflow_name or prefix_underscore in workflow_name:
+            if resource_name_owned_by_prefix(workflow_name, prefix):
                 logger.info(f"  Found orphan: {workflow_name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -291,7 +267,7 @@ def cleanup_gcp_resources(
         for sa in result.get('accounts', []):
             sa_email = sa['email']
             sa_name = sa_email.split('@')[0]
-            if prefix in sa_name or prefix_underscore in sa_name:
+            if resource_name_owned_by_prefix(sa_name, prefix):
                 logger.info(f"  Found orphan: {sa_email}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -319,7 +295,7 @@ def cleanup_gcp_resources(
         ).execute()
         for role in result.get('roles', []):
             role_id = role['name'].split('/')[-1]
-            if prefix in role_id or prefix_underscore in role_id:
+            if resource_name_owned_by_prefix(role_id, prefix):
                 is_deleted = role.get('deleted', False)
                 status = " (soft-deleted)" if is_deleted else ""
                 logger.info(f"  Found orphan: {role_id}{status}")
@@ -354,7 +330,7 @@ def cleanup_gcp_resources(
             # Skip default database
             if db_name == "(default)":
                 continue
-            if prefix in db_name or prefix_underscore in db_name:
+            if resource_name_owned_by_prefix(db_name, prefix):
                 logger.info(f"  Found orphan database: {db_name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -382,7 +358,7 @@ def cleanup_gcp_resources(
             
             for job in result.get('jobs', []):
                 job_name = job['name'].split('/')[-1]
-                if prefix in job_name or prefix_underscore in job_name:
+                if resource_name_owned_by_prefix(job_name, prefix):
                     logger.info(f"  Found orphan: {job_name}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")

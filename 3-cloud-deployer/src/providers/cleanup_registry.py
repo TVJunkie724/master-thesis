@@ -7,7 +7,10 @@ signatures stay behind this boundary.
 """
 
 from dataclasses import dataclass
+import re
 from typing import Callable
+
+from src.providers.cleanup_observability import enforce_cleanup_outcome
 
 @dataclass(frozen=True)
 class CleanupRequest:
@@ -23,23 +26,64 @@ class CleanupRequest:
 
 def cleanup_aws_resources(*args, **kwargs) -> None:
     """Lazy wrapper kept monkeypatchable for tests and integration seams."""
+    from src.providers.aws import cleanup as cleanup_module
     from src.providers.aws.cleanup import cleanup_aws_resources as provider_cleanup
 
-    provider_cleanup(*args, **kwargs)
+    with enforce_cleanup_outcome(cleanup_module.logger, "AWS"):
+        provider_cleanup(*args, **kwargs)
 
 
 def cleanup_azure_resources(*args, **kwargs) -> None:
     """Lazy wrapper kept monkeypatchable for tests and integration seams."""
+    from src.providers.azure import cleanup as cleanup_module
     from src.providers.azure.cleanup import cleanup_azure_resources as provider_cleanup
 
-    provider_cleanup(*args, **kwargs)
+    with enforce_cleanup_outcome(cleanup_module.logger, "Azure"):
+        provider_cleanup(*args, **kwargs)
 
 
 def cleanup_gcp_resources(*args, **kwargs) -> None:
     """Lazy wrapper kept monkeypatchable for tests and integration seams."""
+    from src.providers.gcp import cleanup as cleanup_module
     from src.providers.gcp.cleanup import cleanup_gcp_resources as provider_cleanup
 
-    provider_cleanup(*args, **kwargs)
+    with enforce_cleanup_outcome(cleanup_module.logger, "GCP"):
+        provider_cleanup(*args, **kwargs)
+
+
+def resource_name_owned_by_prefix(
+    resource_name: str,
+    prefix: str,
+    *,
+    allow_compact: bool = False,
+    allow_embedded: bool = False,
+) -> bool:
+    """Match generated resource names without unsafe plain substrings."""
+    if not resource_name or not prefix:
+        return False
+
+    basename = resource_name.rsplit("/", 1)[-1]
+    account_local_name = basename.split("@", 1)[0]
+    candidates = {resource_name, basename, account_local_name}
+    variants = {prefix, prefix.replace("-", "_")}
+
+    for candidate in candidates:
+        for variant in variants:
+            if candidate == variant or candidate.startswith((f"{variant}-", f"{variant}_")):
+                return True
+            if allow_embedded and re.search(
+                rf"(?:^|[-_/]){re.escape(variant)}(?:$|[-_/])",
+                candidate,
+            ):
+                return True
+
+    if allow_compact:
+        compact_prefix = prefix.replace("-", "").replace("_", "")
+        return any(
+            candidate.startswith(f"{compact_prefix}st")
+            for candidate in candidates
+        )
+    return False
 
 
 def normalize_cleanup_provider(provider: str) -> str:

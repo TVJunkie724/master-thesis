@@ -9,7 +9,7 @@ import pytest
 from src.api import status
 
 
-def test_check_code_hashes_reads_package_builder_last_built_metadata(tmp_path):
+def test_check_code_hashes_does_not_treat_built_package_as_deployed(tmp_path):
     project = tmp_path / "upload" / "factory"
     metadata_dir = project / ".build" / "metadata"
     metadata_dir.mkdir(parents=True)
@@ -26,15 +26,44 @@ def test_check_code_hashes_reads_package_builder_last_built_metadata(tmp_path):
         result = status.check_code_hashes("factory")
 
     assert result == {
-        "status": "deployed",
+        "status": "built",
         "functions": {
             "processor": {
-                "deployed": True,
+                "deployed": False,
+                "state": "built",
                 "provider": "aws",
                 "hash": "sha256:abc",
                 "last_updated": "2026-05-10T21:00:00Z",
             }
         },
+    }
+
+
+def test_check_code_hashes_requires_deployed_hash_to_match_current_build(tmp_path):
+    project = tmp_path / "upload" / "factory"
+    metadata_dir = project / ".build" / "metadata"
+    metadata_dir.mkdir(parents=True)
+    (metadata_dir / "processor.aws.json").write_text(
+        """{
+  "function": "processor",
+  "provider": "aws",
+  "zip_hash": "sha256:current",
+  "deployed_zip_hash": "sha256:current",
+  "last_built": "2026-05-10T21:00:00Z",
+  "last_deployed": "2026-05-10T21:01:00Z"
+}"""
+    )
+
+    with patch.object(status, "_get_upload_dir", return_value=str(project)):
+        result = status.check_code_hashes("factory")
+
+    assert result["status"] == "deployed"
+    assert result["functions"]["processor"] == {
+        "deployed": True,
+        "state": "deployed",
+        "provider": "aws",
+        "hash": "sha256:current",
+        "last_updated": "2026-05-10T21:01:00Z",
     }
 
 

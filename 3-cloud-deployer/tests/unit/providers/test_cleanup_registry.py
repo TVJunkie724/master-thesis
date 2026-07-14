@@ -7,6 +7,7 @@ from src.providers.cleanup_registry import (
     CleanupRequest,
     cleanup_provider_resources,
     normalize_cleanup_provider,
+    resource_name_owned_by_prefix,
     supported_cleanup_providers,
 )
 
@@ -17,6 +18,45 @@ def test_supported_cleanup_providers_are_explicit_and_sorted():
 
 def test_google_alias_normalizes_to_gcp():
     assert normalize_cleanup_provider("google") == "gcp"
+
+
+@pytest.mark.parametrize(
+    "resource_name",
+    [
+        "factory-twin",
+        "factory-twin-l2-persister",
+        "factory_twin_l2_persister",
+        "/aws/lambda/factory-twin-l2-persister",
+    ],
+)
+def test_resource_ownership_accepts_generated_prefix_boundaries(resource_name):
+    assert resource_name_owned_by_prefix(
+        resource_name,
+        "factory-twin",
+        allow_embedded=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "resource_name",
+    [
+        "other-factory-twin-copy",
+        "factory-twin-copy",
+        "myfactory-twin",
+    ],
+)
+def test_resource_ownership_rejects_substring_collisions_by_default(resource_name):
+    expected = resource_name == "factory-twin-copy"
+    assert resource_name_owned_by_prefix(resource_name, "factory-twin") is expected
+
+
+def test_resource_ownership_compact_mode_is_explicit():
+    assert not resource_name_owned_by_prefix("factorytwinstabc", "factory-twin")
+    assert resource_name_owned_by_prefix(
+        "factorytwinstabc",
+        "factory-twin",
+        allow_compact=True,
+    )
 
 
 def test_unknown_cleanup_provider_fails_with_supported_list():

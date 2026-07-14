@@ -155,9 +155,10 @@ def check_terraform_state(project_name: str) -> Dict[str, Any]:
 
 def check_code_hashes(project_name: str) -> Dict[str, Any]:
     """
-    Check user function deployment status from hash metadata files.
-    
-    Reads .build/metadata/*.json to determine which functions have been deployed.
+    Check user function build and deployment status from metadata files.
+
+    A package is deployed only when its deployed hash matches its current build
+    hash. Building a package alone must never advance deployment state.
     
     Args:
         project_name: Name of the project
@@ -183,19 +184,44 @@ def check_code_hashes(project_name: str) -> Dict[str, Any]:
                 with open(filepath, 'r') as f:
                     metadata = json.load(f)
                     func_name = metadata.get("function", filename.replace(".json", ""))
+                    built_hash = metadata.get("zip_hash")
+                    deployed_hash = metadata.get("deployed_zip_hash")
+                    deployed = bool(
+                        metadata.get("last_deployed")
+                        and built_hash
+                        and deployed_hash == built_hash
+                    )
                     functions[func_name] = {
-                        "deployed": True,
+                        "deployed": deployed,
+                        "state": "deployed" if deployed else "built",
                         "provider": metadata.get("provider"),
-                        "hash": metadata.get("zip_hash"),
-                        "last_updated": metadata.get("last_deployed") or metadata.get("last_built")
+                        "hash": built_hash,
+                        "last_updated": (
+                            metadata.get("last_deployed")
+                            if deployed
+                            else metadata.get("last_built")
+                        )
                     }
             except Exception as e:
-                logger.warning(f"Failed to read hash metadata {filename}: {e}")
+                logger.warning(
+                    "Failed to read hash metadata %s: %s",
+                    filename,
+                    redact_sensitive(e),
+                )
     
-    return {
-        "status": "deployed" if functions else "no_deployments",
-        "functions": functions
-    }
+    deployed_count = sum(
+        1 for function in functions.values() if function["deployed"]
+    )
+    if not functions:
+        overall_status = "no_deployments"
+    elif deployed_count == len(functions):
+        overall_status = "deployed"
+    elif deployed_count:
+        overall_status = "partial"
+    else:
+        overall_status = "built"
+
+    return {"status": overall_status, "functions": functions}
 
 
 # ==========================================

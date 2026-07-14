@@ -6,6 +6,8 @@ Terraform destroy fails or misses resources.
 """
 import logging
 
+from src.providers.cleanup_registry import resource_name_owned_by_prefix
+
 logger = logging.getLogger(__name__)
 
 
@@ -119,7 +121,7 @@ def cleanup_azure_resources(
         diag_helper = DiagnosticSettingsHelper(credential, subscription_id)
         
         for rg in resource_client.resource_groups.list():
-            if prefix not in rg.name:
+            if not resource_name_owned_by_prefix(rg.name, prefix):
                 continue
             # List all resources in matching RG (cache to avoid double API call)
             resources = list(resource_client.resources.list_by_resource_group(rg.name))
@@ -167,7 +169,7 @@ def cleanup_azure_resources(
         auth_client = AuthorizationManagementClient(credential, subscription_id)
         
         for rg in resource_client.resource_groups.list():
-            if prefix not in rg.name:
+            if not resource_name_owned_by_prefix(rg.name, prefix):
                 continue
             rg_scope = f"/subscriptions/{subscription_id}/resourceGroups/{rg.name}"
             for assignment in auth_client.role_assignments.list_for_scope(rg_scope):
@@ -197,7 +199,7 @@ def cleanup_azure_resources(
         from azure.mgmt.cosmosdb import CosmosDBManagementClient
         cosmos_client = CosmosDBManagementClient(credential, subscription_id)
         for account in cosmos_client.database_accounts.list():
-            if prefix not in account.name:
+            if not resource_name_owned_by_prefix(account.name, prefix):
                 continue
             rg_name = account.id.split('/')[4]
             for assignment in cosmos_client.sql_resources.list_sql_role_assignments(rg_name, account.name):
@@ -225,7 +227,7 @@ def cleanup_azure_resources(
         from azure.mgmt.cosmosdb import CosmosDBManagementClient
         cosmos_client = CosmosDBManagementClient(credential, subscription_id)
         for account in cosmos_client.database_accounts.list():
-            if prefix in account.name:
+            if resource_name_owned_by_prefix(account.name, prefix):
                 logger.info(f"  Found orphan: {account.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -246,7 +248,7 @@ def cleanup_azure_resources(
         from azure.mgmt.dashboard import DashboardManagementClient
         dashboard_client = DashboardManagementClient(credential, subscription_id)
         for workspace in dashboard_client.grafana.list():
-            if prefix in workspace.name:
+            if resource_name_owned_by_prefix(workspace.name, prefix):
                 logger.info(f"  Found orphan: {workspace.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -267,7 +269,7 @@ def cleanup_azure_resources(
         from azure.mgmt.iothub import IotHubClient
         iothub_client = IotHubClient(credential, subscription_id)
         for hub in iothub_client.iot_hub_resource.list_by_subscription():
-            if prefix in hub.name:
+            if resource_name_owned_by_prefix(hub.name, prefix):
                 logger.info(f"  Found orphan: {hub.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -288,7 +290,7 @@ def cleanup_azure_resources(
         from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
         dt_client = AzureDigitalTwinsManagementClient(credential, subscription_id)
         for instance in dt_client.digital_twins.list():
-            if prefix in instance.name:
+            if resource_name_owned_by_prefix(instance.name, prefix):
                 logger.info(f"  Found orphan: {instance.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -309,7 +311,7 @@ def cleanup_azure_resources(
         from azure.mgmt.web import WebSiteManagementClient
         web_client = WebSiteManagementClient(credential, subscription_id)
         for app in web_client.web_apps.list():
-            if prefix in app.name:
+            if resource_name_owned_by_prefix(app.name, prefix):
                 logger.info(f"  Found orphan: {app.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -328,9 +330,12 @@ def cleanup_azure_resources(
     try:
         from azure.mgmt.storage import StorageManagementClient
         storage_client = StorageManagementClient(credential, subscription_id)
-        prefix_nohyphen = prefix.replace("-", "")
         for account in storage_client.storage_accounts.list():
-            if prefix in account.name or prefix_nohyphen in account.name:
+            if resource_name_owned_by_prefix(
+                account.name,
+                prefix,
+                allow_compact=True,
+            ):
                 logger.info(f"  Found orphan: {account.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -350,7 +355,7 @@ def cleanup_azure_resources(
         from azure.mgmt.logic import LogicManagementClient
         logic_client = LogicManagementClient(credential, subscription_id)
         for workflow in logic_client.workflows.list_by_subscription():
-            if prefix in workflow.name:
+            if resource_name_owned_by_prefix(workflow.name, prefix):
                 logger.info(f"  Found orphan: {workflow.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -370,7 +375,7 @@ def cleanup_azure_resources(
         from azure.mgmt.web import WebSiteManagementClient
         web_client = WebSiteManagementClient(credential, subscription_id)
         for plan in web_client.app_service_plans.list():
-            if prefix in plan.name:
+            if resource_name_owned_by_prefix(plan.name, prefix):
                 logger.info(f"  Found orphan: {plan.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -390,7 +395,7 @@ def cleanup_azure_resources(
     logger.info("[Resource Groups] Cleaning up (nuclear option)...")
     try:
         for rg in resource_client.resource_groups.list():
-            if prefix in rg.name:
+            if resource_name_owned_by_prefix(rg.name, prefix):
                 logger.info(f"  Found RG: {rg.name}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete RG and all contents")

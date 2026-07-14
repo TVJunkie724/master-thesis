@@ -89,11 +89,45 @@ def _save_user_hash_metadata(
         "last_built": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     }
 
+    if metadata_path.exists():
+        try:
+            previous = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            previous = {}
+        if previous.get("deployed_zip_hash") == code_hash:
+            metadata["deployed_zip_hash"] = code_hash
+            if previous.get("last_deployed"):
+                metadata["last_deployed"] = previous["last_deployed"]
+
     temporary_path = metadata_path.with_suffix(metadata_path.suffix + ".tmp")
     temporary_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     temporary_path.replace(metadata_path)
     
     logger.info(f"  Saved hash metadata: {function_name}.{provider}.json")
+
+
+def _reconcile_user_hash_metadata(
+    project_path: Path,
+    provider: str,
+    active_function_names: set[str],
+) -> None:
+    """Keep metadata only for functions active on the current L2 provider."""
+    validate_path_component(provider, "provider name")
+    metadata_dir = project_path / ".build" / "metadata"
+    if not metadata_dir.is_dir():
+        return
+
+    for metadata_path in sorted(metadata_dir.glob("*.json")):
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            metadata_path.unlink()
+            continue
+        if (
+            metadata.get("provider") != provider
+            or metadata.get("function") not in active_function_names
+        ):
+            metadata_path.unlink()
 
 
 def build_user_packages(
@@ -142,6 +176,7 @@ def build_user_packages(
     build_dir.mkdir(parents=True, exist_ok=True)
     
     packages = {}
+    active_function_names: set[str] = set()
     
     # Load config files
     events_path = project_path / "config_events.json"
@@ -219,6 +254,7 @@ def build_user_packages(
             _create_azure_function_zip(func_dir, zip_path)
         
         packages[func_name] = zip_path
+        active_function_names.add(func_name)
         
         # Save hash metadata
         _save_user_hash_metadata(project_path, func_name, l2_provider, code_hash)
@@ -252,6 +288,8 @@ def build_user_packages(
         
         # Compute hash
         code_hash = _compute_directory_hash(proc_dir)
+        metadata_name = f"processor-{device_id}"
+        active_function_names.add(metadata_name)
         
         # Build ZIP with processor wrapper for Azure
         zip_path = build_dir / f"processor-{device_id}.zip"
@@ -265,11 +303,12 @@ def build_user_packages(
                 digital_twin_name=digital_twin_name,
                 device_id=device_id
             )
-            packages[f"processor-{device_id}"] = zip_path
-            _save_user_hash_metadata(project_path, f"processor-{device_id}", l2_provider, code_hash)
+            packages[metadata_name] = zip_path
+            _save_user_hash_metadata(project_path, metadata_name, l2_provider, code_hash)
             logger.info(f"  ✓ Built processor: processor-{device_id}.zip")
         elif l2_provider == "azure":
             # Azure user functions are bundled together separately via build_azure_user_bundle()
+            _save_user_hash_metadata(project_path, metadata_name, l2_provider, code_hash)
             logger.info("  → Skipping individual processor ZIP for Azure (bundled together)")
         else:  # google
             # User provides standalone main.py
@@ -280,13 +319,14 @@ def build_user_packages(
                 digital_twin_name=digital_twin_name,
                 device_id=device_id
             )
-            packages[f"processor-{device_id}"] = zip_path
-            _save_user_hash_metadata(project_path, f"processor-{device_id}", l2_provider, code_hash)
+            packages[metadata_name] = zip_path
+            _save_user_hash_metadata(project_path, metadata_name, l2_provider, code_hash)
             logger.info(f"  ✓ Built processor: processor-{device_id}.zip")
     
     # 3. Build Event-Feedback package (WITH WRAPPER MERGING)
     if feedback_dir.exists():
         code_hash = _compute_directory_hash(feedback_dir)
+        active_function_names.add("event-feedback")
         zip_path = build_dir / "event-feedback.zip"
         
         # User provides standalone serverless function
@@ -297,6 +337,7 @@ def build_user_packages(
             logger.info("  ✓ Built event-feedback.zip")
         elif l2_provider == "azure":
             # Azure bundles all user functions together via build_azure_user_bundle()
+            _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
             logger.info("  → Skipping individual event-feedback ZIP for Azure (bundled together)")
         else:  # google
             _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
@@ -304,6 +345,11 @@ def build_user_packages(
             _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
             logger.info("  ✓ Built event-feedback.zip")
     
+    _reconcile_user_hash_metadata(
+        project_path,
+        l2_provider,
+        active_function_names,
+    )
     logger.info(f"✓ Built {len(packages)} user packages")
     return packages
 

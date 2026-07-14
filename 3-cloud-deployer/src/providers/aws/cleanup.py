@@ -12,6 +12,8 @@ when Terraform is run by an IAM User (not assumed roles).
 import logging
 import time
 
+from src.providers.cleanup_registry import resource_name_owned_by_prefix
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,8 +59,6 @@ def cleanup_aws_resources(
         region_name=region
     )
     
-    prefix_underscore = prefix.replace("-", "_")
-    
     logger.info(f"[AWS SDK] Fallback cleanup for prefix: {prefix}")
     if dry_run:
         logger.info("[AWS SDK] DRY RUN MODE - no resources will be deleted")
@@ -69,7 +69,7 @@ def cleanup_aws_resources(
     try:
         workspaces = twinmaker.list_workspaces()['workspaceSummaries']
         for ws in workspaces:
-            if prefix in ws['workspaceId']:
+            if resource_name_owned_by_prefix(ws['workspaceId'], prefix):
                 workspace_id = ws['workspaceId']
                 logger.info(f"  Found orphan: {workspace_id}")
                 if dry_run:
@@ -127,7 +127,7 @@ def cleanup_aws_resources(
     grafana = session.client('grafana')
     try:
         for ws in grafana.list_workspaces()['workspaces']:
-            if prefix in ws['name']:
+            if resource_name_owned_by_prefix(ws['name'], prefix):
                 logger.info(f"  Found orphan: {ws['name']}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -143,7 +143,7 @@ def cleanup_aws_resources(
     try:
         for page in sfn.get_paginator('list_state_machines').paginate():
             for sm in page['stateMachines']:
-                if prefix in sm['name'] or prefix_underscore in sm['name']:
+                if resource_name_owned_by_prefix(sm['name'], prefix):
                     logger.info(f"  Found orphan: {sm['name']}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -159,7 +159,7 @@ def cleanup_aws_resources(
     s3_resource = session.resource('s3')
     try:
         for bucket in s3.list_buckets()['Buckets']:
-            if prefix in bucket['Name']:
+            if resource_name_owned_by_prefix(bucket['Name'], prefix):
                 logger.info(f"  Found orphan: {bucket['Name']}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete bucket and contents")
@@ -181,7 +181,7 @@ def cleanup_aws_resources(
     try:
         for page in lambda_client.get_paginator('list_functions').paginate():
             for func in page['Functions']:
-                if prefix in func['FunctionName'] or prefix_underscore in func['FunctionName']:
+                if resource_name_owned_by_prefix(func['FunctionName'], prefix):
                     logger.info(f"  Found orphan: {func['FunctionName']}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -196,7 +196,7 @@ def cleanup_aws_resources(
     iot = session.client('iot')
     try:
         for rule in iot.list_topic_rules()['rules']:
-            if prefix in rule['ruleName'] or prefix_underscore in rule['ruleName']:
+            if resource_name_owned_by_prefix(rule['ruleName'], prefix):
                 logger.info(f"  Found orphan rule: {rule['ruleName']}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -204,7 +204,7 @@ def cleanup_aws_resources(
                     iot.delete_topic_rule(ruleName=rule['ruleName'])
                     logger.info("    ✓ Deleted")
         for thing in iot.list_things()['things']:
-            if prefix in thing['thingName']:
+            if resource_name_owned_by_prefix(thing['thingName'], prefix):
                 logger.info(f"  Found orphan thing: {thing['thingName']}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -221,7 +221,7 @@ def cleanup_aws_resources(
     dynamodb = session.client('dynamodb')
     try:
         for table in dynamodb.list_tables()['TableNames']:
-            if prefix in table:
+            if resource_name_owned_by_prefix(table, prefix):
                 logger.info(f"  Found orphan: {table}")
                 if dry_run:
                     logger.info("    [DRY RUN] Would delete")
@@ -237,7 +237,11 @@ def cleanup_aws_resources(
     try:
         for page in logs.get_paginator('describe_log_groups').paginate():
             for lg in page['logGroups']:
-                if prefix in lg['logGroupName'] or prefix_underscore in lg['logGroupName']:
+                if resource_name_owned_by_prefix(
+                    lg['logGroupName'],
+                    prefix,
+                    allow_embedded=True,
+                ):
                     logger.info(f"  Found orphan: {lg['logGroupName']}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -253,7 +257,7 @@ def cleanup_aws_resources(
     try:
         for page in iam.get_paginator('list_roles').paginate():
             for role in page['Roles']:
-                if prefix in role['RoleName'] or prefix_underscore in role['RoleName']:
+                if resource_name_owned_by_prefix(role['RoleName'], prefix):
                     logger.info(f"  Found orphan role: {role['RoleName']}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -275,7 +279,7 @@ def cleanup_aws_resources(
     try:
         for page in iam.get_paginator('list_policies').paginate(Scope='Local'):
             for policy in page['Policies']:
-                if prefix in policy['PolicyName'] or prefix_underscore in policy['PolicyName']:
+                if resource_name_owned_by_prefix(policy['PolicyName'], prefix):
                     logger.info(f"  Found orphan policy: {policy['PolicyName']}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")
@@ -313,7 +317,7 @@ def cleanup_aws_resources(
         for page in rg.get_paginator('list_groups').paginate():
             for group in page['Groups']:
                 group_name = group['Name']
-                if prefix in group_name or prefix_underscore in group_name:
+                if resource_name_owned_by_prefix(group_name, prefix):
                     logger.info(f"  Found orphan: {group_name}")
                     if dry_run:
                         logger.info("    [DRY RUN] Would delete")

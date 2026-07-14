@@ -168,8 +168,8 @@ resource "azurerm_linux_function_app" "l2" {
 # ==============================================================================
 
 # This app hosts user-customizable functions that can be updated independently.
-# Functions are deployed via Python SDK AFTER terraform apply (not via zip_deploy_file)
-# to enable incremental updates with hash comparison.
+# Full deployments use Terraform's zip_deploy_file. The dedicated function API
+# can still publish an updated aggregate bundle independently between full applies.
 resource "azurerm_linux_function_app" "user" {
   count               = var.layer_2_provider == "azure" ? 1 : 0
   name                = local.azure_user_functions_name
@@ -180,10 +180,10 @@ resource "azurerm_linux_function_app" "user" {
   storage_account_name       = azurerm_storage_account.main[0].name
   storage_account_access_key = azurerm_storage_account.main[0].primary_access_key
 
-  # Deploy user function code via Terraform (changed from SDK deployment)
+  # Canonical full-deployment package publication.
   zip_deploy_file = var.azure_user_zip_path != "" ? var.azure_user_zip_path : null
 
-  # Enable SCM Basic Auth (required for SDK zip deploy)
+  # Retained for the authenticated independent function-update endpoint.
   webdeploy_publish_basic_authentication_enabled = true
   ftp_publish_basic_authentication_enabled       = true
 
@@ -321,4 +321,3 @@ resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
 # ==============================================================================
 
 # Note: Cosmos DB RBAC is configured in azure_storage.tf after Cosmos DB is created
-

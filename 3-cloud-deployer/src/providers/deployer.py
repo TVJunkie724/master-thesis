@@ -17,9 +17,8 @@ Usage:
 from pathlib import Path
 from typing import TYPE_CHECKING
 from logger import logger
-from src.core.observability import OperationContext, operation_step, redact_sensitive
+from src.core.observability import OperationContext, operation_step
 from src.core.workspace import deployment_workspace
-from src.providers.cleanup_registry import CleanupRequest, cleanup_provider_resources
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -69,8 +68,8 @@ def deploy_all(
     """
     Deploy all layers using Terraform (primary approach).
     
-    This function uses Terraform for infrastructure provisioning,
-    with Python handling code deployment and post-deployment operations.
+    This function uses Terraform for infrastructure and function packages,
+    with Python handling explicitly SDK-owned post-deployment operations.
     
     Args:
         context: Deployment context with config and credentials
@@ -110,145 +109,34 @@ def destroy_all(
         context: Deployment context with config and credentials
         provider: Cloud provider name
     """
-    # ==========================================
-    # PHASE 1: TERRAFORM DESTROY
-    # ==========================================
-    logger.info("")
-    logger.info("=" * 60)
-    logger.info("  PHASE 1: TERRAFORM DESTROY")
-    logger.info("=" * 60)
     logger.info(
         "Destroying all layers via Terraform for provider: %s",
         provider,
         extra=_log_extra(operation_context, "deployer_entry"),
     )
-    
-    terraform_error = None
+
     with deployment_workspace(context, operation_context=operation_context) as (runtime_context, _workspace):
         strategy = create_terraform_strategy(runtime_context)
-
-        try:
-            if operation_context:
-                with operation_step(logger, operation_context, "terraform_destroy"):
-                    strategy.destroy_all(runtime_context)
-            else:
-                strategy.destroy_all(runtime_context)
-        except Exception as e:
-            terraform_error = e
-            logger.warning(
-                "Terraform destroy failed/partial: %s",
-                redact_sensitive(e),
-                extra=_log_extra(operation_context, "terraform_destroy"),
-            )
-            # Continue to SDK cleanup regardless
-
-        # ==========================================
-        # PHASE 2: SDK FALLBACK CLEANUP
-        # ==========================================
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("  PHASE 2: SDK FALLBACK CLEANUP")
-        logger.info("=" * 60)
-
         if operation_context:
-            with operation_step(logger, operation_context, "sdk_cleanup"):
-                _run_sdk_cleanup(runtime_context, operation_context=operation_context)
+            with operation_step(logger, operation_context, "terraform_destroy"):
+                result = strategy.destroy_all(runtime_context)
         else:
-            _run_sdk_cleanup(runtime_context)
-    
-    if terraform_error:
+            result = strategy.destroy_all(runtime_context)
+
+    failed_providers = sorted(
+        provider_name
+        for provider_name, success in result.sdk_fallback_results.items()
+        if not success
+    )
+    if failed_providers:
+        raise RuntimeError(
+            "Provider fallback cleanup failed: " + ", ".join(failed_providers)
+        )
+    if not result.terraform_success:
         logger.info(
             "Destroy completed with Terraform errors (SDK cleanup ran as fallback)",
             extra=_log_extra(operation_context, "destroy_complete"),
         )
-
-
-def _run_sdk_cleanup(
-    context: 'DeploymentContext',
-    operation_context: OperationContext | None = None,
-) -> None:
-    """
-    Run SDK cleanup for all providers as fallback after terraform destroy.
-    
-    This catches orphaned resources that Terraform may have missed due to:
-    - State corruption
-    - Partial destroy failures
-    - Resources created via SDK (not in Terraform state)
-    - Control-plane timing issues (TwinMaker, Firestore)
-    """
-    # Get prefix from config
-    prefix = _config_value(context.config, "digital_twin_name", "")
-    
-    # CRITICAL: Fail-safe guard against empty prefix
-    # An empty prefix would match ALL resources in the account!
-    if not prefix or len(prefix) < 3:
-        logger.error(
-            "Invalid prefix '%s' for cleanup - skipping SDK cleanup to prevent accidental deletion",
-            prefix,
-            extra=_log_extra(operation_context, "sdk_cleanup"),
-        )
-        return
-    
-    credentials = context.credentials
-    
-    logger.info(
-        "[SDK Cleanup] Running fallback cleanup for prefix: %s",
-        prefix,
-        extra=_log_extra(operation_context, "sdk_cleanup"),
-    )
-    
-    # AWS cleanup (best-effort)
-    if credentials.get("aws"):
-        logger.info("[SDK Cleanup] AWS...")
-        try:
-            cleanup_provider_resources(
-                CleanupRequest(provider="aws", credentials=credentials, prefix=prefix)
-            )
-        except Exception as e:
-            logger.warning(
-                "[SDK Cleanup] AWS cleanup failed: %s",
-                redact_sensitive(e),
-                extra=_log_extra(operation_context, "sdk_cleanup_aws"),
-            )
-    else:
-        logger.info("[SDK Cleanup] AWS - skipped (no credentials)")
-    
-    # Azure cleanup (best-effort)
-    if credentials.get("azure"):
-        logger.info("[SDK Cleanup] Azure...")
-        try:
-            cleanup_provider_resources(
-                CleanupRequest(provider="azure", credentials=credentials, prefix=prefix)
-            )
-        except Exception as e:
-            logger.warning(
-                "[SDK Cleanup] Azure cleanup failed: %s",
-                redact_sensitive(e),
-                extra=_log_extra(operation_context, "sdk_cleanup_azure"),
-            )
-    else:
-        logger.info("[SDK Cleanup] Azure - skipped (no credentials)")
-    
-    # GCP cleanup (best-effort)
-    if credentials.get("gcp"):
-        logger.info("[SDK Cleanup] GCP...")
-        try:
-            cleanup_provider_resources(
-                CleanupRequest(provider="gcp", credentials=credentials, prefix=prefix)
-            )
-        except Exception as e:
-            logger.warning(
-                "[SDK Cleanup] GCP cleanup failed: %s",
-                redact_sensitive(e),
-                extra=_log_extra(operation_context, "sdk_cleanup_gcp"),
-            )
-    else:
-        logger.info("[SDK Cleanup] GCP - skipped (no credentials)")
-    
-    logger.info(
-        "[SDK Cleanup] Fallback cleanup complete",
-        extra=_log_extra(operation_context, "sdk_cleanup"),
-    )
 
 
 def _log_extra(
@@ -258,13 +146,6 @@ def _log_extra(
     if operation_context is None:
         return None
     return operation_context.log_extra(phase=phase)
-
-
-def _config_value(config, key: str, default=None):
-    """Read a project config value from either a dataclass or legacy dict."""
-    if isinstance(config, dict):
-        return config.get(key, default)
-    return getattr(config, key, default)
 
 
 # ==========================================
@@ -277,10 +158,9 @@ def deploy_all_terraform(
     operation_context: OperationContext | None = None,
 ) -> dict:
     """
-    Deploy all infrastructure using Terraform (hybrid approach).
-    
-    Terraform handles infrastructure provisioning, Python handles:
-    - Function code deployment (Kudu ZIP)
+    Deploy all infrastructure using the canonical Terraform approach.
+
+    Terraform handles infrastructure and function packages. Python handles:
     - DTDL model upload (Azure SDK)
     - IoT device registration (Azure SDK)
     - Grafana datasource configuration (API)

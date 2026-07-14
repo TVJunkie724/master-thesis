@@ -8,6 +8,7 @@ import pytest
 from src.core.deterministic_zip import atomic_zip_archive, write_zip_bytes
 from src.providers.terraform.package_builder import (
     _create_lambda_zip,
+    _reconcile_user_hash_metadata,
     _save_user_hash_metadata,
 )
 
@@ -71,3 +72,46 @@ def test_package_metadata_is_atomic_and_uses_utc_timestamp(tmp_path):
     metadata = json.loads(metadata_path.read_text())
     assert metadata["last_built"].endswith("Z")
     assert not metadata_path.with_suffix(".json.tmp").exists()
+
+
+def test_unchanged_package_preserves_deployment_evidence(tmp_path):
+    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:value")
+    metadata_path = tmp_path / ".build" / "metadata" / "processor.aws.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["deployed_zip_hash"] = "sha256:value"
+    metadata["last_deployed"] = "2026-07-14T10:00:00Z"
+    metadata_path.write_text(json.dumps(metadata))
+
+    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:value")
+
+    rebuilt = json.loads(metadata_path.read_text())
+    assert rebuilt["deployed_zip_hash"] == "sha256:value"
+    assert rebuilt["last_deployed"] == "2026-07-14T10:00:00Z"
+
+
+def test_changed_package_invalidates_deployment_evidence(tmp_path):
+    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:old")
+    metadata_path = tmp_path / ".build" / "metadata" / "processor.aws.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["deployed_zip_hash"] = "sha256:old"
+    metadata["last_deployed"] = "2026-07-14T10:00:00Z"
+    metadata_path.write_text(json.dumps(metadata))
+
+    _save_user_hash_metadata(tmp_path, "processor", "aws", "sha256:new")
+
+    rebuilt = json.loads(metadata_path.read_text())
+    assert "deployed_zip_hash" not in rebuilt
+    assert "last_deployed" not in rebuilt
+
+
+def test_metadata_reconciliation_removes_stale_and_previous_provider_entries(tmp_path):
+    _save_user_hash_metadata(tmp_path, "active", "aws", "sha256:active")
+    _save_user_hash_metadata(tmp_path, "stale", "aws", "sha256:stale")
+    _save_user_hash_metadata(tmp_path, "other", "azure", "sha256:other")
+
+    _reconcile_user_hash_metadata(tmp_path, "aws", {"active"})
+
+    metadata_dir = tmp_path / ".build" / "metadata"
+    assert (metadata_dir / "active.aws.json").exists()
+    assert not (metadata_dir / "stale.aws.json").exists()
+    assert not (metadata_dir / "other.azure.json").exists()
