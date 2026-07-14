@@ -65,6 +65,14 @@ def validate_config_content(filename, content):
     # 1. Schema Key Validation
     if filename in CONSTANTS.CONFIG_SCHEMAS:
         required_keys = CONSTANTS.CONFIG_SCHEMAS[filename]
+        list_configs = {
+            CONSTANTS.CONFIG_IOT_DEVICES_FILE,
+            CONSTANTS.CONFIG_EVENTS_FILE,
+        }
+        if filename in list_configs and not isinstance(content, list):
+            raise ValueError(f"{filename} must contain a JSON array")
+        if filename not in list_configs and not isinstance(content, dict):
+            raise ValueError(f"{filename} must contain a JSON object")
         
         # Special Case: Credentials (dynamic keys based on provider)
         if filename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
@@ -94,6 +102,9 @@ def validate_config_content(filename, content):
                  pass # Should not happen based on constant definition
              
              for index, item in enumerate(content):
+                 if not isinstance(item, dict):
+                     errors.append(f"Item at index {index}: must be a JSON object")
+                     continue
                  for key in required_keys:
                      if key not in item:
                          errors.append(f"Item at index {index}: missing key '{key}'")
@@ -103,6 +114,9 @@ def validate_config_content(filename, content):
                      # Check action structure
                      if "action" in item:
                          action = item["action"]
+                         if not isinstance(action, dict):
+                             errors.append(f"Event at index {index}: action must be a JSON object")
+                             continue
                          if "type" not in action:
                              errors.append(f"Event at index {index}: action missing 'type'")
                          
@@ -932,6 +946,10 @@ def validate_simulator_payloads(content_str, project_name=None):
             
         if "iotDeviceId" not in item:
             errors.append(f"Item at index {idx} missing required key 'iotDeviceId'.")
+        elif not isinstance(item["iotDeviceId"], str) or not item["iotDeviceId"].strip():
+            errors.append(
+                f"Item at index {idx} key 'iotDeviceId' must be a non-empty string."
+            )
         else:
             seen_ids.add(item["iotDeviceId"])
 

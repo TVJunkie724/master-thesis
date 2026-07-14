@@ -149,7 +149,7 @@ class TestDeployerCompleteValidation:
             "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
             "payloads": VALID_PAYLOADS,
             "processors": {"device-1": VALID_AWS_PROCESSOR},
-            "cheapest_path": {"L4": "gcp"},
+            "cheapest_path": {"L2": "aws", "L4": "gcp", "L5": "gcp"},
             "optimizer_params": {"needs3DModel": True}
         })
         
@@ -338,3 +338,136 @@ class TestDeployerCompleteValidation:
         data = response.json()
         assert data["valid"] is False
         assert any(e["code"] == "MISSING_USER_CONFIG" for e in data["errors"])
+
+    def test_missing_l2_does_not_fall_back_to_aws(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_AWS_PROCESSOR},
+            "cheapest_path": {"L4": "gcp", "L5": "gcp"},
+        })
+
+        assert any(
+            error["code"] == "MISSING_PROVIDER"
+            and error["field"] == "cheapest_path.L2"
+            for error in response.json()["errors"]
+        )
+
+    def test_invalid_optimizer_flag_type_is_not_truthy(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_AWS_PROCESSOR},
+            "cheapest_path": {"L2": "aws", "L4": "gcp", "L5": "gcp"},
+            "optimizer_params": {"needs3DModel": "false"},
+        })
+
+        codes = {error["code"] for error in response.json()["errors"]}
+        assert "INVALID_OPTIMIZER_FLAG" in codes
+        assert "MISSING_SCENE_CONFIG" not in codes
+
+    def test_orphan_processor_and_action_are_rejected(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {
+                "device-1": VALID_AWS_PROCESSOR,
+                "removed-device": VALID_AWS_PROCESSOR,
+            },
+            "event_actions": {
+                "alert-handler": VALID_AWS_PROCESSOR,
+                "removed-action": VALID_AWS_PROCESSOR,
+            },
+            "cheapest_path": {"L2": "aws", "L4": "gcp", "L5": "gcp"},
+            "optimizer_params": {"useEventChecking": True},
+        })
+
+        codes = {error["code"] for error in response.json()["errors"]}
+        assert {"UNEXPECTED_PROCESSOR", "UNEXPECTED_EVENT_ACTION"} <= codes
+
+    def test_azure_user_config_is_validated_beyond_presence(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_AZURE_PROCESSOR},
+            "user_config": '{"admin_email":"user@example.com"}',
+            "cheapest_path": {"L2": "azure", "L4": "gcp", "L5": "azure"},
+        })
+
+        assert any(
+            error["code"] == "INVALID_USER_CONFIG"
+            for error in response.json()["errors"]
+        )
+
+    def test_unknown_request_fields_are_rejected(self):
+        response = client.post(
+            "/validate/deployer-complete",
+            json={"legacy_credentials": {"secret": "must-not-be-accepted"}},
+        )
+
+        assert response.status_code == 422
+
+    def test_device_config_requires_array_contract(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": '{"id":"device-1","properties":[]}',
+            "payloads": "[]",
+            "cheapest_path": {"L2": "aws", "L4": "gcp", "L5": "gcp"},
+        })
+
+        assert any(
+            error["code"] == "INVALID_CONFIG_IOT_DEVICES"
+            and "JSON array" in error["message"]
+            for error in response.json()["errors"]
+        )
+
+    def test_payload_device_id_requires_string_contract(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": '[{"iotDeviceId":42}]',
+            "processors": {"device-1": VALID_AWS_PROCESSOR},
+            "cheapest_path": {"L2": "aws", "L4": "gcp", "L5": "gcp"},
+        })
+
+        assert any(
+            error["code"] == "INVALID_PAYLOADS"
+            for error in response.json()["errors"]
+        )
+
+    def test_lowercase_path_and_valid_aws_user_config_are_accepted(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_AWS_PROCESSOR},
+            "user_config": '{"admin_email":"admin@example.com"}',
+            "cheapest_path": {"l2": "aws", "l4": "gcp", "l5": "aws"},
+        })
+
+        assert response.status_code == 200
+        assert response.json() == {"valid": True, "errors": []}
+
+    def test_google_alias_uses_gcp_function_contract(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_GCP_PROCESSOR},
+            "cheapest_path": {"L2": "google", "L4": "gcp", "L5": "gcp"},
+        })
+
+        assert response.status_code == 200
+        assert response.json() == {"valid": True, "errors": []}
