@@ -151,7 +151,10 @@ def test_deployer_config_read_model_is_owner_scoped(
     db_session,
 ):
     client, headers = authenticated_client
-    twin = _create_twin(db_session, "other-user", name="Other Read Model Twin")
+    other_user = User(email="other-read-model@example.test", name="Other Read Model")
+    db_session.add(other_user)
+    db_session.commit()
+    twin = _create_twin(db_session, other_user.id, name="Other Read Model Twin")
 
     response = client.get(
         f"/twins/{twin.id}/deployer/config/read-model",

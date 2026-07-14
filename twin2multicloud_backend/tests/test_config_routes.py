@@ -618,6 +618,7 @@ class TestConfigRoutes:
     def test_update_config_rejects_unowned_cloud_connection(self, authenticated_client, db_session):
         """A twin cannot bind to another user's CloudConnection."""
         from src.models.cloud_connection import CloudConnection
+        from src.models.user import User
 
         client, headers = authenticated_client
         connection = client.post(
@@ -633,8 +634,11 @@ class TestConfigRoutes:
             },
             headers=headers,
         ).json()
+        other_user = User(email="other-config-owner@example.test", name="Other Config Owner")
+        db_session.add(other_user)
+        db_session.commit()
         stored = db_session.query(CloudConnection).filter_by(id=connection["id"]).one()
-        stored.user_id = "other-user"
+        stored.user_id = other_user.id
         db_session.commit()
         twin_id = create_test_twin(client, headers)
 

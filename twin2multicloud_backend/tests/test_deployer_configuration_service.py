@@ -126,3 +126,19 @@ def test_get_config_rejects_missing_twin(db_session):
 
     with pytest.raises(EntityNotFoundError, match="Twin not found"):
         _service(db_session).get_config("missing", user.id)
+
+
+@pytest.mark.parametrize("operation", ["get", "update"])
+def test_config_rejects_inactive_twin(db_session, operation):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.INACTIVE)
+
+    with pytest.raises(EntityNotFoundError, match="Twin not found"):
+        if operation == "get":
+            _service(db_session).get_config(twin.id, user.id)
+        else:
+            _service(db_session).update_config(
+                twin.id,
+                user.id,
+                DeployerConfigUpdate(deployer_digital_twin_name="inactive"),
+            )
