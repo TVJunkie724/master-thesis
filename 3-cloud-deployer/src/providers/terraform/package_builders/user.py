@@ -1,60 +1,67 @@
 """User-defined processor, event-action, and feedback package construction."""
 
+from __future__ import annotations
+
 import datetime
+from dataclasses import dataclass
 import hashlib
 import json
 import logging
 import os
 from pathlib import Path
-from typing import Dict
 
+from src.core.paths import validate_path_component
 from src.providers.terraform.package_builders.aws import _create_lambda_zip
 from src.providers.terraform.package_builders.azure import _create_azure_function_zip
-from src.providers.terraform.package_builders.common import _merge_requirements, _should_include_file
+from src.providers.terraform.package_builders.common import _should_include_file
 from src.providers.terraform.package_builders.gcp import _create_gcp_function_zip
-from src.core.paths import validate_path_component
-from src.core.deterministic_zip import atomic_zip_archive, write_zip_bytes, write_zip_file
 
 logger = logging.getLogger(__name__)
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
+WORKFLOW_ACTION_TYPES = frozenset({"step_function", "logic_app", "workflow"})
+
+
+@dataclass(frozen=True)
+class _UserPackageLayout:
+    provider: str
+    build_provider: str
+    source_root: Path
+    shared_dir: Path | None
+    build_dir: Path
+
+    @property
+    def event_actions_dir(self) -> Path:
+        return self.source_root / "event_actions"
+
+    @property
+    def processors_dir(self) -> Path:
+        return self.source_root / "processors"
+
+    @property
+    def feedback_dir(self) -> Path:
+        return self.source_root / "event-feedback"
+
 
 def _compute_directory_hash(dir_path: Path) -> str:
-    """
-    Compute SHA256 hash of all files in a directory.
-    
-    Args:
-        dir_path: Path to directory to hash
-        
-    Returns:
-        SHA256 hash string prefixed with 'sha256:'
-        
-    Raises:
-        ValueError: If directory doesn't exist
-    """
-    if not dir_path.exists():
-        raise ValueError(f"Directory not found: {dir_path}")
-    
+    """Compute a deterministic SHA-256 hash for one regular source directory."""
+    if not dir_path.is_dir() or dir_path.is_symlink():
+        raise ValueError(f"Directory not found or unsafe: {dir_path}")
     hasher = hashlib.sha256()
-    
     for root, dirs, files in sorted(os.walk(str(dir_path))):
-        # Skip __pycache__ directories
-        dirs[:] = [d for d in dirs if d != "__pycache__"]
-        
+        root_path = Path(root)
+        for directory in dirs:
+            if (root_path / directory).is_symlink():
+                raise ValueError("Symbolic links are not allowed in function package sources")
+        dirs[:] = sorted(directory for directory in dirs if directory != "__pycache__")
         for filename in sorted(files):
-            filepath = os.path.join(root, filename)
-            rel_path = os.path.relpath(filepath, str(dir_path))
-            
-            # Hash the relative path
-            hasher.update(rel_path.encode('utf-8'))
-            
-            # Hash the file content
-            with open(filepath, 'rb') as f:
-                while True:
-                    chunk = f.read(8192)
-                    if not chunk:
-                        break
+            filepath = root_path / filename
+            if not _should_include_file(filepath):
+                continue
+            relative_path = filepath.relative_to(dir_path).as_posix()
+            hasher.update(relative_path.encode("utf-8"))
+            with filepath.open("rb") as file_handle:
+                for chunk in iter(lambda: file_handle.read(8192), b""):
                     hasher.update(chunk)
-    
     return f"sha256:{hasher.hexdigest()}"
 
 
@@ -62,33 +69,22 @@ def _save_user_hash_metadata(
     project_path: Path,
     function_name: str,
     provider: str,
-    code_hash: str
+    code_hash: str,
 ) -> None:
-    """
-    Save hash metadata for a built user function.
-    
-    Metadata is stored in upload/<project>/.build/metadata/
-    
-    Args:
-        project_path: Path to project upload directory
-        function_name: Name of the function
-        provider: Provider name (aws/azure)
-        code_hash: SHA256 hash of the function code
-    """
+    """Atomically save package build evidence for one user function."""
     validate_path_component(function_name, "function name")
     validate_path_component(provider, "provider name")
     metadata_dir = project_path / ".build" / "metadata"
     metadata_dir.mkdir(parents=True, exist_ok=True)
-    
     metadata_path = metadata_dir / f"{function_name}.{provider}.json"
-    
     metadata = {
         "function": function_name,
         "provider": provider,
         "zip_hash": code_hash,
-        "last_built": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+        "last_built": datetime.datetime.now(datetime.timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
     }
-
     if metadata_path.exists():
         try:
             previous = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -100,10 +96,11 @@ def _save_user_hash_metadata(
                 metadata["last_deployed"] = previous["last_deployed"]
 
     temporary_path = metadata_path.with_suffix(metadata_path.suffix + ".tmp")
-    temporary_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    temporary_path.replace(metadata_path)
-    
-    logger.info(f"  Saved hash metadata: {function_name}.{provider}.json")
+    try:
+        temporary_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        temporary_path.replace(metadata_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def _reconcile_user_hash_metadata(
@@ -116,7 +113,6 @@ def _reconcile_user_hash_metadata(
     metadata_dir = project_path / ".build" / "metadata"
     if not metadata_dir.is_dir():
         return
-
     for metadata_path in sorted(metadata_dir.glob("*.json")):
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -130,330 +126,219 @@ def _reconcile_user_hash_metadata(
             metadata_path.unlink()
 
 
-def build_user_packages(
-    project_path: Path,
-    providers_config: dict
-) -> Dict[str, Path]:
-    """
-    Build user function packages from the project upload directory.
-    
-    This builds packages for:
-    - Event actions (from config_events.json)
-    - Processors (from config_iot_devices.json)
-    - Event-feedback function
-    
-    Packages are built to upload/<project>/.build/{aws|azure}/
-    Hash metadata is saved to upload/<project>/.build/metadata/
-    
-    Args:
-        project_path: Path to project upload directory (upload/<project>/)
-        providers_config: Layer provider configuration
-        
-    Returns:
-        Dict mapping function names to ZIP paths
-        
-    Raises:
-        ValueError: If required configs are missing
-    """
-    if not project_path.exists():
+def _resolve_layout(project_path: Path, providers_config: dict) -> _UserPackageLayout:
+    if not project_path.is_dir():
         raise ValueError(f"Project path not found: {project_path}")
-    
-    # Validate required config keys
-    if "layer_2_provider" not in providers_config:
+    configured = providers_config.get("layer_2_provider")
+    if not isinstance(configured, str):
         raise ValueError("Missing required provider config: layer_2_provider")
-    
-    l2_provider = providers_config["layer_2_provider"].lower()
-    
-    if l2_provider not in ("aws", "azure", "google"):
-        raise ValueError(f"Invalid layer_2_provider: {l2_provider}")
-    
-    # Normalize google -> gcp for consistent paths with other package builders
-    # This ensures ZIPs go to .build/gcp/ where tfvars_generator expects them
-    build_provider = "gcp" if l2_provider == "google" else l2_provider
-    
-    # Build output directory in project
+    provider = "gcp" if configured.lower() == "google" else configured.lower()
+    provider_layouts = {
+        "aws": (
+            "aws",
+            project_path / "lambda_functions",
+            PROVIDERS_ROOT / "aws" / "lambda_functions" / "_shared",
+        ),
+        "azure": ("azure", project_path / "azure_functions", None),
+        "gcp": (
+            "gcp",
+            project_path / "cloud_functions",
+            PROVIDERS_ROOT / "gcp" / "cloud_functions" / "_shared",
+        ),
+    }
+    if provider not in provider_layouts:
+        raise ValueError(f"Invalid layer_2_provider: {provider}")
+    build_provider, source_root, shared_dir = provider_layouts[provider]
     build_dir = project_path / ".build" / build_provider
     build_dir.mkdir(parents=True, exist_ok=True)
-    
-    packages = {}
-    active_function_names: set[str] = set()
-    
-    # Load config files
-    events_path = project_path / "config_events.json"
-    devices_path = project_path / "config_iot_devices.json"
-    
-    if not events_path.exists():
-        raise ValueError("Missing required config: config_events.json")
-    if not devices_path.exists():
-        raise ValueError("Missing required config: config_iot_devices.json")
-    
-    with open(events_path, 'r') as f:
-        events_config = json.load(f)
-    with open(devices_path, 'r') as f:
-        devices_config = json.load(f)
-    
-    # Determine source directories based on provider
-    if l2_provider == "aws":
-        user_funcs_dir = project_path / "lambda_functions"
-        event_actions_dir = user_funcs_dir / "event_actions"
-        processors_dir = user_funcs_dir / "processors"
-        feedback_dir = user_funcs_dir / "event-feedback"
-        shared_dir = PROVIDERS_ROOT / "aws" / "lambda_functions" / "_shared"
-    elif l2_provider == "azure":
-        user_funcs_dir = project_path / "azure_functions"
-        event_actions_dir = user_funcs_dir / "event_actions"
-        processors_dir = user_funcs_dir / "processors"
-        feedback_dir = user_funcs_dir / "event-feedback"
-        shared_dir = None  # Azure doesn't use shared dir
-    else:  # google
-        user_funcs_dir = project_path / "cloud_functions"
-        event_actions_dir = user_funcs_dir / "event_actions"
-        processors_dir = user_funcs_dir / "processors"
-        feedback_dir = user_funcs_dir / "event-feedback"
-        shared_dir = PROVIDERS_ROOT / "gcp" / "cloud_functions" / "_shared"
-    
-    logger.info(f"Building user packages for provider: {l2_provider}")
-    
-    # 1. Build Event Action packages
-    # Note: Workflow actions (step_function, logic_app, workflow) trigger managed services
-    # and don't have user function code to build - only lambda/function actions do
-    WORKFLOW_ACTION_TYPES = {"step_function", "logic_app", "workflow"}
-    
-    for event in events_config:
-        if "action" not in event:
-            raise ValueError("Event config entry missing required 'action' field")
-        
-        action = event["action"]
-        action_type = action.get("type", "")
-        
-        # Skip workflow actions - they trigger managed services, no user code to build
-        if action_type in WORKFLOW_ACTION_TYPES:
-            logger.info(f"  → Skipping {action_type} action (no user code to build)")
-            continue
-        
-        # For lambda/function actions, require functionName
-        if "functionName" not in action:
-            raise ValueError("Event action missing required 'functionName' field")
-        
-        func_name = action["functionName"]
-        func_dir = event_actions_dir / func_name
-        
-        if not func_dir.exists():
-            raise ValueError(f"Missing code for event action: {func_name}. Expected: {func_dir}")
-        
-        # Compute hash
-        code_hash = _compute_directory_hash(func_dir)
-        
-        # Build ZIP
-        zip_path = build_dir / f"{func_name}.zip"
-        if l2_provider == "aws":
-            _create_lambda_zip(func_dir, shared_dir, zip_path)
-        elif l2_provider == "google":
-            _create_gcp_function_zip(func_dir, shared_dir, zip_path)
-        else:  # azure
-            _create_azure_function_zip(func_dir, zip_path)
-        
-        packages[func_name] = zip_path
-        active_function_names.add(func_name)
-        
-        # Save hash metadata
-        _save_user_hash_metadata(project_path, func_name, l2_provider, code_hash)
-        
-        logger.info(f"  ✓ Built event action: {func_name}.zip")
-    
-    # 2. Build Processor packages
-    # Load digital_twin_name for processor renaming
-    config_file = project_path / "config.json"
-    digital_twin_name = ""
-    if config_file.exists():
-        config_data = json.loads(config_file.read_text())
-        digital_twin_name = config_data.get("digital_twin_name", "")
-    
-    processors_seen = set()
-    for device in devices_config:
-        if "id" not in device:
-            raise ValueError("Device config entry missing required 'id' field")
-        
-        device_id = device["id"]
-        
-        # Use device_id for folder lookup and ZIP naming (matches tfvars_generator)
-        if device_id in processors_seen:
-            continue
-        processors_seen.add(device_id)
-        
-        proc_dir = processors_dir / device_id
-        
-        if not proc_dir.exists():
-            raise ValueError(f"Missing processor code for device '{device_id}'. Expected: {proc_dir}")
-        
-        # Compute hash
-        code_hash = _compute_directory_hash(proc_dir)
-        metadata_name = f"processor-{device_id}"
-        active_function_names.add(metadata_name)
-        
-        # Build ZIP with processor wrapper for Azure
-        zip_path = build_dir / f"processor-{device_id}.zip"
-        
-        if l2_provider == "aws":
-            # User provides standalone lambda_function.py
-            _create_lambda_zip(
-                proc_dir, 
-                shared_dir, 
-                zip_path,
-                digital_twin_name=digital_twin_name,
-                device_id=device_id
-            )
-            packages[metadata_name] = zip_path
-            _save_user_hash_metadata(project_path, metadata_name, l2_provider, code_hash)
-            logger.info(f"  ✓ Built processor: processor-{device_id}.zip")
-        elif l2_provider == "azure":
-            # Azure user functions are bundled together separately via build_azure_user_bundle()
-            _save_user_hash_metadata(project_path, metadata_name, l2_provider, code_hash)
-            logger.info("  → Skipping individual processor ZIP for Azure (bundled together)")
-        else:  # google
-            # User provides standalone main.py
-            _create_gcp_function_zip(
-                proc_dir, 
-                shared_dir, 
-                zip_path,
-                digital_twin_name=digital_twin_name,
-                device_id=device_id
-            )
-            packages[metadata_name] = zip_path
-            _save_user_hash_metadata(project_path, metadata_name, l2_provider, code_hash)
-            logger.info(f"  ✓ Built processor: processor-{device_id}.zip")
-    
-    # 3. Build Event-Feedback package (WITH WRAPPER MERGING)
-    if feedback_dir.exists():
-        code_hash = _compute_directory_hash(feedback_dir)
-        active_function_names.add("event-feedback")
-        zip_path = build_dir / "event-feedback.zip"
-        
-        # User provides standalone serverless function
-        if l2_provider == "aws":
-            _create_lambda_zip(feedback_dir, shared_dir, zip_path)
-            packages["event-feedback"] = zip_path
-            _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
-            logger.info("  ✓ Built event-feedback.zip")
-        elif l2_provider == "azure":
-            # Azure bundles all user functions together via build_azure_user_bundle()
-            _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
-            logger.info("  → Skipping individual event-feedback ZIP for Azure (bundled together)")
-        else:  # google
-            _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
-            packages["event-feedback"] = zip_path
-            _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
-            logger.info("  ✓ Built event-feedback.zip")
-    
-    _reconcile_user_hash_metadata(
-        project_path,
-        l2_provider,
-        active_function_names,
+    return _UserPackageLayout(
+        provider=provider,
+        build_provider=build_provider,
+        source_root=source_root,
+        shared_dir=shared_dir,
+        build_dir=build_dir,
     )
-    logger.info(f"✓ Built {len(packages)} user packages")
+
+
+def _load_json_list(path: Path, label: str) -> list[dict]:
+    if not path.is_file():
+        raise ValueError(f"Missing required config: {path.name}")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in {path.name}: {exc.msg}") from exc
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ValueError(f"{label} must be an array of objects")
+    return value
+
+
+def _load_twin_name(project_path: Path) -> str:
+    config_path = project_path / "config.json"
+    if not config_path.is_file():
+        raise ValueError("Missing required config: config.json")
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in config.json: {exc.msg}") from exc
+    twin_name = config.get("digital_twin_name") if isinstance(config, dict) else None
+    if not isinstance(twin_name, str) or not twin_name:
+        raise ValueError("config.json requires a non-empty digital_twin_name")
+    return twin_name
+
+
+def _build_archive(
+    layout: _UserPackageLayout,
+    source_dir: Path,
+    target: Path,
+    *,
+    twin_name: str | None = None,
+    device_id: str | None = None,
+) -> None:
+    if layout.provider == "aws":
+        _create_lambda_zip(
+            source_dir,
+            layout.shared_dir,
+            target,
+            digital_twin_name=twin_name,
+            device_id=device_id,
+        )
+    elif layout.provider == "gcp":
+        _create_gcp_function_zip(
+            source_dir,
+            layout.shared_dir,
+            target,
+            digital_twin_name=twin_name,
+            device_id=device_id,
+        )
+    else:
+        _create_azure_function_zip(source_dir, target)
+
+
+def _hash_source(
+    name: str,
+    source_dir: Path,
+) -> str:
+    """Validate and hash one source without publishing successful-build evidence."""
+    validate_path_component(name, "function name")
+    if not source_dir.is_dir():
+        raise ValueError(f"Missing code for user function '{name}': {source_dir}")
+    return _compute_directory_hash(source_dir)
+
+
+def _publish_build_metadata(
+    project_path: Path,
+    layout: _UserPackageLayout,
+    name: str,
+    source_hash: str,
+    active: set[str],
+) -> None:
+    """Publish source-version evidence only after its package step succeeds."""
+    _save_user_hash_metadata(project_path, name, layout.provider, source_hash)
+    active.add(name)
+
+
+def _build_event_actions(
+    project_path: Path,
+    layout: _UserPackageLayout,
+    events: list[dict],
+    packages: dict[str, Path],
+    active: set[str],
+) -> None:
+    built: set[str] = set()
+    for event in events:
+        action = event.get("action")
+        if not isinstance(action, dict):
+            raise ValueError("Event config entry requires an action object")
+        action_type = action.get("type", "")
+        if action_type in WORKFLOW_ACTION_TYPES:
+            continue
+        name = action.get("functionName")
+        if not isinstance(name, str) or not name:
+            raise ValueError("Event action requires a non-empty functionName")
+        validate_path_component(name, "function name")
+        if name in built:
+            continue
+        source_dir = layout.event_actions_dir / name
+        source_hash = _hash_source(name, source_dir)
+        target = layout.build_dir / f"{name}.zip"
+        _build_archive(layout, source_dir, target)
+        _publish_build_metadata(project_path, layout, name, source_hash, active)
+        packages[name] = target
+        built.add(name)
+
+
+def _build_processors(
+    project_path: Path,
+    layout: _UserPackageLayout,
+    devices: list[dict],
+    twin_name: str,
+    packages: dict[str, Path],
+    active: set[str],
+) -> None:
+    built: set[str] = set()
+    for device in devices:
+        device_id = device.get("id")
+        if not isinstance(device_id, str) or not device_id:
+            raise ValueError("Device config entry requires a non-empty id")
+        validate_path_component(device_id, "device id")
+        if device_id in built:
+            continue
+        name = f"processor-{device_id}"
+        source_dir = layout.processors_dir / device_id
+        source_hash = _hash_source(name, source_dir)
+        if layout.provider != "azure":
+            target = layout.build_dir / f"{name}.zip"
+            _build_archive(
+                layout,
+                source_dir,
+                target,
+                twin_name=twin_name,
+                device_id=device_id,
+            )
+            packages[name] = target
+        _publish_build_metadata(project_path, layout, name, source_hash, active)
+        built.add(device_id)
+
+
+def _build_feedback(
+    project_path: Path,
+    layout: _UserPackageLayout,
+    packages: dict[str, Path],
+    active: set[str],
+) -> None:
+    if not layout.feedback_dir.exists():
+        return
+    name = "event-feedback"
+    source_hash = _hash_source(name, layout.feedback_dir)
+    if layout.provider != "azure":
+        target = layout.build_dir / f"{name}.zip"
+        _build_archive(layout, layout.feedback_dir, target)
+        packages[name] = target
+    _publish_build_metadata(project_path, layout, name, source_hash, active)
+
+
+def build_user_packages(
+    project_path: Path,
+    providers_config: dict,
+) -> dict[str, Path]:
+    """Build every user function package required by the configured L2 provider."""
+    layout = _resolve_layout(project_path, providers_config)
+    events = _load_json_list(project_path / "config_events.json", "Event config")
+    devices = _load_json_list(project_path / "config_iot_devices.json", "Device config")
+    twin_name = _load_twin_name(project_path)
+    packages: dict[str, Path] = {}
+    active: set[str] = set()
+
+    _build_event_actions(project_path, layout, events, packages, active)
+    _build_processors(project_path, layout, devices, twin_name, packages, active)
+    _build_feedback(project_path, layout, packages, active)
+    _reconcile_user_hash_metadata(project_path, layout.provider, active)
+    logger.info("Built %s user packages for %s", len(packages), layout.provider)
     return packages
 
 
-# Obsolete function removed - user functions now use HTTP call pattern
-
-
-
-# Obsolete function removed - AWS processors now use standalone lambda_function.py
-
-
-
-
-
-def _create_event_feedback_with_wrapper(
-    feedback_dir: Path, 
-    output_path: Path, 
-    provider: str
-) -> None:
-    """
-    Create event-feedback ZIP with the provider's event_feedback_wrapper.
-    
-    Merges user process.py with static wrapper code from /src.
-    
-    Args:
-        feedback_dir: Path to user's event-feedback code (containing process.py)
-        output_path: Path to output ZIP file
-        provider: 'aws', 'azure', or 'google'
-    """
-    # Map provider to wrapper directory path
-    provider_map = {
-        'aws': PROVIDERS_ROOT / 'aws' / 'lambda_functions' / 'event_feedback_wrapper',
-        'azure': PROVIDERS_ROOT / 'azure' / 'azure_functions' / 'event_feedback_wrapper',
-        'google': PROVIDERS_ROOT / 'gcp' / 'cloud_functions' / 'event_feedback_wrapper',
-    }
-    
-    wrapper_dir = provider_map.get(provider)
-    if not wrapper_dir or not wrapper_dir.exists():
-        logger.warning(f"No event_feedback_wrapper found for {provider}, bundling raw files")
-        # Fallback to raw bundling
-        if provider == 'aws':
-            shared_dir = PROVIDERS_ROOT / 'aws' / 'lambda_functions' / '_shared'
-            _create_lambda_zip(feedback_dir, shared_dir, output_path)
-        elif provider == 'google':
-            shared_dir = PROVIDERS_ROOT / 'gcp' / 'cloud_functions' / '_shared'
-            _create_gcp_function_zip(feedback_dir, shared_dir, output_path)
-        else:
-            _create_azure_function_zip(feedback_dir, output_path)
-        return
-    
-    with atomic_zip_archive(output_path) as zf:
-        # 1. Add wrapper files (lambda_function.py/function_app.py/main.py, etc.)
-        for file_path in sorted(wrapper_dir.rglob('*')):
-            if file_path.is_file() and _should_include_file(file_path):
-                arcname = file_path.relative_to(wrapper_dir)
-                write_zip_file(zf, file_path, arcname)
-        
-        # 2. Add user's process.py at root level (required for 'from process import process')
-        # Skip requirements.txt - will merge later
-        # 2. Add user's process.py at root level (required for 'from process import process')
-        # Skip requirements.txt - will merge later
-        for file_path in sorted(feedback_dir.rglob('*')):
-            if file_path.is_file() and _should_include_file(file_path):
-                if file_path.name == 'requirements.txt':
-                    continue  # Skip - will merge
-                arcname = file_path.relative_to(feedback_dir)
-                write_zip_file(zf, file_path, arcname)
-        
-        # 3. Add shared modules for AWS/GCP
-        if provider == 'aws':
-            shared_dir = PROVIDERS_ROOT / 'aws' / 'lambda_functions' / '_shared'
-            if shared_dir.exists():
-                for file_path in sorted(shared_dir.rglob('*')):
-                    if file_path.is_file() and _should_include_file(file_path):
-                        arcname = f"_shared/{file_path.relative_to(shared_dir)}"
-                        write_zip_file(zf, file_path, arcname)
-        elif provider == 'google':
-            shared_dir = PROVIDERS_ROOT / 'gcp' / 'cloud_functions' / '_shared'
-            if shared_dir.exists():
-                for file_path in sorted(shared_dir.rglob('*')):
-                    if file_path.is_file() and _should_include_file(file_path):
-                        arcname = f"_shared/{file_path.relative_to(shared_dir)}"
-                        write_zip_file(zf, file_path, arcname)
-        
-        # 4. Merge requirements.txt
-        wrapper_req = wrapper_dir / "requirements.txt"
-        user_req = feedback_dir / "requirements.txt"
-        merged = _merge_requirements(wrapper_req, user_req)
-        if merged:
-            write_zip_bytes(zf, "requirements.txt", merged)
-    
-    logger.info(f"  ✓ Built event-feedback.zip with wrapper for {provider}")
-
-
 def get_user_package_path(project_path: Path, function_name: str, provider: str) -> Path:
-    """
-    Get the path to a pre-built user package.
-    
-    Args:
-        project_path: Path to project upload directory
-        function_name: Name of the function
-        provider: Provider name (aws/azure)
-        
-    Returns:
-        Path to the ZIP file
-    """
+    """Return the canonical pre-built user package path."""
+    validate_path_component(function_name, "function name")
+    validate_path_component(provider, "provider name")
     return project_path / ".build" / provider / f"{function_name}.zip"

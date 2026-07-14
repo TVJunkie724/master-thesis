@@ -39,7 +39,6 @@ from src.providers.terraform.package_builders.gcp import (
 )
 from src.providers.terraform.package_builders.user import (
     _compute_directory_hash,
-    _create_event_feedback_with_wrapper,
     _reconcile_user_hash_metadata,
     _save_user_hash_metadata,
     build_user_packages,
@@ -76,7 +75,6 @@ __all__ = [
     "_compute_content_hash",
     "_compute_directory_hash",
     "_create_azure_function_zip",
-    "_create_event_feedback_with_wrapper",
     "_create_gcp_function_zip",
     "_create_gcp_processor_zip",
     "_create_lambda_zip",

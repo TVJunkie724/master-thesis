@@ -28,7 +28,10 @@ def build_gcp_cloud_function_packages(
     # Check if any layer uses GCP
     gcp_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider",
                   "layer_3_cold_provider", "layer_3_archive_provider"]
-    has_gcp = any(providers_config.get(layer) == "google" for layer in gcp_layers)
+    has_gcp = any(
+        providers_config.get(layer) in {"gcp", "google"}
+        for layer in gcp_layers
+    )
     
     if not has_gcp:
         logger.info("  No GCP layers configured, skipping Cloud Function package build")
@@ -212,4 +215,3 @@ def _create_gcp_processor_zip(
 def get_gcp_zip_path(project_path: Path, function_name: str) -> str:
     """Get the path to a GCP Cloud Function ZIP file (for Terraform variable references)."""
     return str(project_path / ".build" / "gcp" / f"{function_name}.zip")
-
