@@ -59,7 +59,7 @@ def _cleanup_adt_resources_sdk(credentials: dict, prefix: str) -> None:
         prefix: Resource name prefix to match (e.g., 'tf-e2e-adt')
     """
     from azure.identity import ClientSecretCredential
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
     
     azure_creds = credentials.get("azure", {})
     tenant_id = azure_creds["azure_tenant_id"]

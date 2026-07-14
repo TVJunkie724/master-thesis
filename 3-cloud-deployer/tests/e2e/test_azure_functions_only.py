@@ -174,7 +174,7 @@ class TestAzureFunctionsOnly:
         """
         try:
             from azure.identity import ClientSecretCredential
-            from azure.mgmt.resource import ResourceManagementClient
+            from azure.mgmt.resource.resources import ResourceManagementClient
             from azure.mgmt.web import WebSiteManagementClient
             from azure.mgmt.storage import StorageManagementClient
         except ImportError:

@@ -193,7 +193,7 @@ def delete_aws_resources(aws_creds: dict, rg_name: str):
 def list_azure_resources(azure_creds: dict, rg_name: str):
     """List Azure resources in the resource group."""
     from azure.identity import ClientSecretCredential
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
     
     credential = ClientSecretCredential(
         tenant_id=azure_creds["azure_tenant_id"],
@@ -227,7 +227,7 @@ def list_azure_resources(azure_creds: dict, rg_name: str):
 def delete_azure_resources(azure_creds: dict, rg_name: str):
     """Delete Azure resource group and all its resources."""
     from azure.identity import ClientSecretCredential
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
     
     credential = ClientSecretCredential(
         tenant_id=azure_creds["azure_tenant_id"],

@@ -122,13 +122,41 @@ class TestRetryAndAuth:
         with patch("requests.request", return_value=mock_response):
             with pytest.raises(ClientAuthenticationError):
                 helper.list("/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Devices/IotHubs/hub")
-    
+
     def test_auth_error_on_403(self, helper):
         """Test that 403 raises ClientAuthenticationError."""
         mock_response = MagicMock()
         mock_response.status_code = 403
         mock_response.text = "Forbidden"
-        
+
         with patch("requests.request", return_value=mock_response):
             with pytest.raises(ClientAuthenticationError):
                 helper.list("/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Devices/IotHubs/hub")
+
+
+class TestCleanupOutcome:
+    def test_provider_scan_failures_are_counted_and_redacted(self, helper, caplog):
+        adt_client = MagicMock()
+        adt_client.digital_twins.list.side_effect = RuntimeError(
+            "azure_client_secret=must-not-leak"
+        )
+        storage_client = MagicMock()
+        storage_client.storage_accounts.list.side_effect = RuntimeError(
+            "azure_client_secret=must-not-leak"
+        )
+
+        with (
+            patch(
+                "azure.mgmt.digitaltwins.AzureDigitalTwinsManagementClient",
+                return_value=adt_client,
+            ),
+            patch(
+                "azure.mgmt.storage.StorageManagementClient",
+                return_value=storage_client,
+            ),
+            caplog.at_level("WARNING"),
+        ):
+            result = helper.cleanup_orphaned_by_prefix("factory-twin")
+
+        assert result["errors"] == 2
+        assert "must-not-leak" not in caplog.text

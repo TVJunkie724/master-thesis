@@ -182,7 +182,7 @@ class AzureProvider(BaseProvider):
     
     def _initialize_sdk_clients(self, credential: Any) -> None:
         """Initialize all required Azure SDK clients."""
-        from azure.mgmt.resource import ResourceManagementClient
+        from azure.mgmt.resource.resources import ResourceManagementClient
         from azure.mgmt.storage import StorageManagementClient
         from azure.mgmt.web import WebSiteManagementClient
         from azure.mgmt.msi import ManagedServiceIdentityClient

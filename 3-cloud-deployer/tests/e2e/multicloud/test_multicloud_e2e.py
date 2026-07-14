@@ -115,7 +115,7 @@ class TestMultiCloudE2E:
         # Azure check
         try:
             from azure.identity import ClientSecretCredential
-            from azure.mgmt.resource import ResourceManagementClient
+            from azure.mgmt.resource.resources import ResourceManagementClient
             
             azure_creds_check = credentials.get("azure", {})
             credential = ClientSecretCredential(

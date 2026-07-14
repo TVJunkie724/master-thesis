@@ -32,12 +32,10 @@ def cleanup_aws_resources(*args, **kwargs) -> None:
 
 
 def cleanup_azure_resources(*args, **kwargs) -> None:
-    """Run Azure cleanup through its transitional fail-closed adapter."""
-    from src.providers.azure import cleanup as cleanup_module
+    """Lazy wrapper kept monkeypatchable for tests and integration seams."""
     from src.providers.azure.cleanup import cleanup_azure_resources as provider_cleanup
 
-    with enforce_cleanup_outcome(cleanup_module.logger, "Azure"):
-        provider_cleanup(*args, **kwargs)
+    provider_cleanup(*args, **kwargs)
 
 
 def cleanup_gcp_resources(*args, **kwargs) -> None:

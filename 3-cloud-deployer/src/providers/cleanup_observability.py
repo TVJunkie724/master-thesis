@@ -77,7 +77,7 @@ class CleanupRun:
         detail = sanitize_deployment_message(str(exc) or exc.__class__.__name__)
         failure = CleanupFailure(
             step=step,
-            resource=sanitize_deployment_message(resource),
+            resource=sanitize_deployment_message(str(resource)),
             error_type=exc.__class__.__name__,
             detail=detail,
         )

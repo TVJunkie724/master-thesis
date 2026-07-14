@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
+import pytest
+
 from src.providers.azure import cleanup
+from src.providers.cleanup_observability import ProviderCleanupError
 
 
 class Response:
@@ -92,3 +95,89 @@ def test_entra_cleanup_dry_run_does_not_delete():
         http_session=session,
     ) is True
     assert session.delete_calls == []
+
+
+def test_cleanup_runs_every_independent_step_and_raises_aggregate(monkeypatch):
+    calls = []
+
+    def failed_step(context):
+        calls.append("failed")
+        raise RuntimeError("azure_client_secret=must-not-leak")
+
+    def successful_step(context):
+        calls.append("successful")
+
+    monkeypatch.setattr(
+        "azure.identity.ClientSecretCredential",
+        lambda **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "azure.mgmt.resource.resources.ResourceManagementClient",
+        lambda *_args: object(),
+    )
+    monkeypatch.setattr(
+        cleanup,
+        "_CLEANUP_STEPS",
+        (("failed", failed_step), ("successful", successful_step)),
+    )
+
+    with pytest.raises(ProviderCleanupError) as exc_info:
+        cleanup.cleanup_azure_resources(
+            {
+                "azure": {
+                    "azure_tenant_id": "tenant",
+                    "azure_client_id": "client",
+                    "azure_client_secret": "secret",
+                    "azure_subscription_id": "subscription",
+                }
+            },
+            "factory-twin",
+        )
+
+    assert calls == ["failed", "successful"]
+    assert exc_info.value.failures[0].step == "failed"
+    assert "must-not-leak" not in str(exc_info.value)
+
+
+def test_delete_helper_never_mutates_resources_during_dry_run():
+    deleted = []
+    context = cleanup._AzureCleanupContext(
+        credential=object(),
+        subscription_id="subscription",
+        resource_client=object(),
+        prefix="factory-twin",
+        dry_run=True,
+        run=cleanup.CleanupRun("Azure", cleanup.logger),
+    )
+
+    cleanup._delete_or_log(
+        context,
+        "Storage Accounts",
+        "factorytwinstorage",
+        lambda: deleted.append(True),
+    )
+
+    assert deleted == []
+    assert context.run.failures == ()
+
+
+@pytest.mark.parametrize(
+    ("resource_id", "expected"),
+    [
+        ("/subscriptions/sub/resourceGroups/factory/providers/x/y", "factory"),
+        ("/subscriptions/sub/resourceGroups/Factory/providers/x/y", "Factory"),
+    ],
+)
+def test_resource_group_is_parsed_from_azure_resource_id(resource_id, expected):
+    assert cleanup._resource_group(resource_id) == expected
+
+
+def test_invalid_azure_resource_id_fails_closed():
+    with pytest.raises(ValueError, match="resource group"):
+        cleanup._resource_group("/subscriptions/sub")
+
+
+def test_pinned_resource_sdk_exposes_the_supported_client_namespace():
+    from azure.mgmt.resource.resources import ResourceManagementClient
+
+    assert ResourceManagementClient.__name__ == "ResourceManagementClient"

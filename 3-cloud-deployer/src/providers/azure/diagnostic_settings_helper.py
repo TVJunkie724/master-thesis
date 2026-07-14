@@ -8,6 +8,7 @@ import time
 
 import requests
 from azure.core.exceptions import ClientAuthenticationError
+from src.api.deployment_trace import sanitize_deployment_message
 from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 logger = logging.getLogger(__name__)
@@ -183,9 +184,16 @@ class DiagnosticSettingsHelper:
                                     logger.info("    ✓ Deleted")
                                 except Exception as e:
                                     results["errors"] += 1
-                                    logger.warning(f"    ✗ Error: {e}")
+                                    logger.warning(
+                                        "    Delete failed: %s",
+                                        sanitize_deployment_message(str(e)),
+                                    )
         except Exception as e:
-            logger.warning(f"  ADT scan error: {e}")
+            results["errors"] += 1
+            logger.warning(
+                "  ADT scan failed: %s",
+                sanitize_deployment_message(str(e)),
+            )
         
         # Check all Storage accounts (including blobServices/default sub-resource)
         try:
@@ -214,7 +222,10 @@ class DiagnosticSettingsHelper:
                                     logger.info("    ✓ Deleted")
                                 except Exception as e:
                                     results["errors"] += 1
-                                    logger.warning(f"    ✗ Error: {e}")
+                                    logger.warning(
+                                        "    Delete failed: %s",
+                                        sanitize_deployment_message(str(e)),
+                                    )
                     
                     # blobServices/default sub-resource
                     blob_id = f"{account.id}/blobServices/default"
@@ -234,9 +245,16 @@ class DiagnosticSettingsHelper:
                                     logger.info("    ✓ Deleted")
                                 except Exception as e:
                                     results["errors"] += 1
-                                    logger.warning(f"    ✗ Error: {e}")
+                                    logger.warning(
+                                        "    Delete failed: %s",
+                                        sanitize_deployment_message(str(e)),
+                                    )
         except Exception as e:
-            logger.warning(f"  Storage scan error: {e}")
+            results["errors"] += 1
+            logger.warning(
+                "  Storage scan failed: %s",
+                sanitize_deployment_message(str(e)),
+            )
         
         logger.info(f"[Diagnostic Settings] Scan complete: {results['resources_checked']} resources checked, "
                     f"{results['deleted']} deleted, {results['errors']} errors")

@@ -151,7 +151,7 @@ def check_azure(creds: dict) -> list:
     
     try:
         from azure.identity import ClientSecretCredential
-        from azure.mgmt.resource import ResourceManagementClient
+        from azure.mgmt.resource.resources import ResourceManagementClient
         
         azure = creds.get("azure", {})
         credential = ClientSecretCredential(

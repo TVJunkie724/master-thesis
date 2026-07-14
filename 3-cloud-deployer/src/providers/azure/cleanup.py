@@ -1,11 +1,12 @@
-"""
-Azure SDK Cleanup Module.
+"""Explicit, fail-closed Azure SDK cleanup for Terraform orphan recovery."""
 
-Provides fallback cleanup for Azure resources that may be orphaned after
-Terraform destroy fails or misses resources.
-"""
+from __future__ import annotations
+
+from dataclasses import dataclass
 import logging
+from typing import Any
 
+from src.providers.cleanup_observability import CleanupRun
 from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ def _cleanup_entra_user(
     dry_run: bool,
     http_session=None,
 ) -> bool:
-    """Delete one exact Entra principal through bounded Microsoft Graph REST calls."""
+    """Delete one exact Entra principal through bounded Microsoft Graph calls."""
     import requests
 
     session = http_session or requests.Session()
@@ -59,426 +60,407 @@ def _cleanup_entra_user(
         timeout=30,
     )
     delete_response.raise_for_status()
-    logger.info("    ✓ Deleted")
+    logger.info("    Deleted")
     return True
 
 
-def cleanup_azure_resources(
-    credentials: dict, 
-    prefix: str, 
-    cleanup_entra_user: bool = False, 
-    platform_user_email: str = "",
-    dry_run: bool = False
+@dataclass(frozen=True)
+class _AzureCleanupContext:
+    credential: Any
+    subscription_id: str
+    resource_client: Any
+    prefix: str
+    dry_run: bool
+    run: CleanupRun
+
+
+def _owned(name: str, context: _AzureCleanupContext, **kwargs) -> bool:
+    return resource_name_owned_by_prefix(name, context.prefix, **kwargs)
+
+
+def _resource_group(resource_id: str) -> str:
+    parts = resource_id.split("/")
+    if len(parts) <= 4 or not parts[4]:
+        raise ValueError("Azure resource ID does not contain a resource group")
+    return parts[4]
+
+
+def _delete_or_log(
+    context: _AzureCleanupContext,
+    step: str,
+    resource: str,
+    delete,
+    *,
+    dry_run_message: str = "Would delete",
 ) -> None:
-    """
-    Clean up Azure resources matching prefix.
-    
-    Args:
-        credentials: Dict with Azure credentials
-        prefix: Resource name prefix (e.g., 'tf-e2e-az')
-        cleanup_entra_user: Delete Entra ID user if True
-        platform_user_email: Email for Entra ID user lookup
-        dry_run: Log what would be deleted without deleting
-        
-    Resources cleaned:
-        - CosmosDB accounts
-        - Grafana workspaces
-        - IoT Hubs
-        - Digital Twins instances
-        - Function Apps
-        - Storage Accounts
-        - Logic Apps
-        - App Service Plans
-        - Entra ID users (conditional)
-        - Resource Groups (nuclear option)
-    """
-    from azure.identity import ClientSecretCredential
-    from azure.mgmt.resource import ResourceManagementClient
-    
-    azure_creds = credentials.get("azure", {})
-    tenant_id = azure_creds["azure_tenant_id"]
-    
-    credential = ClientSecretCredential(
-        tenant_id=tenant_id,
-        client_id=azure_creds["azure_client_id"],
-        client_secret=azure_creds["azure_client_secret"]
+    logger.info("  Found orphan: %s", resource)
+    if context.dry_run:
+        logger.info("    [DRY RUN] %s", dry_run_message)
+        return
+
+    def execute_delete() -> bool:
+        delete()
+        return True
+
+    if context.run.attempt(step, resource, execute_delete, default=False):
+        logger.info("    Deleted")
+
+
+def _cleanup_log_analytics(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.loganalytics import LogAnalyticsManagementClient
+
+    client = LogAnalyticsManagementClient(context.credential, context.subscription_id)
+    for workspace in client.workspaces.list():
+        if workspace.name.startswith(f"{context.prefix}-") and "-logs-" in workspace.name:
+            _delete_or_log(
+                context,
+                "Log Analytics",
+                workspace.name,
+                lambda workspace=workspace: client.workspaces.begin_delete(
+                    _resource_group(workspace.id),
+                    workspace.name,
+                    force=True,
+                ).result(timeout=300),
+            )
+
+
+def _cleanup_application_insights(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.applicationinsights import ApplicationInsightsManagementClient
+
+    client = ApplicationInsightsManagementClient(
+        context.credential,
+        context.subscription_id,
     )
-    
+    for component in client.components.list():
+        if component.name.startswith(f"{context.prefix}-") and "-insights-" in component.name:
+            _delete_or_log(
+                context,
+                "Application Insights",
+                component.name,
+                lambda component=component: client.components.delete(
+                    _resource_group(component.id),
+                    component.name,
+                ),
+            )
+
+
+def _cleanup_subscription_diagnostics(context: _AzureCleanupContext) -> None:
+    from .diagnostic_settings_helper import DiagnosticSettingsHelper
+
+    helper = DiagnosticSettingsHelper(context.credential, context.subscription_id)
+    result = helper.cleanup_orphaned_by_prefix(
+        context.prefix,
+        dry_run=context.dry_run,
+    )
+    if result.get("errors"):
+        raise RuntimeError(
+            f"Diagnostic settings cleanup reported {result['errors']} errors"
+        )
+
+
+def _cleanup_resource_diagnostics(context: _AzureCleanupContext) -> None:
+    from .diagnostic_settings_helper import DiagnosticSettingsHelper
+
+    helper = DiagnosticSettingsHelper(context.credential, context.subscription_id)
+    for resource_group in context.resource_client.resource_groups.list():
+        if not _owned(resource_group.name, context):
+            continue
+        resources = list(
+            context.resource_client.resources.list_by_resource_group(resource_group.name)
+        )
+        targets = [(resource.id, resource.name) for resource in resources]
+        targets.extend(
+            (f"{resource.id}/blobServices/default", f"{resource.name}/blobServices/default")
+            for resource in resources
+            if resource.type == "Microsoft.Storage/storageAccounts"
+        )
+        for resource_id, resource_name in targets:
+            settings = context.run.attempt(
+                "Diagnostic Settings",
+                resource_name,
+                lambda resource_id=resource_id: list(helper.list(resource_id)),
+                default=[],
+            )
+            for setting in settings or []:
+                setting_name = setting.get("name", "unknown")
+                _delete_or_log(
+                    context,
+                    "Diagnostic Settings",
+                    f"{resource_name}/{setting_name}",
+                    lambda resource_id=resource_id, setting_name=setting_name: helper.delete(
+                        resource_id,
+                        setting_name,
+                    ),
+                )
+
+
+def _cleanup_role_assignments(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.authorization import AuthorizationManagementClient
+
+    client = AuthorizationManagementClient(context.credential, context.subscription_id)
+    for resource_group in context.resource_client.resource_groups.list():
+        if not _owned(resource_group.name, context):
+            continue
+        scope = (
+            f"/subscriptions/{context.subscription_id}"
+            f"/resourceGroups/{resource_group.name}"
+        )
+        for assignment in client.role_assignments.list_for_scope(scope):
+            if not assignment.scope.casefold().startswith(scope.casefold()):
+                continue
+            _delete_or_log(
+                context,
+                "Role Assignments",
+                assignment.id,
+                lambda assignment=assignment: client.role_assignments.delete_by_id(
+                    assignment.id
+                ),
+            )
+
+
+def _cleanup_cosmos_role_assignments(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.cosmosdb import CosmosDBManagementClient
+
+    client = CosmosDBManagementClient(context.credential, context.subscription_id)
+    for account in client.database_accounts.list():
+        if not _owned(account.name, context):
+            continue
+        resource_group = _resource_group(account.id)
+        for assignment in client.sql_resources.list_sql_role_assignments(
+            resource_group,
+            account.name,
+        ):
+            _delete_or_log(
+                context,
+                "CosmosDB SQL Roles",
+                f"{account.name}/{assignment.name}",
+                lambda assignment=assignment, account=account: client.sql_resources.begin_delete_sql_role_assignment(
+                    assignment.name,
+                    _resource_group(account.id),
+                    account.name,
+                ).result(timeout=120),
+            )
+
+
+def _cleanup_cosmos_accounts(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.cosmosdb import CosmosDBManagementClient
+
+    client = CosmosDBManagementClient(context.credential, context.subscription_id)
+    for account in client.database_accounts.list():
+        if _owned(account.name, context):
+            _delete_or_log(
+                context,
+                "CosmosDB",
+                account.name,
+                lambda account=account: client.database_accounts.begin_delete(
+                    _resource_group(account.id),
+                    account.name,
+                ).result(timeout=600),
+            )
+
+
+def _cleanup_grafana(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.dashboard import DashboardManagementClient
+
+    client = DashboardManagementClient(context.credential, context.subscription_id)
+    for workspace in client.grafana.list():
+        if _owned(workspace.name, context):
+            _delete_or_log(
+                context,
+                "Grafana",
+                workspace.name,
+                lambda workspace=workspace: client.grafana.begin_delete(
+                    _resource_group(workspace.id),
+                    workspace.name,
+                ).result(timeout=600),
+            )
+
+
+def _cleanup_iot_hubs(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.iothub import IotHubClient
+
+    client = IotHubClient(context.credential, context.subscription_id)
+    for hub in client.iot_hub_resource.list_by_subscription():
+        if _owned(hub.name, context):
+            _delete_or_log(
+                context,
+                "IoT Hub",
+                hub.name,
+                lambda hub=hub: client.iot_hub_resource.begin_delete(
+                    _resource_group(hub.id),
+                    hub.name,
+                ).result(timeout=600),
+            )
+
+
+def _cleanup_digital_twins(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
+
+    client = AzureDigitalTwinsManagementClient(
+        context.credential,
+        context.subscription_id,
+    )
+    for instance in client.digital_twins.list():
+        if _owned(instance.name, context):
+            _delete_or_log(
+                context,
+                "Digital Twins",
+                instance.name,
+                lambda instance=instance: client.digital_twins.begin_delete(
+                    _resource_group(instance.id),
+                    instance.name,
+                ).result(timeout=600),
+            )
+
+
+def _cleanup_function_apps(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.web import WebSiteManagementClient
+
+    client = WebSiteManagementClient(context.credential, context.subscription_id)
+    for app in client.web_apps.list():
+        if _owned(app.name, context):
+            _delete_or_log(
+                context,
+                "Function Apps",
+                app.name,
+                lambda app=app: client.web_apps.delete(
+                    _resource_group(app.id),
+                    app.name,
+                ),
+            )
+
+
+def _cleanup_storage_accounts(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.storage import StorageManagementClient
+
+    client = StorageManagementClient(context.credential, context.subscription_id)
+    for account in client.storage_accounts.list():
+        if _owned(account.name, context, allow_compact=True):
+            _delete_or_log(
+                context,
+                "Storage Accounts",
+                account.name,
+                lambda account=account: client.storage_accounts.delete(
+                    _resource_group(account.id),
+                    account.name,
+                ),
+            )
+
+
+def _cleanup_logic_apps(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.logic import LogicManagementClient
+
+    client = LogicManagementClient(context.credential, context.subscription_id)
+    for workflow in client.workflows.list_by_subscription():
+        if _owned(workflow.name, context):
+            _delete_or_log(
+                context,
+                "Logic Apps",
+                workflow.name,
+                lambda workflow=workflow: client.workflows.delete(
+                    _resource_group(workflow.id),
+                    workflow.name,
+                ),
+            )
+
+
+def _cleanup_app_service_plans(context: _AzureCleanupContext) -> None:
+    from azure.mgmt.web import WebSiteManagementClient
+
+    client = WebSiteManagementClient(context.credential, context.subscription_id)
+    for plan in client.app_service_plans.list():
+        if _owned(plan.name, context):
+            _delete_or_log(
+                context,
+                "App Service Plans",
+                plan.name,
+                lambda plan=plan: client.app_service_plans.delete(
+                    _resource_group(plan.id),
+                    plan.name,
+                ),
+            )
+
+
+def _cleanup_resource_groups(context: _AzureCleanupContext) -> None:
+    for resource_group in context.resource_client.resource_groups.list():
+        if _owned(resource_group.name, context):
+            _delete_or_log(
+                context,
+                "Resource Groups",
+                resource_group.name,
+                lambda resource_group=resource_group: context.resource_client.resource_groups.begin_delete(
+                    resource_group.name
+                ).result(timeout=600),
+                dry_run_message="Would delete resource group and all contents",
+            )
+
+
+_CLEANUP_STEPS = (
+    ("Log Analytics", _cleanup_log_analytics),
+    ("Application Insights", _cleanup_application_insights),
+    ("Subscription Diagnostics", _cleanup_subscription_diagnostics),
+    ("Resource Diagnostics", _cleanup_resource_diagnostics),
+    ("Role Assignments", _cleanup_role_assignments),
+    ("CosmosDB SQL Roles", _cleanup_cosmos_role_assignments),
+    ("CosmosDB", _cleanup_cosmos_accounts),
+    ("Grafana", _cleanup_grafana),
+    ("IoT Hub", _cleanup_iot_hubs),
+    ("Digital Twins", _cleanup_digital_twins),
+    ("Function Apps", _cleanup_function_apps),
+    ("Storage Accounts", _cleanup_storage_accounts),
+    ("Logic Apps", _cleanup_logic_apps),
+    ("App Service Plans", _cleanup_app_service_plans),
+    ("Resource Groups", _cleanup_resource_groups),
+)
+
+
+def cleanup_azure_resources(
+    credentials: dict,
+    prefix: str,
+    cleanup_entra_user: bool = False,
+    platform_user_email: str = "",
+    dry_run: bool = False,
+) -> None:
+    """Clean Azure resources and raise one typed aggregate for incomplete work."""
+    from azure.identity import ClientSecretCredential
+    from azure.mgmt.resource.resources import ResourceManagementClient
+
+    azure_creds = credentials.get("azure", {})
+    credential = ClientSecretCredential(
+        tenant_id=azure_creds["azure_tenant_id"],
+        client_id=azure_creds["azure_client_id"],
+        client_secret=azure_creds["azure_client_secret"],
+    )
     subscription_id = azure_creds["azure_subscription_id"]
     resource_client = ResourceManagementClient(credential, subscription_id)
-    
-    logger.info(f"[Azure SDK] Fallback cleanup for prefix: {prefix}")
+    run = CleanupRun("Azure", logger)
+    context = _AzureCleanupContext(
+        credential,
+        subscription_id,
+        resource_client,
+        prefix,
+        dry_run,
+        run,
+    )
+
+    logger.info("[Azure SDK] Fallback cleanup for prefix: %s", prefix)
     if dry_run:
         logger.info("[Azure SDK] DRY RUN MODE - no resources will be deleted")
-    
-    # ========================================
-    # PHASE 0.0: Subscription-Wide Observability Cleanup
-    # (Catches orphans from soft-delete or Azure bugs)
-    # ========================================
-    logger.info("[Observability] Subscription-wide orphan sweep...")
-    
-    # 0.0.1 Log Analytics Workspaces
-    try:
-        from azure.mgmt.loganalytics import LogAnalyticsManagementClient
-        la_client = LogAnalyticsManagementClient(credential, subscription_id)
-        for ws in la_client.workspaces.list():
-            if ws.name.startswith(f"{prefix}-") and "-logs-" in ws.name:
-                rg = ws.id.split('/')[4]
-                logger.info(f"  Found Log Analytics: {ws.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        la_client.workspaces.begin_delete(rg, ws.name, force=True).result(timeout=300)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Log Analytics cleanup error: {e}")
-    
-    # 0.0.2 Application Insights
-    try:
-        from azure.mgmt.applicationinsights import ApplicationInsightsManagementClient
-        ai_client = ApplicationInsightsManagementClient(credential, subscription_id)
-        for comp in ai_client.components.list():
-            if comp.name.startswith(f"{prefix}-") and "-insights-" in comp.name:
-                rg = comp.id.split('/')[4]
-                logger.info(f"  Found App Insights: {comp.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        ai_client.components.delete(rg, comp.name)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  App Insights cleanup error: {e}")
-    
-    # 0.0.3 Diagnostic Settings (subscription-wide via helper)
-    try:
-        from .diagnostic_settings_helper import DiagnosticSettingsHelper
-        diag_helper = DiagnosticSettingsHelper(credential, subscription_id)
-        diag_helper.cleanup_orphaned_by_prefix(prefix, dry_run=dry_run)
-    except Exception as e:
-        logger.warning(f"  Diagnostic settings subscription-wide error: {e}")
-    
-    # ========================================
-    # PHASE 0.1: Diagnostic Settings Cleanup (RG-scoped)
-    # (Must run BEFORE resource deletion to prevent state drift)
-    # ========================================
-    logger.info("[Diagnostic Settings] Checking for orphans...")
-    try:
-        from .diagnostic_settings_helper import DiagnosticSettingsHelper
-        diag_helper = DiagnosticSettingsHelper(credential, subscription_id)
-        
-        for rg in resource_client.resource_groups.list():
-            if not resource_name_owned_by_prefix(rg.name, prefix):
-                continue
-            # List all resources in matching RG (cache to avoid double API call)
-            resources = list(resource_client.resources.list_by_resource_group(rg.name))
-            for resource in resources:
-                for setting in diag_helper.list(resource.id):
-                    setting_name = setting.get("name", "unknown")
-                    logger.info(f"  Found: {setting_name} on {resource.name}")
-                    if dry_run:
-                        logger.info("    [DRY RUN] Would delete")
-                    else:
-                        diag_helper.delete(resource.id, setting_name)
-                        logger.info("    ✓ Deleted")
-            
-            # Handle storage sub-resources (blobServices/default) - reuse cached list
-            for storage in [r for r in resources if r.type == "Microsoft.Storage/storageAccounts"]:
-                blob_uri = f"{storage.id}/blobServices/default"
-                for setting in diag_helper.list(blob_uri):
-                    setting_name = setting.get("name", "unknown")
-                    logger.info(f"  Found: {setting_name} on {storage.name}/blobServices/default")
-                    if dry_run:
-                        logger.info("    [DRY RUN] Would delete")
-                    else:
-                        diag_helper.delete(blob_uri, setting_name)
-                        logger.info("    ✓ Deleted")
-            
-            # Handle EventGrid system topics - reuse cached list
-            for eventgrid in [r for r in resources if r.type == "Microsoft.EventGrid/systemTopics"]:
-                for setting in diag_helper.list(eventgrid.id):
-                    setting_name = setting.get("name", "unknown")
-                    logger.info(f"  Found: {setting_name} on {eventgrid.name} (EventGrid)")
-                    if dry_run:
-                        logger.info("    [DRY RUN] Would delete")
-                    else:
-                        diag_helper.delete(eventgrid.id, setting_name)
-                        logger.info("    ✓ Deleted")
-    except Exception as e:
-        logger.warning(f"  Diagnostic settings cleanup error: {e}")
-    
-    # ========================================
-    # PHASE 0.2: Role Assignments Cleanup
-    # ========================================
-    logger.info("[Role Assignments] Checking for orphans...")
-    try:
-        from azure.mgmt.authorization import AuthorizationManagementClient
-        auth_client = AuthorizationManagementClient(credential, subscription_id)
-        
-        for rg in resource_client.resource_groups.list():
-            if not resource_name_owned_by_prefix(rg.name, prefix):
-                continue
-            rg_scope = f"/subscriptions/{subscription_id}/resourceGroups/{rg.name}"
-            for assignment in auth_client.role_assignments.list_for_scope(rg_scope):
-                # Skip inherited subscription-level role assignments (we can't delete those)
-                # Only delete assignments scoped to this RG or its child resources
-                if not assignment.scope.casefold().startswith(rg_scope.casefold()):
-                    logger.debug(f"  Skipping inherited assignment at scope: {assignment.scope}")
-                    continue
-                logger.info(f"  Found: {assignment.role_definition_id.split('/')[-1]} -> {assignment.principal_id[:8]}...")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        auth_client.role_assignments.delete_by_id(assignment.id)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # ========================================
-    # PHASE 0.3: CosmosDB SQL Role Assignments
-    # (Uses separate API from regular role assignments)
-    # ========================================
-    logger.info("[CosmosDB SQL Roles] Checking for orphans...")
-    try:
-        from azure.mgmt.cosmosdb import CosmosDBManagementClient
-        cosmos_client = CosmosDBManagementClient(credential, subscription_id)
-        for account in cosmos_client.database_accounts.list():
-            if not resource_name_owned_by_prefix(account.name, prefix):
-                continue
-            rg_name = account.id.split('/')[4]
-            for assignment in cosmos_client.sql_resources.list_sql_role_assignments(rg_name, account.name):
-                logger.info(f"  Found: SQL role on {account.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        cosmos_client.sql_resources.begin_delete_sql_role_assignment(
-                            assignment.name, rg_name, account.name
-                        ).result(timeout=120)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # ========================================
-    # PHASE 1: Check for orphaned resources
-    # ========================================
-    
-    # 1. CosmosDB accounts
-    logger.info("[CosmosDB] Checking for orphans...")
-    try:
-        from azure.mgmt.cosmosdb import CosmosDBManagementClient
-        cosmos_client = CosmosDBManagementClient(credential, subscription_id)
-        for account in cosmos_client.database_accounts.list():
-            if resource_name_owned_by_prefix(account.name, prefix):
-                logger.info(f"  Found orphan: {account.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = account.id.split('/')[4]
-                        poller = cosmos_client.database_accounts.begin_delete(rg_name, account.name)
-                        poller.result(timeout=600)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # 2. Grafana workspaces
-    logger.info("[Grafana] Checking for orphans...")
-    try:
-        from azure.mgmt.dashboard import DashboardManagementClient
-        dashboard_client = DashboardManagementClient(credential, subscription_id)
-        for workspace in dashboard_client.grafana.list():
-            if resource_name_owned_by_prefix(workspace.name, prefix):
-                logger.info(f"  Found orphan: {workspace.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = workspace.id.split('/')[4]
-                        poller = dashboard_client.grafana.begin_delete(rg_name, workspace.name)
-                        poller.result(timeout=600)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # 3. IoT Hubs
-    logger.info("[IoT Hub] Checking for orphans...")
-    try:
-        from azure.mgmt.iothub import IotHubClient
-        iothub_client = IotHubClient(credential, subscription_id)
-        for hub in iothub_client.iot_hub_resource.list_by_subscription():
-            if resource_name_owned_by_prefix(hub.name, prefix):
-                logger.info(f"  Found orphan: {hub.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = hub.id.split('/')[4]
-                        poller = iothub_client.iot_hub_resource.begin_delete(rg_name, hub.name)
-                        poller.result(timeout=600)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # 4. Digital Twins instances
-    logger.info("[Digital Twins] Checking for orphans...")
-    try:
-        from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
-        dt_client = AzureDigitalTwinsManagementClient(credential, subscription_id)
-        for instance in dt_client.digital_twins.list():
-            if resource_name_owned_by_prefix(instance.name, prefix):
-                logger.info(f"  Found orphan: {instance.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = instance.id.split('/')[4]
-                        poller = dt_client.digital_twins.begin_delete(rg_name, instance.name)
-                        poller.result(timeout=600)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # 5. Function Apps
-    logger.info("[Function Apps] Checking for orphans...")
-    try:
-        from azure.mgmt.web import WebSiteManagementClient
-        web_client = WebSiteManagementClient(credential, subscription_id)
-        for app in web_client.web_apps.list():
-            if resource_name_owned_by_prefix(app.name, prefix):
-                logger.info(f"  Found orphan: {app.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = app.id.split('/')[4]
-                        web_client.web_apps.delete(rg_name, app.name)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # 6. Storage Accounts
-    logger.info("[Storage Accounts] Checking for orphans...")
-    try:
-        from azure.mgmt.storage import StorageManagementClient
-        storage_client = StorageManagementClient(credential, subscription_id)
-        for account in storage_client.storage_accounts.list():
-            if resource_name_owned_by_prefix(
-                account.name,
-                prefix,
-                allow_compact=True,
-            ):
-                logger.info(f"  Found orphan: {account.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = account.id.split('/')[4]
-                        storage_client.storage_accounts.delete(rg_name, account.name)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # 7. Logic Apps
-    logger.info("[Logic Apps] Checking for orphans...")
-    try:
-        from azure.mgmt.logic import LogicManagementClient
-        logic_client = LogicManagementClient(credential, subscription_id)
-        for workflow in logic_client.workflows.list_by_subscription():
-            if resource_name_owned_by_prefix(workflow.name, prefix):
-                logger.info(f"  Found orphan: {workflow.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = workflow.id.split('/')[4]
-                        logic_client.workflows.delete(rg_name, workflow.name)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # 8. App Service Plans
-    logger.info("[App Service Plans] Checking for orphans...")
-    try:
-        from azure.mgmt.web import WebSiteManagementClient
-        web_client = WebSiteManagementClient(credential, subscription_id)
-        for plan in web_client.app_service_plans.list():
-            if resource_name_owned_by_prefix(plan.name, prefix):
-                logger.info(f"  Found orphan: {plan.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete")
-                else:
-                    try:
-                        rg_name = plan.id.split('/')[4]
-                        web_client.app_service_plans.delete(rg_name, plan.name)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error: {e}")
-    
-    # ========================================
-    # PHASE 2: Delete Resource Groups (nuclear option)
-    # ========================================
-    logger.info("[Resource Groups] Cleaning up (nuclear option)...")
-    try:
-        for rg in resource_client.resource_groups.list():
-            if resource_name_owned_by_prefix(rg.name, prefix):
-                logger.info(f"  Found RG: {rg.name}")
-                if dry_run:
-                    logger.info("    [DRY RUN] Would delete RG and all contents")
-                else:
-                    try:
-                        poller = resource_client.resource_groups.begin_delete(rg.name)
-                        poller.result(timeout=600)
-                        logger.info("    ✓ Deleted")
-                    except Exception as e:
-                        logger.warning(f"    ✗ Error: {e}")
-    except Exception as e:
-        logger.warning(f"  Error listing RGs: {e}")
-    
-    # ========================================
-    # PHASE 3: Entra ID User Cleanup (conditional)
-    # ========================================
-    if cleanup_entra_user:
-        logger.info("[Entra ID] Checking for user to clean up...")
-        try:
-            if not platform_user_email:
-                logger.info("  No platform_user_email provided, skipping")
-            else:
-                logger.info(f"  Looking for user: {platform_user_email}")
-                _cleanup_entra_user(
-                    credential,
-                    platform_user_email,
-                    dry_run=dry_run,
-                )
-        except Exception as e:
-            logger.warning(f"  Error: {e}")
-    else:
-        logger.info("[Entra ID] Skipping (user was pre-existing)")
-    
+
+    for label, step in _CLEANUP_STEPS:
+        logger.info("[%s] Checking for orphans...", label)
+        run.attempt(label, "inventory", lambda step=step: step(context))
+
+    if cleanup_entra_user and platform_user_email:
+        run.attempt(
+            "Entra ID",
+            platform_user_email,
+            lambda: _cleanup_entra_user(
+                credential,
+                platform_user_email,
+                dry_run=dry_run,
+            ),
+        )
+
+    run.raise_if_failed()
     logger.info("[Azure SDK] Fallback cleanup complete")
