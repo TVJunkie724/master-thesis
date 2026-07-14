@@ -41,6 +41,14 @@ router = APIRouter()
 PROVIDERS_ROOT = Path(__file__).resolve().parents[1] / "providers"
 
 
+def _public_function_inventory(functions: dict) -> dict:
+    """Remove host filesystem details from the public discovery contract."""
+    return {
+        name: {key: value for key, value in descriptor.items() if key != "path"}
+        for name, descriptor in functions.items()
+    }
+
+
 def _load_twin_name(project_name: str) -> str:
     config_path = Path(_get_upload_dir(project_name)) / CONSTANTS.CONFIG_FILE
     if not config_path.is_file():
@@ -150,10 +158,9 @@ def get_updatable_functions(
     - Event-feedback function (if configured)
     
     **Returns:** Dict mapping function names to metadata including:
-    - `provider`: aws, azure, or google (from config)
+    - `provider`: aws, azure, or gcp
     - `type`: event_action, processor, or feedback
     - `exists`: whether code directory exists
-    - `path`: absolute path to function code
     
     Results are cached for 60 seconds.
     """
@@ -164,7 +171,7 @@ def get_updatable_functions(
             return {
                 "project": project_name,
                 "cached": True,
-                "functions": cached
+                "functions": _public_function_inventory(cached),
             }
         
         # Discover functions
@@ -176,14 +183,17 @@ def get_updatable_functions(
         return {
             "project": project_name,
             "cached": False,
-            "functions": functions
+            "functions": _public_function_inventory(functions),
         }
     
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error("Error getting updatable functions: %s", redact_sensitive(e))
-        raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Error getting updatable functions: %s", redact_sensitive(exc))
+        raise HTTPException(
+            status_code=500,
+            detail="Function operation failed. Check logs.",
+        ) from exc
 
 
 @router.post(

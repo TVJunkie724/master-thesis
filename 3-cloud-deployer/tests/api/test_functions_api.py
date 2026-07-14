@@ -224,8 +224,155 @@ def test_function_discovery_accepts_canonical_google_provider(tmp_path, monkeypa
 
     functions = function_discovery._get_updatable_functions("runtime-project")
 
-    assert functions["sensor-1"]["provider"] == "google"
+    assert functions["sensor-1"]["provider"] == "gcp"
     assert functions["sensor-1"]["exists"] is True
+
+
+@pytest.mark.parametrize(
+    ("events", "devices"),
+    [
+        ([{"action": {"functionName": "../escape"}}], []),
+        ([], [{"id": "../escape"}]),
+    ],
+)
+def test_function_discovery_rejects_traversal_in_configured_names(
+    tmp_path,
+    monkeypatch,
+    events,
+    devices,
+):
+    bundle = SimpleNamespace(
+        project_path=tmp_path,
+        config=SimpleNamespace(
+            events=events,
+            iot_devices=devices,
+            providers={"layer_2_provider": "aws"},
+        ),
+    )
+    monkeypatch.setattr(
+        function_discovery,
+        "ProjectConfigLoader",
+        lambda: SimpleNamespace(load_bundle=lambda _project: bundle),
+    )
+    monkeypatch.setattr(
+        function_discovery,
+        "load_optimization_flags",
+        lambda _path: {
+            "useEventChecking": True,
+            "returnFeedbackToDevice": False,
+        },
+    )
+
+    with pytest.raises(ValueError, match="Invalid (function name|device id)"):
+        function_discovery._get_updatable_functions("runtime-project")
+
+
+def test_function_discovery_rejects_cross_type_name_collision(tmp_path, monkeypatch):
+    bundle = SimpleNamespace(
+        project_path=tmp_path,
+        config=SimpleNamespace(
+            events=[{"action": {"functionName": "sensor-1"}}],
+            iot_devices=[{"id": "sensor-1"}],
+            providers={"layer_2_provider": "aws"},
+        ),
+    )
+    monkeypatch.setattr(
+        function_discovery,
+        "ProjectConfigLoader",
+        lambda: SimpleNamespace(load_bundle=lambda _project: bundle),
+    )
+    monkeypatch.setattr(
+        function_discovery,
+        "load_optimization_flags",
+        lambda _path: {
+            "useEventChecking": True,
+            "returnFeedbackToDevice": False,
+        },
+    )
+
+    with pytest.raises(ValueError, match="Duplicate function name"):
+        function_discovery._get_updatable_functions("runtime-project")
+
+
+def test_function_discovery_rejects_symlinked_provider_source_root(
+    tmp_path,
+    monkeypatch,
+):
+    outside = tmp_path.parent / "outside-functions"
+    (outside / "processors" / "sensor-1").mkdir(parents=True)
+    (tmp_path / "lambda_functions").symlink_to(outside, target_is_directory=True)
+    bundle = SimpleNamespace(
+        project_path=tmp_path,
+        config=SimpleNamespace(
+            events=[],
+            iot_devices=[{"id": "sensor-1"}],
+            providers={"layer_2_provider": "aws"},
+        ),
+    )
+    monkeypatch.setattr(
+        function_discovery,
+        "ProjectConfigLoader",
+        lambda: SimpleNamespace(load_bundle=lambda _project: bundle),
+    )
+    monkeypatch.setattr(
+        function_discovery,
+        "load_optimization_flags",
+        lambda _path: {
+            "useEventChecking": False,
+            "returnFeedbackToDevice": False,
+        },
+    )
+
+    with pytest.raises(ValueError, match="symbolic links"):
+        function_discovery._get_updatable_functions("runtime-project")
+
+
+def test_public_function_inventory_does_not_expose_host_paths(monkeypatch):
+    function_discovery._invalidate_cache("runtime-project")
+    monkeypatch.setattr(
+        function_routes,
+        "_get_updatable_functions",
+        lambda _project: {
+            "sensor-1": {
+                "provider": "aws",
+                "type": "processor",
+                "exists": True,
+                "path": "/private/runtime/functions/sensor-1",
+            }
+        },
+    )
+
+    response = client.get(
+        "/functions/updatable_functions",
+        params={"project_name": "runtime-project"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["functions"]["sensor-1"] == {
+        "provider": "aws",
+        "type": "processor",
+        "exists": True,
+    }
+
+
+def test_function_cache_returns_defensive_copies(monkeypatch):
+    now = iter([10.0, 11.0, 12.0])
+    monkeypatch.setattr(function_discovery.time, "monotonic", lambda: next(now))
+    function_discovery._function_cache.clear()
+    function_discovery._cache_timestamps.clear()
+    original = {"sensor-1": {"provider": "aws"}}
+
+    function_discovery._set_cache("runtime-project", original)
+    original["sensor-1"]["provider"] = "azure"
+    cached = function_discovery._get_cached_functions("runtime-project")
+    assert cached == {"sensor-1": {"provider": "aws"}}
+
+    cached["sensor-1"]["provider"] = "gcp"
+    assert function_discovery._get_cached_functions("runtime-project") == {
+        "sensor-1": {"provider": "aws"}
+    }
+    function_discovery._function_cache.clear()
+    function_discovery._cache_timestamps.clear()
 
 
 def test_directory_hash_is_deterministic_and_tracks_content(tmp_path):
