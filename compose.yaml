@@ -68,6 +68,7 @@ services:
       - OPTIMIZER_URL=http://2twin2clouds:8000
       - DEPLOYER_URL=http://3cloud-deployer:8000
       - DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES=${DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES:-1440}
+      - UPLOAD_DIR=/app/uploads
     networks:
       - my_master_thesis_network
     depends_on:
