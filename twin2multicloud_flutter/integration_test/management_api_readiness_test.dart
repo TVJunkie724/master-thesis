@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:twin2multicloud_flutter/config/api_config.dart';
+import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 const _providers = {'aws', 'azure', 'gcp'};
@@ -94,6 +95,7 @@ void main() {
         isFalse,
         reason: 'Raw CloudConnection responses must not expose credentials',
       );
+      expect(rawConnections, isA<List<Object?>>());
 
       final connections = await _readOrFail(
         '/cloud-connections/',
@@ -102,6 +104,8 @@ void main() {
 
       for (final connection in connections) {
         expect(connection.id, isNotEmpty);
+        expect(CloudProvider.values, contains(connection.provider));
+        expect(CloudConnectionPurpose.values, contains(connection.purpose));
         expect(connection.displayName, isNotEmpty);
         expect(connection.authType, isNotEmpty);
         expect(connection.scope, isNotEmpty);
