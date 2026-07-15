@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import '../config/api_config.dart';
 import '../core/result.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
@@ -16,22 +15,56 @@ import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
 import 'management_api.dart';
 
+Dio _resolveDio({required Dio? dio, required Uri? baseUri}) {
+  if ((dio == null) == (baseUri == null)) {
+    throw ArgumentError(
+      'Provide exactly one ApiService transport source: dio or baseUri.',
+    );
+  }
+  return dio ??
+      Dio(
+        BaseOptions(
+          baseUrl: baseUri!.toString(),
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+}
+
+Uri _parseTransportBaseUri(String value) {
+  final uri = Uri.tryParse(value);
+  final hasRootPath = uri != null && (uri.path.isEmpty || uri.path == '/');
+  if (uri == null ||
+      !uri.isAbsolute ||
+      uri.host.isEmpty ||
+      !{'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment ||
+      !hasRootPath) {
+    throw ArgumentError(
+      'ApiService base URI must be an absolute HTTP(S) origin.',
+    );
+  }
+  return uri.replace(path: '');
+}
+
+String? _normalizeToken(String? value) {
+  if (value == null) return null;
+  if (value.isEmpty || RegExp(r'[\x00-\x20\x7F]').hasMatch(value)) {
+    throw ArgumentError('Authentication token must be non-empty and opaque.');
+  }
+  return value;
+}
+
 class ApiService implements ManagementApi {
   final Dio _dio;
-  String? _token = ApiConfig.devAuthToken;
+  late final Uri _baseUri;
+  String? _token;
 
-  /// Expose base URL for other services (e.g., SSE)
-  static String get baseUrl => ApiConfig.baseUrl;
-
-  ApiService({Dio? dio})
-    : _dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              baseUrl: ApiConfig.baseUrl,
-              headers: {'Content-Type': 'application/json'},
-            ),
-          ) {
+  ApiService({Dio? dio, Uri? baseUri, String? initialAuthToken})
+    : _dio = _resolveDio(dio: dio, baseUri: baseUri),
+      _token = _normalizeToken(initialAuthToken) {
+    _baseUri = _parseTransportBaseUri(_dio.options.baseUrl);
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -45,7 +78,7 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  void setToken(String token) => _token = token;
+  void setToken(String? token) => _token = _normalizeToken(token);
 
   /// Get current auth token for SSE connections
   @override
@@ -676,11 +709,35 @@ class ApiService implements ManagementApi {
   /// Get full SSE URL for streaming deployment logs
   @override
   String getSseUrl(String sseUrl, {int? lastEventId}) {
-    final base = '${ApiConfig.baseUrl}$sseUrl';
-    if (lastEventId != null && lastEventId > 0) {
-      return '$base?last_event_id=$lastEventId';
+    final relative = Uri.tryParse(sseUrl);
+    if (relative == null ||
+        relative.isAbsolute ||
+        !sseUrl.startsWith('/') ||
+        sseUrl.startsWith('//') ||
+        relative.path != sseUrl ||
+        relative.pathSegments.any(
+          (segment) => segment == '.' || segment == '..',
+        ) ||
+        relative.hasQuery ||
+        relative.hasFragment) {
+      throw const AppException(
+        'SSE path must be an absolute-path relative Management API route.',
+        code: 'DEPLOYMENT_CONTRACT_INVALID',
+      );
     }
-    return base;
+    if (lastEventId != null && lastEventId < 0) {
+      throw const AppException(
+        'SSE cursor cannot be negative.',
+        code: 'DEPLOYMENT_CONTRACT_INVALID',
+      );
+    }
+    final base = _baseUri.resolveUri(relative);
+    if (lastEventId != null && lastEventId > 0) {
+      return base
+          .replace(queryParameters: {'last_event_id': lastEventId.toString()})
+          .toString();
+    }
+    return base.toString();
   }
 
   /// Get deployment logs from database (for catchup after reconnection)

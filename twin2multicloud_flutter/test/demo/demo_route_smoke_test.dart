@@ -33,10 +33,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
 
-        final runtime = AppRuntimeConfig(
-          mode: AppMode.demo,
-          demoScenario: scenario,
-        );
+        final runtime = AppRuntimeConfig.demo(demoScenario: scenario);
         final composition = await RuntimeComposition.bootstrap(runtime);
         await tester.pumpWidget(
           ProviderScope(

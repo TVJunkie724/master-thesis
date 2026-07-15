@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/models/cloud_access_inventory.dart';
 import 'package:twin2multicloud_flutter/models/user.dart';
-import 'package:twin2multicloud_flutter/providers/auth_provider.dart';
-import 'package:twin2multicloud_flutter/providers/twins_provider.dart';
+import 'package:twin2multicloud_flutter/config/app_runtime.dart';
+import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/settings_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
@@ -20,14 +20,19 @@ void main() {
       () => api.getCloudAccessInventory(),
     ).thenAnswer((_) async => _inventory());
     final container = ProviderContainer(
-      overrides: [apiServiceProvider.overrideWithValue(api)],
+      overrides: [
+        appRuntimeProvider.overrideWithValue(
+          AppRuntimeConfig.production(
+            managementApiBaseUri: Uri.parse('https://management.test'),
+          ),
+        ),
+        apiServiceProvider.overrideWithValue(api),
+        initialUserProvider.overrideWithValue(
+          User(id: 'user-1', email: 'developer@example.com', name: 'Developer'),
+        ),
+      ],
     );
     addTearDown(container.dispose);
-    container
-        .read(authProvider.notifier)
-        .loginWithUser(
-          User(id: 'user-1', email: 'developer@example.com', name: 'Developer'),
-        );
 
     await tester.pumpWidget(
       UncontrolledProviderScope(

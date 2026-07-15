@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:twin2multicloud_flutter/config/api_config.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 import 'package:twin2multicloud_flutter/services/log_stream_client.dart';
 import 'package:twin2multicloud_flutter/services/management_api.dart';
@@ -7,7 +6,7 @@ import 'package:twin2multicloud_flutter/services/sse_service.dart';
 
 void main() {
   test('HTTP adapter implements the complete Management API contract', () {
-    final adapter = ApiService();
+    final adapter = ApiService(baseUri: Uri.parse('http://management.test'));
 
     expect(adapter, isA<ManagementApi>());
     expect(adapter, isA<TwinApi>());
@@ -21,8 +20,8 @@ void main() {
 
   test('SSE adapter implements the log stream contract', () {
     final adapter = SseService(
-      baseUrl: ApiConfig.baseUrl,
-      authToken: ApiConfig.devAuthToken,
+      baseUrl: 'http://management.test',
+      authToken: 'local-token',
     );
 
     expect(adapter, isA<LogStreamClient>());

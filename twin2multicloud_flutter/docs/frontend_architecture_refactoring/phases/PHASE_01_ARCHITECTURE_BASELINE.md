@@ -2,8 +2,8 @@
 title: "Phase 1: Architecture Baseline"
 description: "Freeze frontend dependency rules, migration inventory, and state ownership before further UI delta implementation."
 tags: [flutter, architecture, baseline, refactoring]
-lastUpdated: "2026-06-18"
-version: "1.0"
+lastUpdated: "2026-07-15"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -15,10 +15,12 @@ version: "1.0"
 - twin2multicloud_flutter/lib/services/api_service.dart
 - twin2multicloud_flutter/lib/providers/
 - twin2multicloud_flutter/lib/bloc/
-EXTRACTED: 2026-06-18 | VERSION: 1.0
+EXTRACTED: 2026-07-15 | VERSION: 1.1
 -->
 
 # Phase 1: Architecture Baseline
+
+**Status:** Completed
 
 ## Summary
 
@@ -57,6 +59,35 @@ inventory for large files and raw-map boundaries.
   - `lib/screens/wizard/step3_deployer.dart`.
 - Test strategy per migration area.
 
+## Binding State Ownership
+
+Twin2MultiCloud deliberately uses Riverpod and BLoC at different architectural
+levels. They are complementary; a feature must not mirror the same mutable
+state in both systems.
+
+| Owner | Allowed responsibilities | Not allowed |
+|---|---|---|
+| Riverpod | Runtime profile, dependency composition, Management API and stream adapter injection, session/auth shell, theme, router, fixture identity | Multi-step feature state machines, provider-specific wizard rules, deployment reconnect orchestration |
+| BLoC | Wizard workflows, pricing review, cloud-account commands, deployment operations, logs/reconnect, Twin Overview feature state | Reading Dart defines, constructing HTTP clients, owning app theme/router/session |
+| Repositories and API ports | Typed Management API use cases, transport mechanics, DTO decoding, normalized failures | Widget state, navigation, direct Optimizer/Deployer access |
+| Widgets and screens | Render typed state and emit callbacks/events | HTTP calls, response parsing, credential handling, duplicated feature state |
+
+Composition flows in one direction:
+
+```text
+AppRuntimeConfig
+  -> RuntimeComposition / Riverpod adapter providers
+  -> route-level BLoC construction
+  -> typed BLoC state
+  -> presentation
+```
+
+The runtime profile is a single immutable value. `development` requires an
+explicit Management API origin and local token, `production` requires HTTPS
+and starts token-free, and `demo` has fixture adapters with no network config.
+Production authentication remains fail-closed until GitHub issue #10 provides
+the real OAuth/SAML session lifecycle.
+
 ## Acceptance Criteria
 
 - The implementation architect can determine where a new API method, DTO,
@@ -72,8 +103,8 @@ inventory for large files and raw-map boundaries.
 - Concept review against this roadmap.
 - Static inventory review for direct Optimizer/Deployer calls, raw maps, and
   side effects in widgets.
-- No Dart code changes are required in this phase unless the later architect
-  plan explicitly scopes them.
+- Runtime ownership is enforced by the Flutter architecture checker and its
+  tests; feature behavior remains covered by BLoC and widget tests.
 
 ## Roadmap Anchor
 

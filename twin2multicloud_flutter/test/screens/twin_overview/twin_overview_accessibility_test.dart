@@ -22,7 +22,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       final semantics = tester.ensureSemantics();
 
-      const runtime = AppRuntimeConfig(mode: AppMode.demo);
+      const runtime = AppRuntimeConfig.demo();
       final composition = await RuntimeComposition.bootstrap(runtime);
       await tester.pumpWidget(
         ProviderScope(

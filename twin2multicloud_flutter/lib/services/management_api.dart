@@ -13,7 +13,7 @@ import '../models/pricing_refresh_run.dart';
 import '../models/wizard_config_requests.dart';
 
 abstract interface class SessionApi {
-  void setToken(String token);
+  void setToken(String? token);
 
   Future<String?> getAuthToken();
 }

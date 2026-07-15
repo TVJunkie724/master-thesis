@@ -133,12 +133,12 @@ class MockApiService {
   // API Methods
   // ================================================================
 
-  void setToken(String token) {
+  void setToken(String? token) {
     _trackCall('setToken', [token]);
     _token = token;
   }
 
-  String? getAuthToken() {
+  Future<String?> getAuthToken() async {
     _trackCall('getAuthToken');
     return _token;
   }

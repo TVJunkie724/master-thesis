@@ -23,10 +23,7 @@ void main() {
     };
 
     for (final entry in expectations.entries) {
-      final runtime = AppRuntimeConfig(
-        mode: AppMode.demo,
-        demoScenario: entry.key,
-      );
+      final runtime = AppRuntimeConfig.demo(demoScenario: entry.key);
       final composition = await RuntimeComposition.bootstrap(runtime);
       await tester.pumpWidget(
         ProviderScope(
