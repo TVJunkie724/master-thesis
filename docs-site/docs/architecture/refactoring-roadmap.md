@@ -31,7 +31,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 2 | Deployer Contract Hardening | Mostly done | Typed deploy/destroy/SSE/error contracts |
 | Phase 3 | Repository Hygiene & Docs Site | Active | Separate docs, templates, runtime artifacts, and historical material |
 | Phase 4 | Runtime Credentials & Deployment State | Active | Credential SSOT, bootstrap, explicit deployment package/context, operation state |
-| Phase 5 | Backend Orchestrator Disentanglement | Planned | Thin HTTP routes with repositories, services, clients, and orchestrators |
+| Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Planned | Typed optimizer layer/pricing/capability contracts |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed API boundaries, Twin Overview, demo, and quality gate completed |
 | Later | Multi-Cloud Extensions & Thesis | Backlog | Non-blocking provider extensions, evaluation, and thesis polishing |
@@ -50,6 +50,7 @@ when work becomes actionable, then reference the issue here.
 | [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation, output, log, and utility slices |
 | [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Cross-cutting Flutter architecture, test, build, and local contract gate |
 | [#72](https://github.com/TVJunkie724/master-thesis/issues/72) | Done | Stable twin, configuration, optimizer, pricing-export, and deployer response boundaries are typed and live-contract verified |
+| [#39](https://github.com/TVJunkie724/master-thesis/issues/39) | Done | Deployment and destroy lifecycle, persisted status, safe confirmations, and Management API log streaming reconciled |
 
 ## Active And Planned Refactoring Issues
 
@@ -118,13 +119,13 @@ when work becomes actionable, then reference the issue here.
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| [#63](https://github.com/TVJunkie724/master-thesis/issues/63) | Open | Introduce repositories and remove route-owned queries |
-| [#64](https://github.com/TVJunkie724/master-thesis/issues/64) | Open | Move twin state transitions into `TwinLifecycleService` |
-| [#65](https://github.com/TVJunkie724/master-thesis/issues/65) | Open | Typed `OptimizerClient` and `DeployerClient` boundaries |
-| [#66](https://github.com/TVJunkie724/master-thesis/issues/66) | Open, blocked by #63/#64/#65 | DeploymentOrchestrator |
-| [#67](https://github.com/TVJunkie724/master-thesis/issues/67) | Open, blocked by #66 | Split backend twin routes into focused adapters |
-| [#35](https://github.com/TVJunkie724/master-thesis/issues/35) | Open | Verify Management API compatibility with Optimizer and Deployer |
-| [#39](https://github.com/TVJunkie724/master-thesis/issues/39) | Open | Complete deployment lifecycle UI/backend workflow |
+| [#63](https://github.com/TVJunkie724/master-thesis/issues/63) | Done | Repositories own persistence and routes no longer own queries |
+| [#64](https://github.com/TVJunkie724/master-thesis/issues/64) | Done | Twin state transitions live in `TwinLifecycleService` |
+| [#65](https://github.com/TVJunkie724/master-thesis/issues/65) | Done | Typed `OptimizerClient` and `DeployerClient` boundaries |
+| [#66](https://github.com/TVJunkie724/master-thesis/issues/66) | Done | Deployment orchestration is isolated behind `DeploymentOrchestrator` |
+| [#67](https://github.com/TVJunkie724/master-thesis/issues/67) | Done | Twin routes are split into focused HTTP adapters |
+| [#35](https://github.com/TVJunkie724/master-thesis/issues/35) | Done | Management API compatibility with Optimizer and Deployer verified |
+| [#39](https://github.com/TVJunkie724/master-thesis/issues/39) | Done | Canonical deployment lifecycle, retry/recovery, explicit destroy confirmation, and Management API-only log streaming completed through #73 |
 
 ### Phase 6: Brain Contracts & Pricing Reliability
 
@@ -150,7 +151,7 @@ when work becomes actionable, then reference the issue here.
 | [#38](https://github.com/TVJunkie724/master-thesis/issues/38) | Done | Flutter wizard and large UI decomposition completed |
 | [#40](https://github.com/TVJunkie724/master-thesis/issues/40) | Open | Twin operations dashboard |
 | [#41](https://github.com/TVJunkie724/master-thesis/issues/41) | Open | Centralized error notification and UI alerts |
-| [#71](https://github.com/TVJunkie724/master-thesis/issues/71) | Open | Frontend state-management boundaries and dev auth |
+| [#71](https://github.com/TVJunkie724/master-thesis/issues/71) | Done | Frontend state-management boundaries and dev auth |
 | [#72](https://github.com/TVJunkie724/master-thesis/issues/72) | Done | Typed Flutter API responses and contained raw-payload exceptions |
 | [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation and presentation slices |
 | [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Frontend cross-cutting quality and thesis evidence gate |
@@ -180,9 +181,9 @@ when work becomes actionable, then reference the issue here.
 ## Next Recommended Sequence
 
 1. Finish the remaining Phase 4 credential/runtime work: #6, #79, #11, #12, #13.
-2. Start backend orchestration disentanglement with #63, #64, and #65 before #66.
-3. Split route adapters through #67 after the orchestrator boundary is stable.
-4. Continue the remaining deployment lifecycle integration in #39; the Flutter
-   architecture, runtime-auth, typed-boundary, Twin Overview, and quality-gate
-   issues #38, #71, #72, #73, and #108 are complete.
-5. Move optimizer reliability work into Phase 6 once deployment/runtime boundaries are stable.
+2. Reconcile the remaining Deployer contract and module debt in #19, #14, and
+   #45 after the explicit runtime-context boundary is complete.
+3. Move optimizer reliability work into Phase 6 once deployment/runtime
+   boundaries are stable.
+4. Keep live-cloud E2E evidence in opt-in issue #107; default verification must
+   remain resource-free.
