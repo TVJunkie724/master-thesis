@@ -55,7 +55,7 @@ def main():
     print("\n[Azure] Validating...")
     try:
         from azure.identity import ClientSecretCredential
-        from azure.mgmt.resource import ResourceManagementClient
+        from azure.mgmt.resource.resources import ResourceManagementClient
         azure = creds.get("azure", {})
         credential = ClientSecretCredential(
             tenant_id=azure["azure_tenant_id"],

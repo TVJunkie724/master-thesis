@@ -4,15 +4,15 @@ Tests for the AWS Credentials Checker module.
 Tests the permission checking logic with mocked AWS responses.
 """
 import pytest
+from botocore.exceptions import ClientError
 from unittest.mock import Mock, patch, MagicMock
 import json
-import sys
-import os
 
 from src.api.credentials_checker import (
     check_aws_credentials,
     check_aws_credentials_from_config,
     _get_all_required_permissions,
+    _get_attached_permissions,
     _check_permission,
     _extract_permissions,
     REQUIRED_AWS_PERMISSIONS,
@@ -176,6 +176,44 @@ class TestExtractPermissions:
         assert "*" in permissions
 
 
+class TestManagedPolicyInspection:
+    @pytest.mark.parametrize(
+        ("failing_method", "expected_permission"),
+        [
+            ("get_policy", "iam:GetPolicy"),
+            ("get_policy_version", "iam:GetPolicyVersion"),
+        ],
+    )
+    def test_attached_policy_read_denial_is_reported(
+        self,
+        failing_method,
+        expected_permission,
+    ):
+        iam = Mock()
+        iam.list_role_policies.return_value = {"PolicyNames": []}
+        iam.list_attached_role_policies.return_value = {
+            "AttachedPolicies": [{"PolicyArn": "arn:aws:iam::aws:policy/Test"}],
+        }
+        iam.get_policy.return_value = {
+            "Policy": {"DefaultVersionId": "v1"},
+        }
+        getattr(iam, failing_method).side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+            failing_method,
+        )
+
+        permissions, missing_check_permission = _get_attached_permissions(
+            iam,
+            {
+                "arn": "arn:aws:iam::123456789012:role/deployer",
+                "principal_type": "role",
+            },
+        )
+
+        assert permissions == set()
+        assert missing_check_permission == expected_permission
+
+
 class TestCheckAWSCredentials:
     """Tests for the main check_aws_credentials function."""
     
@@ -196,8 +234,6 @@ class TestCheckAWSCredentials:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_invalid_credentials(self, mock_session):
         """Test with invalid credentials."""
-        from botocore.exceptions import ClientError
-        
         mock_sts = Mock()
         mock_sts.get_caller_identity.side_effect = ClientError(
             {"Error": {"Code": "InvalidClientTokenId", "Message": "Invalid"}},
@@ -277,8 +313,6 @@ class TestCheckAWSCredentials:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_cannot_list_policies(self, mock_session):
         """Test when credentials can't list their own policies."""
-        from botocore.exceptions import ClientError
-        
         # Mock STS client - works
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {
@@ -327,8 +361,6 @@ class TestCheckAWSCredentials:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_assumed_role_self_check_failure(self, mock_session):
         """Test self-check failure for assumed role provides role-specific permissions."""
-        from botocore.exceptions import ClientError
-        
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {
             "Account": "123456789012",
@@ -427,8 +459,6 @@ class TestCheckAWSCredentials:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_expired_session_token(self, mock_session):
         """Test handling of expired session tokens."""
-        from botocore.exceptions import ClientError
-        
         mock_session.return_value.client.return_value.get_caller_identity.side_effect = ClientError(
             {"Error": {"Code": "ExpiredToken", "Message": "Token has expired"}},
             "GetCallerIdentity"
@@ -533,8 +563,6 @@ class TestSessionTokenSupport:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_session_token_passed(self, mock_session):
         """Verify session token is passed to boto3."""
-        from botocore.exceptions import ClientError
-        
         mock_session.return_value.client.return_value.get_caller_identity.side_effect = ClientError(
             {"Error": {"Code": "InvalidClientTokenId", "Message": "Invalid"}},
             "GetCallerIdentity"
@@ -562,8 +590,6 @@ class TestAWSAccountStatusCheck:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_suspended_account_detected(self, mock_session):
         """Test that suspended accounts are detected and fail early."""
-        from botocore.exceptions import ClientError
-        
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {
             "Account": "123456789012",
@@ -611,8 +637,6 @@ class TestAWSAccountStatusCheck:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_non_org_account_gracefully_skipped(self, mock_session):
         """Test that standalone accounts (not in Organizations) skip the check gracefully."""
-        from botocore.exceptions import ClientError
-        
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {
             "Account": "123456789012",
@@ -673,8 +697,6 @@ class TestAWSAccountStatusCheck:
     @patch("src.api.credentials_checker.boto3.Session")
     def test_access_denied_to_orgs_gracefully_skipped(self, mock_session):
         """Test that lack of Organizations permission skips the check gracefully."""
-        from botocore.exceptions import ClientError
-        
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {
             "Account": "123456789012",

@@ -9,7 +9,7 @@ Tests cover token validation and payload handling for Azure Functions:
 
 import pytest
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import os
 import sys
 

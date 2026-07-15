@@ -1,11 +1,9 @@
 # Refactored Azure price fetcher - Simplified & Readable
 
-import json, copy
 from typing import Dict, Any, Iterable, List, Optional
 import requests
 
 from backend.logger import logger
-import backend.config_loader as config_loader
 from backend.fetch_data.fetch_evidence import (
     FieldMatchEvidence,
     MatchStatus,
@@ -211,7 +209,6 @@ def _find_best_match_with_evidence(
         product = (r.get("productName") or "").lower()
         meter = (r.get("meterName") or "").lower()
         unit = (r.get("unitOfMeasure") or "").lower()
-        sku = (r.get("skuName") or "").lower()
         price = float(r.get("unitPrice", 0))
 
         # 1. Basic Filtering
@@ -375,10 +372,11 @@ def _fetch_iot_hub(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dic
                 "threshold": defaults["pricing_tiers"][tier_key]["threshold"],
                 "price": price
             }
-            if debug: logger.debug(f"   ✔️ Matched IoT {tier_key}: {_sanitize_row(match)}")
+            if debug:
+                logger.debug(f"   ✔️ Matched IoT {tier_key}: {_sanitize_row(match)}")
         else:
-            if debug: logger.debug(f"   ❌ IoT {tier_key} not found (SKU: {sku_label})")
-            pass
+            if debug:
+                logger.debug(f"   ❌ IoT {tier_key} not found (SKU: {sku_label})")
             
     return result
 
@@ -391,7 +389,7 @@ def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Di
             logger.debug("    " + str(_sanitize_row(r)))
         if more_than_10_rows:
             logger.debug("    ...")
-            logger.debug("    (and {} more)")
+            logger.debug("    (and %s more)", len(rows) - 10)
         logger.debug("------------------------------------------------")
 
     spec = AZURE_SERVICE_KEYWORDS.get(neutral)
@@ -420,8 +418,10 @@ def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Di
                     service_name=neutral,
                 )
                 match = dict(evidence.selected_row) if evidence.status == MatchStatus.SELECTED else None
-                if match: break
-            if match: break
+                if match:
+                    break
+            if match:
+                break
             
         if match:
             raw_price = float(match.get("unitPrice", 0))
@@ -473,9 +473,6 @@ def fetch_azure_price(service_name: str, region_code: str, region_map: Dict[str,
     mapping = service_mapping.get(neutral, {})
     azure_service_name = mapping.get("azure")
 
-    # 2. Prepare Defaults
-    defaults = copy.deepcopy(STATIC_DEFAULTS_AZURE.get(neutral, {}))
-    
     if not azure_service_name:
         logger.warning(f"⚠️ No Azure service mapping for {neutral}")
         return {} 

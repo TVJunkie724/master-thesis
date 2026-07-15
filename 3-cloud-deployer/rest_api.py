@@ -6,19 +6,26 @@ Uses lazy imports for globals to support the new provider pattern.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
-import sys
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from logger import logger
+from src.api.error_handling import internal_server_error
 
 # Import API routers
-from src.api import projects, validation, deployment, status, info, simulator, credentials, functions, logs, verify
+from src.api import (
+    credentials,
+    deployment,
+    functions,
+    info,
+    logs,
+    projects,
+    simulator,
+    status,
+    validation,
+    verify,
+)
 
 # --------- Lifespan context manager ----------
 @asynccontextmanager
@@ -32,12 +39,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Digital Twin Manager API",
     version="2.0",
-    description=(
-        "API for deploying, destroying, and inspecting Digital Twin environment resources."
-        "<h3>🔗 Useful Links</h3>"
-        "<h4>📘 Documentation</h4>"
-        "<ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
-        ),
+    description="Internal API for deploying, destroying, and inspecting Digital Twin resources.",
     openapi_tags=[
         {
             "name": "Projects", 
@@ -73,11 +75,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
 
-@app.get("/favicon.ico", include_in_schema=False)
-async def favicon():
-    return FileResponse("docs/references/favicon.ico")
+async def unhandled_exception_handler(
+    request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """Fail closed for exceptions that escape every route boundary."""
+    error = internal_server_error(f"{request.method} request", exc)
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"detail": error.detail},
+    )
+
+
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 # Include Routers
 app.include_router(info.router)

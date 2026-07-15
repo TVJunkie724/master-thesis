@@ -1,9 +1,6 @@
-import json
-import re
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List
 from google.cloud import billing_v1
 from backend.logger import logger
-import backend.constants as CONSTANTS
 from backend.fetch_data.fetch_evidence import (
     FieldMatchEvidence,
     MatchStatus,
@@ -133,32 +130,6 @@ GCP_SERVICE_KEYWORDS = {
             "dataTransferOutPrice": {
                 "desc_keywords": ["Internet Egress", "Intercontinental"],
                 "unit_keywords": ["gibibyte"]
-            }
-        }
-    },
-    "computeEngine": {
-        "service_display_name": "Compute Engine",
-        "meters": {
-            "e2Core": {
-                "desc_keywords": ["E2 Instance Core"],
-                "unit_keywords": ["hour"]
-            },
-            "e2Ram": {
-                "desc_keywords": ["E2 Instance Ram"],
-                "unit_keywords": ["gibibyte hour"]
-            },
-            "storagePrice": {
-                "desc_keywords": ["Balanced PD Capacity"],
-                "unit_keywords": ["gibibyte month"]
-            }
-        }
-    },
-    "data_access": {
-        "service_display_name": "Google Service Control",
-        "meters": {
-            "pricePerMillionCalls": {
-                "desc_keywords": ["Operations"],
-                "unit_keywords": ["count"]
             }
         }
     },

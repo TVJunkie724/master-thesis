@@ -7,7 +7,6 @@ Tests for Azure Digital Twins helper functions that handle:
 """
 
 import unittest
-from unittest.mock import MagicMock, patch
 
 
 class TestBuildAdtPatch(unittest.TestCase):

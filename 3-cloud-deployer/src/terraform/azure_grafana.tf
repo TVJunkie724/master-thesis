@@ -29,7 +29,7 @@ resource "azurerm_dashboard_grafana" "main" {
 
   # Standard SKU for production use
   sku = "Standard"
-  
+
   # Grafana version (11 required for Standard SKU as of 2024)
   grafana_major_version = "11"
 
@@ -75,16 +75,16 @@ locals {
 # Assign Grafana Admin role (with deterministic UUID for idempotency)
 resource "azurerm_role_assignment" "grafana_admin" {
   count = local.azure_grafana_enabled ? 1 : 0
-  
+
   # Deterministic UUID includes deployment_suffix for per-scenario uniqueness
   # Azure role assignment UUIDs must be globally unique across the tenant
   name                 = uuidv5("dns", "${var.platform_user_email}-grafana-admin-${local.deployment_suffix}")
   scope                = azurerm_dashboard_grafana.main[0].id
   role_definition_name = "Grafana Admin"
-  
+
   # Use shared platform_user_object_id from azure_user.tf
   principal_id = local.platform_user_object_id
-  
+
   # Ensure user is created before role assignment
   depends_on = [azuread_user.platform_user]
 }

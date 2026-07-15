@@ -5,7 +5,6 @@ Tests the AzureNaming class to ensure all resource names follow
 Azure naming rules and restrictions.
 """
 
-import pytest
 from src.providers.azure.naming import AzureNaming
 
 

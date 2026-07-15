@@ -10,7 +10,6 @@ from unittest.mock import patch, MagicMock
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../src'))
 
 import constants as CONSTANTS
-import file_manager
 import validator
 
 class TestValidation(unittest.TestCase):
@@ -756,7 +755,6 @@ class TestValidation(unittest.TestCase):
             "layer_3_hot_provider": "aws",
             "layer_4_provider": "aws"
         }
-        configs = {CONSTANTS.CONFIG_PROVIDERS_FILE: providers}
         # Note: We need to override the helper's auto-add of hierarchy
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w') as zf:
@@ -803,7 +801,6 @@ class TestValidation(unittest.TestCase):
             "layer_3_hot_provider": "google",
             "layer_4_provider": "google"
         }
-        configs = {CONSTANTS.CONFIG_PROVIDERS_FILE: providers}
         # No hierarchy file added - should still pass for Google
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w') as zf:

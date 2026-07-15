@@ -1,10 +1,10 @@
 import json
+
 from google.cloud import billing_v1
-import json
-from google.cloud import billing_v1
-from backend.logger import logger
-import backend.utils as utils
+
 import backend.config_loader as config_loader
+import backend.utils as utils
+from backend.logger import logger
 from backend.constants import GCP_REGIONS_FILE_PATH
 from typing import Dict
 

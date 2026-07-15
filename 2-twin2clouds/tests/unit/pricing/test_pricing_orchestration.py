@@ -18,7 +18,7 @@ from backend.logger import logger
 @patch('backend.fetch_data.cloud_price_fetcher_google.fetch_gcp_price')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.billing_v1.CloudCatalogClient')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.load_gcp_credentials')
-@patch('pathlib.Path.write_text')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
 def test_calculate_up_to_date_pricing_integration(
     mock_write_text,
     mock_load_gcp_credentials,
@@ -199,7 +199,7 @@ def test_fetch_google_data_structure(mock_fetch):
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_credentials_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
 @patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
-@patch('pathlib.Path.write_text')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
 def test_calculate_up_to_date_pricing_handles_errors(
     mock_write_text,
     mock_aws_price,

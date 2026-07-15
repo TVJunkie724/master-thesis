@@ -17,10 +17,10 @@
 
 locals {
   l2_aws_enabled = var.layer_2_provider == "aws"
-  
+
   # Pre-built Lambda packages directory
   l2_lambda_build_dir = "${var.project_path}/.build/aws"
-  
+
 }
 
 # ==============================================================================
@@ -321,7 +321,7 @@ resource "aws_lambda_function" "processor_wrapper" {
 
 resource "aws_lambda_function" "user_processor" {
   for_each = { for p in var.aws_processors : p.name => p }
-  
+
   function_name = format(local.aws_l2_processor_name_pattern, each.value.name)
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
@@ -347,7 +347,7 @@ resource "aws_lambda_function" "user_processor" {
 
 resource "aws_lambda_function" "event_action" {
   for_each = var.use_event_checking ? { for a in var.aws_event_actions : a.name => a } : {}
-  
+
   function_name = format(local.aws_l2_event_action_name_pattern, each.value.name)
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"

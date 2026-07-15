@@ -1,4 +1,6 @@
-from fastapi import Depends, HTTPException, Header
+import secrets
+
+from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from src.models.database import get_db
 from src.models.user import User
@@ -30,8 +32,9 @@ async def _get_current_user_dev(
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ) -> User:
-    """Development-only auth bypass. Uses 'Bearer dev-token' to get first user."""
-    if authorization == "Bearer dev-token":
+    """Resolve the configured local/test identity for an explicit dev token."""
+    expected = f"Bearer {settings.DEV_AUTH_TOKEN}"
+    if authorization and secrets.compare_digest(authorization, expected):
         user = db.query(User).first()
         if user:
             return user
@@ -46,5 +49,11 @@ async def _get_current_user_dev(
     return await _get_current_user_real(authorization, db)
 
 
-# Export the correct dependency based on DEBUG mode
-get_current_user = _get_current_user_dev if settings.DEBUG else _get_current_user_real
+async def get_current_user(
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Authenticate a request, with an explicit non-production dev capability."""
+    if settings.DEV_AUTH_ENABLED:
+        return await _get_current_user_dev(authorization, db)
+    return await _get_current_user_real(authorization, db)

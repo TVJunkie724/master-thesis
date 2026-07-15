@@ -3,7 +3,6 @@ Tests for platform user config validation in check_user_config_for_l4_l5().
 """
 
 import pytest
-from unittest.mock import MagicMock
 from src.validation.core import check_user_config_for_l4_l5, ValidationContext
 
 

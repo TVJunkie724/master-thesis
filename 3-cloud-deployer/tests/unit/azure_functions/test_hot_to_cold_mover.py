@@ -11,7 +11,6 @@ import sys
 import json
 import pytest
 from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone, timedelta
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -96,7 +95,6 @@ class TestAzureHotToColdMoverQuery:
                     mock_container.query_items.return_value = []
                     
                     # Import after env is set
-                    from importlib import import_module
                     # Force reimport
                     if "function_app" in sys.modules:
                         del sys.modules["function_app"]

@@ -12,7 +12,7 @@ This module consolidates the get_user_twin helper that was duplicated across:
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from src.models.twin import DigitalTwin
+from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 
 
@@ -33,7 +33,8 @@ async def get_user_twin(twin_id: str, user: User, db: Session) -> DigitalTwin:
     """
     twin = db.query(DigitalTwin).filter(
         DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == user.id
+        DigitalTwin.user_id == user.id,
+        DigitalTwin.state != TwinState.INACTIVE,
     ).first()
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")

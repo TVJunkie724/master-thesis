@@ -21,8 +21,6 @@ import '../../models/deployer_artifact_validation.dart';
 /// 4. Validate button
 /// 5. Validation feedback
 ///
-/// TODO(future-work-18): Add requirements.txt validation
-/// See 3-cloud-deployer/docs/future-work.md#18
 class FunctionPackageBlock extends StatefulWidget {
   /// Filename for the Python code (e.g., 'processors/sensor-1/lambda_function.py')
   final String codeFilename;

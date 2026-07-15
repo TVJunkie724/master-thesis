@@ -19,7 +19,7 @@ Usage:
         print(f"Fetcher: {fetcher.name}")
 """
 
-from typing import Protocol, Dict, Any, Optional, List, runtime_checkable
+from typing import Protocol, Dict, Any, List, runtime_checkable
 
 
 # =============================================================================

@@ -6,14 +6,12 @@ errors instead of failing on the first one.
 """
 import json
 import pytest
-from unittest.mock import MagicMock, patch
 from src.validation.core import (
     run_all_checks_aggregated,
     ValidationContext,
     ValidationResult,
     check_deployment_manifest,
     check_required_files,
-    FileAccessor,
 )
 
 

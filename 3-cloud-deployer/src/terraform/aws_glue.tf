@@ -29,14 +29,14 @@ locals {
     # Archive Writer: L3 cold is on another cloud, L3 archive is on AWS
     (var.layer_3_cold_provider != "aws" && var.layer_3_archive_provider == "aws")
   )
-  
+
   # Individual glue function conditions
-  l0_ingestion_enabled   = var.layer_1_provider != "aws" && var.layer_2_provider == "aws"
-  l0_hot_writer_enabled  = var.layer_2_provider != "aws" && var.layer_3_hot_provider == "aws"
-  l0_hot_reader_enabled  = var.layer_3_hot_provider == "aws" && var.layer_4_provider != "aws"
-  l0_cold_writer_enabled = var.layer_3_hot_provider != "aws" && var.layer_3_cold_provider == "aws"
+  l0_ingestion_enabled      = var.layer_1_provider != "aws" && var.layer_2_provider == "aws"
+  l0_hot_writer_enabled     = var.layer_2_provider != "aws" && var.layer_3_hot_provider == "aws"
+  l0_hot_reader_enabled     = var.layer_3_hot_provider == "aws" && var.layer_4_provider != "aws"
+  l0_cold_writer_enabled    = var.layer_3_hot_provider != "aws" && var.layer_3_cold_provider == "aws"
   l0_archive_writer_enabled = var.layer_3_cold_provider != "aws" && var.layer_3_archive_provider == "aws"
-  
+
   # Pre-built Lambda packages directory (built by Python before terraform apply)
   lambda_build_dir = "${var.project_path}/.build/aws"
 }
@@ -134,8 +134,8 @@ resource "aws_lambda_function" "l0_ingestion" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
-      INTER_CLOUD_TOKEN   = local.inter_cloud_token_value
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 

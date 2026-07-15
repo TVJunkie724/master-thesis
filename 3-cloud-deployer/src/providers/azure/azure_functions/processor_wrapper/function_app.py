@@ -22,11 +22,13 @@ import azure.functions as func
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import read_http_error_body, safe_urlopen
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import read_http_error_body, safe_urlopen
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -86,15 +88,11 @@ def _invoke_persister(payload: dict) -> None:
     req = urllib.request.Request(persister_url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Persister invoked successfully: {response.getcode()}")
     except urllib.error.HTTPError as e:
         # Read the error response body to get the actual error message
-        error_body = ""
-        try:
-            error_body = e.read().decode("utf-8")
-        except Exception:
-            pass
+        error_body = read_http_error_body(e)
         logging.error(f"Failed to invoke Persister: {e.code} {e.reason}")
         if error_body:
             logging.error(f"Error response from Persister: {error_body}")
@@ -130,9 +128,9 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
                 data = json.dumps(event).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
                 req_proc = urllib.request.Request(url, data=data, headers=headers, method="POST")
-                with urllib.request.urlopen(req_proc, timeout=30) as response:
+                with safe_urlopen(req_proc, timeout=30) as response:
                     processed_event = json.loads(response.read().decode("utf-8"))
-                logging.info(f"User Logic Complete. Result: {json.dumps(processed_event)}")
+                logging.info("User logic completed")
         except Exception as e:
             logging.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
             return func.HttpResponse(

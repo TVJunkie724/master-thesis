@@ -125,7 +125,7 @@ def _query_dynamodb_simple(device_id: str, limit: int = 100) -> dict:
 
 def lambda_handler(event, context):
     print("Hello from Hot Reader!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
 
     try:
         # Check if this is an HTTP request (via Function URL)
@@ -176,4 +176,3 @@ def lambda_handler(event, context):
         print(f"CRITICAL: Hot Reader execution failed: {e}")
         traceback.print_exc()
         raise e
-

@@ -7,6 +7,8 @@ import json
 import pytest
 
 from src.models.deployment_log import DeploymentLog
+from src.models.twin import DigitalTwin
+from src.models.user import User
 from src.services.deployment_stream_service import (
     LogSession,
     SessionState,
@@ -20,6 +22,14 @@ from src.services.deployment_stream_service import (
 class NeverDisconnectedRequest:
     async def is_disconnected(self):
         return False
+
+
+def _persisted_twin(db_session, twin_id: str = "twin-1") -> None:
+    user = User(email=f"{twin_id}@stream.example.test")
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(DigitalTwin(id=twin_id, name="Stream Twin", user_id=user.id))
+    db_session.commit()
 
 
 @pytest.mark.asyncio
@@ -57,6 +67,7 @@ async def test_log_session_stores_final_event_for_reconnect_replay(db_session):
 
 @pytest.mark.asyncio
 async def test_persist_logs_batch_writes_deployment_logs(db_session):
+    _persisted_twin(db_session)
     session = LogSession("twin-1", "session-1", "deploy")
     await session.push_log("hello", level="info")
 
@@ -71,7 +82,11 @@ async def test_persist_logs_batch_writes_deployment_logs(db_session):
 
 
 @pytest.mark.asyncio
-async def test_stream_session_events_resets_running_session_to_pending_on_disconnect(db_session):
+async def test_stream_session_events_resets_running_session_to_pending_on_disconnect(
+    db_session,
+):
+    _persisted_twin(db_session)
+
     class DisconnectAfterFirstFrame:
         def __init__(self):
             self.calls = 0
@@ -99,6 +114,7 @@ async def test_stream_session_events_resets_running_session_to_pending_on_discon
 
 @pytest.mark.asyncio
 async def test_reconnect_replays_each_event_once_after_cursor(db_session):
+    _persisted_twin(db_session)
     session = LogSession("twin-1", "session-replay", "deploy")
     await session.push_log("already-consumed")
     await session.push_log("missed")

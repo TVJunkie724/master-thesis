@@ -44,17 +44,17 @@ import urllib.request
 import urllib.error
 
 import azure.functions as func
-from azure.cosmos import CosmosClient, PartitionKey
+from azure.cosmos import CosmosClient
 
 # Handle import path for shared module
 try:
-    from _shared.inter_cloud import post_to_remote
+    from _shared.inter_cloud import post_to_remote, safe_urlopen
     from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
-    from _shared.inter_cloud import post_to_remote
+    from _shared.inter_cloud import post_to_remote, safe_urlopen
     from _shared.env_utils import require_env
 
 
@@ -168,7 +168,7 @@ def _invoke_event_checker(event: dict) -> None:
     req = urllib.request.Request(EVENT_CHECKER_FUNCTION_URL, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Event Checker invoked: {response.getcode()}")
     except Exception as e:
         logging.warning(f"Failed to invoke Event Checker: {e}")
@@ -268,7 +268,7 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # Parse input data
         event = req.get_json()
-        logging.info(f"Event: {json.dumps(event)}")
+        logging.info("Event received")
         
         # Build storage item (Cosmos DB requires 'id' as primary key)
         item = event.copy()

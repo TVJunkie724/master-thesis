@@ -437,9 +437,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
       if (confirmed == true) {
         try {
-          final api = ref.read(apiServiceProvider);
-          await api.deleteTwin(twin.id);
-          ref.invalidate(twinsProvider); // Refresh list
+          await ref.read(twinCommandProvider.notifier).deleteTwin(twin.id);
           if (context.mounted) {
             ScaffoldMessenger.of(
               context,
@@ -763,8 +761,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required Color color,
     required IconData icon,
   }) {
-    final optimizerUrl = DocsConfig.getOptimizerDocsUrl(provider);
-    final deployerUrl = DocsConfig.getDeployerDocsUrl(provider);
+    final setupUrl = DocsConfig.getProviderLinksUrl(provider);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -798,32 +795,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 12),
-          // Buttons
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => _launchUrl(optimizerUrl),
-                icon: const Icon(Icons.calculate, size: 16),
-                label: const Text('Optimizer Guide'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: color,
-                  side: BorderSide(color: color.withAlpha(150)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => _launchUrl(deployerUrl),
-                icon: const Icon(Icons.rocket_launch, size: 16),
-                label: const Text('Deployer Guide'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: color,
-                  side: BorderSide(color: color.withAlpha(150)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-              ),
-            ],
+          OutlinedButton.icon(
+            onPressed: () => _launchUrl(setupUrl),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Open cloud setup'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: color,
+              side: BorderSide(color: color.withAlpha(150)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
           ),
         ],
       ),

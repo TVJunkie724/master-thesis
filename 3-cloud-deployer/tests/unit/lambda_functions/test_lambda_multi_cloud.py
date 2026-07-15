@@ -8,6 +8,7 @@ Tests cover:
 """
 
 import pytest
+import importlib
 import json
 from unittest.mock import patch, MagicMock
 import os
@@ -212,7 +213,9 @@ class TestConnectorPayloadEnvelope:
         with patch.dict(os.environ, {"REMOTE_INGESTION_URL": "", "INTER_CLOUD_TOKEN": ""}, clear=True):
             # _require_env raises EnvironmentError at module load time
             with pytest.raises(EnvironmentError, match="CRITICAL: Required environment variable"):
-                from src.providers.aws.lambda_functions.connector import lambda_function as connector
+                importlib.import_module(
+                    "src.providers.aws.lambda_functions.connector.lambda_function"
+                )
 
     @patch("urllib.request.urlopen")
     def test_connector_creates_correct_envelope(self, mock_urlopen):

@@ -7,6 +7,7 @@ signatures stay behind this boundary.
 """
 
 from dataclasses import dataclass
+import re
 from typing import Callable
 
 @dataclass(frozen=True)
@@ -40,6 +41,41 @@ def cleanup_gcp_resources(*args, **kwargs) -> None:
     from src.providers.gcp.cleanup import cleanup_gcp_resources as provider_cleanup
 
     provider_cleanup(*args, **kwargs)
+
+
+def resource_name_owned_by_prefix(
+    resource_name: str,
+    prefix: str,
+    *,
+    allow_compact: bool = False,
+    allow_embedded: bool = False,
+) -> bool:
+    """Match generated resource names without unsafe plain substrings."""
+    if not resource_name or not prefix:
+        return False
+
+    basename = resource_name.rsplit("/", 1)[-1]
+    account_local_name = basename.split("@", 1)[0]
+    candidates = {resource_name, basename, account_local_name}
+    variants = {prefix, prefix.replace("-", "_")}
+
+    for candidate in candidates:
+        for variant in variants:
+            if candidate == variant or candidate.startswith((f"{variant}-", f"{variant}_")):
+                return True
+            if allow_embedded and re.search(
+                rf"(?:^|[-_/]){re.escape(variant)}(?:$|[-_/])",
+                candidate,
+            ):
+                return True
+
+    if allow_compact:
+        compact_prefix = prefix.replace("-", "").replace("_", "")
+        return any(
+            candidate.startswith(f"{compact_prefix}st")
+            for candidate in candidates
+        )
+    return False
 
 
 def normalize_cleanup_provider(provider: str) -> str:
@@ -98,6 +134,15 @@ def cleanup_provider_resources(request: CleanupRequest) -> None:
         supported = ", ".join(supported_cleanup_providers())
         raise ValueError(
             f"Unsupported cleanup provider '{request.provider}'. Supported providers: {supported}"
+        )
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{1,127}", request.prefix):
+        raise ValueError(
+            "Cleanup prefix must contain 2 to 128 safe resource-name characters"
+        )
+    expected_credential_keys = {provider}
+    if set(request.credentials) != expected_credential_keys:
+        raise ValueError(
+            f"{provider.upper()} cleanup request must contain only scoped {provider} credentials"
         )
 
     dispatcher(

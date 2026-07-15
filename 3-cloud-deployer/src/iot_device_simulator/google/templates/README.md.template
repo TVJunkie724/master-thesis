@@ -40,9 +40,10 @@ python -m src.main
 ```
 
 ## Commands
-- `send` - Send next payload (auto-routes to correct device)
-- `help` - Show commands
-- `exit` - Exit
+- `1` - Send next payload (auto-routes to correct device)
+- `2` - Send all payloads
+- `3` - Show the active configuration
+- `4` or `exit` - Exit
 
 ## File Structure
 ```

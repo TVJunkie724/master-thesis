@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from fastapi import HTTPException
 import pytest
 
 from src.models.optimizer_config import OptimizerConfiguration
@@ -11,7 +10,12 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_operation_service import DeploymentOperationService
-from src.services.service_errors import ConflictError, DownstreamServiceError, ValidationError
+from src.services.deployment_service import PreparedDeploymentProject
+from src.services.service_errors import (
+    ConflictError,
+    DownstreamServiceError,
+    ValidationError,
+)
 
 
 def _create_user(db, email: str = "operation@example.test") -> User:
@@ -57,19 +61,33 @@ async def _fake_test_runner(**_kwargs):
     return None
 
 
-def _service(db, *, active_session_provider=_no_active_sessions, session_records=None, scheduled=None, project_preparer=None):
+def _service(
+    db,
+    *,
+    active_session_provider=_no_active_sessions,
+    session_records=None,
+    scheduled=None,
+    project_preparer=None,
+    session_creator=None,
+    session_cleaner=None,
+    task_scheduler=None,
+):
     session_records = session_records if session_records is not None else []
     scheduled = scheduled if scheduled is not None else []
 
     async def default_preparer(_twin, _user_id):
-        return "resource-name"
+        return PreparedDeploymentProject("resource-name", "operation-token")
+
+    async def default_cleaner(_session_id):
+        return None
 
     return DeploymentOperationService(
         db=db,
         twin_repository=TwinRepository(db),
         active_session_provider=active_session_provider,
-        session_creator=_session_recorder(session_records),
-        task_scheduler=_closing_scheduler(scheduled),
+        session_creator=session_creator or _session_recorder(session_records),
+        session_cleaner=session_cleaner or default_cleaner,
+        task_scheduler=task_scheduler or _closing_scheduler(scheduled),
         project_preparer=project_preparer or default_preparer,
     )
 
@@ -81,7 +99,9 @@ async def test_deploy_sets_state_and_schedules_real_stream(db_session):
     session_records = []
     scheduled = []
 
-    result = await _service(db_session, session_records=session_records, scheduled=scheduled).deploy_twin(
+    result = await _service(
+        db_session, session_records=session_records, scheduled=scheduled
+    ).deploy_twin(
         twin_id=twin.id,
         user_id=user.id,
         test_mode=False,
@@ -131,7 +151,7 @@ async def test_deploy_normalizes_google_alias_for_deployer_api(db_session, monke
 
 
 async def _async_resource_name():
-    return "resource-name"
+    return PreparedDeploymentProject("resource-name", "operation-token")
 
 
 @pytest.mark.asyncio
@@ -153,7 +173,9 @@ async def test_deploy_rolls_back_when_active_session_exists(db_session):
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
 
     with pytest.raises(ConflictError):
-        await _service(db_session, active_session_provider=_active_sessions).deploy_twin(
+        await _service(
+            db_session, active_session_provider=_active_sessions
+        ).deploy_twin(
             twin_id=twin.id,
             user_id=user.id,
             test_mode=False,
@@ -164,12 +186,57 @@ async def test_deploy_rolls_back_when_active_session_exists(db_session):
 
 
 @pytest.mark.asyncio
-async def test_deploy_active_session_restores_original_state_when_validation_is_skipped(db_session):
+async def test_deploy_rolls_back_when_active_session_lookup_fails(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+
+    async def failing_session_lookup(_twin_id):
+        raise RuntimeError("registry unavailable")
+
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await _service(
+            db_session,
+            active_session_provider=failing_session_lookup,
+        ).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.CONFIGURED
+    assert exc_info.value.public_detail == (
+        "Failed to check active deployment operations"
+    )
+
+
+@pytest.mark.asyncio
+async def test_test_mode_missing_runner_does_not_change_twin_state(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+
+    with pytest.raises(ValidationError, match="runner is not configured"):
+        await _service(db_session).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=True,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.CONFIGURED
+
+
+@pytest.mark.asyncio
+async def test_deploy_active_session_restores_original_state_when_validation_is_skipped(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.DRAFT)
 
     with pytest.raises(ConflictError):
-        await _service(db_session, active_session_provider=_active_sessions).deploy_twin(
+        await _service(
+            db_session, active_session_provider=_active_sessions
+        ).deploy_twin(
             twin_id=twin.id,
             user_id=user.id,
             test_mode=True,
@@ -187,7 +254,9 @@ async def test_deploy_rolls_back_on_project_preparation_failure(db_session):
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
 
     async def failing_preparer(_twin, _user_id):
-        raise HTTPException(status_code=502, detail="Deployer project setup failed")
+        raise DownstreamServiceError(
+            status_code=502, public_detail="Deployer project setup failed"
+        )
 
     with pytest.raises(DownstreamServiceError) as exc:
         await _service(db_session, project_preparer=failing_preparer).deploy_twin(
@@ -207,7 +276,9 @@ async def test_deploy_preparation_failure_restores_original_allowed_state(db_ses
     twin = _create_twin(db_session, user, TwinState.DESTROYED)
 
     async def failing_preparer(_twin, _user_id):
-        raise HTTPException(status_code=502, detail="Deployer project setup failed")
+        raise DownstreamServiceError(
+            status_code=502, public_detail="Deployer project setup failed"
+        )
 
     with pytest.raises(DownstreamServiceError):
         await _service(db_session, project_preparer=failing_preparer).deploy_twin(
@@ -226,7 +297,9 @@ async def test_deploy_redacts_project_preparation_public_detail(db_session):
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
 
     async def failing_preparer(_twin, _user_id):
-        raise HTTPException(status_code=502, detail="client_secret=LEAKED-SECRET-123")
+        raise DownstreamServiceError(
+            status_code=502, public_detail="client_secret=LEAKED-SECRET-123"
+        )
 
     with pytest.raises(DownstreamServiceError) as exc:
         await _service(db_session, project_preparer=failing_preparer).deploy_twin(
@@ -240,13 +313,66 @@ async def test_deploy_redacts_project_preparation_public_detail(db_session):
 
 
 @pytest.mark.asyncio
+async def test_deploy_rolls_back_when_session_creation_fails(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+
+    async def failing_session_creator(_twin_id, _session_id, _operation_type):
+        raise RuntimeError("session registry failed")
+
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await _service(
+            db_session,
+            session_creator=failing_session_creator,
+        ).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.CONFIGURED
+    assert exc_info.value.public_detail == "Failed to start deployment session"
+
+
+@pytest.mark.asyncio
+async def test_deploy_cleans_session_and_rolls_back_when_scheduling_fails(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+    cleaned = []
+
+    async def cleaner(session_id):
+        cleaned.append(session_id)
+
+    def failing_scheduler(_operation):
+        raise RuntimeError("scheduler failed")
+
+    with pytest.raises(DownstreamServiceError):
+        await _service(
+            db_session,
+            session_cleaner=cleaner,
+            task_scheduler=failing_scheduler,
+        ).deploy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.CONFIGURED
+    assert len(cleaned) == 1
+
+
+@pytest.mark.asyncio
 async def test_destroy_sets_state_and_schedules_real_stream(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.DEPLOYED)
     session_records = []
     scheduled = []
 
-    result = await _service(db_session, session_records=session_records, scheduled=scheduled).destroy_twin(
+    result = await _service(
+        db_session, session_records=session_records, scheduled=scheduled
+    ).destroy_twin(
         twin_id=twin.id,
         user_id=user.id,
         test_mode=False,
@@ -266,7 +392,9 @@ async def test_destroy_rolls_back_when_active_session_exists(db_session):
     twin = _create_twin(db_session, user, TwinState.DEPLOYED)
 
     with pytest.raises(ConflictError):
-        await _service(db_session, active_session_provider=_active_sessions).destroy_twin(
+        await _service(
+            db_session, active_session_provider=_active_sessions
+        ).destroy_twin(
             twin_id=twin.id,
             user_id=user.id,
             test_mode=False,
@@ -277,12 +405,45 @@ async def test_destroy_rolls_back_when_active_session_exists(db_session):
 
 
 @pytest.mark.asyncio
-async def test_destroy_active_session_restores_original_state_when_validation_is_skipped(db_session):
+async def test_destroy_cleans_session_and_rolls_back_when_scheduling_fails(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DEPLOYED)
+    cleaned = []
+
+    async def cleaner(session_id):
+        cleaned.append(session_id)
+
+    def failing_scheduler(_operation):
+        raise RuntimeError("scheduler failed")
+
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await _service(
+            db_session,
+            session_cleaner=cleaner,
+            task_scheduler=failing_scheduler,
+        ).destroy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DEPLOYED
+    assert exc_info.value.public_detail == "Failed to start destroy session"
+    assert len(cleaned) == 1
+
+
+@pytest.mark.asyncio
+async def test_destroy_active_session_restores_original_state_when_validation_is_skipped(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.DRAFT)
 
     with pytest.raises(ConflictError):
-        await _service(db_session, active_session_provider=_active_sessions).destroy_twin(
+        await _service(
+            db_session, active_session_provider=_active_sessions
+        ).destroy_twin(
             twin_id=twin.id,
             user_id=user.id,
             test_mode=True,
@@ -295,13 +456,47 @@ async def test_destroy_active_session_restores_original_state_when_validation_is
 
 
 @pytest.mark.asyncio
+async def test_destroy_fails_closed_and_restores_state_when_project_preparation_fails(
+    db_session,
+):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DEPLOYED)
+    session_records = []
+    scheduled = []
+
+    async def failing_preparer(_twin, _user_id):
+        raise RuntimeError("aws_secret_access_key=DESTROY-SECRET")
+
+    with pytest.raises(DownstreamServiceError) as exc:
+        await _service(
+            db_session,
+            session_records=session_records,
+            scheduled=scheduled,
+            project_preparer=failing_preparer,
+        ).destroy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DEPLOYED
+    assert exc.value.public_detail == "Failed to prepare project for destroy"
+    assert "DESTROY-SECRET" not in exc.value.public_detail
+    assert session_records == []
+    assert scheduled == []
+
+
+@pytest.mark.asyncio
 async def test_test_mode_deploy_uses_test_session_type(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
     session_records = []
     scheduled = []
 
-    result = await _service(db_session, session_records=session_records, scheduled=scheduled).deploy_twin(
+    result = await _service(
+        db_session, session_records=session_records, scheduled=scheduled
+    ).deploy_twin(
         twin_id=twin.id,
         user_id=user.id,
         test_mode=True,
@@ -314,13 +509,17 @@ async def test_test_mode_deploy_uses_test_session_type(db_session):
 
 
 @pytest.mark.asyncio
-async def test_test_mode_deploy_can_skip_state_validation_for_explicit_test_endpoint(db_session):
+async def test_test_mode_deploy_can_skip_state_validation_for_explicit_test_endpoint(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.DRAFT)
     session_records = []
     scheduled = []
 
-    result = await _service(db_session, session_records=session_records, scheduled=scheduled).deploy_twin(
+    result = await _service(
+        db_session, session_records=session_records, scheduled=scheduled
+    ).deploy_twin(
         twin_id=twin.id,
         user_id=user.id,
         test_mode=True,

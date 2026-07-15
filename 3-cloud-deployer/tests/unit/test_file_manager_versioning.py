@@ -8,9 +8,9 @@ import os
 import json
 import io
 import zipfile
-import shutil
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import patch
 
 import file_manager
 import constants as CONSTANTS
@@ -103,9 +103,9 @@ class TestArchiveZipVersion:
         zip_files = [f for f in os.listdir(versions_dir) if f.endswith('.zip')]
         
         assert len(zip_files) == 1
-        # Verify timestamp format: YYYY-MM-DD_HH-MM-SS.zip
+        # Verify collision-safe timestamp format: YYYY-MM-DD_HH-MM-SS.ffffff.zip
         filename = zip_files[0]
-        assert len(filename) == 23  # 2025-12-09_22-00-00.zip
+        assert len(filename) == 30
 
     def test_multiple_archives_create_multiple_files(self, temp_project_path, valid_zip_bytes):
         """Verify multiple uploads create multiple version files."""
@@ -152,6 +152,55 @@ class TestArchiveZipVersion:
         # Should be extractable
         with zipfile.ZipFile(archived_path, 'r') as zf:
             assert CONSTANTS.CONFIG_FILE in zf.namelist()
+            assert CONSTANTS.CONFIG_CREDENTIALS_FILE not in zf.namelist()
+
+
+class TestProjectExport:
+    """Tests for the portable, non-secret project export contract."""
+
+    def test_export_is_deterministic_and_excludes_runtime_secrets(
+        self,
+        temp_project_path,
+    ):
+        project_dir = (
+            Path(temp_project_path)
+            / CONSTANTS.PROJECT_UPLOAD_DIR_NAME
+            / "factory"
+        )
+        (project_dir / "functions").mkdir(parents=True)
+        (project_dir / "terraform").mkdir()
+        (project_dir / "iot_devices_auth" / "device-1").mkdir(parents=True)
+        (project_dir / "iot_device_simulator" / "aws" / "device-1").mkdir(
+            parents=True
+        )
+        (project_dir / "config.json").write_text('{"digital_twin_name":"factory"}')
+        (project_dir / "config_credentials.json").write_text('{"secret":"value"}')
+        (project_dir / "functions" / "handler.py").write_text("def handler(): pass")
+        (project_dir / "terraform" / "terraform.tfstate").write_text("state-secret")
+        (
+            project_dir / "iot_devices_auth" / "device-1" / "private.pem.key"
+        ).write_text("private-key")
+        (
+            project_dir
+            / "iot_device_simulator"
+            / "aws"
+            / "device-1"
+            / "config_generated.json"
+        ).write_text('{"connection_string":"secret"}')
+
+        first = file_manager.export_project_to_zip(
+            "factory",
+            project_path=temp_project_path,
+        ).getvalue()
+        second = file_manager.export_project_to_zip(
+            "factory",
+            project_path=temp_project_path,
+        ).getvalue()
+
+        assert first == second
+        with zipfile.ZipFile(io.BytesIO(first)) as archive:
+            assert archive.namelist() == ["config.json", "functions/handler.py"]
+            assert "state-secret" not in archive.read("config.json").decode()
 
 
 # ==========================================

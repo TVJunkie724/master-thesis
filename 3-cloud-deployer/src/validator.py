@@ -6,14 +6,12 @@ state machines, zip archives, Python code, and project structure.
 """
 
 import os
-import zipfile
 import json
 import hashlib
 import re
 import constants as CONSTANTS
 from function_registry import get_function_by_name
 from logger import logger
-import io
 import ast
 
 
@@ -67,6 +65,14 @@ def validate_config_content(filename, content):
     # 1. Schema Key Validation
     if filename in CONSTANTS.CONFIG_SCHEMAS:
         required_keys = CONSTANTS.CONFIG_SCHEMAS[filename]
+        list_configs = {
+            CONSTANTS.CONFIG_IOT_DEVICES_FILE,
+            CONSTANTS.CONFIG_EVENTS_FILE,
+        }
+        if filename in list_configs and not isinstance(content, list):
+            raise ValueError(f"{filename} must contain a JSON array")
+        if filename not in list_configs and not isinstance(content, dict):
+            raise ValueError(f"{filename} must contain a JSON object")
         
         # Special Case: Credentials (dynamic keys based on provider)
         if filename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
@@ -96,6 +102,9 @@ def validate_config_content(filename, content):
                  pass # Should not happen based on constant definition
              
              for index, item in enumerate(content):
+                 if not isinstance(item, dict):
+                     errors.append(f"Item at index {index}: must be a JSON object")
+                     continue
                  for key in required_keys:
                      if key not in item:
                          errors.append(f"Item at index {index}: missing key '{key}'")
@@ -105,6 +114,9 @@ def validate_config_content(filename, content):
                      # Check action structure
                      if "action" in item:
                          action = item["action"]
+                         if not isinstance(action, dict):
+                             errors.append(f"Event at index {index}: action must be a JSON object")
+                             continue
                          if "type" not in action:
                              errors.append(f"Event at index {index}: action missing 'type'")
                          
@@ -198,8 +210,8 @@ def validate_azure_region_for_consumption_plan(azure_region: str) -> None:
             f"\n"
             f"To fix: Change 'azure_region' in config_credentials.json to one of the recommended regions.\n"
             f"\n"
-            f"For more information, see: docs/azure_flex_consumption_migration.md"
-        ) # TODO: Add link to docs when docs html is updated
+            "For more information, see the Azure Flex Consumption migration guide in the documentation."
+        )
 
 
 
@@ -324,7 +336,7 @@ def validate_aws_hierarchy_content(content):
         _validate_item(item, f"[{i}]")
     
     if errors:
-        raise ValueError(f"AWS hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+        raise ValueError("AWS hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
     logger.info(f"✓ AWS hierarchy validated: {len(content)} top-level items")
 
@@ -435,7 +447,7 @@ def validate_azure_hierarchy_content(content):
             errors.append(f"Model '{model_id}': Duplicate content names {duplicates} - DTDL v3 requires unique names")
     
     if errors:
-        raise ValueError(f"Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+        raise ValueError("Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
     # Semantic check: Telemetry without matching last{Name} Property
     for i, model in enumerate(models):
@@ -645,7 +657,7 @@ def validate_state_machine_content(filename, content):
                     )
             
             if errors:
-                raise ValueError(f"Azure Logic App validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+                raise ValueError("Azure Logic App validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Azure validation complete
         
         # 2b. GCP Workflow: Special handling for 'main' structure
@@ -703,7 +715,7 @@ def validate_state_machine_content(filename, content):
                                             )
             
             if errors:
-                raise ValueError(f"GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+                raise ValueError("GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Valid GCP workflow
 
         
@@ -728,7 +740,7 @@ def validate_state_machine_content(filename, content):
                     )
             
             if errors:
-                raise ValueError(f"AWS Step Function validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+                raise ValueError("AWS Step Function validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # AWS validation complete
         
         # 2d. Other providers (fallback)
@@ -934,6 +946,10 @@ def validate_simulator_payloads(content_str, project_name=None):
             
         if "iotDeviceId" not in item:
             errors.append(f"Item at index {idx} missing required key 'iotDeviceId'.")
+        elif not isinstance(item["iotDeviceId"], str) or not item["iotDeviceId"].strip():
+            errors.append(
+                f"Item at index {idx} key 'iotDeviceId' must be a non-empty string."
+            )
         else:
             seen_ids.add(item["iotDeviceId"])
 
@@ -1043,8 +1059,12 @@ def check_duplicate_project(
             
             if existing_twin_name == new_twin_name and existing_creds_hash == new_creds_hash:
                 return project_name
-        except Exception:
-            # Skip corrupted or unreadable projects
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Skipping unreadable project %s during duplicate detection (%s)",
+                project_name,
+                type(exc).__name__,
+            )
             continue
     
     return None

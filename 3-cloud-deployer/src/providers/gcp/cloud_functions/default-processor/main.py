@@ -17,11 +17,13 @@ import functions_framework
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import validate_https_url
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import validate_https_url
 
 
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
@@ -60,13 +62,15 @@ def main(request):
     
     try:
         event = request.get_json()
-        print("Event: " + json.dumps(event))
+        print("Event received")
         
         payload = process(event)
         
         # Invoke Persister
+        persister_url = _get_persister_function_url()
+        validate_https_url(persister_url)
         response = requests.post(
-            _get_persister_function_url(),
+            persister_url,
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30
@@ -79,4 +83,3 @@ def main(request):
         print(f"Default Processor Error: {e}")
         traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
-

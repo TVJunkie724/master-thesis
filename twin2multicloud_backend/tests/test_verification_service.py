@@ -9,12 +9,21 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
-from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    DownstreamServiceError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.verification_service import DeploymentVerificationService
+from src.services.deployment_service import PreparedDeploymentProject
 
 
 def _create_user(db) -> User:
-    user = User(email="verification-service@example.test", name="Verification Service", auth_provider="google")
+    user = User(
+        email="verification-service@example.test",
+        name="Verification Service",
+        auth_provider="google",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -30,7 +39,7 @@ def _create_twin(db, user: User, state: TwinState = TwinState.DEPLOYED) -> Digit
 
 
 async def _prepare_project(_twin, _user_id):
-    return "verification-project"
+    return PreparedDeploymentProject("verification-project", "operation-token")
 
 
 def _closing_scheduler(scheduled):
@@ -76,8 +85,8 @@ class FakeDeployerClient:
         self.exc = exc
         self.calls = []
 
-    async def verify_infrastructure(self, resource_name, provider):
-        self.calls.append((resource_name, provider))
+    async def verify_infrastructure(self, resource_name, provider, operation_token):
+        self.calls.append((resource_name, provider, operation_token))
         if self.exc:
             raise self.exc
         return self.result
@@ -88,7 +97,9 @@ async def test_verify_infrastructure_returns_mock_result_in_test_mode(db_session
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    result = await _service(db_session).verify_infrastructure(twin.id, user.id, test_mode=True)
+    result = await _service(db_session).verify_infrastructure(
+        twin.id, user.id, test_mode=True
+    )
 
     assert result["summary"]["healthy"] is True
     assert result["summary"]["total"] == 14
@@ -102,11 +113,13 @@ async def test_verify_infrastructure_uses_optimizer_provider(db_session):
     db_session.commit()
     calls = []
 
-    async def verifier(resource_name, provider):
-        calls.append((resource_name, provider))
+    async def verifier(prepared_project, provider):
+        calls.append((prepared_project.resource_name, provider))
         return {"summary": {"healthy": True}, "checks": []}
 
-    result = await _service(db_session, infrastructure_verifier=verifier).verify_infrastructure(
+    result = await _service(
+        db_session, infrastructure_verifier=verifier
+    ).verify_infrastructure(
         twin.id,
         user.id,
         test_mode=False,
@@ -117,15 +130,17 @@ async def test_verify_infrastructure_uses_optimizer_provider(db_session):
 
 
 @pytest.mark.asyncio
-async def test_verify_infrastructure_normalizes_google_alias_for_deployer_api(db_session):
+async def test_verify_infrastructure_normalizes_google_alias_for_deployer_api(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
     db_session.commit()
     calls = []
 
-    async def verifier(resource_name, provider):
-        calls.append((resource_name, provider))
+    async def verifier(prepared_project, provider):
+        calls.append((prepared_project.resource_name, provider))
         return {"summary": {"healthy": True}, "checks": []}
 
     await _service(db_session, infrastructure_verifier=verifier).verify_infrastructure(
@@ -150,7 +165,7 @@ async def test_verify_infrastructure_default_path_uses_deployer_client(db_sessio
     )
 
     assert result["summary"]["healthy"] is True
-    assert fake.calls == [("verification-project", "aws")]
+    assert fake.calls == [("verification-project", "aws", "operation-token")]
 
 
 @pytest.mark.asyncio
@@ -200,7 +215,9 @@ async def test_verify_infrastructure_rejects_non_deployed_twin(db_session):
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
 
     with pytest.raises(ValidationError):
-        await _service(db_session).verify_infrastructure(twin.id, user.id, test_mode=False)
+        await _service(db_session).verify_infrastructure(
+            twin.id, user.id, test_mode=False
+        )
 
 
 @pytest.mark.asyncio
@@ -218,13 +235,17 @@ async def test_start_dataflow_verification_validates_payload(db_session):
 
 
 @pytest.mark.asyncio
-async def test_start_dataflow_verification_creates_session_and_schedules_proxy(db_session):
+async def test_start_dataflow_verification_creates_session_and_schedules_proxy(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     session_records = []
     scheduled = []
 
-    result = await _service(db_session, session_records=session_records, scheduled=scheduled).start_dataflow_verification(
+    result = await _service(
+        db_session, session_records=session_records, scheduled=scheduled
+    ).start_dataflow_verification(
         twin.id,
         user.id,
         {"payload": {"iotDeviceId": "device-1"}},
@@ -238,13 +259,17 @@ async def test_start_dataflow_verification_creates_session_and_schedules_proxy(d
 
 
 @pytest.mark.asyncio
-async def test_start_dataflow_verification_test_mode_does_not_schedule_proxy(db_session):
+async def test_start_dataflow_verification_test_mode_does_not_schedule_proxy(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     session_records = []
     scheduled = []
 
-    result = await _service(db_session, session_records=session_records, scheduled=scheduled).start_dataflow_verification(
+    result = await _service(
+        db_session, session_records=session_records, scheduled=scheduled
+    ).start_dataflow_verification(
         twin.id,
         user.id,
         {"payload": {"iotDeviceId": "device-1"}},
@@ -257,11 +282,45 @@ async def test_start_dataflow_verification_test_mode_does_not_schedule_proxy(db_
 
 
 @pytest.mark.asyncio
+async def test_start_dataflow_verification_does_not_create_session_when_prepare_fails(
+    db_session,
+):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    session_records = []
+    scheduled = []
+
+    async def failing_preparer(_twin, _user_id):
+        raise DownstreamServiceError(
+            status_code=503, public_detail="Deployer unavailable"
+        )
+
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await _service(
+            db_session,
+            project_preparer=failing_preparer,
+            session_records=session_records,
+            scheduled=scheduled,
+        ).start_dataflow_verification(
+            twin.id,
+            user.id,
+            {"payload": {"iotDeviceId": "device-1"}},
+            test_mode=False,
+        )
+
+    assert exc_info.value.status_code == 503
+    assert session_records == []
+    assert scheduled == []
+
+
+@pytest.mark.asyncio
 async def test_verification_rejects_missing_twin(db_session):
     user = _create_user(db_session)
 
     with pytest.raises(EntityNotFoundError):
-        await _service(db_session).verify_infrastructure("missing", user.id, test_mode=False)
+        await _service(db_session).verify_infrastructure(
+            "missing", user.id, test_mode=False
+        )
 
 
 @pytest.mark.asyncio
@@ -273,7 +332,9 @@ async def test_verification_wraps_project_preparation_failure(db_session):
         raise RuntimeError("prepare failed")
 
     with pytest.raises(DownstreamServiceError) as exc:
-        await _service(db_session, project_preparer=failing_preparer).verify_infrastructure(
+        await _service(
+            db_session, project_preparer=failing_preparer
+        ).verify_infrastructure(
             twin.id,
             user.id,
             test_mode=False,
@@ -283,7 +344,7 @@ async def test_verification_wraps_project_preparation_failure(db_session):
 
 
 @pytest.mark.asyncio
-async def test_verification_redacts_project_preparation_failure(db_session):
+async def test_verification_hides_project_preparation_failure_details(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
@@ -291,11 +352,34 @@ async def test_verification_redacts_project_preparation_failure(db_session):
         raise RuntimeError("Authorization: Bearer verification-secret-token")
 
     with pytest.raises(DownstreamServiceError) as exc:
-        await _service(db_session, project_preparer=failing_preparer).verify_infrastructure(
+        await _service(
+            db_session, project_preparer=failing_preparer
+        ).verify_infrastructure(
             twin.id,
             user.id,
             test_mode=False,
         )
 
     assert "verification-secret-token" not in exc.value.public_detail
-    assert "Authorization: Bearer [REDACTED]" in exc.value.public_detail
+    assert exc.value.public_detail == "Failed to prepare project"
+
+
+@pytest.mark.asyncio
+async def test_verification_preserves_safe_downstream_preparation_status(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    async def failing_preparer(_twin, _user_id):
+        raise DownstreamServiceError(
+            status_code=503,
+            public_detail="client_secret=verification-secret",
+        )
+
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await _service(
+            db_session,
+            project_preparer=failing_preparer,
+        ).verify_infrastructure(twin.id, user.id, test_mode=False)
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.public_detail == "client_secret=[REDACTED]"

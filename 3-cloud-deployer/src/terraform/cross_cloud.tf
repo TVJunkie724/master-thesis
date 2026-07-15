@@ -58,16 +58,16 @@ locals {
   # | dispatcher        | azure_functions/dispatcher/function_app.py    | (IoT Hub trigger, not HTTP)    |
   #
   api_paths = {
-    ingestion       = "api/ingestion"
-    hot_writer      = "api/hot-writer"
-    cold_writer     = "api/cold-writer"
-    archive_writer  = "api/archive-writer"
-    hot_reader      = "api/hot-reader"
-    adt_pusher      = "api/adt-pusher"
-    persister       = "api/persister"
-    event_checker   = "api/event-checker"
-    event_feedback  = "api/event-feedback"
-    dispatcher      = "api/dispatcher"
+    ingestion      = "api/ingestion"
+    hot_writer     = "api/hot-writer"
+    cold_writer    = "api/cold-writer"
+    archive_writer = "api/archive-writer"
+    hot_reader     = "api/hot-reader"
+    adt_pusher     = "api/adt-pusher"
+    persister      = "api/persister"
+    event_checker  = "api/event-checker"
+    event_feedback = "api/event-feedback"
+    dispatcher     = "api/dispatcher"
   }
 
   # ===========================================================================
@@ -90,15 +90,15 @@ locals {
   # Runtime & Function Constants
   # ===========================================================================
 
-  python_runtime_aws   = "python3.11"  # AWS Lambda
-  python_runtime_azure = "3.11"        # Azure Functions
-  python_runtime_gcp   = "python311"   # GCP Cloud Functions
+  python_runtime_aws   = "python3.11" # AWS Lambda
+  python_runtime_azure = "3.11"       # Azure Functions
+  python_runtime_gcp   = "python311"  # GCP Cloud Functions
 
   # ===========================================================================
   # 3D Scenes Constants
   # ===========================================================================
 
-  scenes_container_name = "3dscenes"  # Azure ADT scenes container
+  scenes_container_name = "3dscenes" # Azure ADT scenes container
 }
 
 # ==============================================================================

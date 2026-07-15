@@ -12,7 +12,6 @@ This module is duplicated identically in both:
 Any changes should be synchronized between both copies.
 """
 import json
-import os
 from pathlib import Path
 from typing import Tuple, Dict, Any
 

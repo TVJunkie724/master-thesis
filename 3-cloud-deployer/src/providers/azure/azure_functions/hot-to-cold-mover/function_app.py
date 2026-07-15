@@ -197,7 +197,7 @@ def _post_to_remote_cold_writer(
         "source_cloud": "azure"
     }
     
-    result = post_raw(
+    post_raw(
         url=REMOTE_COLD_WRITER_URL,
         token=INTER_CLOUD_TOKEN,
         payload=payload

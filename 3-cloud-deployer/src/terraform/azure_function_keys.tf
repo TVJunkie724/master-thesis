@@ -46,7 +46,7 @@
 resource "time_sleep" "wait_for_l2_keys" {
   count           = var.layer_2_provider == "azure" ? 1 : 0
   create_duration = "60s"
-  
+
   # Explicit trigger ensures this runs after L2 app is created
   triggers = {
     function_app_id = azurerm_linux_function_app.l2[0].id
@@ -57,7 +57,7 @@ data "azurerm_function_app_host_keys" "l2" {
   count               = var.layer_2_provider == "azure" ? 1 : 0
   name                = azurerm_linux_function_app.l2[0].name
   resource_group_name = azurerm_resource_group.main[0].name
-  
+
   # Depend on the sleep - gives Azure time to generate keys
   depends_on = [time_sleep.wait_for_l2_keys]
 }
@@ -69,7 +69,7 @@ data "azurerm_function_app_host_keys" "l2" {
 resource "time_sleep" "wait_for_user_keys" {
   count           = var.layer_2_provider == "azure" ? 1 : 0
   create_duration = "60s"
-  
+
   # Explicit trigger ensures this runs after user app is created
   triggers = {
     function_app_id = azurerm_linux_function_app.user[0].id
@@ -80,7 +80,7 @@ data "azurerm_function_app_host_keys" "user" {
   count               = var.layer_2_provider == "azure" ? 1 : 0
   name                = azurerm_linux_function_app.user[0].name
   resource_group_name = azurerm_resource_group.main[0].name
-  
+
   # Depend on the sleep - gives Azure time to generate keys
   depends_on = [time_sleep.wait_for_user_keys]
 }

@@ -101,7 +101,7 @@ class TestMultiCloudE2E:
         
         # AWS check
         try:
-            from api.credentials_checker import check_aws_credentials
+            from src.api.credentials_checker import check_aws_credentials
             aws_result = check_aws_credentials(credentials.get("aws", {}))
             if aws_result["status"] == "error":
                 pytest.fail(f"AWS credentials validation failed: {aws_result['message']}")
@@ -115,7 +115,7 @@ class TestMultiCloudE2E:
         # Azure check
         try:
             from azure.identity import ClientSecretCredential
-            from azure.mgmt.resource import ResourceManagementClient
+            from azure.mgmt.resource.resources import ResourceManagementClient
             
             azure_creds_check = credentials.get("azure", {})
             credential = ClientSecretCredential(
@@ -136,7 +136,7 @@ class TestMultiCloudE2E:
         
         # GCP check
         try:
-            from api.gcp_credentials_checker import check_gcp_credentials
+            from src.api.gcp_credentials_checker import check_gcp_credentials
             gcp_result = check_gcp_credentials(credentials.get("gcp", {}))
             if gcp_result["status"] == "error":
                 pytest.fail(f"GCP credentials validation failed: {gcp_result['message']}")

@@ -104,8 +104,8 @@ resource "azurerm_storage_blob" "scene_glb" {
 # Upload 3D Scenes configuration with dynamic URL replacement
 # The template file contains {{STORAGE_URL}} placeholder which is replaced with actual storage URL
 locals {
-  scene_config_raw = local.l4_azure_scene_enabled ? file("${local.scene_assets_azure}/3DScenesConfiguration.json") : ""
-  scene_storage_url = local.l4_azure_scene_enabled ? "https://${azurerm_storage_account.main[0].name}.blob.core.windows.net/${azurerm_storage_container.scenes[0].name}" : ""
+  scene_config_raw     = local.l4_azure_scene_enabled ? file("${local.scene_assets_azure}/3DScenesConfiguration.json") : ""
+  scene_storage_url    = local.l4_azure_scene_enabled ? "https://${azurerm_storage_account.main[0].name}.blob.core.windows.net/${azurerm_storage_container.scenes[0].name}" : ""
   scene_config_content = replace(local.scene_config_raw, "{{STORAGE_URL}}", local.scene_storage_url)
 }
 
@@ -148,10 +148,10 @@ resource "azurerm_role_assignment" "adt_user_owner" {
   count                = local.l4_azure_user_enabled ? 1 : 0
   scope                = azurerm_digital_twins_instance.main[0].id
   role_definition_name = "Azure Digital Twins Data Owner"
-  
+
   # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
-  name                 = uuidv5("dns", "${var.platform_user_email}-adt-owner-${local.deployment_suffix}")
-  principal_id         = local.platform_user_object_id
+  name         = uuidv5("dns", "${var.platform_user_email}-adt-owner-${local.deployment_suffix}")
+  principal_id = local.platform_user_object_id
 
   depends_on = [azuread_user.platform_user]
 }
@@ -166,10 +166,10 @@ resource "azurerm_role_assignment" "scenes_user_contributor" {
   count                = local.l4_azure_user_enabled && local.l4_azure_scene_enabled ? 1 : 0
   scope                = azurerm_storage_account.main[0].id
   role_definition_name = "Storage Blob Data Contributor"
-  
+
   # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
-  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-contributor-${local.deployment_suffix}")
-  principal_id         = local.platform_user_object_id
+  name         = uuidv5("dns", "${var.platform_user_email}-scenes-contributor-${local.deployment_suffix}")
+  principal_id = local.platform_user_object_id
 
   depends_on = [azuread_user.platform_user]
 }

@@ -9,22 +9,22 @@ Editable: Yes - This is the runtime Cloud Function code
 """
 import json
 import os
+import re
 import sys
 import traceback
 import requests
 import functions_framework
-from google.cloud import firestore
 
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
-    from _shared.inter_cloud import get_id_token_headers, get_access_token_headers
+    from _shared.inter_cloud import get_access_token_headers, get_id_token_headers, validate_https_url
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.env_utils import require_env
-    from _shared.inter_cloud import get_id_token_headers, get_access_token_headers
+    from _shared.inter_cloud import get_access_token_headers, get_id_token_headers, validate_https_url
 
 
 class ConfigurationError(Exception):
@@ -34,6 +34,14 @@ class ConfigurationError(Exception):
 
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
 _digital_twin_info = None
+VERIFICATION_TRACE_PATTERN = re.compile(r"^VERIFY-[A-F0-9]{8}$")
+
+
+def _verification_trace_id(event: dict):
+    trace_id = event.get("trace_id") or event.get("detail", {}).get("trace_id")
+    if isinstance(trace_id, str) and VERIFICATION_TRACE_PATTERN.fullmatch(trace_id):
+        return trace_id
+    return None
 
 def _get_digital_twin_info():
     global _digital_twin_info
@@ -249,6 +257,7 @@ def _trigger_action(event: dict, action: dict, condition = None) -> None:
         try:
             # Workflows API requires OAuth2 access tokens, not ID tokens
             workflow_payload = _build_workflow_payload(event, action)
+            validate_https_url(WORKFLOW_TRIGGER_URL)
             resp = requests.post(
                 WORKFLOW_TRIGGER_URL,
                 json={"argument": json.dumps(workflow_payload)},
@@ -367,7 +376,10 @@ def main(request):
     
     try:
         event = request.get_json()
-        print("Event: " + json.dumps(event))
+        print("Event received")
+        trace_id = _verification_trace_id(event)
+        if trace_id:
+            print(f"T2MC_EVENT_CHECKER_RECEIVED trace_id={trace_id}")
         
         # Get event rules from DIGITAL_TWIN_INFO
         event_rules = _get_digital_twin_info().get("config_events", [])
@@ -388,4 +400,3 @@ def main(request):
         print(f"Event Checker Error: {e}")
         traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
-

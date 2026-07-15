@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from api.permission_sets import compare_permission_set_version
+from src.api.permission_sets import compare_permission_set_version
 
 ProviderName = Literal["aws", "azure", "gcp"]
 PreflightStatus = Literal["passed", "failed", "warning", "skipped"]

@@ -1,7 +1,9 @@
 requests
 httpx
+httpx2
 pytest
 bandit
+ruff
 fastapi
 uvicorn
 colorlog

@@ -20,7 +20,7 @@
 
 locals {
   l4_aws_enabled = var.layer_4_provider == "aws"
-  
+
   # Pre-built Lambda packages directory
   l4_lambda_build_dir = "${var.project_path}/.build/aws"
 }
@@ -73,8 +73,8 @@ resource "aws_iam_role_policy" "l4_twinmaker_s3" {
         Resource = ["arn:aws:s3:::*"]
       },
       {
-        Effect = "Allow"
-        Action = ["s3:DeleteObject"]
+        Effect   = "Allow"
+        Action   = ["s3:DeleteObject"]
         Resource = ["arn:aws:s3:::*/DO_NOT_DELETE_WORKSPACE_*"]
       }
     ]
@@ -143,7 +143,7 @@ resource "time_sleep" "l4_iam_propagation" {
     aws_iam_role.l4_twinmaker,
     aws_iam_role_policy.l4_twinmaker_s3,
     aws_iam_role_policy.l4_twinmaker_lambda,
-    aws_s3_bucket.l4_twinmaker  # Ensure bucket exists before TwinMaker
+    aws_s3_bucket.l4_twinmaker # Ensure bucket exists before TwinMaker
   ]
 }
 
@@ -282,11 +282,11 @@ resource "aws_s3_object" "scene_glb" {
   key    = "scene_assets/scene.glb"
   source = "${local.scene_assets_aws}/scene.glb"
   etag   = filemd5("${local.scene_assets_aws}/scene.glb")
-  
+
   content_type = "model/gltf-binary"
-  
+
   tags = local.aws_common_tags
-  
+
   depends_on = [awscc_iottwinmaker_workspace.main]
 }
 
@@ -297,11 +297,11 @@ resource "aws_s3_object" "scene_json" {
   key    = "scene_assets/scene.json"
   source = "${local.scene_assets_aws}/scene.json"
   etag   = filemd5("${local.scene_assets_aws}/scene.json")
-  
+
   content_type = "application/json"
-  
+
   tags = local.aws_common_tags
-  
+
   depends_on = [awscc_iottwinmaker_workspace.main]
 }
 
@@ -311,11 +311,11 @@ resource "awscc_iottwinmaker_scene" "main" {
   workspace_id     = awscc_iottwinmaker_workspace.main[0].workspace_id
   scene_id         = local.aws_l4_scene_id
   content_location = "s3://${aws_s3_bucket.l4_twinmaker[0].bucket}/scene_assets/scene.json"
-  
+
   tags = {
     for key, value in local.aws_common_tags : key => value
   }
-  
+
   depends_on = [
     aws_s3_object.scene_glb,
     aws_s3_object.scene_json

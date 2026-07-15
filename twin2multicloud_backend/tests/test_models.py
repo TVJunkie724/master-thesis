@@ -7,7 +7,6 @@ Tests model behavior including:
 - State enum
 """
 
-import pytest
 from datetime import datetime
 
 
@@ -97,7 +96,7 @@ class TestTwinConfigModel:
         db_session.add(config)
         db_session.commit()
         
-        assert config.debug_mode == False
+        assert config.debug_mode is False
 
 
 class TestOptimizerConfigModel:

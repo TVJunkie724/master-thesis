@@ -4,7 +4,6 @@ Unit tests for L4 Digital Twin Data Connector.
 Tests the GCP query translation and response transformation logic.
 """
 import pytest
-import json
 from urllib.parse import urlencode
 
 

@@ -14,8 +14,8 @@
 
 locals {
   # Setup
-  azure_resource_group_name  = "${var.digital_twin_name}-rg"
-  azure_identity_name        = "${var.digital_twin_name}-identity"
+  azure_resource_group_name = "${var.digital_twin_name}-rg"
+  azure_identity_name       = "${var.digital_twin_name}-identity"
   # Azure storage accounts: max 24 chars, lowercase alphanumeric only, globally unique
   azure_storage_account_name = substr("${replace(var.digital_twin_name, "-", "")}st${local.deployment_suffix}", 0, 24)
 
@@ -44,7 +44,7 @@ locals {
   # L3 Storage
   azure_cosmos_account_name   = "${var.digital_twin_name}-cosmos-${local.deployment_suffix}"
   azure_cosmos_db_name        = "${var.digital_twin_name}-db"
-  azure_cosmos_container_name = local.storage_tier_hot  # Uses cross-provider constant
+  azure_cosmos_container_name = local.storage_tier_hot # Uses cross-provider constant
   azure_l3_plan_name          = "${var.digital_twin_name}-l3-plan"
   azure_l3_functions_name     = "${var.digital_twin_name}-l3-functions-${local.deployment_suffix}"
   azure_l3_content_share      = "${var.digital_twin_name}-l3-content"
@@ -66,7 +66,7 @@ locals {
   azure_user_functions_url = "https://${local.azure_user_functions_name}.azurewebsites.net"
   # ADT URL must use the actual host_name from the resource (not string-constructed)
   # Azure's format is: name.api.region-code.digitaltwins.azure.net (e.g., .api.weu.)
-  azure_adt_url            = try("https://${azurerm_digital_twins_instance.main[0].host_name}", "")
+  azure_adt_url = try("https://${azurerm_digital_twins_instance.main[0].host_name}", "")
 }
 
 # ==============================================================================
@@ -111,7 +111,7 @@ resource "azurerm_storage_account" "main" {
   # Required for the 3D visualization to access GLB assets from the storage account
   blob_properties {
     cors_rule {
-      allowed_origins    = ["https://explorer.digitaltwins.azure.net"]
+      allowed_origins = ["https://explorer.digitaltwins.azure.net"]
       # Include write methods for 3D Scene building (PUT for saving configs)
       allowed_methods    = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "DELETE"]
       allowed_headers    = ["*"]

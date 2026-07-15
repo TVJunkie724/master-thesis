@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 import re
 
-from api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS, _action_matches
-from api.credentials_checker import SELF_CHECK_PERMISSIONS, _get_all_required_permissions
-from api.gcp_credentials_checker import REQUIRED_GCP_APIS, REQUIRED_GCP_PERMISSIONS
-from api.permission_sets import ACTIVE_PERMISSION_SET_VERSION
+from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS, _action_matches
+from src.api.credentials_checker import SELF_CHECK_PERMISSIONS, _get_all_required_permissions
+from src.api.gcp_credentials_checker import REQUIRED_GCP_APIS, REQUIRED_GCP_PERMISSIONS
+from src.api.permission_sets import ACTIVE_PERMISSION_SET_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[2]

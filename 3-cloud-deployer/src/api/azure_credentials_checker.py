@@ -18,16 +18,13 @@ Authentication Flow:
        - Built-in: "Contributor" + "User Access Administrator" (development)
 """
 import base64
+import binascii
 import json
 import os
-import sys
 import logging
 
-# Add src to path for imports when called from API
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
-logger = logging.getLogger(__name__)
-
+from logger import logger
+from src.core.observability import redact_sensitive
 
 # ==========================================
 # Required Azure Roles by Layer
@@ -230,7 +227,13 @@ def _decode_jwt_claims(token: str) -> dict:
         payload = token.split(".")[1]
         payload += "=" * (-len(payload) % 4)
         return json.loads(base64.urlsafe_b64decode(payload.encode("utf-8")))
-    except Exception:
+    except (
+        IndexError,
+        UnicodeDecodeError,
+        binascii.Error,
+        json.JSONDecodeError,
+        TypeError,
+    ):
         return {}
 
 
@@ -270,8 +273,8 @@ def _get_caller_identity(credential, subscription_id: str) -> dict:
             "principal_type": "service_principal",  # Always SP for ClientSecretCredential
             **principal_claims,
         }
-    except ClientAuthenticationError as e:
-        raise ValueError(f"Authentication failed: {str(e)}")
+    except ClientAuthenticationError as exc:
+        raise ValueError(f"Authentication failed: {redact_sensitive(exc)}") from exc
     except HttpResponseError as e:
         if e.status_code == 403:
             raise ValueError("Access denied - Service Principal may not have access to this subscription")
@@ -312,9 +315,10 @@ def _check_sp_credential_expiration(tenant_id: str, client_id: str, client_secre
         try:
             # Get access token for Graph API
             token = credential.get_token("https://graph.microsoft.com/.default")
-        except Exception as e:
+        except Exception as exc:
             # If we can't get a token, the credential is likely expired/invalid
-            if "expired" in str(e).lower() or "invalid" in str(e).lower():
+            error_text = str(exc).lower()
+            if "expired" in error_text or "invalid" in error_text:
                 return {
                     "status": "expired",
                     "message": (
@@ -326,7 +330,7 @@ def _check_sp_credential_expiration(tenant_id: str, client_id: str, client_secre
             # For other errors, skip the check gracefully
             return {
                 "status": "skipped",
-                "reason": f"Could not retrieve Graph token: {str(e)}"
+                "reason": f"Could not retrieve Graph token: {redact_sensitive(exc)}"
             }
         
         # Query Graph API for application's passwordCredentials
@@ -414,10 +418,10 @@ def _check_sp_credential_expiration(tenant_id: str, client_id: str, client_secre
                     "message": f"Credentials valid for {days_until_expiration} more days."
                 }
                 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException as exc:
             return {
                 "status": "skipped",
-                "reason": f"Graph API request failed: {str(e)}"
+                "reason": f"Graph API request failed: {redact_sensitive(exc)}"
             }
             
     except ImportError:
@@ -425,10 +429,10 @@ def _check_sp_credential_expiration(tenant_id: str, client_id: str, client_secre
             "status": "skipped",
             "reason": "requests library not installed"
         }
-    except Exception as e:
+    except Exception as exc:
         return {
             "status": "skipped",
-            "reason": f"Unexpected error: {str(e)}"
+            "reason": f"Unexpected error: {redact_sensitive(exc)}"
         }
 
 
@@ -474,10 +478,13 @@ def _validate_azure_regions(credential, subscription_id: str, regions: dict) -> 
         
         return result
         
-    except Exception as e:
+    except Exception as exc:
         # Return error for all regions if list_locations fails
         for key in regions:
-            result[key] = {"valid": False, "error": f"Failed to validate region: {str(e)}"}
+            result[key] = {
+                "valid": False,
+                "error": f"Failed to validate region: {redact_sensitive(exc)}",
+            }
         return result
 
 
@@ -759,16 +766,16 @@ def check_azure_credentials(credentials: dict) -> dict:
         # Step 1: Create credential
         try:
             credential = _create_credential(credentials)
-        except ValueError as e:
-            result["message"] = str(e)
+        except ValueError as exc:
+            result["message"] = redact_sensitive(exc)
             return result
         
         # Step 2: Validate credentials with subscription access
         try:
             caller_identity = _get_caller_identity(credential, subscription_id)
             result["caller_identity"] = caller_identity
-        except ValueError as e:
-            result["message"] = str(e)
+        except ValueError as exc:
+            result["message"] = redact_sensitive(exc)
             return result
 
         principal_id = caller_identity.get("principal_id")
@@ -823,7 +830,7 @@ def check_azure_credentials(credentials: dict) -> dict:
             # Check if any region is invalid
             invalid_regions = [k for k, v in region_results.items() if not v.get("valid")]
             if invalid_regions:
-                errors = [region_results[k].get("error", f"Invalid region") for k in invalid_regions]
+                errors = [region_results[k].get("error", "Invalid region") for k in invalid_regions]
                 result["status"] = "invalid"
                 result["message"] = f"Invalid region(s): {'; '.join(errors)}"
                 return result
@@ -869,10 +876,14 @@ def check_azure_credentials(credentials: dict) -> dict:
         
         return result
         
-    except Exception as e:
-        logger.exception("Azure credential check failed")
+    except Exception as exc:
+        logger.error(
+            "Azure credential check failed: %s",
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         result["status"] = "error"
-        result["message"] = f"Unexpected error: {str(e)}"
+        result["message"] = "Azure credential validation failed unexpectedly. Check logs."
         return result
 
 
@@ -960,10 +971,16 @@ def check_azure_credentials_from_config(project_name: str = None) -> dict:
         result["project_name"] = project_name
         return result
         
-    except Exception as e:
+    except Exception as exc:
+        logger.error(
+            "Failed to load Azure credentials for project %s: %s",
+            project_name,
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         return {
             "status": "error",
-            "message": f"Failed to load credentials from config: {str(e)}",
+            "message": "Failed to load Azure credentials from project configuration.",
             "caller_identity": None,
             "can_list_roles": False,
             "by_layer": {},

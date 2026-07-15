@@ -180,7 +180,7 @@ resource "local_file" "gcp_simulator_config" {
     topic_name                      = local.gcp_l1_telemetry_topic
     device_id                       = each.key
     digital_twin_name               = var.digital_twin_name
-    payload_path                    = "../payloads.json"
+    payload_path                    = "../../payloads.json"
     auth_method                     = "service_account"
     service_account_key_path        = "../../_runtime/service_account.json"
     simulator_service_account_email = google_service_account.simulator[0].email

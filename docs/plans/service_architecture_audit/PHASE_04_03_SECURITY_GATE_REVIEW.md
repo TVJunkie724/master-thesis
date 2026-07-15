@@ -43,7 +43,7 @@ All-severity inventory:
 |---|---:|---:|---:|---|
 | Management API | 0 | 0 | 0 | Full `/app/src` Bandit scan is clean; line-specific `# nosec B105` comments document false-positive count/regex literals. |
 | Optimizer | 0 | 0 | 0 | Clean after removing credential-shaped example value. |
-| Deployer | 0 | 17 | 18 | Remaining findings are mainly subprocess/urllib/template-function review items; tracked by [#106](https://github.com/TVJunkie724/master-thesis/issues/106). |
+| Deployer | 0 | 0 | 0 | Clean after [#106](https://github.com/TVJunkie724/master-thesis/issues/106): HTTPS-only runtime boundaries, allowlisted Terraform/simulator commands, sanitized diagnostics, and line-specific suppressions only after validation. |
 
 ## Secret And Artifact Checks
 
@@ -57,10 +57,10 @@ Result: no credential-shaped values in generated OpenAPI snapshots.
 
 ## Regression Verification
 
-Deployer safe suite after SHA-256 change:
+Deployer safe suite after provider-runtime hardening:
 
 ```text
-1059 passed, 1 skipped, 1 warning
+1175 passed, 1 skipped; warnings treated as errors
 ```
 
 Optimizer safe suite after OpenAPI example cleanup:
@@ -76,13 +76,11 @@ Optimizer safe suite after OpenAPI example cleanup:
 | No live credential material is committed or emitted by generated artifacts. | Passed |
 | Credential-shaped examples use neutral examples or omit secret values. | Passed |
 | User-facing errors remain covered by existing redaction/security tests. | Passed |
-| High-severity static-analysis findings are zero across all services. | Passed |
+| All-severity Bandit findings are zero across all services. | Passed |
 
 ## Residual Risk
 
-Deployer still has Low/Medium Bandit findings that deserve targeted cleanup,
-especially provider-runtime `urlopen` boundaries, subprocess/script execution
-boundaries, and remaining silent exception handlers. They do not block Phase 4.3
-because the high-severity gate is clean and the remaining items need
-behavior-aware hardening rather than blanket suppression. Follow-up:
+The Deployer provider-runtime findings were resolved by
 [#106 Harden Deployer provider-runtime security findings](https://github.com/TVJunkie724/master-thesis/issues/106).
+Live-cloud behavior remains outside this safe gate and is tracked separately by
+the E2E and least-privilege issues.

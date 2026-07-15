@@ -17,7 +17,6 @@ from backend.logger import logger
 from backend.utils import get_file_age_string, is_file_fresh
 from backend.config_loader import load_json_file
 import backend.constants as CONSTANTS
-from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["File Status"])
 

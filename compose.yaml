@@ -32,10 +32,14 @@ services:
     build: 
       context: ./3-cloud-deployer
       dockerfile: Dockerfile
+      target: development
     ports:
       - "${THESIS_DEPLOYER_PORT:-5004}:8000"
     volumes: 
       - ./3-cloud-deployer:/app/
+      - deployer_runtime_state:/var/lib/twin2multicloud-deployer
+    environment:
+      - DEPLOYER_RUNTIME_STATE_ROOT=/var/lib/twin2multicloud-deployer/runtime-state
     tty: true
     networks:
       - my_master_thesis_network
@@ -51,8 +55,12 @@ services:
       - ./twin2multicloud_backend/data:/app/data
     environment:
       - DATABASE_URL=sqlite:///./data/app.db
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
+      - APP_ENV=development
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-local-development-jwt-secret-change-me}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-local-development-encryption-key-change-me}
       - DEBUG=true
+      - DEV_AUTH_ENABLED=true
+      - DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN:-dev-token}
       - PYTHONUNBUFFERED=1
       - SEED_DATA=false
       # - ENABLE_TEST_ENDPOINTS=true
@@ -60,6 +68,7 @@ services:
       - OPTIMIZER_URL=http://2twin2clouds:8000
       - DEPLOYER_URL=http://3cloud-deployer:8000
       - DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES=${DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES:-1440}
+      - UPLOAD_DIR=/app/uploads
     networks:
       - my_master_thesis_network
     depends_on:
@@ -94,3 +103,6 @@ services:
 networks:
   my_master_thesis_network:
     driver: bridge
+
+volumes:
+  deployer_runtime_state:

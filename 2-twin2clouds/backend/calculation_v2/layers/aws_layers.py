@@ -11,8 +11,9 @@ Each layer calculator:
 4. Returns structured LayerResult with breakdown
 """
 
-from typing import Dict, Any, Optional
-from dataclasses import dataclass, field
+from typing import Dict, Any
+
+from .contracts import LayerResult, SUPPORTED_LAYER_KEYS
 
 from ..components.aws import (
     AWSIoTCoreCalculator,
@@ -26,18 +27,6 @@ from ..components.aws import (
     AWSGrafanaCalculator,
 )
 
-
-@dataclass
-class LayerResult:
-    """Result of a layer cost calculation."""
-    provider: str
-    layer: str
-    total_cost: float
-    data_size_gb: float = 0.0
-    messages: float = 0.0
-    components: Dict[str, float] = field(default_factory=dict)
-
-
 class AWSLayerCalculators:
     """
     AWS layer cost calculators for L1-L5.
@@ -46,6 +35,9 @@ class AWSLayerCalculators:
     layer-level costs matching the Twin2Clouds architecture.
     """
     
+    provider = "AWS"
+    supported_layers = SUPPORTED_LAYER_KEYS
+
     def __init__(self):
         # Initialize all component calculators
         self.iot_core = AWSIoTCoreCalculator()

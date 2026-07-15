@@ -4,7 +4,6 @@ Tests for the cooldown-check endpoint.
 Tests the GCP Firestore 5-minute deployment cooldown check.
 """
 
-import pytest
 from datetime import datetime, timezone, timedelta
 from urllib.parse import quote
 from fastapi.testclient import TestClient
@@ -24,7 +23,7 @@ class TestCooldownCheck:
         response = client.get("/infrastructure/cooldown-check")
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"]
         assert data["remaining_seconds"] == 0
     
     def test_redeploy_after_cooldown_elapsed(self):
@@ -33,7 +32,7 @@ class TestCooldownCheck:
         response = client.get(f"/infrastructure/cooldown-check?destroyed_at={quote(old_time)}")
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"]
         assert data["remaining_seconds"] == 0
     
     # =========== ERROR CASES (2) ===========
@@ -44,7 +43,7 @@ class TestCooldownCheck:
         response = client.get(f"/infrastructure/cooldown-check?destroyed_at={quote(recent)}")
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == False
+        assert not data["ready"]
         # Should be roughly 3 minutes remaining (180 seconds)
         assert 170 <= data["remaining_seconds"] <= 190
         assert "reason" in data
@@ -55,7 +54,7 @@ class TestCooldownCheck:
         response = client.get(f"/infrastructure/cooldown-check?destroyed_at={quote(just_now)}")
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == False
+        assert not data["ready"]
         assert 280 <= data["remaining_seconds"] <= 300
     
     # =========== EDGE CASES (5) ===========
@@ -65,7 +64,7 @@ class TestCooldownCheck:
         response = client.get("/infrastructure/cooldown-check?destroyed_at=not-a-date")
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"]
         assert data["remaining_seconds"] == 0
     
     def test_empty_string_timestamp_returns_ready(self):
@@ -73,7 +72,7 @@ class TestCooldownCheck:
         response = client.get("/infrastructure/cooldown-check?destroyed_at=")
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"]
     
     def test_no_gcp_firestore_skips_cooldown(self):
         """uses_gcp_firestore=false → always ready, no cooldown."""
@@ -83,7 +82,7 @@ class TestCooldownCheck:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"]
         assert data["remaining_seconds"] == 0
     
     def test_exactly_at_cooldown_boundary(self):
@@ -92,7 +91,7 @@ class TestCooldownCheck:
         response = client.get(f"/infrastructure/cooldown-check?destroyed_at={quote(exact_5min)}")
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"]
         assert data["remaining_seconds"] == 0
     
     def test_future_timestamp_returns_not_ready(self):
@@ -103,4 +102,4 @@ class TestCooldownCheck:
         data = response.json()
         # Negative elapsed means we're before the destroy time
         # The cooldown calculation should handle this gracefully
-        assert data["ready"] == False
+        assert not data["ready"]

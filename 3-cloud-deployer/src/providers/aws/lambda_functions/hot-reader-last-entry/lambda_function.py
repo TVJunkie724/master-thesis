@@ -96,7 +96,7 @@ def _query_last_entry(query_event: dict) -> dict:
 
 def lambda_handler(event, context):
     print("Hello from Hot Reader Last Entry!")
-    print("Event: " + json.dumps(event))
+    print("Event received")
 
     try:
         # Check if this is an HTTP request (via Function URL)
@@ -129,4 +129,3 @@ def lambda_handler(event, context):
         print("Returning empty propertyValues due to error.")
         traceback.print_exc()
         return { "propertyValues": {} }
-

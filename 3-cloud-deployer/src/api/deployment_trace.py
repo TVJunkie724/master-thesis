@@ -28,13 +28,16 @@ _SECRET_MARKERS = (
     "api_key",
     "apikey",
     "connection_string",
+    "access_key",
     "password",
+    "private_key",
     "secret",
     "token",
 )
 
 _SECRET_ASSIGNMENT_PATTERN = re.compile(
-    r"(?i)(\b[\w.-]*(?:api[_-]?key|connection[_-]?string|password|secret|token)[\w.-]*\b"
+    r"(?i)(\b[\w.-]*(?:api[_-]?key|access[_-]?key|connection[_-]?string|"
+    r"password|private[_-]?key|secret|token)[\w.-]*\b"
     r"\s*[:=]\s*[\"']?)([^\"',\s}]+)([\"']?)"
 )
 

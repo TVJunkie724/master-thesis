@@ -57,6 +57,7 @@ def test_deployment_orchestration_uses_cleanup_registry_boundary():
     orchestration_files = [
         SRC_ROOT / "providers" / "deployer.py",
         SRC_ROOT / "providers" / "terraform" / "deployer_strategy.py",
+        SRC_ROOT / "providers" / "terraform" / "destruction_lifecycle.py",
     ]
     forbidden_imports = (
         "src.providers.aws.cleanup",

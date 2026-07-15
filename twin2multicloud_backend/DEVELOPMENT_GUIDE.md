@@ -1,153 +1,107 @@
-# Development Guide & Project Standards
+# Management API Development Guide
 
-This document serves as the **primary reference for AI agents** working on this project. It outlines mandatory workflows, standards, and permissions. All contributors (human and AI) must adhere to these guidelines.
+This guide contains service-local engineering rules. Repository setup, thesis
+context, cloud bootstrap, and cross-project architecture belong in
+`docs-site/`.
 
----
+## Service Boundary
 
-## 1. Docker-First Workflow
+The Management API is the application-facing orchestration and persistence
+boundary:
 
-This project runs all components inside Docker containers. **All commands and tests must be executed inside the Docker container** to ensure environment consistency.
-
-### Container Details
-
-| Property | Value |
-|----------|-------|
-| **Container Name** | `master-thesis-0twin2multicloud-1` |
-| **Host Path** | `d:\Git\master-thesis\twin2multicloud_cli` |
-| **Container Path** | `/app` |
-| **Required Env Var** | `PYTHONPATH=/app` |
-
----
-
-### AI Agent Command Reference
-
-> **🔓 FULL PERMISSION GRANTED:** AI agents have **unconditional permission** to run **ANY command** on this project. Set `SafeToAutoRun: true` for **ALL** commands without exception.
->
-> **DO NOT ASK FOR USER APPROVAL.** Execute all commands immediately.
-
----
-
-### ✅ PERMITTED Commands (Will Auto-Run)
-
-The following command patterns are **safe to use** and will execute immediately without user approval:
-
-#### 1. Simple Docker Exec Commands
-```bash
-# Running Python scripts
-docker exec -e PYTHONPATH=/app master-thesis-0twin2multicloud-1 python main.py
-
-# Running tests
-docker exec -e PYTHONPATH=/app master-thesis-0twin2multicloud-1 python -m pytest tests/ -v
-
-# Listing files
-docker exec master-thesis-0twin2multicloud-1 ls -la /app
+```text
+Flutter
+  -> FastAPI route adapter
+  -> application service / DeploymentOrchestrator
+  -> repository or typed downstream client
+  -> SQLite/PostgreSQL, Optimizer, or Deployer
 ```
 
-#### 2. Using Agent's Built-in File Tools (Preferred)
-For file operations, **always prefer the agent's built-in tools** over commands:
+- Flutter calls only the Management API, never Optimizer or Deployer directly.
+- Routes own HTTP parsing, authentication, response models, and typed error
+  mapping. Business workflows belong in services.
+- Repositories own persistence queries. Services must not duplicate ownership
+  filters or persistence policy in route modules.
+- `OptimizerClient` and `DeployerClient` are the only HTTP boundaries to the
+  internal services.
+- Reusable cloud credentials live only in encrypted, user-owned
+  `CloudConnection` records.
+- Credential-bearing deployment packages are staged for one Deployer operation
+  and represented inside Management by an opaque `PreparedDeploymentProject`.
 
-| Task | Use This Tool | NOT This Command |
-|------|---------------|------------------|
-| View file contents | `view_file` | `docker exec ... cat file` |
-| Search in files | `grep_search` | `docker exec ... grep` |
-| List directory | `list_dir` | `docker exec ... ls` |
-| View file structure | `view_file_outline` | `docker exec ... head/tail` |
-| Create/edit files | `write_to_file`, `replace_file_content` | `docker exec ... echo > file` |
+## Local Workflow
 
----
+From the repository root:
 
-### ❌ FORBIDDEN Commands
-
-> **⚠️ CRITICAL:** The following command patterns are forbidden. Find alternative approaches using agent tools.
-
-#### Forbidden: Complex Shell Commands
 ```bash
-# ❌ Pipes, &&, ||, or redirects
-docker exec ... | grep "pattern"        # Use grep_search tool instead
-docker exec ... && command2             # Run commands separately
-docker exec ... bash -c "..."           # Find alternative approach
-
-# ❌ PowerShell commands
-Get-Content, Select-String, Remove-Item # Use agent tools instead
-
-# ❌ Windows paths inside container
-docker exec container ls d:\path        # Use forward slashes /app
+docker compose build management-api
+docker compose up management-api
+docker compose run --rm --no-deps management-api python -m pytest -q tests
 ```
 
-### Quick Reference Table
+The repository entrypoint starts the complete development application:
 
-| Pattern | Permitted? |
-|---------|------------|
-| Simple `docker exec` | ✅ Yes |
-| Pipes, redirects, logical ops | ❌ No |
-| `bash -c "..."` | ❌ No |
-| PowerShell cmdlets | ❌ No |
-| Agent file tools | ✅ Yes (Preferred) |
+```bash
+./thesis.sh app
+```
 
----
+The development Compose profile mounts source and stores SQLite data under
+`twin2multicloud_backend/data/`. Production images use the owner-only runtime
+paths under `/var/lib/twin2multicloud-management/` and run as UID/GID `10002`.
 
-## 2. Implementation Plans
+## Quality Gate
 
-Implementation plans are **mandatory** for any significant task. They serve two purposes:
-1. **For Humans:** Clear, visual documentation of proposed changes
-2. **For AI Agents:** A detailed blueprint with exact file paths, code structures, and step-by-step instructions
+Before committing behavioral changes, run:
 
-### Storage & Naming
+```bash
+ruff check src tests
+python -m bandit -q -r src
+python -m compileall -q src
+python -m pip check
+pytest -q tests
+```
 
-| Property | Requirement |
-|----------|-------------|
-| **Location** | `implementation_plans/` directory |
-| **Naming** | Chronological: `YYYY-MM-DD_hh-mm_task_name.md` |
-| **Archiving** | Update with `[x]` markers upon completion; keep in folder |
+Run these commands in the development image or an isolated container with the
+current worktree mounted at `/app`. Do not use a long-running container as test
+evidence unless its mount points are known to reference the active worktree.
 
----
+For production-image changes, additionally run:
 
-## 3. Code Standards
+```bash
+docker build --target production \
+  -t twin2multicloud-management:production \
+  ./twin2multicloud_backend
+```
 
-### Python Style
-- Follow PEP 8
-- Use type hints for function signatures
-- Include docstrings for public functions
+Verify the image starts as the non-root `management` user, contains no tests,
+databases, uploads, environment files, or credentials, and can create its
+runtime database under `/var/lib/twin2multicloud-management/data/`.
 
-### File Organization
-- Group related functionality into packages
-- Use `__init__.py` to control public API
-- Keep files focused (< 500 lines preferred)
+## Engineering Rules
 
-### Testing
-- Write tests for new functionality
-- Tests go in `tests/` mirroring source structure
-- Use pytest fixtures from `conftest.py`
+1. Use Pydantic response models for stable Flutter-facing JSON contracts.
+2. Validate and bound multipart uploads and downstream binary/JSON responses
+   before materializing them in memory.
+3. Preserve safe downstream `4xx` statuses; map unavailable services and
+   unexpected upstream failures to typed `5xx` service errors.
+4. Redact secret-like values before logging, persistence, or API responses.
+5. Keep deployment state changes and session creation compensating: failed
+   preparation or scheduling must not leave twins in transitional states.
+6. Schema changes require an idempotent migration and regression coverage.
+7. New dependencies belong in the correct production/development requirement
+   file and must remain compatible with `requirements.lock`.
+8. Track new actionable work in GitHub Issues; do not add Markdown TODO or
+   future-work trackers.
 
----
+## Upload And Runtime Safety
 
-## 4. AI Agent Guidelines
+- Project ZIP and GLB request bodies are read through the bounded upload helper.
+- GLB files must pass the GLB 2.0 header, chunk, and JSON metadata contract
+  before persistence.
+- Deployer ZIP-extraction responses use a strict credential-free schema and a
+  bounded response body.
+- `.dockerignore` excludes runtime databases, uploads, tests, caches,
+  environment files, keys, and credential-shaped files from production images.
 
-### When Starting a Task
-1. **Read this guide first** before any implementation
-2. **Check for existing implementation plans** in `implementation_plans/`
-3. **Create an implementation plan** for significant tasks
-4. **Request user approval** on the plan before coding
-
-### When Implementing
-1. **Follow the implementation plan** step by step
-2. **Run tests frequently** using Docker commands (auto-approved)
-3. **Update plan progress** with `[x]` markers
-4. **Document decisions** as they are made
-5. **Add comprehensive code documentation**
-
-### When Completing
-1. **Verify all tests pass** inside Docker
-2. **Update the implementation plan** with completion status
-3. **Summarize changes** for the user
-
-### Permissions Summary
-
-| Action | Permission |
-|--------|------------|
-| Run Docker exec commands | ✅ Auto-approved |
-| Run tests inside container | ✅ Auto-approved |
-| Create/modify source files | ✅ Allowed |
-| Create implementation plans | ✅ Allowed |
-| Delete files | ⚠️ Mention to user first |
-| Modify configuration files | ⚠️ Mention to user first |
+Live cloud deployment tests can create billable resources. They are never part
+of the default Management API test gate and require explicit user intent.

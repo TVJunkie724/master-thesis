@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import io
 
-from fastapi import HTTPException
 import pytest
 
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_operation_service import DeploymentOperationService
+from src.services.deployment_service import PreparedDeploymentProject
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.service_errors import ConflictError, DownstreamServiceError
 from src.services.simulator_service import SimulatorDownload
@@ -47,7 +47,10 @@ class FakeOperationService:
 
     async def destroy_twin(self, **kwargs):
         self.calls.append(("destroy_twin", kwargs))
-        return {"session_id": "destroy-session", "sse_url": "/sse/deploy/destroy-session"}
+        return {
+            "session_id": "destroy-session",
+            "sse_url": "/sse/deploy/destroy-session",
+        }
 
 
 class FakeVerificationService:
@@ -123,7 +126,7 @@ def _operation_backed_orchestrator(
     scheduled = scheduled if scheduled is not None else []
 
     async def default_preparer(_twin, _user_id):
-        return "orchestrator-resource"
+        return PreparedDeploymentProject("orchestrator-resource", "operation-token")
 
     operation_service = DeploymentOperationService(
         db=db,
@@ -147,12 +150,18 @@ def orchestrator():
     operation = FakeOperationService()
     verification = FakeVerificationService()
     simulator = FakeSimulatorService()
-    return DeploymentOrchestrator(
-        read_service=read,
-        operation_service=operation,
-        verification_service=verification,
-        simulator_service=simulator,
-    ), read, operation, verification, simulator
+    return (
+        DeploymentOrchestrator(
+            read_service=read,
+            operation_service=operation,
+            verification_service=verification,
+            simulator_service=simulator,
+        ),
+        read,
+        operation,
+        verification,
+        simulator,
+    )
 
 
 @pytest.mark.asyncio
@@ -162,7 +171,9 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
     async def runner(**_kwargs):
         return None
 
-    deploy = await facade.deploy_twin("twin-1", "user-1", test_mode=True, test_stream_runner=runner)
+    deploy = await facade.deploy_twin(
+        "twin-1", "user-1", test_mode=True, test_stream_runner=runner
+    )
     destroy = await facade.destroy_twin("twin-1", "user-1", test_mode=False)
 
     assert deploy["session_id"] == "deploy-session"
@@ -192,7 +203,9 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_deploy_success_updates_lifecycle_and_schedules_stream(db_session):
+async def test_orchestrator_deploy_success_updates_lifecycle_and_schedules_stream(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
     session_records = []
@@ -235,12 +248,17 @@ async def test_orchestrator_deploy_rolls_back_when_session_is_active(db_session)
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_deploy_wraps_package_or_upstream_failure_and_rolls_back(db_session):
+async def test_orchestrator_deploy_wraps_package_or_upstream_failure_and_rolls_back(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
 
     async def failing_preparer(_twin, _user_id):
-        raise HTTPException(status_code=502, detail="client_secret=LEAKED-ORCHESTRATOR-SECRET")
+        raise DownstreamServiceError(
+            status_code=502,
+            public_detail="client_secret=LEAKED-ORCHESTRATOR-SECRET",
+        )
 
     with pytest.raises(DownstreamServiceError) as exc:
         await _operation_backed_orchestrator(
@@ -278,8 +296,12 @@ async def test_orchestrator_uses_configured_test_runners_when_route_does_not_ove
         test_destroy_stream_runner=destroy_runner,
     )
 
-    await facade.deploy_twin("twin-1", "user-1", test_mode=True, skip_state_validation=True)
-    await facade.destroy_twin("twin-1", "user-1", test_mode=True, skip_state_validation=True)
+    await facade.deploy_twin(
+        "twin-1", "user-1", test_mode=True, skip_state_validation=True
+    )
+    await facade.destroy_twin(
+        "twin-1", "user-1", test_mode=True, skip_state_validation=True
+    )
 
     assert operation.calls == [
         (

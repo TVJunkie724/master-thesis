@@ -6,7 +6,8 @@ Tests API health monitoring including:
 - Response format
 """
 
-import pytest
+from src.main import app
+from src.models.database import get_db
 
 
 class TestHealthRoutes:
@@ -27,3 +28,20 @@ class TestHealthRoutes:
         response = client.get("/health")
         
         assert response.status_code == 200
+
+    def test_unhealthy_database_returns_503_without_internal_error_text(self, client):
+        class FailingSession:
+            def execute(self, _statement):
+                raise RuntimeError("password=DO-NOT-EXPOSE database-host.internal")
+
+        def override_failing_db():
+            yield FailingSession()
+
+        app.dependency_overrides[get_db] = override_failing_db
+
+        response = client.get("/health")
+
+        assert response.status_code == 503
+        assert response.json() == {"status": "unhealthy", "database": "unavailable"}
+        assert "DO-NOT-EXPOSE" not in response.text
+        assert "database-host.internal" not in response.text

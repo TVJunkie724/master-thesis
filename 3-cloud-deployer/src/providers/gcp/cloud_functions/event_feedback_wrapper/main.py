@@ -91,7 +91,7 @@ def main(request):
     
     try:
         event = request.get_json()
-        logger.info(f"Received event: {json.dumps(event)}")
+        logger.info("Event received")
         
         detail = event["detail"]
         payload = detail["payload"]  # Extract payload for user processing
@@ -108,7 +108,7 @@ def main(request):
                 response = requests.post(url, json=payload, headers=get_id_token_headers(url), timeout=30)
                 response.raise_for_status()
                 processed_payload = response.json()
-                logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
+                logger.info("User logic completed")
             except Exception as e:
                 logger.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
                 raise e

@@ -6,7 +6,7 @@ including build_user_packages (which was previously missing).
 """
 import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 class TestBuildAllPackages:
@@ -54,7 +54,7 @@ class TestBuildAllPackages:
             mock_gcp.return_value = {"gcp_pkg": Path("/tmp/gcp.zip")}
             mock_user.return_value = {"user_pkg": Path("/tmp/user.zip")}
             
-            result = build_all_packages(terraform_dir, project_path, mock_providers_all_gcp)
+            build_all_packages(terraform_dir, project_path, mock_providers_all_gcp)
             
             # Assert all builder functions were called
             mock_aws.assert_called_once()

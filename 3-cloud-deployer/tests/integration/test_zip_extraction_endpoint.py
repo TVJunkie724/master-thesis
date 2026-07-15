@@ -7,7 +7,6 @@ Tests the full extraction flow including:
 - Error handling for invalid ZIPs
 - GLB base64 encoding
 """
-import pytest
 import io
 import zipfile
 import json
@@ -70,7 +69,7 @@ class TestExtractionHappyPaths:
         assert "validation_errors" in data
         
         # Verify config files extracted
-        assert data["files"]["config.json"]["exists"] == True
+        assert data["files"]["config.json"]["exists"]
         assert "digital_twin_name" in data["files"]["config.json"]["content"]
         
         # Verify credentials NOT returned (skip_credentials=True)
@@ -78,10 +77,10 @@ class TestExtractionHappyPaths:
         
         # Verify processor extracted
         assert "device-1" in data["functions"]["processors"]
-        assert data["functions"]["processors"]["device-1"]["exists"] == True
+        assert data["functions"]["processors"]["device-1"]["exists"]
     
-    def test_mode_b_includes_credentials(self):
-        """Mode B: With include_credentials=true, credentials are returned."""
+    def test_credential_extraction_is_rejected(self):
+        """Credential content is never returned through the wizard endpoint."""
         zip_bytes = create_test_zip({
             "config.json": '{"digital_twin_name": "test", "hot_storage_size_in_days": 7, "cold_storage_size_in_days": 30}',
             "config_providers.json": '{"layer_2_provider": "aws"}',
@@ -97,12 +96,8 @@ class TestExtractionHappyPaths:
             params={"include_credentials": True}
         )
         
-        assert response.status_code == 200
-        data = response.json()
-        
-        # Verify credentials ARE returned
-        assert "config_credentials.json" in data["files"]
-        assert data["files"]["config_credentials.json"]["exists"] == True
+        assert response.status_code == 400
+        assert "Credential extraction is not supported" in response.json()["detail"]
 
 
 # ==========================================
@@ -135,7 +130,18 @@ class TestExtractionErrors:
         )
         
         assert response.status_code == 422
-        assert "Invalid JSON" in response.json()["detail"]
+        assert response.json()["detail"] == "Invalid validation_context"
+
+    def test_context_cannot_enable_credential_validation(self):
+        zip_bytes = create_test_zip({"config.json": "{}"})
+
+        response = client.post(
+            "/validate/zip/extract",
+            files={"file": ("test.zip", zip_bytes, "application/zip")},
+            params={"validation_context": '{"skip_credentials":false}'},
+        )
+
+        assert response.status_code == 422
 
 
 # ==========================================
@@ -158,7 +164,20 @@ class TestExtractionEdgeCases:
         )
         
         assert response.status_code == 400
-        assert "Unsafe path" in response.json()["detail"]
+        assert "outside the project root" in response.json()["detail"]
+
+    def test_backslash_path_is_rejected(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("..\\config.json", "{}")
+
+        response = client.post(
+            "/validate/zip/extract",
+            files={"file": ("evil.zip", buffer.getvalue(), "application/zip")},
+        )
+
+        assert response.status_code == 400
+        assert "unsafe or ambiguous path" in response.json()["detail"]
     
     def test_glb_extracted_as_base64(self):
         """GLB binary file is extracted as base64."""
@@ -185,8 +204,8 @@ class TestExtractionEdgeCases:
         
         # Verify GLB extracted
         assert data["assets"]["scene_glb"] is not None
-        assert data["assets"]["scene_glb"]["exists"] == True
-        assert data["assets"]["scene_glb"]["is_binary"] == True
+        assert data["assets"]["scene_glb"]["exists"]
+        assert data["assets"]["scene_glb"]["is_binary"]
         
         # Verify base64 encoded
         import base64
@@ -206,7 +225,7 @@ class TestExtractionEdgeCases:
         data = response.json()
         
         # Should have validation errors for missing files
-        assert data["success"] == False
+        assert not data["success"]
         assert len(data["validation_errors"]) > 0
     
     def test_azure_functions_extracted(self):

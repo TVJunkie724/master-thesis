@@ -203,7 +203,7 @@ async def test_cloud_credential_dual_validation_redacts_unexpected_client_errors
 
     assert result["valid"] is False
     assert secret not in str(result)
-    assert result["optimizer"]["message"] == "Optimizer error: client_secret=[REDACTED]"
+    assert result["optimizer"]["message"] == "Optimizer validation failed unexpectedly"
     assert result["deployer"]["message"] == "Deployer API error: 500"
 
 
@@ -211,8 +211,11 @@ def test_cloud_connection_cannot_be_read_by_another_user(authenticated_client, d
     client, headers = authenticated_client
     created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
 
+    other_user = User(email="other-cloud-owner@example.test", name="Other Owner")
+    db_session.add(other_user)
+    db_session.commit()
     stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
-    stored.user_id = "other-user"
+    stored.user_id = other_user.id
     db_session.commit()
 
     response = client.get(f"/cloud-connections/{created['id']}", headers=headers)
@@ -235,8 +238,9 @@ def test_delete_bound_cloud_connection_returns_conflict(authenticated_client, db
 
     client, headers = authenticated_client
     created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    twin_id = client.post("/twins/", json={"name": "Bound Twin"}, headers=headers).json()["id"]
     config = TwinConfiguration(
-        twin_id="bound-twin",
+        twin_id=twin_id,
         aws_cloud_connection_id=created["id"],
     )
     db_session.add(config)

@@ -87,6 +87,29 @@ class TestEventCheckerLambda(unittest.TestCase):
             input=unittest.mock.ANY
         )
 
+    def test_logs_trace_correlation_marker(self):
+        with patch("builtins.print") as print_mock:
+            self.lambda_module.lambda_handler(
+                {"iotDeviceId": "d1", "trace_id": "VERIFY-1234ABCD"},
+                None,
+            )
+
+        print_mock.assert_any_call(
+            "T2MC_EVENT_CHECKER_RECEIVED trace_id=VERIFY-1234ABCD"
+        )
+
+    def test_does_not_log_untrusted_trace_value(self):
+        with patch("builtins.print") as print_mock:
+            self.lambda_module.lambda_handler(
+                {"iotDeviceId": "d1", "trace_id": "VERIFY-1234\nforged"},
+                None,
+            )
+
+        assert not any(
+            "T2MC_EVENT_CHECKER_RECEIVED" in str(call)
+            for call in print_mock.call_args_list
+        )
+
     def test_trigger_step_function_disabled(self):
         """Test Step Function trigger skipped when disabled."""
         self.lambda_module.DIGITAL_TWIN_INFO["config_events"] = [self.step_function_event]

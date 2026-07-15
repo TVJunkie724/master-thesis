@@ -5,12 +5,14 @@ import '../../theme/spacing.dart';
 
 class Step3GlbUploadCard extends StatelessWidget {
   final bool isUploaded;
+  final bool isBusy;
   final VoidCallback onDelete;
   final VoidCallback onUpload;
 
   const Step3GlbUploadCard({
     super.key,
     required this.isUploaded,
+    this.isBusy = false,
     required this.onDelete,
     required this.onUpload,
   });
@@ -62,7 +64,13 @@ class Step3GlbUploadCard extends StatelessWidget {
               ],
             ),
           ),
-          if (isUploaded)
+          if (isBusy)
+            const SizedBox(
+              width: AppSpacing.lg,
+              height: AppSpacing.lg,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else if (isUploaded)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: AppColors.error),
               tooltip: 'Delete GLB',

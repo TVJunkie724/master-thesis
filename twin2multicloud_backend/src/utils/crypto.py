@@ -50,8 +50,8 @@ def _get_fernet(user_id: str, scope_id: str) -> Fernet:
             _key_cache[cache_key] = Fernet(key)
         except Exception as e:
             raise ValueError(
-                f"Invalid ENCRYPTION_KEY. Generate with: "
-                f"python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                "Invalid ENCRYPTION_KEY. Generate with: "
+                "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
             ) from e
     return _key_cache[cache_key]
 

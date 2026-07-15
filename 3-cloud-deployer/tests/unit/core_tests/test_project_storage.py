@@ -1,4 +1,5 @@
 import json
+import stat
 
 import pytest
 
@@ -86,3 +87,25 @@ def test_storage_write_rejects_template_project(tmp_path):
 
     with pytest.raises(ProjectStorageError, match="template"):
         storage.write_text("template", "state_machines/aws_step_function.json", "{}")
+
+
+@pytest.mark.parametrize("writer", ["text", "json"])
+def test_storage_writes_sensitive_files_with_owner_only_permissions(tmp_path, writer):
+    project = tmp_path / "upload" / "factory"
+    project.mkdir(parents=True)
+    storage = ProjectStorage(project_root=tmp_path)
+
+    if writer == "text":
+        result = storage.write_text(
+            "factory",
+            "config_credentials.json",
+            '{"secret":"value"}',
+        )
+    else:
+        result = storage.write_json(
+            "factory",
+            "gcp_credentials.json",
+            {"private_key": "value"},
+        )
+
+    assert stat.S_IMODE(result.stat().st_mode) == 0o600

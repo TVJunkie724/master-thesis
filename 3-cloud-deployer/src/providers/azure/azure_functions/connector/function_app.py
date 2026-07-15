@@ -96,7 +96,7 @@ def connector(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # Parse incoming event
         event = req.get_json()
-        logging.info(f"Event: {json.dumps(event)}")
+        logging.info("Event received")
         
         # POST to remote Ingestion endpoint
         result = post_to_remote(

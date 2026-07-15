@@ -105,7 +105,7 @@ def adt_updater(event: func.EventGridEvent) -> None:
     try:
         # Parse event data
         event_data = event.get_json()
-        logging.info(f"Event data: {json.dumps(event_data)}")
+        logging.info("Event received")
         
         # Extract device ID from system properties
         system_props = event_data.get("systemProperties", {})

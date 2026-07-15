@@ -42,6 +42,18 @@
             ],
             "description": "AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region",
             "title": "Aws Sso Region"
+          },
+          "permission_set_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Versioned deployment permission-set baseline assigned to this credential.",
+            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -156,6 +168,18 @@
             "description": "Azure AD Tenant ID",
             "title": "Azure Tenant Id",
             "type": "string"
+          },
+          "permission_set_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Versioned deployment permission-set baseline assigned to this credential.",
+            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -476,11 +500,17 @@
           "cheapest_path": {
             "anyOf": [
               {
-                "items": {},
-                "type": "array"
-              },
-              {
-                "additionalProperties": true,
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
                 "type": "object"
               },
               {
@@ -641,7 +671,6 @@
         "description": "Validation response with all errors.",
         "properties": {
           "errors": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
@@ -662,7 +691,7 @@
       "ErrorResponse": {
         "description": "Standardized error response with detailed information for troubleshooting.\n\nThis schema provides structured error information that enables:\n1. Understanding what went wrong (error_code, message)\n2. Knowing exactly how to fix it (fix_suggestion)\n3. Identifying specific field issues (field_errors)\n4. Finding additional help (documentation_url)\n\nAll error responses from this API follow this schema for consistency.",
         "example": {
-          "documentation_url": "/documentation/docs-formulas.html",
+          "documentation_url": "https://github.com/TVJunkie724/master-thesis/tree/master/docs-site",
           "error_code": "VALIDATION_ERROR",
           "field_errors": [
             {
@@ -686,7 +715,7 @@
               }
             ],
             "description": "URL to relevant documentation for this error or endpoint",
-            "example": "/documentation/docs-overview.html",
+            "example": "https://github.com/TVJunkie724/master-thesis/tree/master/docs-site",
             "title": "Documentation Url"
           },
           "error_code": {
@@ -907,6 +936,18 @@
             "description": "GCP Region (e.g., 'europe-west1')",
             "title": "Gcp Region",
             "type": "string"
+          },
+          "permission_set_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Versioned deployment permission-set baseline assigned to this credential.",
+            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -938,6 +979,143 @@
         ],
         "title": "ProviderEnum",
         "type": "string"
+      },
+      "ProviderPreflightCheck": {
+        "properties": {
+          "action": {
+            "description": "Actionable next step",
+            "title": "Action",
+            "type": "string"
+          },
+          "apis": {
+            "description": "Missing provider APIs",
+            "items": {
+              "type": "string"
+            },
+            "title": "Apis",
+            "type": "array"
+          },
+          "code": {
+            "description": "Machine-readable result code",
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "description": "Secret-safe structured detail",
+            "title": "Details",
+            "type": "object"
+          },
+          "message": {
+            "description": "Secret-safe human-readable result",
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "description": "Stable check name",
+            "title": "Name",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "Missing provider permissions/actions",
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "status": {
+            "description": "Normalized check status",
+            "enum": [
+              "passed",
+              "failed",
+              "warning",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "code",
+          "message",
+          "action"
+        ],
+        "title": "ProviderPreflightCheck",
+        "type": "object"
+      },
+      "ProviderPreflightResponse": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderPreflightCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "expected_permission_set_version": {
+            "title": "Expected Permission Set Version",
+            "type": "string"
+          },
+          "permission_set_status": {
+            "enum": [
+              "matched",
+              "missing",
+              "outdated"
+            ],
+            "title": "Permission Set Status",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "supplied_permission_set_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplied Permission Set Version"
+          }
+        },
+        "required": [
+          "provider",
+          "expected_permission_set_version",
+          "permission_set_status",
+          "ready",
+          "status",
+          "summary",
+          "checks"
+        ],
+        "title": "ProviderPreflightResponse",
+        "type": "object"
       },
       "ValidationError": {
         "properties": {
@@ -982,7 +1160,7 @@
     }
   },
   "info": {
-    "description": "API for deploying, destroying, and inspecting Digital Twin environment resources.<h3>\ud83d\udd17 Useful Links</h3><h4>\ud83d\udcd8 Documentation</h4><ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>",
+    "description": "Internal API for deploying, destroying, and inspecting Digital Twin resources.",
     "title": "Digital Twin Manager API",
     "version": "2.0"
   },
@@ -1119,6 +1297,16 @@
               }
             },
             "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -1317,6 +1505,16 @@
               }
             },
             "description": "Internal Server Error - An unexpected error occurred"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway - A cloud provider rejected or failed the operation"
           }
         },
         "summary": "Update function code via SDK",
@@ -1984,13 +2182,226 @@
         ]
       }
     },
+    "/permissions/preflight/aws": {
+      "post": {
+        "description": "**Purpose:** Normalizes AWS credential validation into deployment-ready preflight checks.\n\n**When to call:** Before deployment to get actionable permission, account, and region failures.\n\n**Security:** Response is redacted and does not persist credentials.",
+        "operationId": "preflightAwsCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AWSCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPreflightResponse"
+                }
+              }
+            },
+            "description": "Preflight completed (check ready/status fields)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Run AWS deployment preflight from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/permissions/preflight/azure": {
+      "post": {
+        "description": "**Purpose:** Normalizes Azure credential validation into deployment-ready preflight checks.\n\n**When to call:** Before deployment to get actionable role, subscription, region, and secret-expiration failures.\n\n**Security:** Response is redacted and does not persist credentials.",
+        "operationId": "preflightAzureCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AzureCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPreflightResponse"
+                }
+              }
+            },
+            "description": "Preflight completed (check ready/status fields)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Run Azure deployment preflight from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
+    "/permissions/preflight/gcp": {
+      "post": {
+        "description": "**Purpose:** Normalizes GCP credential validation into deployment-ready preflight checks.\n\n**When to call:** Before deployment to get actionable project, billing, API, and region failures.\n\n**Security:** Response is redacted and does not persist credentials.",
+        "operationId": "preflightGcpCredentialsFromBody",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GCPCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPreflightResponse"
+                }
+              }
+            },
+            "description": "Preflight completed (check ready/status fields)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Run GCP deployment preflight from request body",
+        "tags": [
+          "Permissions - Upload"
+        ]
+      }
+    },
     "/permissions/verify/aws": {
       "get": {
-        "description": "**Purpose:** Verifies AWS credentials from project's config_credentials.json.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (optional) - uses active project if not specified.",
+        "description": "**Purpose:** Debug/local-cloud only. Verifies AWS credentials from project's config_credentials.json.\n\n**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (required) - project context to read.",
         "operationId": "verifyAwsCredentialsFromConfig",
         "parameters": [
           {
-            "description": "Project name to load credentials from. Uses active project if not specified.",
+            "description": "Project name to load credentials from.",
             "in": "query",
             "name": "project",
             "required": false,
@@ -2003,7 +2414,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Project name to load credentials from. Uses active project if not specified.",
+              "description": "Project name to load credentials from.",
               "title": "Project"
             }
           }
@@ -2018,6 +2429,22 @@
               }
             },
             "description": "Credential validation completed (check status field)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "FORBIDDEN",
+                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
+                  "http_status": 403,
+                  "message": "The requested operation is protected in this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - The requested operation or resource is protected"
           },
           "404": {
             "content": {
@@ -2139,11 +2566,11 @@
     },
     "/permissions/verify/azure": {
       "get": {
-        "description": "**Purpose:** Verifies Azure credentials from project's config_credentials.json.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (optional) - uses active project if not specified.",
+        "description": "**Purpose:** Debug/local-cloud only. Verifies Azure credentials from project's config_credentials.json.\n\n**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (required) - project context to read.",
         "operationId": "verifyAzureCredentialsFromConfig",
         "parameters": [
           {
-            "description": "Project name to load credentials from. Uses active project if not specified.",
+            "description": "Project name to load credentials from.",
             "in": "query",
             "name": "project",
             "required": false,
@@ -2156,7 +2583,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Project name to load credentials from. Uses active project if not specified.",
+              "description": "Project name to load credentials from.",
               "title": "Project"
             }
           }
@@ -2171,6 +2598,22 @@
               }
             },
             "description": "Credential validation completed (check status field)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "FORBIDDEN",
+                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
+                  "http_status": 403,
+                  "message": "The requested operation is protected in this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - The requested operation or resource is protected"
           },
           "404": {
             "content": {
@@ -2292,11 +2735,11 @@
     },
     "/permissions/verify/gcp": {
       "get": {
-        "description": "**Purpose:** Verifies GCP credentials from project's config_credentials.json.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (optional) - uses active project if not specified.",
+        "description": "**Purpose:** Debug/local-cloud only. Verifies GCP credentials from project's config_credentials.json.\n\n**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n**When to call:** To re-verify deployed project credentials.\n\n**Query param:** project (required) - project context to read.",
         "operationId": "verifyGcpCredentialsFromConfig",
         "parameters": [
           {
-            "description": "Project name to load credentials from. Uses active project if not specified.",
+            "description": "Project name to load credentials from.",
             "in": "query",
             "name": "project",
             "required": false,
@@ -2309,7 +2752,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Project name to load credentials from. Uses active project if not specified.",
+              "description": "Project name to load credentials from.",
               "title": "Project"
             }
           }
@@ -2324,6 +2767,22 @@
               }
             },
             "description": "Credential validation completed (check status field)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "FORBIDDEN",
+                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
+                  "http_status": 403,
+                  "message": "The requested operation is protected in this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - The requested operation or resource is protected"
           },
           "404": {
             "content": {
@@ -3064,16 +3523,16 @@
               "application/json": {
                 "example": {
                   "error_code": "FORBIDDEN",
-                  "fix_suggestion": "Use the dedicated credential endpoint or an example file instead.",
+                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
                   "http_status": 403,
-                  "message": "The requested file is protected and cannot be read through this endpoint"
+                  "message": "The requested operation is protected in this runtime."
                 },
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Forbidden - The requested resource is protected"
+            "description": "Forbidden - The requested operation or resource is protected"
           },
           "404": {
             "content": {
@@ -4585,7 +5044,7 @@
       "name": "Permissions - Upload"
     },
     {
-      "description": "Verify cloud provider permissions from project config. Reads credentials from project's config_credentials.json.",
+      "description": "Debug/local-cloud only. Verify cloud provider permissions from project config when ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true.",
       "name": "Permissions - Project"
     },
     {

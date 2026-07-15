@@ -5,9 +5,27 @@ Provides thread-safe log capture for async SSE streaming from synchronous code.
 """
 
 import asyncio
+from contextvars import ContextVar
 import logging
 import json
-from typing import Optional
+
+from backend.secret_redaction import redact_secret_like_text
+
+
+pricing_operation_id: ContextVar[str | None] = ContextVar(
+    "pricing_operation_id", default=None
+)
+
+
+class PricingOperationFilter(logging.Filter):
+    """Allow only records emitted by one pricing refresh operation."""
+
+    def __init__(self, operation_id: str):
+        super().__init__()
+        self.operation_id = operation_id
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return pricing_operation_id.get() == self.operation_id
 
 
 class ThreadSafeSseHandler(logging.Handler):
@@ -25,7 +43,7 @@ class ThreadSafeSseHandler(logging.Handler):
     
     def emit(self, record: logging.LogRecord):
         try:
-            msg = self.format(record)
+            msg = redact_secret_like_text(self.format(record))[:2000]
             # Thread-safe: schedule put on the event loop
             self.loop.call_soon_threadsafe(
                 self._safe_put, msg

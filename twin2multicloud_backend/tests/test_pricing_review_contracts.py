@@ -191,7 +191,9 @@ def test_review_decision_approval_requires_report_candidate(
     assert body["selected_candidate_id"] == valid_candidate_id
     assert db_session.query(PricingReviewDecision).count() == 1
 
-    listed = client.get("/optimizer/pricing-review/decisions?provider=aws", headers=headers)
+    listed = client.get(
+        "/optimizer/pricing-review/decisions?provider=aws", headers=headers
+    )
     assert listed.status_code == 200
     assert listed.json()["schema_version"] == "pricing-review-decision-list.v1"
     assert listed.json()["decisions"][0]["decision_id"] == body["decision_id"]
@@ -230,7 +232,10 @@ def test_defer_decision_rejects_selected_candidate(
 
 def test_candidate_reports_are_user_scoped(authenticated_client, db_session):
     client, headers = authenticated_client
-    run = _insert_refresh_run(db_session, user_id="other-user")
+    other_user = User(email="pricing-review-other@example.test")
+    db_session.add(other_user)
+    db_session.commit()
+    run = _insert_refresh_run(db_session, user_id=other_user.id)
 
     response = client.get(
         f"/optimizer/pricing-review/aws/candidate-reports?refresh_run_id={run.id}",

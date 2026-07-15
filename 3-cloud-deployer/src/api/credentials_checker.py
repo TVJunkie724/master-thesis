@@ -12,11 +12,11 @@ This module is shared by both:
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 import json
-import sys
+import logging
 import os
 
-# Add src to path for imports when called from API
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from logger import logger
+from src.core.observability import redact_sensitive
 
 # ==========================================
 # Shared Permission Sets (avoid duplication)
@@ -358,8 +358,11 @@ def _validate_aws_region(session, region: str) -> dict:
         }
     except ClientError as e:
         return {"valid": False, "error": f"Failed to validate region: {e.response['Error']['Message']}"}
-    except Exception as e:
-        return {"valid": False, "error": f"Region validation error: {str(e)}"}
+    except Exception as exc:
+        return {
+            "valid": False,
+            "error": f"Region validation error: {redact_sensitive(exc)}",
+        }
 
 
 def _check_aws_account_status(session, account_id: str) -> dict:
@@ -437,8 +440,16 @@ def _check_aws_account_status(session, account_id: str) -> dict:
                     "reason": f"Organizations API error: {error_code}",
                 }
                 
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    except Exception as exc:
+        return {"status": "error", "error": redact_sensitive(exc)}
+
+
+class PolicyInspectionDenied(Exception):
+    """Raised when IAM policy metadata cannot be inspected completely."""
+
+    def __init__(self, permission: str):
+        super().__init__(permission)
+        self.permission = permission
 
 
 def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
@@ -537,6 +548,8 @@ def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
         else:
             return set(), "unknown_principal_type"
             
+    except PolicyInspectionDenied as e:
+        return set(), e.permission
     except ClientError as e:
         return set(), f"error:{e.response['Error']['Code']}"
     
@@ -546,16 +559,21 @@ def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
 def _get_policy_permissions(iam_client, policy_arn: str, permissions: set):
     """Get permissions from a managed policy and add to the set."""
     try:
-        # Get the policy version
         policy = iam_client.get_policy(PolicyArn=policy_arn)
-        version_id = policy["Policy"]["DefaultVersionId"]
-        
-        # Get the policy document
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] == "AccessDenied":
+            raise PolicyInspectionDenied("iam:GetPolicy") from exc
+        raise
+
+    version_id = policy["Policy"]["DefaultVersionId"]
+    try:
         version = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=version_id)
-        _extract_permissions(version["PolicyVersion"]["Document"], permissions)
-    except ClientError:
-        # Skip if we can't read the policy
-        pass
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] == "AccessDenied":
+            raise PolicyInspectionDenied("iam:GetPolicyVersion") from exc
+        raise
+
+    _extract_permissions(version["PolicyVersion"]["Document"], permissions)
 
 
 def _extract_permissions(policy_document: dict, permissions: set):
@@ -827,9 +845,14 @@ def check_aws_credentials(credentials: dict) -> dict:
         
         return result
         
-    except Exception as e:
+    except Exception as exc:
+        logger.error(
+            "AWS credential check failed: %s",
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         result["status"] = "error"
-        result["message"] = f"Unexpected error: {str(e)}"
+        result["message"] = "AWS credential validation failed unexpectedly. Check logs."
         return result
 
 
@@ -925,10 +948,16 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
         # Check the credentials
         return check_aws_credentials(aws_creds)
         
-    except Exception as e:
+    except Exception as exc:
+        logger.error(
+            "Failed to load AWS credentials for project %s: %s",
+            project_name,
+            redact_sensitive(exc),
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         return {
             "status": "error",
-            "message": f"Failed to load credentials from config: {str(e)}",
+            "message": "Failed to load AWS credentials from project configuration.",
             "caller_identity": None,
             "can_list_policies": False,
             "missing_check_permission": None,

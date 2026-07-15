@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -14,17 +15,25 @@ from src.clients.deployer_client import DeployerClient
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
+from src.services.deployment_service import PreparedDeploymentProject
 from src.services.deployment_stream_service import create_session, get_session
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.secret_redaction import redact_secret_like_text
-from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    DownstreamServiceError,
+    EntityNotFoundError,
+    ValidationError,
+)
 
 
-ProjectPreparer = Callable[[DigitalTwin, str], Awaitable[str]]
+ProjectPreparer = Callable[[DigitalTwin, str], Awaitable[PreparedDeploymentProject]]
 SessionCreator = Callable[[str, str, str], Awaitable[Any]]
 TaskScheduler = Callable[[Awaitable[Any]], Any]
-InfrastructureVerifier = Callable[[str, str], Awaitable[dict[str, Any]]]
+InfrastructureVerifier = Callable[
+    [PreparedDeploymentProject, str], Awaitable[dict[str, Any]]
+]
+logger = logging.getLogger(__name__)
 
 
 class DeploymentVerificationService:
@@ -43,13 +52,19 @@ class DeploymentVerificationService:
     ):
         self.db = db
         self.twin_repository = twin_repository
-        self.project_preparer = project_preparer or deployment_service.prepare_project_for_deployment
+        self.project_preparer = (
+            project_preparer or deployment_service.prepare_project_for_deployment
+        )
         self.session_creator = session_creator
         self.task_scheduler = task_scheduler
         self.deployer_client = deployer_client or DeployerClient()
-        self.infrastructure_verifier = infrastructure_verifier or self._verify_infrastructure_with_deployer
+        self.infrastructure_verifier = (
+            infrastructure_verifier or self._verify_infrastructure_with_deployer
+        )
 
-    async def verify_infrastructure(self, twin_id: str, user_id: str, *, test_mode: bool) -> dict[str, Any]:
+    async def verify_infrastructure(
+        self, twin_id: str, user_id: str, *, test_mode: bool
+    ) -> dict[str, Any]:
         """Run structured infrastructure verification for a deployed twin."""
         twin = self._require_deployed_twin(
             twin_id,
@@ -60,9 +75,11 @@ class DeploymentVerificationService:
             return self._mock_infrastructure_result()
 
         twin = self._reload_for_verification(twin_id, user_id)
-        resource_name = await self._prepare_project(twin, user_id, "Failed to prepare project")
+        prepared_project = await self._prepare_project(
+            twin, user_id, "Failed to prepare project"
+        )
         provider = self._main_provider(twin)
-        return await self.infrastructure_verifier(resource_name, provider)
+        return await self.infrastructure_verifier(prepared_project, provider)
 
     async def start_dataflow_verification(
         self,
@@ -76,23 +93,32 @@ class DeploymentVerificationService:
         self._require_deployed_twin(twin_id, user_id, "verify data flow")
         payload = self._validate_dataflow_payload(body)
 
-        session_id = str(uuid.uuid4())
-        await self.session_creator(twin_id, session_id, "verify_dataflow")
         if test_mode:
+            session_id = str(uuid.uuid4())
+            await self.session_creator(twin_id, session_id, "verify_dataflow")
             return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
 
         twin = self._reload_for_verification(twin_id, user_id)
-        resource_name = await self._prepare_project(twin, user_id, "Failed to prepare project")
+        prepared_project = await self._prepare_project(
+            twin, user_id, "Failed to prepare project"
+        )
+        session_id = str(uuid.uuid4())
+        await self.session_creator(twin_id, session_id, "verify_dataflow")
         self.task_scheduler(
             self.proxy_dataflow_sse(
                 session_id=session_id,
-                resource_name=resource_name,
+                prepared_project=prepared_project,
                 payload=payload,
             )
         )
         return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
 
-    async def proxy_dataflow_sse(self, session_id: str, resource_name: str, payload: dict[str, Any]) -> None:
+    async def proxy_dataflow_sse(
+        self,
+        session_id: str,
+        prepared_project: PreparedDeploymentProject,
+        payload: dict[str, Any],
+    ) -> None:
         """Proxy Deployer dataflow SSE messages into the Management SSE session."""
         session = await get_session(session_id)
         if not session:
@@ -100,7 +126,11 @@ class DeploymentVerificationService:
 
         try:
             last_data = None
-            async for line in self.deployer_client.verify_dataflow(resource_name, payload):
+            async for line in self.deployer_client.verify_dataflow(
+                prepared_project.resource_name,
+                payload,
+                prepared_project.operation_token,
+            ):
                 if line.startswith("data: "):
                     message = line[6:]
                     last_data = message
@@ -132,7 +162,10 @@ class DeploymentVerificationService:
             )
             session.on_complete(success=False, message=safe_error)
         except Exception as exc:
-            safe_error = redact_secret_like_text(str(exc))
+            logger.error(
+                "Unexpected dataflow verification failure (%s)", type(exc).__name__
+            )
+            safe_error = "Verification failed unexpectedly"
             await session.push_log(
                 json.dumps(
                     {
@@ -144,12 +177,16 @@ class DeploymentVerificationService:
             )
             session.on_complete(success=False, message=safe_error)
 
-    def _require_deployed_twin(self, twin_id: str, user_id: str, operation: str) -> DigitalTwin:
+    def _require_deployed_twin(
+        self, twin_id: str, user_id: str, operation: str
+    ) -> DigitalTwin:
         twin = self.twin_repository.get_active_for_user(twin_id, user_id)
         if not twin:
             raise EntityNotFoundError("Twin not found")
         if twin.state != TwinState.DEPLOYED:
-            raise ValidationError(f"Twin must be deployed to {operation} (current state: {twin.state})")
+            raise ValidationError(
+                f"Twin must be deployed to {operation} (current state: {twin.state})"
+            )
         return twin
 
     def _reload_for_verification(self, twin_id: str, user_id: str) -> DigitalTwin:
@@ -171,20 +208,40 @@ class DeploymentVerificationService:
             raise EntityNotFoundError("Twin not found during reload")
         return twin
 
-    async def _prepare_project(self, twin: DigitalTwin, user_id: str, message: str) -> str:
+    async def _prepare_project(
+        self,
+        twin: DigitalTwin,
+        user_id: str,
+        message: str,
+    ) -> PreparedDeploymentProject:
         try:
             return await self.project_preparer(twin, user_id)
+        except DownstreamServiceError as exc:
+            safe_detail = redact_secret_like_text(exc.public_detail)
+            logger.error(
+                "Project preparation for verification failed downstream (%s)",
+                exc.status_code,
+            )
+            raise DownstreamServiceError(
+                status_code=exc.status_code,
+                public_detail=safe_detail,
+            ) from exc
         except Exception as exc:
+            logger.error(
+                "Project preparation for verification failed (%s)", type(exc).__name__
+            )
             raise DownstreamServiceError(
                 status_code=500,
-                public_detail=f"{message}: {redact_secret_like_text(str(exc))}",
+                public_detail=message,
             ) from exc
 
     @staticmethod
     def _validate_dataflow_payload(body: dict[str, Any]) -> dict[str, Any]:
         payload = body.get("payload", {})
         if not payload or "iotDeviceId" not in payload:
-            raise ValidationError("Request body must contain 'payload' with 'iotDeviceId' field")
+            raise ValidationError(
+                "Request body must contain 'payload' with 'iotDeviceId' field"
+            )
         return payload
 
     @staticmethod
@@ -193,9 +250,17 @@ class DeploymentVerificationService:
             return provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
         return "aws"
 
-    async def _verify_infrastructure_with_deployer(self, resource_name: str, provider: str) -> dict[str, Any]:
+    async def _verify_infrastructure_with_deployer(
+        self,
+        prepared_project: PreparedDeploymentProject,
+        provider: str,
+    ) -> dict[str, Any]:
         try:
-            return await self.deployer_client.verify_infrastructure(resource_name, provider)
+            return await self.deployer_client.verify_infrastructure(
+                prepared_project.resource_name,
+                provider,
+                prepared_project.operation_token,
+            )
         except ExternalServiceError as exc:
             raise DownstreamServiceError(
                 status_code=exc.upstream_status_code or 502,
@@ -208,7 +273,9 @@ class DeploymentVerificationService:
             ) from exc
 
     @staticmethod
-    def _deployer_error_message(exc: ExternalServiceError | ExternalServiceUnavailable) -> str:
+    def _deployer_error_message(
+        exc: ExternalServiceError | ExternalServiceUnavailable,
+    ) -> str:
         if isinstance(exc, ExternalServiceUnavailable):
             return "Deployer API unavailable"
         return f"Deployer API error: {redact_secret_like_text(exc.public_detail)}"
@@ -217,20 +284,110 @@ class DeploymentVerificationService:
     def _mock_infrastructure_result() -> dict[str, Any]:
         return {
             "checks": [
-                {"name": "L0 Setup resources", "status": "pass", "provider": "", "detail": "12 resources found", "layer": "L0"},
-                {"name": "L0 Glue functions", "status": "pass", "provider": "", "detail": "cold-writer, hot-reader", "layer": "L0"},
-                {"name": "IoT endpoint", "status": "pass", "provider": "AWS", "detail": "endpoint active", "layer": "L1"},
-                {"name": "IoT devices registered", "status": "pass", "provider": "AWS", "detail": "2 device(s)", "layer": "L1"},
-                {"name": "Functions deployed", "status": "pass", "provider": "AWS", "detail": "5 resources", "layer": "L2"},
-                {"name": "Hot storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Cold storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Archive storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Hot→Cold mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "Cold→Archive mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
-                {"name": "TwinMaker workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L4"},
-                {"name": "TwinMaker entities", "status": "pass", "provider": "AWS", "detail": "2 entities created", "layer": "L4"},
-                {"name": "ADT twins", "status": "skip", "provider": "", "detail": "L4 not Azure", "layer": "L4"},
-                {"name": "Grafana workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L5"},
+                {
+                    "name": "L0 Setup resources",
+                    "status": "pass",
+                    "provider": "",
+                    "detail": "12 resources found",
+                    "layer": "L0",
+                },
+                {
+                    "name": "L0 Glue functions",
+                    "status": "pass",
+                    "provider": "",
+                    "detail": "cold-writer, hot-reader",
+                    "layer": "L0",
+                },
+                {
+                    "name": "IoT endpoint",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "endpoint active",
+                    "layer": "L1",
+                },
+                {
+                    "name": "IoT devices registered",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "2 device(s)",
+                    "layer": "L1",
+                },
+                {
+                    "name": "Functions deployed",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "5 resources",
+                    "layer": "L2",
+                },
+                {
+                    "name": "Hot storage",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "deployed",
+                    "layer": "L3",
+                },
+                {
+                    "name": "Cold storage",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "deployed",
+                    "layer": "L3",
+                },
+                {
+                    "name": "Archive storage",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "deployed",
+                    "layer": "L3",
+                },
+                {
+                    "name": "Hot→Cold mover",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "deployed",
+                    "layer": "L3",
+                },
+                {
+                    "name": "Cold→Archive mover",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "deployed",
+                    "layer": "L3",
+                },
+                {
+                    "name": "TwinMaker workspace",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "deployed",
+                    "layer": "L4",
+                },
+                {
+                    "name": "TwinMaker entities",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "2 entities created",
+                    "layer": "L4",
+                },
+                {
+                    "name": "ADT twins",
+                    "status": "skip",
+                    "provider": "",
+                    "detail": "L4 not Azure",
+                    "layer": "L4",
+                },
+                {
+                    "name": "Grafana workspace",
+                    "status": "pass",
+                    "provider": "AWS",
+                    "detail": "deployed",
+                    "layer": "L5",
+                },
             ],
-            "summary": {"pass_count": 13, "fail_count": 0, "skip_count": 1, "total": 14, "healthy": True},  # nosec B105
+            "summary": {
+                "pass_count": 13,
+                "fail_count": 0,
+                "skip_count": 1,
+                "total": 14,
+                "healthy": True,
+            },  # nosec B105
         }

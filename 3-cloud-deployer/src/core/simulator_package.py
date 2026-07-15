@@ -355,7 +355,6 @@ class SimulatorPackageService:
         *,
         root: bool,
     ) -> dict[str, Any]:
-        prefix = "" if root else "../"
         if provider == "aws":
             credential_prefix = "configs/" if root else ""
             return {

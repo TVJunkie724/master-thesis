@@ -21,7 +21,7 @@ locals {
   l3_cold_aws_enabled    = var.layer_3_cold_provider == "aws"
   l3_archive_aws_enabled = var.layer_3_archive_provider == "aws"
   l3_any_aws_enabled     = local.l3_hot_aws_enabled || local.l3_cold_aws_enabled || local.l3_archive_aws_enabled
-  
+
   # Pre-built Lambda packages directory
   l3_lambda_build_dir = "${var.project_path}/.build/aws"
 }
@@ -236,9 +236,9 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
-      DYNAMODB_TABLE_NAME    = aws_dynamodb_table.l3_hot[0].name
-      COLD_S3_BUCKET_NAME    = try(aws_s3_bucket.l3_cold[0].bucket, "")
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      DYNAMODB_TABLE_NAME = aws_dynamodb_table.l3_hot[0].name
+      COLD_S3_BUCKET_NAME = try(aws_s3_bucket.l3_cold[0].bucket, "")
 
       # Multi-cloud Hot→Cold: When AWS L3 Hot sends to remote Cold
       REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "aws" && var.layer_3_cold_provider != "aws" ? (
@@ -328,9 +328,9 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO         = var.digital_twin_info_json
-      COLD_S3_BUCKET_NAME       = aws_s3_bucket.l3_cold[0].bucket
-      ARCHIVE_S3_BUCKET_NAME    = try(aws_s3_bucket.l3_archive[0].bucket, "")
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
+      COLD_S3_BUCKET_NAME    = aws_s3_bucket.l3_cold[0].bucket
+      ARCHIVE_S3_BUCKET_NAME = try(aws_s3_bucket.l3_archive[0].bucket, "")
 
       # Multi-cloud Cold→Archive: When AWS L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "aws" && var.layer_3_archive_provider != "aws" ? (

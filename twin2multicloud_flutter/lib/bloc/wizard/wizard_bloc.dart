@@ -2,8 +2,10 @@
 // BLoC for wizard state machine
 // Refactored to use service extraction pattern for testability
 
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/app_logger.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
@@ -31,18 +33,27 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final WizardGlbCleanupService _glbCleanupService;
   final WizardDeployerValidationService _deployerValidationService;
   final ManagementApi _api;
+  final AppLogger _logger;
+  final int _maxSceneGlbBytes;
+  final int _maxProjectZipBytes;
 
   WizardBloc({
     required ManagementApi api,
     WizardInitService? initService,
     WizardZipService? zipService,
     WizardGlbCleanupService? glbCleanupService,
+    AppLogger logger = const AppLogger(),
+    int maxSceneGlbBytes = 100 * 1024 * 1024,
+    int maxProjectZipBytes = 100 * 1024 * 1024,
   }) : _api = api,
        _initService = initService ?? WizardInitService(),
        _zipService = zipService ?? WizardZipService(),
        _glbCleanupService =
            glbCleanupService ?? WizardGlbCleanupService(api: api),
        _deployerValidationService = WizardDeployerValidationService(api: api),
+       _logger = logger,
+       _maxSceneGlbBytes = maxSceneGlbBytes,
+       _maxProjectZipBytes = maxProjectZipBytes,
        super(const WizardState()) {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
@@ -116,7 +127,8 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
     // === Step 3: L4 Scene ===
     on<WizardSceneConfigContentChanged>(_onSceneConfigContentChanged);
-    on<WizardSceneGlbUploadStatusChanged>(_onSceneGlbUploadStatusChanged);
+    on<WizardSceneGlbUploadRequested>(_onSceneGlbUploadRequested);
+    on<WizardSceneGlbDeleteRequested>(_onSceneGlbDeleteRequested);
 
     // === Step 3: L4/L5 User Config ===
     on<WizardUserConfigContentChanged>(_onUserConfigContentChanged);
@@ -126,7 +138,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
     // === Step 3: Zip Upload ===
     on<WizardZipUploadRequested>(_onZipUploadRequested);
-    on<WizardZipUploadConfirmed>(_onZipUploadConfirmed);
   }
 
   // ============================================================
@@ -173,9 +184,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       emit(result.state);
       await _loadCloudConnections(emit);
     } catch (e) {
-      debugPrint(
-        '[WizardBloc] Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.wizardInitializationFailed);
       emit(
         state.copyWith(
           status: WizardStatus.error,
@@ -810,9 +819,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     } catch (e) {
-      debugPrint(
-        '[WizardBloc] Calculation failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.costCalculationFailed);
       emit(
         state.copyWith(
           isCalculating: false,
@@ -945,7 +952,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           );
         } catch (e) {
           // Non-fatal: pricing snapshots are optional
-          debugPrint('Failed to save pricing snapshots: $e');
+          _logger.warning(AppLogEvent.pricingSnapshotPersistenceFailed);
         }
       }
 
@@ -973,9 +980,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     } catch (e) {
-      debugPrint(
-        '[WizardBloc] Save failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.wizardSaveFailed);
       emit(
         state.copyWith(
           status: WizardStatus.ready,
@@ -1040,9 +1045,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     } catch (e) {
-      debugPrint(
-        '[WizardBloc] Finish failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.wizardFinishFailed);
       emit(
         state.copyWith(
           status: WizardStatus.ready,
@@ -1613,13 +1616,137 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     );
   }
 
-  void _onSceneGlbUploadStatusChanged(
-    WizardSceneGlbUploadStatusChanged event,
+  Future<void> _onSceneGlbUploadRequested(
+    WizardSceneGlbUploadRequested event,
     Emitter<WizardState> emit,
-  ) {
+  ) async {
+    if (state.sceneGlbCommand.isBusy) return;
+    final twinId = state.twinId;
+    if (twinId == null) {
+      emit(
+        state.copyWith(
+          sceneGlbCommand: const SceneGlbCommandState(
+            message: 'Save the draft before uploading a GLB file.',
+          ),
+          errorMessage: 'Save the draft before uploading a GLB file.',
+        ),
+      );
+      return;
+    }
+    if (!_isSafeUploadFilename(event.filename, '.glb') || event.bytes.isEmpty) {
+      emit(
+        state.copyWith(
+          sceneGlbCommand: const SceneGlbCommandState(
+            message: 'Select a non-empty .glb file with a safe filename.',
+          ),
+          errorMessage: 'Select a non-empty .glb file with a safe filename.',
+        ),
+      );
+      return;
+    }
+    if (event.bytes.length > _maxSceneGlbBytes) {
+      emit(
+        state.copyWith(
+          sceneGlbCommand: const SceneGlbCommandState(
+            message: 'The GLB file exceeds the 100 MB upload limit.',
+          ),
+          errorMessage: 'The GLB file exceeds the 100 MB upload limit.',
+        ),
+      );
+      return;
+    }
+
     emit(
-      state.copyWith(sceneGlbUploaded: event.uploaded, hasUnsavedChanges: true),
+      state.copyWith(
+        sceneGlbCommand: const SceneGlbCommandState(
+          phase: SceneGlbCommandPhase.uploading,
+        ),
+        clearError: true,
+        clearSuccess: true,
+      ),
     );
+    try {
+      await _api.uploadSceneGlb(twinId, event.bytes, event.filename);
+      emit(
+        state.copyWith(
+          sceneGlbUploaded: true,
+          sceneGlbCommand: const SceneGlbCommandState(
+            message: 'GLB uploaded successfully.',
+          ),
+          hasUnsavedChanges: true,
+          successMessage: 'GLB uploaded successfully.',
+        ),
+      );
+    } catch (error) {
+      final message =
+          'GLB upload failed: ${ApiErrorHandler.extractMessage(error)}';
+      emit(
+        state.copyWith(
+          sceneGlbCommand: SceneGlbCommandState(message: message),
+          errorMessage: message,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onSceneGlbDeleteRequested(
+    WizardSceneGlbDeleteRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    if (state.sceneGlbCommand.isBusy) return;
+    final twinId = state.twinId;
+    if (twinId == null) {
+      emit(
+        state.copyWith(
+          sceneGlbCommand: const SceneGlbCommandState(
+            message: 'Save the draft before deleting a GLB file.',
+          ),
+          errorMessage: 'Save the draft before deleting a GLB file.',
+        ),
+      );
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        sceneGlbCommand: const SceneGlbCommandState(
+          phase: SceneGlbCommandPhase.deleting,
+        ),
+        clearError: true,
+        clearSuccess: true,
+      ),
+    );
+    try {
+      await _api.deleteSceneGlb(twinId);
+      emit(
+        state.copyWith(
+          sceneGlbUploaded: false,
+          sceneGlbCommand: const SceneGlbCommandState(
+            message: 'GLB deleted successfully.',
+          ),
+          hasUnsavedChanges: true,
+          successMessage: 'GLB deleted successfully.',
+        ),
+      );
+    } catch (error) {
+      final message =
+          'GLB deletion failed: ${ApiErrorHandler.extractMessage(error)}';
+      emit(
+        state.copyWith(
+          sceneGlbCommand: SceneGlbCommandState(message: message),
+          errorMessage: message,
+        ),
+      );
+    }
+  }
+
+  bool _isSafeUploadFilename(String filename, String extension) {
+    final normalized = filename.trim();
+    return normalized.isNotEmpty &&
+        normalized.toLowerCase().endsWith(extension) &&
+        !normalized.contains('/') &&
+        !normalized.contains('\\') &&
+        !normalized.codeUnits.any((unit) => unit < 32 || unit == 127);
   }
 
   // ============================================================
@@ -1674,43 +1801,29 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   // STEP 3: ZIP UPLOAD HANDLERS
   // ============================================================
 
-  /// Handle zip upload request - check if data exists and needs confirmation
+  /// Process a presentation-confirmed, transient ZIP upload.
   Future<void> _onZipUploadRequested(
     WizardZipUploadRequested event,
     Emitter<WizardState> emit,
   ) async {
-    // If Step 3 already has data, emit state that triggers confirmation dialog
-    if (state.hasSection3Data) {
+    if (state.zipUploadInProgress) return;
+    if (!_isSafeUploadFilename(event.fileName, '.zip') ||
+        event.fileBytes.isEmpty) {
       emit(
         state.copyWith(
-          zipUploadPending: true,
-          pendingZipFilePath: event.filePath,
-          pendingZipFileBytes: event.fileBytes,
-          pendingZipFileName: event.fileName,
+          errorMessage: 'Select a non-empty .zip file with a safe filename.',
         ),
       );
       return;
     }
-
-    // No existing data - proceed directly with upload
-    await _processZipUpload(event.fileBytes, event.fileName, emit);
-  }
-
-  /// Handle confirmed zip upload - user chose to replace existing data
-  Future<void> _onZipUploadConfirmed(
-    WizardZipUploadConfirmed event,
-    Emitter<WizardState> emit,
-  ) async {
-    // Clear pending state
-    emit(
-      state.copyWith(
-        zipUploadPending: false,
-        clearPendingZipFilePath: true,
-        clearPendingZipFileBytes: true,
-        clearPendingZipFileName: true,
-      ),
-    );
-
+    if (event.fileBytes.length > _maxProjectZipBytes) {
+      emit(
+        state.copyWith(
+          errorMessage: 'The project ZIP exceeds the 100 MB upload limit.',
+        ),
+      );
+      return;
+    }
     await _processZipUpload(event.fileBytes, event.fileName, emit);
   }
 
@@ -1718,7 +1831,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   ///
   /// Delegates to WizardZipService for the heavy lifting.
   Future<void> _processZipUpload(
-    dynamic fileBytes,
+    Uint8List fileBytes,
     String fileName,
     Emitter<WizardState> emit,
   ) async {
@@ -1754,9 +1867,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         emit(processingResult.state.copyWith(forceCollapseSections: false));
       }
     } catch (e) {
-      debugPrint(
-        '[WizardBloc] Upload failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.projectZipUploadFailed);
       emit(
         state.copyWith(
           zipUploadInProgress: false,

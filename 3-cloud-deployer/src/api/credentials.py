@@ -14,11 +14,11 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
-from api.azure_credentials_checker import check_azure_credentials, check_azure_credentials_from_config
-from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
-from api.error_models import ERROR_RESPONSES
-from api.preflight import ProviderPreflightResponse, build_provider_preflight
+from src.api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
+from src.api.azure_credentials_checker import check_azure_credentials, check_azure_credentials_from_config
+from src.api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
+from src.api.error_models import ERROR_RESPONSES
+from src.api.preflight import ProviderPreflightResponse, build_provider_preflight
 
 router = APIRouter(prefix="/permissions")
 

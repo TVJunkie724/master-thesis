@@ -147,7 +147,7 @@ def deploy_to_kudu(
             )
             
             if response.status_code in (200, 202):
-                logger.info(f"  ✓ ZIP uploaded, waiting for Oryx build to complete...")
+                logger.info("  ✓ ZIP uploaded, waiting for Oryx build to complete...")
                 # Wait for Oryx build (pip install) to complete
                 # This is critical - without it, functions won't have their dependencies
                 wait_for_function_warmup(app_name, warmup_seconds=180)
@@ -209,7 +209,7 @@ def enable_scm_basic_auth(
             name=app_name,
             csmPublishingAccessPoliciesEntity={"allow": True}
         )
-        logger.info(f"  ✓ SCM Basic Auth enabled")
+        logger.info("  ✓ SCM Basic Auth enabled")
     except Exception as e:
         logger.error(f"Failed to enable SCM Basic Auth: {e}")
         raise
@@ -312,7 +312,7 @@ async def deploy_to_kudu_async(
                     headers={"Content-Type": "application/zip"}
                 ) as response:
                     if response.status in (200, 202):
-                        yield f"  ✓ ZIP uploaded, waiting for Oryx build..."
+                        yield "  ✓ ZIP uploaded, waiting for Oryx build..."
                         # Non-blocking warmup with progress updates
                         for i in range(0, warmup_seconds, 30):
                             await asyncio.sleep(30)

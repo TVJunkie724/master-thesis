@@ -16,13 +16,13 @@ import functions_framework
 
 # Handle import path for both Cloud Functions and test contexts
 try:
-    from _shared.inter_cloud import validate_token, build_auth_error_response
+    from _shared.inter_cloud import build_auth_error_response, validate_https_url, validate_token
     from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
-    from _shared.inter_cloud import validate_token, build_auth_error_response
+    from _shared.inter_cloud import build_auth_error_response, validate_https_url, validate_token
     from _shared.env_utils import require_env
 
 
@@ -97,6 +97,7 @@ def main(request):
         
         print(f"Querying: {target_url}")
         
+        validate_https_url(target_url)
         response = requests.get(
             target_url,
             params={"device_id": device_id},

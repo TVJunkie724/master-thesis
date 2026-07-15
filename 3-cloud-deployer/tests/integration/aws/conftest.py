@@ -18,7 +18,7 @@ def mock_provider(aws_credentials):
     """
     Create a mock AWSProvider with mocked boto3 clients for new layer functions.
     """
-    from unittest.mock import MagicMock, patch, wraps
+    from unittest.mock import MagicMock
     from src.providers.aws.provider import AWSProvider
     from src.providers.aws.naming import AWSNaming
     
@@ -64,7 +64,6 @@ def mock_provider(aws_credentials):
 @pytest.fixture(scope="function")
 def project_path(tmp_path):
     """Create a temporary project path with lambda code structure."""
-    import shutil
     core_lambda = tmp_path / "lambda_functions" / "core"
     core_lambda.mkdir(parents=True)
     
@@ -84,8 +83,6 @@ def mock_iam_policies(monkeypatch):
     Mock IAM policy attachment operations since moto doesn't fully support AWS managed policies.
     This patches the IAM client's attach_role_policy to be a no-op.
     """
-    from unittest.mock import MagicMock
-    original_attach = None
     
     def patched_attach(*args, **kwargs):
         # Silently succeed instead of failing on non-existent managed policies

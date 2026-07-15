@@ -8,7 +8,6 @@ Each category has:
 - 5 edge cases (boundary conditions)
 """
 
-import pytest
 from unittest.mock import patch, AsyncMock
 from src.clients.optimizer_client import OptimizerProviderStatus
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
@@ -300,7 +299,7 @@ class TestDeployerProxyErrorHandling:
             
             # Returns 200 with valid=False and error message
             assert response.status_code == 200
-            assert response.json()["valid"] == False
+            assert response.json()["valid"] is False
             assert "cannot connect" in response.json()["message"].lower()
 
     def test_empty_content_validation(self, authenticated_client):
@@ -400,7 +399,7 @@ class TestL2ValidationEndpoints:
             )
             
             assert response.status_code == 200
-            assert response.json()["valid"] == True
+            assert response.json()["valid"] is True
             assert "valid" in response.json()["message"].lower()
 
     def test_state_machine_validation_succeeds(self, authenticated_client):
@@ -421,7 +420,7 @@ class TestL2ValidationEndpoints:
             )
             
             assert response.status_code == 200
-            assert response.json()["valid"] == True
+            assert response.json()["valid"] is True
 
     # ============================================================
     # Error Case Tests
@@ -481,7 +480,7 @@ class TestL2ValidationEndpoints:
             )
             
             assert response.status_code == 200
-            assert response.json()["valid"] == False
+            assert response.json()["valid"] is False
             assert "syntax" in response.json()["message"].lower()
 
     def test_state_machine_yaml_detection(self, authenticated_client):
@@ -534,7 +533,7 @@ States:
             )
             
             assert response.status_code == 200
-            assert response.json()["valid"] == True
+            assert response.json()["valid"] is True
             # Verify provider passed in URL
             assert mock_validate.call_args.kwargs["provider"] == "azure"
 
@@ -556,7 +555,7 @@ States:
             )
             
             assert response.status_code == 200
-            assert response.json()["valid"] == True
+            assert response.json()["valid"] is True
 
     def test_function_code_empty_content(self, authenticated_client):
         """POST validate/function-code with empty content handled."""
@@ -581,7 +580,7 @@ States:
             
             # API normalizes to valid=False with message
             assert response.status_code == 200
-            assert response.json()["valid"] == False
+            assert response.json()["valid"] is False
 
     def test_l2_validation_does_not_persist_to_db(self, authenticated_client):
         """L2 validation (function-code/state-machine) does NOT persist to DB."""
@@ -602,7 +601,7 @@ States:
             )
             
             assert response.status_code == 200
-            assert response.json()["valid"] == True
+            assert response.json()["valid"] is True
         
         # Verify DB was NOT updated by checking config endpoint
         config_response = client.get(f"/twins/{twin_id}/deployer/config", headers=headers)

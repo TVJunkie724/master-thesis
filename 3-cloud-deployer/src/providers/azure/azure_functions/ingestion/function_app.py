@@ -21,14 +21,14 @@ import urllib.error
 import azure.functions as func
 
 try:
-    from _shared.inter_cloud import validate_token
+    from _shared.inter_cloud import safe_urlopen, validate_token
     from _shared.env_utils import require_env
     from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
-    from _shared.inter_cloud import validate_token
+    from _shared.inter_cloud import safe_urlopen, validate_token
     from _shared.env_utils import require_env
     from _shared.normalize import normalize_telemetry
 
@@ -92,7 +92,7 @@ def _invoke_processor(processor_name: str, payload: dict) -> None:
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Successfully invoked {processor_name}: {response.getcode()}")
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to invoke {processor_name}: {e.code} {e.reason}")
@@ -141,7 +141,7 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
         
         # 4. Normalize payload to canonical format (device_id, timestamp)
         payload = normalize_telemetry(payload)
-        logging.info(f"Normalized payload: {json.dumps(payload)}")
+        logging.info("Payload normalized")
         
         # 5. Validate required fields
         device_id = payload.get("device_id")

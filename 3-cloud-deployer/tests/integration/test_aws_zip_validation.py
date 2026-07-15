@@ -13,7 +13,6 @@ Covers ALL AWS function categories:
 """
 import pytest
 import zipfile
-import json
 import shutil
 from pathlib import Path
 

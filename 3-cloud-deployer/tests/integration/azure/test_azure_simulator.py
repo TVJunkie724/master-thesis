@@ -120,8 +120,8 @@ class TestAzureSimulatorTransmission:
         mock_client.disconnect.assert_called_once()
 
     @patch('src.iot_device_simulator.azure.transmission._get_client')
-    def test_send_mqtt_device_id_mismatch_warns(self, mock_get_client, capsys):
-        """Test warning when payload device ID doesn't match configured device."""
+    def test_send_mqtt_unknown_device_fails_closed(self, mock_get_client):
+        """Never send an unknown payload identity with default device credentials."""
         from src.iot_device_simulator.azure import transmission, globals as azure_globals
         
         azure_globals.config = {
@@ -138,12 +138,9 @@ class TestAzureSimulatorTransmission:
         
         # Payload has different device ID
         payload = {"iotDeviceId": "wrong-device", "temperature": 25.5}
-        transmission.send_mqtt(payload)
-        
-        captured = capsys.readouterr()
-        # Production code prints "INFO: Routing payload for 'X' via device 'Y'"
-        assert "Routing payload" in captured.out
-        assert "wrong-device" in captured.out
+        with pytest.raises(ValueError, match="wrong-device"):
+            transmission.send_mqtt(payload)
+        mock_get_client.assert_not_called()
 
     @patch('builtins.open', new_callable=mock_open)
     @patch('src.iot_device_simulator.azure.transmission.send_mqtt')
@@ -222,7 +219,11 @@ class TestAzureSimulatorMain:
             except (Exception, SystemExit):
                 pass
         
-        mock_init.assert_called_once_with(project_name='test-project', device_id=None)
+        mock_init.assert_called_once_with(
+            project_name='test-project',
+            device_id=None,
+            config_path=None,
+        )
 
 
 if __name__ == "__main__":

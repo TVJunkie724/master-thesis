@@ -25,13 +25,17 @@ from typing import Any, Optional, TYPE_CHECKING
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
 from src.repositories.deployment_repository import DeploymentRepository
-from src.services.credential_resolution_service import CredentialResolutionService, DeploymentCredentials
+from src.services.credential_resolution_service import (
+    CredentialResolutionService,
+    DeploymentCredentials,
+)
 from src.services.errors import (
     DeploymentPackageBuildFailed,
     ExternalServiceError,
     ExternalServiceUnavailable,
 )
 from src.services.provider_contract import provider_id_for_deployer_project
+from src.services.service_errors import DownstreamServiceError
 from src.services.twin_lifecycle_service import TwinLifecycleService
 
 if TYPE_CHECKING:
@@ -59,7 +63,9 @@ SECRET_FRAGMENT_PATTERN = re.compile(
     r"([^\"',\s}\]]+)"
 )
 PROJECT_PATH_PATTERN = re.compile(r"(/[^\s:]+/upload/[^\s:]+)")
-WORKSPACE_PATH_PATTERN = re.compile(r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)")
+WORKSPACE_PATH_PATTERN = re.compile(
+    r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)"
+)
 
 
 @dataclass(frozen=True)
@@ -99,17 +105,25 @@ class DeploymentPackage:
     manifest: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class PreparedDeploymentProject:
+    """Opaque Deployer context prepared for one operation."""
+
+    resource_name: str
+    operation_token: str
+
+
 def build_deploy_config(twin) -> dict:
     """
     Build the config.json payload from saved configurations.
-    
+
     Combines:
     - OptimizerConfiguration (layer providers, parameters)
     - DeployerConfiguration (config files, user functions)
-    
+
     Args:
         twin: DigitalTwin model instance with related configs
-        
+
     Returns:
         dict: Configuration payload ready for Deployer API
     """
@@ -117,12 +131,14 @@ def build_deploy_config(twin) -> dict:
         "resource_name": twin.name.lower().replace(" ", "-"),
         "twin_id": twin.id,
     }
-    
+
     # Add from deployer config
     if twin.deployer_config:
         dc = twin.deployer_config
-        config["resource_name"] = dc.deployer_digital_twin_name or config["resource_name"]
-        
+        config["resource_name"] = (
+            dc.deployer_digital_twin_name or config["resource_name"]
+        )
+
         # Parse JSON fields
         if dc.config_events_json:
             config["config_events"] = json.loads(dc.config_events_json)
@@ -138,7 +154,7 @@ def build_deploy_config(twin) -> dict:
             config["scene_config"] = dc.scene_config_content
         if dc.user_config_content:
             config["user_config"] = dc.user_config_content
-        
+
         # User functions
         if dc.processor_contents:
             config["processors"] = json.loads(dc.processor_contents)
@@ -146,7 +162,7 @@ def build_deploy_config(twin) -> dict:
             config["event_feedback"] = dc.event_feedback_content
         if dc.event_action_contents:
             config["event_actions"] = json.loads(dc.event_action_contents)
-    
+
     # Add from optimizer config
     if twin.optimizer_config:
         oc = twin.optimizer_config
@@ -161,7 +177,7 @@ def build_deploy_config(twin) -> dict:
         }
         if oc.result_json:
             config["optimizer_result"] = json.loads(oc.result_json)
-    
+
     return config
 
 
@@ -191,7 +207,9 @@ def _parse_deployer_sse_data(
             return None, DeployerStreamResult(
                 success=event_type == "complete",
                 message=_redact_deployment_message(raw_data),
-                error_code=None if event_type == "complete" else "DEPLOYER_STREAM_ERROR",
+                error_code=None
+                if event_type == "complete"
+                else "DEPLOYER_STREAM_ERROR",
             )
         return _redact_deployment_message(raw_data), None
 
@@ -206,7 +224,8 @@ def _parse_deployer_sse_data(
             or payload.get("error")
             or (
                 f"{operation_type.capitalize()} complete"
-                if success else f"{operation_type.capitalize()} failed"
+                if success
+                else f"{operation_type.capitalize()} failed"
             )
         )
         return None, DeployerStreamResult(
@@ -239,12 +258,13 @@ async def run_real_deploy_stream(
     twin_id: str,
     resource_name: str,
     provider: str,
+    operation_token: str,
     deployer_client: DeployerClient | None = None,
 ):
     """
     Background task that subscribes to Deployer SSE and forwards logs.
     Updates Deployment record on completion.
-    
+
     Args:
         session_id: SSE session ID for pushing logs to client
         twin_id: ID of the twin being deployed
@@ -254,12 +274,12 @@ async def run_real_deploy_stream(
     # Late imports to avoid circular dependencies
     from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
-    from src.models.twin import DigitalTwin, TwinState
-    
+    from src.models.twin import DigitalTwin
+
     session = await get_session(session_id)
     if not session:
         return
-    
+
     db = SessionLocal()
     DeploymentRepository(db).create_running(
         twin_id=twin_id,
@@ -268,14 +288,16 @@ async def run_real_deploy_stream(
     )
     db.commit()
     db.close()
-    
+
     terraform_outputs = {}
     terminal_result: DeployerStreamResult | None = None
     current_event_type: str | None = None
-    
+
     try:
         client = deployer_client or DeployerClient()
-        async for line in client.deploy_stream(provider, resource_name):
+        async for line in client.deploy_stream(
+            provider, resource_name, operation_token
+        ):
             if line.startswith("event: "):
                 current_event_type = line[7:].strip()
                 continue
@@ -291,9 +313,13 @@ async def run_real_deploy_stream(
                     if result.success and result.outputs:
                         terraform_outputs = result.outputs
                 elif log_message:
-                    print(log_message, flush=True)
+                    logger.info(
+                        "Deployment stream: %s",
+                        log_message,
+                        extra={"session_id": session_id, "twin_id": twin_id},
+                    )
                     await session.push_log(log_message)
-        
+
         deploy_success = bool(terminal_result and terminal_result.success)
         error_message = _result_message(
             terminal_result,
@@ -308,23 +334,29 @@ async def run_real_deploy_stream(
             deployment = repository.get_by_session_id(session_id)
             if twin:
                 if deploy_success:
-                    TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
+                    TwinLifecycleService.complete_deploy(
+                        twin, deployed_at=datetime.utcnow()
+                    )
                 else:
                     TwinLifecycleService.fail_deploy(twin, error_message)
-            
+
             if deployment:
                 if deploy_success:
                     repository.mark_success(
                         deployment,
                         terraform_outputs=terraform_outputs,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                     )
                 else:
                     repository.mark_failed(
                         deployment,
                         error_message=error_message,
                         terraform_outputs=terraform_outputs,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                         error_code=(
                             terminal_result.error_code
                             if terminal_result and terminal_result.error_code
@@ -334,19 +366,21 @@ async def run_real_deploy_stream(
             db.commit()  # Single atomic commit
         finally:
             db.close()
-        
+
         session.on_complete(
             success=deploy_success,
             message=error_message,
             outputs=terraform_outputs,
             operation_id=terminal_result.operation_id if terminal_result else None,
-            error_code=None if deploy_success else (
+            error_code=None
+            if deploy_success
+            else (
                 terminal_result.error_code
                 if terminal_result and terminal_result.error_code
                 else "DEPLOYER_STREAM_ERROR"
             ),
         )
-        
+
     except Exception as e:
         deploy_success = bool(terminal_result and terminal_result.success)
         safe_error = _redact_deployment_message(e)
@@ -357,8 +391,10 @@ async def run_real_deploy_stream(
             if twin and not deploy_success:
                 TwinLifecycleService.fail_deploy(twin, safe_error)
             elif twin and deploy_success:
-                TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
-            
+                TwinLifecycleService.complete_deploy(
+                    twin, deployed_at=datetime.utcnow()
+                )
+
             repository = DeploymentRepository(db)
             deployment = repository.get_by_session_id(session_id)
             if deployment:
@@ -366,14 +402,18 @@ async def run_real_deploy_stream(
                     repository.mark_success(
                         deployment,
                         terraform_outputs=terraform_outputs,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                     )
                 else:
                     repository.mark_failed(
                         deployment,
                         error_message=safe_error,
                         terraform_outputs=terraform_outputs,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                         error_code=(
                             terminal_result.error_code
                             if terminal_result and terminal_result.error_code
@@ -383,7 +423,7 @@ async def run_real_deploy_stream(
             db.commit()
         finally:
             db.close()
-        
+
         if not deploy_success:
             await session.push_log(f"Deployment error: {safe_error}", level="error")
         session.on_complete(
@@ -391,7 +431,9 @@ async def run_real_deploy_stream(
             message=safe_error if not deploy_success else "Deployment complete",
             outputs=terraform_outputs if deploy_success else {},
             operation_id=terminal_result.operation_id if terminal_result else None,
-            error_code=None if deploy_success else (
+            error_code=None
+            if deploy_success
+            else (
                 terminal_result.error_code
                 if terminal_result and terminal_result.error_code
                 else "BACKEND_STREAM_ERROR"
@@ -404,11 +446,12 @@ async def run_real_destroy_stream(
     twin_id: str,
     resource_name: str,
     provider: str,
+    operation_token: str,
     deployer_client: DeployerClient | None = None,
 ):
     """
     Background task that subscribes to Deployer destroy SSE and forwards logs.
-    
+
     Args:
         session_id: SSE session ID for pushing logs to client
         twin_id: ID of the twin being destroyed
@@ -418,12 +461,12 @@ async def run_real_destroy_stream(
     # Late imports to avoid circular dependencies
     from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
-    from src.models.twin import DigitalTwin, TwinState
-    
+    from src.models.twin import DigitalTwin
+
     session = await get_session(session_id)
     if not session:
         return
-    
+
     db = SessionLocal()
     DeploymentRepository(db).create_running(
         twin_id=twin_id,
@@ -432,13 +475,15 @@ async def run_real_destroy_stream(
     )
     db.commit()
     db.close()
-    
+
     terminal_result: DeployerStreamResult | None = None
     current_event_type: str | None = None
-    
+
     try:
         client = deployer_client or DeployerClient()
-        async for line in client.destroy_stream(provider, resource_name):
+        async for line in client.destroy_stream(
+            provider, resource_name, operation_token
+        ):
             if line.startswith("event: "):
                 current_event_type = line[7:].strip()
                 continue
@@ -452,9 +497,13 @@ async def run_real_destroy_stream(
                 if result:
                     terminal_result = result
                 elif log_message:
-                    print(log_message, flush=True)
+                    logger.info(
+                        "Destroy stream: %s",
+                        log_message,
+                        extra={"session_id": session_id, "twin_id": twin_id},
+                    )
                     await session.push_log(log_message)
-        
+
         destroy_success = bool(terminal_result and terminal_result.success)
         error_message = _result_message(
             terminal_result,
@@ -469,21 +518,27 @@ async def run_real_destroy_stream(
             deployment = repository.get_by_session_id(session_id)
             if twin:
                 if destroy_success:
-                    TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
+                    TwinLifecycleService.complete_destroy(
+                        twin, destroyed_at=datetime.utcnow()
+                    )
                 else:
                     TwinLifecycleService.fail_destroy(twin, error_message)
-            
+
             if deployment:
                 if destroy_success:
                     repository.mark_success(
                         deployment,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                     )
                 else:
                     repository.mark_failed(
                         deployment,
                         error_message=error_message,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                         error_code=(
                             terminal_result.error_code
                             if terminal_result and terminal_result.error_code
@@ -493,43 +548,53 @@ async def run_real_destroy_stream(
             db.commit()  # Single atomic commit
         finally:
             db.close()
-        
+
         session.on_complete(
             success=destroy_success,
             message=error_message,
             operation_id=terminal_result.operation_id if terminal_result else None,
-            error_code=None if destroy_success else (
+            error_code=None
+            if destroy_success
+            else (
                 terminal_result.error_code
                 if terminal_result and terminal_result.error_code
                 else "DEPLOYER_STREAM_ERROR"
             ),
         )
-        
+
     except Exception as e:
         destroy_success = bool(terminal_result and terminal_result.success)
         safe_error = _redact_deployment_message(e)
-        logger.error("Destroy stream error (success=%s): %s", destroy_success, safe_error)
+        logger.error(
+            "Destroy stream error (success=%s): %s", destroy_success, safe_error
+        )
         db = SessionLocal()
         try:
             twin = db.get(DigitalTwin, twin_id)
             if twin and not destroy_success:
                 TwinLifecycleService.fail_destroy(twin, safe_error)
             elif twin and destroy_success:
-                TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
-            
+                TwinLifecycleService.complete_destroy(
+                    twin, destroyed_at=datetime.utcnow()
+                )
+
             repository = DeploymentRepository(db)
             deployment = repository.get_by_session_id(session_id)
             if deployment:
                 if destroy_success:
                     repository.mark_success(
                         deployment,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                     )
                 else:
                     repository.mark_failed(
                         deployment,
                         error_message=safe_error,
-                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        operation_id=terminal_result.operation_id
+                        if terminal_result
+                        else None,
                         error_code=(
                             terminal_result.error_code
                             if terminal_result and terminal_result.error_code
@@ -539,14 +604,16 @@ async def run_real_destroy_stream(
             db.commit()
         finally:
             db.close()
-        
+
         if not destroy_success:
             await session.push_log(f"Destroy error: {safe_error}", level="error")
         session.on_complete(
             success=destroy_success,
             message=safe_error if not destroy_success else "Destruction complete",
             operation_id=terminal_result.operation_id if terminal_result else None,
-            error_code=None if destroy_success else (
+            error_code=None
+            if destroy_success
+            else (
                 terminal_result.error_code
                 if terminal_result and terminal_result.error_code
                 else "BACKEND_STREAM_ERROR"
@@ -558,26 +625,27 @@ async def run_real_destroy_stream(
 # PRODUCTION DEPLOYMENT - ZIP Building and Upload
 # ============================================================================
 
+
 def build_project_zip(twin, user_id: str) -> io.BytesIO:
     """
     Build a ZIP file containing all configuration files for the Deployer.
-    
+
     Args:
         twin: DigitalTwin model with related configurations loaded
         user_id: Current user ID (for credential decryption)
-        
+
     Returns:
         BytesIO containing the ZIP file
     """
     package = build_deployment_package(twin, user_id)
     zip_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for file in package.files:
             zf.writestr(file.path, file.content)
         for binary_file in package.binary_files:
             zf.write(str(binary_file.source_path), binary_file.archive_path)
-    
+
     zip_buffer.seek(0)
     return zip_buffer
 
@@ -585,6 +653,7 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
 # ============================================================================
 # HELPER FUNCTIONS - Separation of Concerns
 # ============================================================================
+
 
 def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
     """Materialize the Deployer package from persisted backend state."""
@@ -596,7 +665,9 @@ def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
         [file.path for file in files]
         + [binary_file.archive_path for binary_file in binary_files]
     )
-    secret_bearing_files = sorted(file.path for file in files if file.contains_secret_payloads)
+    secret_bearing_files = sorted(
+        file.path for file in files if file.contains_secret_payloads
+    )
     manifest = _build_deployment_manifest(
         twin,
         providers,
@@ -622,7 +693,9 @@ def _materialize_deployment_files(
     dc = twin.deployer_config
     oc = twin.optimizer_config
     files: list[DeploymentPackageFile] = [
-        DeploymentPackageFile("config.json", json.dumps(_build_main_config(twin), indent=2)),
+        DeploymentPackageFile(
+            "config.json", json.dumps(_build_main_config(twin), indent=2)
+        ),
         DeploymentPackageFile("config_providers.json", json.dumps(providers, indent=2)),
     ]
 
@@ -697,13 +770,23 @@ def _materialize_deployer_artifacts(
 ) -> tuple[DeploymentPackageFile, ...]:
     files: list[DeploymentPackageFile] = []
     if dc.user_config_content:
-        _load_json_document(dc.user_config_content, "deployer_config.user_config_content")
+        _load_json_document(
+            dc.user_config_content, "deployer_config.user_config_content"
+        )
         files.append(DeploymentPackageFile("config_user.json", dc.user_config_content))
 
     if dc.hierarchy_content:
         _load_json_document(dc.hierarchy_content, "deployer_config.hierarchy_content")
-        files.append(DeploymentPackageFile("twin_hierarchy/aws_hierarchy.json", dc.hierarchy_content))
-        files.append(DeploymentPackageFile("twin_hierarchy/azure_hierarchy.json", dc.hierarchy_content))
+        files.append(
+            DeploymentPackageFile(
+                "twin_hierarchy/aws_hierarchy.json", dc.hierarchy_content
+            )
+        )
+        files.append(
+            DeploymentPackageFile(
+                "twin_hierarchy/azure_hierarchy.json", dc.hierarchy_content
+            )
+        )
 
     if dc.state_machine_content and oc and oc.cheapest_l2:
         l2 = provider_id_for_deployer_project(oc.cheapest_l2)
@@ -752,7 +835,11 @@ def _materialize_user_functions(
     )
 
     if dc.event_feedback_content:
-        files.append(DeploymentPackageFile(f"{func_base}/event-feedback/{func_file}", dc.event_feedback_content))
+        files.append(
+            DeploymentPackageFile(
+                f"{func_base}/event-feedback/{func_file}", dc.event_feedback_content
+            )
+        )
         if dc.event_feedback_requirements:
             files.append(
                 DeploymentPackageFile(
@@ -789,7 +876,9 @@ def _materialize_function_set(
                 "INVALID_FUNCTION_CONTENT",
                 "Function content values must be strings",
             )
-        files.append(DeploymentPackageFile(f"{base_folder}/{subfolder}/{name}/{filename}", code))
+        files.append(
+            DeploymentPackageFile(f"{base_folder}/{subfolder}/{name}/{filename}", code)
+        )
         requirement_content = requirements.get(name)
         if requirement_content is not None:
             if not isinstance(requirement_content, str):
@@ -825,7 +914,9 @@ def _materialize_scene_config(
     return (DeploymentPackageFile(scene_filenames[l4], dc.scene_config_content),)
 
 
-def _materialize_binary_files(twin, providers: dict) -> tuple[DeploymentPackageBinaryFile, ...]:
+def _materialize_binary_files(
+    twin, providers: dict
+) -> tuple[DeploymentPackageBinaryFile, ...]:
     dc = twin.deployer_config
     l4 = providers.get("layer_4_provider")
     if not (dc and dc.scene_glb_uploaded and l4 in ("aws", "azure")):
@@ -845,6 +936,7 @@ def _materialize_binary_files(twin, providers: dict) -> tuple[DeploymentPackageB
 # UTILITY FUNCTIONS - DRY Helpers
 # ============================================================================
 
+
 def _get_function_base_folder(provider: str) -> str:
     """Map provider to function folder name."""
     return {
@@ -863,7 +955,9 @@ def _get_function_filename(provider: str) -> str:
     }.get(provider, "lambda_function.py")
 
 
-def _json_content_or_default(content: Optional[str], default_value: Any, field: str) -> str:
+def _json_content_or_default(
+    content: Optional[str], default_value: Any, field: str
+) -> str:
     """Return stored JSON content or a stable JSON default for required files."""
     if content:
         _load_json_document(content, field)
@@ -896,11 +990,13 @@ def _load_json_document(content: str, field: str) -> Any:
 def _raise_package_error(field: str, code: str, message: str) -> None:
     raise DeploymentPackageBuildFailed(
         "Cannot build deployment package",
-        [{
-            "code": code,
-            "field": field,
-            "message": message,
-        }],
+        [
+            {
+                "code": code,
+                "field": field,
+                "message": message,
+            }
+        ],
     )
 
 
@@ -934,7 +1030,11 @@ def _build_main_config(twin) -> dict:
         cold_days = _months_to_days(params.get("coolStorageDurationInMonths"), 3)
 
     # Mode from Step 1 debug toggle
-    mode = "debug" if (twin.configuration and twin.configuration.debug_mode) else "production"
+    mode = (
+        "debug"
+        if (twin.configuration and twin.configuration.debug_mode)
+        else "production"
+    )
 
     return {
         "digital_twin_name": get_resource_name(twin),
@@ -947,21 +1047,25 @@ def _build_main_config(twin) -> dict:
 def _build_providers_config(twin) -> dict:
     """
     Build config_providers.json from OptimizerConfiguration.
-    
+
     NOTE: Provider values are stored as uppercase ("AWS", "AZURE", "GCP")
     but the Deployer expects lowercase. We convert here.
     """
     if not twin.optimizer_config:
         return {}
-    
+
     oc = twin.optimizer_config
-    
+
     return {
         "layer_1_provider": provider_id_for_deployer_project(oc.cheapest_l1),
         "layer_2_provider": provider_id_for_deployer_project(oc.cheapest_l2),
         "layer_3_hot_provider": provider_id_for_deployer_project(oc.cheapest_l3_hot),
-        "layer_3_cold_provider": provider_id_for_deployer_project(oc.cheapest_l3_cool),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
-        "layer_3_archive_provider": provider_id_for_deployer_project(oc.cheapest_l3_archive),
+        "layer_3_cold_provider": provider_id_for_deployer_project(
+            oc.cheapest_l3_cool
+        ),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
+        "layer_3_archive_provider": provider_id_for_deployer_project(
+            oc.cheapest_l3_archive
+        ),
         "layer_4_provider": provider_id_for_deployer_project(oc.cheapest_l4),
         "layer_5_provider": provider_id_for_deployer_project(oc.cheapest_l5),
     }
@@ -1042,16 +1146,14 @@ def _manifest_contains_secret_payloads() -> bool:
 def _remove_empty_values(values: dict[str, Any]) -> dict[str, Any]:
     """Keep manifest JSON compact while preserving explicit false values."""
     return {
-        key: value
-        for key, value in values.items()
-        if value is not None and value != ""
+        key: value for key, value in values.items() if value is not None and value != ""
     }
 
 
 def _build_optimization_config(oc) -> dict:
     """
     Build config_optimization.json with the deployer-expected format.
-    
+
     The deployer reads: result.inputParamsUsed.{flag} via config_loader.load_optimization_flags()
     These flags control which Terraform resources are conditionally created.
     """
@@ -1060,7 +1162,8 @@ def _build_optimization_config(oc) -> dict:
         params = _json_object_from_content(oc.params, "optimizer_config.params")
         input_params = {
             "useEventChecking": params.get("useEventChecking") is True,
-            "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow") is True,
+            "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow")
+            is True,
             "returnFeedbackToDevice": params.get("returnFeedbackToDevice") is True,
             "integrateErrorHandling": params.get("integrateErrorHandling") is True,
             "needs3DModel": params.get("needs3DModel") is True,
@@ -1071,66 +1174,73 @@ def _build_optimization_config(oc) -> dict:
 async def upload_project_to_deployer(
     project_name: str,
     zip_data: io.BytesIO,
-    update_existing: bool = True,
     deployer_client: DeployerClient | None = None,
 ) -> dict:
     """
     Upload project ZIP to the Deployer API.
-    
+
     Args:
         project_name: Name of the project in the Deployer
         zip_data: BytesIO containing the project ZIP
-        update_existing: If True, use import endpoint for existing projects
-        
     Returns:
         Response from Deployer API
-        
-    Raises:
-        HTTPException on failure
-    """
-    from fastapi import HTTPException
 
+    Raises:
+        DownstreamServiceError when the Deployer cannot stage the package
+    """
     client = deployer_client or DeployerClient()
     try:
-        project_exists = await client.project_exists(project_name)
         zip_data.seek(0)
         content = zip_data.read()
-
-        if project_exists and update_existing:
-            return await client.import_project_zip(project_name, content)
-        return await client.create_project_zip(project_name, content)
+        return await client.stage_operation_package(project_name, content)
     except ExternalServiceUnavailable as exc:
-        raise HTTPException(
+        raise DownstreamServiceError(
             status_code=503,
-            detail="Deployer API unavailable during project setup",
+            public_detail="Deployer API unavailable during project setup",
         ) from exc
     except ExternalServiceError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=(
+        upstream_status = exc.upstream_status_code
+        status_code = (
+            upstream_status
+            if upstream_status in {400, 409, 413, 422}
+            else 502
+        )
+        raise DownstreamServiceError(
+            status_code=status_code,
+            public_detail=(
                 "Deployer project setup failed: "
                 f"{_redact_deployment_message(exc.public_detail)}"
-            )
+            ),
         ) from exc
 
 
-async def prepare_project_for_deployment(twin, user_id: str) -> str:
+async def prepare_project_for_deployment(
+    twin, user_id: str
+) -> PreparedDeploymentProject:
     """
     Main entry point: Prepare and upload project to Deployer.
-    
+
     Args:
         twin: DigitalTwin with all related configurations loaded
         user_id: Current user ID for credential decryption
-        
+
     Returns:
-        resource_name: The project name used in the Deployer
+        Opaque operation-scoped Deployer project context
     """
     resource_name = get_resource_name(twin)  # DRY: reuse helper
-    
+
     # Build ZIP
     zip_data = build_project_zip(twin, user_id)
-    
+
     # Upload to Deployer
-    await upload_project_to_deployer(resource_name, zip_data)
-    
-    return resource_name
+    result = await upload_project_to_deployer(resource_name, zip_data)
+    operation_token = result.get("operation_token")
+    if not isinstance(operation_token, str) or not operation_token:
+        raise DeploymentPackageBuildFailed(
+            "Deployer did not return an operation package token"
+        )
+
+    return PreparedDeploymentProject(
+        resource_name=resource_name,
+        operation_token=operation_token,
+    )

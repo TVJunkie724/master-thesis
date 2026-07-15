@@ -5,9 +5,9 @@ Tests error handling for projects and validation endpoints.
 Focuses on real API endpoints that exist in the Deployer.
 """
 
-import pytest
 import json
-from unittest.mock import patch, MagicMock
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 import rest_api
@@ -173,6 +173,75 @@ class TestProjectsErrorHandling:
 
         assert response.status_code == 200
         assert response.json()["manifest"] == {"manifest_backed": False}
+
+    def test_twinmaker_cleanup_rejects_protected_template(self):
+        """Destructive cloud cleanup must never target the canonical template."""
+        response = client.delete("/projects/template/cleanup/aws-twinmaker")
+
+        assert response.status_code == 400
+        assert "protected system folder" in response.json()["detail"]
+
+    def test_twinmaker_cleanup_rejects_missing_project(self, tmp_path):
+        """Cleanup fails before loading credentials or creating cloud clients."""
+        missing_project = tmp_path / "missing"
+
+        with patch("src.api.projects.get_project_storage") as storage_factory:
+            storage_factory.return_value.context.return_value.project_path = missing_project
+            response = client.delete("/projects/missing/cleanup/aws-twinmaker")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Project 'missing' not found"
+
+    def test_twinmaker_cleanup_requires_aws_layer_four_provider(self, tmp_path):
+        """AWS-specific cleanup cannot run for a project backed by another L4."""
+        project_dir = tmp_path / "azure-project"
+        project_dir.mkdir()
+
+        with patch("src.api.projects.get_project_storage") as storage_factory, \
+             patch(
+                 "src.core.config_loader.load_project_config",
+                 return_value=SimpleNamespace(
+                     providers={"layer_4_provider": "azure"},
+                 ),
+             ):
+            storage_factory.return_value.context.return_value.project_path = project_dir
+            response = client.delete("/projects/azure-project/cleanup/aws-twinmaker")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "AWS TwinMaker cleanup requires AWS as the L4 provider"
+        )
+
+    def test_twinmaker_cleanup_hides_unexpected_provider_failure(self, tmp_path):
+        """Cloud SDK failures are logged internally and exposed as a generic 500."""
+        project_dir = tmp_path / "aws-project"
+        project_dir.mkdir()
+
+        with patch("src.api.projects.get_project_storage") as storage_factory, \
+             patch(
+                 "src.core.config_loader.load_project_config",
+                 return_value=SimpleNamespace(
+                     providers={"layer_4_provider": "aws"},
+                     digital_twin_name="factory",
+                 ),
+             ), \
+             patch(
+                 "src.core.config_loader.load_credentials",
+                 return_value={"aws": {"aws_access_key_id": "test"}},
+             ), \
+             patch(
+                 "src.providers.aws.provider.AWSProvider.initialize_clients",
+                 side_effect=RuntimeError(
+                     "aws_secret_access_key=must-not-leak /app/upload/aws-project"
+                 ),
+             ):
+            storage_factory.return_value.context.return_value.project_path = project_dir
+            response = client.delete("/projects/aws-project/cleanup/aws-twinmaker")
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Internal server error. Check logs."
+        assert "must-not-leak" not in response.text
+        assert "/app/upload" not in response.text
 
 
 # ============================================================

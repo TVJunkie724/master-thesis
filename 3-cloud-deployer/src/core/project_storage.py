@@ -10,7 +10,9 @@ from src.core.paths import (
     get_project_root,
     resolve_deployment_paths,
     resolve_project_context_path,
+    validate_path_component,
 )
+from src.core.secure_files import atomic_write_private_bytes
 
 
 SENSITIVE_PROJECT_FILENAMES = {
@@ -69,7 +71,9 @@ class ProjectStorage:
 
     def list_projects(self, include_templates: bool = False) -> list[str]:
         """List runtime projects under upload/ with optional legacy template inclusion."""
-        upload_root = resolve_deployment_paths("placeholder", self.project_root).upload_root
+        upload_root = resolve_deployment_paths(
+            "placeholder", self.project_root
+        ).upload_root
         if not upload_root.exists():
             return []
 
@@ -85,7 +89,9 @@ class ProjectStorage:
 
     def read_json(self, project_name: str, relative_path: str) -> Any:
         """Read a JSON file from a project context."""
-        file_path = self.resolve_file(project_name, relative_path, must_be_readable=True)
+        file_path = self.resolve_file(
+            project_name, relative_path, must_be_readable=True
+        )
         with file_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
@@ -98,7 +104,9 @@ class ProjectStorage:
 
     def read_text(self, project_name: str, relative_path: str) -> str:
         """Read a text file from a project context."""
-        file_path = self.resolve_file(project_name, relative_path, must_be_readable=True)
+        file_path = self.resolve_file(
+            project_name, relative_path, must_be_readable=True
+        )
         return file_path.read_text(encoding="utf-8")
 
     def write_text(self, project_name: str, relative_path: str, content: str) -> Path:
@@ -106,7 +114,10 @@ class ProjectStorage:
         self._reject_template_write(project_name)
         file_path = self.resolve_file(project_name, relative_path, for_write=True)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content, encoding="utf-8")
+        if is_sensitive_project_file(relative_path):
+            atomic_write_private_bytes(file_path, content.encode("utf-8"))
+        else:
+            file_path.write_text(content, encoding="utf-8")
         return file_path
 
     def write_json(self, project_name: str, relative_path: str, content: Any) -> Path:
@@ -114,8 +125,11 @@ class ProjectStorage:
         self._reject_template_write(project_name)
         file_path = self.resolve_file(project_name, relative_path, for_write=True)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        with file_path.open("w", encoding="utf-8") as f:
-            json.dump(content, f, indent=2)
+        serialized = json.dumps(content, indent=2)
+        if is_sensitive_project_file(relative_path):
+            atomic_write_private_bytes(file_path, serialized.encode("utf-8"))
+        else:
+            file_path.write_text(serialized, encoding="utf-8")
         return file_path
 
     def resolve_file(
@@ -175,7 +189,10 @@ class ProjectStorage:
 
     def version_count(self, project_name: str) -> int:
         """Return the number of archived ZIP versions for a runtime project."""
-        versions_dir = self.deployment_project_path(project_name) / CONSTANTS.PROJECT_VERSIONS_DIR_NAME
+        versions_dir = (
+            self.deployment_project_path(project_name)
+            / CONSTANTS.PROJECT_VERSIONS_DIR_NAME
+        )
         if not versions_dir.exists():
             return 0
         return len([path for path in versions_dir.iterdir() if path.suffix == ".zip"])
@@ -210,15 +227,17 @@ class ProjectStorage:
         return items
 
     def _validate_project_name(self, project_name: str) -> str:
-        safe_name = Path(project_name).name
-        if not safe_name or safe_name != project_name:
-            raise ProjectStorageError("Invalid project name.")
-        return safe_name
+        try:
+            return validate_path_component(project_name, "project name")
+        except ValueError as exc:
+            raise ProjectStorageError("Invalid project name.") from exc
 
     def _normalize_relative_path(self, relative_path: str) -> str:
         path = Path(relative_path)
         if path.is_absolute():
-            raise ProjectStorageError("Invalid file path: Absolute paths are not allowed.")
+            raise ProjectStorageError(
+                "Invalid file path: Absolute paths are not allowed."
+            )
         normalized = path.as_posix()
         if not normalized or normalized == ".":
             raise ProjectStorageError("Invalid file path.")

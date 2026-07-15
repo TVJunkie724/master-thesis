@@ -217,7 +217,7 @@ def test_stream_fetch_pricing_does_not_echo_secret_exception_text(mock_refresh, 
 
 
 @patch("backend.pricing_utils.validate_pricing_schema")
-@patch("pathlib.Path.write_text")
+@patch("backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_data")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_service_mapping")
@@ -286,7 +286,7 @@ def test_fetch_aws_data_uses_explicit_client_credentials_without_local_fallback(
 
 
 @patch("backend.pricing_utils.validate_pricing_schema")
-@patch("pathlib.Path.write_text")
+@patch("backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_data")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_service_mapping")
@@ -352,7 +352,7 @@ def test_gcp_catalog_access_error_aborts_without_schema_fallback(mock_factory_cr
         )
 
 
-@patch("pathlib.Path.write_text")
+@patch("backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.fetch_google_data")
 @patch("backend.fetch_data.calculate_up_to_date_pricing.billing_v1.CloudCatalogClient")
 @patch("google.oauth2.service_account.Credentials.from_service_account_info")

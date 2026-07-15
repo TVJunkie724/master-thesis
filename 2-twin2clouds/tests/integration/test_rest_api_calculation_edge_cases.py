@@ -202,8 +202,8 @@ def test_calculate_response_exposes_additive_trace_metadata(mock_load_pricing):
         "amountOfActiveViewers": 5,
         "dashboardRefreshesPerHour": 4,
         "dashboardActiveHoursPerDay": 8,
-        "allowGcpSelfHostedL4": True,
-        "allowGcpSelfHostedL5": True,
+        "allowGcpSelfHostedL4": False,
+        "allowGcpSelfHostedL5": False,
     }
 
     response = client.put("/calculate", json=payload)
@@ -213,3 +213,26 @@ def test_calculate_response_exposes_additive_trace_metadata(mock_load_pricing):
     assert result["trace_schema_version"] == "intent-result-trace.v1"
     assert result["intentTrace"]["summary"]["record_count"] > 0
     assert result["intentTrace"]["profile"]["profile_id"] == "cost_minimization_v1"
+
+
+def test_calculate_rejects_unimplemented_gcp_self_hosted_paths():
+    payload = {
+        "numberOfDevices": 100,
+        "deviceSendingIntervalInMinutes": 2.0,
+        "averageSizeOfMessageInKb": 0.25,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "needs3DModel": False,
+        "entityCount": 1,
+        "amountOfActiveEditors": 2,
+        "amountOfActiveViewers": 5,
+        "dashboardRefreshesPerHour": 4,
+        "dashboardActiveHoursPerDay": 8,
+        "allowGcpSelfHostedL4": True,
+    }
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 422
+    assert "cannot be enabled" in response.text

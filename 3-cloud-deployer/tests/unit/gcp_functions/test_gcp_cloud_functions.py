@@ -3,10 +3,8 @@ Tests for GCP Core Cloud Functions.
 
 Tests the cloud functions in src/providers/gcp/cloud_functions/.
 """
-import pytest
 import os
 import ast
-import sys
 
 
 # Path to GCP cloud functions

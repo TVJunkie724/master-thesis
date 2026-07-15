@@ -160,9 +160,9 @@ resource "azurerm_linux_function_app" "l3" {
     # Azure Functions runtime
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
-    AzureWebJobsStorage           = local.azure_storage_connection_string
+    AzureWebJobsStorage            = local.azure_storage_connection_string
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    ENABLE_ORYX_BUILD              = "true" # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Code version hash - triggers update-in-place when ZIP content changes
@@ -173,10 +173,10 @@ resource "azurerm_linux_function_app" "l3" {
     WEBSITE_CONTENTSHARE                     = local.azure_l3_content_share
 
     # Cosmos DB connection
-    COSMOS_DB_ENDPOINT     = try(azurerm_cosmosdb_account.main[0].endpoint, "")
-    COSMOS_DB_KEY          = try(azurerm_cosmosdb_account.main[0].primary_key, "")
-    COSMOS_DB_DATABASE     = try(azurerm_cosmosdb_sql_database.main[0].name, "")
-    COSMOS_DB_CONTAINER    = try(azurerm_cosmosdb_sql_container.hot[0].name, "")
+    COSMOS_DB_ENDPOINT  = try(azurerm_cosmosdb_account.main[0].endpoint, "")
+    COSMOS_DB_KEY       = try(azurerm_cosmosdb_account.main[0].primary_key, "")
+    COSMOS_DB_DATABASE  = try(azurerm_cosmosdb_sql_database.main[0].name, "")
+    COSMOS_DB_CONTAINER = try(azurerm_cosmosdb_sql_container.hot[0].name, "")
 
     # Storage account for cold/archive
     BLOB_CONNECTION_STRING    = local.azure_storage_connection_string
@@ -232,7 +232,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "identity_cosmos" {
   count               = var.layer_3_hot_provider == "azure" ? 1 : 0
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
-  role_definition_id  = "${azurerm_cosmosdb_account.main[0].id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"  # Built-in Data Contributor
+  role_definition_id  = "${azurerm_cosmosdb_account.main[0].id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002" # Built-in Data Contributor
   principal_id        = azurerm_user_assigned_identity.main[0].principal_id
   scope               = azurerm_cosmosdb_account.main[0].id
 }

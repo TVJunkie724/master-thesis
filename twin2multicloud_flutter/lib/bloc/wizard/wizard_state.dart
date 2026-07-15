@@ -2,7 +2,6 @@
 // State for the Wizard BLoC state machine
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
@@ -22,6 +21,8 @@ enum WizardMode { create, edit }
 
 /// Overall wizard status
 enum WizardStatus { initial, loading, ready, saving, error }
+
+enum SceneGlbCommandPhase { idle, uploading, deleting }
 
 /// Source of credential data
 enum CredentialSource {
@@ -68,6 +69,21 @@ class ProviderCredentials extends Equatable {
 
   @override
   List<Object?> get props => [values, isValid, source];
+}
+
+class SceneGlbCommandState extends Equatable {
+  final SceneGlbCommandPhase phase;
+  final String? message;
+
+  const SceneGlbCommandState({
+    this.phase = SceneGlbCommandPhase.idle,
+    this.message,
+  });
+
+  bool get isBusy => phase != SceneGlbCommandPhase.idle;
+
+  @override
+  List<Object?> get props => [phase, message];
 }
 
 // ============================================================
@@ -159,6 +175,7 @@ class WizardState extends Equatable {
 
   // === Persistent Data: Step 3 Section 3 (L4 Scene) ===
   final bool sceneGlbUploaded; // True if GLB file exists on server
+  final SceneGlbCommandState sceneGlbCommand;
   final String? sceneConfigContent; // scene.json or 3DScenesConfiguration.json
   final bool sceneConfigValidated;
 
@@ -168,10 +185,6 @@ class WizardState extends Equatable {
 
   // === Zip Upload State ===
   final bool zipUploadInProgress; // True during upload/extraction
-  final bool zipUploadPending; // True when confirmation needed
-  final String? pendingZipFilePath; // Pending file for confirmation
-  final Uint8List? pendingZipFileBytes; // Pending bytes for confirmation
-  final String? pendingZipFileName; // Pending filename for confirmation
   final bool
   forceCollapseSections; // Triggers section collapse after zip success
 
@@ -239,16 +252,13 @@ class WizardState extends Equatable {
     this.hierarchyContent,
     this.hierarchyValidated = false,
     this.sceneGlbUploaded = false,
+    this.sceneGlbCommand = const SceneGlbCommandState(),
     this.sceneConfigContent,
     this.sceneConfigValidated = false,
     this.userConfigContent,
     this.userConfigValidated = false,
     // Zip upload state
     this.zipUploadInProgress = false,
-    this.zipUploadPending = false,
-    this.pendingZipFilePath,
-    this.pendingZipFileBytes,
-    this.pendingZipFileName,
     this.forceCollapseSections = false,
     this.hasUnsavedChanges = false,
     this.step3Invalidated = false,
@@ -571,6 +581,7 @@ class WizardState extends Equatable {
     String? hierarchyContent,
     bool? hierarchyValidated,
     bool? sceneGlbUploaded,
+    SceneGlbCommandState? sceneGlbCommand,
     String? sceneConfigContent,
     bool? sceneConfigValidated,
     String? userConfigContent,
@@ -587,13 +598,6 @@ class WizardState extends Equatable {
     bool clearUserConfigContent = false,
     // Zip upload fields
     bool? zipUploadInProgress,
-    bool? zipUploadPending,
-    String? pendingZipFilePath,
-    dynamic pendingZipFileBytes,
-    String? pendingZipFileName,
-    bool clearPendingZipFilePath = false,
-    bool clearPendingZipFileBytes = false,
-    bool clearPendingZipFileName = false,
     bool? forceCollapseSections,
   }) {
     return WizardState(
@@ -680,6 +684,7 @@ class WizardState extends Equatable {
           : (hierarchyContent ?? this.hierarchyContent),
       hierarchyValidated: hierarchyValidated ?? this.hierarchyValidated,
       sceneGlbUploaded: sceneGlbUploaded ?? this.sceneGlbUploaded,
+      sceneGlbCommand: sceneGlbCommand ?? this.sceneGlbCommand,
       sceneConfigContent: clearSceneConfigContent
           ? null
           : (sceneConfigContent ?? this.sceneConfigContent),
@@ -689,16 +694,6 @@ class WizardState extends Equatable {
           : (userConfigContent ?? this.userConfigContent),
       userConfigValidated: userConfigValidated ?? this.userConfigValidated,
       zipUploadInProgress: zipUploadInProgress ?? this.zipUploadInProgress,
-      zipUploadPending: zipUploadPending ?? this.zipUploadPending,
-      pendingZipFilePath: clearPendingZipFilePath
-          ? null
-          : (pendingZipFilePath ?? this.pendingZipFilePath),
-      pendingZipFileBytes: clearPendingZipFileBytes
-          ? null
-          : (pendingZipFileBytes ?? this.pendingZipFileBytes),
-      pendingZipFileName: clearPendingZipFileName
-          ? null
-          : (pendingZipFileName ?? this.pendingZipFileName),
       forceCollapseSections:
           forceCollapseSections ?? this.forceCollapseSections,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
@@ -771,15 +766,12 @@ class WizardState extends Equatable {
     hierarchyContent,
     hierarchyValidated,
     sceneGlbUploaded,
+    sceneGlbCommand,
     sceneConfigContent,
     sceneConfigValidated,
     userConfigContent,
     userConfigValidated,
     zipUploadInProgress,
-    zipUploadPending,
-    pendingZipFilePath,
-    pendingZipFileBytes,
-    pendingZipFileName,
     forceCollapseSections,
     hasUnsavedChanges,
     step3Invalidated,

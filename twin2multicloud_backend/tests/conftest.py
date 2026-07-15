@@ -7,18 +7,26 @@ Provides:
 - Reusable test helpers
 """
 
+import os
+
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("DEBUG", "true")
+os.environ.setdefault("DEV_AUTH_ENABLED", "true")
+os.environ.setdefault("DEV_AUTH_TOKEN", "dev-token")
+os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-with-at-least-32-characters")
+os.environ.setdefault("ENCRYPTION_KEY", "test-encryption-key-with-at-least-32-characters")
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.main import app
-from src.models.database import Base, get_db
+from src.models.database import Base, create_database_engine, get_db
 
 
 # Test database (separate from production)
 TEST_DATABASE_URL = "sqlite:///./test.db"
-test_engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+test_engine = create_database_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
@@ -166,8 +174,6 @@ def auth_client(client, auth_headers):
     Unlike authenticated_client, this returns a pre-configured TestClient
     with headers automatically included (uses custom request method).
     """
-    from src.models.user import User
-    from src.models.twin import DigitalTwin
     
     # First request triggers dev user creation
     client.get("/twins/", headers=auth_headers)

@@ -23,9 +23,8 @@ Note:
     handled by Terraform. This file handles SDK-managed dynamic resources.
 """
 
-from typing import TYPE_CHECKING, Optional, List, Dict, Any
+from typing import TYPE_CHECKING, Optional, Dict, Any
 import logging
-import json
 
 from azure.core.exceptions import (
     ResourceNotFoundError,
@@ -149,7 +148,7 @@ def check_twin(twin_id: str, provider: 'AzureProvider') -> bool:
     
     client = _get_adt_data_client(provider)
     if not client:
-        logger.info(f"✗ ADT instance not accessible")
+        logger.info("✗ ADT instance not accessible")
         return False
     
     try:
@@ -189,7 +188,7 @@ def check_model(model_id: str, provider: 'AzureProvider') -> bool:
     
     client = _get_adt_data_client(provider)
     if not client:
-        logger.info(f"✗ ADT instance not accessible")
+        logger.info("✗ ADT instance not accessible")
         return False
     
     try:
@@ -241,8 +240,7 @@ def upload_dtdl_models(provider: 'AzureProvider', config, project_path: str) -> 
     # PRESERVED: Client fallback
     client = _get_adt_data_client(provider)
     if not client:
-        logger.warning("ADT instance not accessible, skipping DTDL upload")
-        return
+        raise RuntimeError("Azure Digital Twins instance is not accessible")
     
     # Step 1: Upload models (already valid DTDL v3 from azure_hierarchy.json)
     models = hierarchy.get("models", [])
@@ -269,18 +267,21 @@ def upload_dtdl_models(provider: 'AzureProvider', config, project_path: str) -> 
         return
     
     # Step 2: Create twins from hierarchy (use pre-defined $dtId and $metadata.$model)
+    from src.providers.terraform.runtime_outcome import RuntimeRun
+
+    run = RuntimeRun("Azure", "Digital Twins", logger)
     twins = hierarchy.get("twins", [])
     if twins:
         logger.info(f"Creating {len(twins)} Digital Twins...")
         for twin in twins:
             twin_id = twin.get("$dtId", "unknown")
-            try:
-                client.upsert_digital_twin(twin_id, twin)
-                logger.info(f"  ✓ Twin: {twin_id}")
-            except HttpResponseError as e:
-                logger.warning(f"  ✗ Could not create twin {twin_id}: {e.message}")
-            except AzureError as e:
-                logger.warning(f"  ✗ Could not create twin {twin_id}: {e}")
+            run.attempt(
+                twin_id,
+                lambda twin_id=twin_id, twin=twin: client.upsert_digital_twin(
+                    twin_id,
+                    twin,
+                ),
+            )
     
     # Step 3: Create relationships from hierarchy
     relationships = hierarchy.get("relationships", [])
@@ -289,21 +290,20 @@ def upload_dtdl_models(provider: 'AzureProvider', config, project_path: str) -> 
         for rel in relationships:
             source_id = rel.get("$dtId", "unknown")
             rel_id = rel.get("$relationshipId", "unknown")
-            try:
-                client.upsert_relationship(
+            run.attempt(
+                rel_id,
+                lambda source_id=source_id, rel_id=rel_id, rel=rel: client.upsert_relationship(
                     source_id, rel_id,
                     {
                         "$targetId": rel.get("$targetId"),
                         "$relationshipName": rel.get("$relationshipName")
                     }
-                )
-                logger.info(f"  ✓ Relationship: {rel_id}")
-            except HttpResponseError as e:
-                logger.warning(f"  ✗ Could not create relationship {rel_id}: {e.message}")
-            except AzureError as e:
-                logger.warning(f"  ✗ Could not create relationship {rel_id}: {e}")
+                ),
+            )
+
+    run.raise_if_failed()
     
-    logger.info("✓ DTDL model upload complete")
+    logger.info("DTDL model upload complete")
 
 
 # ==========================================
@@ -359,4 +359,3 @@ def info_l4(context, provider: 'AzureProvider') -> Dict[str, Any]:
                 status["twins"][twin_id] = check_twin(twin_id, provider)
     
     return status
-

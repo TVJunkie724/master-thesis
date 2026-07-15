@@ -44,6 +44,7 @@ class ConfigJsonVisualizationBlock extends StatefulWidget {
 
 class _ConfigJsonVisualizationBlockState
     extends State<ConfigJsonVisualizationBlock> {
+  static const double _splitViewBreakpoint = 720;
   late TextEditingController _twinNameController;
 
   // Neutral color for icons (pink removed)
@@ -224,124 +225,25 @@ class _ConfigJsonVisualizationBlockState
 
         const SizedBox(height: 20),
 
-        // Split view: JSON left | Static visualization right
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left: JSON preview (2/3 width) - READ-ONLY
-            Expanded(
-              flex: 2,
-              child: Stack(
-                children: [
-                  Container(
-                    height: 140,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(
-                        0xFF2A2A2A,
-                      ), // Slightly grey-tinted dark
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade700, width: 1),
-                    ),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        _jsonContent,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          height: 1.4,
-                          color: Colors
-                              .grey
-                              .shade500, // Greyed out text - no syntax highlighting
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Read-only indicator
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade800,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.lock,
-                            size: 10,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Read-only',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: Colors.grey.shade400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(width: 16),
-
-            // Right: Static visualization (1/3 width)
-            Expanded(
-              flex: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Configuration Summary',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? Colors.grey.shade300
-                          : Colors.grey.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Static: Mode
-                  _buildStaticField(
-                    'Mode',
-                    widget.mode ?? 'production',
-                    'Identity and mode',
-                    isDark,
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Static: Storage days
-                  _buildStaticField(
-                    'Hot Storage',
-                    '${widget.hotStorageDays} days',
-                    'Workload intent',
-                    isDark,
-                  ),
-                  const SizedBox(height: 4),
-                  _buildStaticField(
-                    'Cold Storage',
-                    '${widget.coldStorageDays} days',
-                    'Workload intent',
-                    isDark,
-                  ),
-                ],
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final jsonPreview = _buildJsonPreview();
+            final summary = _buildConfigurationSummary(isDark);
+            if (constraints.maxWidth < _splitViewBreakpoint) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [jsonPreview, const SizedBox(height: 16), summary],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 2, child: jsonPreview),
+                const SizedBox(width: 16),
+                Expanded(child: summary),
+              ],
+            );
+          },
         ),
 
         // Validate button
@@ -441,6 +343,92 @@ class _ConfigJsonVisualizationBlockState
             source,
             style: TextStyle(fontSize: 8, color: Colors.grey.shade500),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildJsonPreview() {
+    return Stack(
+      children: [
+        Container(
+          height: 140,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade700),
+          ),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              _jsonContent,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                height: 1.4,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 6,
+          right: 6,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade800,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock, size: 10, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(
+                  'Read-only',
+                  style: TextStyle(fontSize: 9, color: Colors.grey.shade400),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfigurationSummary(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Configuration Summary',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _buildStaticField(
+          'Mode',
+          widget.mode ?? 'production',
+          'Identity and mode',
+          isDark,
+        ),
+        const SizedBox(height: 8),
+        _buildStaticField(
+          'Hot Storage',
+          '${widget.hotStorageDays} days',
+          'Workload intent',
+          isDark,
+        ),
+        const SizedBox(height: 4),
+        _buildStaticField(
+          'Cold Storage',
+          '${widget.coldStorageDays} days',
+          'Workload intent',
+          isDark,
         ),
       ],
     );

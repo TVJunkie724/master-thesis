@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from typing import Any
 
 from src.clients.deployer_client import DeployerClient
 from src.clients.optimizer_client import OptimizerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
-from src.services.secret_redaction import redact_secret_like_text
 
 _SENSITIVE_KEY_PARTS = (
     "secret",
@@ -25,6 +25,7 @@ _SENSITIVE_KEY_PARTS = (
     "azure_client_secret",
 )
 _REDACTION = "[REDACTED]"
+logger = logging.getLogger(__name__)
 
 
 async def perform_optimizer_validation(
@@ -52,9 +53,14 @@ async def perform_optimizer_validation(
             "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
         }
     except Exception as exc:
+        logger.error(
+            "Unexpected Optimizer credential validation failure for %s (%s)",
+            provider,
+            type(exc).__name__,
+        )
         optimizer = {
             "valid": False,
-            "message": f"Optimizer error: {redact_secret_like_text(str(exc))}",
+            "message": "Optimizer validation failed unexpectedly",
         }
 
     return redact_validation_result(
@@ -99,9 +105,14 @@ async def perform_dual_validation(
                 "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
             }
         except Exception as exc:
+            logger.error(
+                "Unexpected Optimizer credential validation failure for %s (%s)",
+                provider,
+                type(exc).__name__,
+            )
             return {
                 "valid": False,
-                "message": f"Optimizer error: {redact_secret_like_text(str(exc))}",
+                "message": "Optimizer validation failed unexpectedly",
             }
 
     async def call_deployer():
@@ -124,9 +135,14 @@ async def perform_dual_validation(
                 "message": f"Deployer API error: {exc.upstream_status_code or 502}",
             }
         except Exception as exc:
+            logger.error(
+                "Unexpected Deployer credential validation failure for %s (%s)",
+                provider,
+                type(exc).__name__,
+            )
             return {
                 "valid": False,
-                "message": f"Deployer error: {redact_secret_like_text(str(exc))}",
+                "message": "Deployer validation failed unexpectedly",
             }
 
     optimizer_result, deployer_result = await asyncio.gather(call_optimizer(), call_deployer())

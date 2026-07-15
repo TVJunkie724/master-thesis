@@ -159,7 +159,7 @@ def _post_to_remote_cold_writer(
         "source_cloud": "aws"
     }
     
-    result = post_raw(
+    post_raw(
         url=REMOTE_COLD_WRITER_URL,
         token=INTER_CLOUD_TOKEN,
         payload=payload
@@ -197,7 +197,7 @@ def _write_to_local_s3(iot_device_id: str, items: list, start: str, end: str, ch
 
 def lambda_handler(event, context):
     print("Hot-to-Cold Mover: Starting")
-    print(f"Event: {json.dumps(event)}")
+    print("Event received")
     
     # Detect multi-cloud mode
     multi_cloud = _is_multi_cloud_cold()
@@ -289,4 +289,3 @@ def lambda_handler(event, context):
         raise e
     
     print("Hot-to-Cold Mover: Complete")
-

@@ -6,13 +6,12 @@ for GCP Firestore cooldown checking.
 """
 
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock, AsyncMock
-import httpx
+from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from tests.conftest import create_test_twin
 from src.models.optimizer_config import OptimizerConfiguration
-from src.models.twin import DigitalTwin, TwinState
+from src.models.twin import TwinState
 
 
 class TestCanRedeploy:
@@ -29,7 +28,7 @@ class TestCanRedeploy:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"] is True
         assert data["remaining_seconds"] == 0
     
     def test_non_gcp_provider_always_ready(self, authenticated_client):
@@ -43,7 +42,7 @@ class TestCanRedeploy:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["ready"] == True
+        assert data["ready"] is True
     
     # =========== ERROR CASES (2) ===========
     
@@ -76,7 +75,7 @@ class TestCanRedeploy:
         response = client.get(f"/twins/{twin_id}/can-redeploy", headers=headers)
         
         assert response.status_code == 200
-        assert response.json()["ready"] == True
+        assert response.json()["ready"] is True
     
     def test_deleted_twin_returns_404(self, authenticated_client):
         """Soft-deleted twin → 404."""

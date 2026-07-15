@@ -43,6 +43,19 @@ def get_templates_root(project_root: Path | None = None) -> Path:
     return root / CONSTANTS.PROJECT_TEMPLATES_DIR_NAME
 
 
+def validate_path_component(value: str, description: str) -> str:
+    """Validate an untrusted value before using it as one filesystem component."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or value in {".", ".."}
+        or "\x00" in value
+        or Path(value).name != value
+    ):
+        raise ValueError(f"Invalid {description}.")
+    return value
+
+
 def resolve_template_paths(project_root: Path | None = None) -> TemplatePaths:
     """Resolve canonical and legacy paths for the read-only template project."""
     root = project_root or get_project_root()
@@ -70,6 +83,7 @@ def resolve_project_context_path(
     project_root: Path | None = None,
 ) -> Path:
     """Resolve a logical project name to either the template root or runtime upload root."""
+    validate_path_component(project_name, "project name")
     if project_name == CONSTANTS.DEFAULT_PROJECT_NAME:
         return resolve_template_project_path(project_root)
     return resolve_deployment_paths(project_name, project_root).project_path
@@ -80,6 +94,7 @@ def resolve_deployment_paths(
     project_root: Path | None = None,
 ) -> DeploymentPaths:
     """Resolve all filesystem paths needed for a deployment operation."""
+    validate_path_component(project_name, "project name")
     root = project_root or get_project_root()
     upload_root = get_upload_root(root)
     project_path = upload_root / project_name

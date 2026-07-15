@@ -95,7 +95,7 @@ class TestZipDeployE2E:
     def azure_clients(self):
         """Initialize Azure SDK clients."""
         from azure.identity import ClientSecretCredential
-        from azure.mgmt.resource import ResourceManagementClient
+        from azure.mgmt.resource.resources import ResourceManagementClient
         from azure.mgmt.storage import StorageManagementClient
         from azure.mgmt.web import WebSiteManagementClient
         

@@ -14,14 +14,14 @@ But internally uses the new layer calculators from calculation_v2.
 """
 
 from typing import Dict, Any, Optional
-from dataclasses import dataclass
-import math
 
 from backend.calculation_v2.layers import (
     AWSLayerCalculators,
     AzureLayerCalculators,
     GCPLayerCalculators,
+    LayerResult,
 )
+from backend.calculation_v2.currency import apply_result_currency
 from backend.calculation_v2.formulas import required_first_unit_price, tiered_unit_cost
 from backend.calculation_v2.strategy_context import (
     CalculationStrategyExecutionContext,
@@ -36,7 +36,6 @@ from backend.calculation_v2.traceability import (
     build_intent_result_trace,
 )
 from backend.config_loader import load_combined_pricing
-from backend.logger import logger
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
@@ -50,6 +49,24 @@ from backend.pricing_registry_service import PricingRegistryService
 _aws_calc = AWSLayerCalculators()
 _azure_calc = AzureLayerCalculators()
 _gcp_calc = GCPLayerCalculators()
+
+
+def _layer_result_payload(
+    result: LayerResult,
+    *,
+    data_size_gb: float | None = None,
+) -> Dict[str, Any]:
+    """Serialize a layer result without losing capability information."""
+    payload: Dict[str, Any] = {
+        "cost": result.total_cost,
+        "components": dict(result.components),
+        "supported": result.supported,
+    }
+    if data_size_gb is not None:
+        payload["dataSizeInGB"] = data_size_gb
+    if result.unsupported_reason is not None:
+        payload["unsupportedReason"] = result.unsupported_reason
+    return payload
 
 
 # =============================================================================
@@ -199,13 +216,16 @@ def calculate_aws_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
     )
     
     return {
-        "L1": {"cost": l1.total_cost, "dataSizeInGB": l1.data_size_gb, "components": l1.components},
-        "L2": {"cost": l2.total_cost, "dataSizeInGB": derived["data_size_per_month_gb"], "components": l2.components},
-        "L3_hot": {"cost": l3_hot.total_cost, "dataSizeInGB": derived["hot_storage_gb"], "components": l3_hot.components},
-        "L3_cool": {"cost": l3_cool.total_cost, "dataSizeInGB": derived["cool_storage_gb"], "components": l3_cool.components},
-        "L3_archive": {"cost": l3_archive.total_cost, "dataSizeInGB": derived["archive_storage_gb"], "components": l3_archive.components},
-        "L4": {"cost": l4.total_cost, "components": l4.components},
-        "L5": {"cost": l5.total_cost, "components": l5.components},
+        "L1": _layer_result_payload(l1, data_size_gb=l1.data_size_gb),
+        "L2": _layer_result_payload(l2, data_size_gb=derived["data_size_per_month_gb"]),
+        "L3_hot": _layer_result_payload(l3_hot, data_size_gb=derived["hot_storage_gb"]),
+        "L3_cool": _layer_result_payload(l3_cool, data_size_gb=derived["cool_storage_gb"]),
+        "L3_archive": _layer_result_payload(
+            l3_archive,
+            data_size_gb=derived["archive_storage_gb"],
+        ),
+        "L4": _layer_result_payload(l4),
+        "L5": _layer_result_payload(l5),
         "totalMessagesPerMonth": derived["total_messages_per_month"],
     }
 
@@ -272,13 +292,16 @@ def calculate_azure_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Di
     )
     
     return {
-        "L1": {"cost": l1.total_cost, "dataSizeInGB": derived["data_size_per_month_gb"], "components": l1.components},
-        "L2": {"cost": l2.total_cost, "dataSizeInGB": derived["data_size_per_month_gb"], "components": l2.components},
-        "L3_hot": {"cost": l3_hot.total_cost, "dataSizeInGB": derived["hot_storage_gb"], "components": l3_hot.components},
-        "L3_cool": {"cost": l3_cool.total_cost, "dataSizeInGB": derived["cool_storage_gb"], "components": l3_cool.components},
-        "L3_archive": {"cost": l3_archive.total_cost, "dataSizeInGB": derived["archive_storage_gb"], "components": l3_archive.components},
-        "L4": {"cost": l4.total_cost, "components": l4.components},
-        "L5": {"cost": l5.total_cost, "components": l5.components},
+        "L1": _layer_result_payload(l1, data_size_gb=derived["data_size_per_month_gb"]),
+        "L2": _layer_result_payload(l2, data_size_gb=derived["data_size_per_month_gb"]),
+        "L3_hot": _layer_result_payload(l3_hot, data_size_gb=derived["hot_storage_gb"]),
+        "L3_cool": _layer_result_payload(l3_cool, data_size_gb=derived["cool_storage_gb"]),
+        "L3_archive": _layer_result_payload(
+            l3_archive,
+            data_size_gb=derived["archive_storage_gb"],
+        ),
+        "L4": _layer_result_payload(l4),
+        "L5": _layer_result_payload(l5),
         "totalMessagesPerMonth": derived["total_messages_per_month"],
     }
 
@@ -337,13 +360,16 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
     l5 = _gcp_calc.calculate_l5_cost(pricing=pricing)
     
     return {
-        "L1": {"cost": l1.total_cost, "dataSizeInGB": derived["data_size_per_month_gb"], "components": l1.components},
-        "L2": {"cost": l2.total_cost, "dataSizeInGB": derived["data_size_per_month_gb"], "components": l2.components},
-        "L3_hot": {"cost": l3_hot.total_cost, "dataSizeInGB": derived["hot_storage_gb"], "components": l3_hot.components},
-        "L3_cool": {"cost": l3_cool.total_cost, "dataSizeInGB": derived["cool_storage_gb"], "components": l3_cool.components},
-        "L3_archive": {"cost": l3_archive.total_cost, "dataSizeInGB": derived["archive_storage_gb"], "components": l3_archive.components},
-        "L4": {"cost": l4.total_cost, "components": l4.components},
-        "L5": {"cost": l5.total_cost, "components": l5.components},
+        "L1": _layer_result_payload(l1, data_size_gb=derived["data_size_per_month_gb"]),
+        "L2": _layer_result_payload(l2, data_size_gb=derived["data_size_per_month_gb"]),
+        "L3_hot": _layer_result_payload(l3_hot, data_size_gb=derived["hot_storage_gb"]),
+        "L3_cool": _layer_result_payload(l3_cool, data_size_gb=derived["cool_storage_gb"]),
+        "L3_archive": _layer_result_payload(
+            l3_archive,
+            data_size_gb=derived["archive_storage_gb"],
+        ),
+        "L4": _layer_result_payload(l4),
+        "L5": _layer_result_payload(l5),
         "totalMessagesPerMonth": derived["total_messages_per_month"],
     }
 
@@ -452,6 +478,12 @@ def calculate_cheapest_costs(
         - cheapestPath: List of layer-provider combinations
         - totalCost: Total cost of the optimal path
     """
+    if params.get("allowGcpSelfHostedL4") or params.get("allowGcpSelfHostedL5"):
+        raise ValueError(
+            "GCP self-hosted L4/L5 cannot be enabled until the Deployer "
+            "implements and verifies those deployment paths"
+        )
+
     # Load pricing if not provided
     if pricing is None:
         pricing = load_combined_pricing()
@@ -692,4 +724,7 @@ def calculate_cheapest_costs(
         derived_params=derived,
         result_payload=result_payload,
     )
-    return result_payload
+    return apply_result_currency(
+        result_payload,
+        str(params.get("currency") or "USD"),
+    )

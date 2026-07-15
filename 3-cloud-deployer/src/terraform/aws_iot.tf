@@ -17,7 +17,7 @@
 
 locals {
   l1_aws_enabled = var.layer_1_provider == "aws"
-  
+
   # Pre-built Lambda packages directory
   l1_lambda_build_dir = "${var.project_path}/.build/aws"
 }
@@ -280,11 +280,11 @@ resource "aws_iam_role_policy" "l1_iot_rule_lambda" {
 locals {
   # Parse caller identity to determine if running as IAM user
   caller_arn = try(data.aws_caller_identity.current[0].arn, "")
-  
+
   # Check if caller is a user (not a role or assumed role)
   # IAM User ARN format: arn:aws:iam::ACCOUNT:user/USERNAME
   is_iam_user = local.l1_aws_enabled && can(regex(":user/", local.caller_arn))
-  
+
   # Extract user name from ARN (only valid if is_iam_user is true)
   iam_user_name = local.is_iam_user ? regex(":user/(.+)$", local.caller_arn)[0] : null
 }

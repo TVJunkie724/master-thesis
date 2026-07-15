@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../core/result.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
@@ -179,7 +181,7 @@ abstract interface class DeploymentConfigurationApi {
 
   Future<Map<String, dynamic>> uploadSceneGlb(
     String twinId,
-    dynamic fileBytes,
+    Uint8List fileBytes,
     String filename,
   );
 
@@ -187,7 +189,7 @@ abstract interface class DeploymentConfigurationApi {
 
   Future<Map<String, dynamic>> uploadProjectZip(
     String twinId,
-    dynamic fileBytes,
+    Uint8List fileBytes,
     String filename,
   );
 }

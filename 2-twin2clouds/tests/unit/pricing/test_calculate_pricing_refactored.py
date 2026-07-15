@@ -8,7 +8,7 @@ import backend.constants as CONSTANTS
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_service_mapping')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_data')
-@patch('pathlib.Path.write_text')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
 def test_calculate_pricing_aws_centralized_loading(
     mock_write_text,
     mock_fetch_aws,
@@ -57,7 +57,7 @@ def test_calculate_pricing_aws_centralized_loading(
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_service_mapping')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_data')
-@patch('pathlib.Path.write_text')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
 def test_calculate_pricing_azure_centralized_loading(
     mock_write_text,
     mock_fetch_azure,

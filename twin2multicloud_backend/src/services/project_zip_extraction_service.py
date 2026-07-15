@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import logging
 from typing import Any
 
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from src.clients.deployer_client import DeployerClient
 from src.repositories.twin_repository import TwinRepository
+from src.schemas.project_zip_extraction import ProjectZipExtractionContract
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.scene_glb_service import SceneGlbService
@@ -49,7 +52,9 @@ class ProjectZipExtractionService:
         self.scene_glb_service = scene_glb_service
         self.deployer_client = deployer_client or DeployerClient()
 
-    async def upload_project_zip(self, twin_id: str, user_id: str, zip_content: bytes) -> dict[str, Any]:
+    async def upload_project_zip(
+        self, twin_id: str, user_id: str, zip_content: bytes
+    ) -> dict[str, Any]:
         """Proxy project.zip to Deployer and normalize the extraction response."""
         twin = self.twin_repository.get_for_user(twin_id, user_id)
         if not twin:
@@ -63,15 +68,35 @@ class ProjectZipExtractionService:
         validation_context = self._build_validation_context(twin)
 
         try:
-            result = await self.deployer_client.extract_project_zip(zip_content, validation_context)
+            result = await self.deployer_client.extract_project_zip(
+                zip_content, validation_context
+            )
         except ExternalServiceUnavailable:
-            return empty_zip_extraction_response("Cannot connect to Deployer API. Is it running?")
+            return empty_zip_extraction_response(
+                "Cannot connect to Deployer API. Is it running?"
+            )
         except ExternalServiceError as exc:
             return empty_zip_extraction_response(
                 f"Deployer error: {redact_secret_like_text(exc.public_detail)}"
             )
         except Exception as exc:
-            return empty_zip_extraction_response(f"Request error: {redact_secret_like_text(str(exc))}")
+            logger.error(
+                "Unexpected project ZIP extraction failure (%s)", type(exc).__name__
+            )
+            return empty_zip_extraction_response(
+                "Project ZIP extraction failed unexpectedly"
+            )
+
+        try:
+            result = ProjectZipExtractionContract.model_validate(result).model_dump()
+        except PydanticValidationError as exc:
+            logger.error(
+                "Rejected invalid Deployer project extraction contract (%s)",
+                type(exc).__name__,
+            )
+            return empty_zip_extraction_response(
+                "Deployer returned an invalid project extraction contract"
+            )
 
         self._save_scene_glb_if_present(twin_id, user_id, result)
         return result
@@ -114,13 +139,17 @@ class ProjectZipExtractionService:
             return {}
 
     @staticmethod
-    def _resolve_layer(column_value: str | None, calc_result: dict[str, Any], calc_key: str) -> str | None:
+    def _resolve_layer(
+        column_value: str | None, calc_result: dict[str, Any], calc_key: str
+    ) -> str | None:
         if column_value:
             return column_value.lower()
         raw = calc_result.get(calc_key)
         return raw.lower() if isinstance(raw, str) and raw else None
 
-    def _save_scene_glb_if_present(self, twin_id: str, user_id: str, result: dict[str, Any]) -> None:
+    def _save_scene_glb_if_present(
+        self, twin_id: str, user_id: str, result: dict[str, Any]
+    ) -> None:
         assets = result.get("assets") or {}
         scene_glb = assets.get("scene_glb") or {}
         if not scene_glb.get("exists"):
@@ -128,14 +157,43 @@ class ProjectZipExtractionService:
         if not (scene_glb.get("content") and scene_glb.get("is_binary")):
             return
 
+        content = scene_glb["content"]
+        max_decoded_bytes = self.scene_glb_service.max_size_mb * 1024 * 1024
+        max_encoded_bytes = ((max_decoded_bytes + 2) // 3) * 4
         try:
-            glb_bytes = base64.b64decode(scene_glb["content"])
-            self.scene_glb_service.upload_scene_glb(twin_id=twin_id, user_id=user_id, content=glb_bytes)
+            if not isinstance(content, str) or len(content) > max_encoded_bytes:
+                raise ValueError("Embedded GLB exceeds the configured size limit")
+            glb_bytes = base64.b64decode(content, validate=True)
+            if len(glb_bytes) > max_decoded_bytes:
+                raise ValueError("Embedded GLB exceeds the configured size limit")
+            self.scene_glb_service.upload_scene_glb(
+                twin_id=twin_id, user_id=user_id, content=glb_bytes
+            )
             result.setdefault("assets", {})["scene_glb"] = {
                 "exists": True,
                 "saved": True,
                 "is_binary": True,
                 "content": None,
             }
+        except (binascii.Error, ValueError, ValidationError) as exc:
+            logger.warning("Rejected extracted GLB (%s)", type(exc).__name__)
+            result.setdefault("assets", {})["scene_glb"] = {
+                "exists": True,
+                "saved": False,
+                "is_binary": True,
+                "content": None,
+            }
+            result["warnings"] = result.get("warnings", []) + [
+                "Failed to save extracted GLB"
+            ]
         except Exception as exc:
-            result["warnings"] = result.get("warnings", []) + [f"Failed to save GLB: {str(exc)}"]
+            logger.error("Failed to persist extracted GLB (%s)", type(exc).__name__)
+            result.setdefault("assets", {})["scene_glb"] = {
+                "exists": True,
+                "saved": False,
+                "is_binary": True,
+                "content": None,
+            }
+            result["warnings"] = result.get("warnings", []) + [
+                "Failed to save extracted GLB"
+            ]

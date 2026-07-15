@@ -3,10 +3,8 @@ Comprehensive tests for the Credentials/Permissions API endpoints.
 
 Tests for /permissions endpoints covering AWS, Azure, and GCP credential validation.
 """
-import pytest
-import json
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import rest_api
 
@@ -19,7 +17,7 @@ client = TestClient(rest_api.app)
 class TestAWSPermissionsFromBody:
     """Tests for POST /permissions/aws/check endpoint."""
 
-    @patch("api.credentials_checker.check_aws_credentials")
+    @patch("src.api.credentials_checker.check_aws_credentials")
     def test_aws_check_valid_credentials(self, mock_check):
         """Happy: Valid credentials returns permissions report."""
         mock_check.return_value = {
@@ -65,7 +63,7 @@ class TestAWSPermissionsFromBody:
         
         assert response.status_code == 422
 
-    @patch("api.credentials_checker.check_aws_credentials")
+    @patch("src.api.credentials_checker.check_aws_credentials")
     def test_aws_check_with_session_token(self, mock_check):
         """Edge: Request with session token is accepted."""
         mock_check.return_value = {"status": "valid", "by_service": {}, "summary": {}}
@@ -102,7 +100,7 @@ class TestAWSPermissionsFromConfig:
         assert response.status_code == 200
         assert response.json()["status"] == "error"
 
-    @patch("api.credentials_checker.check_aws_credentials_from_config")
+    @patch("src.api.credentials_checker.check_aws_credentials_from_config")
     def test_aws_check_from_config_success(self, mock_check, monkeypatch):
         """Happy: Check from project config works."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
@@ -133,7 +131,7 @@ class TestAWSPermissionsFromConfig:
 class TestAzurePermissionsFromBody:
     """Tests for POST /permissions/azure/check endpoint."""
 
-    @patch("api.azure_credentials_checker.check_azure_credentials")
+    @patch("src.api.azure_credentials_checker.check_azure_credentials")
     def test_azure_check_valid_credentials(self, mock_check):
         """Happy: Valid credentials returns permissions report."""
         mock_check.return_value = {
@@ -207,7 +205,7 @@ class TestAzurePermissionsFromConfig:
         assert response.status_code == 403
         assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
 
-    @patch("api.azure_credentials_checker.check_azure_credentials_from_config")
+    @patch("src.api.azure_credentials_checker.check_azure_credentials_from_config")
     def test_azure_check_from_config_success(self, mock_check, monkeypatch):
         """Happy: Check from project config works."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
@@ -228,7 +226,7 @@ class TestAzurePermissionsFromConfig:
 class TestGCPPermissionsFromBody:
     """Tests for POST /permissions/gcp/check endpoint."""
 
-    @patch("api.gcp_credentials_checker.check_gcp_credentials")
+    @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
     def test_gcp_check_valid_credentials(self, mock_check):
         """Happy: Valid credentials returns permissions report."""
         mock_check.return_value = {
@@ -246,7 +244,7 @@ class TestGCPPermissionsFromBody:
         
         assert response.status_code == 200
 
-    @patch("api.gcp_credentials_checker.check_gcp_credentials")
+    @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
     def test_gcp_check_without_billing_account(self, mock_check):
         """Valid: Missing gcp_billing_account is OK (it's optional)."""
         mock_check.return_value = {
@@ -282,7 +280,7 @@ class TestGCPPermissionsFromBody:
         
         assert response.status_code == 422
 
-    @patch("api.gcp_credentials_checker.check_gcp_credentials")
+    @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
     def test_gcp_check_with_project_id(self, mock_check):
         """Edge: Request with existing project_id is accepted."""
         mock_check.return_value = {
@@ -315,7 +313,7 @@ class TestGCPPermissionsFromConfig:
         assert response.status_code == 403
         assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
 
-    @patch("api.gcp_credentials_checker.check_gcp_credentials_from_config")
+    @patch("src.api.gcp_credentials_checker.check_gcp_credentials_from_config")
     def test_gcp_check_from_config_success(self, mock_check, monkeypatch):
         """Happy: Check from project config works."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
@@ -337,7 +335,7 @@ class TestGCPPermissionsFromConfig:
 class TestCredentialResponseFormats:
     """Tests for consistent response formats across providers."""
 
-    @patch("api.credentials_checker.check_aws_credentials")
+    @patch("src.api.credentials_checker.check_aws_credentials")
     def test_aws_response_has_summary(self, mock_check):
         """Happy: AWS response includes summary."""
         mock_check.return_value = {
@@ -358,7 +356,7 @@ class TestCredentialResponseFormats:
 
 
 
-    @patch("api.gcp_credentials_checker.check_gcp_credentials")
+    @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
     def test_gcp_response_has_api_status(self, mock_check):
         """Happy: GCP response includes api_status."""
         mock_check.return_value = {

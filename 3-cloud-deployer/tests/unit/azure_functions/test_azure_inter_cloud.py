@@ -12,7 +12,6 @@ import json
 from unittest.mock import patch, MagicMock
 import os
 import sys
-import importlib
 
 
 @pytest.fixture(scope="function", autouse=True)

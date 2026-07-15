@@ -8,11 +8,11 @@ import json
 import os
 from datetime import datetime, timezone
 
+from . import globals
+
 # Lazy import to avoid issues in development environments without the SDK
 pubsub_v1 = None
 service_account = None
-
-from . import globals
 
 payload_index = 0
 
@@ -21,8 +21,8 @@ def load_config_for_device(device_id: str) -> dict:
     """
     Load device-specific config for standalone multi-device mode.
     
-    In standalone mode, configs are stored in configs/{device_id}/config.json.
-    Falls back to root config.json if device-specific config not found.
+    Resolves either integrated generated configs or standalone package configs.
+    Unknown device identities fail closed instead of reusing default credentials.
     """
     if not device_id:
         return {
@@ -33,7 +33,7 @@ def load_config_for_device(device_id: str) -> dict:
             "payload_path": globals.config.payload_path
         }
     
-    device_config_path = f"configs/{device_id}/config.json"
+    device_config_path = globals.get_device_config_path(device_id)
     if os.path.exists(device_config_path):
         with open(device_config_path, 'r') as f:
             config_data = json.load(f)
@@ -53,14 +53,7 @@ def load_config_for_device(device_id: str) -> dict:
             "payload_path": resolve(config_data.get("payload_path", "../payloads.json"))
         }
     
-    # Fallback to global config
-    return {
-        "project_id": globals.config.project_id,
-        "topic_name": globals.config.topic_name,
-        "device_id": globals.config.device_id,
-        "service_account_key_path": globals.config.service_account_key_path,
-        "payload_path": globals.config.payload_path
-    }
+    raise ValueError(f"No simulator configuration found for device '{device_id}'")
 
 
 def _get_publisher(config=None):
@@ -102,7 +95,7 @@ def send_mqtt(payload: dict, device_config=None):
     # Get config - either device-specific or global
     if device_config is None:
         payload_device_id = payload.get("iotDeviceId")
-        if payload_device_id and os.path.exists(f"configs/{payload_device_id}/config.json"):
+        if payload_device_id and payload_device_id != globals.config.device_id:
             device_config = load_config_for_device(payload_device_id)
     
     if device_config:

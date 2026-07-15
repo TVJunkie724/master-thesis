@@ -151,7 +151,7 @@ output "azure_adt_endpoint" {
 
 output "azure_3d_scenes_container_url" {
   description = "Azure Blob container URL for 3D Scenes Studio (if deployed)"
-  value       = try(
+  value = try(
     "https://${azurerm_storage_account.main[0].name}.blob.core.windows.net/${azurerm_storage_container.scenes[0].name}",
     null
   )

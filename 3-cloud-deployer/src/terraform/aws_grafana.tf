@@ -64,14 +64,14 @@ resource "aws_iam_role_policy_attachment" "l5_grafana_cloudwatch" {
 # ==============================================================================
 
 resource "aws_grafana_workspace" "main" {
-  count                     = local.l5_aws_enabled ? 1 : 0
-  name                      = local.aws_l5_grafana_workspace_name
-  description               = "Grafana workspace for ${var.digital_twin_name} Digital Twin (${local.deployment_suffix})"
-  account_access_type       = "CURRENT_ACCOUNT"
-  authentication_providers  = ["AWS_SSO"]
-  permission_type           = "SERVICE_MANAGED"
-  role_arn                  = aws_iam_role.l5_grafana[0].arn
-  grafana_version           = "10.4"
+  count                    = local.l5_aws_enabled ? 1 : 0
+  name                     = local.aws_l5_grafana_workspace_name
+  description              = "Grafana workspace for ${var.digital_twin_name} Digital Twin (${local.deployment_suffix})"
+  account_access_type      = "CURRENT_ACCOUNT"
+  authentication_providers = ["AWS_SSO"]
+  permission_type          = "SERVICE_MANAGED"
+  role_arn                 = aws_iam_role.l5_grafana[0].arn
+  grafana_version          = "10.4"
 
   # Enable required data sources
   data_sources = ["CLOUDWATCH", "PROMETHEUS"]
@@ -87,7 +87,7 @@ resource "aws_grafana_workspace_api_key" "admin" {
   count           = local.l5_aws_enabled ? 1 : 0
   key_name        = local.aws_l5_grafana_api_key_name
   key_role        = "ADMIN"
-  seconds_to_live = 2592000  # 30 days
+  seconds_to_live = 2592000 # 30 days
   workspace_id    = aws_grafana_workspace.main[0].id
 }
 
@@ -115,7 +115,7 @@ locals {
     false
   )
   identity_store_id = try(tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)[0], "")
-  
+
   # Admin user management is enabled when L5=AWS and email is provided
   platform_user_enabled = local.l5_aws_enabled && var.platform_user_email != ""
 }
@@ -137,19 +137,19 @@ locals {
     try(data.aws_identitystore_users.all[0].users, []),
     []
   ) : []
-  
+
   # Find user by matching username (email) from the list
   aws_matching_users = [
     for u in local.all_identity_users :
     u if u.user_name == var.platform_user_email
   ]
-  
+
   # User exists if we found a match
   aws_user_found = length(local.aws_matching_users) > 0
-  
+
   # Existing user's ID (if found)
   aws_existing_user_id = local.aws_user_found ? local.aws_matching_users[0].user_id : null
-  
+
   # Create user only if not found (prefixed to avoid collision with Azure)
   aws_should_create_user = local.platform_user_enabled && !local.aws_user_found
 }
@@ -160,17 +160,17 @@ locals {
 
 resource "aws_identitystore_user" "platform_user" {
   count    = local.aws_should_create_user ? 1 : 0
-  provider = aws.sso  # CRITICAL: SSO resources must use SSO region
-  
+  provider = aws.sso # CRITICAL: SSO resources must use SSO region
+
   identity_store_id = local.identity_store_id
   display_name      = "${var.platform_user_first_name} ${var.platform_user_last_name}"
   user_name         = var.platform_user_email
-  
+
   name {
     given_name  = var.platform_user_first_name
     family_name = var.platform_user_last_name
   }
-  
+
   emails {
     value   = var.platform_user_email
     primary = true
@@ -191,11 +191,11 @@ locals {
 
 resource "aws_grafana_role_association" "admin" {
   count = local.platform_user_enabled ? 1 : 0
-  
+
   role         = "ADMIN"
   user_ids     = [local.platform_user_id]
   workspace_id = aws_grafana_workspace.main[0].id
-  
+
   depends_on = [aws_identitystore_user.platform_user]
 }
 

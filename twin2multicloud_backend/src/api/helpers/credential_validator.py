@@ -1,11 +1,14 @@
 import asyncio
-from typing import Any, Dict, Optional, Tuple
+import logging
+from typing import Any, Dict, Tuple
 
 from src.clients.deployer_client import DeployerClient
 from src.clients.optimizer_client import OptimizerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.provider_contract import normalize_provider_id
-from src.services.secret_redaction import redact_secret_like_text
+
+
+logger = logging.getLogger(__name__)
 
 
 async def validate_with_optimizer(provider: str, credentials: dict) -> Tuple[bool, str]:
@@ -24,7 +27,8 @@ async def validate_with_optimizer(provider: str, credentials: dict) -> Tuple[boo
     except ExternalServiceError as exc:
         return False, f"Optimizer validation failed: {exc.upstream_status_code or 502}"
     except Exception as exc:
-        return False, f"Unexpected error: {redact_secret_like_text(str(exc))}"
+        logger.error("Unexpected Optimizer credential validation failure (%s)", type(exc).__name__)
+        return False, "Optimizer validation failed unexpectedly"
 
 
 async def validate_with_deployer(provider: str, credentials: dict) -> Tuple[bool, str]:
@@ -43,7 +47,8 @@ async def validate_with_deployer(provider: str, credentials: dict) -> Tuple[bool
     except ExternalServiceError as exc:
         return False, f"Deployer validation failed: {exc.upstream_status_code or 502}"
     except Exception as exc:
-        return False, f"Unexpected error: {redact_secret_like_text(str(exc))}"
+        logger.error("Unexpected Deployer credential validation failure (%s)", type(exc).__name__)
+        return False, "Deployer validation failed unexpectedly"
 
 
 async def perform_dual_validation(

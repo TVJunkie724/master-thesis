@@ -7,7 +7,7 @@ from typing import Any
 from src.clients.optimizer_client import OptimizerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.external_service_mapping import map_optimizer_client_error
-from src.services.service_errors import DownstreamServiceError, ValidationError
+from src.services.service_errors import ValidationError
 
 
 SUPPORTED_PRICING_EXPORT_PROVIDERS = {"aws", "azure", "gcp"}

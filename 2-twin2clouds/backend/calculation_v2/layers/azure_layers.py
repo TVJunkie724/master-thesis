@@ -6,7 +6,8 @@ Aggregates Azure component costs into layer-level costs (L1-L5).
 """
 
 from typing import Dict, Any
-from dataclasses import dataclass, field
+
+from .contracts import LayerResult, SUPPORTED_LAYER_KEYS
 
 from ..components.azure import (
     AzureIoTHubCalculator,
@@ -20,23 +21,14 @@ from ..components.azure import (
     AzureGrafanaCalculator,
 )
 
-
-@dataclass
-class LayerResult:
-    """Result of a layer cost calculation."""
-    provider: str
-    layer: str
-    total_cost: float
-    data_size_gb: float = 0.0
-    messages: float = 0.0
-    components: Dict[str, float] = field(default_factory=dict)
-
-
 class AzureLayerCalculators:
     """
     Azure layer cost calculators for L1-L5.
     """
     
+    provider = "Azure"
+    supported_layers = SUPPORTED_LAYER_KEYS
+
     def __init__(self):
         self.iot_hub = AzureIoTHubCalculator()
         self.functions = AzureFunctionsCalculator()
@@ -417,4 +409,3 @@ class AzureLayerCalculators:
             messages=messages,
             pricing=pricing
         )
-

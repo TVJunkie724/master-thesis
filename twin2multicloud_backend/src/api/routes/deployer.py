@@ -9,12 +9,15 @@ GLB file uploads, and project.zip extraction for wizard auto-population.
 - POST /upload-glb: Upload 3D scene file
 - POST /upload-zip: Extract project.zip for wizard
 """
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
 from src.models.user import User
 from src.api.dependencies import get_current_user
+from src.api.upload_limits import UploadLimitExceeded, read_upload_bounded
+from src.config import settings
 from src.schemas.deployer_config import (
     DeployerConfigUpdate,
     DeployerConfigResponse,
@@ -26,12 +29,22 @@ from src.schemas.management_contracts import (
     MessageResponse,
     SceneGlbUploadResponse,
 )
+from src.schemas.project_zip_extraction import ProjectZipExtractionContract
 from src.repositories.twin_repository import TwinRepository
-from src.services.deployer_config_validation_service import DeployerConfigValidationService
+from src.services.deployer_config_validation_service import (
+    DeployerConfigValidationService,
+)
 from src.services.deployer_configuration_service import DeployerConfigurationService
-from src.services.project_zip_extraction_service import ProjectZipExtractionService
+from src.services.project_zip_extraction_service import (
+    MAX_PROJECT_ZIP_SIZE_BYTES,
+    ProjectZipExtractionService,
+)
 from src.services.scene_glb_service import SceneGlbService
-from src.services.service_errors import EntityNotFoundError, StorageError, ValidationError
+from src.services.service_errors import (
+    EntityNotFoundError,
+    StorageError,
+    ValidationError,
+)
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
@@ -73,9 +86,8 @@ def _raise_service_http_error(exc: Exception) -> None:
     raise exc
 
 
-
 @router.get(
-    "/config", 
+    "/config",
     response_model=DeployerConfigResponse,
     operation_id="getDeployerConfig",
     summary="Get deployer configuration for a twin",
@@ -92,16 +104,18 @@ def _raise_service_http_error(exc: Exception) -> None:
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def get_deployer_config(
     twin_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Get deployer configuration for a twin. Creates default if none exists."""
     try:
-        return _deployer_configuration_service(db).get_config(twin_id=twin_id, user_id=current_user.id)
+        return _deployer_configuration_service(db).get_config(
+            twin_id=twin_id, user_id=current_user.id
+        )
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
 
@@ -144,7 +158,7 @@ async def get_deployer_config_read_model(
 
 
 @router.put(
-    "/config", 
+    "/config",
     response_model=DeployerConfigResponse,
     operation_id="updateDeployerConfig",
     summary="Update deployer configuration",
@@ -162,14 +176,15 @@ async def get_deployer_config_read_model(
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
+        413: {"description": "File too large (max configured GLB size)"},
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def update_deployer_config(
     twin_id: str,
     update: DeployerConfigUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update deployer configuration for a twin.
@@ -186,7 +201,7 @@ async def update_deployer_config(
 
 
 @router.post(
-    "/validate/{config_type}", 
+    "/validate/{config_type}",
     response_model=ConfigValidationResponse,
     operation_id="validateDeployerConfigSection",
     summary="Validate a deployer config section via Deployer API",
@@ -207,14 +222,14 @@ async def update_deployer_config(
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def validate_config(
     twin_id: str,
     config_type: str,
     request: ConfigValidationRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Validate config content via Deployer API.
@@ -258,27 +273,34 @@ async def validate_config(
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def upload_scene_glb(
     twin_id: str,
     file: UploadFile = File(..., description="Scene GLB file (max 100MB)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Upload scene.glb file for 3D visualization.
-    
+
     Saves to: UPLOAD_DIR/<twin_id>/scene.glb
     File size limit: MAX_GLB_SIZE_MB (default 100MB)
     """
-    contents = await file.read()
     try:
+        contents = await read_upload_bounded(
+            file,
+            max_bytes=settings.MAX_GLB_SIZE_MB * 1024 * 1024,
+        )
         return _scene_glb_service(db).upload_scene_glb(
             twin_id=twin_id,
             user_id=current_user.id,
             content=contents,
         )
+    except UploadLimitExceeded as exc:
+        raise HTTPException(
+            status_code=413, detail="File exceeds GLB size limit"
+        ) from exc
     except (EntityNotFoundError, ValidationError, StorageError) as exc:
         _raise_service_http_error(exc)
 
@@ -299,23 +321,25 @@ async def upload_scene_glb(
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def delete_scene_glb(
     twin_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete scene.glb file for a twin.
-    
+
     Called when:
     - needs3DModel is toggled off
     - L4 provider changes (invalidation)
     - Twin is deleted
     """
     try:
-        return _scene_glb_service(db).delete_scene_glb(twin_id=twin_id, user_id=current_user.id)
+        return _scene_glb_service(db).delete_scene_glb(
+            twin_id=twin_id, user_id=current_user.id
+        )
     except (EntityNotFoundError, StorageError) as exc:
         _raise_service_http_error(exc)
 
@@ -325,6 +349,7 @@ async def delete_scene_glb(
 # ==========================================
 @router.post(
     "/upload-zip",
+    response_model=ProjectZipExtractionContract,
     operation_id="uploadProjectZip",
     summary="Upload project.zip for wizard auto-population",
     description=(
@@ -344,29 +369,37 @@ async def delete_scene_glb(
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
         413: {"description": "File too large (max 100MB)"},
-    }
+    },
 )
 async def upload_project_zip(
     twin_id: str,
     file: UploadFile = File(..., description="Project zip file to extract"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Upload and extract project.zip for Step 3 wizard auto-population.
-    
+
     1. Builds ValidationContext from twin's saved optimizer config
     2. Proxies to Deployer /validate/zip/extract
     3. If GLB exists in response, saves via existing upload logic
     4. Returns extracted content for Flutter to populate fields
     """
-    zip_content = await file.read()
     try:
+        zip_content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_PROJECT_ZIP_SIZE_BYTES,
+        )
         return await _project_zip_extraction_service(db).upload_project_zip(
             twin_id=twin_id,
             user_id=current_user.id,
             zip_content=zip_content,
         )
+    except UploadLimitExceeded as exc:
+        raise HTTPException(
+            status_code=413,
+            detail="File too large. Maximum allowed size is 100MB",
+        ) from exc
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
     except ValidationError as exc:

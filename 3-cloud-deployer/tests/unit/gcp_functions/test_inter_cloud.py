@@ -99,10 +99,7 @@ class TestGetIdTokenHeadersWithGoogleAuth:
     @pytest.fixture(autouse=True)
     def skip_if_no_google_auth(self):
         """Skip tests if google-auth is not installed."""
-        try:
-            import google.auth.transport.requests
-            import google.oauth2.id_token
-        except ImportError:
+        if importlib.util.find_spec("google.auth.transport.requests") is None:
             pytest.skip("google-auth library not installed")
     
     @patch('google.oauth2.id_token.fetch_id_token')

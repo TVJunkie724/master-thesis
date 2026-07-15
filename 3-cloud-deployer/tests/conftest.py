@@ -1,15 +1,21 @@
 import os
 import pytest
-from unittest.mock import MagicMock
 import sys
-import json
+
+
+def pytest_ignore_collect(collection_path, config):
+    """Keep every live-cloud E2E module opt-in, even for `pytest tests`."""
+    del config
+    if "e2e" not in collection_path.parts:
+        return False
+    return os.environ.get("RUN_E2E_TESTS") != "1"
 
 # Set PYTHONPATH to include src and root if not already there
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 @pytest.fixture(scope="function", autouse=True)
-def mock_env_vars(request):
+def mock_env_vars(request, monkeypatch):
     """Set mock environment variables to prevent accidental cloud calls.
     
     Note: This fixture is skipped for E2E tests which need real credentials.
@@ -18,12 +24,12 @@ def mock_env_vars(request):
     if "e2e" in str(request.fspath):
         return
     
-    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
-    os.environ["AWS_SECURITY_TOKEN"] = "testing"
-    os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "eu-central-1"
-    os.environ["REGION"] = "eu-central-1"
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
+    monkeypatch.setenv("REGION", "eu-central-1")
 
 @pytest.fixture(scope="function")
 def mock_project_config():
@@ -64,4 +70,3 @@ def mock_sleep(request, monkeypatch):
         return
     
     monkeypatch.setattr("time.sleep", lambda x: None)
-

@@ -5,6 +5,8 @@ This module provides the core cost optimization endpoint for Digital Twin deploy
 It calculates the optimal cloud provider distribution across all 5 architectural layers
 based on current pricing data and user-defined scenario parameters.
 """
+from typing import Literal
+
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -47,7 +49,7 @@ class CalcParams(BaseModel):
     amountOfActiveViewers: int = Field(..., ge=0, description="Number of active viewers (must be >= 0)")
     dashboardRefreshesPerHour: int = Field(..., ge=0, description="Dashboard refresh rate (must be >= 0)")
     dashboardActiveHoursPerDay: int = Field(..., ge=0, le=24, description="Active hours per day (must be 0-24)")
-    currency: str = "USD"
+    currency: Literal["USD", "EUR"] = "USD"
     
     # Parameters for supporter services
     useEventChecking: bool = False
@@ -89,6 +91,11 @@ class CalcParams(BaseModel):
             raise ValueError(
                 f"Cool storage duration ({self.coolStorageDurationInMonths}) must be <= "
                 f"Archive storage duration ({self.archiveStorageDurationInMonths})"
+            )
+        if self.allowGcpSelfHostedL4 or self.allowGcpSelfHostedL5:
+            raise ValueError(
+                "GCP self-hosted L4/L5 cannot be enabled until the Deployer "
+                "implements and verifies those deployment paths"
             )
         return self
 
@@ -145,8 +152,8 @@ class CalcParams(BaseModel):
         
         "**The 5 Architectural Layers:**\n"
         "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
-        "- **L2 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n"
-        "- **L3 (Processing):** Data processing, event detection, notifications\n"
+        "- **L2 (Processing):** Data processing, event detection, notifications\n"
+        "- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n"
         "- **L4 (Management):** Digital Twin entity management and 3D modeling\n"
         "- **L5 (Visualization):** Dashboards and user interfaces\n\n"
         

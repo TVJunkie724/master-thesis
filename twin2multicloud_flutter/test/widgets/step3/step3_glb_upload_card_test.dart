@@ -55,5 +55,27 @@ void main() {
 
       expect(deleteTapped, isTrue);
     });
+
+    testWidgets('disables file commands while a GLB command is active', (
+      tester,
+    ) async {
+      var uploadTapped = false;
+
+      await tester.pumpWidget(
+        buildWidget(
+          Step3GlbUploadCard(
+            isUploaded: false,
+            isBusy: true,
+            onDelete: () {},
+            onUpload: () => uploadTapped = true,
+          ),
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Upload GLB'), findsNothing);
+      expect(find.byTooltip('Delete GLB'), findsNothing);
+      expect(uploadTapped, isFalse);
+    });
   });
 }

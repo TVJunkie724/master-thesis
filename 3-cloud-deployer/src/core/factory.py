@@ -10,9 +10,9 @@ It serves as the entry point for both CLI and API to establish a session.
 
 from pathlib import Path
 
-from core.config_loader import ProjectConfigLoader
-from core.context import DeploymentContext
-from core.paths import get_project_root, resolve_deployment_paths, resolve_project_context_path
+from src.core.config_loader import ProjectConfigLoader
+from src.core.context import DeploymentContext
+from src.core.paths import get_project_root, resolve_deployment_paths
 
 def get_project_path() -> Path:
     """Get the project root path."""

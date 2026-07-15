@@ -35,3 +35,28 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
 final pricingHealthProvider = FutureProvider<PricingHealthResponse>((ref) {
   return ref.read(apiServiceProvider).getPricingHealth();
 });
+
+final twinCommandProvider =
+    NotifierProvider<TwinCommandController, AsyncValue<void>>(
+      TwinCommandController.new,
+    );
+
+class TwinCommandController extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncData(null);
+
+  Future<void> deleteTwin(String twinId) async {
+    if (state.isLoading) return;
+
+    state = const AsyncLoading();
+    try {
+      await ref.read(apiServiceProvider).deleteTwin(twinId);
+      ref.invalidate(twinsProvider);
+      ref.invalidate(dashboardStatsProvider);
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
+  }
+}

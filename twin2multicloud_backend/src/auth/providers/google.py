@@ -26,7 +26,7 @@ class GoogleOAuth(OAuthProvider):
             client_secret=self.client_secret,
             redirect_uri=self.redirect_uri
         ) as client:
-            token = await client.fetch_token(
+            await client.fetch_token(
                 "https://oauth2.googleapis.com/token",
                 code=code
             )

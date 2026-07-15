@@ -7,7 +7,6 @@ Tests optimizer configuration persistence including:
 - Error cases: invalid data, not found
 """
 
-import pytest
 from tests.conftest import create_test_twin
 
 

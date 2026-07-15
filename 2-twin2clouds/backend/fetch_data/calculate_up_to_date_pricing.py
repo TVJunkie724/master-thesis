@@ -13,6 +13,7 @@ from backend.fetch_data.cloud_price_fetcher_google import (
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
 from backend.pricing_schema import attach_pricing_metadata
+from backend.pricing_cache import serialized_provider_refresh, write_json_atomically
 
 # Factory Pattern: Centralized creation of price fetcher instances
 # All provider-specific fetching is done through the Factory
@@ -44,6 +45,7 @@ def _load_region_map(provider_label: str, path: Path) -> dict:
 # ============================================================
 # ENTRYPOINT
 # ============================================================
+@serialized_provider_refresh
 def calculate_up_to_date_pricing(target_provider: str, additional_debug = False):
     """
     Fetches pricing for a specific provider and saves it to its dedicated file.
@@ -111,7 +113,7 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
                 validation.get("unsupported_fields", []),
             )
             
-        Path(target_file_path).write_text(json.dumps(output_data, indent=2))
+        write_json_atomically(Path(target_file_path), output_data)
         logger.info(f"✅ Wrote {target_file_path.name} successfully!")
         return output_data
     else:
@@ -119,6 +121,7 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
         return {}
 
 
+@serialized_provider_refresh
 def calculate_up_to_date_pricing_with_credentials(target_provider: str, credentials: dict, additional_debug=False):
     """
     Fetches pricing using provided credentials instead of loading from file.
@@ -209,7 +212,7 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
                 validation.get("unsupported_fields", []),
             )
             
-        Path(target_file_path).write_text(json.dumps(output_data, indent=2))
+        write_json_atomically(Path(target_file_path), output_data)
         logger.info(f"✅ Wrote {target_file_path.name} successfully!")
         return output_data
     else:

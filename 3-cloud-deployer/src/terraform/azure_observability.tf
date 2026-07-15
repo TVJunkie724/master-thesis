@@ -12,8 +12,8 @@ resource "azurerm_log_analytics_workspace" "main" {
   resource_group_name = azurerm_resource_group.main[0].name
   sku                 = "PerGB2018"
   # Azure requires 30-730 days retention (unlike AWS/GCP which allow shorter)
-  retention_in_days   = max(30, var.log_retention_days)
-  tags                = local.common_tags
+  retention_in_days = max(30, var.log_retention_days)
+  tags              = local.common_tags
 }
 
 resource "azurerm_application_insights" "functions" {
