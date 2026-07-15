@@ -378,7 +378,7 @@ live-cloud E2E. Existing real-stack integration coverage remains unchanged.
       are covered with hard assertions.
 - [x] Web and macOS builds succeed from `config/dev.example.json`.
 - [x] Two code-review passes find no unresolved Critical, Major, or Minor findings.
-- [ ] Issue #38 is closed only when its remaining file-level decomposition and
+- [x] Issue #38 is closed only when its remaining file-level decomposition and
       acceptance criteria are complete.
 - [x] Issue #39 remains open until the complete lifecycle has integration evidence.
 - [x] No live-cloud resources are created and no live-cloud E2E is executed.
