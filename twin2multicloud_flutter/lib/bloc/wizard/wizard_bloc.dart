@@ -2,6 +2,8 @@
 // BLoC for wizard state machine
 // Refactored to use service extraction pattern for testability
 
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/app_logger.dart';
 import '../../models/calc_result.dart';
@@ -33,6 +35,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final ManagementApi _api;
   final AppLogger _logger;
   final int _maxSceneGlbBytes;
+  final int _maxProjectZipBytes;
 
   WizardBloc({
     required ManagementApi api,
@@ -41,6 +44,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     WizardGlbCleanupService? glbCleanupService,
     AppLogger logger = const AppLogger(),
     int maxSceneGlbBytes = 100 * 1024 * 1024,
+    int maxProjectZipBytes = 100 * 1024 * 1024,
   }) : _api = api,
        _initService = initService ?? WizardInitService(),
        _zipService = zipService ?? WizardZipService(),
@@ -49,6 +53,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
        _deployerValidationService = WizardDeployerValidationService(api: api),
        _logger = logger,
        _maxSceneGlbBytes = maxSceneGlbBytes,
+       _maxProjectZipBytes = maxProjectZipBytes,
        super(const WizardState()) {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
@@ -133,7 +138,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
     // === Step 3: Zip Upload ===
     on<WizardZipUploadRequested>(_onZipUploadRequested);
-    on<WizardZipUploadConfirmed>(_onZipUploadConfirmed);
   }
 
   // ============================================================
@@ -1629,7 +1633,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       );
       return;
     }
-    if (!_isSafeGlbFilename(event.filename) || event.bytes.isEmpty) {
+    if (!_isSafeUploadFilename(event.filename, '.glb') || event.bytes.isEmpty) {
       emit(
         state.copyWith(
           sceneGlbCommand: const SceneGlbCommandState(
@@ -1736,10 +1740,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     }
   }
 
-  bool _isSafeGlbFilename(String filename) {
+  bool _isSafeUploadFilename(String filename, String extension) {
     final normalized = filename.trim();
     return normalized.isNotEmpty &&
-        normalized.toLowerCase().endsWith('.glb') &&
+        normalized.toLowerCase().endsWith(extension) &&
         !normalized.contains('/') &&
         !normalized.contains('\\') &&
         !normalized.codeUnits.any((unit) => unit < 32 || unit == 127);
@@ -1797,43 +1801,29 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   // STEP 3: ZIP UPLOAD HANDLERS
   // ============================================================
 
-  /// Handle zip upload request - check if data exists and needs confirmation
+  /// Process a presentation-confirmed, transient ZIP upload.
   Future<void> _onZipUploadRequested(
     WizardZipUploadRequested event,
     Emitter<WizardState> emit,
   ) async {
-    // If Step 3 already has data, emit state that triggers confirmation dialog
-    if (state.hasSection3Data) {
+    if (state.zipUploadInProgress) return;
+    if (!_isSafeUploadFilename(event.fileName, '.zip') ||
+        event.fileBytes.isEmpty) {
       emit(
         state.copyWith(
-          zipUploadPending: true,
-          pendingZipFilePath: event.filePath,
-          pendingZipFileBytes: event.fileBytes,
-          pendingZipFileName: event.fileName,
+          errorMessage: 'Select a non-empty .zip file with a safe filename.',
         ),
       );
       return;
     }
-
-    // No existing data - proceed directly with upload
-    await _processZipUpload(event.fileBytes, event.fileName, emit);
-  }
-
-  /// Handle confirmed zip upload - user chose to replace existing data
-  Future<void> _onZipUploadConfirmed(
-    WizardZipUploadConfirmed event,
-    Emitter<WizardState> emit,
-  ) async {
-    // Clear pending state
-    emit(
-      state.copyWith(
-        zipUploadPending: false,
-        clearPendingZipFilePath: true,
-        clearPendingZipFileBytes: true,
-        clearPendingZipFileName: true,
-      ),
-    );
-
+    if (event.fileBytes.length > _maxProjectZipBytes) {
+      emit(
+        state.copyWith(
+          errorMessage: 'The project ZIP exceeds the 100 MB upload limit.',
+        ),
+      );
+      return;
+    }
     await _processZipUpload(event.fileBytes, event.fileName, emit);
   }
 
@@ -1841,7 +1831,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   ///
   /// Delegates to WizardZipService for the heavy lifting.
   Future<void> _processZipUpload(
-    dynamic fileBytes,
+    Uint8List fileBytes,
     String fileName,
     Emitter<WizardState> emit,
   ) async {

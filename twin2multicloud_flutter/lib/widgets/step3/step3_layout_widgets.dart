@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/spacing.dart';
-import '../file_inputs/zip_upload_block.dart';
 
 class Step3QuickUploadSection extends StatelessWidget {
   final Widget uploadBlock;
 
-  const Step3QuickUploadSection({
-    super.key,
-    this.uploadBlock = const ZipUploadBlock(),
-  });
+  const Step3QuickUploadSection({super.key, required this.uploadBlock});
 
   @override
   Widget build(BuildContext context) {

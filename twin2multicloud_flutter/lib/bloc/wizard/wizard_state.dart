@@ -2,7 +2,6 @@
 // State for the Wizard BLoC state machine
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
@@ -186,10 +185,6 @@ class WizardState extends Equatable {
 
   // === Zip Upload State ===
   final bool zipUploadInProgress; // True during upload/extraction
-  final bool zipUploadPending; // True when confirmation needed
-  final String? pendingZipFilePath; // Pending file for confirmation
-  final Uint8List? pendingZipFileBytes; // Pending bytes for confirmation
-  final String? pendingZipFileName; // Pending filename for confirmation
   final bool
   forceCollapseSections; // Triggers section collapse after zip success
 
@@ -264,10 +259,6 @@ class WizardState extends Equatable {
     this.userConfigValidated = false,
     // Zip upload state
     this.zipUploadInProgress = false,
-    this.zipUploadPending = false,
-    this.pendingZipFilePath,
-    this.pendingZipFileBytes,
-    this.pendingZipFileName,
     this.forceCollapseSections = false,
     this.hasUnsavedChanges = false,
     this.step3Invalidated = false,
@@ -607,13 +598,6 @@ class WizardState extends Equatable {
     bool clearUserConfigContent = false,
     // Zip upload fields
     bool? zipUploadInProgress,
-    bool? zipUploadPending,
-    String? pendingZipFilePath,
-    dynamic pendingZipFileBytes,
-    String? pendingZipFileName,
-    bool clearPendingZipFilePath = false,
-    bool clearPendingZipFileBytes = false,
-    bool clearPendingZipFileName = false,
     bool? forceCollapseSections,
   }) {
     return WizardState(
@@ -710,16 +694,6 @@ class WizardState extends Equatable {
           : (userConfigContent ?? this.userConfigContent),
       userConfigValidated: userConfigValidated ?? this.userConfigValidated,
       zipUploadInProgress: zipUploadInProgress ?? this.zipUploadInProgress,
-      zipUploadPending: zipUploadPending ?? this.zipUploadPending,
-      pendingZipFilePath: clearPendingZipFilePath
-          ? null
-          : (pendingZipFilePath ?? this.pendingZipFilePath),
-      pendingZipFileBytes: clearPendingZipFileBytes
-          ? null
-          : (pendingZipFileBytes ?? this.pendingZipFileBytes),
-      pendingZipFileName: clearPendingZipFileName
-          ? null
-          : (pendingZipFileName ?? this.pendingZipFileName),
       forceCollapseSections:
           forceCollapseSections ?? this.forceCollapseSections,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
@@ -798,10 +772,6 @@ class WizardState extends Equatable {
     userConfigContent,
     userConfigValidated,
     zipUploadInProgress,
-    zipUploadPending,
-    pendingZipFilePath,
-    pendingZipFileBytes,
-    pendingZipFileName,
     forceCollapseSections,
     hasUnsavedChanges,
     step3Invalidated,

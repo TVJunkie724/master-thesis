@@ -19,9 +19,46 @@ void main() {
         expect(
           source,
           isNot(contains(forbidden)),
-          reason: '$path must dispatch feature events instead of using $forbidden',
+          reason:
+              '$path must dispatch feature events instead of using $forbidden',
         );
       }
     }
+  });
+
+  test(
+    'deployment presentation is free of framework state and API adapters',
+    () {
+      final deploymentDirectory = Directory(
+        'lib/features/configuration_workspace/presentation/deployment',
+      );
+      final files = deploymentDirectory.listSync().whereType<File>().where(
+        (file) => file.path.endsWith('.dart'),
+      );
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        for (final forbidden in [
+          'flutter_bloc',
+          'flutter_riverpod',
+          'package:dio',
+          'context.read<',
+          'ManagementApi',
+          'ApiService',
+        ]) {
+          expect(
+            source,
+            isNot(contains(forbidden)),
+            reason: '${file.path} must remain presentation-only',
+          );
+        }
+      }
+    },
+  );
+
+  test('wizard state never retains transient ZIP bytes', () {
+    final source = File('lib/bloc/wizard/wizard_state.dart').readAsStringSync();
+    expect(source, isNot(contains('Uint8List')));
+    expect(source, isNot(contains('pendingZip')));
   });
 }

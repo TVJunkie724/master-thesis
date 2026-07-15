@@ -438,33 +438,18 @@ class WizardL4CleanupRequested extends WizardEvent {
 // STEP 3: ZIP UPLOAD EVENTS
 // ============================================================
 
-/// User requested zip upload for auto-population
-/// Triggers confirmation dialog if Step 3 already has data
+/// Upload a transient project ZIP after presentation-side confirmation.
 class WizardZipUploadRequested extends WizardEvent {
-  final String filePath;
   final Uint8List fileBytes;
   final String fileName;
-  const WizardZipUploadRequested({
-    required this.filePath,
-    required this.fileBytes,
-    required this.fileName,
-  });
-  @override
-  List<Object?> get props => [filePath, fileName];
-}
 
-/// User confirmed to replace existing Step 3 data with zip contents
-class WizardZipUploadConfirmed extends WizardEvent {
-  final String filePath;
-  final Uint8List fileBytes;
-  final String fileName;
-  const WizardZipUploadConfirmed({
-    required this.filePath,
+  const WizardZipUploadRequested({
     required this.fileBytes,
     required this.fileName,
   });
+
   @override
-  List<Object?> get props => [filePath, fileName];
+  List<Object?> get props => [fileName];
 }
 
 /// Zip upload and extraction completed successfully

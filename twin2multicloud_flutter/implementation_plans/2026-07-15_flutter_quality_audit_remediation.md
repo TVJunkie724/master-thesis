@@ -175,15 +175,17 @@ WizardScreen [MODIFY, composition only]
             |   `-- selected task content
             |       `-- Step3Deployer [MODIFY, smart coordinator]
             |           `-- DeploymentTaskContent [NEW, dumb]
-            |               |-- DeploymentDataContractsTask [NEW]
-            |               |-- DeploymentUserLogicTask [NEW]
-            |               |-- DeploymentTwinAssetsTask [NEW]
+            |               |-- DeploymentConfigSection [NEW]
+            |               |-- DeploymentUserLogicSection [NEW]
             |               `-- DeploymentLayerOverview [NEW]
             `-- ConfigurationNavigationBar [NEW, dumb]
 ```
 
 New widgets are justified because existing Step 3 widgets model editor blocks
-and layer rows, not task-level composition. They must reuse
+and layer rows, not task-level composition. `DeploymentTaskContent` owns the
+closed `DeploymentTaskFocus` mapping so the three focused tasks share one
+layout contract without duplicating task-shell widgets. The extracted sections
+must reuse
 `Step3QuickUploadSection`, `CollapsibleBlockWrapper`, `FileEditorBlock`,
 `FunctionPackageBlock`, `Step3LayerRow`, `Step3GlbUploadCard`, and
 `ConfigurationWorkspaceShell`; duplicating those primitives is forbidden.
@@ -297,6 +299,27 @@ live-cloud E2E. Existing real-stack integration coverage remains unchanged.
   the post-review focused boundary suite passed with 17 tests; `git diff
   --check` passed.
 - Review: two manual passes completed with no unresolved finding.
+
+### Subphase 2 - Complete
+
+- Reduced `Step3Deployer` to the BLoC/file-picker coordinator and moved task
+  composition into focused, presentation-only deployment widgets.
+- Centralized validation request construction and preserved the exact provider,
+  filename, generated-config, task-filtering, and clear-state contracts.
+- Removed transient ZIP payloads and pending replacement data from
+  `WizardState`; confirmation now happens before a typed upload command.
+- Added bounded ZIP validation, duplicate-command protection, safe filename
+  checks, picker error handling, and compact split-view layouts.
+- Added hard assertions for all task modes, exact validation events, dynamic
+  processors/actions/workflows, dependency states, AWS/Azure scene contracts,
+  GCP unsupported paths, no-3D intent, ZIP boundaries, and 560 px/640 px
+  responsive behavior.
+- Verification: `flutter analyze` passed; the full suite passed with 532 tests;
+  release Web and debug macOS builds passed with `config/dev.example.json`;
+  all changed Dart files passed format verification; `git diff --check`
+  passed. Two independent review passes found and resolved the hierarchy
+  newline, responsive overflow, plan-fidelity, state-matrix, and GLB
+  picker-error findings.
 
 ## Definition Of Done
 

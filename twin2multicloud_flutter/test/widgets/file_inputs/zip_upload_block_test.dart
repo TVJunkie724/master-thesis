@@ -1,111 +1,82 @@
-// Widget tests for ZipUploadBlock
-// Tests the zip upload UI component for Step 3 wizard auto-population
-
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mocktail/mocktail.dart';
-
-import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/widgets/file_inputs/zip_upload_block.dart';
 
-// Mock BLoC with proper stream support
-class MockWizardBloc extends Mock implements WizardBloc {
-  final _stateController = StreamController<WizardState>.broadcast();
-  WizardState _currentState = const WizardState();
-
-  @override
-  Stream<WizardState> get stream => _stateController.stream;
-
-  @override
-  WizardState get state => _currentState;
-
-  void emitState(WizardState newState) {
-    _currentState = newState;
-    _stateController.add(newState);
-  }
-
-  @override
-  Future<void> close() async {
-    await _stateController.close();
-  }
-}
-
-class FakeWizardEvent extends Fake implements WizardEvent {}
-
 void main() {
-  late MockWizardBloc mockBloc;
-
-  setUpAll(() {
-    registerFallbackValue(FakeWizardEvent());
-  });
-
-  setUp(() {
-    mockBloc = MockWizardBloc();
-  });
-
-  tearDown(() {
-    mockBloc.close();
-  });
-
-  Widget buildTestWidget() {
+  Widget buildWidget({
+    String? selectedFileName,
+    bool isUploading = false,
+    bool hasError = false,
+    Future<void> Function()? onSelect,
+    VoidCallback? onClear,
+  }) {
     return MaterialApp(
       home: Scaffold(
-        body: BlocProvider<WizardBloc>.value(
-          value: mockBloc,
-          child: const ZipUploadBlock(),
+        body: ZipUploadBlock(
+          selectedFileName: selectedFileName,
+          isUploading: isUploading,
+          hasError: hasError,
+          onSelect: onSelect ?? () async {},
+          onClear: onClear ?? () {},
         ),
       ),
     );
   }
 
-  group('ZipUploadBlock Widget Tests', () {
-    testWidgets('renders ZipUploadBlock widget', (tester) async {
-      mockBloc.emitState(const WizardState());
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pump();
+  testWidgets('renders an empty presentation-only selector', (tester) async {
+    await tester.pumpWidget(buildWidget());
 
-      expect(find.byType(ZipUploadBlock), findsOneWidget);
-    });
+    expect(
+      find.text('Drop project.zip here or click to upload'),
+      findsOneWidget,
+    );
+    expect(find.text('Supports .zip files only'), findsOneWidget);
+    expect(find.text('Clear'), findsNothing);
+  });
 
-    testWidgets('shows success state after extraction', (tester) async {
-      mockBloc.emitState(
-        const WizardState(configEventsJson: '[]', configEventsValidated: true),
-      );
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pump();
+  testWidgets('delegates selection without owning feature state', (
+    tester,
+  ) async {
+    var selected = false;
+    await tester.pumpWidget(buildWidget(onSelect: () async => selected = true));
 
-      expect(find.byType(ZipUploadBlock), findsOneWidget);
-    });
+    await tester.tap(find.text('Drop project.zip here or click to upload'));
+    await tester.pump();
 
-    testWidgets('renders with validated fields', (tester) async {
-      mockBloc.emitState(
-        const WizardState(
-          configEventsJson: '[]',
-          configEventsValidated: true,
-          configIotDevicesJson: '[]',
-          configIotDevicesValidated: true,
-        ),
-      );
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pump();
+    expect(selected, isTrue);
+  });
 
-      expect(find.byType(ZipUploadBlock), findsOneWidget);
-    });
+  testWidgets('renders selected success and error states', (tester) async {
+    await tester.pumpWidget(buildWidget(selectedFileName: 'project.zip'));
+    expect(find.text('project.zip'), findsOneWidget);
+    expect(find.text('Extraction complete'), findsOneWidget);
+    expect(find.text('Clear'), findsOneWidget);
 
-    testWidgets('handles warning state', (tester) async {
-      mockBloc.emitState(
-        const WizardState(
-          warningMessage: 'Some files were not found',
-          configEventsJson: '[]',
-          configEventsValidated: true,
-        ),
-      );
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pump();
+    await tester.pumpWidget(
+      buildWidget(selectedFileName: 'project.zip', hasError: true),
+    );
+    expect(find.text('Extraction complete with errors'), findsOneWidget);
+  });
 
-      expect(find.byType(ZipUploadBlock), findsOneWidget);
-    });
+  testWidgets('disables commands and shows progress during upload', (
+    tester,
+  ) async {
+    var selected = false;
+    await tester.pumpWidget(
+      buildWidget(
+        selectedFileName: 'project.zip',
+        isUploading: true,
+        onSelect: () async => selected = true,
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Extracting and validating...'), findsOneWidget);
+    expect(find.text('Clear'), findsNothing);
+    final detector = tester.widget<GestureDetector>(
+      find.byType(GestureDetector).first,
+    );
+    expect(detector.onTap, isNull);
+    expect(selected, isFalse);
   });
 }
