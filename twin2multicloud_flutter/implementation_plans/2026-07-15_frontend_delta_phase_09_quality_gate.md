@@ -403,5 +403,5 @@ repository cleanliness. Fix every finding before commit.
 - [x] Frontend Delta roadmap, refactoring roadmap, Handbook, and Issue #38 state
       are synchronized with GitHub.
 - [x] Two review passes have no unresolved Critical, Major, or Minor findings.
-- [ ] Changes are committed structurally and merged with a merge commit; no
+- [x] Changes are committed structurally and merged with a merge commit; no
       user-owned pricing or credential file is staged.
