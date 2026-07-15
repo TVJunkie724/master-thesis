@@ -117,8 +117,9 @@ No unresolved Critical, Major, or Minor finding remains in this phase.
 - Live provider validation, price refresh, deployment, destroy, simulator cloud
   execution, and billing verification were deliberately not run. They may
   create resources or incur costs.
-- General dev-auth hardening remains tracked by
-  [`#71`](https://github.com/TVJunkie724/master-thesis/issues/71).
+- Explicit runtime and dev-auth hardening was completed through
+  [`#71`](https://github.com/TVJunkie724/master-thesis/issues/71); real
+  production OAuth/SAML remains tracked separately by #10.
 - Remaining non-critical dynamic-map reduction remains tracked by
   [`#72`](https://github.com/TVJunkie724/master-thesis/issues/72).
 - Final deployment lifecycle integration remains tracked by

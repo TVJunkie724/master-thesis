@@ -134,6 +134,7 @@ The order is intentional:
 
 The planned frontend delta is implemented and release-gated for the supported
 Web and macOS thesis workflow. Remaining cross-cutting work is tracked in
-GitHub, especially dev-auth hardening (#71), residual dynamic-map reduction
-(#72), and final deployment lifecycle integration (#39). New product work still
+GitHub, especially residual dynamic-map reduction (#72), real production
+authentication (#10), and final deployment lifecycle integration (#39). The
+explicit dev-auth runtime boundary from #71 is complete. New product work still
 requires a dedicated implementation plan before Flutter code changes.

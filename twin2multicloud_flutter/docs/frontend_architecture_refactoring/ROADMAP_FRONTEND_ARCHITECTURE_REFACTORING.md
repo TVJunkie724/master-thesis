@@ -2,8 +2,8 @@
 title: "Frontend Architecture Refactoring Roadmap"
 description: "Roadmap for decomposing the Flutter app into stable Management API, state, domain, and presentation boundaries before feature-heavy UI delta work continues."
 tags: [flutter, architecture, refactoring, roadmap, thesis]
-lastUpdated: "2026-06-18"
-version: "1.0"
+lastUpdated: "2026-07-15"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -111,7 +111,7 @@ facades for Management API use cases; they do not call Optimizer or Deployer.
 
 | Phase | Status | Document | Primary outcome |
 |---|---|---|---|
-| 1 | Planned | [PHASE_01_ARCHITECTURE_BASELINE.md](phases/PHASE_01_ARCHITECTURE_BASELINE.md) | Dependency rules, state ownership, and migration inventory are frozen. |
+| 1 | Completed | [PHASE_01_ARCHITECTURE_BASELINE.md](phases/PHASE_01_ARCHITECTURE_BASELINE.md) | Dependency rules, state ownership, and explicit runtime/auth profiles are enforced. |
 | 2 | Planned | [PHASE_02_API_REPOSITORY_SPLIT.md](phases/PHASE_02_API_REPOSITORY_SPLIT.md) | API access is split into a core client and feature repositories. |
 | 3 | Planned | [PHASE_03_TYPED_FEATURE_MODELS.md](phases/PHASE_03_TYPED_FEATURE_MODELS.md) | Typed DTO/read models replace raw maps at feature boundaries. |
 | 4 | Planned | [PHASE_04_WIZARD_DECOMPOSITION.md](phases/PHASE_04_WIZARD_DECOMPOSITION.md) | Wizard responsibilities are split into smaller feature flows. |

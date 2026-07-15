@@ -48,9 +48,6 @@ Development, desktop and Web >= 640 px
 |              Multi-cloud Digital Twin Platform               |
 |                                                              |
 |              [ Continue in local development ]               |
-|                                                              |
-|  Local development profile. Requests use the explicitly      |
-|  configured local Management API identity.                   |
 +--------------------------------------------------------------+
 
 Production, desktop and Web >= 640 px (until #10)
@@ -298,8 +295,9 @@ Broad visual redesign remains out of scope.
 | Invalid runtime config | app bootstrap fails before `runApp` with sanitized key/rule error |
 
 No new animations are introduced. Existing button/progress transitions remain.
-The status block uses `Icons.info_outline` plus text; the current emoji prefix
-is removed so semantics and rendering do not depend on a decorative glyph.
+The obsolete authentication-status block and its emoji prefix are removed.
+The mode-specific action and production unavailability text provide the only
+necessary status information.
 
 ## 9. Accessibility
 
@@ -370,7 +368,7 @@ Unhappy paths:
 Edge paths:
 
 1. injected Dio is accepted without global config;
-2. empty initial token is treated as absent;
+2. empty or control-character-bearing initial tokens are rejected safely;
 3. repeated requests do not duplicate Authorization headers;
 4. logout clears the HTTP/SSE token and does not leak token text into diagnostics;
 5. demo composition creates no Dio/SSE adapter;
@@ -430,28 +428,43 @@ simulator cloud operation is allowed.
 
 ## 12. Definition Of Done
 
-- [ ] `AppRuntimeConfig` is the only Flutter runtime URL/dev-auth SSOT.
-- [ ] Missing `APP_MODE` fails closed; no mode silently defaults to development.
-- [ ] Development requires explicit URL and token.
-- [ ] Production requires HTTPS and cannot carry an initial development token.
-- [ ] Demo cannot contain URL/token configuration or network adapters.
-- [ ] `ApiConfig` and parameterless production `ApiService` construction are removed.
-- [ ] HTTP and SSE use the same injected Management API URI.
-- [ ] Development bypass is visible and callable only in development.
-- [ ] Development login sets the configured token; logout clears it from the
+- [x] `AppRuntimeConfig` is the only Flutter runtime URL/dev-auth SSOT.
+- [x] Missing `APP_MODE` fails closed; no mode silently defaults to development.
+- [x] Development requires explicit URL and token.
+- [x] Production requires HTTPS and cannot carry an initial development token.
+- [x] Demo cannot contain URL/token configuration or network adapters.
+- [x] `ApiConfig` and parameterless production `ApiService` construction are removed.
+- [x] HTTP and SSE use the same injected Management API URI.
+- [x] Development bypass is visible and callable only in development.
+- [x] Development login sets the configured token; logout clears it from the
       shared HTTP/SSE auth port.
-- [ ] Production remains unauthenticated and visibly unavailable until #10;
+- [x] Production remains unauthenticated and visibly unavailable until #10;
       no fake OAuth, callback token parsing, or token persistence is added.
-- [ ] Riverpod/BLoC ownership is documented and unchanged.
-- [ ] Runtime, adapter, composition, auth, login, and checker tests pass with
+- [x] Riverpod/BLoC ownership is documented and unchanged.
+- [x] Runtime, adapter, composition, auth, login, and checker tests pass with
       exact happy, unhappy, and edge assertions.
-- [ ] Existing real Management API integration passes without cloud credentials.
-- [ ] `flutter analyze` reports zero issues.
-- [ ] Complete Flutter suite passes without weakened assertions.
-- [ ] Web release and macOS debug builds pass from explicit development config.
-- [ ] Web release build passes from the token-free production template.
-- [ ] Architecture checker and its unit tests pass redaction-safely.
-- [ ] Handbook, frontend architecture baseline, #71, and #10 boundary are synchronized.
-- [ ] Two review passes have no unresolved Critical, Major, or Minor findings.
+- [x] Existing real Management API integration passes without cloud credentials.
+- [x] `flutter analyze` reports zero issues.
+- [x] Complete Flutter suite passes without weakened assertions.
+- [x] Web release and macOS debug builds pass from explicit development config.
+- [x] Web release build passes from the token-free production template.
+- [x] Architecture checker and its unit tests pass redaction-safely.
+- [x] Handbook, frontend architecture baseline, #71, and #10 boundary are synchronized.
+- [x] Two review passes have no unresolved Critical, Major, or Minor findings.
 - [ ] Structured commits are merged to `master`; the user-owned pricing file is
       never staged.
+
+## 13. Verification Evidence
+
+- Architecture checker: 12 unit tests and repository gate passed.
+- Flutter analyzer: zero issues.
+- Flutter suite: 577 unit and widget tests passed.
+- Builds: development Web release and macOS debug passed; token-free production
+  Web release passed.
+- Real local integration: eight read-only Management API contract tests passed
+  through OrbStack without a credential overlay or cloud operations.
+- Compose validation, `bash -n thesis.sh`, strict MkDocs build, and
+  `git diff --check` passed.
+- Review pass 1 fixed explicit test-profile regressions and demo logout state.
+- Review pass 2 hardened token control characters, SSE path/cursor validation,
+  and contradictory authentication state construction.

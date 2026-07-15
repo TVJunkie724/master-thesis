@@ -112,6 +112,31 @@ template is:
 twin2multicloud_flutter/config/dev.example.json
 ```
 
+Runtime profiles are explicit and fail closed:
+
+| Profile | Management API | Initial authentication | Startup behavior |
+|---|---|---|---|
+| `development` | Explicit HTTP(S) origin | Explicit local development token | Shows one local-development sign-in action |
+| `production` | Explicit HTTPS origin | None | Production sign-in remains unavailable until the real OAuth/SAML flow is implemented |
+| `demo` | None | Fixture identity only | Uses in-memory adapters and performs no network calls |
+
+There is no default profile, URL, or token in Flutter code. A missing
+`APP_MODE` stops bootstrap before the UI starts. The tracked production
+template is `twin2multicloud_flutter/config/production.example.json`; it is a
+non-secret build example, not a deployable environment configuration.
+
+Validate a production-profile Web build with:
+
+```bash
+cd twin2multicloud_flutter
+flutter build web --release \
+  --dart-define-from-file=config/production.example.json
+```
+
+Development tokens are process configuration for local execution only. They
+are held in memory after the deliberate local sign-in action, cleared on
+logout, and forbidden in production and demo profiles.
+
 ## 4. Credentials
 
 The default stack is credential-free. A clean clone can start without real cloud
