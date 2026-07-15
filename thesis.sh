@@ -45,6 +45,8 @@ Usage:
   ./thesis.sh logs [service]
   ./thesis.sh down
   ./thesis.sh test backend
+  ./thesis.sh test frontend
+  ./thesis.sh test frontend-integration
   ./thesis.sh latex [watch|once|clean|logs]
   ./thesis.sh docs [up|down|logs]
 
@@ -60,6 +62,11 @@ App commands:
                      2twin2clouds, 3cloud-deployer.
   down               Stop app/docs containers for this compose project.
   test backend       Run Management API tests without tests/e2e.
+  test frontend      Run static architecture, analysis, unit/widget, and build gates.
+  test frontend-integration
+                     Run read-only Flutter contracts against credential-free
+                     local containers. Requires the macOS desktop toolchain;
+                     cloud credentials and cloud mutations are not supported.
 
 LaTeX commands:
   latex watch        Run latexmk watch mode in Docker.
@@ -407,6 +414,46 @@ run_backend_tests() {
   compose_cmd run --rm --no-deps management-api python -m pytest tests/ --ignore=tests/e2e -q
 }
 
+run_frontend_tests() {
+  require_command python3
+  require_flutter
+  [ -f "$FLUTTER_CONFIG_DIR/dev.example.json" ] ||
+    fail "Missing tracked Flutter build config: $FLUTTER_CONFIG_DIR/dev.example.json"
+
+  info "Testing the Flutter architecture gate."
+  (cd "$REPO_ROOT" && python3 -m unittest scripts.tests.test_check_flutter_architecture)
+  (cd "$REPO_ROOT" && python3 scripts/check_flutter_architecture.py)
+
+  info "Checking Dart formatting and static analysis."
+  (cd "$FLUTTER_DIR" && dart format --output=none --set-exit-if-changed lib test integration_test)
+  (cd "$FLUTTER_DIR" && flutter analyze)
+
+  info "Running Flutter unit and widget tests."
+  (cd "$FLUTTER_DIR" && flutter test)
+
+  info "Building Flutter Web release and macOS debug artifacts."
+  (cd "$FLUTTER_DIR" && flutter build web --release --dart-define-from-file=config/dev.example.json)
+  (cd "$FLUTTER_DIR" && flutter build macos --debug --dart-define-from-file=config/dev.example.json)
+}
+
+run_frontend_integration_tests() {
+  require_docker
+  require_flutter
+  [ "$WITH_CREDENTIALS" -eq 0 ] ||
+    fail "Frontend integration tests must run without cloud credential overlays."
+
+  info "Starting credential-free services for read-only Flutter integration tests."
+  compose_cmd up -d 2twin2clouds 3cloud-deployer management-api
+  write_flutter_config
+  smoke_app
+
+  info "Running the Management API readiness contract on macOS."
+  (cd "$FLUTTER_DIR" && flutter test \
+    integration_test/management_api_readiness_test.dart \
+    -d macos \
+    --dart-define-from-file=config/dev.json)
+}
+
 latex_command() {
   require_docker
   local subcommand="${1:-watch}"
@@ -498,8 +545,14 @@ main() {
       ;;
     test)
       local target="${1:-backend}"
+      if [ "$#" -gt 0 ]; then
+        shift
+      fi
+      [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
       case "$target" in
         backend) run_backend_tests ;;
+        frontend) run_frontend_tests ;;
+        frontend-integration) run_frontend_integration_tests ;;
         *) fail "Unknown test target: $target" ;;
       esac
       ;;

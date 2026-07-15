@@ -2,8 +2,8 @@
 title: "Phase 2: Profile Cloud Access"
 description: "Plan the Settings/Profile UI for user-owned cloud account and credential visibility."
 tags: [flutter, frontend-delta, settings, credentials]
-lastUpdated: "2026-06-13"
-version: "1.0"
+lastUpdated: "2026-07-15"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -15,6 +15,10 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 -->
 
 # Phase 2: Profile Cloud Access
+
+**Status:** Done. Settings exposes the purpose-aware Cloud Access inventory,
+provider/account metadata, validation and deletion handling, pricing-default
+selection, creation flows, and compact/wide states through the feature BLoC.
 
 ## Summary
 

@@ -24,41 +24,51 @@ void main() {
     '/twins/demo-deployed/overview': TwinOverviewScreen,
   };
 
-  testWidgets('offline demo renders every application route', (tester) async {
-    tester.view.physicalSize = const Size(1440, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  for (final scenario in DemoScenario.values) {
+    testWidgets(
+      'offline ${scenario.name} demo renders every application route',
+      (tester) async {
+        tester.view.physicalSize = const Size(1440, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-    const runtime = AppRuntimeConfig(mode: AppMode.demo);
-    final composition = await RuntimeComposition.bootstrap(runtime);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appRuntimeProvider.overrideWithValue(runtime),
-          apiServiceProvider.overrideWithValue(composition.managementApi),
-          logStreamClientFactoryProvider.overrideWithValue(
-            composition.logStreamClientFactory,
+        final runtime = AppRuntimeConfig(
+          mode: AppMode.demo,
+          demoScenario: scenario,
+        );
+        final composition = await RuntimeComposition.bootstrap(runtime);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appRuntimeProvider.overrideWithValue(runtime),
+              apiServiceProvider.overrideWithValue(composition.managementApi),
+              logStreamClientFactoryProvider.overrideWithValue(
+                composition.logStreamClientFactory,
+              ),
+              initialUserProvider.overrideWithValue(composition.initialUser),
+            ],
+            child: const Twin2MultiCloudApp(),
           ),
-          initialUserProvider.overrideWithValue(composition.initialUser),
-        ],
-        child: const Twin2MultiCloudApp(),
-      ),
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+        final router = GoRouter.of(
+          tester.element(find.byType(DashboardScreen)),
+        );
+
+        for (final entry in routes.entries) {
+          router.go(entry.key);
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 1));
+
+          expect(find.byType(entry.value), findsOneWidget);
+          expect(find.textContaining('Offline demo'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      },
     );
-    await tester.pump(const Duration(milliseconds: 500));
-    final router = GoRouter.of(tester.element(find.byType(DashboardScreen)));
-
-    for (final entry in routes.entries) {
-      router.go(entry.key);
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-
-      expect(find.byType(entry.value), findsOneWidget);
-      expect(find.textContaining('Offline demo'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    }
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-  });
+  }
 }

@@ -33,7 +33,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 4 | Runtime Credentials & Deployment State | Active | Credential SSOT, bootstrap, explicit deployment package/context, operation state |
 | Phase 5 | Backend Orchestrator Disentanglement | Planned | Thin HTTP routes with repositories, services, clients, and orchestrators |
 | Phase 6 | Brain Contracts & Pricing Reliability | Planned | Typed optimizer layer/pricing/capability contracts |
-| Phase 7 | Flutter Wizard & Twin Views | Planned | Testable Flutter feature slices and typed UI/API boundaries |
+| Phase 7 | Flutter Wizard & Twin Views | Active | Core architecture, configuration workspace, Twin Overview, demo, and quality gate done; residual issues remain tracked |
 | Later | Multi-Cloud Extensions & Thesis | Backlog | Non-blocking provider extensions, evaluation, and thesis polishing |
 
 ## Completed Refactorings
@@ -46,6 +46,9 @@ when work becomes actionable, then reference the issue here.
 | [#75](https://github.com/TVJunkie724/master-thesis/issues/75) | Done | Backend deployment operation metadata persisted |
 | [#37](https://github.com/TVJunkie724/master-thesis/issues/37) | Done | Deployment-ready package is generated from persisted backend state |
 | [#76](https://github.com/TVJunkie724/master-thesis/issues/76) | Done | Typed wizard configuration contract and deployment package boundary completed |
+| [#38](https://github.com/TVJunkie724/master-thesis/issues/38) | Done | Flutter architecture and large UI modules decomposed and release-gated |
+| [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation, output, log, and utility slices |
+| [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Cross-cutting Flutter architecture, test, build, and local contract gate |
 
 ## Active And Planned Refactoring Issues
 
@@ -143,12 +146,13 @@ when work becomes actionable, then reference the issue here.
 | Issue | Status | Notes |
 |-------|--------|-------|
 | [#76](https://github.com/TVJunkie724/master-thesis/issues/76) | Done | Typed wizard configuration contract foundation |
-| [#38](https://github.com/TVJunkie724/master-thesis/issues/38) | Open | Disentangle Flutter wizard and large UI files; #76 foundation is done |
+| [#38](https://github.com/TVJunkie724/master-thesis/issues/38) | Done | Flutter wizard and large UI decomposition completed |
 | [#40](https://github.com/TVJunkie724/master-thesis/issues/40) | Open | Twin operations dashboard |
 | [#41](https://github.com/TVJunkie724/master-thesis/issues/41) | Open | Centralized error notification and UI alerts |
 | [#71](https://github.com/TVJunkie724/master-thesis/issues/71) | Open | Frontend state-management boundaries and dev auth |
 | [#72](https://github.com/TVJunkie724/master-thesis/issues/72) | Open | Typed Flutter API responses |
-| [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Open | Split twin overview into dashboard/detail/actions/logs |
+| [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation and presentation slices |
+| [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Frontend cross-cutting quality and thesis evidence gate |
 
 ### Later: Multi-Cloud Extensions & Thesis
 
@@ -177,5 +181,6 @@ when work becomes actionable, then reference the issue here.
 1. Finish the remaining Phase 4 credential/runtime work: #6, #79, #11, #12, #13.
 2. Start backend orchestration disentanglement with #63, #64, and #65 before #66.
 3. Split route adapters through #67 after the orchestrator boundary is stable.
-4. Plan Flutter wizard decomposition through #38 using the completed #76 contract.
+4. Finish the explicitly tracked Flutter residuals in #39, #71, and #72; #38,
+   #73, and #108 are complete.
 5. Move optimizer reliability work into Phase 6 once deployment/runtime boundaries are stable.
