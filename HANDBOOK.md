@@ -26,8 +26,9 @@ cd master-thesis
 ./thesis.sh up
 ```
 
-The script starts the application stack, writes the local Flutter runtime
-configuration, performs backend smoke checks, and starts Flutter.
+The script creates durable local Management API runtime secrets on first use,
+starts the application stack, writes the local Flutter runtime configuration,
+performs backend smoke checks, and starts Flutter.
 
 If you only want the backend containers:
 
@@ -62,6 +63,7 @@ Use [`thesis.sh`](thesis.sh) from the repository root for day-to-day local work.
 | `./thesis.sh demo` | Run the offline showcase with deterministic in-memory data. |
 | `./thesis.sh demo --scenario degraded` | Run the offline degraded-state scenario. |
 | `./thesis.sh config` | Generate `twin2multicloud_flutter/config/dev.json`. |
+| `./thesis.sh secrets` | Create or validate durable local Management API runtime secrets without starting containers. |
 | `./thesis.sh status` | Show service URLs and matching containers. |
 | `./thesis.sh logs management-api` | Follow logs for one service. |
 | `./thesis.sh down` | Stop local Compose services for this project. |
@@ -137,10 +139,39 @@ Development tokens are process configuration for local execution only. They
 are held in memory after the deliberate local sign-in action, cleared on
 logout, and forbidden in production and demo profiles.
 
-## 4. Credentials
+### Local Management API secrets
+
+`./thesis.sh setup`, `up`, `test backend`, and `test frontend-integration`
+create or validate two ignored files:
+
+```text
+.secrets/runtime/JWT_SECRET_KEY
+.secrets/runtime/ENCRYPTION_KEY
+```
+
+The runtime directory is restricted to `0700`, files to `0600`, and Compose
+mounts them read-only into the Management API. Existing values are preserved;
+they are never rotated automatically or printed. `ENCRYPTION_KEY` protects
+persisted CloudConnections, so deleting or replacing it can make existing
+credential records unreadable. If local encrypted records exist and the file
+is missing, bootstrap fails until the original key is supplied explicitly via
+the `ENCRYPTION_KEY` environment variable. Databases written with a removed
+insecure development placeholder must be migrated explicitly or reset as local
+development data; the bootstrap never reactivates a known weak key.
+
+This auto-generation is a local development capability only. Production must
+receive operator-provisioned keys through its deployment platform and fails at
+startup when keys are missing, weak, duplicated, malformed, or known
+development placeholders.
+
+## 4. Cloud Credentials
 
 The default stack is credential-free. A clean clone can start without real cloud
 credentials.
+
+Cloud credentials and bootstrap/admin credentials are separate from the two
+local Management API runtime keys above. The runtime keys sign local sessions
+and encrypt stored CloudConnections; they never grant cloud-provider access.
 
 Local credential files are only needed for supervised cloud validation, sample
 seeding, or intentional deployment tests. They belong under `.secrets/local/`,
