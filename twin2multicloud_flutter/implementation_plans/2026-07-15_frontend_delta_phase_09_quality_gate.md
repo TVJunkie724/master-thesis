@@ -379,29 +379,29 @@ repository cleanliness. Fix every finding before commit.
 
 ## 12. Definition Of Done
 
-- [ ] Dedicated Phase 9 GitHub issue exists with plan, labels, milestone,
+- [x] Dedicated Phase 9 GitHub issue exists with plan, labels, milestone,
       verification, and explicit no-cloud scope.
-- [ ] Architecture checker and its exact, redaction-safe unit tests pass.
-- [ ] `thesis.sh test frontend` is documented and passes end to end.
-- [ ] `thesis.sh test frontend-integration` starts/reuses the credential-free
+- [x] Architecture checker and its exact, redaction-safe unit tests pass.
+- [x] `thesis.sh test frontend` is documented and passes end to end.
+- [x] `thesis.sh test frontend-integration` starts/reuses the credential-free
       local stack and passes against the real Management API.
-- [ ] Integration tests cover dashboard, cloud access, CloudConnections,
+- [x] Integration tests cover dashboard, cloud access, CloudConnections,
       pricing health, and missing-auth behavior with hard typed assertions.
-- [ ] No test enables backend test endpoints or invokes cloud mutations.
-- [ ] Full Flutter unit/widget/demo suite passes without weakened assertions.
-- [ ] `flutter analyze` reports zero issues.
-- [ ] Web release and macOS debug builds pass from tracked runtime config.
-- [ ] Format and `git diff --check` gates pass.
-- [ ] Static audit finds no direct provider service calls, presentation HTTP,
+- [x] No test enables backend test endpoints or invokes cloud mutations.
+- [x] Full Flutter unit/widget/demo suite passes without weakened assertions.
+- [x] `flutter analyze` reports zero issues.
+- [x] Web release and macOS debug builds pass from tracked runtime config.
+- [x] Format and `git diff --check` gates pass.
+- [x] Static audit finds no direct provider service calls, presentation HTTP,
       unsafe diagnostics, production TODOs, or concrete secret literals.
-- [ ] All supported routes are covered in showcase, empty, and degraded demo
+- [x] All supported routes are covered in showcase, empty, and degraded demo
       scenarios; compact 640 px and wide desktop states remain overflow-free.
-- [ ] Accessibility evidence covers keyboard, Escape, semantics, live regions,
+- [x] Accessibility evidence covers keyboard, Escape, semantics, live regions,
       and disabled reasons without claiming full WCAG certification.
-- [ ] Phase 9 evidence records exact commands, test count, builds, integration
+- [x] Phase 9 evidence records exact commands, test count, builds, integration
       contracts, findings, fixes, residual warnings, and deferred issues.
-- [ ] Frontend Delta roadmap, refactoring roadmap, Handbook, and Issue #38 state
+- [x] Frontend Delta roadmap, refactoring roadmap, Handbook, and Issue #38 state
       are synchronized with GitHub.
-- [ ] Two review passes have no unresolved Critical, Major, or Minor findings.
+- [x] Two review passes have no unresolved Critical, Major, or Minor findings.
 - [ ] Changes are committed structurally and merged with a merge commit; no
       user-owned pricing or credential file is staged.

@@ -2,8 +2,8 @@
 title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
-lastUpdated: "2026-07-14"
-version: "1.4"
+lastUpdated: "2026-07-15"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -101,15 +101,15 @@ Flutter App
 
 | Phase | Status | Document | Primary Area | Management API Dependency |
 |---|---|---|---|---|
-| 1 | Planned | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) + [implementation plan](../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md) | API contracts and DTO readiness | Required |
-| 2 | Planned | [PHASE_02_PROFILE_CLOUD_ACCESS.md](phases/PHASE_02_PROFILE_CLOUD_ACCESS.md) | Settings/Profile | `GET /cloud-access` or approved backend plan |
+| 1 | Done for delivered UI; residual hardening in #72 | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) + [implementation plan](../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md) | API contracts and DTO readiness | Implemented for current workflows |
+| 2 | Done | [PHASE_02_PROFILE_CLOUD_ACCESS.md](phases/PHASE_02_PROFILE_CLOUD_ACCESS.md) | Settings/Profile | `GET /cloud-access` |
 | 3 | Done | [PHASE_03_DASHBOARD_PRICING_HEALTH.md](phases/PHASE_03_DASHBOARD_PRICING_HEALTH.md) | Dashboard | `GET /optimizer/pricing-health` |
 | 4 | Done | [PHASE_04_PRICING_REVIEW_CENTER.md](phases/PHASE_04_PRICING_REVIEW_CENTER.md) | Pricing Review | Pricing refresh/review contracts |
 | 5 | Superseded | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Legacy Wizard Step 1 | Replaced by the configuration-workspace roadmap |
 | 6 | Done | [PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md](phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md) | Wizard Step 2 | Pricing readiness contract |
-| 7 | In progress | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
+| 7 | Done | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
 | 8 | Done | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [implementation plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) | Twin Overview | Typed deployment, readiness, preflight, log/output, simulator, and trace contracts |
-| 9 | Planned | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All prior contracts |
+| 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
 
 ## Execution Order
 
@@ -130,7 +130,10 @@ The order is intentional:
    is visible.
 9. Run cross-cutting quality and thesis-evidence gates.
 
-## Readiness For Implementation Planning
+## Current Boundary
 
-This roadmap is ready for the architect step. Each phase still requires a
-dedicated implementation plan before Flutter code changes are allowed.
+The planned frontend delta is implemented and release-gated for the supported
+Web and macOS thesis workflow. Remaining cross-cutting work is tracked in
+GitHub, especially dev-auth hardening (#71), residual dynamic-map reduction
+(#72), and final deployment lifecycle integration (#39). New product work still
+requires a dedicated implementation plan before Flutter code changes.

@@ -66,6 +66,8 @@ Use [`thesis.sh`](thesis.sh) from the repository root for day-to-day local work.
 | `./thesis.sh logs management-api` | Follow logs for one service. |
 | `./thesis.sh down` | Stop local Compose services for this project. |
 | `./thesis.sh test backend` | Run Management API tests, excluding E2E tests. |
+| `./thesis.sh test frontend` | Run Flutter architecture, format, analyze, unit/widget/demo, and Web/macOS build gates. |
+| `./thesis.sh test frontend-integration` | Run read-only Flutter contracts against the credential-free local stack. |
 
 Useful environment overrides:
 
@@ -97,6 +99,7 @@ Default generated content:
 
 ```json
 {
+  "APP_MODE": "development",
   "API_BASE_URL": "http://localhost:5005",
   "DEV_AUTH_TOKEN": "dev-token"
 }
@@ -212,7 +215,15 @@ Safe default checks:
 bash -n thesis.sh
 docker compose -f compose.yaml --profile docs --profile latex config --quiet
 ./thesis.sh test backend
+./thesis.sh test frontend
+THESIS_DOCKER_CONTEXT=orbstack ./thesis.sh test frontend-integration
 ```
+
+`test frontend` does not start Docker or contact cloud providers.
+`test frontend-integration` starts or reuses only the default credential-free
+local services and calls read-only Management API routes. It does not load the
+credential overlay, refresh provider pricing, validate provider permissions,
+deploy infrastructure, destroy resources, or run simulator cloud operations.
 
 E2E tests can deploy real cloud resources and may cost money. Do not run E2E
 tests unless the work explicitly requires it and the cloud impact is understood.

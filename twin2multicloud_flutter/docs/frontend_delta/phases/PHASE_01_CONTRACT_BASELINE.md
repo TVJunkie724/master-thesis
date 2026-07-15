@@ -2,8 +2,8 @@
 title: "Phase 1: Contract Baseline"
 description: "Define the stable Management API contracts Flutter needs before UI delta implementation starts."
 tags: [flutter, frontend-delta, api-contracts, management-api]
-lastUpdated: "2026-06-13"
-version: "1.0"
+lastUpdated: "2026-07-15"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -17,6 +17,12 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 -->
 
 # Phase 1: Contract Baseline
+
+**Status:** Done for the delivered frontend-delta workflows. The current
+Cloud Access, pricing, configuration, deployment, log, trace, and simulator
+surfaces use typed Management API contracts. Remaining non-critical legacy
+`Map<String, dynamic>` reduction is tracked separately in
+[#72](https://github.com/TVJunkie724/master-thesis/issues/72).
 
 ## Summary
 
