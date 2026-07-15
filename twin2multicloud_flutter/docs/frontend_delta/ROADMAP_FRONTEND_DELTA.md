@@ -101,7 +101,7 @@ Flutter App
 
 | Phase | Status | Document | Primary Area | Management API Dependency |
 |---|---|---|---|---|
-| 1 | Done for delivered UI; residual hardening in #72 | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) + [implementation plan](../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md) | API contracts and DTO readiness | Implemented for current workflows |
+| 1 | Done | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) + [implementation plan](../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md) | API contracts and DTO readiness | Implemented and typed for current workflows |
 | 2 | Done | [PHASE_02_PROFILE_CLOUD_ACCESS.md](phases/PHASE_02_PROFILE_CLOUD_ACCESS.md) | Settings/Profile | `GET /cloud-access` |
 | 3 | Done | [PHASE_03_DASHBOARD_PRICING_HEALTH.md](phases/PHASE_03_DASHBOARD_PRICING_HEALTH.md) | Dashboard | `GET /optimizer/pricing-health` |
 | 4 | Done | [PHASE_04_PRICING_REVIEW_CENTER.md](phases/PHASE_04_PRICING_REVIEW_CENTER.md) | Pricing Review | Pricing refresh/review contracts |
@@ -133,8 +133,10 @@ The order is intentional:
 ## Current Boundary
 
 The planned frontend delta is implemented and release-gated for the supported
-Web and macOS thesis workflow. Remaining cross-cutting work is tracked in
-GitHub, especially residual dynamic-map reduction (#72), real production
-authentication (#10), and final deployment lifecycle integration (#39). The
-explicit dev-auth runtime boundary from #71 is complete. New product work still
-requires a dedicated implementation plan before Flutter code changes.
+Web and macOS thesis workflow. Stable twin, configuration, optimizer,
+pricing-export, and deployer response boundaries are typed under #72; dynamic
+payloads remain only in the documented open-payload containers. Remaining
+cross-cutting work includes real production authentication (#10) and final
+deployment lifecycle integration (#39). The explicit dev-auth runtime boundary
+from #71 is complete. New product work still requires a dedicated
+implementation plan before Flutter code changes.

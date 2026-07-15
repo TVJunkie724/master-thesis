@@ -267,18 +267,33 @@ forbidden and must not be run in this phase.
 
 ## 12. Definition of Done
 
-- [ ] All stable twin/config/optimizer/deployer read boundaries are typed.
-- [ ] Cost calculation and pricing export responses are decoded before entering BLoC state.
-- [ ] Wizard and twin-overview BLoC state expose no raw API response maps.
-- [ ] Screens/widgets perform no dynamic JSON traversal for these workflows.
-- [ ] Expected optional `404` is distinguished from contract and service errors.
-- [ ] Contract failures are visible, field-oriented, secret-safe, and tested.
-- [ ] Raw payload exceptions are contained and documented.
-- [ ] Production, demo, and test adapters implement identical typed ports.
-- [ ] Model, adapter, BLoC, provider, widget, and demo tests are green.
-- [ ] `flutter analyze` reports zero issues.
-- [ ] Full `flutter test` passes.
-- [ ] Web release and macOS debug builds pass.
-- [ ] No direct Optimizer/Deployer call is introduced.
-- [ ] Phase documentation and Issue `#72` contain verification evidence.
-- [ ] User-owned Azure pricing data remains untouched.
+- [x] All stable twin/config/optimizer/deployer read boundaries are typed.
+- [x] Cost calculation and pricing export responses are decoded before entering BLoC state.
+- [x] Wizard and twin-overview BLoC state expose no raw API response maps.
+- [x] Screens/widgets perform no dynamic JSON traversal for these workflows.
+- [x] Expected optional `404` is distinguished from contract and service errors.
+- [x] Contract failures are visible, field-oriented, secret-safe, and tested.
+- [x] Raw payload exceptions are contained and documented.
+- [x] Production, demo, and active test adapters implement identical typed ports.
+- [x] Model, adapter, BLoC, provider, widget, and demo tests are green.
+- [x] `flutter analyze` reports zero issues.
+- [x] Full `flutter test` passes.
+- [x] Web release and macOS debug builds pass.
+- [x] No direct Optimizer/Deployer call is introduced.
+- [x] Phase documentation and Issue `#72` contain verification evidence.
+- [x] User-owned Azure pricing data remains untouched.
+
+### Verification Evidence
+
+- `flutter analyze`: zero issues.
+- `flutter test`: 599 tests passed.
+- Read-only OrbStack integration test: 9 tests passed against the live
+  Management API, including canonical twin/config/optimizer/deployer decoding
+  and credential-key leakage checks.
+- `flutter build web --release --dart-define-from-file=config/dev.example.json`:
+  passed.
+- `flutter build macos --debug --dart-define-from-file=config/dev.example.json`:
+  passed.
+- Two implementation reviews completed. Findings fixed: double-decoding in the
+  dashboard provider, nullable required twin timestamps, permissive deployer
+  response decoding, and the obsolete raw-map test adapter.

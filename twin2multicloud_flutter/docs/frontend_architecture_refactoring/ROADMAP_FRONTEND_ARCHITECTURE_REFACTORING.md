@@ -113,7 +113,7 @@ facades for Management API use cases; they do not call Optimizer or Deployer.
 |---|---|---|---|
 | 1 | Completed | [PHASE_01_ARCHITECTURE_BASELINE.md](phases/PHASE_01_ARCHITECTURE_BASELINE.md) | Dependency rules, state ownership, and explicit runtime/auth profiles are enforced. |
 | 2 | Planned | [PHASE_02_API_REPOSITORY_SPLIT.md](phases/PHASE_02_API_REPOSITORY_SPLIT.md) | API access is split into a core client and feature repositories. |
-| 3 | Planned | [PHASE_03_TYPED_FEATURE_MODELS.md](phases/PHASE_03_TYPED_FEATURE_MODELS.md) | Typed DTO/read models replace raw maps at feature boundaries. |
+| 3 | Completed | [PHASE_03_TYPED_FEATURE_MODELS.md](phases/PHASE_03_TYPED_FEATURE_MODELS.md) | Typed DTO/read models replace raw maps at stable twin, configuration, optimizer, pricing-export, and deployer feature boundaries (#72). |
 | 4 | Planned | [PHASE_04_WIZARD_DECOMPOSITION.md](phases/PHASE_04_WIZARD_DECOMPOSITION.md) | Wizard responsibilities are split into smaller feature flows. |
 | 5 | Planned | [PHASE_05_TWIN_OVERVIEW_DECOMPOSITION.md](phases/PHASE_05_TWIN_OVERVIEW_DECOMPOSITION.md) | Twin Overview separates read model, deployment operations, outputs, logs, and deferred simulator work. |
 | 6 | Planned | [PHASE_06_PRESENTATION_AND_DESIGN_SYSTEM_CLEANUP.md](phases/PHASE_06_PRESENTATION_AND_DESIGN_SYSTEM_CLEANUP.md) | Screens/widgets become presentation-only and token-aligned. |
