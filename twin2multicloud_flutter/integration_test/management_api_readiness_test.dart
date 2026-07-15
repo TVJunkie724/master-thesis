@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:twin2multicloud_flutter/config/api_config.dart';
+import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
@@ -15,6 +15,14 @@ const _forbiddenPayloadKeys = {
   'access_token',
   'refresh_token',
 };
+final _runtime = AppRuntimeConfig.fromEnvironment();
+final _apiUri =
+    _runtime.managementApiBaseUri ??
+    (throw StateError('Integration runtime requires a Management API origin.'));
+final _authToken =
+    _runtime.initialAuthToken ??
+    (throw StateError('Integration tests require the development profile.'));
+final _api = ApiService(baseUri: _apiUri, initialAuthToken: _authToken);
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -23,18 +31,15 @@ void main() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMessageHandler('flutter/rawKeyboard', (_) async => null);
 
-  final apiUri = Uri.parse(ApiConfig.baseUrl);
-  final api = ApiService();
-
   group('Management API read-only readiness', () {
     testWidgets('runtime config supplies an HTTP Management API origin', (
       tester,
     ) async {
-      expect(apiUri.scheme, anyOf('http', 'https'));
-      expect(apiUri.host, isNotEmpty);
-      expect(apiUri.path, anyOf('', '/'));
-      expect(apiUri.query, isEmpty);
-      expect(apiUri.fragment, isEmpty);
+      expect(_apiUri.scheme, anyOf('http', 'https'));
+      expect(_apiUri.host, isNotEmpty);
+      expect(_apiUri.path, anyOf('', '/'));
+      expect(_apiUri.query, isEmpty);
+      expect(_apiUri.fragment, isEmpty);
     });
 
     testWidgets('decodes dashboard statistics with valid invariants', (
@@ -42,7 +47,7 @@ void main() {
     ) async {
       final stats = await _readOrFail(
         '/dashboard/stats',
-        api.getDashboardStats,
+        _api.getDashboardStats,
       );
 
       expect(stats.totalTwins, greaterThanOrEqualTo(0));
@@ -58,7 +63,7 @@ void main() {
     testWidgets('decodes the complete cloud access inventory', (tester) async {
       final inventory = await _readOrFail(
         '/cloud-access',
-        api.getCloudAccessInventory,
+        _api.getCloudAccessInventory,
       );
 
       expect(inventory.schemaVersion, 'cloud-access-inventory.v1');
@@ -99,7 +104,7 @@ void main() {
 
       final connections = await _readOrFail(
         '/cloud-connections/',
-        api.listCloudConnections,
+        _api.listCloudConnections,
       );
 
       for (final connection in connections) {
@@ -128,7 +133,7 @@ void main() {
     testWidgets('decodes all provider pricing health states', (tester) async {
       final health = await _readOrFail(
         '/optimizer/pricing-health',
-        api.getPricingHealth,
+        _api.getPricingHealth,
       );
 
       expect(health.schemaVersion, 'pricing-health.v1');
@@ -187,11 +192,9 @@ Future<int?> _statusOnlyRequest(
 }) async {
   final dio = Dio(
     BaseOptions(
-      baseUrl: ApiConfig.baseUrl,
+      baseUrl: _apiUri.toString(),
       validateStatus: (_) => true,
-      headers: {
-        if (authenticated) 'Authorization': 'Bearer ${ApiConfig.devAuthToken}',
-      },
+      headers: {if (authenticated) 'Authorization': 'Bearer $_authToken'},
     ),
   );
   try {
@@ -207,9 +210,9 @@ Future<int?> _statusOnlyRequest(
 Future<Object?> _authenticatedJsonRequest(String endpoint) async {
   final dio = Dio(
     BaseOptions(
-      baseUrl: ApiConfig.baseUrl,
+      baseUrl: _apiUri.toString(),
       validateStatus: (status) => status != null && status < 400,
-      headers: {'Authorization': 'Bearer ${ApiConfig.devAuthToken}'},
+      headers: {'Authorization': 'Bearer $_authToken'},
     ),
   );
   try {
@@ -224,7 +227,7 @@ Future<Object?> _authenticatedJsonRequest(String endpoint) async {
 
 String _safeDioFailure(String endpoint, DioException error) {
   final status = error.response?.statusCode?.toString() ?? 'none';
-  return 'Management API request failed at ${ApiConfig.baseUrl}$endpoint; '
+  return 'Management API request failed at $_apiUri$endpoint; '
       'type=${error.type.name}; status=$status. '
       'Response content and headers were suppressed.';
 }

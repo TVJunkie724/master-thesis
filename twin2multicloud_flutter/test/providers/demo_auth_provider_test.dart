@@ -16,9 +16,7 @@ void main() {
   test('demo identity is authenticated synchronously at startup', () {
     final container = ProviderContainer(
       overrides: [
-        appRuntimeProvider.overrideWithValue(
-          const AppRuntimeConfig(mode: AppMode.demo),
-        ),
+        appRuntimeProvider.overrideWithValue(const AppRuntimeConfig.demo()),
         initialUserProvider.overrideWithValue(demoUser),
       ],
     );
@@ -32,7 +30,15 @@ void main() {
   });
 
   test('real runtime remains unauthenticated without an initial user', () {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [
+        appRuntimeProvider.overrideWithValue(
+          AppRuntimeConfig.production(
+            managementApiBaseUri: Uri.parse('https://management.test'),
+          ),
+        ),
+      ],
+    );
     addTearDown(container.dispose);
 
     expect(container.read(authProvider).isAuthenticated, isFalse);

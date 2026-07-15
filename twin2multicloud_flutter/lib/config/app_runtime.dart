@@ -182,8 +182,10 @@ class AppRuntimeConfig {
     if (value.isEmpty) {
       throw StateError('DEV_AUTH_TOKEN is required in development.');
     }
-    if (RegExp(r'\s').hasMatch(value)) {
-      throw StateError('DEV_AUTH_TOKEN must not contain whitespace.');
+    if (RegExp(r'[\x00-\x20\x7F]').hasMatch(value)) {
+      throw StateError(
+        'DEV_AUTH_TOKEN must not contain whitespace or control characters.',
+      );
     }
     return value;
   }

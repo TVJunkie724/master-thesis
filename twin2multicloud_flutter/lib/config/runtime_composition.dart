@@ -8,7 +8,6 @@ import '../services/api_service.dart';
 import '../services/log_stream_client.dart';
 import '../services/management_api.dart';
 import '../services/sse_service.dart';
-import 'api_config.dart';
 import 'app_runtime.dart';
 
 class RuntimeComposition {
@@ -41,12 +40,16 @@ class RuntimeComposition {
       );
     }
 
-    final managementApi = ApiService();
+    final baseUri = config.managementApiBaseUri;
+    if (baseUri == null) {
+      throw StateError('A networked runtime requires a Management API origin.');
+    }
+    final managementApi = ApiService(baseUri: baseUri);
     return RuntimeComposition(
       config: config,
       managementApi: managementApi,
       logStreamClientFactory: () => SseService(
-        baseUrl: ApiConfig.baseUrl,
+        baseUrl: baseUri.toString(),
         authTokenProvider: managementApi.getAuthToken,
       ),
     );

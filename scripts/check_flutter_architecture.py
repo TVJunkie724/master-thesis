@@ -53,9 +53,10 @@ _SAFE_PLACEHOLDER = re.compile(
 )
 
 _APPROVED_RUNTIME_FILES = {
-    "twin2multicloud_flutter/lib/config/api_config.dart",
+    "twin2multicloud_flutter/lib/config/app_runtime.dart",
     "twin2multicloud_flutter/lib/config/docs_config.dart",
     "twin2multicloud_flutter/config/dev.example.json",
+    "twin2multicloud_flutter/config/production.example.json",
 }
 _RUNTIME_MARKER = re.compile(
     r"API_BASE_URL|DOCS_BASE_URL|DEV_AUTH_TOKEN|http://localhost:(?:5005|5010)\b"
@@ -130,6 +131,7 @@ def audit(root: Path) -> list[Finding]:
 
     extra_sources = [
         root / "twin2multicloud_flutter" / "config" / "dev.example.json",
+        root / "twin2multicloud_flutter" / "config" / "production.example.json",
         root / "twin2multicloud_flutter" / "config" / "demo.json",
     ]
     demo_assets = root / "twin2multicloud_flutter" / "assets" / "demo"

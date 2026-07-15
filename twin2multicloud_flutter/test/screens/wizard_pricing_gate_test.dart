@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
+import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
+import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/wizard_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
@@ -37,6 +39,14 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          appRuntimeProvider.overrideWithValue(
+            AppRuntimeConfig.production(
+              managementApiBaseUri: Uri.parse('https://management.test'),
+            ),
+          ),
+          apiServiceProvider.overrideWithValue(api),
+        ],
         child: MaterialApp(
           home: BlocProvider<WizardBloc>.value(
             value: bloc,

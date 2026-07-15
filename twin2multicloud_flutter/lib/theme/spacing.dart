@@ -38,6 +38,12 @@ abstract class AppSpacing {
   /// Maximum content width for form screens (wizard steps)
   static const double maxContentWidthMedium = 800;
 
+  /// Maximum content width for the compact authentication surface.
+  static const double authCardMaxWidth = 400;
+
+  /// Stable authentication brand-mark size.
+  static const double authLogoSize = 96;
+
   /// Standard border radius for cards
   static const double borderRadiusSm = 8;
 

@@ -1,15 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/app_runtime.dart';
 import '../models/user.dart';
 import 'runtime_providers.dart';
 import 'theme_provider.dart';
 
-// Mocked user for development - now includes theme preference
-final mockUser = User(
-  id: "mock-user-123",
-  email: "developer@example.com",
-  name: "Developer",
-  pictureUrl: null,
-  themePreference: "dark",
+final developmentUser = User(
+  id: 'local-development-user',
+  email: 'developer@example.com',
+  name: 'Local Developer',
+  authProvider: 'development',
+  themePreference: 'dark',
 );
 
 final authProvider = NotifierProvider<AuthNotifier, AuthState>(
@@ -21,7 +21,11 @@ class AuthState {
   final bool isLoading;
   final bool isAuthenticated;
 
-  AuthState({this.user, this.isLoading = false, this.isAuthenticated = false});
+  const AuthState({
+    this.user,
+    this.isLoading = false,
+    this.isAuthenticated = false,
+  });
 }
 
 class AuthNotifier extends Notifier<AuthState> {
@@ -31,29 +35,39 @@ class AuthNotifier extends Notifier<AuthState> {
     if (initialUser != null) {
       return AuthState(user: initialUser, isAuthenticated: true);
     }
-    return AuthState();
+    return const AuthState();
   }
 
-  // MOCK: Auto-login for development
-  Future<void> mockLogin() async {
-    state = AuthState(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 500)); // Simulate delay
-    final user = ref.read(initialUserProvider) ?? mockUser;
+  Future<void> continueInDevelopment() async {
+    final runtime = ref.read(appRuntimeProvider);
+    if (runtime.mode != AppMode.development) {
+      throw StateError(
+        'Local development sign-in is unavailable in this runtime profile.',
+      );
+    }
+    if (state.isLoading || state.isAuthenticated) return;
+
+    final token = runtime.initialAuthToken;
+    if (token == null) {
+      throw StateError('Development runtime is missing its auth token.');
+    }
+
+    state = const AuthState(isLoading: true);
+    ref.read(apiServiceProvider).setToken(token);
+    final user = ref.read(initialUserProvider) ?? developmentUser;
     state = AuthState(user: user, isAuthenticated: true);
 
-    // Hydrate theme from user's preference
-    ref.read(themeProvider.notifier).hydrateFromUser(user.themePreference);
-  }
-
-  /// Login with user data from API (for real OAuth flows)
-  void loginWithUser(User user) {
-    state = AuthState(user: user, isAuthenticated: true);
-
-    // Hydrate theme from user's preference
     ref.read(themeProvider.notifier).hydrateFromUser(user.themePreference);
   }
 
   void logout() {
-    state = AuthState();
+    final runtime = ref.read(appRuntimeProvider);
+    final initialUser = ref.read(initialUserProvider);
+    if (runtime.isDemo && initialUser != null) {
+      state = AuthState(user: initialUser, isAuthenticated: true);
+      return;
+    }
+    ref.read(apiServiceProvider).setToken(null);
+    state = const AuthState();
   }
 }

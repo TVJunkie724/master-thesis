@@ -29,7 +29,7 @@ class DemoManagementApi implements ManagementApi {
   });
 
   @override
-  void setToken(String token) => _token = token;
+  void setToken(String? token) => _token = token;
 
   @override
   Future<String?> getAuthToken() async => _token;

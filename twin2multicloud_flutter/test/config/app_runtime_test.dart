@@ -114,6 +114,21 @@ void main() {
       }
     });
 
+    test('rejects development token control characters safely', () {
+      const secret = 'opaque\u0000token';
+      try {
+        AppRuntimeConfig.fromValues(
+          appMode: 'development',
+          apiBaseUrl: 'http://localhost:5005',
+          devAuthToken: secret,
+        );
+        fail('Expected control-character token to fail');
+      } on StateError catch (error) {
+        expect(error.message, contains('control characters'));
+        expect(error.message, isNot(contains(secret)));
+      }
+    });
+
     test('production rejects HTTP and development tokens', () {
       expect(
         () => AppRuntimeConfig.fromValues(

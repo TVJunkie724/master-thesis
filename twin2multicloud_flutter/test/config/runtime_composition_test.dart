@@ -12,10 +12,7 @@ void main() {
   test(
     'demo composition selects in-memory adapters and fixture identity',
     () async {
-      const config = AppRuntimeConfig(
-        mode: AppMode.demo,
-        demoScenario: DemoScenario.degraded,
-      );
+      const config = AppRuntimeConfig.demo(demoScenario: DemoScenario.degraded);
 
       final composition = await RuntimeComposition.bootstrap(config);
 
@@ -27,12 +24,27 @@ void main() {
   );
 
   test('non-demo composition retains real infrastructure adapters', () async {
-    const config = AppRuntimeConfig(mode: AppMode.development);
+    final config = AppRuntimeConfig.development(
+      managementApiBaseUri: Uri.parse('http://management.test'),
+      developmentAuthToken: 'local-token',
+    );
 
     final composition = await RuntimeComposition.bootstrap(config);
 
     expect(composition.managementApi, isA<ApiService>());
     expect(composition.logStreamClientFactory(), isA<SseService>());
     expect(composition.initialUser, isNull);
+    expect(await composition.managementApi.getAuthToken(), isNull);
+  });
+
+  test('production composition starts without a bearer token', () async {
+    final config = AppRuntimeConfig.production(
+      managementApiBaseUri: Uri.parse('https://management.example.test'),
+    );
+
+    final composition = await RuntimeComposition.bootstrap(config);
+
+    expect(composition.managementApi, isA<ApiService>());
+    expect(await composition.managementApi.getAuthToken(), isNull);
   });
 }
