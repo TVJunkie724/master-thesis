@@ -3,6 +3,7 @@ import json
 from src.models.cloud_connection import CloudConnection
 from src.models.twin import DigitalTwin
 from src.models.twin_config import TwinConfiguration
+from src.models.user import User
 
 
 def test_cloud_access_inventory_requires_authentication(client):
@@ -46,7 +47,9 @@ def _gcp_request(display_name="GCP Deployment"):
     }
 
 
-def test_cloud_access_inventory_returns_public_azure_and_missing_pricing(authenticated_client):
+def test_cloud_access_inventory_returns_public_azure_and_missing_pricing(
+    authenticated_client,
+):
     client, headers = authenticated_client
 
     response = client.get("/cloud-access", headers=headers)
@@ -85,7 +88,9 @@ def test_cloud_access_inventory_lists_deployment_connections_without_secrets(
     authenticated_client,
 ):
     client, headers = authenticated_client
-    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
 
     response = client.get("/cloud-access", headers=headers)
 
@@ -114,7 +119,9 @@ def test_cloud_access_inventory_marks_bound_connection_delete_blocked(
     db_session,
 ):
     client, headers = authenticated_client
-    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
     twin = client.post("/twins/", json={"name": "Factory Twin"}, headers=headers).json()
     db_session.add(
         TwinConfiguration(
@@ -137,10 +144,15 @@ def test_cloud_access_inventory_marks_bound_connection_delete_blocked(
 
 def test_cloud_access_inventory_is_user_scoped(authenticated_client, db_session):
     client, headers = authenticated_client
-    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
+    other_user = User(email="cloud-access-other@example.test")
+    db_session.add(other_user)
+    db_session.flush()
     db_session.query(CloudConnection).filter_by(
         id=created["id"],
-    ).one().user_id = "other-user"
+    ).one().user_id = other_user.id
     db_session.commit()
 
     response = client.get("/cloud-access", headers=headers)
@@ -159,7 +171,9 @@ def test_cloud_access_inventory_reports_permission_set_status(authenticated_clie
     entry = response.json()["providers"]["gcp"]["deployment"][0]
     assert entry["provider_project_id"] == "demo-project"
     assert entry["permission_set_status"] == "outdated"
-    assert entry["primary_message"] == "Deployment permission set needs review before use."
+    assert (
+        entry["primary_message"] == "Deployment permission set needs review before use."
+    )
 
 
 def test_cloud_access_inventory_ignores_inactive_twin_bindings(
@@ -169,7 +183,9 @@ def test_cloud_access_inventory_ignores_inactive_twin_bindings(
     from src.models.twin import TwinState
 
     client, headers = authenticated_client
-    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
     twin = client.post("/twins/", json={"name": "Old Twin"}, headers=headers).json()
     db_session.query(DigitalTwin).filter_by(
         id=twin["id"],
@@ -198,10 +214,14 @@ def test_cloud_access_inventory_exposes_pricing_default_and_options(
     client, headers = authenticated_client
     first_payload = _aws_request("AWS Pricing Primary")
     first_payload.update({"purpose": "pricing", "permission_set_version": None})
-    first = client.post("/cloud-connections/", json=first_payload, headers=headers).json()
+    first = client.post(
+        "/cloud-connections/", json=first_payload, headers=headers
+    ).json()
     second_payload = _aws_request("AWS Pricing Alternative")
     second_payload.update({"purpose": "pricing", "permission_set_version": None})
-    second = client.post("/cloud-connections/", json=second_payload, headers=headers).json()
+    second = client.post(
+        "/cloud-connections/", json=second_payload, headers=headers
+    ).json()
     stored = db_session.query(CloudConnection).filter_by(id=first["id"]).one()
     stored.validation_status = "valid"
     db_session.commit()
@@ -269,13 +289,21 @@ def test_deleting_pricing_default_does_not_promote_alternative(authenticated_cli
     first_payload.update({"purpose": "pricing", "permission_set_version": None})
     second_payload = _aws_request("Pricing Two")
     second_payload.update({"purpose": "pricing", "permission_set_version": None})
-    first = client.post("/cloud-connections/", json=first_payload, headers=headers).json()
-    second = client.post("/cloud-connections/", json=second_payload, headers=headers).json()
+    first = client.post(
+        "/cloud-connections/", json=first_payload, headers=headers
+    ).json()
+    second = client.post(
+        "/cloud-connections/", json=second_payload, headers=headers
+    ).json()
 
-    delete_response = client.delete(f"/cloud-connections/{first['id']}", headers=headers)
+    delete_response = client.delete(
+        f"/cloud-connections/{first['id']}", headers=headers
+    )
     inventory_response = client.get("/cloud-access", headers=headers)
 
     assert delete_response.status_code == 204
     inventory = inventory_response.json()["providers"]["aws"]
     assert inventory["pricing"]["connection_id"] is None
-    assert [item["connection_id"] for item in inventory["pricing_options"]] == [second["id"]]
+    assert [item["connection_id"] for item in inventory["pricing_options"]] == [
+        second["id"]
+    ]

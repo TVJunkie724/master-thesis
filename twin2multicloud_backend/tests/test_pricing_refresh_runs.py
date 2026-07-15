@@ -2,14 +2,17 @@ import json
 
 from src.api.routes.pricing_refresh import get_optimizer_client
 from src.main import app
-from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.cloud_connection import CloudConnection
+from src.models.pricing_refresh_run import PricingRefreshRun
+from src.models.user import User
 from src.services.errors import ExternalServiceUnavailable
 
 
 class FakeOptimizerClient:
     def __init__(self, payload=None, exc=None):
-        self.payload = payload if payload is not None else {"status": "ok", "message": "done"}
+        self.payload = (
+            payload if payload is not None else {"status": "ok", "message": "done"}
+        )
         self.exc = exc
         self.calls = []
 
@@ -68,7 +71,9 @@ def _gcp_request(display_name="GCP Pricing"):
     }
 
 
-def test_start_azure_pricing_refresh_creates_public_run(authenticated_client, db_session):
+def test_start_azure_pricing_refresh_creates_public_run(
+    authenticated_client, db_session
+):
     client, headers = authenticated_client
     fake = _override_optimizer()
 
@@ -92,10 +97,17 @@ def test_start_azure_pricing_refresh_creates_public_run(authenticated_client, db
         "provider_project_id": None,
         "provider_subscription_id": None,
     }
-    assert body["sse_url"] == f"/optimizer/pricing-refresh/runs/{body['refresh_run_id']}/stream"
-    assert fake.calls == [{"provider": "azure", "credentials": {}, "force_fetch": False}]
+    assert (
+        body["sse_url"]
+        == f"/optimizer/pricing-refresh/runs/{body['refresh_run_id']}/stream"
+    )
+    assert fake.calls == [
+        {"provider": "azure", "credentials": {}, "force_fetch": False}
+    ]
 
-    stored = db_session.query(PricingRefreshRun).filter_by(id=body["refresh_run_id"]).one()
+    stored = (
+        db_session.query(PricingRefreshRun).filter_by(id=body["refresh_run_id"]).one()
+    )
     assert stored.status == "succeeded"
 
     detail = client.get(
@@ -117,7 +129,9 @@ def test_start_aws_pricing_refresh_requires_explicit_connection(authenticated_cl
     )
 
     assert response.status_code == 400
-    assert "requires an explicitly confirmed CloudConnection" in response.json()["detail"]
+    assert (
+        "requires an explicitly confirmed CloudConnection" in response.json()["detail"]
+    )
 
 
 def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_output(
@@ -126,7 +140,9 @@ def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_out
 ):
     client, headers = authenticated_client
     fake = _override_optimizer()
-    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
     connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
     connection.validation_status = "valid"
     db_session.commit()
@@ -145,7 +161,10 @@ def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_out
     assert body["credential_summary"]["identity_label"] == "AWS Pricing"
     assert body["credential_summary"]["provider_account_id"] == "123456789012"
     assert fake.calls[0]["credentials"]["aws_access_key_id"] == "TEST_ACCESS_KEY_ID"
-    assert fake.calls[0]["credentials"]["aws_secret_access_key"] == "TEST_SECRET_ACCESS_KEY"
+    assert (
+        fake.calls[0]["credentials"]["aws_secret_access_key"]
+        == "TEST_SECRET_ACCESS_KEY"
+    )
 
     response_text = response.text
     assert "TEST_ACCESS_KEY_ID" not in response_text
@@ -153,10 +172,14 @@ def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_out
     assert "secret_access_key" not in response_text
 
 
-def test_start_gcp_pricing_refresh_maps_service_account_payload(authenticated_client, db_session):
+def test_start_gcp_pricing_refresh_maps_service_account_payload(
+    authenticated_client, db_session
+):
     client, headers = authenticated_client
     fake = _override_optimizer()
-    created = client.post("/cloud-connections/", json=_gcp_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_gcp_request(), headers=headers
+    ).json()
     connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
     connection.validation_status = "valid"
     db_session.commit()
@@ -197,10 +220,14 @@ def test_start_pricing_refresh_rejects_deployment_connection(authenticated_clien
     assert "not configured for pricing" in response.json()["detail"]
 
 
-def test_start_pricing_refresh_rejects_unvalidated_pricing_connection(authenticated_client):
+def test_start_pricing_refresh_rejects_unvalidated_pricing_connection(
+    authenticated_client,
+):
     client, headers = authenticated_client
     _override_optimizer()
-    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
 
     response = client.post(
         "/optimizer/pricing-refresh/aws",
@@ -215,7 +242,9 @@ def test_start_pricing_refresh_rejects_unvalidated_pricing_connection(authentica
 def test_start_pricing_refresh_rejects_provider_mismatch(authenticated_client):
     client, headers = authenticated_client
     _override_optimizer()
-    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
 
     response = client.post(
         "/optimizer/pricing-refresh/gcp",
@@ -245,7 +274,9 @@ def test_failed_optimizer_refresh_is_persisted(authenticated_client, db_session)
     assert body["error_code"] == "OPTIMIZER_UNAVAILABLE"
     assert "unavailable" in body["error_message"].lower()
 
-    stored = db_session.query(PricingRefreshRun).filter_by(id=body["refresh_run_id"]).one()
+    stored = (
+        db_session.query(PricingRefreshRun).filter_by(id=body["refresh_run_id"]).one()
+    )
     assert stored.status == "failed"
     assert stored.error_code == "OPTIMIZER_UNAVAILABLE"
 
@@ -260,7 +291,12 @@ def test_pricing_refresh_run_is_user_scoped(authenticated_client, db_session):
     )
     run_id = response.json()["refresh_run_id"]
 
-    db_session.query(PricingRefreshRun).filter_by(id=run_id).one().user_id = "other-user"
+    other_user = User(email="pricing-refresh-other@example.test")
+    db_session.add(other_user)
+    db_session.flush()
+    db_session.query(PricingRefreshRun).filter_by(
+        id=run_id
+    ).one().user_id = other_user.id
     db_session.commit()
 
     response = client.get(f"/optimizer/pricing-refresh/runs/{run_id}", headers=headers)
