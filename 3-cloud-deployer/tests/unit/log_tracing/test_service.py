@@ -56,7 +56,7 @@ def test_start_rolls_back_reservation_when_simulator_fails(monkeypatch):
     )
     monkeypatch.setattr(
         "src.log_tracing.service.send_test_message",
-        lambda *args: False,
+        lambda *args, **kwargs: False,
     )
 
     with pytest.raises(RuntimeError):
@@ -73,7 +73,7 @@ def test_start_issues_trace_only_after_successful_send(monkeypatch):
     )
     monkeypatch.setattr(
         "src.log_tracing.service.send_test_message",
-        lambda *args: True,
+        lambda *args, **kwargs: True,
     )
 
     result = service.start("factory")
@@ -133,10 +133,7 @@ def test_stream_configuration_failure_still_emits_done(monkeypatch):
     )
 
     async def collect():
-        return [
-            event
-            async for event in service.stream("TRACE-1234ABCD", "factory")
-        ]
+        return [event async for event in service.stream("TRACE-1234ABCD", "factory")]
 
     events = asyncio.run(collect())
     assert [event["event"] for event in events] == ["error", "done"]

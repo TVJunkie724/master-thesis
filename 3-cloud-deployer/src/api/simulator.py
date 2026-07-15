@@ -10,14 +10,15 @@ endpoint for real-time simulator interaction.
 
 **Use case:** Testing IoT data ingestion without physical devices.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+
+from fastapi import APIRouter, Header, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
 from pathlib import Path
+from typing import Annotated
 from logger import logger
 import src.core.state as state
 from src.api.error_handling import safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
-from src.core.paths import resolve_project_context_path
 from src.core.simulator_package import (
     SimulatorPackageInvalid,
     SimulatorPackageNotFound,
@@ -34,6 +35,7 @@ from src.simulator.session import (
     session_registry,
 )
 from src.core.observability import redact_sensitive
+from src.api.operation_context import operation_project_path
 
 
 router = APIRouter()
@@ -67,11 +69,11 @@ async def simulator_stream(
 ):
     """
     WebSocket endpoint for real-time IoT device simulation.
-    
+
     Connect to stream simulation logs and send commands to the simulator.
     """
     await websocket.accept()
-    
+
     try:
         spec = resolve_simulator_session(
             project_name=project_name,
@@ -89,7 +91,11 @@ async def simulator_stream(
             await SimulatorSessionRunner(spec).run(websocket)
     except WebSocketDisconnect:
         logger.info("Simulator WebSocket disconnected")
-    except (SimulatorSessionNotFound, SimulatorSessionInvalid, SimulatorSessionBusy) as exc:
+    except (
+        SimulatorSessionNotFound,
+        SimulatorSessionInvalid,
+        SimulatorSessionBusy,
+    ) as exc:
         await _send_websocket_error(websocket, str(exc))
     except TimeoutError:
         await _send_websocket_error(websocket, "Simulator session timed out.")
@@ -131,12 +137,16 @@ async def simulator_stream(
         200: {"description": "Simulator zip package"},
         400: ERROR_RESPONSES[400],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
-async def download_simulator_package(project_name: str, provider: str):
+async def download_simulator_package(
+    project_name: str,
+    provider: str,
+    operation_token: Annotated[str, Header(alias="X-Operation-Package", min_length=1)],
+):
     """
     Download a standalone IoT device simulator package as a ZIP file.
-    
+
     **Package contents:**
     - config.json: Simulator configuration
     - payloads.json: IoT device payloads
@@ -146,12 +156,15 @@ async def download_simulator_package(project_name: str, provider: str):
     - Dockerfile & docker-compose.yml: Container setup
     - README.md: Usage instructions
     """
-    service = SimulatorPackageService(
-        project_path=resolve_project_context_path(project_name),
-        source_root=Path(state.get_project_base_path()) / "src" / "iot_device_simulator",
-    )
     try:
-        package = service.build(project_name=project_name, provider=provider)
+        with operation_project_path(project_name, operation_token) as project_path:
+            service = SimulatorPackageService(
+                project_path=project_path,
+                source_root=Path(state.get_project_base_path())
+                / "src"
+                / "iot_device_simulator",
+            )
+            package = service.build(project_name=project_name, provider=provider)
     except SimulatorPackageNotFound as exc:
         raise HTTPException(status_code=404, detail=safe_error_detail(exc)) from exc
     except SimulatorPackageInvalid as exc:
@@ -166,5 +179,5 @@ async def download_simulator_package(project_name: str, provider: str):
             "X-Twin2MultiCloud-Provider": package.provider,
             "X-Twin2MultiCloud-Credential-Class": package.credential_class,
             "Cache-Control": "no-store",
-        }
+        },
     )

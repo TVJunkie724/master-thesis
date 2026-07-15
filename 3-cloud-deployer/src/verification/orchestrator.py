@@ -84,9 +84,7 @@ class DataFlowVerificationOrchestrator:
                 yield event
             return
 
-        phase_two = _PhaseRun(
-            self._phase_hot_storage(payload["iotDeviceId"], trace_id)
-        )
+        phase_two = _PhaseRun(self._phase_hot_storage(payload["iotDeviceId"], trace_id))
         async for event in phase_two.events():
             yield event
         phase_two_outcome = phase_two.require_outcome()
@@ -96,9 +94,7 @@ class DataFlowVerificationOrchestrator:
                 yield event
             return
 
-        phase_three = _PhaseRun(
-            self._phase_digital_twin(payload["iotDeviceId"])
-        )
+        phase_three = _PhaseRun(self._phase_digital_twin(payload["iotDeviceId"]))
         async for event in phase_three.events():
             yield event
         summary.include(phase_three.require_outcome())
@@ -115,9 +111,7 @@ class DataFlowVerificationOrchestrator:
         trace_id: str,
     ) -> AsyncIterator[PhaseEmission]:
         provider = self.context.providers["layer_1_provider"]
-        yield PhaseEmission(
-            event=self._phase_event(1, "Message Delivery", "running")
-        )
+        yield PhaseEmission(event=self._phase_event(1, "Message Delivery", "running"))
         yield PhaseEmission(
             event=self._log_event(
                 f"Sending test message to {provider.upper()} IoT",
@@ -130,6 +124,7 @@ class DataFlowVerificationOrchestrator:
             self.context.project_name,
             trace_id,
             payload_override=payload,
+            project_path=self.context.project_path,
         )
         if success:
             yield PhaseEmission(
@@ -138,18 +133,14 @@ class DataFlowVerificationOrchestrator:
                     status="pass",
                 )
             )
-            yield PhaseEmission(
-                event=self._phase_event(1, "Message Delivery", "pass")
-            )
+            yield PhaseEmission(event=self._phase_event(1, "Message Delivery", "pass"))
             yield PhaseEmission(outcome=PhaseOutcome(status="pass", passed=1))
             return
 
         yield PhaseEmission(
             event=self._log_event("Failed to send test message", status="fail")
         )
-        yield PhaseEmission(
-            event=self._phase_event(1, "Message Delivery", "fail")
-        )
+        yield PhaseEmission(event=self._phase_event(1, "Message Delivery", "fail"))
         yield PhaseEmission(
             outcome=PhaseOutcome(
                 status="fail",
@@ -325,7 +316,9 @@ class DataFlowVerificationOrchestrator:
         if provider == "aws":
             workspace_id = outputs.get("aws_twinmaker_workspace_id")
             if not workspace_id:
-                return ProbeResult(success=False, error="TwinMaker workspace ID missing")
+                return ProbeResult(
+                    success=False, error="TwinMaker workspace ID missing"
+                )
             return probes.check_twinmaker_entity(
                 workspace_id,
                 device_id,
@@ -396,9 +389,7 @@ class DataFlowVerificationOrchestrator:
                     status="pass",
                 )
             )
-            yield PhaseEmission(
-                event=self._phase_event(4, "Event Flow", "pass")
-            )
+            yield PhaseEmission(event=self._phase_event(4, "Event Flow", "pass"))
             yield PhaseEmission(
                 outcome=PhaseOutcome(
                     status="pass",
@@ -428,8 +419,7 @@ class DataFlowVerificationOrchestrator:
     def _configured_downstream_steps(self) -> list[str]:
         steps = []
         action_types = {
-            event.get("action", {}).get("type")
-            for event in self.context.events
+            event.get("action", {}).get("type") for event in self.context.events
         }
         if action_types & {"lambda", "function", "cloud_function"}:
             steps.append("Action Function")

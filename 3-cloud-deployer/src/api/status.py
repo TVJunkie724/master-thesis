@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Header, HTTPException, Query
 
 from src.api.error_handling import internal_server_error
 from src.api.error_models import ERROR_RESPONSES
@@ -12,6 +14,7 @@ from src.status.metadata import check_function_artifacts
 from src.status.sdk import check_sdk_managed
 from src.status.terraform import check_terraform_drift, check_terraform_state
 from src.status.verification import verify_infrastructure
+from src.api.operation_context import operation_project_path
 
 router = APIRouter()
 
@@ -81,12 +84,20 @@ def check_endpoint(
     },
 )
 def verify_endpoint(
+    operation_token: Annotated[str, Header(alias="X-Operation-Package", min_length=1)],
     provider: str = Query(..., description="Primary cloud provider"),
     project_name: str = Query(..., min_length=1, max_length=128),
 ):
     normalized_provider = _validate_request(project_name, provider)
     try:
-        return verify_infrastructure(project_name, normalized_provider)
+        with operation_project_path(project_name, operation_token) as project_path:
+            return verify_infrastructure(
+                project_name,
+                normalized_provider,
+                project_path=project_path,
+            )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise internal_server_error(
             "Verify infrastructure",

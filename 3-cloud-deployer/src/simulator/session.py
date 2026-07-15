@@ -14,7 +14,10 @@ from typing import AsyncIterator, Protocol
 
 from src.core.observability import redact_sensitive
 from src.core.paths import resolve_project_context_path
-from src.core.simulator_package import SimulatorPackageInvalid, normalize_simulator_provider
+from src.core.simulator_package import (
+    SimulatorPackageInvalid,
+    normalize_simulator_provider,
+)
 import constants as CONSTANTS
 
 
@@ -88,6 +91,7 @@ def resolve_simulator_session(
     provider: str,
     device_id: str | None = None,
     repository_root: Path | None = None,
+    project_path: Path | None = None,
 ) -> SimulatorSessionSpec:
     """Resolve one deterministic, regular-file simulator configuration."""
     try:
@@ -96,8 +100,12 @@ def resolve_simulator_session(
         raise SimulatorSessionInvalid(str(exc)) from exc
 
     if project_name == CONSTANTS.DEFAULT_PROJECT_NAME:
-        raise SimulatorSessionInvalid("The protected template project cannot run simulations.")
-    project_path = resolve_project_context_path(project_name, repository_root)
+        raise SimulatorSessionInvalid(
+            "The protected template project cannot run simulations."
+        )
+    project_path = project_path or resolve_project_context_path(
+        project_name, repository_root
+    )
     if not project_path.exists():
         raise SimulatorSessionNotFound(f"Project '{project_name}' not found.")
     if project_path.is_symlink() or not project_path.is_dir():
@@ -107,7 +115,9 @@ def resolve_simulator_session(
     if not provider_dir.exists():
         raise SimulatorSessionNotFound("Simulator config not found. Deploy L1 first.")
     if provider_dir.is_symlink() or not provider_dir.is_dir():
-        raise SimulatorSessionInvalid("Simulator provider path is not a regular directory.")
+        raise SimulatorSessionInvalid(
+            "Simulator provider path is not a regular directory."
+        )
 
     selected_device = _select_device(provider_dir, device_id)
     config_path = selected_device / "config_generated.json"
@@ -133,7 +143,9 @@ def _select_device(provider_dir: Path, requested_device: str | None) -> Path:
             raise SimulatorSessionInvalid("Simulator device ID is invalid.")
         selected = provider_dir / requested_device
         if not selected.exists():
-            raise SimulatorSessionNotFound(f"Simulator device '{requested_device}' not found.")
+            raise SimulatorSessionNotFound(
+                f"Simulator device '{requested_device}' not found."
+            )
         candidates = [selected]
     else:
         candidates = sorted(
@@ -146,7 +158,9 @@ def _select_device(provider_dir: Path, requested_device: str | None) -> Path:
 
     selected = candidates[0]
     if selected.is_symlink() or not selected.is_dir():
-        raise SimulatorSessionInvalid("Simulator device path is not a regular directory.")
+        raise SimulatorSessionInvalid(
+            "Simulator device path is not a regular directory."
+        )
     return selected
 
 
@@ -158,13 +172,17 @@ def _validate_config(config_path: Path, device_id: str, provider: str) -> None:
     if config_path.stat().st_size > MAX_CONFIG_BYTES:
         raise SimulatorSessionInvalid("Simulator config exceeds its size limit.")
     if provider == "azure" and stat.S_IMODE(config_path.stat().st_mode) & 0o077:
-        raise SimulatorSessionInvalid("Azure simulator config permissions are too broad.")
+        raise SimulatorSessionInvalid(
+            "Azure simulator config permissions are too broad."
+        )
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SimulatorSessionInvalid("Simulator config is not valid JSON.") from exc
     if not isinstance(config, dict) or config.get("device_id") != device_id:
-        raise SimulatorSessionInvalid("Simulator config identity does not match its device directory.")
+        raise SimulatorSessionInvalid(
+            "Simulator config identity does not match its device directory."
+        )
 
 
 def _validate_payload(project_path: Path, provider_dir: Path) -> Path:
@@ -174,17 +192,27 @@ def _validate_payload(project_path: Path, provider_dir: Path) -> Path:
     ):
         if candidate.exists():
             if candidate.is_symlink() or not candidate.is_file():
-                raise SimulatorSessionInvalid("Simulator payload path is not a regular file.")
+                raise SimulatorSessionInvalid(
+                    "Simulator payload path is not a regular file."
+                )
             if candidate.stat().st_size > MAX_PAYLOAD_BYTES:
-                raise SimulatorSessionInvalid("Simulator payload file exceeds its size limit.")
+                raise SimulatorSessionInvalid(
+                    "Simulator payload file exceeds its size limit."
+                )
             try:
                 payloads = json.loads(candidate.read_text(encoding="utf-8"))
             except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-                raise SimulatorSessionInvalid("Simulator payload file is not valid JSON.") from exc
+                raise SimulatorSessionInvalid(
+                    "Simulator payload file is not valid JSON."
+                ) from exc
             if not isinstance(payloads, list):
-                raise SimulatorSessionInvalid("Simulator payload file must contain a JSON array.")
+                raise SimulatorSessionInvalid(
+                    "Simulator payload file must contain a JSON array."
+                )
             return candidate.resolve()
-    raise SimulatorSessionNotFound("Payloads file not found. Upload payloads.json first.")
+    raise SimulatorSessionNotFound(
+        "Payloads file not found. Upload payloads.json first."
+    )
 
 
 class SimulatorSessionRegistry:
@@ -199,9 +227,13 @@ class SimulatorSessionRegistry:
     async def claim(self, key: tuple[str, str, str]) -> AsyncIterator[None]:
         async with self._lock:
             if key in self._active:
-                raise SimulatorSessionBusy("A simulator session is already active for this device.")
+                raise SimulatorSessionBusy(
+                    "A simulator session is already active for this device."
+                )
             if len(self._active) >= self._max_sessions:
-                raise SimulatorSessionBusy("The simulator session capacity is currently exhausted.")
+                raise SimulatorSessionBusy(
+                    "The simulator session capacity is currently exhausted."
+                )
             self._active.add(key)
         try:
             yield
@@ -233,7 +265,9 @@ class SimulatorSessionRunner:
                 limit=MAX_LOG_LINE_BYTES,
             )
         except OSError as exc:
-            raise SimulatorSessionError("Simulator process could not be started.") from exc
+            raise SimulatorSessionError(
+                "Simulator process could not be started."
+            ) from exc
         await sink.send_json(
             {
                 "type": "status",
@@ -275,7 +309,9 @@ class SimulatorSessionRunner:
                 text = line.decode("utf-8", errors="replace").rstrip("\r\n")
                 await sink.send_json({"type": "log", "data": redact_sensitive(text)})
         except ValueError as exc:
-            raise SimulatorSessionInvalid("Simulator emitted a log line above its size limit.") from exc
+            raise SimulatorSessionInvalid(
+                "Simulator emitted a log line above its size limit."
+            ) from exc
         exit_code = await process.wait()
         await sink.send_json(
             {
@@ -293,11 +329,18 @@ class SimulatorSessionRunner:
             payload = await sink.receive_json()
             command = payload.get("command") if isinstance(payload, dict) else None
             if not isinstance(command, str):
-                await sink.send_json({"type": "error", "data": "A simulator command is required."})
+                await sink.send_json(
+                    {"type": "error", "data": "A simulator command is required."}
+                )
                 continue
             command = command.strip().lower()
-            if len(command.encode("utf-8")) > MAX_COMMAND_BYTES or command not in self.spec.allowed_commands:
-                await sink.send_json({"type": "error", "data": "Unsupported simulator command."})
+            if (
+                len(command.encode("utf-8")) > MAX_COMMAND_BYTES
+                or command not in self.spec.allowed_commands
+            ):
+                await sink.send_json(
+                    {"type": "error", "data": "Unsupported simulator command."}
+                )
                 continue
             process.stdin.write(f"{command}\n".encode())
             await process.stdin.drain()

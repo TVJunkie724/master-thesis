@@ -1,6 +1,7 @@
 """Log tracing API boundary tests."""
 
 import asyncio
+from contextlib import contextmanager
 
 import pytest
 from fastapi import HTTPException
@@ -66,10 +67,20 @@ def test_start_endpoint_runs_blocking_start_in_worker(monkeypatch, tmp_path):
     monkeypatch.setattr(
         logs.trace_service,
         "start",
-        lambda name: {"trace_id": "TRACE-1234ABCD"},
+        lambda name, project_path: {"trace_id": "TRACE-1234ABCD"},
     )
 
-    result = asyncio.run(logs.start_log_trace(project_name="factory"))
+    @contextmanager
+    def operation_scope(project_name, operation_token):
+        assert project_name == "factory"
+        assert operation_token == "test-operation-token"
+        yield tmp_path
+
+    monkeypatch.setattr(logs, "operation_project_path", operation_scope)
+
+    result = asyncio.run(
+        logs.start_log_trace("test-operation-token", project_name="factory")
+    )
 
     assert result == {"trace_id": "TRACE-1234ABCD"}
 

@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 from typing import Any
+from pathlib import Path
 
 from logger import logger
 from src.core.paths import resolve_project_context_path
 from src.function_metadata import load_function_metadata
 
 
-def check_function_artifacts(project_name: str) -> dict[str, Any]:
+def check_function_artifacts(
+    project_name: str,
+    project_path: Path | None = None,
+) -> dict[str, Any]:
     """Report deployed only when current build and deployed hashes agree."""
-    project_path = resolve_project_context_path(project_name)
+    project_path = project_path or resolve_project_context_path(project_name)
     metadata_dir = project_path / ".build" / "metadata"
     if not metadata_dir.is_dir():
         return {"status": "no_deployments", "functions": {}}
@@ -48,15 +52,11 @@ def check_function_artifacts(project_name: str) -> dict[str, Any]:
             "hash": artifact_hash,
             "source_hash": metadata["source_hash"],
             "last_updated": (
-                metadata.get("last_deployed")
-                if deployed
-                else metadata["last_built"]
+                metadata.get("last_deployed") if deployed else metadata["last_built"]
             ),
         }
 
-    deployed_count = sum(
-        1 for function in functions.values() if function["deployed"]
-    )
+    deployed_count = sum(1 for function in functions.values() if function["deployed"])
     if not functions:
         status = "no_deployments"
     elif deployed_count == len(functions):

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Literal
 
+from src.core.config_loader import ProjectConfigLoader
 from src.core.factory import create_context
 from src.core.observability import redact_sensitive
 from src.status.metadata import check_function_artifacts
@@ -87,11 +89,20 @@ def _sdk_check(
     )
 
 
-def verify_infrastructure(project_name: str, provider: str | None = None) -> dict:
+def verify_infrastructure(
+    project_name: str,
+    provider: str | None = None,
+    *,
+    project_path: Path | None = None,
+) -> dict:
     """Combine independent local-state, metadata, and provider evidence."""
     del provider  # Layer ownership comes from the canonical project config.
     checks: list[InfrastructureCheck] = []
-    state = check_terraform_state(project_name)
+    state = (
+        check_terraform_state(project_name, project_path)
+        if project_path is not None
+        else check_terraform_state(project_name)
+    )
     if state.get("status") == "error":
         checks.append(
             _check(
@@ -116,7 +127,14 @@ def verify_infrastructure(project_name: str, provider: str | None = None) -> dic
         )
 
     try:
-        context = create_context(project_name)
+        context = (
+            ProjectConfigLoader().create_context_from_path(
+                project_name,
+                project_path,
+            )
+            if project_path is not None
+            else create_context(project_name)
+        )
         config = context.config
     except Exception as exc:
         checks.append(
@@ -208,11 +226,13 @@ def verify_infrastructure(project_name: str, provider: str | None = None) -> dic
         ]
     )
 
-    metadata = check_function_artifacts(project_name)
+    metadata = (
+        check_function_artifacts(project_name, project_path)
+        if project_path is not None
+        else check_function_artifacts(project_name)
+    )
     if metadata["functions"]:
-        deployed = sum(
-            1 for item in metadata["functions"].values() if item["deployed"]
-        )
+        deployed = sum(1 for item in metadata["functions"].values() if item["deployed"])
         total = len(metadata["functions"])
         checks.append(
             _check(

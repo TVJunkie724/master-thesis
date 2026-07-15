@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.error_handling import internal_server_error, safe_error_detail
@@ -24,6 +25,7 @@ from src.log_tracing.service import (
     generate_trace_id as generate_trace_id,
     providers_to_query,
 )
+from src.api.operation_context import operation_project_path
 
 RATE_LIMIT_SECONDS = 30
 TRACE_TIMEOUT_SECONDS = 90
@@ -71,11 +73,17 @@ def _require_project(project_name: str) -> None:
     },
 )
 async def start_log_trace(
+    operation_token: Annotated[str, Header(alias="X-Operation-Package", min_length=1)],
     project_name: str = Query(..., min_length=1, max_length=128),
 ):
     _require_project(project_name)
     try:
-        return await asyncio.to_thread(trace_service.start, project_name)
+        with operation_project_path(project_name, operation_token) as project_path:
+            return await asyncio.to_thread(
+                trace_service.start,
+                project_name,
+                project_path,
+            )
     except TraceRateLimited as exc:
         raise HTTPException(
             status_code=429,
@@ -84,6 +92,8 @@ async def start_log_trace(
         ) from exc
     except (DeploymentError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         raise internal_server_error(
             "Start log trace",
@@ -105,6 +115,7 @@ async def start_log_trace(
 )
 async def stream_log_trace(
     trace_id: str,
+    operation_token: Annotated[str, Header(alias="X-Operation-Package", min_length=1)],
     project_name: str = Query(..., min_length=1, max_length=128),
 ):
     _require_project(project_name)
@@ -119,4 +130,19 @@ async def stream_log_trace(
         raise HTTPException(status_code=410, detail="Trace has expired") from exc
     except TraceNotFound as exc:
         raise HTTPException(status_code=404, detail="Unknown trace ID") from exc
-    return EventSourceResponse(trace_service.stream(trace_id, project_name))
+
+    package_scope = operation_project_path(project_name, operation_token)
+    project_path = package_scope.__enter__()
+
+    async def operation_stream():
+        try:
+            stream = trace_service.stream(trace_id, project_name, project_path)
+            async for event in stream:
+                yield event
+        except BaseException as exc:
+            package_scope.__exit__(type(exc), exc, exc.__traceback__)
+            raise
+        else:
+            package_scope.__exit__(None, None, None)
+
+    return EventSourceResponse(operation_stream())

@@ -27,10 +27,7 @@ def _load_default_payload(project_path: Path) -> dict | None:
         with payloads_path.open(encoding="utf-8") as handle:
             payloads = json.load(handle)
     except (OSError, ValueError) as exc:
-        logger.warning(
-            "Could not load simulator payloads: "
-            f"{redact_sensitive(exc)}"
-        )
+        logger.warning(f"Could not load simulator payloads: {redact_sensitive(exc)}")
         return None
     if not isinstance(payloads, list) or not payloads:
         return None
@@ -43,17 +40,22 @@ def send_test_message(
     trace_id: str,
     *,
     payload_override: dict | None = None,
+    project_path: Path | None = None,
 ) -> bool:
     """Send one traceable message through a provider simulator process."""
     if not TRACE_ID_PATTERN.fullmatch(trace_id):
         logger.error("Simulator trace ID has an invalid format")
         return False
 
-    project_path = resolve_project_context_path(project_name)
+    project_path = project_path or resolve_project_context_path(project_name)
     if payload_override is not None and not isinstance(payload_override, dict):
         logger.error("Simulator payload override must be a JSON object")
         return False
-    payload = payload_override.copy() if payload_override is not None else _load_default_payload(project_path)
+    payload = (
+        payload_override.copy()
+        if payload_override is not None
+        else _load_default_payload(project_path)
+    )
     if payload is None:
         logger.error(
             "Simulator payloads are not configured; provide a payload or "
@@ -73,6 +75,7 @@ def send_test_message(
             project_name=project_name,
             provider=provider,
             device_id=device_id if isinstance(device_id, str) and device_id else None,
+            project_path=project_path,
         )
     except SimulatorSessionError as exc:
         logger.error(f"Simulator configuration is unavailable: {redact_sensitive(exc)}")
@@ -108,10 +111,7 @@ def send_test_message(
         return False
 
     if result.returncode != 0:
-        logger.error(
-            "Simulator returned a failure: "
-            f"{redact_sensitive(result.stderr)}"
-        )
+        logger.error(f"Simulator returned a failure: {redact_sensitive(result.stderr)}")
         return False
     logger.info(f"Test message sent via {provider} simulator: {trace_id}")
     return True

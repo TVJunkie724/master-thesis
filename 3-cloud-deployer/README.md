@@ -17,12 +17,16 @@ Flutter
        -> resolves user-owned CloudConnections
        -> validates the Twin configuration
        -> creates an immutable DeploymentManifest
-       -> materializes an operation-scoped deployment project
+       -> stages one private, short-lived operation package
        -> Deployer API
+            -> consumes the package through an opaque one-shot token
+            -> restores protected Terraform/runtime state
             -> validates project + provider preflight
             -> builds provider function packages
             -> generates Terraform variables
             -> runs Terraform through TerraformRunner
+            -> persists allowlisted runtime outputs outside project storage
+            -> destroys the credential-bearing operation package
             -> emits structured operation events
        -> persists deployment state and safe evidence
 ```
@@ -35,15 +39,19 @@ Flutter
 | Reusable cloud credentials | Encrypted Management API CloudConnections |
 | Deployment intent | Versioned `DeploymentManifest` |
 | Read-only project template | `templates/digital-twin/` |
-| Operation-scoped runtime files | `upload/<project>/` |
-| Infrastructure state | Project-scoped Terraform state |
+| Durable secret-free project definition | `upload/<project>/` |
+| Credential-bearing operation package | Private temporary package store |
+| Infrastructure/runtime state | `/var/lib/twin2multicloud-deployer/runtime-state/` |
 | Product and thesis documentation | `docs-site/` |
 | Planned work | GitHub Issues and repository roadmap |
 
-Credentials are never committed or baked into the image. Request-body
-permission checks are the canonical validation path. Reading credentials from a
-project file is disabled by default and exists only for the explicit local-cloud
-Compose override.
+Credentials are never committed, baked into the image, or retained in durable
+project storage. The Management API stages each generated package through
+`POST /projects/{project_name}/operation-package`; the returned opaque token is
+required as `X-Operation-Package` for deployment, destruction, verification,
+logs, and simulator operations. Tokens are project-bound, expire, and are
+consumed once. Request-body permission checks remain the canonical provider
+validation path.
 
 ## Runtime Architecture
 
@@ -121,7 +129,9 @@ default quality gate.
 |- src/providers/              AWS, Azure, GCP and Terraform implementations
 |- src/validation/             project and configuration validation
 |- templates/digital-twin/     versioned read-only project template
-|- upload/                     ignored runtime project workspaces
+|- upload/                     ignored secret-free project definitions
+|- src/operation_packages.py  private one-shot credential package lifecycle
+|- src/runtime_state.py       protected durable Terraform/runtime state
 |- tests/                      unit, integration and explicit E2E suites
 |- requirements.txt            production dependencies
 |- requirements-dev.txt        test and quality dependencies
@@ -138,8 +148,12 @@ default quality gate.
 - Runtime diagnostics are bounded and redact credential-like values.
 - The canonical template is read-only and cannot resolve to runtime credential
   files.
-- Terraform state, generated variables, runtime uploads, and credential files
-  are excluded from image and Git contexts.
+- Credential-bearing packages use owner-only files and are destroyed after one
+  operation, including failed or interrupted streams.
+- Terraform state and generated device credentials live in an owner-only named
+  volume outside user-visible project storage.
+- Generated variables, runtime uploads, and credential files are excluded from
+  image and Git contexts.
 - Terraform downloads are verified against architecture-specific SHA-256
   checksums.
 

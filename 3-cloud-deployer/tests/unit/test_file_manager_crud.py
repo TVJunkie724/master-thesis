@@ -8,7 +8,6 @@ import pytest
 import os
 import json
 import io
-import stat
 from pathlib import Path
 import zipfile
 
@@ -322,7 +321,7 @@ class TestCreateProjectManifestContract:
 
 
 class TestProjectArchiveTransactions:
-    def test_create_writes_uploaded_credentials_with_owner_only_permissions(
+    def test_create_never_persists_uploaded_credentials(
         self,
         temp_project_path,
         valid_zip_bytes,
@@ -340,7 +339,7 @@ class TestProjectArchiveTransactions:
             / CONSTANTS.CONFIG_CREDENTIALS_FILE
         )
 
-        assert stat.S_IMODE(credentials_path.stat().st_mode) == 0o600
+        assert not credentials_path.exists()
 
     """Tests for atomic project creation and replacement."""
 
@@ -406,6 +405,52 @@ class TestProjectArchiveTransactions:
         assert updated_info["description"] == "Preserved description"
         assert updated_info["created_at"] == original_info["created_at"]
         assert "updated_at" in updated_info
+
+    def test_update_removes_all_runtime_outputs_from_project_definition(
+        self,
+        temp_project_path,
+        valid_zip_bytes,
+    ):
+        project_name = "runtime-preservation"
+        file_manager.create_project_from_zip(
+            project_name,
+            valid_zip_bytes,
+            project_path=temp_project_path,
+        )
+        project_dir = (
+            Path(temp_project_path) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
+        )
+        (project_dir / "terraform").mkdir()
+        (project_dir / "terraform" / "terraform.tfstate").write_text("state")
+        (project_dir / "terraform" / "generated.tfvars.json").write_text("secret")
+        (project_dir / "iot_devices_auth" / "device").mkdir(parents=True)
+        (project_dir / "iot_devices_auth" / "device" / "key.pem").write_text("key")
+        generated = (
+            project_dir
+            / "iot_device_simulator"
+            / "aws"
+            / "device"
+            / "config_generated.json"
+        )
+        generated.parent.mkdir(parents=True)
+        generated.write_text("generated")
+        metadata = project_dir / ".build" / "metadata" / "functions.json"
+        metadata.parent.mkdir(parents=True)
+        metadata.write_text("{}")
+        (project_dir / ".build" / "artifact.zip").write_text("discard")
+
+        file_manager.update_project_from_zip(
+            project_name,
+            valid_zip_bytes,
+            project_path=temp_project_path,
+        )
+
+        assert not (project_dir / "terraform" / "terraform.tfstate").exists()
+        assert not (project_dir / "terraform" / "generated.tfvars.json").exists()
+        assert not (project_dir / "iot_devices_auth").exists()
+        assert not generated.exists()
+        assert not metadata.exists()
+        assert not (project_dir / ".build" / "artifact.zip").exists()
 
     def test_update_requires_existing_project(self, temp_project_path, valid_zip_bytes):
         with pytest.raises(ValueError, match="does not exist"):

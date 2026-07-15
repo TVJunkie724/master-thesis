@@ -37,6 +37,9 @@ services:
       - "${THESIS_DEPLOYER_PORT:-5004}:8000"
     volumes: 
       - ./3-cloud-deployer:/app/
+      - deployer_runtime_state:/var/lib/twin2multicloud-deployer
+    environment:
+      - DEPLOYER_RUNTIME_STATE_ROOT=/var/lib/twin2multicloud-deployer/runtime-state
     tty: true
     networks:
       - my_master_thesis_network
@@ -99,3 +102,6 @@ services:
 networks:
   my_master_thesis_network:
     driver: bridge
+
+volumes:
+  deployer_runtime_state:

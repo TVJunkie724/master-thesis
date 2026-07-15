@@ -41,6 +41,10 @@ GENERATED_PROJECT_PATHS = (
     "terraform",
     CONSTANTS.PROJECT_VERSIONS_DIR_NAME,
 )
+PERSISTED_RUNTIME_FILES = (
+    Path("terraform/terraform.tfstate"),
+    Path("terraform/terraform.tfstate.backup"),
+)
 EXPORT_EXCLUDED_DIR_NAMES = frozenset(
     {
         *GENERATED_PROJECT_PATHS,
@@ -357,6 +361,26 @@ def _buffer_zip_source(zip_source) -> io.BytesIO:
     return io.BytesIO(content)
 
 
+def extract_operation_archive(
+    project_name: str,
+    zip_source,
+    destination: Path,
+) -> list[str]:
+    """Validate and extract one secret-bearing package into a private runtime path."""
+    buffered = _buffer_zip_source(zip_source)
+    warnings = validator.validate_project_zip(buffered) or []
+    buffered.seek(0)
+    _validate_project_name_matches_manifest(
+        project_name,
+        _extract_deployment_manifest(buffered),
+    )
+    buffered.seek(0)
+    with zipfile.ZipFile(buffered, "r") as archive:
+        _extract_canonical_project(archive, destination)
+    _remove_generated_project_paths(destination)
+    return warnings
+
+
 def _replace_project_from_archive(
     target_dir: Path,
     zip_source: io.BytesIO,
@@ -374,6 +398,7 @@ def _replace_project_from_archive(
         with zipfile.ZipFile(zip_source, "r") as archive:
             _extract_canonical_project(archive, staging_dir)
         _remove_generated_project_paths(staging_dir)
+        _remove_sensitive_project_files(staging_dir)
 
         existing_info = _read_project_info(existing_target)
         if existing_target is not None:
@@ -436,6 +461,109 @@ def _remove_generated_project_paths(staging_dir: Path) -> None:
         else:
             generated_path.unlink(missing_ok=True)
     (staging_dir / CONSTANTS.PROJECT_INFO_FILE).unlink(missing_ok=True)
+
+
+def _remove_sensitive_project_files(staging_dir: Path) -> None:
+    """Keep durable project definitions free of credential material."""
+    for path in sorted(staging_dir.rglob("*"), reverse=True):
+        if path.is_file() and is_sensitive_project_file(
+            path.relative_to(staging_dir).as_posix()
+        ):
+            path.unlink()
+        elif path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+
+
+def copy_persisted_runtime_outputs(existing_target: Path, staging_dir: Path) -> None:
+    """Carry forward only runtime outputs required by later operations."""
+    for relative_path in PERSISTED_RUNTIME_FILES:
+        source = existing_target / relative_path
+        if source.is_file() and not source.is_symlink():
+            destination = staging_dir / relative_path
+            atomic_write_private_bytes(destination, source.read_bytes())
+
+    _copy_private_runtime_tree(
+        existing_target / "iot_devices_auth",
+        staging_dir / "iot_devices_auth",
+    )
+    _copy_matching_private_files(
+        existing_target / "iot_device_simulator",
+        staging_dir / "iot_device_simulator",
+        "config_generated*.json",
+    )
+    _copy_matching_runtime_files(
+        existing_target / ".build" / "metadata",
+        staging_dir / ".build" / "metadata",
+        "*.json",
+    )
+
+
+def remove_persisted_runtime_outputs(project_path: Path) -> None:
+    """Remove runtime state after it has been copied to protected storage."""
+    for relative_path in PERSISTED_RUNTIME_FILES:
+        (project_path / relative_path).unlink(missing_ok=True)
+    _remove_runtime_path(project_path / "iot_devices_auth")
+    simulator_root = project_path / "iot_device_simulator"
+    if simulator_root.is_dir() and not simulator_root.is_symlink():
+        for path in simulator_root.rglob("config_generated*.json"):
+            if path.is_symlink():
+                raise ValueError("Legacy runtime output contains a symbolic link")
+            path.unlink()
+    _remove_runtime_path(project_path / ".build" / "metadata")
+
+
+def _remove_runtime_path(path: Path) -> None:
+    """Remove one allowlisted runtime path without following symbolic links."""
+    if path.is_symlink() or path.is_file():
+        path.unlink(missing_ok=True)
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def _copy_private_runtime_tree(source: Path, destination: Path) -> None:
+    if not source.exists():
+        return
+    if source.is_symlink() or not source.is_dir():
+        raise ValueError("Persisted runtime output contains an invalid directory")
+    for path in source.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("Persisted runtime output contains a symbolic link")
+        if path.is_file():
+            target = destination / path.relative_to(source)
+            atomic_write_private_bytes(target, path.read_bytes())
+
+
+def _copy_matching_private_files(
+    source_root: Path,
+    destination_root: Path,
+    pattern: str,
+) -> None:
+    if not source_root.exists():
+        return
+    if source_root.is_symlink() or not source_root.is_dir():
+        raise ValueError("Persisted runtime output contains an invalid directory")
+    for source in source_root.rglob(pattern):
+        if source.is_symlink() or not source.is_file():
+            raise ValueError("Persisted runtime output contains an invalid file")
+        target = destination_root / source.relative_to(source_root)
+        atomic_write_private_bytes(target, source.read_bytes())
+
+
+def _copy_matching_runtime_files(
+    source_root: Path,
+    destination_root: Path,
+    pattern: str,
+) -> None:
+    if not source_root.exists():
+        return
+    if source_root.is_symlink() or not source_root.is_dir():
+        raise ValueError("Persisted runtime output contains an invalid directory")
+    for source in source_root.rglob(pattern):
+        if source.is_symlink() or not source.is_file():
+            raise ValueError("Persisted runtime output contains an invalid file")
+        target = destination_root / source.relative_to(source_root)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
 
 
 def _copy_version_history(existing_target: Path, staging_dir: Path) -> None:

@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 import json
 import time
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
@@ -20,6 +21,7 @@ from src.runtime_outputs import load_terraform_outputs
 from src.verification.contracts import VerificationContext
 from src.verification.events import display_timestamp, sse_event
 from src.verification.orchestrator import DataFlowVerificationOrchestrator
+from src.api.operation_context import operation_project_path
 
 router = APIRouter(tags=["Verification"])
 
@@ -68,9 +70,7 @@ class _StreamProgress:
             f"Phase {running[0]} - {running[1]}"
             if running
             else (
-                f"Phase {failed[0]} - {failed[1]}"
-                if failed
-                else "Verification runtime"
+                f"Phase {failed[0]} - {failed[1]}" if failed else "Verification runtime"
             )
         )
         return {
@@ -95,9 +95,7 @@ class DataFlowRequest(BaseModel):
                 f"payload.iotDeviceId must not exceed {MAX_DEVICE_ID_LENGTH} characters"
             )
         try:
-            size = len(
-                json.dumps(payload, separators=(",", ":")).encode("utf-8")
-            )
+            size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
         except (TypeError, ValueError) as exc:
             raise ValueError("payload must be JSON serializable") from exc
         if size > MAX_VERIFICATION_PAYLOAD_BYTES:
@@ -107,8 +105,11 @@ class DataFlowRequest(BaseModel):
         return {**payload, "iotDeviceId": device_id.strip()}
 
 
-def _load_verification_context(project_name: str) -> VerificationContext:
-    project_path = resolve_project_context_path(project_name)
+def _load_verification_context(
+    project_name: str,
+    project_path=None,
+) -> VerificationContext:
+    project_path = project_path or resolve_project_context_path(project_name)
     if not project_path.exists():
         raise HTTPException(
             status_code=404,
@@ -120,7 +121,7 @@ def _load_verification_context(project_name: str) -> VerificationContext:
             project_name,
             project_path,
         )
-        terraform_outputs = load_terraform_outputs(project_name)
+        terraform_outputs = load_terraform_outputs(project_name, project_path)
     except (DeploymentError, OSError, ValueError, TypeError) as exc:
         raise HTTPException(
             status_code=400,
@@ -154,8 +155,7 @@ async def _safe_event_stream(
             yield event
     except Exception as exc:
         logger.error(
-            "Data-flow verification failed unexpectedly: "
-            f"{redact_sensitive(exc)}"
+            f"Data-flow verification failed unexpectedly: {redact_sensitive(exc)}"
         )
         yield sse_event(
             "log",
@@ -195,6 +195,7 @@ async def _safe_event_stream(
 )
 async def verify_data_flow(
     body: DataFlowRequest,
+    operation_token: Annotated[str, Header(alias="X-Operation-Package", min_length=1)],
     project_name: str = Query(
         ...,
         min_length=1,
@@ -202,13 +203,33 @@ async def verify_data_flow(
         description="Digital twin project name",
     ),
 ) -> StreamingResponse:
-    context = _load_verification_context(project_name)
-    orchestrator = DataFlowVerificationOrchestrator(
-        context,
-        send_test_message,
-    )
+    package_scope = operation_project_path(project_name, operation_token)
+    package_entered = False
+    try:
+        project_path = package_scope.__enter__()
+        package_entered = True
+        context = _load_verification_context(project_name, project_path)
+        orchestrator = DataFlowVerificationOrchestrator(
+            context,
+            send_test_message,
+        )
+    except Exception as exc:
+        if package_entered:
+            package_scope.__exit__(type(exc), exc, exc.__traceback__)
+        raise
+
+    async def operation_stream():
+        try:
+            async for event in _safe_event_stream(orchestrator, body.payload):
+                yield event
+        except BaseException as exc:
+            package_scope.__exit__(type(exc), exc, exc.__traceback__)
+            raise
+        else:
+            package_scope.__exit__(None, None, None)
+
     return StreamingResponse(
-        _safe_event_stream(orchestrator, body.payload),
+        operation_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-store",

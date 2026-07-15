@@ -1,15 +1,17 @@
 """
 Project Management API endpoints for the Deployer.
 
-This module provides CRUD operations for deployment projects. Projects contain
-all configuration, credentials, state machines, and IoT payloads needed for
-Digital Twin deployment.
+This module provides CRUD operations for durable, secret-free project
+definitions plus a separate short-lived operation-package boundary for cloud
+credentials.
 
 **Key concepts:**
-- Projects are stored as directories with configuration files
+- Durable projects are stored as directories without credential payloads
+- Credential-bearing packages are staged privately for exactly one operation
 - The 'template' project is read-only and serves as a reference
 - Projects can be imported/exported as ZIP files
 """
+
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Path, Request
 import json
 import file_manager
@@ -28,17 +30,23 @@ from src.api.error_models import ERROR_RESPONSES
 from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.upload_limits import read_upload_bounded
 from src.project_archive.policy import MAX_COMPRESSED_ARCHIVE_BYTES
+from src.operation_packages import (
+    OperationPackageInUseError,
+    get_operation_package_store,
+)
+from src.runtime_state import get_runtime_state_store
 
 router = APIRouter()
 MAX_CONFIG_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_STATE_MACHINE_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_SIMULATOR_PAYLOAD_UPLOAD_BYTES = 10 * 1024 * 1024
 
+
 # ==========================================
 # 1. Project Management
 # ==========================================
 @router.get(
-    "/projects", 
+    "/projects",
     operation_id="listDeploymentProjects",
     tags=["Projects"],
     summary="List all deployment projects with metadata",
@@ -52,26 +60,26 @@ MAX_SIMULATOR_PAYLOAD_UPLOAD_BYTES = 10 * 1024 * 1024
     responses={
         200: {"description": "Project list retrieved successfully"},
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 def list_projects():
     """
     List all available projects with metadata.
-    
+
     **Returns:**
     - Project names, descriptions, and version counts
     - Currently active project name
-    
+
     **Use case:** Dashboard project selector, project overview.
     """
     try:
         storage = get_project_storage()
         project_names = storage.list_projects()
         projects = []
-        
+
         for name in project_names:
             project_info = {"name": name, "description": None, "version_count": 0}
-            
+
             # Read project_info.json if exists
             try:
                 info = storage.read_json_optional(name, CONSTANTS.PROJECT_INFO_FILE)
@@ -79,18 +87,19 @@ def list_projects():
                     project_info["description"] = info.get("description")
             except (ProjectFileAccessDenied, ProjectStorageError, json.JSONDecodeError):
                 pass
-            
+
             # Count versions
             project_info["version_count"] = storage.version_count(name)
-            
+
             projects.append(project_info)
-        
+
         return {"projects": projects, "active_project": None}
     except Exception as exc:
         raise internal_server_error("List projects", exc) from exc
 
+
 @router.post(
-    "/projects", 
+    "/projects",
     operation_id="createDeploymentProject",
     tags=["Projects"],
     summary="Create new project from uploaded ZIP file",
@@ -111,23 +120,23 @@ def list_projects():
         400: ERROR_RESPONSES[400],
         413: ERROR_RESPONSES[413],
         422: ERROR_RESPONSES[422],
-    }
+    },
 )
 async def create_project(
-    request: Request, 
+    request: Request,
     project_name: str = Query(..., description="Name of the new project"),
-    description: str = Query(None, description="Optional project description")
+    description: str = Query(None, description="Optional project description"),
 ):
     """
     Upload a new project zip file with optional description.
-    
+
     **Accepts:** Multipart (binary) or JSON (Base64 encoded).
-    
+
     **Validation performed:**
     - Zip structure validation (required files)
     - Config schema validation
     - Cross-config consistency checks (payloads ↔ devices, credentials ↔ providers)
-    
+
     **If description not provided:** Auto-generated from digital_twin_name in config.json.
     """
     try:
@@ -135,7 +144,9 @@ async def create_project(
             request,
             max_bytes=MAX_COMPRESSED_ARCHIVE_BYTES,
         )
-        result = file_manager.create_project_from_zip(project_name, content, description=description)
+        result = file_manager.create_project_from_zip(
+            project_name, content, description=description
+        )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=safe_error_detail(e))
@@ -144,8 +155,60 @@ async def create_project(
     except Exception as exc:
         raise internal_server_error("Create project", exc) from exc
 
+
+@router.post(
+    "/projects/{project_name}/operation-package",
+    operation_id="stageDeploymentOperationPackage",
+    tags=["Projects"],
+    summary="Stage one short-lived deployment operation package",
+    responses={
+        200: {"description": "Operation package staged"},
+        400: ERROR_RESPONSES[400],
+        413: ERROR_RESPONSES[413],
+        500: ERROR_RESPONSES[500],
+    },
+)
+async def stage_operation_package(
+    project_name: str,
+    file: UploadFile = File(..., description="Generated deployment package"),
+):
+    """Persist a secret-free project definition and stage secrets for one operation."""
+    check_template_protection(project_name, "stage an operation package for")
+    store = get_operation_package_store()
+    staged = None
+    try:
+        content = await read_upload_bounded(
+            file,
+            max_bytes=MAX_COMPRESSED_ARCHIVE_BYTES,
+        )
+        staged = store.stage(project_name, content)
+        if get_project_storage().exists(project_name):
+            result = file_manager.update_project_from_zip(project_name, content)
+            clear_all_function_metadata(project_name)
+        else:
+            result = file_manager.create_project_from_zip(project_name, content)
+        return {
+            "project_name": project_name,
+            "operation_token": staged.token,
+            "expires_at": staged.expires_at.isoformat(),
+            "warnings": sorted(set([*staged.warnings, *result.get("warnings", [])])),
+        }
+    except ValueError as exc:
+        if staged is not None:
+            store.discard(staged.token)
+        raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
+    except HTTPException:
+        if staged is not None:
+            store.discard(staged.token)
+        raise
+    except Exception as exc:
+        if staged is not None:
+            store.discard(staged.token)
+        raise internal_server_error("Stage operation package", exc) from exc
+
+
 @router.get(
-    "/projects/{project_name}/validate", 
+    "/projects/{project_name}/validate",
     operation_id="validateProjectStructure",
     tags=["Projects"],
     summary="Validate project structure and configuration",
@@ -161,18 +224,22 @@ async def create_project(
         200: {"description": "Project structure is valid"},
         400: ERROR_RESPONSES[400],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
-def validate_project_structure(project_name: str = Path(..., description="Name of the project structure to validate")):
+def validate_project_structure(
+    project_name: str = Path(
+        ..., description="Name of the project structure to validate"
+    ),
+):
     """
     Validates an existing project's structure on disk.
-    
+
     **Checks performed:**
     - Required files presence (config.json, config_providers.json, etc.)
     - Config content validity (schema validation)
     - Optimization flag dependencies (event_actions, feedback functions, state machines)
     - Cross-config consistency (payloads ↔ devices, credentials ↔ providers)
-    
+
     **Use case:** Pre-deployment readiness check for existing projects.
     """
     try:
@@ -210,6 +277,7 @@ def _build_manifest_summary(project_dir) -> dict:
         "resource_name": twin.get("resource_name"),
     }
 
+
 # ==========================================
 # 2. Config Reading (Stateless)
 # ==========================================
@@ -227,15 +295,17 @@ def _build_manifest_summary(project_dir) -> dict:
         200: {"description": "Configuration retrieved successfully"},
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 def get_project_config(
     project_name: str = Path(..., description="Project name"),
-    config_type: ConfigType = Path(..., description="Type of configuration to retrieve")
+    config_type: ConfigType = Path(
+        ..., description="Type of configuration to retrieve"
+    ),
 ):
     """
     Retrieve a specific configuration file from a project.
-    
+
     **Config types:**
     - `config`: Main config.json (digital twin settings)
     - `iot`: IoT devices configuration
@@ -245,7 +315,7 @@ def get_project_config(
     - `azure_hierarchy`: Azure Digital Twins hierarchy
     - `credentials`: Cloud credentials (sensitive --> only example file returned)
     - `optimization`: Optimization flags
-    
+
     **Note:** This endpoint replaces the deprecated `/info/config*` endpoints
     with explicit project parameter for stateless API design.
     """
@@ -257,36 +327,40 @@ def get_project_config(
         ConfigType.azure_hierarchy: "twin_hierarchy/azure_hierarchy.json",
         ConfigType.credentials: "config_credentials.json",
         ConfigType.providers: "config_providers.json",
-        ConfigType.optimization: "config_optimization.json"
+        ConfigType.optimization: "config_optimization.json",
     }
-    
+
     filename = config_map[config_type]
-    
+
     do_return_credentials_file = False
     try:
         if config_type == ConfigType.credentials:
             do_return_credentials_file = True
 
-
         storage = get_project_storage()
         project_path = storage.context(project_name).project_path
-        
-        if not project_path.exists():
-            raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
 
-        relative_path = filename if not do_return_credentials_file else filename + ".example"
+        if not project_path.exists():
+            raise HTTPException(
+                status_code=404, detail=f"Project '{project_name}' not found"
+            )
+
+        relative_path = (
+            filename if not do_return_credentials_file else filename + ".example"
+        )
         try:
             return storage.read_json(project_name, relative_path)
         except FileNotFoundError:
             raise HTTPException(
-                status_code=404, 
-                detail=f"Config file '{filename}' not found in project '{project_name}'"
+                status_code=404,
+                detail=f"Config file '{filename}' not found in project '{project_name}'",
             )
-            
+
     except HTTPException:
         raise
     except Exception as exc:
         raise internal_server_error("Read project config", exc) from exc
+
 
 # ==========================================
 # 3. Config Updates
@@ -307,7 +381,7 @@ def get_project_config(
         413: ERROR_RESPONSES[413],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def update_config(project_name: str, config_type: ConfigType, request: Request):
     """
@@ -316,7 +390,7 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
     Supports Multipart (binary) or JSON (Base64).
     """
     check_template_protection(project_name, "update config for")
-    
+
     config_map = {
         ConfigType.config: "config.json",
         ConfigType.iot: "config_iot_devices.json",
@@ -325,11 +399,11 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         ConfigType.azure_hierarchy: "twin_hierarchy/azure_hierarchy.json",
         ConfigType.credentials: "config_credentials.json",
         ConfigType.providers: "config_providers.json",
-        ConfigType.optimization: "config_optimization.json"
+        ConfigType.optimization: "config_optimization.json",
     }
-    
+
     filename = config_map[config_type]
-    
+
     try:
         content = await extract_file_content(
             request,
@@ -337,7 +411,9 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         )
         json_content = json.loads(content)
         file_manager.update_config_file(project_name, filename, json_content)
-        return {"message": f"Configuration '{filename}' updated for project '{project_name}'."}
+        return {
+            "message": f"Configuration '{filename}' updated for project '{project_name}'."
+        }
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON content.")
     except ValueError as e:
@@ -346,6 +422,7 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         raise
     except Exception as exc:
         raise internal_server_error("Update project config", exc) from exc
+
 
 @router.post(
     "/projects/{project_name}/import",
@@ -362,42 +439,44 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         400: ERROR_RESPONSES[400],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def import_project(
-    project_name: str, 
+    project_name: str,
     file: UploadFile = File(..., description="Project zip file"),
-    description: str = Query(None, description="Optional project description update")
+    description: str = Query(None, description="Optional project description update"),
 ):
     """
     Import/update a project from a zip file.
-    
+
     **Prerequisite:** Project must exist or be created via POST /projects first.
-    
+
     **Validation performed:**
     - Project existence check
     - Zip structure validation
     - Config schema validation
     """
     check_template_protection(project_name, "import to")
-    
+
     # Check project exists first
     if not get_project_storage().exists(project_name):
         raise HTTPException(
-            status_code=400, 
-            detail=f"Project '{project_name}' does not exist. Create it first with POST /projects"
+            status_code=400,
+            detail=f"Project '{project_name}' does not exist. Create it first with POST /projects",
         )
-    
+
     try:
         content = await read_upload_bounded(
             file,
             max_bytes=MAX_COMPRESSED_ARCHIVE_BYTES,
         )
-        result = file_manager.update_project_from_zip(project_name, content, description=description)
-        
+        result = file_manager.update_project_from_zip(
+            project_name, content, description=description
+        )
+
         # Clear all hash metadata since project ZIP is fully replaced
         clear_all_function_metadata(project_name)
-        
+
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=safe_error_detail(e))
@@ -423,33 +502,33 @@ async def import_project(
         200: {"description": "Project zip file"},
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def export_project(
-    project_name: str = Path(..., description="Name of the project to export")
+    project_name: str = Path(..., description="Name of the project to export"),
 ):
     """
     Export a portable project definition as a downloadable ZIP file.
-    
+
     **Package contents:**
     - Non-secret configuration files
     - Twin hierarchy definitions
     - State machines, user functions, IoT payloads, 3D assets
 
     Credentials and generated deployment/runtime artifacts are never exported.
-    
+
     **Use case:** Backup, share, or migrate projects.
     """
     from fastapi.responses import StreamingResponse
-    
+
     try:
         zip_buffer = file_manager.export_project_to_zip(project_name)
-        
+
         filename = f"{project_name}_export.zip"
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=safe_error_detail(e))
@@ -470,14 +549,12 @@ async def export_project(
     responses={
         200: {"description": "Project summary"},
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
-def get_project_summary(
-    project_name: str = Path(..., description="Project name")
-):
+def get_project_summary(project_name: str = Path(..., description="Project name")):
     """
     Dashboard overview for Flutter frontend integration.
-    
+
     Returns:
     - name, description
     - providers (from config_providers.json)
@@ -487,14 +564,16 @@ def get_project_summary(
     storage = get_project_storage()
     project_path = storage.context(project_name).project_path
     if not project_path.exists():
-        raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Project '{project_name}' not found"
+        )
 
     summary = {
         "name": project_name,
         "description": None,
         "providers": {},
         "deployment_status": "unknown",
-        "validation_status": "unknown"
+        "validation_status": "unknown",
     }
 
     # 1. Description
@@ -507,7 +586,9 @@ def get_project_summary(
 
     # 2. Providers
     try:
-        providers = storage.read_json_optional(project_name, CONSTANTS.CONFIG_PROVIDERS_FILE)
+        providers = storage.read_json_optional(
+            project_name, CONSTANTS.CONFIG_PROVIDERS_FILE
+        )
         if isinstance(providers, dict):
             summary["providers"] = providers
     except (ProjectFileAccessDenied, ProjectStorageError, json.JSONDecodeError):
@@ -520,7 +601,7 @@ def get_project_summary(
     except Exception as e:
         summary["validation_status"] = "invalid"
         summary["validation_error"] = safe_error_detail(e)
-        
+
     return summary
 
 
@@ -537,11 +618,9 @@ def get_project_summary(
         200: {"description": "File tree structure"},
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
-def get_project_files(
-    project_name: str = Path(..., description="Project name")
-):
+def get_project_files(project_name: str = Path(..., description="Project name")):
     """
     Returns a recursive file tree structure for the project.
     Used for file browsing in the frontend.
@@ -570,11 +649,11 @@ def get_project_files(
         403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 def get_project_file_content_endpoint(
     project_name: str = Path(..., description="Project name"),
-    file_path: str = Path(..., description="Relative path to file")
+    file_path: str = Path(..., description="Relative path to file"),
 ):
     """
     Returns the content of a specific file.
@@ -586,7 +665,7 @@ def get_project_file_content_endpoint(
         raise HTTPException(status_code=403, detail=safe_error_detail(e))
     except (FileNotFoundError, ProjectStorageError) as e:
         if "not found" in str(e):
-             raise HTTPException(status_code=404, detail=safe_error_detail(e))
+            raise HTTPException(status_code=404, detail=safe_error_detail(e))
         raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except Exception as exc:
         raise internal_server_error("Read project file", exc) from exc
@@ -604,9 +683,10 @@ def get_project_file_content_endpoint(
     ),
     responses={
         200: {"description": "Project deleted"},
+        409: {"description": "Project has an active deployment operation"},
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 def delete_project_endpoint(project_name: str):
     """
@@ -614,10 +694,14 @@ def delete_project_endpoint(project_name: str):
     If the deleted project was active, resets to default project.
     """
     check_template_protection(project_name, "delete")
-    
+
     try:
+        get_operation_package_store().discard_project(project_name)
         file_manager.delete_project(project_name)
+        get_runtime_state_store().delete(project_name)
         return {"message": f"Project '{project_name}' deleted successfully."}
+    except OperationPackageInUseError as exc:
+        raise HTTPException(status_code=409, detail=safe_error_detail(exc)) from exc
     except ValueError as e:
         raise HTTPException(status_code=404, detail=safe_error_detail(e))
     except Exception as exc:
@@ -631,14 +715,14 @@ def delete_project_endpoint(project_name: str):
     summary="Update project metadata",
     description=(
         "**Purpose:** Update project description without re-uploading zip.\n\n"
-        "**Body:** `{\"description\": \"New description\"}`"
+        '**Body:** `{"description": "New description"}`'
     ),
     responses={
         200: {"description": "Project info updated"},
         400: ERROR_RESPONSES[400],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def update_project_info_endpoint(project_name: str, request: Request):
     """
@@ -646,13 +730,15 @@ async def update_project_info_endpoint(project_name: str, request: Request):
     Body: {"description": "New description"}
     """
     check_template_protection(project_name, "update info for")
-    
+
     try:
         body = await request.json()
         description = body.get("description")
         if not description:
-            raise HTTPException(status_code=400, detail="Missing 'description' field in request body.")
-        
+            raise HTTPException(
+                status_code=400, detail="Missing 'description' field in request body."
+            )
+
         file_manager.update_project_info(project_name, description)
         return {"message": f"Project info updated for '{project_name}'."}
     except ValueError as e:
@@ -663,6 +749,7 @@ async def update_project_info_endpoint(project_name: str, request: Request):
         raise
     except Exception as exc:
         raise internal_server_error("Update project info", exc) from exc
+
 
 @router.put(
     "/projects/{project_name}/state_machines/{provider}",
@@ -680,55 +767,56 @@ async def update_project_info_endpoint(project_name: str, request: Request):
         413: ERROR_RESPONSES[413],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def upload_state_machine(
-    project_name: str,
-    provider: ProviderEnum,
-    request: Request
+    project_name: str, provider: ProviderEnum, request: Request
 ):
     """
     Uploads and validates a state machine definition file for a specific provider.
     Supports Multipart (binary) or JSON (Base64).
     """
     check_template_protection(project_name, "upload state machine to")
-    
+
     try:
         provider_value = provider.value.lower()
         target_filename = None
         if provider_value == "aws":
             target_filename = CONSTANTS.AWS_STATE_MACHINE_FILE
         elif provider_value == "azure":
-             target_filename = CONSTANTS.AZURE_STATE_MACHINE_FILE
+            target_filename = CONSTANTS.AZURE_STATE_MACHINE_FILE
         elif provider_value == "google":
-             target_filename = CONSTANTS.GOOGLE_STATE_MACHINE_FILE
+            target_filename = CONSTANTS.GOOGLE_STATE_MACHINE_FILE
         else:
-             raise ValueError("Invalid provider. Must be 'aws', 'azure', or 'google'.")
+            raise ValueError("Invalid provider. Must be 'aws', 'azure', or 'google'.")
 
         content = await extract_file_content(
             request,
             max_bytes=MAX_STATE_MACHINE_UPLOAD_BYTES,
         )
-        content_str = content.decode('utf-8')
-        
+        content_str = content.decode("utf-8")
+
         # 1. Validate Content matches Provider Signature
         validator.validate_state_machine_content(target_filename, content_str)
-        
+
         # 2. Save File
         get_project_storage().write_text(
             project_name,
             f"{CONSTANTS.STATE_MACHINES_DIR_NAME}/{target_filename}",
             content_str,
         )
-            
-        return {"message": f"State machine '{target_filename}' uploaded and verified for provider '{provider_value}'."}
-        
+
+        return {
+            "message": f"State machine '{target_filename}' uploaded and verified for provider '{provider_value}'."
+        }
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
         raise
     except Exception as exc:
         raise internal_server_error("Upload state machine", exc) from exc
+
 
 @router.put(
     "/projects/{project_name}/simulator/payloads",
@@ -745,7 +833,7 @@ async def upload_state_machine(
         400: ERROR_RESPONSES[400],
         413: ERROR_RESPONSES[413],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def upload_simulator_payloads(project_name: str, request: Request):
     """
@@ -753,28 +841,30 @@ async def upload_simulator_payloads(project_name: str, request: Request):
     Validates structure before saving to iot_device_simulator/payloads.json.
     """
     check_template_protection(project_name, "upload payloads to")
-    
+
     try:
         content = await extract_file_content(
             request,
             max_bytes=MAX_SIMULATOR_PAYLOAD_UPLOAD_BYTES,
         )
-        content_str = content.decode('utf-8')
-        
-        is_valid, errors, warnings = validator.validate_simulator_payloads(content_str, project_name=project_name)
-        
+        content_str = content.decode("utf-8")
+
+        is_valid, errors, warnings = validator.validate_simulator_payloads(
+            content_str, project_name=project_name
+        )
+
         if not is_valid:
             raise ValueError(f"Payload validation failed: {errors}")
-            
+
         # Save to iot_device_simulator root (provider-agnostic)
         get_project_storage().write_text(
             project_name,
             f"{CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME}/{CONSTANTS.PAYLOADS_FILE}",
             content_str,
         )
-            
+
         return {"message": "Payloads uploaded successfully.", "warnings": warnings}
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=safe_error_detail(e))
     except HTTPException:
@@ -801,32 +891,36 @@ async def upload_simulator_payloads(project_name: str, request: Request):
         400: ERROR_RESPONSES[400],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 def cleanup_aws_twinmaker(
-    project_name: str = Path(..., description="Name of the project")
+    project_name: str = Path(..., description="Name of the project"),
 ):
     """
     Force delete AWS TwinMaker workspace when Terraform destroy fails.
-    
+
     **Use case:** When `terraform destroy` fails because TwinMaker contains entities.
-    
+
     **Deletion order:**
     1. Delete all entities
     2. Delete all component types
     3. Delete workspace
-    
+
     **Note:** AWS-specific operation. Only works for projects using AWS for L4.
     """
     check_template_protection(project_name, "clean up")
     try:
         from src.providers.aws.provider import AWSProvider
-        from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace
+        from src.providers.aws.layers.layer_4_twinmaker import (
+            force_delete_twinmaker_workspace,
+        )
         from src.core.config_loader import load_project_config, load_credentials
 
         project_path = get_project_storage().context(project_name).project_path
         if project_path.is_symlink() or not project_path.is_dir():
-            raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Project '{project_name}' not found"
+            )
         config = load_project_config(project_path)
         if config.providers.get("layer_4_provider") != "aws":
             raise ValueError("AWS TwinMaker cleanup requires AWS as the L4 provider")
@@ -839,10 +933,7 @@ def cleanup_aws_twinmaker(
         provider.initialize_clients(aws_credentials, config.digital_twin_name)
 
         result = force_delete_twinmaker_workspace(provider)
-        return {
-            "message": "TwinMaker workspace deletion complete",
-            "result": result
-        }
+        return {"message": "TwinMaker workspace deletion complete", "result": result}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:

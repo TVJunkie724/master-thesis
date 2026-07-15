@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import json
 import time
 import uuid
+from pathlib import Path
 
 from logger import logger
 from src.core.config_loader import ProjectConfigLoader, normalize_provider_name
@@ -35,8 +36,7 @@ def providers_to_query(providers: dict) -> set[str]:
             providers.get("layer_2_provider"),
             providers.get("layer_3_hot_provider"),
         )
-        if (normalized := normalize_provider_name(provider))
-        and normalized != "none"
+        if (normalized := normalize_provider_name(provider)) and normalized != "none"
     }
 
 
@@ -64,16 +64,25 @@ class LogTraceService:
         self.heartbeat_seconds = heartbeat_seconds
         self.provider_timeout_seconds = provider_timeout_seconds
 
-    def start(self, project_name: str) -> dict:
+    def start(self, project_name: str, project_path: Path | None = None) -> dict:
         now = datetime.now(timezone.utc)
-        bundle = ProjectConfigLoader().load_bundle(project_name)
+        bundle = (
+            ProjectConfigLoader().load_bundle_from_path(project_name, project_path)
+            if project_path is not None
+            else ProjectConfigLoader().load_bundle(project_name)
+        )
         provider = bundle.config.providers.get("layer_1_provider")
         if not provider:
             raise ValueError("L1 provider not configured")
         self.registry.reserve(project_name, now)
         trace_id = generate_trace_id()
         try:
-            if not send_test_message(provider, project_name, trace_id):
+            if not send_test_message(
+                provider,
+                project_name,
+                trace_id,
+                project_path=bundle.project_path,
+            ):
                 raise RuntimeError(
                     "Failed to send test message. Check simulator configuration."
                 )
@@ -92,7 +101,12 @@ class LogTraceService:
     def validate(self, trace_id: str, project_name: str) -> None:
         self.registry.validate(trace_id, project_name, datetime.now(timezone.utc))
 
-    async def stream(self, trace_id: str, project_name: str):
+    async def stream(
+        self,
+        trace_id: str,
+        project_name: str,
+        project_path: Path | None = None,
+    ):
         started_at = datetime.now(timezone.utc)
         started_monotonic = time.monotonic()
         last_heartbeat = started_monotonic
@@ -103,12 +117,28 @@ class LogTraceService:
         try:
             try:
                 bundle, outputs = await asyncio.gather(
-                    asyncio.to_thread(ProjectConfigLoader().load_bundle, project_name),
-                    asyncio.to_thread(load_terraform_outputs, project_name),
+                    asyncio.to_thread(
+                        ProjectConfigLoader().load_bundle_from_path,
+                        project_name,
+                        project_path,
+                    )
+                    if project_path is not None
+                    else asyncio.to_thread(
+                        ProjectConfigLoader().load_bundle, project_name
+                    ),
+                    asyncio.to_thread(
+                        load_terraform_outputs, project_name, project_path
+                    )
+                    if project_path is not None
+                    else asyncio.to_thread(load_terraform_outputs, project_name),
                 )
             except Exception as exc:
-                logger.error("Trace configuration load failed: %s", redact_sensitive(exc))
-                yield self._event("error", {"message": "Trace configuration unavailable"})
+                logger.error(
+                    "Trace configuration load failed: %s", redact_sensitive(exc)
+                )
+                yield self._event(
+                    "error", {"message": "Trace configuration unavailable"}
+                )
                 yield self._event(
                     "done",
                     {

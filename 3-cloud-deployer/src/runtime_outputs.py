@@ -10,9 +10,9 @@ from src.core.paths import resolve_project_context_path
 from src.terraform_runner import TerraformRunner
 
 
-def load_terraform_outputs(project_name: str) -> dict:
+def load_terraform_outputs(project_name: str, project_path: Path | None = None) -> dict:
     """Return current outputs, or an empty mapping when no state exists."""
-    project_path = resolve_project_context_path(project_name)
+    project_path = project_path or resolve_project_context_path(project_name)
     state_path = project_path / "terraform" / "terraform.tfstate"
     if not state_path.exists():
         logger.warning(f"Terraform state not found for {project_name}")
@@ -25,8 +25,5 @@ def load_terraform_outputs(project_name: str) -> dict:
             state_path=str(state_path),
         ).output()
     except Exception as exc:
-        logger.error(
-            "Failed to read Terraform outputs: "
-            f"{redact_sensitive(exc)}"
-        )
+        logger.error(f"Failed to read Terraform outputs: {redact_sensitive(exc)}")
         return {}

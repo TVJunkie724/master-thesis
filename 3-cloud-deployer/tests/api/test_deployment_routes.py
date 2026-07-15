@@ -6,14 +6,80 @@ enter the canonical facade in src.providers.deployer.
 """
 
 import asyncio
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
+import rest_api
 from src.api import deployment
 from src.api.dependencies import validate_provider
+from src.api.operation_context import operation_project_path as real_operation_project_path
+
+
+OPERATION_TOKEN = "test-operation-token"
+client = TestClient(rest_api.app)
+
+
+@pytest.fixture(autouse=True)
+def operation_package_scope(monkeypatch):
+    @contextmanager
+    def scope(project_name, operation_token):
+        assert operation_token == OPERATION_TOKEN
+        yield Path("/projects") / project_name
+
+    monkeypatch.setattr(deployment, "operation_project_path", scope)
+
+    def create_context_from_operation_path(
+        _loader,
+        project_name,
+        _project_path,
+        provider,
+        *,
+        operation_id,
+    ):
+        return deployment.create_context(
+            project_name,
+            provider,
+            operation_id=operation_id,
+        )
+
+    monkeypatch.setattr(
+        deployment.ProjectConfigLoader,
+        "create_context_from_path",
+        create_context_from_operation_path,
+    )
+
+
+def test_deployment_endpoint_requires_operation_package_header():
+    response = client.post(
+        "/infrastructure/deploy",
+        params={"provider": "aws", "project_name": "test_api_project"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_deployment_endpoint_rejects_invalid_operation_package(monkeypatch):
+    monkeypatch.setattr(
+        deployment,
+        "operation_project_path",
+        real_operation_project_path,
+    )
+    response = client.post(
+        "/infrastructure/deploy",
+        params={"provider": "aws", "project_name": "test_api_project"},
+        headers={"X-Operation-Package": "missing-operation-token"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["error_code"] == "VALIDATION_ERROR"
+    assert response.json()["detail"]["message"] == (
+        "Operation package is invalid or expired."
+    )
 
 
 def _project_storage_for(project_path: str | Path):
@@ -28,17 +94,31 @@ def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
 
     with (
         patch.object(deployment, "check_template_protection") as mock_template_guard,
-        patch.object(deployment, "validate_provider", return_value="aws") as mock_validate_provider,
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")) as mock_storage,
-        patch.object(deployment, "validate_project_directory") as mock_validate_directory,
-        patch.object(deployment, "create_context", return_value=context) as mock_create_context,
-        patch.object(deployment.core_deployer, "deploy_all", return_value=outputs) as mock_deploy_all,
+        patch.object(
+            deployment, "validate_provider", return_value="aws"
+        ) as mock_validate_provider,
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ) as mock_storage,
+        patch.object(
+            deployment, "validate_project_directory"
+        ) as mock_validate_directory,
+        patch.object(
+            deployment, "create_context", return_value=context
+        ) as mock_create_context,
+        patch.object(
+            deployment.core_deployer, "deploy_all", return_value=outputs
+        ) as mock_deploy_all,
     ):
-        response = deployment.deploy_all(provider="aws", project_name="test_api_project")
+        response = deployment.deploy_all(
+            OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+        )
 
     mock_template_guard.assert_called_once_with("test_api_project", "deploy")
     mock_validate_provider.assert_called_once_with("aws")
-    mock_storage.return_value.context.assert_called_once_with("test_api_project")
+    mock_storage.assert_not_called()
     mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
     assert mock_deploy_all.call_args.args == (context, "aws")
     operation_context = mock_deploy_all.call_args.kwargs["operation_context"]
@@ -68,17 +148,29 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
 
     with (
         patch.object(deployment, "check_template_protection") as mock_template_guard,
-        patch.object(deployment, "validate_provider", return_value="aws") as mock_validate_provider,
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")) as mock_storage,
-        patch.object(deployment, "validate_project_directory") as mock_validate_directory,
-        patch.object(deployment, "create_context", return_value=context) as mock_create_context,
+        patch.object(
+            deployment, "validate_provider", return_value="aws"
+        ) as mock_validate_provider,
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ) as mock_storage,
+        patch.object(
+            deployment, "validate_project_directory"
+        ) as mock_validate_directory,
+        patch.object(
+            deployment, "create_context", return_value=context
+        ) as mock_create_context,
         patch.object(deployment.core_deployer, "destroy_all") as mock_destroy_all,
     ):
-        response = deployment.destroy_all(provider="aws", project_name="test_api_project")
+        response = deployment.destroy_all(
+            OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+        )
 
     mock_template_guard.assert_called_once_with("test_api_project", "destroy")
     mock_validate_provider.assert_called_once_with("aws")
-    mock_storage.return_value.context.assert_called_once_with("test_api_project")
+    mock_storage.assert_not_called()
     mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
     assert mock_destroy_all.call_args.args == (context, "aws")
     operation_context = mock_destroy_all.call_args.kwargs["operation_context"]
@@ -109,7 +201,9 @@ async def _collect_stream(streaming_response) -> str:
     return "".join(chunks)
 
 
-async def _fake_deploy_stream(context, strategy=None, output_sink=None, operation_context=None):
+async def _fake_deploy_stream(
+    context, strategy=None, output_sink=None, operation_context=None
+):
     assert context is not None
     assert strategy is None
     assert operation_context is not None
@@ -126,9 +220,13 @@ async def _fake_destroy_stream(context, strategy=None, operation_context=None):
     yield "terraform destroy"
 
 
-async def _fake_failing_deploy_stream(context, strategy=None, output_sink=None, operation_context=None):
+async def _fake_failing_deploy_stream(
+    context, strategy=None, output_sink=None, operation_context=None
+):
     yield "terraform init"
-    raise RuntimeError("failed in /tmp/twin2multicloud-deployer-workspaces/test-api-abc/terraform")
+    raise RuntimeError(
+        "failed in /tmp/twin2multicloud-deployer-workspaces/test-api-abc/terraform"
+    )
 
 
 async def _fake_failing_destroy_stream(context, strategy=None, operation_context=None):
@@ -136,7 +234,9 @@ async def _fake_failing_destroy_stream(context, strategy=None, operation_context
     raise RuntimeError("client_secret=super-secret")
 
 
-async def _fake_secret_deploy_stream(context, strategy=None, output_sink=None, operation_context=None):
+async def _fake_secret_deploy_stream(
+    context, strategy=None, output_sink=None, operation_context=None
+):
     assert context is not None
     yield "terraform apply azure_client_secret=super-secret-value"
     if output_sink is not None:
@@ -153,19 +253,80 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_deploy_stream),
+        patch.object(
+            deployment.core_deployer, "deploy_all_stream", new=_fake_deploy_stream
+        ),
     ):
-        response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
+        response = asyncio.run(
+            deployment.deploy_stream(
+                OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+            )
+        )
         body = asyncio.run(_collect_stream(response))
 
     assert response.media_type == "text/event-stream"
     assert '"operation_id":"' in body
-    assert 'data: {"event":"log","operation":"deploy","message":"terraform init","operation_id":"' in body
-    assert 'data: {"event":"log","operation":"deploy","message":"terraform apply","operation_id":"' in body
-    assert 'event: complete\ndata: {"event":"complete","operation":"deploy","success":true,"outputs":{"output":{"value":"ok"}},"operation_id":"' in body
+    assert (
+        'data: {"event":"log","operation":"deploy","message":"terraform init","operation_id":"'
+        in body
+    )
+    assert (
+        'data: {"event":"log","operation":"deploy","message":"terraform apply","operation_id":"'
+        in body
+    )
+    assert (
+        'event: complete\ndata: {"event":"complete","operation":"deploy","success":true,"outputs":{"output":{"value":"ok"}},"operation_id":"'
+        in body
+    )
+
+
+def test_deploy_stream_releases_package_when_client_stops_consuming(monkeypatch):
+    lifecycle = []
+
+    @contextmanager
+    def tracked_scope(_project_name, _operation_token):
+        lifecycle.append("entered")
+        try:
+            yield Path("/projects/test_api_project")
+        finally:
+            lifecycle.append("released")
+
+    monkeypatch.setattr(deployment, "operation_project_path", tracked_scope)
+    context = MagicMock(name="deployment_context")
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(
+            deployment.core_deployer,
+            "deploy_all_stream",
+            new=_fake_deploy_stream,
+        ),
+    ):
+        response = asyncio.run(
+            deployment.deploy_stream(
+                OPERATION_TOKEN,
+                provider="aws",
+                project_name="test_api_project",
+            )
+        )
+
+        async def consume_one_event_then_disconnect():
+            iterator = response.body_iterator
+            await anext(iterator)
+            await iterator.aclose()
+
+        asyncio.run(consume_one_event_then_disconnect())
+
+    assert lifecycle == ["entered", "released"]
 
 
 def test_deploy_stream_redacts_workspace_paths_in_failure_event():
@@ -175,12 +336,24 @@ def test_deploy_stream_redacts_workspace_paths_in_failure_event():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_failing_deploy_stream),
+        patch.object(
+            deployment.core_deployer,
+            "deploy_all_stream",
+            new=_fake_failing_deploy_stream,
+        ),
     ):
-        response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
+        response = asyncio.run(
+            deployment.deploy_stream(
+                OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+            )
+        )
         body = asyncio.run(_collect_stream(response))
 
     assert '"error_code":"DEPLOYMENT_ERROR"' in body
@@ -195,12 +368,24 @@ def test_deploy_stream_redacts_secret_logs_and_outputs():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_secret_deploy_stream),
+        patch.object(
+            deployment.core_deployer,
+            "deploy_all_stream",
+            new=_fake_secret_deploy_stream,
+        ),
     ):
-        response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
+        response = asyncio.run(
+            deployment.deploy_stream(
+                OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+            )
+        )
         body = asyncio.run(_collect_stream(response))
 
     assert "super-secret-value" not in body
@@ -217,18 +402,34 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "destroy_all_stream", new=_fake_destroy_stream),
+        patch.object(
+            deployment.core_deployer, "destroy_all_stream", new=_fake_destroy_stream
+        ),
     ):
-        response = asyncio.run(deployment.destroy_stream(provider="aws", project_name="test_api_project"))
+        response = asyncio.run(
+            deployment.destroy_stream(
+                OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+            )
+        )
         body = asyncio.run(_collect_stream(response))
 
     assert response.media_type == "text/event-stream"
     assert '"operation_id":"' in body
-    assert 'data: {"event":"log","operation":"destroy","message":"terraform destroy","operation_id":"' in body
-    assert 'event: complete\ndata: {"event":"complete","operation":"destroy","success":true,"operation_id":"' in body
+    assert (
+        'data: {"event":"log","operation":"destroy","message":"terraform destroy","operation_id":"'
+        in body
+    )
+    assert (
+        'event: complete\ndata: {"event":"complete","operation":"destroy","success":true,"operation_id":"'
+        in body
+    )
 
 
 def test_destroy_stream_failure_uses_typed_safe_error_event():
@@ -238,12 +439,24 @@ def test_destroy_stream_failure_uses_typed_safe_error_event():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "destroy_all_stream", new=_fake_failing_destroy_stream),
+        patch.object(
+            deployment.core_deployer,
+            "destroy_all_stream",
+            new=_fake_failing_destroy_stream,
+        ),
     ):
-        response = asyncio.run(deployment.destroy_stream(provider="aws", project_name="test_api_project"))
+        response = asyncio.run(
+            deployment.destroy_stream(
+                OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+            )
+        )
         body = asyncio.run(_collect_stream(response))
 
     assert '"error_code":"DESTRUCTION_ERROR"' in body
@@ -256,12 +469,22 @@ def test_google_provider_alias_is_normalized_to_gcp_in_deploy_response():
 
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
         patch.object(deployment, "validate_project_directory"),
-        patch.object(deployment, "create_context", return_value=context) as mock_create_context,
-        patch.object(deployment.core_deployer, "deploy_all", return_value={}) as mock_deploy_all,
+        patch.object(
+            deployment, "create_context", return_value=context
+        ) as mock_create_context,
+        patch.object(
+            deployment.core_deployer, "deploy_all", return_value={}
+        ) as mock_deploy_all,
     ):
-        response = deployment.deploy_all(provider="google", project_name="test_api_project")
+        response = deployment.deploy_all(
+            OPERATION_TOKEN, provider="google", project_name="test_api_project"
+        )
 
     operation_context = mock_deploy_all.call_args.kwargs["operation_context"]
     mock_create_context.assert_called_once_with(
@@ -279,7 +502,10 @@ def test_validate_provider_rejects_unknown_provider_with_stable_400():
         validate_provider("oracle")
 
     assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "Invalid provider 'oracle'. Valid providers are: aws, azure, gcp, google"
+    assert (
+        exc_info.value.detail
+        == "Invalid provider 'oracle'. Valid providers are: aws, azure, gcp, google"
+    )
 
 
 def test_request_scoped_project_does_not_require_active_project_match():
@@ -287,12 +513,20 @@ def test_request_scoped_project_does_not_require_active_project_match():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/requested")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/requested"),
+        ),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "deploy_all", return_value={}) as mock_deploy_all,
+        patch.object(
+            deployment.core_deployer, "deploy_all", return_value={}
+        ) as mock_deploy_all,
     ):
-        response = deployment.deploy_all(provider="aws", project_name="requested")
+        response = deployment.deploy_all(
+            OPERATION_TOKEN, provider="aws", project_name="requested"
+        )
 
     assert response["project_name"] == "requested"
     assert mock_deploy_all.call_args.args == (context, "aws")
@@ -310,11 +544,16 @@ def test_request_boundary_http_error_redacts_detail():
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            deployment.deploy_all(provider="aws", project_name="template")
+            deployment.deploy_all(
+                OPERATION_TOKEN, provider="aws", project_name="template"
+            )
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
-    assert exc_info.value.detail["message"] == "blocked project <project-path> client_secret=<redacted>"
+    assert (
+        exc_info.value.detail["message"]
+        == "blocked project <project-path> client_secret=<redacted>"
+    )
     assert "super-secret" not in exc_info.value.detail["message"]
     assert "/app/upload/template" not in exc_info.value.detail["message"]
     assert exc_info.value.detail["operation_id"]
@@ -323,7 +562,11 @@ def test_request_boundary_http_error_redacts_detail():
 def test_directory_validation_failure_maps_to_400_before_deploy():
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
         patch.object(
             deployment,
             "validate_project_directory",
@@ -333,11 +576,16 @@ def test_directory_validation_failure_maps_to_400_before_deploy():
         patch.object(deployment.core_deployer, "deploy_all") as mock_deploy_all,
     ):
         with pytest.raises(HTTPException) as exc_info:
-            deployment.deploy_all(provider="aws", project_name="test_api_project")
+            deployment.deploy_all(
+                OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+            )
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
-    assert "deployment_manifest.json package.files mismatch" in exc_info.value.detail["message"]
+    assert (
+        "deployment_manifest.json package.files mismatch"
+        in exc_info.value.detail["message"]
+    )
     assert exc_info.value.detail["operation_id"]
     mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
     mock_create_context.assert_not_called()
@@ -347,20 +595,31 @@ def test_directory_validation_failure_maps_to_400_before_deploy():
 def test_directory_validation_error_redacts_runtime_project_paths():
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/app/upload/test_api_project")),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/app/upload/test_api_project"),
+        ),
         patch.object(
             deployment,
             "validate_project_directory",
-            side_effect=ValueError("Project directory not found: /app/upload/test_api_project"),
+            side_effect=ValueError(
+                "Project directory not found: /app/upload/test_api_project"
+            ),
         ),
         patch.object(deployment, "create_context") as mock_create_context,
     ):
         with pytest.raises(HTTPException) as exc_info:
-            deployment.deploy_all(provider="aws", project_name="test_api_project")
+            deployment.deploy_all(
+                OPERATION_TOKEN, provider="aws", project_name="test_api_project"
+            )
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
-    assert exc_info.value.detail["message"] == "Validation failed: Project directory not found: <project-path>"
+    assert (
+        exc_info.value.detail["message"]
+        == "Validation failed: Project directory not found: <project-path>"
+    )
     assert "/app/upload/test_api_project" not in exc_info.value.detail["message"]
     mock_create_context.assert_not_called()
 
@@ -369,37 +628,69 @@ def test_facade_failure_maps_to_500_without_leaking_exception_detail(caplog):
     with caplog.at_level("ERROR", logger="digital_twin"):
         with (
             patch.object(deployment, "check_template_protection"),
-            patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+            patch.object(
+                deployment,
+                "get_project_storage",
+                return_value=_project_storage_for("/projects/test_api_project"),
+            ),
             patch.object(deployment, "validate_project_directory"),
             patch.object(deployment, "create_context", return_value=MagicMock()),
-            patch.object(deployment.core_deployer, "deploy_all", side_effect=RuntimeError("secret stack detail")),
+            patch.object(
+                deployment.core_deployer,
+                "deploy_all",
+                side_effect=RuntimeError("secret stack detail"),
+            ),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                deployment.deploy_all(provider="aws", project_name="test_api_project")
+                deployment.deploy_all(
+                    OPERATION_TOKEN,
+                    provider="aws",
+                    project_name="test_api_project",
+                )
 
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail["error_code"] == "DEPLOYMENT_ERROR"
-    assert exc_info.value.detail["message"] == "Deployment operation failed. Check server logs."
+    assert (
+        exc_info.value.detail["message"]
+        == "Deployment operation failed. Check server logs."
+    )
     assert "secret stack detail" not in exc_info.value.detail["message"]
     assert exc_info.value.detail["operation_id"]
     assert "secret stack detail" not in caplog.text
 
 
-def test_destroy_facade_failure_maps_to_destruction_error_without_leaking_detail(caplog):
+def test_destroy_facade_failure_maps_to_destruction_error_without_leaking_detail(
+    caplog,
+):
     with caplog.at_level("ERROR", logger="digital_twin"):
         with (
             patch.object(deployment, "check_template_protection"),
-            patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
+            patch.object(
+                deployment,
+                "get_project_storage",
+                return_value=_project_storage_for("/projects/test_api_project"),
+            ),
             patch.object(deployment, "validate_project_directory"),
             patch.object(deployment, "create_context", return_value=MagicMock()),
-            patch.object(deployment.core_deployer, "destroy_all", side_effect=RuntimeError("client_secret=super-secret")),
+            patch.object(
+                deployment.core_deployer,
+                "destroy_all",
+                side_effect=RuntimeError("client_secret=super-secret"),
+            ),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                deployment.destroy_all(provider="aws", project_name="test_api_project")
+                deployment.destroy_all(
+                    OPERATION_TOKEN,
+                    provider="aws",
+                    project_name="test_api_project",
+                )
 
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail["error_code"] == "DESTRUCTION_ERROR"
-    assert exc_info.value.detail["message"] == "Destruction operation failed. Check server logs."
+    assert (
+        exc_info.value.detail["message"]
+        == "Destruction operation failed. Check server logs."
+    )
     assert "super-secret" not in exc_info.value.detail["message"]
     assert exc_info.value.detail["operation_id"]
     assert "super-secret" not in caplog.text

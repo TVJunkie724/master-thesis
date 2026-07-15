@@ -32,8 +32,8 @@ def _empty_state(status: str, *, error: str | None = None) -> dict[str, Any]:
     return result
 
 
-def _runner(project_name: str) -> TerraformRunner:
-    project_path = resolve_project_context_path(project_name)
+def _runner(project_name: str, project_path: Path | None = None) -> TerraformRunner:
+    project_path = project_path or resolve_project_context_path(project_name)
     terraform_dir = Path(__file__).resolve().parents[1] / "terraform"
     return TerraformRunner(
         str(terraform_dir),
@@ -41,9 +41,13 @@ def _runner(project_name: str) -> TerraformRunner:
     )
 
 
-def run_terraform_status_command(args: list[str], project_name: str):
+def run_terraform_status_command(
+    args: list[str],
+    project_name: str,
+    project_path: Path | None = None,
+):
     """Execute one allowlisted read-only Terraform status operation."""
-    runner = _runner(project_name)
+    runner = _runner(project_name, project_path)
     if args == ["state", "list"]:
         return runner.state_list()
     if args[:3] == ["plan", "-refresh-only", "-detailed-exitcode"] and len(args) == 4:
@@ -62,10 +66,15 @@ def _matching(resources: list[str], *tokens: str) -> list[str]:
     ]
 
 
-def check_terraform_state(project_name: str) -> dict[str, Any]:
+def check_terraform_state(
+    project_name: str,
+    project_path: Path | None = None,
+) -> dict[str, Any]:
     """Classify canonical Terraform addresses without calling cloud APIs."""
     try:
-        result = run_terraform_status_command(["state", "list"], project_name)
+        result = run_terraform_status_command(
+            ["state", "list"], project_name, project_path
+        )
     except Exception as exc:
         diagnostic = redact_sensitive(exc)
         logger.warning("Terraform state check failed: %s", diagnostic)
@@ -73,7 +82,10 @@ def check_terraform_state(project_name: str) -> dict[str, Any]:
 
     if result.returncode != 0:
         diagnostic = redact_sensitive(result.stderr or result.stdout)
-        if "no state file" in diagnostic.lower() or "does not exist" in diagnostic.lower():
+        if (
+            "no state file" in diagnostic.lower()
+            or "does not exist" in diagnostic.lower()
+        ):
             return _empty_state("not_deployed")
         logger.warning("Terraform state list failed: %s", diagnostic)
         return _empty_state("error", error="Terraform state list failed")
@@ -123,9 +135,7 @@ def check_terraform_drift(project_name: str) -> dict[str, Any]:
     """Compare deployed resources to state using transient credential tfvars."""
     project_path = resolve_project_context_path(project_name)
     try:
-        with tempfile.TemporaryDirectory(
-            prefix="twin2multicloud-drift-"
-        ) as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="twin2multicloud-drift-") as temp_dir:
             var_file = Path(temp_dir) / "generated.tfvars.json"
             generate_tfvars(str(project_path), str(var_file))
             result = run_terraform_status_command(

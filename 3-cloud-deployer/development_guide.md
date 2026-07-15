@@ -8,7 +8,11 @@ architecture, cloud bootstrap, and thesis context belong in `docs-site/`.
 - Run the service through the repository `compose.yaml`.
 - Use the Management API for application workflows.
 - Keep `templates/digital-twin/` read-only.
-- Create mutable project state only under ignored `upload/<project>/` paths.
+- Keep `upload/<project>/` limited to durable, secret-free project definitions.
+- Materialize credentials only through `OperationPackageStore`; operation
+  routes must require and consume an `X-Operation-Package` token.
+- Persist only allowlisted Terraform/runtime outputs through
+  `RuntimeStateStore` under the protected Deployer data volume.
 - Never add credentials, generated Terraform variables, plans, or state to Git
   or Docker build contexts.
 - Keep provider runtime helpers self-contained because they are packaged into

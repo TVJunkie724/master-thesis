@@ -44,8 +44,9 @@ COPY . /app
 
 RUN groupadd --gid 10001 deployer \
  && useradd --uid 10001 --gid 10001 --home-dir /app --no-create-home --shell /usr/sbin/nologin deployer \
- && mkdir -p /app/upload \
- && chown -R deployer:deployer /app
+ && mkdir -p /app/upload /var/lib/twin2multicloud-deployer/runtime-state \
+ && chown -R deployer:deployer /app /var/lib/twin2multicloud-deployer \
+ && chmod 0700 /var/lib/twin2multicloud-deployer/runtime-state
 
 USER deployer
 
