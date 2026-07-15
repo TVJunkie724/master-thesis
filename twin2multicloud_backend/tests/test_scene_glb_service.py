@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import struct
+
 import pytest
 
 from src.config import settings
@@ -14,8 +16,20 @@ from src.services.service_errors import EntityNotFoundError, ValidationError
 from tests.conftest import create_test_twin
 
 
+def _glb_bytes() -> bytes:
+    json_chunk = b"{}  "
+    total_length = 12 + 8 + len(json_chunk)
+    return (
+        struct.pack("<4sII", b"glTF", 2, total_length)
+        + struct.pack("<I4s", len(json_chunk), b"JSON")
+        + json_chunk
+    )
+
+
 def _create_user(db) -> User:
-    user = User(email="scene-glb-service@example.test", name="Scene GLB", auth_provider="google")
+    user = User(
+        email="scene-glb-service@example.test", name="Scene GLB", auth_provider="google"
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -43,11 +57,16 @@ def test_upload_scene_glb_writes_file_and_marks_config_uploaded(db_session, tmp_
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    result = _service(db_session, tmp_path).upload_scene_glb(twin.id, user.id, b"glb-bytes")
+    content = _glb_bytes()
+    result = _service(db_session, tmp_path).upload_scene_glb(
+        twin.id,
+        user.id,
+        content,
+    )
 
     db_session.refresh(twin)
     assert result == {"message": "GLB file uploaded successfully", "size_mb": 0.0}
-    assert (tmp_path / twin.id / "scene.glb").read_bytes() == b"glb-bytes"
+    assert (tmp_path / twin.id / "scene.glb").read_bytes() == content
     assert twin.deployer_config.scene_glb_uploaded is True
 
 
@@ -60,6 +79,23 @@ def test_upload_scene_glb_rejects_oversized_file_without_writing(db_session, tmp
             twin.id,
             user.id,
             b"x" * (1024 * 1024 + 1),
+        )
+
+    assert not (tmp_path / twin.id / "scene.glb").exists()
+
+
+def test_upload_scene_glb_rejects_invalid_container_without_writing(
+    db_session,
+    tmp_path,
+):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    with pytest.raises(ValidationError, match="valid GLB 2.0"):
+        _service(db_session, tmp_path).upload_scene_glb(
+            twin.id,
+            user.id,
+            b"not-a-glb",
         )
 
     assert not (tmp_path / twin.id / "scene.glb").exists()
@@ -87,34 +123,40 @@ def test_upload_scene_glb_rejects_missing_twin(db_session, tmp_path):
     user = _create_user(db_session)
 
     with pytest.raises(EntityNotFoundError, match="Twin not found"):
-        _service(db_session, tmp_path).upload_scene_glb("missing", user.id, b"glb-bytes")
+        _service(db_session, tmp_path).upload_scene_glb(
+            "missing", user.id, b"glb-bytes"
+        )
 
 
-def test_upload_scene_glb_route_uses_temp_storage(authenticated_client, monkeypatch, tmp_path):
+def test_upload_scene_glb_route_uses_temp_storage(
+    authenticated_client, monkeypatch, tmp_path
+):
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers)
     monkeypatch.setattr(settings, "UPLOAD_DIR", str(tmp_path))
 
     response = client.post(
         f"/twins/{twin_id}/deployer/upload-glb",
-        files={"file": ("scene.glb", b"glb-route", "model/gltf-binary")},
+        files={"file": ("scene.glb", _glb_bytes(), "model/gltf-binary")},
         headers=headers,
     )
 
     config_response = client.get(f"/twins/{twin_id}/deployer/config", headers=headers)
     assert response.status_code == 200
     assert response.json()["message"] == "GLB file uploaded successfully"
-    assert (tmp_path / twin_id / "scene.glb").read_bytes() == b"glb-route"
+    assert (tmp_path / twin_id / "scene.glb").read_bytes() == _glb_bytes()
     assert config_response.json()["scene_glb_uploaded"] is True
 
 
-def test_delete_scene_glb_route_clears_uploaded_flag(authenticated_client, monkeypatch, tmp_path):
+def test_delete_scene_glb_route_clears_uploaded_flag(
+    authenticated_client, monkeypatch, tmp_path
+):
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers)
     monkeypatch.setattr(settings, "UPLOAD_DIR", str(tmp_path))
     client.post(
         f"/twins/{twin_id}/deployer/upload-glb",
-        files={"file": ("scene.glb", b"glb-route", "model/gltf-binary")},
+        files={"file": ("scene.glb", _glb_bytes(), "model/gltf-binary")},
         headers=headers,
     )
 

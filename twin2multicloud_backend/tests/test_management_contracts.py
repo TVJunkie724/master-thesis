@@ -28,21 +28,61 @@ def test_management_json_contracts_have_response_models():
         ("/auth/me", "patch"): "#/components/schemas/CurrentUserResponse",
         ("/auth/providers", "get"): "#/components/schemas/AuthProvidersResponse",
         ("/health", "get"): "#/components/schemas/HealthResponse",
-        ("/twins/{twin_id}/can-redeploy", "get"): "#/components/schemas/RedeployReadinessResponse",
-        ("/twins/{twin_id}/deploy", "post"): "#/components/schemas/OperationSessionResponse",
-        ("/twins/{twin_id}/destroy", "post"): "#/components/schemas/OperationSessionResponse",
-        ("/twins/{twin_id}/deployment-readiness", "get"): "#/components/schemas/DeploymentReadinessResponse",
-        ("/twins/{twin_id}/deployment-preflight", "post"): "#/components/schemas/DeploymentPreflightResponse",
-        ("/twins/{twin_id}/deployment-status", "get"): "#/components/schemas/DeploymentStatusResponse",
-        ("/twins/{twin_id}/outputs", "get"): "#/components/schemas/DeploymentOutputsResponse",
-        ("/twins/{twin_id}/deployments", "get"): "#/components/schemas/DeploymentHistoryResponse",
+        (
+            "/twins/{twin_id}/can-redeploy",
+            "get",
+        ): "#/components/schemas/RedeployReadinessResponse",
+        (
+            "/twins/{twin_id}/deploy",
+            "post",
+        ): "#/components/schemas/OperationSessionResponse",
+        (
+            "/twins/{twin_id}/destroy",
+            "post",
+        ): "#/components/schemas/OperationSessionResponse",
+        (
+            "/twins/{twin_id}/deployment-readiness",
+            "get",
+        ): "#/components/schemas/DeploymentReadinessResponse",
+        (
+            "/twins/{twin_id}/deployment-preflight",
+            "post",
+        ): "#/components/schemas/DeploymentPreflightResponse",
+        (
+            "/twins/{twin_id}/deployment-status",
+            "get",
+        ): "#/components/schemas/DeploymentStatusResponse",
+        (
+            "/twins/{twin_id}/outputs",
+            "get",
+        ): "#/components/schemas/DeploymentOutputsResponse",
+        (
+            "/twins/{twin_id}/deployments",
+            "get",
+        ): "#/components/schemas/DeploymentHistoryResponse",
         ("/twins/{twin_id}/config/validate-stored/{provider}", "post"): (
             "#/components/schemas/DualCredentialValidationResponse"
         ),
-        ("/config/validate-dual", "post"): "#/components/schemas/DualCredentialValidationResponse",
-        ("/twins/{twin_id}/optimizer-config/cheapest-path", "get"): "#/components/schemas/CheapestPathResponse",
-        ("/twins/{twin_id}/deployer/upload-glb", "post"): "#/components/schemas/SceneGlbUploadResponse",
-        ("/twins/{twin_id}/deployer/upload-glb", "delete"): "#/components/schemas/MessageResponse",
+        (
+            "/config/validate-dual",
+            "post",
+        ): "#/components/schemas/DualCredentialValidationResponse",
+        (
+            "/twins/{twin_id}/optimizer-config/cheapest-path",
+            "get",
+        ): "#/components/schemas/CheapestPathResponse",
+        (
+            "/twins/{twin_id}/deployer/upload-glb",
+            "post",
+        ): "#/components/schemas/SceneGlbUploadResponse",
+        (
+            "/twins/{twin_id}/deployer/upload-glb",
+            "delete",
+        ): "#/components/schemas/MessageResponse",
+        (
+            "/twins/{twin_id}/deployer/upload-zip",
+            "post",
+        ): "#/components/schemas/ProjectZipExtractionContract",
     }
 
     for (path, method), expected_ref in expected_refs.items():
@@ -86,7 +126,6 @@ def test_twin_routes_keep_openapi_summaries_and_descriptions():
 def test_documented_raw_payload_exceptions_remain_unmodeled():
     """Streaming, downloads, and dynamic downstream payloads stay explicitly raw."""
     raw_json_paths = [
-        ("/twins/{twin_id}/deployer/upload-zip", "post"),
         ("/optimizer/calculate", "put"),
         ("/optimizer/pricing/export/{provider}", "get"),
         ("/optimizer/pricing-status", "get"),
@@ -102,7 +141,8 @@ def _public_client_methods(client_cls) -> set[str]:
     return {
         name
         for name, value in inspect.getmembers(client_cls)
-        if not name.startswith("_") and (inspect.iscoroutinefunction(value) or inspect.isfunction(value))
+        if not name.startswith("_")
+        and (inspect.iscoroutinefunction(value) or inspect.isfunction(value))
     }
 
 
@@ -120,13 +160,11 @@ def test_downstream_client_contract_surface_is_explicit():
     }
     assert _public_client_methods(DeployerClient) == {
         "check_cooldown",
-        "create_project_zip",
         "deploy_stream",
         "destroy_stream",
         "download_simulator",
         "extract_project_zip",
-        "import_project_zip",
-        "project_exists",
+        "stage_operation_package",
         "start_log_trace",
         "stream_log_trace",
         "validate_config_file",
