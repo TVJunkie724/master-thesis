@@ -19,13 +19,10 @@ final authProvider = NotifierProvider<AuthNotifier, AuthState>(
 class AuthState {
   final User? user;
   final bool isLoading;
-  final bool isAuthenticated;
 
-  const AuthState({
-    this.user,
-    this.isLoading = false,
-    this.isAuthenticated = false,
-  });
+  const AuthState({this.user, this.isLoading = false});
+
+  bool get isAuthenticated => user != null;
 }
 
 class AuthNotifier extends Notifier<AuthState> {
@@ -33,7 +30,7 @@ class AuthNotifier extends Notifier<AuthState> {
   AuthState build() {
     final initialUser = ref.watch(initialUserProvider);
     if (initialUser != null) {
-      return AuthState(user: initialUser, isAuthenticated: true);
+      return AuthState(user: initialUser);
     }
     return const AuthState();
   }
@@ -55,7 +52,7 @@ class AuthNotifier extends Notifier<AuthState> {
     state = const AuthState(isLoading: true);
     ref.read(apiServiceProvider).setToken(token);
     final user = ref.read(initialUserProvider) ?? developmentUser;
-    state = AuthState(user: user, isAuthenticated: true);
+    state = AuthState(user: user);
 
     ref.read(themeProvider.notifier).hydrateFromUser(user.themePreference);
   }
@@ -64,7 +61,7 @@ class AuthNotifier extends Notifier<AuthState> {
     final runtime = ref.read(appRuntimeProvider);
     final initialUser = ref.read(initialUserProvider);
     if (runtime.isDemo && initialUser != null) {
-      state = AuthState(user: initialUser, isAuthenticated: true);
+      state = AuthState(user: initialUser);
       return;
     }
     ref.read(apiServiceProvider).setToken(null);
