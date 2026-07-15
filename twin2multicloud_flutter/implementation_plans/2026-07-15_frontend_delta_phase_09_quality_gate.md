@@ -135,7 +135,8 @@ Required rules:
 | `FLUTTER-PRESENTATION-HTTP` | `lib/screens`, `lib/widgets`, feature presentation | import/use of Dio, `ApiService`, or `ManagementApi` |
 | `FLUTTER-DIAGNOSTIC` | production Dart | `print`, `debugPrint`, TODO, FIXME, or HACK |
 | `FLUTTER-SECRET-LITERAL` | presentation and demo fixtures | PEM/private-key payload, concrete access token, client secret, OpenAI key, or credential file path value |
-| `FLUTTER-RUNTIME-CONFIG` | tracked config | runtime URL/token literal outside `lib/config/api_config.dart` and `config/dev.example.json`, or any URL/token in `config/demo.json` |
+| `FLUTTER-RUNTIME-CONFIG` | tracked config | Management API/docs base URL or dev-auth token literal outside `lib/config/api_config.dart`, `lib/config/docs_config.dart`, and `config/dev.example.json`, or any such key in `config/demo.json` |
+| `FLUTTER-SOURCE-READ` | scanned source | unreadable or non-UTF-8 source; diagnostic contains path only |
 
 Identifiers and user-facing labels such as `serviceAccountJson`, `Client
 secret`, or `private_key_id` are not secret values and must not fail merely by
