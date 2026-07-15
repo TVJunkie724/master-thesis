@@ -183,7 +183,6 @@ TwinOverviewLoaded _state({
   bool canDestroy = false,
   bool canEdit = true,
   bool canDelete = true,
-  Map<String, dynamic>? cheapestPath,
   String? lastError,
   bool showTerminal = false,
   List<String> terminalLogs = const [],
@@ -204,7 +203,6 @@ TwinOverviewLoaded _state({
     deploymentReadiness: DeploymentReadinessViewState.fromSnapshot(
       _readinessSnapshot(readinessReady),
     ),
-    cheapestPath: cheapestPath,
     lastError: lastError,
     deploymentOperation: DeploymentOperationViewState(
       phase: showTerminal ? operationPhase : DeploymentOperationViewPhase.idle,

@@ -9,7 +9,7 @@ import '../../core/app_logger.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
-import '../../models/deployer_config.dart';
+import '../../models/optimizer_config.dart';
 import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';

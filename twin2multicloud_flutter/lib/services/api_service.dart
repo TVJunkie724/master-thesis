@@ -2,15 +2,21 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import '../core/result.dart';
+import '../models/calc_params.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployer_config.dart';
+import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
+import '../models/pricing_export_snapshot.dart';
+import '../models/twin.dart';
+import '../models/twin_config.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
 import 'management_api.dart';
@@ -163,9 +169,19 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<List<dynamic>> getTwins() async {
+  Future<List<Twin>> getTwins() async {
     final response = await _dio.get('/twins/');
-    return response.data;
+    final data = response.data;
+    if (data is! List) {
+      throw const FormatException(
+        'Invalid API contract: twins response must be an array.',
+      );
+    }
+    return List<Twin>.unmodifiable(
+      data.indexed.map(
+        (entry) => Twin.fromJson(_contractMap(entry.$2, 'twins[${entry.$1}]')),
+      ),
+    );
   }
 
   @override
@@ -177,29 +193,25 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> getTwin(String twinId) async {
+  Future<Twin> getTwin(String twinId) async {
     final response = await _dio.get('/twins/$twinId');
-    return response.data;
+    return Twin.fromJson(_contractMap(response.data, 'twin'));
   }
 
   @override
-  Future<Map<String, dynamic>> createTwin(String name) async {
+  Future<Twin> createTwin(String name) async {
     final response = await _dio.post('/twins/', data: {'name': name});
-    return response.data;
+    return Twin.fromJson(_contractMap(response.data, 'twin'));
   }
 
   @override
-  Future<Map<String, dynamic>> updateTwin(
-    String twinId, {
-    String? name,
-    String? state,
-  }) async {
+  Future<Twin> updateTwin(String twinId, {String? name, String? state}) async {
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
     if (state != null) data['state'] = state;
 
     final response = await _dio.put('/twins/$twinId', data: data);
-    return response.data;
+    return Twin.fromJson(_contractMap(response.data, 'twin'));
   }
 
   @override
@@ -208,77 +220,26 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> getTwinConfig(String twinId) async {
+  Future<TwinConfigData> getTwinConfig(String twinId) async {
     final response = await _dio.get('/twins/$twinId/config/');
-    return response.data;
+    return TwinConfigData.fromJson(_contractMap(response.data, 'twin_config'));
   }
 
   @override
-  Future<Map<String, dynamic>> updateTwinConfig(
+  Future<TwinConfigData> updateTwinConfig(
     String twinId,
     Map<String, dynamic> config,
   ) async {
     final response = await _dio.put('/twins/$twinId/config/', data: config);
-    return response.data;
+    return TwinConfigData.fromJson(_contractMap(response.data, 'twin_config'));
   }
 
   @override
-  Future<Map<String, dynamic>> updateTwinConfigRequest(
+  Future<TwinConfigData> updateTwinConfigRequest(
     String twinId,
     TwinConfigUpdateRequest request,
   ) {
     return updateTwinConfig(twinId, request.toJson());
-  }
-
-  @override
-  Future<Map<String, dynamic>> validateCredentials(
-    String twinId,
-    String provider,
-  ) async {
-    final response = await _dio.post(
-      '/twins/$twinId/config/validate/$provider',
-    );
-    return response.data;
-  }
-
-  /// Validate credentials without storing them (inline validation)
-  @override
-  Future<Map<String, dynamic>> validateCredentialsInline(
-    String provider,
-    Map<String, dynamic> credentials,
-  ) async {
-    final response = await _dio.post(
-      '/config/validate-inline',
-      data: {'provider': provider, provider: credentials},
-    );
-    return response.data;
-  }
-
-  /// Validate credentials against BOTH Optimizer and Deployer APIs
-  /// Returns: { provider, valid, optimizer: {valid, message}, deployer: {valid, message} }
-  @override
-  Future<Map<String, dynamic>> validateCredentialsDual(
-    String provider,
-    Map<String, dynamic> credentials,
-  ) async {
-    final response = await _dio.post(
-      '/config/validate-dual',
-      data: {'provider': provider, provider: credentials},
-    );
-    return response.data;
-  }
-
-  /// Validate STORED credentials against BOTH APIs
-  /// Used when fields are empty (hidden secrets)
-  @override
-  Future<Map<String, dynamic>> validateStoredCredentialsDual(
-    String twinId,
-    String provider,
-  ) async {
-    final response = await _dio.post(
-      '/twins/$twinId/config/validate-stored/$provider',
-    );
-    return response.data;
   }
 
   // ============================================================
@@ -372,11 +333,14 @@ class ApiService implements ManagementApi {
   /// Calculate costs using Optimizer
   /// Returns full result including costs, cheapest path, and overrides
   @override
-  Future<Map<String, dynamic>> calculateCosts(
-    Map<String, dynamic> params,
-  ) async {
-    final response = await _dio.put('/optimizer/calculate', data: params);
-    return response.data;
+  Future<OptimizationResultData> calculateCosts(CalcParams params) async {
+    final response = await _dio.put(
+      '/optimizer/calculate',
+      data: params.toJson(),
+    );
+    return OptimizationResultData.fromApiJson(
+      _contractMap(response.data, 'calculation'),
+    );
   }
 
   // ============================================================
@@ -385,20 +349,24 @@ class ApiService implements ManagementApi {
 
   /// Get optimizer config (params + result + cheapest path)
   @override
-  Future<Map<String, dynamic>> getOptimizerConfig(String twinId) async {
-    final response = await _dio.get('/twins/$twinId/optimizer-config');
-    return response.data;
+  Future<OptimizerConfigData?> getOptimizerConfig(String twinId) async {
+    try {
+      final response = await _dio.get('/twins/$twinId/optimizer-config');
+      return OptimizerConfigData.fromJson(
+        _contractMap(response.data, 'optimizer_config'),
+      );
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   /// Save params only (before calculation)
   @override
-  Future<void> saveOptimizerParams(
-    String twinId,
-    Map<String, dynamic> params,
-  ) async {
+  Future<void> saveOptimizerParams(String twinId, CalcParams params) async {
     await _dio.put(
       '/twins/$twinId/optimizer-config/params',
-      data: {'params': params},
+      data: {'params': params.toJson()},
     );
   }
 
@@ -406,29 +374,36 @@ class ApiService implements ManagementApi {
   @override
   Future<void> saveOptimizerResult(
     String twinId, {
-    required Map<String, dynamic> params,
-    required Map<String, dynamic> result,
-    required Map<String, String?> cheapestPath,
-    required Map<String, dynamic> pricingSnapshots,
-    required Map<String, String?> pricingTimestamps,
+    required CalcParams params,
+    required OptimizationResultData optimization,
+    required CheapestPath cheapestPath,
+    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
   }) async {
     await _dio.put(
       '/twins/$twinId/optimizer-config/result',
       data: {
-        'params': params,
-        'result': result,
-        'cheapest_path': cheapestPath,
-        'pricing_snapshots': pricingSnapshots,
-        'pricing_timestamps': pricingTimestamps,
+        'params': params.toJson(),
+        'result': optimization.payload,
+        'cheapest_path': cheapestPath.toJson(),
+        'pricing_snapshots': {
+          for (final entry in pricingSnapshots.entries)
+            entry.key.apiValue: entry.value.payload,
+        },
+        'pricing_timestamps': {
+          for (final entry in pricingSnapshots.entries)
+            entry.key.apiValue: entry.value.updatedAt.toIso8601String(),
+        },
       },
     );
   }
 
   /// Export pricing data from Optimizer (for snapshotting)
   @override
-  Future<Map<String, dynamic>> exportPricing(String provider) async {
+  Future<PricingExportSnapshot> exportPricing(String provider) async {
     final response = await _dio.get('/optimizer/pricing/export/$provider');
-    return response.data;
+    return PricingExportSnapshot.fromJson(
+      _contractMap(response.data, 'pricing_export'),
+    );
   }
 
   // ============================================================
@@ -437,14 +412,21 @@ class ApiService implements ManagementApi {
 
   /// Get deployer config for a twin
   @override
-  Future<Map<String, dynamic>> getDeployerConfig(String twinId) async {
-    final response = await _dio.get('/twins/$twinId/deployer/config');
-    return response.data;
+  Future<DeployerConfigData?> getDeployerConfig(String twinId) async {
+    try {
+      final response = await _dio.get('/twins/$twinId/deployer/config');
+      return DeployerConfigData.fromJson(
+        _contractMap(response.data, 'deployer_config'),
+      );
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   /// Update deployer config for a twin
   @override
-  Future<Map<String, dynamic>> updateDeployerConfig(
+  Future<DeployerConfigData> updateDeployerConfig(
     String twinId,
     Map<String, dynamic> config,
   ) async {
@@ -452,11 +434,13 @@ class ApiService implements ManagementApi {
       '/twins/$twinId/deployer/config',
       data: config,
     );
-    return response.data;
+    return DeployerConfigData.fromJson(
+      _contractMap(response.data, 'deployer_config'),
+    );
   }
 
   @override
-  Future<Map<String, dynamic>> updateDeployerConfigRequest(
+  Future<DeployerConfigData> updateDeployerConfigRequest(
     String twinId,
     DeployerConfigUpdateRequest request,
   ) {
@@ -581,13 +565,10 @@ class ApiService implements ManagementApi {
   /// Returns [Success] with [CalcResult] on success,
   /// or [Failure] with [AppException] on error.
   @override
-  Future<Result<CalcResult>> calculateCostsResult(
-    Map<String, dynamic> params,
-  ) async {
+  Future<Result<CalcResult>> calculateCostsResult(CalcParams params) async {
     try {
       final response = await calculateCosts(params);
-      final result = CalcResult.fromJson(response);
-      return Success(result);
+      return Success(response.result);
     } on DioException catch (e) {
       return Failure(AppException.fromDioError(e));
     } catch (e) {
@@ -618,9 +599,7 @@ class ApiService implements ManagementApi {
 
   /// Get twin config with structured error handling.
   @override
-  Future<Result<Map<String, dynamic>>> getTwinConfigResult(
-    String twinId,
-  ) async {
+  Future<Result<TwinConfigData>> getTwinConfigResult(String twinId) async {
     try {
       final data = await getTwinConfig(twinId);
       return Success(data);
@@ -850,6 +829,13 @@ Map<String, dynamic> _responseMap(Object? value) {
       'Management API returned an invalid deployment response.',
       code: 'DEPLOYMENT_CONTRACT_INVALID',
     );
+  }
+  return Map<String, dynamic>.from(value);
+}
+
+Map<String, dynamic> _contractMap(Object? value, String field) {
+  if (value is! Map) {
+    throw FormatException('Invalid API contract: $field must be an object.');
   }
   return Map<String, dynamic>.from(value);
 }

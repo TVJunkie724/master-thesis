@@ -24,14 +24,8 @@ extension _WizardInitializationCloudAccessHandlers on WizardBloc {
       final twin = await _api.getTwin(event.twinId);
       final config = await _api.getTwinConfig(event.twinId);
 
-      // Fetch deployer config separately (may not exist yet)
-      DeployerConfigData? deployerConfig;
-      try {
-        final deployerJson = await _api.getDeployerConfig(event.twinId);
-        deployerConfig = DeployerConfigData.fromJson(deployerJson);
-      } catch (e) {
-        // No deployer config yet, that's fine
-      }
+      // The adapter maps an expected 404 to null. Other failures remain visible.
+      final deployerConfig = await _api.getDeployerConfig(event.twinId);
 
       // Pass to stateless service for state construction
       final result = _initService.initializeEditMode(

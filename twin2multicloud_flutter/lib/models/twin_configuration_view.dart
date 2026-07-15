@@ -1,6 +1,11 @@
 import 'dart:convert';
 
 import '../bloc/twin_overview/twin_overview_state.dart';
+import 'calc_params.dart';
+import 'calc_result.dart';
+import 'cloud_connection.dart';
+import 'deployer_config.dart';
+import 'optimizer_config.dart';
 
 class TwinConfigurationView {
   final List<String> pathSegments;
@@ -18,45 +23,36 @@ class TwinConfigurationView {
   });
 
   factory TwinConfigurationView.fromState(TwinOverviewLoaded state) {
-    final deployerConfig = _mapValue(state.deployerConfig);
-    final pathSegments = _pathSegments(state.optimizerResult);
-    final cheapestPath = _mapValue(state.cheapestPath);
+    final deployerConfig = state.deployerConfig ?? const DeployerConfigData();
+    final optimizerConfig = state.optimizerConfig;
+    final pathSegments =
+        optimizerConfig?.optimization?.result.cheapestPath ?? const [];
     final l2Provider = _providerForLayer(
       layer: 'l2',
-      cheapestPath: cheapestPath,
+      cheapestPath: optimizerConfig?.cheapestPath,
       pathSegments: pathSegments,
       fallback: 'aws',
     );
     final l4Provider = _providerForLayer(
       layer: 'l4',
-      cheapestPath: cheapestPath,
+      cheapestPath: optimizerConfig?.cheapestPath,
       pathSegments: pathSegments,
       fallback: 'aws',
     );
 
     return TwinConfigurationView(
       pathSegments: pathSegments,
-      optimization: OptimizationSummaryView.fromMaps(
-        result: state.optimizerResult,
-        params: state.optimizerParams,
-        calculatedAt: state.calculatedAt,
+      optimization: OptimizationSummaryView.fromData(
+        result: optimizerConfig?.optimization?.result,
+        params: optimizerConfig?.params,
+        calculatedAt: optimizerConfig?.calculatedAt,
       ),
       pricingSnapshots: [
-        ProviderPricingSnapshotView.fromMap(
-          provider: 'AWS',
-          pricing: state.pricingAws,
-          updatedAt: state.pricingAwsUpdatedAt,
-        ),
-        ProviderPricingSnapshotView.fromMap(
-          provider: 'Azure',
-          pricing: state.pricingAzure,
-          updatedAt: state.pricingAzureUpdatedAt,
-        ),
-        ProviderPricingSnapshotView.fromMap(
-          provider: 'GCP',
-          pricing: state.pricingGcp,
-          updatedAt: state.pricingGcpUpdatedAt,
-        ),
+        for (final provider in CloudProvider.values)
+          ProviderPricingSnapshotView.fromSnapshot(
+            optimizerConfig?.snapshot(provider) ??
+                ProviderPricingSnapshot(provider: provider),
+          ),
       ],
       configurationArtifacts: _configurationArtifacts(
         deployerConfig: deployerConfig,
@@ -88,18 +84,18 @@ class OptimizationSummaryView {
     this.calculatedAt,
   });
 
-  factory OptimizationSummaryView.fromMaps({
-    required Map<String, dynamic>? result,
-    required Map<String, dynamic>? params,
-    required String? calculatedAt,
+  factory OptimizationSummaryView.fromData({
+    required CalcResult? result,
+    required CalcParams? params,
+    required DateTime? calculatedAt,
   }) {
     return OptimizationSummaryView(
       hasResult: result != null,
-      totalCost: _doubleValue(result?['totalCost']) ?? 0,
-      numberOfDevices: params?['numberOfDevices']?.toString(),
+      totalCost: result?.totalCost ?? 0,
+      numberOfDevices: params?.numberOfDevices.toString(),
       messagesPerHour: _messagesPerHour(params),
       retention: _retention(params),
-      calculatedAt: calculatedAt,
+      calculatedAt: calculatedAt?.toIso8601String(),
     );
   }
 }
@@ -115,15 +111,15 @@ class ProviderPricingSnapshotView {
     this.artifactContent,
   });
 
-  factory ProviderPricingSnapshotView.fromMap({
-    required String provider,
-    required Map<String, dynamic>? pricing,
-    required String? updatedAt,
-  }) {
+  factory ProviderPricingSnapshotView.fromSnapshot(
+    ProviderPricingSnapshot snapshot,
+  ) {
     return ProviderPricingSnapshotView(
-      provider: provider,
-      updatedAt: updatedAt,
-      artifactContent: pricing == null ? null : _prettyPrintJson(pricing),
+      provider: snapshot.provider.label,
+      updatedAt: snapshot.updatedAt?.toIso8601String(),
+      artifactContent: snapshot.payload == null
+          ? null
+          : _prettyPrintJson(snapshot.payload!),
     );
   }
 
@@ -157,7 +153,7 @@ class FunctionArtifactGroupView {
 }
 
 List<ConfigurationArtifactView> _configurationArtifacts({
-  required Map<String, dynamic> deployerConfig,
+  required DeployerConfigData deployerConfig,
   required String l2Provider,
   required String l4Provider,
 }) {
@@ -169,81 +165,79 @@ List<ConfigurationArtifactView> _configurationArtifacts({
       : 'scene.json';
 
   return [
-    if (_stringValue(deployerConfig['config_events_json']) != null)
+    if (deployerConfig.configEventsJson != null)
       ConfigurationArtifactView(
         title: 'config_events.json',
         filename: 'config_events.json',
-        content: _stringValue(deployerConfig['config_events_json'])!,
+        content: deployerConfig.configEventsJson!,
       ),
-    if (_stringValue(deployerConfig['config_iot_devices_json']) != null)
+    if (deployerConfig.configIotDevicesJson != null)
       ConfigurationArtifactView(
         title: 'config_iot_devices.json',
         filename: 'config_iot_devices.json',
-        content: _stringValue(deployerConfig['config_iot_devices_json'])!,
+        content: deployerConfig.configIotDevicesJson!,
       ),
-    if (_stringValue(deployerConfig['payloads_json']) != null)
+    if (deployerConfig.payloadsJson != null)
       ConfigurationArtifactView(
         title: 'payloads.json',
         filename: 'payloads.json',
-        content: _stringValue(deployerConfig['payloads_json'])!,
+        content: deployerConfig.payloadsJson!,
       ),
-    if (_stringValue(deployerConfig['state_machine_content']) != null)
+    if (deployerConfig.stateMachineContent != null)
       ConfigurationArtifactView(
         title: _stateMachineFilename(l2Provider),
         filename: _stateMachineFilename(l2Provider),
-        content: _stringValue(deployerConfig['state_machine_content'])!,
+        content: deployerConfig.stateMachineContent!,
       ),
-    if (_stringValue(deployerConfig['hierarchy_content']) != null)
+    if (deployerConfig.hierarchyContent != null)
       ConfigurationArtifactView(
         title: hierarchyFilename,
         filename: hierarchyFilename,
-        content: _stringValue(deployerConfig['hierarchy_content'])!,
+        content: deployerConfig.hierarchyContent!,
       ),
-    if (_stringValue(deployerConfig['scene_config_content']) != null)
+    if (deployerConfig.sceneConfigContent != null)
       ConfigurationArtifactView(
         title: sceneFilename,
         filename: sceneFilename,
-        content: _stringValue(deployerConfig['scene_config_content'])!,
+        content: deployerConfig.sceneConfigContent!,
       ),
-    if (_stringValue(deployerConfig['user_config_content']) != null)
+    if (deployerConfig.userConfigContent != null)
       ConfigurationArtifactView(
         title: 'config_user.json',
         filename: 'config_user.json',
-        content: _stringValue(deployerConfig['user_config_content'])!,
+        content: deployerConfig.userConfigContent!,
       ),
   ];
 }
 
 List<FunctionArtifactGroupView> _functionGroups({
-  required Map<String, dynamic> deployerConfig,
+  required DeployerConfigData deployerConfig,
   required String l2Provider,
 }) {
   final groups = <FunctionArtifactGroupView>[
     FunctionArtifactGroupView(
       title: 'Processors',
       artifacts: _functionArtifacts(
-        values: _stringMap(deployerConfig['processor_contents']),
+        values: deployerConfig.processorContents,
         l2Provider: l2Provider,
       ),
     ),
     FunctionArtifactGroupView(
       title: 'Event Feedback',
-      artifacts: _stringValue(deployerConfig['event_feedback_content']) == null
+      artifacts: deployerConfig.eventFeedbackContent == null
           ? const []
           : [
               ConfigurationArtifactView(
                 title: 'event-feedback/${_functionFilename(l2Provider)}',
                 filename: 'event-feedback/${_functionFilename(l2Provider)}',
-                content: _stringValue(
-                  deployerConfig['event_feedback_content'],
-                )!,
+                content: deployerConfig.eventFeedbackContent!,
               ),
             ],
     ),
     FunctionArtifactGroupView(
       title: 'Event Actions',
       artifacts: _functionArtifacts(
-        values: _stringMap(deployerConfig['event_action_contents']),
+        values: deployerConfig.eventActionContents,
         l2Provider: l2Provider,
       ),
     ),
@@ -266,20 +260,14 @@ List<ConfigurationArtifactView> _functionArtifacts({
   }).toList();
 }
 
-List<String> _pathSegments(Map<String, dynamic>? optimizerResult) {
-  final rawPath = optimizerResult?['cheapestPath'];
-  if (rawPath is! List) return const [];
-  return rawPath.map((item) => item.toString()).toList();
-}
-
 String _providerForLayer({
   required String layer,
-  required Map<String, dynamic> cheapestPath,
+  required CheapestPath? cheapestPath,
   required List<String> pathSegments,
   required String fallback,
 }) {
-  final direct = cheapestPath[layer]?.toString().toLowerCase();
-  if (direct != null && direct.isNotEmpty) return direct;
+  final direct = cheapestPath?.providerForLayer(layer);
+  if (direct != null) return direct.apiValue;
 
   final segment = pathSegments.cast<String?>().firstWhere(
     (item) =>
@@ -293,19 +281,19 @@ String _providerForLayer({
   return fallback;
 }
 
-String? _messagesPerHour(Map<String, dynamic>? params) {
-  final interval = _doubleValue(params?['deviceSendingIntervalInMinutes']);
+String? _messagesPerHour(CalcParams? params) {
+  final interval = params?.deviceSendingIntervalInMinutes;
   if (interval == null || interval <= 0) return null;
   return (60.0 / interval).toStringAsFixed(1);
 }
 
-String? _retention(Map<String, dynamic>? params) {
-  final hot = _doubleValue(params?['hotStorageDurationInMonths']) ?? 0;
-  final cool = _doubleValue(params?['coolStorageDurationInMonths']) ?? 0;
-  final archive = _doubleValue(params?['archiveStorageDurationInMonths']) ?? 0;
+String? _retention(CalcParams? params) {
+  final hot = params?.hotStorageDurationInMonths ?? 0;
+  final cool = params?.coolStorageDurationInMonths ?? 0;
+  final archive = params?.archiveStorageDurationInMonths ?? 0;
   final totalMonths = hot + cool + archive;
   if (totalMonths <= 0) return null;
-  return '${totalMonths.toStringAsFixed(0)} months';
+  return '$totalMonths months';
 }
 
 String _functionFilename(String provider) {
@@ -331,27 +319,4 @@ String _prettyPrintJson(Map<String, dynamic> json) {
   } catch (_) {
     return json.toString();
   }
-}
-
-Map<String, dynamic> _mapValue(dynamic value) {
-  if (value is! Map) return const {};
-  return Map<String, dynamic>.from(value);
-}
-
-Map<String, String> _stringMap(dynamic value) {
-  if (value is! Map) return const {};
-  return Map<String, dynamic>.from(
-    value,
-  ).map((key, item) => MapEntry(key, item?.toString() ?? ''));
-}
-
-String? _stringValue(dynamic value) {
-  if (value is! String || value.isEmpty) return null;
-  return value;
-}
-
-double? _doubleValue(dynamic value) {
-  if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value);
-  return null;
 }

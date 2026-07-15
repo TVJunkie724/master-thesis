@@ -60,6 +60,61 @@ void main() {
       );
     });
 
+    testWidgets('decodes canonical twin and configuration read models', (
+      tester,
+    ) async {
+      final twins = await _readOrFail('/twins/', _api.getTwins);
+      expect(twins, isA<List>());
+      if (twins.isEmpty) {
+        expect(twins, isEmpty);
+        return;
+      }
+
+      final listed = twins.first;
+      expect(listed.id, isNotEmpty);
+      expect(listed.name, isNotEmpty);
+      expect(listed.createdAt.isUtc, isTrue);
+      expect(listed.updatedAt.isUtc, isTrue);
+
+      final twin = await _readOrFail(
+        '/twins/${listed.id}',
+        () => _api.getTwin(listed.id),
+      );
+      expect(twin.id, listed.id);
+      expect(twin.name, listed.name);
+
+      final config = await _readOrFail(
+        '/twins/${listed.id}/config/',
+        () => _api.getTwinConfig(listed.id),
+      );
+      expect(config.twinId, listed.id);
+      expect(config.id, isNotEmpty);
+      expect(config.providers.keys.toSet(), CloudProvider.values.toSet());
+      expect(config.updatedAt.isUtc, isTrue);
+
+      final optimizer = await _readOrFail(
+        '/twins/${listed.id}/optimizer-config',
+        () => _api.getOptimizerConfig(listed.id),
+      );
+      if (optimizer != null) {
+        expect(optimizer.twinId, listed.id);
+        expect(optimizer.id, isNotEmpty);
+        expect(
+          optimizer.pricingSnapshots.keys.toSet(),
+          CloudProvider.values.toSet(),
+        );
+      }
+
+      final deployer = await _readOrFail(
+        '/twins/${listed.id}/deployer/config',
+        () => _api.getDeployerConfig(listed.id),
+      );
+      if (deployer != null) {
+        expect(deployer.processorContents, isA<Map<String, String>>());
+        expect(deployer.eventActionContents, isA<Map<String, String>>());
+      }
+    });
+
     testWidgets('decodes the complete cloud access inventory', (tester) async {
       final inventory = await _readOrFail(
         '/cloud-access',

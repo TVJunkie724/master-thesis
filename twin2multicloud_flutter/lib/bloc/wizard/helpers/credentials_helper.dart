@@ -1,6 +1,8 @@
 // lib/bloc/wizard/helpers/credentials_helper.dart
 // Extracted credential management logic
 
+import '../../../models/cloud_connection.dart';
+import '../../../models/twin_config.dart';
 import '../wizard_state.dart';
 
 /// Helper class for credential-related operations
@@ -18,117 +20,76 @@ class CredentialsHelper {
     return result;
   }
 
-  /// Extract non-secret credential fields (regions, etc.) from the FLAT
-  /// config response (`{aws_region: ..., aws_sso_region: ..., ...}`).
-  ///
-  /// The backend never returns secret fields like access keys, so we mask them
-  /// with bullets when the provider is configured. Public/non-secret fields
-  /// (regions, project_id) are returned as their actual values so the form
-  /// reflects what's stored in the DB.
-  static Map<String, String> extractCredentialsFromFlatConfig(
-    Map<String, dynamic> config,
-    String provider,
+  static Map<String, String> _credentialDisplayValues(
+    TwinProviderConfig config,
   ) {
-    final prefix = '${provider}_';
     final result = <String, String>{};
-
-    // Per-provider list of non-secret fields the backend exposes by name.
-    // Field names are stored WITHOUT the provider prefix to match the form's
-    // CredentialField.name (e.g. "region", "sso_region", "region_iothub").
-    const nonSecretFields = <String, List<String>>{
-      'aws': ['region', 'sso_region'],
-      'azure': ['region', 'region_iothub', 'region_digital_twin'],
-      'gcp': ['project_id', 'region'],
-    };
-
-    for (final field in nonSecretFields[provider] ?? const []) {
-      final value = config['$prefix$field'];
-      if (value != null && value.toString().isNotEmpty) {
-        result[field] = value.toString();
-      }
+    void add(String key, String? value) {
+      if (value != null && value.isNotEmpty) result[key] = value;
     }
 
-    // Mask secret fields only for active CloudConnection-backed providers.
-    // Older per-twin credential rows are intentionally ignored by the backend
-    // read model and should not hydrate as usable configuration.
-    const secretFields = <String, List<String>>{
-      'aws': ['access_key_id', 'secret_access_key', 'session_token'],
-      'azure': ['subscription_id', 'client_id', 'client_secret', 'tenant_id'],
-      'gcp': ['billing_account', 'service_account_json'],
-    };
-
-    final sources = config['credential_sources'];
-    final source = sources is Map ? sources[provider] : null;
-    if (source == 'cloud_connection') {
-      for (final field in secretFields[provider] ?? const []) {
-        result.putIfAbsent(field, () => '••••••••');
-      }
+    add('region', config.region);
+    switch (config.provider) {
+      case CloudProvider.aws:
+        add('sso_region', config.secondaryRegion);
+      case CloudProvider.azure:
+        add('region_iothub', config.secondaryRegion);
+        add('region_digital_twin', config.tertiaryRegion);
+      case CloudProvider.gcp:
+        add('project_id', config.projectId);
     }
 
+    const secretFields = <CloudProvider, List<String>>{
+      CloudProvider.aws: [
+        'access_key_id',
+        'secret_access_key',
+        'session_token',
+      ],
+      CloudProvider.azure: [
+        'subscription_id',
+        'client_id',
+        'client_secret',
+        'tenant_id',
+      ],
+      CloudProvider.gcp: ['billing_account', 'service_account_json'],
+    };
+    for (final field in secretFields[config.provider] ?? const []) {
+      result.putIfAbsent(field, () => '••••••••');
+    }
     return result;
   }
 
   /// Hydrate credentials from config response
   static Map<String, ProviderCredentials> hydrateCredentials(
-    Map<String, dynamic> config,
+    TwinConfigData config,
   ) {
-    final awsCreds = hydrateProviderCredentials(config, 'aws');
-    final azureCreds = hydrateProviderCredentials(config, 'azure');
-    final gcpCreds = hydrateProviderCredentials(config, 'gcp');
-
-    return {'aws': awsCreds, 'azure': azureCreds, 'gcp': gcpCreds};
+    return {
+      for (final provider in CloudProvider.values)
+        provider.apiValue: hydrateProviderCredentials(config, provider),
+    };
   }
 
-  /// Hydrate one provider from the canonical CloudConnection read model or
-  /// from legacy per-twin credential flags while old drafts still exist.
+  /// Hydrate one provider from the canonical CloudConnection read model.
   static ProviderCredentials hydrateProviderCredentials(
-    Map<String, dynamic> config,
-    String provider,
+    TwinConfigData config,
+    CloudProvider provider,
   ) {
-    if (!isProviderConfigured(config, provider)) {
+    final providerConfig = config.provider(provider);
+    if (!providerConfig.usesCloudConnection) {
       return const ProviderCredentials();
     }
     return ProviderCredentials(
       isValid: true,
       source: CredentialSource.inherited,
-      values: {
-        ...extractCredentialsFromFlatConfig(config, provider),
-        ...extractCredentialsFromNestedConfig(config, provider),
-      },
+      values: _credentialDisplayValues(providerConfig),
     );
   }
 
-  /// True when either the canonical CloudConnection model or legacy config says
-  /// this provider is configured. The legacy branch is a read-only compatibility
-  /// bridge for existing drafts; new saves still use CloudConnection ids.
+  /// True when the canonical CloudConnection model configures the provider.
   static bool isProviderConfigured(
-    Map<String, dynamic> config,
-    String provider,
-  ) {
-    if (config['${provider}_cloud_connection_id'] != null) {
-      return true;
-    }
-    final sources = config['credential_sources'];
-    if (sources is Map && sources[provider] == 'cloud_connection') {
-      return true;
-    }
-    if (config['${provider}_configured'] == true) {
-      return true;
-    }
-    final nested = config[provider];
-    return nested is Map && nested.isNotEmpty;
-  }
-
-  /// Extract legacy nested credential fields returned by older edit-mode
-  /// payloads. Values are masked because they represent stored credentials.
-  static Map<String, String> extractCredentialsFromNestedConfig(
-    Map<String, dynamic> config,
-    String provider,
-  ) {
-    final nested = config[provider];
-    if (nested is! Map) return {};
-    return extractMaskedCredentials(nested);
-  }
+    TwinConfigData config,
+    CloudProvider provider,
+  ) => config.provider(provider).usesCloudConnection;
 
   /// Check if a credentials map has stored values
   static bool hasStoredCredentials(Map<String, String>? credentials) {

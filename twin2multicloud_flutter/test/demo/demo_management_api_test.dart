@@ -5,7 +5,11 @@ import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/calc_params.dart';
+import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
+
+import '../fixtures/typed_api_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -108,39 +112,27 @@ void main() {
   group('twin lifecycle and configuration', () {
     test('supports create, update, configure, and delete', () async {
       final created = await api.createTwin('Session Twin');
-      final id = created['id'].toString();
+      final id = created.id;
 
       expect((await api.getDashboardStats()).totalTwins, 4);
       expect(
-        (await api.updateTwin(id, name: 'Renamed Twin'))['name'],
+        (await api.updateTwin(id, name: 'Renamed Twin')).name,
         'Renamed Twin',
       );
       final config = await api.updateTwinConfig(id, {
         'debug_mode': false,
         'cloud_connections': {'aws': 'demo-aws-deployment'},
       });
-      expect(config['aws_cloud_connection_id'], 'demo-aws-deployment');
+      expect(
+        config.provider(CloudProvider.aws).cloudConnectionId,
+        'demo-aws-deployment',
+      );
       expect(
         (await api.updateTwinConfigRequest(
           id,
           const TwinConfigUpdateRequest(highestStepReached: 1),
-        ))['highest_step_reached'],
+        )).highestStepReached,
         1,
-      );
-      expect((await api.validateCredentials(id, 'aws'))['valid'], isTrue);
-      expect(
-        (await api.validateCredentialsInline('gcp', {'json': '{}'}))['valid'],
-        isTrue,
-      );
-      expect(
-        (await api.validateCredentialsDual('aws', {
-          'access_key_id': 'demo',
-        }))['valid'],
-        isTrue,
-      );
-      expect(
-        (await api.validateStoredCredentialsDual(id, 'aws'))['valid'],
-        isTrue,
       );
       expect((await api.getTwinConfigResult(id)).isSuccess, isTrue);
 
@@ -166,10 +158,6 @@ void main() {
           'cloud_connections': {'aws': 'demo-aws-pricing'},
         }),
         throwsDemoCode('DEMO_CONNECTION_BINDING_INVALID'),
-      );
-      await expectLater(
-        api.validateCredentials('demo-draft', 'azure'),
-        throwsDemoCode('DEMO_CREDENTIALS_MISSING'),
       );
     });
   });
@@ -210,33 +198,39 @@ void main() {
       expect((await api.getPricingHealth()).providers, hasLength(3));
       expect((await api.getPricingStatusResult()).isSuccess, isTrue);
       expect((await api.getRegionsStatus())['providers'], hasLength(3));
-      expect((await api.exportPricing('aws'))['pricing'], isNotEmpty);
+      expect((await api.exportPricing('aws')).payload, isNotEmpty);
 
-      final calculation = await api.calculateCosts({
+      final calculationParams = CalcParams.fromJson({
+        ...CalcParams.defaultParams().toJson(),
         'needs3DModel': true,
         'useEventChecking': true,
       });
-      expect(calculation['result']['totalCost'], 84.42);
+      final calculation = await api.calculateCosts(calculationParams);
+      expect(calculation.result.totalCost, 84.42);
       expect(
-        (await api.calculateCostsResult({'needs3DModel': true})).isSuccess,
+        (await api.calculateCostsResult(calculationParams)).isSuccess,
         isTrue,
       );
 
-      await api.saveOptimizerParams('demo-draft', {'numberOfDevices': 12});
+      final savedParams = CalcParams.fromJson({
+        ...CalcParams.defaultParams().toJson(),
+        'numberOfDevices': 12,
+      });
+      await api.saveOptimizerParams('demo-draft', savedParams);
       await api.saveOptimizerResult(
         'demo-draft',
-        params: {'numberOfDevices': 12},
-        result: calculation['result'] as Map<String, dynamic>,
-        cheapestPath: {'l1': 'AWS'},
+        params: savedParams,
+        optimization: calculation,
+        cheapestPath: CheapestPath.fromSegments(
+          calculation.result.cheapestPath,
+        ),
         pricingSnapshots: {
-          'aws': {'iot': 1.0},
-          'azure': <String, dynamic>{},
-          'gcp': <String, dynamic>{},
+          for (final provider in CloudProvider.values)
+            provider: TypedApiFixtures.pricingExport(provider),
         },
-        pricingTimestamps: {'aws': now.toIso8601String()},
       );
       expect(
-        (await api.getOptimizerConfig('demo-draft'))['result'],
+        (await api.getOptimizerConfig('demo-draft'))?.optimization?.payload,
         isNotEmpty,
       );
     });
@@ -287,9 +281,7 @@ void main() {
         ),
       );
       expect(
-        (await api.getDeployerConfig(
-          'demo-draft',
-        ))['deployer_digital_twin_name'],
+        (await api.getDeployerConfig('demo-draft'))?.deployerDigitalTwinName,
         'demo-draft',
       );
       await api.uploadSceneGlb(
@@ -298,12 +290,12 @@ void main() {
         'scene.glb',
       );
       expect(
-        (await api.getDeployerConfig('demo-draft'))['scene_glb_uploaded'],
+        (await api.getDeployerConfig('demo-draft'))?.sceneGlbUploaded,
         isTrue,
       );
       await api.deleteSceneGlb('demo-draft');
       expect(
-        (await api.getDeployerConfig('demo-draft'))['scene_glb_uploaded'],
+        (await api.getDeployerConfig('demo-draft'))?.sceneGlbUploaded,
         isFalse,
       );
       expect(

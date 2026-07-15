@@ -38,9 +38,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
           break;
         case 2: // Last Updated
-          final aDate = a.updatedAt ?? DateTime(1970);
-          final bDate = b.updatedAt ?? DateTime(1970);
-          cmp = aDate.compareTo(bDate);
+          cmp = a.updatedAt.compareTo(b.updatedAt);
           break;
         default:
           cmp = 0;

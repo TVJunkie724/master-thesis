@@ -97,9 +97,7 @@ class TwinOverviewContent extends StatelessWidget {
                 const SizedBox(height: AppSpacing.lg),
                 if (isDeployed) ...[
                   TestingUtilitiesPanel(
-                    provider:
-                        (state.cheapestPath?['l1'] as String?)?.toLowerCase() ??
-                        'l1',
+                    provider: state.l1ProviderLabel,
                     trace: state.trace,
                     simulator: state.simulatorDownload,
                     onStartTrace: onStartTrace,

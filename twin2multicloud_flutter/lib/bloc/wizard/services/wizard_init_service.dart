@@ -7,6 +7,8 @@ import '../../../models/calc_result.dart';
 import '../../../models/architecture_path.dart';
 import '../../../models/cloud_connection.dart';
 import '../../../models/deployer_config.dart';
+import '../../../models/twin.dart';
+import '../../../models/twin_config.dart';
 import '../helpers/credentials_helper.dart';
 import '../wizard_state.dart';
 
@@ -26,8 +28,8 @@ class WizardInitResult {
 /// Data class to hold fetched twin data for edit mode initialization.
 /// Public for testing.
 class TwinEditData {
-  final Map<String, dynamic> twin;
-  final Map<String, dynamic> config;
+  final Twin twin;
+  final TwinConfigData config;
   final DeployerConfigData? deployerConfig;
 
   const TwinEditData({
@@ -60,35 +62,31 @@ class WizardInitService {
     final deployerData = data.deployerConfig ?? const DeployerConfigData();
 
     final selectedCloudConnectionIds = <CloudProvider, String?>{
-      CloudProvider.aws: config['aws_cloud_connection_id'] as String?,
-      CloudProvider.azure: config['azure_cloud_connection_id'] as String?,
-      CloudProvider.gcp: config['gcp_cloud_connection_id'] as String?,
+      for (final provider in CloudProvider.values)
+        provider: config.provider(provider).cloudConnectionId,
     };
     final credentials = CredentialsHelper.hydrateCredentials(config);
 
     // Determine starting step
-    int startStep = config['highest_step_reached'] as int? ?? 0;
+    int startStep = config.highestStepReached;
 
     // Workload configuration depends on identity, not deployment credentials.
-    if (startStep >= 1 && (twin['name']?.toString().trim().isEmpty ?? true)) {
+    if (startStep >= 1 && twin.name.trim().isEmpty) {
       startStep = 0;
     }
 
     // Load optimizer result if available
     CalcResult? loadedResult;
-    Map<String, dynamic>? loadedResultRaw;
-    if (config['optimizer_result'] != null) {
-      loadedResultRaw = {'result': config['optimizer_result']};
-      loadedResult = CalcResult.fromJson(loadedResultRaw);
+    final loadedOptimization = config.optimization;
+    if (loadedOptimization != null) {
+      loadedResult = loadedOptimization.result;
     } else if (startStep >= 2) {
       startStep = 1;
     }
 
     // Load optimizer params if available
     CalcParams? loadedParams;
-    if (config['optimizer_params'] != null) {
-      loadedParams = CalcParams.fromJson(config['optimizer_params']);
-    }
+    loadedParams = config.optimizerParams;
 
     // Generate warning for unconfigured providers
     String? warningMessage;
@@ -107,9 +105,9 @@ class WizardInitService {
         currentStep: startStep,
         highestStepReached: startStep,
         twinId: twinId,
-        twinName: twin['name'],
-        twinState: twin['state'],
-        debugMode: config['debug_mode'] ?? true,
+        twinName: twin.name,
+        twinState: twin.state,
+        debugMode: config.debugMode,
         aws: credentials['aws'] ?? const ProviderCredentials(),
         azure: credentials['azure'] ?? const ProviderCredentials(),
         gcp: credentials['gcp'] ?? const ProviderCredentials(),
@@ -117,8 +115,8 @@ class WizardInitService {
         calcParams: loadedParams,
         calcResult: loadedResult,
         savedCalcResult: loadedResult,
-        calcResultRaw: loadedResultRaw,
-        savedCalcResultRaw: loadedResultRaw,
+        optimizationResultData: loadedOptimization,
+        savedOptimizationResultData: loadedOptimization,
         // Deployer config
         deployerDigitalTwinName: deployerData.deployerDigitalTwinName,
         configEventsJson: deployerData.configEventsJson,

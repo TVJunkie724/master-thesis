@@ -13,6 +13,8 @@ import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 import 'package:twin2multicloud_flutter/services/log_stream_client.dart';
 
+import '../../fixtures/typed_api_fixtures.dart';
+
 class MockApiService extends Mock implements ApiService {}
 
 class ControlledLogStreamClient implements LogStreamClient {
@@ -1503,14 +1505,14 @@ void _stubLoad(
   required DeploymentStatusSnapshot status,
   required DeploymentReadinessSnapshot readiness,
 }) {
-  when(
-    () => api.getTwin('test-id'),
-  ).thenAnswer((_) async => {'id': 'test-id', 'name': 'Test Project'});
+  when(() => api.getTwin('test-id')).thenAnswer(
+    (_) async => TypedApiFixtures.twin(id: 'test-id', name: 'Test Project'),
+  );
   when(
     () => api.getDeploymentStatus('test-id'),
   ).thenAnswer((_) async => status);
-  when(() => api.getOptimizerConfig('test-id')).thenThrow(Exception('missing'));
-  when(() => api.getDeployerConfig('test-id')).thenThrow(Exception('missing'));
+  when(() => api.getOptimizerConfig('test-id')).thenAnswer((_) async => null);
+  when(() => api.getDeployerConfig('test-id')).thenAnswer((_) async => null);
   when(
     () => api.getDeploymentReadiness('test-id'),
   ).thenAnswer((_) async => readiness);

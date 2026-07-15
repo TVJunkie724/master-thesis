@@ -10,6 +10,7 @@ class MockApiService extends Mock implements ApiService {}
 void main() {
   late MockApiService api;
 
+  setUpAll(() => registerFallbackValue(CalcParams.defaultParams()));
   setUp(() => api = MockApiService());
 
   test('loads complete pricing readiness into Wizard state', () async {

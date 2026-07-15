@@ -351,9 +351,8 @@ class TwinOverviewView extends ConsumerWidget {
               logStreamClientFactory: ref.read(logStreamClientFactoryProvider),
             ),
             child: DeploymentVerificationCard(
-              payloadsJson: state.deployerConfig?['payloads_json'] as String?,
-              configEventsJson:
-                  state.deployerConfig?['config_events_json'] as String?,
+              payloadsJson: state.deployerConfig?.payloadsJson,
+              configEventsJson: state.deployerConfig?.configEventsJson,
             ),
           )
         : null;
@@ -441,8 +440,7 @@ class TwinOverviewView extends ConsumerWidget {
     BuildContext context,
     TwinOverviewLoaded state,
   ) async {
-    final provider =
-        (state.cheapestPath?['l1'] as String?)?.toUpperCase() ?? 'L1';
+    final provider = state.l1ProviderLabel.toUpperCase();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => SimulatorDownloadConfirmationDialog(provider: provider),
