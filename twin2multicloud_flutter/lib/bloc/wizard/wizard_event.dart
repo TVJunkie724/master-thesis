@@ -388,12 +388,26 @@ class WizardSceneConfigContentChanged extends WizardEvent {
   List<Object?> get props => [content];
 }
 
-/// GLB file upload status changed
-class WizardSceneGlbUploadStatusChanged extends WizardEvent {
-  final bool uploaded;
-  const WizardSceneGlbUploadStatusChanged(this.uploaded);
+/// Upload a transient GLB payload through the Wizard application boundary.
+class WizardSceneGlbUploadRequested extends WizardEvent {
+  final Uint8List bytes;
+  final String filename;
+
+  const WizardSceneGlbUploadRequested({
+    required this.bytes,
+    required this.filename,
+  });
+
   @override
-  List<Object?> get props => [uploaded];
+  List<Object?> get props => [filename];
+}
+
+/// Delete the persisted GLB for the current twin.
+class WizardSceneGlbDeleteRequested extends WizardEvent {
+  const WizardSceneGlbDeleteRequested();
+
+  @override
+  List<Object?> get props => [];
 }
 
 // ============================================================

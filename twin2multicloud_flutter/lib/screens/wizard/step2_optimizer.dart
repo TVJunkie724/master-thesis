@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
-import '../../providers/twins_provider.dart';
+import '../../theme/colors.dart';
 import '../../widgets/calc_form/calc_form.dart';
 import '../../widgets/results/calculation_trace_summary.dart';
 import '../../widgets/results/layer_cost_card.dart';
@@ -16,41 +15,27 @@ import '../../features/configuration_workspace/domain/configuration_journey.dart
 /// Step 2: Optimizer - BLoC version
 ///
 /// Manages calculation parameters and displays optimization results.
-class Step2Optimizer extends ConsumerStatefulWidget {
+class Step2Optimizer extends StatefulWidget {
   final ConfigurationTaskId? taskId;
 
   const Step2Optimizer({super.key, this.taskId});
 
   @override
-  ConsumerState<Step2Optimizer> createState() => _Step2OptimizerState();
+  State<Step2Optimizer> createState() => _Step2OptimizerState();
 }
 
-class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
-  bool _loadingConfig = true;
-
+class _Step2OptimizerState extends State<Step2Optimizer> {
   // Scroll keys for navigation
   final _resultsKey = GlobalKey();
-
-  // Provider Colors (gcpColor used for results header)
-  static const Color gcpColor = Colors.green;
 
   @override
   void initState() {
     super.initState();
 
-    // If we have calcParams in BLoC state, skip loading
     final state = context.read<WizardBloc>().state;
     if (!_isWorkloadTask(widget.taskId)) {
       context.read<WizardBloc>().add(const WizardPricingHealthLoadRequested());
     }
-    if (state.calcParams != null) {
-      _loadingConfig = false;
-    } else if (state.twinId != null) {
-      _loadOptimizerConfig();
-    } else {
-      _loadingConfig = false;
-    }
-
     // Auto-scroll to results if they're already present (edit mode resume)
     if (state.calcResult != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -64,29 +49,6 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
           }
         });
       });
-    }
-  }
-
-  Future<void> _loadOptimizerConfig() async {
-    final state = context.read<WizardBloc>().state;
-    if (state.twinId == null) {
-      setState(() => _loadingConfig = false);
-      return;
-    }
-
-    try {
-      final api = ref.read(apiServiceProvider);
-      final config = await api.getOptimizerConfig(state.twinId!);
-
-      if (config['params'] != null && mounted) {
-        final params = CalcParams.fromJson(config['params']);
-        context.read<WizardBloc>().add(WizardCalcParamsChanged(params));
-      }
-
-      if (mounted) setState(() => _loadingConfig = false);
-    } catch (e) {
-      debugPrint('Failed to load optimizer config: $e');
-      if (mounted) setState(() => _loadingConfig = false);
     }
   }
 
@@ -178,8 +140,12 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
   Widget _buildCalculationSummary(BuildContext context, WizardState state) {
     final params = state.calcParams;
-    if (_loadingConfig || params == null) {
-      return const Center(child: CircularProgressIndicator());
+    if (params == null) {
+      return const Center(
+        child: Text(
+          'Complete the workload tasks before reviewing the summary.',
+        ),
+      );
     }
 
     return Column(
@@ -260,19 +226,14 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         ),
         const SizedBox(height: 24),
 
-        if (_loadingConfig)
-          const Center(child: CircularProgressIndicator())
-        else
-          CalcForm(
-            section: _calcSectionForTask(widget.taskId),
-            initialParams: state.calcParams,
-            onChanged: _onCalcParamsChanged,
-            onValidChanged: (isValid) {
-              context.read<WizardBloc>().add(
-                WizardCalcFormValidChanged(isValid),
-              );
-            },
-          ),
+        CalcForm(
+          section: _calcSectionForTask(widget.taskId),
+          initialParams: state.calcParams,
+          onChanged: _onCalcParamsChanged,
+          onValidChanged: (isValid) {
+            context.read<WizardBloc>().add(WizardCalcFormValidChanged(isValid));
+          },
+        ),
       ],
     );
   }
@@ -331,7 +292,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         // Header
         Row(
           children: [
-            const Icon(Icons.analytics, size: 32, color: gcpColor),
+            const Icon(Icons.analytics, size: 32, color: AppColors.gcp),
             const SizedBox(width: 12),
             Text(
               'Optimization Results',

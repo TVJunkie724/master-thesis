@@ -56,6 +56,8 @@ of this audit.
    the canonical MkDocs site.
 6. Production TODO comments and the stale infrastructure TODO document compete
    with GitHub Issues as the work-tracking source of truth.
+7. Dashboard twin deletion bypasses its feature command boundary and performs
+   API I/O directly from presentation code.
 
 ## Subphase 1 - Boundary And Hygiene Corrections
 
@@ -279,6 +281,22 @@ live-cloud E2E. Existing real-stack integration coverage remains unchanged.
   Issue #36 references need correction.
 - Update Issues #38 and #39 with commits and verification. GitHub remains the
   future-work SSOT; no replacement TODO document is created.
+
+## Implementation Progress
+
+### Subphase 1 - Complete
+
+- Removed direct API ownership from optimizer and deployer task screens.
+- Routed dashboard twin deletion through a serialized Riverpod command
+  controller that owns API I/O and cache invalidation.
+- Added typed, serialized GLB commands with transient binary ownership.
+- Replaced free-form diagnostic output with a closed, secret-free event log.
+- Moved credential help to the runtime-configured canonical MkDocs site.
+- Removed stale production TODOs and the superseded Flutter TODO tracker.
+- Verification: `flutter analyze` passed; the full suite passed with 510 tests;
+  the post-review focused boundary suite passed with 17 tests; `git diff
+  --check` passed.
+- Review: two manual passes completed with no unresolved finding.
 
 ## Definition Of Done
 

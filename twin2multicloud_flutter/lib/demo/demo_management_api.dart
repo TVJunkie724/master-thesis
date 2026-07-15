@@ -830,7 +830,7 @@ class DemoManagementApi implements ManagementApi {
   @override
   Future<Map<String, dynamic>> uploadSceneGlb(
     String twinId,
-    dynamic fileBytes,
+    Uint8List fileBytes,
     String filename,
   ) async {
     await _pause();
@@ -861,7 +861,7 @@ class DemoManagementApi implements ManagementApi {
   @override
   Future<Map<String, dynamic>> uploadProjectZip(
     String twinId,
-    dynamic fileBytes,
+    Uint8List fileBytes,
     String filename,
   ) async {
     await _pause();

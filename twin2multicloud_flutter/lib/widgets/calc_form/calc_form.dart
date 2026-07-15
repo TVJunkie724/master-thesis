@@ -757,8 +757,7 @@ class _CalcFormState extends State<CalcForm> {
 
             const Divider(),
 
-            // Error Handling - NOT IMPLEMENTED (matches original index.html TODO comment)
-            // Always disabled with "Not Implemented" badge (like GCP self-hosted options)
+            // The current cost model has no error-handling metric contract.
             _buildDisabledSwitchWithBadge(
               title: 'Integrate Error Handling',
               tooltip:

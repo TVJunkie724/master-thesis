@@ -3,8 +3,8 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/app_logger.dart';
 import '../../models/deployment_operations.dart';
 import '../../services/log_stream_client.dart';
 import '../../services/management_api.dart';
@@ -26,6 +26,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   LogStreamClient? _logTraceSseService;
   final Duration _reconnectDelay;
   final DateTime Function() _clock;
+  final AppLogger _logger;
 
   static const _maxReconnectAttempts = 3;
 
@@ -34,10 +35,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     required LogStreamClientFactory logStreamClientFactory,
     Duration reconnectDelay = const Duration(seconds: 2),
     DateTime Function()? clock,
+    AppLogger logger = const AppLogger(),
   }) : _api = api,
        _logStreamClientFactory = logStreamClientFactory,
        _reconnectDelay = reconnectDelay,
        _clock = clock ?? DateTime.now,
+       _logger = logger,
        super(const TwinOverviewLoading()) {
     on<TwinOverviewLoad>(_onLoad);
     on<TwinOverviewRefresh>(_onRefresh);
@@ -141,9 +144,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         await _catchUpAndSubscribe(emit, reconnecting: true);
       }
     } catch (e) {
-      debugPrint(
-        '[TwinOverviewBloc] Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.twinOverviewLoadFailed);
       emit(
         TwinOverviewError(
           'Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
@@ -336,9 +337,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
       await _catchUpAndSubscribe(emit);
     } catch (e) {
-      debugPrint(
-        '[TwinOverviewBloc] Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.deploymentStartFailed);
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
           activeState.twinId != currentState.twinId) {
@@ -460,9 +459,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
       await _catchUpAndSubscribe(emit);
     } catch (e) {
-      debugPrint(
-        '[TwinOverviewBloc] Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.destructionStartFailed);
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
           activeState.twinId != currentState.twinId) {
@@ -495,9 +492,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       // Navigation will be handled by the screen listener
       emit(currentState.copyWith(successMessage: 'deleted'));
     } catch (e) {
-      debugPrint(
-        '[TwinOverviewBloc] Delete failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.twinDeleteFailed);
       emit(
         currentState.copyWith(
           errorMessage:
@@ -743,9 +738,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         sseUrl: result.sseUrl,
       );
     } catch (e) {
-      debugPrint(
-        '[TwinOverviewBloc] Log trace failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.logTraceStartFailed);
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
           activeState.twinId != currentState.twinId ||
@@ -1553,9 +1546,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         ),
       );
     } catch (e) {
-      debugPrint(
-        '[TwinOverviewBloc] Download failed: ${ApiErrorHandler.extractMessage(e)}',
-      );
+      _logger.warning(AppLogEvent.simulatorDownloadFailed);
       final activeState = state;
       if (activeState is! TwinOverviewLoaded ||
           activeState.twinId != currentState.twinId ||

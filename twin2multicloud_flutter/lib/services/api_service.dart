@@ -489,7 +489,7 @@ class ApiService implements ManagementApi {
   @override
   Future<Map<String, dynamic>> uploadSceneGlb(
     String twinId,
-    dynamic fileBytes, // Uint8List or File
+    Uint8List fileBytes,
     String filename,
   ) async {
     final formData = FormData.fromMap({
@@ -522,7 +522,7 @@ class ApiService implements ManagementApi {
   @override
   Future<Map<String, dynamic>> uploadProjectZip(
     String twinId,
-    dynamic fileBytes, // Uint8List or File
+    Uint8List fileBytes,
     String filename,
   ) async {
     final formData = FormData.fromMap({

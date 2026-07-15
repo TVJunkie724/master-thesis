@@ -51,3 +51,6 @@ markers in production code.
   live below `lib/bloc/wizard/services/`.
 - Screens may coordinate local UI controls, but validation and cleanup logic
   should stay in injectable services with focused tests.
+- Validation of uploaded `requirements.txt` files is tracked in GitHub Issue
+  #36. Until that cross-service contract exists, the UI treats requirements as
+  deployment input and does not claim that package resolution was validated.

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/app_logger.dart';
 import '../services/management_api.dart';
 import 'runtime_providers.dart';
 
@@ -78,9 +79,8 @@ class ThemeNotifier extends Notifier<ThemeMode> {
   Future<void> _syncToApi(String theme) async {
     try {
       await _api.updateUserPreferences(themePreference: theme);
-    } catch (e) {
-      // Log for debugging, but don't block - theme is already saved locally
-      debugPrint('Theme sync failed: $e');
+    } catch (_) {
+      const AppLogger().warning(AppLogEvent.themePreferenceSyncFailed);
     }
   }
 }

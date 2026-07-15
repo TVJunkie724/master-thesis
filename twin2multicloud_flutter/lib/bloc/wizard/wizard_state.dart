@@ -23,6 +23,8 @@ enum WizardMode { create, edit }
 /// Overall wizard status
 enum WizardStatus { initial, loading, ready, saving, error }
 
+enum SceneGlbCommandPhase { idle, uploading, deleting }
+
 /// Source of credential data
 enum CredentialSource {
   /// No credentials configured
@@ -68,6 +70,21 @@ class ProviderCredentials extends Equatable {
 
   @override
   List<Object?> get props => [values, isValid, source];
+}
+
+class SceneGlbCommandState extends Equatable {
+  final SceneGlbCommandPhase phase;
+  final String? message;
+
+  const SceneGlbCommandState({
+    this.phase = SceneGlbCommandPhase.idle,
+    this.message,
+  });
+
+  bool get isBusy => phase != SceneGlbCommandPhase.idle;
+
+  @override
+  List<Object?> get props => [phase, message];
 }
 
 // ============================================================
@@ -159,6 +176,7 @@ class WizardState extends Equatable {
 
   // === Persistent Data: Step 3 Section 3 (L4 Scene) ===
   final bool sceneGlbUploaded; // True if GLB file exists on server
+  final SceneGlbCommandState sceneGlbCommand;
   final String? sceneConfigContent; // scene.json or 3DScenesConfiguration.json
   final bool sceneConfigValidated;
 
@@ -239,6 +257,7 @@ class WizardState extends Equatable {
     this.hierarchyContent,
     this.hierarchyValidated = false,
     this.sceneGlbUploaded = false,
+    this.sceneGlbCommand = const SceneGlbCommandState(),
     this.sceneConfigContent,
     this.sceneConfigValidated = false,
     this.userConfigContent,
@@ -571,6 +590,7 @@ class WizardState extends Equatable {
     String? hierarchyContent,
     bool? hierarchyValidated,
     bool? sceneGlbUploaded,
+    SceneGlbCommandState? sceneGlbCommand,
     String? sceneConfigContent,
     bool? sceneConfigValidated,
     String? userConfigContent,
@@ -680,6 +700,7 @@ class WizardState extends Equatable {
           : (hierarchyContent ?? this.hierarchyContent),
       hierarchyValidated: hierarchyValidated ?? this.hierarchyValidated,
       sceneGlbUploaded: sceneGlbUploaded ?? this.sceneGlbUploaded,
+      sceneGlbCommand: sceneGlbCommand ?? this.sceneGlbCommand,
       sceneConfigContent: clearSceneConfigContent
           ? null
           : (sceneConfigContent ?? this.sceneConfigContent),
@@ -771,6 +792,7 @@ class WizardState extends Equatable {
     hierarchyContent,
     hierarchyValidated,
     sceneGlbUploaded,
+    sceneGlbCommand,
     sceneConfigContent,
     sceneConfigValidated,
     userConfigContent,

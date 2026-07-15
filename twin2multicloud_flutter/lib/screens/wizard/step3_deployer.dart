@@ -2,13 +2,10 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../config/step3_examples.dart';
 import '../../config/step3_constraints.dart';
-import '../../providers/twins_provider.dart';
-import '../../utils/api_error_handler.dart';
 import '../../widgets/architecture_layer_builder.dart';
 import '../../widgets/file_inputs/file_editor_block.dart';
 import '../../widgets/file_inputs/function_package_block.dart';
@@ -839,8 +836,9 @@ class _Step3DeployerState extends State<Step3Deployer> {
                       const SizedBox(height: 12),
                       Step3GlbUploadCard(
                         isUploaded: state.sceneGlbUploaded,
-                        onDelete: () => _deleteSceneGlb(context, state),
-                        onUpload: () => _pickAndUploadSceneGlb(context, state),
+                        isBusy: state.sceneGlbCommand.isBusy,
+                        onDelete: () => _deleteSceneGlb(context),
+                        onUpload: () => _pickAndUploadSceneGlb(context),
                       ),
                     ],
                   );
@@ -996,43 +994,13 @@ class _Step3DeployerState extends State<Step3Deployer> {
     };
   }
 
-  Future<void> _deleteSceneGlb(BuildContext context, WizardState state) async {
-    final twinId = state.twinId;
-    if (twinId == null) return;
-
-    final container = ProviderScope.containerOf(context);
-    final api = container.read(apiServiceProvider);
-    final bloc = context.read<WizardBloc>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    try {
-      await api.deleteSceneGlb(twinId);
-      bloc.add(const WizardSceneGlbUploadStatusChanged(false));
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Delete failed: ${ApiErrorHandler.extractMessage(e)}'),
-        ),
-      );
-    }
+  void _deleteSceneGlb(BuildContext context) {
+    context.read<WizardBloc>().add(const WizardSceneGlbDeleteRequested());
   }
 
-  Future<void> _pickAndUploadSceneGlb(
-    BuildContext context,
-    WizardState state,
-  ) async {
-    final twinId = state.twinId;
-    final messenger = ScaffoldMessenger.of(context);
-    final container = ProviderScope.containerOf(context);
-    final api = container.read(apiServiceProvider);
+  Future<void> _pickAndUploadSceneGlb(BuildContext context) async {
     final bloc = context.read<WizardBloc>();
-
-    if (twinId == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Save draft first before uploading GLB')),
-      );
-      return;
-    }
+    final messenger = ScaffoldMessenger.of(context);
 
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
@@ -1052,40 +1020,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
       return;
     }
 
-    final sizeMb = bytes.length / (1024 * 1024);
-    if (sizeMb > 100) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'File too large: ${sizeMb.toStringAsFixed(1)}MB (max 100MB)',
-          ),
-        ),
-      );
-      return;
-    }
-
-    try {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Uploading ${file.name} (${sizeMb.toStringAsFixed(1)}MB)...',
-          ),
-        ),
-      );
-
-      await api.uploadSceneGlb(twinId, bytes, file.name);
-      bloc.add(const WizardSceneGlbUploadStatusChanged(true));
-
-      messenger.showSnackBar(
-        const SnackBar(content: Text('GLB uploaded successfully')),
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Upload failed: ${ApiErrorHandler.extractMessage(e)}'),
-        ),
-      );
-    }
+    bloc.add(WizardSceneGlbUploadRequested(bytes: bytes, filename: file.name));
   }
 }
 

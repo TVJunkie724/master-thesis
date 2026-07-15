@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/models/deployer_artifact_validation.dart';
@@ -124,10 +126,14 @@ void main() {
       expect(event.props, ['{"specVersion": "1.0"}']);
     });
 
-    test('WizardSceneGlbUploadStatusChanged has correct props', () {
-      const event = WizardSceneGlbUploadStatusChanged(true);
-      expect(event.uploaded, isTrue);
-      expect(event.props, [true]);
+    test('GLB commands exclude binary bytes from equality', () {
+      final event = WizardSceneGlbUploadRequested(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        filename: 'scene.glb',
+      );
+      expect(event.bytes, hasLength(3));
+      expect(event.props, ['scene.glb']);
+      expect(const WizardSceneGlbDeleteRequested().props, isEmpty);
     });
   });
 
