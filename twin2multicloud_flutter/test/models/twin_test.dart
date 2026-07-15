@@ -68,26 +68,46 @@ void main() {
     // Edge Case Tests
     // ============================================================
 
-    group('null handling', () {
-      test('handles null dates gracefully', () {
-        final twin = Twin.fromJson(TestFixtures.minimalTwinJson);
-
-        expect(twin.createdAt, isNull);
-        expect(twin.updatedAt, isNull);
-        expect(twin.lastDeployedAt, isNull);
+    group('contract validation', () {
+      test('rejects null required fields', () {
+        expect(
+          () => Twin.fromJson(TestFixtures.minimalTwinJson),
+          throwsA(isA<FormatException>()),
+        );
       });
 
-      test('missing state defaults to draft', () {
-        final twin = Twin.fromJson(TestFixtures.minimalTwinJson);
+      test('rejects unknown lifecycle state without leaking its value', () {
+        final json = {...TestFixtures.draftTwinJson, 'state': 'secret-state'};
 
-        expect(twin.state, 'draft');
-        expect(twin.isDraft, isTrue);
+        expect(
+          () => Twin.fromJson(json),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              allOf(contains('state'), isNot(contains('secret-state'))),
+            ),
+          ),
+        );
       });
 
-      test('null providers defaults to empty list', () {
-        final twin = Twin.fromJson(TestFixtures.minimalTwinJson);
+      test('ignores unknown additive response fields', () {
+        final twin = Twin.fromJson({
+          ...TestFixtures.draftTwinJson,
+          'future_metadata': {'version': 2},
+        });
 
-        expect(twin.providers, isEmpty);
+        expect(twin.id, 'twin-001');
+      });
+
+      test('rejects non-string provider entries', () {
+        expect(
+          () => Twin.fromJson({
+            ...TestFixtures.draftTwinJson,
+            'providers': ['AWS', 7],
+          }),
+          throwsA(isA<FormatException>()),
+        );
       });
     });
 
@@ -95,9 +115,18 @@ void main() {
       test('parses ISO 8601 dates correctly', () {
         final twin = Twin.fromJson(TestFixtures.draftTwinJson);
 
-        expect(twin.createdAt?.year, 2025);
-        expect(twin.createdAt?.month, 12);
-        expect(twin.createdAt?.day, 27);
+        expect(twin.createdAt.year, 2025);
+        expect(twin.createdAt.month, 12);
+        expect(twin.createdAt.day, 27);
+      });
+
+      test('normalizes timestamp offsets to the same UTC instant', () {
+        final twin = Twin.fromJson({
+          ...TestFixtures.draftTwinJson,
+          'created_at': '2025-12-27T11:00:00+01:00',
+        });
+
+        expect(twin.createdAt, DateTime.utc(2025, 12, 27, 10));
       });
     });
   });

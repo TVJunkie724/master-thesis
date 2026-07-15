@@ -2,16 +2,21 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../core/result.dart';
+import '../models/calc_params.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployer_config.dart';
+import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
+import '../models/pricing_export_snapshot.dart';
 import '../models/twin.dart';
+import '../models/twin_config.dart';
 import '../models/wizard_config_requests.dart';
 import '../services/management_api.dart';
 import 'demo_fixture_store.dart';
@@ -241,9 +246,9 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<List<dynamic>> getTwins() async {
+  Future<List<Twin>> getTwins() async {
     await _pause();
-    return store.twins;
+    return store.twins.map(Twin.fromJson).toList(growable: false);
   }
 
   @override
@@ -266,13 +271,13 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> getTwin(String twinId) async {
+  Future<Twin> getTwin(String twinId) async {
     await _pause();
-    return store.twin(twinId);
+    return Twin.fromJson(store.twin(twinId));
   }
 
   @override
-  Future<Map<String, dynamic>> createTwin(String name) async {
+  Future<Twin> createTwin(String name) async {
     await _pause();
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
@@ -308,15 +313,11 @@ class DemoManagementApi implements ManagementApi {
       'azure_cloud_connection_id': null,
       'gcp_cloud_connection_id': null,
     });
-    return twin;
+    return Twin.fromJson(twin);
   }
 
   @override
-  Future<Map<String, dynamic>> updateTwin(
-    String twinId, {
-    String? name,
-    String? state,
-  }) async {
+  Future<Twin> updateTwin(String twinId, {String? name, String? state}) async {
     await _pause();
     if (name != null && name.trim().isEmpty) {
       throw const DemoApiException(
@@ -344,7 +345,7 @@ class DemoManagementApi implements ManagementApi {
       if (name != null) 'name': name.trim(),
       if (state != null) 'state': state,
     });
-    return store.twin(twinId);
+    return Twin.fromJson(store.twin(twinId));
   }
 
   @override
@@ -362,14 +363,13 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> getTwinConfig(String twinId) async {
+  Future<TwinConfigData> getTwinConfig(String twinId) async {
     await _pause();
-    store.twin(twinId);
-    return store.twinConfig(twinId) ?? <String, dynamic>{};
+    return TwinConfigData.fromJson(_twinConfigResponse(twinId));
   }
 
   @override
-  Future<Map<String, dynamic>> updateTwinConfig(
+  Future<TwinConfigData> updateTwinConfig(
     String twinId,
     Map<String, dynamic> config,
   ) async {
@@ -398,64 +398,15 @@ class DemoManagementApi implements ManagementApi {
     current.addAll(update);
     store.setTwinConfig(twinId, current);
     _deploymentReadinessCache.remove(twinId);
-    return {...current, 'twin_state': store.twin(twinId)['state']};
+    return TwinConfigData.fromJson(_twinConfigResponse(twinId));
   }
 
   @override
-  Future<Map<String, dynamic>> updateTwinConfigRequest(
+  Future<TwinConfigData> updateTwinConfigRequest(
     String twinId,
     TwinConfigUpdateRequest request,
   ) {
     return updateTwinConfig(twinId, request.toJson());
-  }
-
-  @override
-  Future<Map<String, dynamic>> validateCredentials(
-    String twinId,
-    String provider,
-  ) async {
-    await _pause();
-    final normalized = _provider(provider);
-    final id = store.twinConfig(twinId)?['${normalized}_cloud_connection_id'];
-    if (id == null) {
-      throw DemoApiException(
-        'DEMO_CREDENTIALS_MISSING',
-        '${normalized.toUpperCase()} deployment access is not configured.',
-      );
-    }
-    return _credentialValidation(normalized);
-  }
-
-  @override
-  Future<Map<String, dynamic>> validateCredentialsInline(
-    String provider,
-    Map<String, dynamic> credentials,
-  ) async {
-    await _pause();
-    final normalized = _provider(provider);
-    if (credentials.isEmpty) {
-      throw DemoApiException(
-        'DEMO_CREDENTIALS_MISSING',
-        '${normalized.toUpperCase()} credentials are empty.',
-      );
-    }
-    return _credentialValidation(normalized);
-  }
-
-  @override
-  Future<Map<String, dynamic>> validateCredentialsDual(
-    String provider,
-    Map<String, dynamic> credentials,
-  ) {
-    return validateCredentialsInline(provider, credentials);
-  }
-
-  @override
-  Future<Map<String, dynamic>> validateStoredCredentialsDual(
-    String twinId,
-    String provider,
-  ) {
-    return validateCredentials(twinId, provider);
   }
 
   @override
@@ -655,80 +606,79 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> calculateCosts(
-    Map<String, dynamic> params,
-  ) async {
+  Future<OptimizationResultData> calculateCosts(CalcParams params) async {
     await _pause();
+    final paramsJson = params.toJson();
     final configured = store.optimizerConfig('demo-configured');
     final result = configured?['result'] is Map
         ? _copyMap(configured!['result'] as Map)
-        : _defaultCalculationResult(params);
+        : _defaultCalculationResult(paramsJson);
     result['inputParamsUsed'] = {
-      'useEventChecking': params['useEventChecking'] == true,
+      'useEventChecking': paramsJson['useEventChecking'] == true,
       'triggerNotificationWorkflow':
-          params['triggerNotificationWorkflow'] == true,
-      'returnFeedbackToDevice': params['returnFeedbackToDevice'] == true,
-      'integrateErrorHandling': params['integrateErrorHandling'] == true,
-      'needs3DModel': params['needs3DModel'] == true,
+          paramsJson['triggerNotificationWorkflow'] == true,
+      'returnFeedbackToDevice': paramsJson['returnFeedbackToDevice'] == true,
+      'integrateErrorHandling': paramsJson['integrateErrorHandling'] == true,
+      'needs3DModel': paramsJson['needs3DModel'] == true,
     };
-    return {'result': result};
+    return OptimizationResultData.fromApiJson({'result': result});
   }
 
   @override
-  Future<Map<String, dynamic>> getOptimizerConfig(String twinId) async {
+  Future<OptimizerConfigData?> getOptimizerConfig(String twinId) async {
     await _pause();
     store.twin(twinId);
-    return store.optimizerConfig(twinId) ?? <String, dynamic>{};
+    if (store.optimizerConfig(twinId) == null) return null;
+    return OptimizerConfigData.fromJson(_optimizerConfigResponse(twinId));
   }
 
   @override
-  Future<void> saveOptimizerParams(
-    String twinId,
-    Map<String, dynamic> params,
-  ) async {
+  Future<void> saveOptimizerParams(String twinId, CalcParams params) async {
     await _pause();
+    final paramsJson = params.toJson();
     final config = store.optimizerConfig(twinId) ?? <String, dynamic>{};
-    config['params'] = _copyMap(params);
+    config['params'] = _copyMap(paramsJson);
     store.setOptimizerConfig(twinId, config);
     final twinConfig = store.twinConfig(twinId) ?? <String, dynamic>{};
-    twinConfig['optimizer_params'] = _copyMap(params);
+    twinConfig['optimizer_params'] = _copyMap(paramsJson);
     store.setTwinConfig(twinId, twinConfig);
   }
 
   @override
   Future<void> saveOptimizerResult(
     String twinId, {
-    required Map<String, dynamic> params,
-    required Map<String, dynamic> result,
-    required Map<String, String?> cheapestPath,
-    required Map<String, dynamic> pricingSnapshots,
-    required Map<String, String?> pricingTimestamps,
+    required CalcParams params,
+    required OptimizationResultData optimization,
+    required CheapestPath cheapestPath,
+    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
   }) async {
     await _pause();
+    final now = store.clock().toIso8601String();
     store.setOptimizerConfig(twinId, {
-      'params': _copyMap(params),
-      'result': _copyMap(result),
-      'cheapest_path': cheapestPath,
-      'calculated_at': store.clock().toIso8601String(),
-      'pricing_aws_snapshot': pricingSnapshots['aws'],
-      'pricing_aws_updated_at': pricingTimestamps['aws'],
-      'pricing_azure_snapshot': pricingSnapshots['azure'],
-      'pricing_azure_updated_at': pricingTimestamps['azure'],
-      'pricing_gcp_snapshot': pricingSnapshots['gcp'],
-      'pricing_gcp_updated_at': pricingTimestamps['gcp'],
+      'params': _copyMap(params.toJson()),
+      'result': _copyMap(optimization.payload),
+      'cheapest_path': cheapestPath.toJson(),
+      'calculated_at': now,
+      for (final provider in CloudProvider.values) ...{
+        'pricing_${provider.apiValue}_snapshot':
+            pricingSnapshots[provider]?.payload,
+        'pricing_${provider.apiValue}_updated_at': pricingSnapshots[provider]
+            ?.updatedAt
+            .toIso8601String(),
+      },
     });
     final twinConfig = store.twinConfig(twinId) ?? <String, dynamic>{};
     twinConfig
-      ..['optimizer_params'] = _copyMap(params)
-      ..['optimizer_result'] = _copyMap(result);
+      ..['optimizer_params'] = _copyMap(params.toJson())
+      ..['optimizer_result'] = _copyMap(optimization.payload);
     store.setTwinConfig(twinId, twinConfig);
   }
 
   @override
-  Future<Map<String, dynamic>> exportPricing(String provider) async {
+  Future<PricingExportSnapshot> exportPricing(String provider) async {
     await _pause();
     final normalized = _provider(provider);
-    return {
+    return PricingExportSnapshot.fromJson({
       'provider': normalized,
       'pricing': switch (normalized) {
         'aws' => {'iot_core_per_million_messages': 1.0},
@@ -737,18 +687,19 @@ class DemoManagementApi implements ManagementApi {
         _ => <String, dynamic>{},
       },
       'updated_at': store.clock().toIso8601String(),
-    };
+    });
   }
 
   @override
-  Future<Map<String, dynamic>> getDeployerConfig(String twinId) async {
+  Future<DeployerConfigData?> getDeployerConfig(String twinId) async {
     await _pause();
     store.twin(twinId);
-    return store.deployerConfig(twinId) ?? <String, dynamic>{};
+    final config = store.deployerConfig(twinId);
+    return config == null ? null : DeployerConfigData.fromJson(config);
   }
 
   @override
-  Future<Map<String, dynamic>> updateDeployerConfig(
+  Future<DeployerConfigData> updateDeployerConfig(
     String twinId,
     Map<String, dynamic> config,
   ) async {
@@ -756,11 +707,11 @@ class DemoManagementApi implements ManagementApi {
     final current = store.deployerConfig(twinId) ?? <String, dynamic>{};
     current.addAll(_copyMap(config));
     store.setDeployerConfig(twinId, current);
-    return current;
+    return DeployerConfigData.fromJson(current);
   }
 
   @override
-  Future<Map<String, dynamic>> updateDeployerConfigRequest(
+  Future<DeployerConfigData> updateDeployerConfigRequest(
     String twinId,
     DeployerConfigUpdateRequest request,
   ) {
@@ -906,11 +857,9 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Result<CalcResult>> calculateCostsResult(
-    Map<String, dynamic> params,
-  ) async {
+  Future<Result<CalcResult>> calculateCostsResult(CalcParams params) async {
     try {
-      return Success(CalcResult.fromJson(await calculateCosts(params)));
+      return Success((await calculateCosts(params)).result);
     } on DemoApiException catch (error) {
       return Failure(AppException(error.message, code: error.code));
     }
@@ -926,9 +875,7 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Result<Map<String, dynamic>>> getTwinConfigResult(
-    String twinId,
-  ) async {
+  Future<Result<TwinConfigData>> getTwinConfigResult(String twinId) async {
     try {
       return Success(await getTwinConfig(twinId));
     } on DemoApiException catch (error) {
@@ -1472,13 +1419,95 @@ class DemoManagementApi implements ManagementApi {
     return normalized;
   }
 
-  Map<String, dynamic> _credentialValidation(String provider) {
+  Map<String, dynamic> _twinConfigResponse(String twinId) {
+    final twin = store.twin(twinId);
+    final raw = store.twinConfig(twinId) ?? <String, dynamic>{};
+    final configuredProviders = <String>[];
+    final credentialSources = <String, String?>{};
+    final boundConnections = <String, Map<String, dynamic>?>{};
+    final response = <String, dynamic>{
+      'id': 'config-$twinId',
+      'twin_id': twinId,
+      'twin_state': twin['state'],
+      'debug_mode': raw['debug_mode'] as bool? ?? false,
+      'highest_step_reached': raw['highest_step_reached'] as int? ?? 0,
+      'optimizer_params': raw['optimizer_params'],
+      'optimizer_result': raw['optimizer_result'],
+      'updated_at': twin['updated_at'],
+    };
+
+    for (final provider in CloudProvider.values) {
+      final prefix = provider.apiValue;
+      final connectionId = raw['${prefix}_cloud_connection_id'] as String?;
+      final connection = connectionId == null
+          ? null
+          : store.cloudConnection(connectionId);
+      final configured = connection != null;
+      if (configured) configuredProviders.add(prefix);
+      credentialSources[prefix] = configured ? 'cloud_connection' : null;
+      boundConnections[prefix] = connection == null
+          ? null
+          : {
+              'id': connection['id'],
+              'provider': connection['provider'],
+              'display_name': connection['display_name'],
+              'auth_type': connection['auth_type'],
+              'validation_status': connection['validation_status'],
+              'last_validated_at': connection['last_validated_at'],
+            };
+      final scope = connection?['cloud_scope'] is Map
+          ? Map<String, dynamic>.from(connection!['cloud_scope'] as Map)
+          : const <String, dynamic>{};
+      response
+        ..['${prefix}_configured'] = configured
+        ..['${prefix}_validated'] = connection?['validation_status'] == 'valid'
+        ..['${prefix}_credential_source'] = configured
+            ? 'cloud_connection'
+            : null
+        ..['${prefix}_cloud_connection_id'] = connectionId
+        ..['${prefix}_region'] = raw['${prefix}_region'] ?? scope['region'];
+      if (provider == CloudProvider.aws) {
+        response['aws_sso_region'] = raw['aws_sso_region'];
+      } else if (provider == CloudProvider.azure) {
+        response
+          ..['azure_region_iothub'] = raw['azure_region_iothub']
+          ..['azure_region_digital_twin'] = raw['azure_region_digital_twin'];
+      } else {
+        final summary = connection?['payload_summary'] is Map
+            ? Map<String, dynamic>.from(connection!['payload_summary'] as Map)
+            : const <String, dynamic>{};
+        response
+          ..['gcp_project_id'] =
+              raw['gcp_project_id'] ??
+              scope['project_id'] ??
+              summary['project_id']
+          ..['gcp_billing_account_configured'] = false;
+      }
+    }
+    response
+      ..['configured_providers'] = configuredProviders
+      ..['credential_sources'] = credentialSources
+      ..['cloud_connections'] = boundConnections;
+    return response;
+  }
+
+  Map<String, dynamic> _optimizerConfigResponse(String twinId) {
+    final twin = store.twin(twinId);
+    final raw = store.optimizerConfig(twinId) ?? <String, dynamic>{};
     return {
-      'provider': provider,
-      'valid': true,
-      'message': 'Demo credentials are valid.',
-      'optimizer': {'valid': true, 'message': 'Pricing access is ready.'},
-      'deployer': {'valid': true, 'message': 'Deployment access is ready.'},
+      'id': 'optimizer-$twinId',
+      'twin_id': twinId,
+      'params': raw['params'],
+      'result': raw['result'],
+      'cheapest_path': raw['cheapest_path'],
+      'calculated_at': raw['calculated_at'],
+      for (final provider in CloudProvider.values) ...{
+        'pricing_${provider.apiValue}_snapshot':
+            raw['pricing_${provider.apiValue}_snapshot'],
+        'pricing_${provider.apiValue}_updated_at':
+            raw['pricing_${provider.apiValue}_updated_at'],
+      },
+      'updated_at': raw['calculated_at'] ?? twin['updated_at'],
     };
   }
 

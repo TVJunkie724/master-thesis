@@ -2,14 +2,20 @@ import 'dart:typed_data';
 
 import '../core/result.dart';
 import '../models/calc_result.dart';
+import '../models/calc_params.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployer_config.dart';
+import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
+import '../models/pricing_export_snapshot.dart';
+import '../models/twin.dart';
+import '../models/twin_config.dart';
 import '../models/wizard_config_requests.dart';
 
 abstract interface class SessionApi {
@@ -44,55 +50,31 @@ abstract interface class CloudAccessApi {
 }
 
 abstract interface class TwinApi {
-  Future<List<dynamic>> getTwins();
+  Future<List<Twin>> getTwins();
 
   Future<DashboardStats> getDashboardStats();
 
-  Future<Map<String, dynamic>> getTwin(String twinId);
+  Future<Twin> getTwin(String twinId);
 
-  Future<Map<String, dynamic>> createTwin(String name);
+  Future<Twin> createTwin(String name);
 
-  Future<Map<String, dynamic>> updateTwin(
-    String twinId, {
-    String? name,
-    String? state,
-  });
+  Future<Twin> updateTwin(String twinId, {String? name, String? state});
 
   Future<void> deleteTwin(String twinId);
 
-  Future<Map<String, dynamic>> getTwinConfig(String twinId);
+  Future<TwinConfigData> getTwinConfig(String twinId);
 
-  Future<Map<String, dynamic>> updateTwinConfig(
+  Future<TwinConfigData> updateTwinConfig(
     String twinId,
     Map<String, dynamic> config,
   );
 
-  Future<Map<String, dynamic>> updateTwinConfigRequest(
+  Future<TwinConfigData> updateTwinConfigRequest(
     String twinId,
     TwinConfigUpdateRequest request,
   );
 
-  Future<Map<String, dynamic>> validateCredentials(
-    String twinId,
-    String provider,
-  );
-
-  Future<Map<String, dynamic>> validateCredentialsInline(
-    String provider,
-    Map<String, dynamic> credentials,
-  );
-
-  Future<Map<String, dynamic>> validateCredentialsDual(
-    String provider,
-    Map<String, dynamic> credentials,
-  );
-
-  Future<Map<String, dynamic>> validateStoredCredentialsDual(
-    String twinId,
-    String provider,
-  );
-
-  Future<Result<Map<String, dynamic>>> getTwinConfigResult(String twinId);
+  Future<Result<TwinConfigData>> getTwinConfigResult(String twinId);
 }
 
 abstract interface class PricingApi {
@@ -122,39 +104,38 @@ abstract interface class PricingApi {
 
   Future<Map<String, dynamic>> getRegionsStatus();
 
-  Future<Map<String, dynamic>> exportPricing(String provider);
+  Future<PricingExportSnapshot> exportPricing(String provider);
 
   Future<Result<Map<String, dynamic>>> getPricingStatusResult();
 }
 
 abstract interface class OptimizationApi {
-  Future<Map<String, dynamic>> calculateCosts(Map<String, dynamic> params);
+  Future<OptimizationResultData> calculateCosts(CalcParams params);
 
-  Future<Result<CalcResult>> calculateCostsResult(Map<String, dynamic> params);
+  Future<Result<CalcResult>> calculateCostsResult(CalcParams params);
 
-  Future<Map<String, dynamic>> getOptimizerConfig(String twinId);
+  Future<OptimizerConfigData?> getOptimizerConfig(String twinId);
 
-  Future<void> saveOptimizerParams(String twinId, Map<String, dynamic> params);
+  Future<void> saveOptimizerParams(String twinId, CalcParams params);
 
   Future<void> saveOptimizerResult(
     String twinId, {
-    required Map<String, dynamic> params,
-    required Map<String, dynamic> result,
-    required Map<String, String?> cheapestPath,
-    required Map<String, dynamic> pricingSnapshots,
-    required Map<String, String?> pricingTimestamps,
+    required CalcParams params,
+    required OptimizationResultData optimization,
+    required CheapestPath cheapestPath,
+    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
   });
 }
 
 abstract interface class DeploymentConfigurationApi {
-  Future<Map<String, dynamic>> getDeployerConfig(String twinId);
+  Future<DeployerConfigData?> getDeployerConfig(String twinId);
 
-  Future<Map<String, dynamic>> updateDeployerConfig(
+  Future<DeployerConfigData> updateDeployerConfig(
     String twinId,
     Map<String, dynamic> config,
   );
 
-  Future<Map<String, dynamic>> updateDeployerConfigRequest(
+  Future<DeployerConfigData> updateDeployerConfigRequest(
     String twinId,
     DeployerConfigUpdateRequest request,
   );

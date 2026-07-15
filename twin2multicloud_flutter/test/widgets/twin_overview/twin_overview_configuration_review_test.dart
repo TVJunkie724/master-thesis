@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
+import 'package:twin2multicloud_flutter/models/calc_params.dart';
+import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_code_artifact.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_configuration_review.dart';
+
+import '../../fixtures/typed_api_fixtures.dart';
 
 void main() {
   Widget buildWidget({
@@ -66,7 +71,12 @@ void main() {
 
       await tester.pumpWidget(
         buildWidget(
-          state: _state(cheapestPath: const {'l2': 'gcp', 'l4': 'azure'}),
+          state: _state(
+            cheapestPath: const CheapestPath(
+              l2: CloudProvider.gcp,
+              l4: CloudProvider.azure,
+            ),
+          ),
           onViewArtifact: (artifact) => viewed ??= artifact,
         ),
       );
@@ -90,7 +100,11 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        buildWidget(state: _state(cheapestPath: const {'l2': 'azure'})),
+        buildWidget(
+          state: _state(
+            cheapestPath: const CheapestPath(l2: CloudProvider.azure),
+          ),
+        ),
       );
 
       await tester.ensureVisible(find.text('User Functions'));
@@ -103,7 +117,25 @@ void main() {
   });
 }
 
-TwinOverviewLoaded _state({Map<String, dynamic>? cheapestPath}) {
+TwinOverviewLoaded _state({
+  CheapestPath cheapestPath = const CheapestPath(
+    l2: CloudProvider.aws,
+    l4: CloudProvider.aws,
+  ),
+}) {
+  final params = CalcParams.fromJson({
+    ...CalcParams.defaultParams().toJson(),
+    'numberOfDevices': 12,
+    'deviceSendingIntervalInMinutes': 5,
+    'hotStorageDurationInMonths': 1,
+    'coolStorageDurationInMonths': 2,
+    'archiveStorageDurationInMonths': 3,
+  });
+  final optimization = TypedApiFixtures.optimization(
+    totalCost: 42.5,
+    cheapestPath: const ['L1_AWS', 'L2_Azure', 'L4_GCP'],
+  );
+  final calculatedAt = DateTime.parse('2026-06-21T10:00:00Z');
   return TwinOverviewLoaded(
     twinId: 'twin-1',
     projectName: 'Demo Twin',
@@ -113,31 +145,23 @@ TwinOverviewLoaded _state({Map<String, dynamic>? cheapestPath}) {
     canDestroy: false,
     canEdit: true,
     canDelete: true,
-    optimizerResult: const {
-      'totalCost': 42.5,
-      'cheapestPath': ['aws', 'azure', 'gcp'],
-    },
-    optimizerParams: const {
-      'numberOfDevices': 12,
-      'deviceSendingIntervalInMinutes': 5,
-      'hotStorageDurationInMonths': 1,
-      'coolStorageDurationInMonths': 2,
-      'archiveStorageDurationInMonths': 3,
-    },
-    calculatedAt: '2026-06-21T10:00:00Z',
-    cheapestPath: cheapestPath ?? const {'l2': 'aws', 'l4': 'aws'},
-    pricingAws: const {'messages': 0.1},
-    pricingAwsUpdatedAt: '2026-06-21T10:00:00Z',
-    pricingAzure: const {'messages': 0.2},
-    pricingAzureUpdatedAt: '2026-06-21T10:00:00Z',
-    pricingGcp: const {'messages': 0.3},
-    pricingGcpUpdatedAt: '2026-06-21T10:00:00Z',
-    deployerConfig: const {
-      'config_events_json': '{"events":[]}',
-      'state_machine_content': 'workflow',
-      'hierarchy_content': '{"hierarchy":[]}',
-      'scene_config_content': '{"scenes":[]}',
-      'processor_contents': {'processor-a': 'def handler(): pass'},
-    },
+    optimizerConfig: OptimizerConfigData(
+      id: 'optimizer-twin-1',
+      twinId: 'twin-1',
+      params: params,
+      optimization: optimization,
+      cheapestPath: cheapestPath,
+      calculatedAt: calculatedAt,
+      pricingSnapshots: {
+        for (final provider in CloudProvider.values)
+          provider: ProviderPricingSnapshot(
+            provider: provider,
+            payload: {'messages': provider.index + 0.1},
+            updatedAt: calculatedAt,
+          ),
+      },
+      updatedAt: calculatedAt,
+    ),
+    deployerConfig: TypedApiFixtures.deployerConfig,
   );
 }

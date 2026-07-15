@@ -9,12 +9,7 @@ export 'runtime_providers.dart'
 
 final twinsProvider = FutureProvider<List<Twin>>((ref) async {
   final api = ref.read(apiServiceProvider);
-
-  // Fetch twins from database via Management API
-  final data = await api.getTwins();
-  return data
-      .map((json) => Twin.fromJson(json as Map<String, dynamic>))
-      .toList();
+  return api.getTwins();
 });
 
 /// Dashboard statistics provider.

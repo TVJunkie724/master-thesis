@@ -34,9 +34,27 @@ void main() {
 
     test('builds fallback stats from twins', () {
       final stats = DashboardStats.fromTwins([
-        Twin(id: 'a', name: 'A', state: 'deployed', providers: const []),
-        Twin(id: 'b', name: 'B', state: 'draft', providers: const []),
-        Twin(id: 'c', name: 'C', state: 'error', providers: const []),
+        Twin(
+          id: 'a',
+          name: 'A',
+          state: 'deployed',
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        Twin(
+          id: 'b',
+          name: 'B',
+          state: 'draft',
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        Twin(
+          id: 'c',
+          name: 'C',
+          state: 'error',
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
       ]);
 
       expect(stats.deployedCount, 1);

@@ -14,7 +14,14 @@ void main() {
     String state = 'draft',
     List<String> providers = const ['AWS'],
   }) {
-    return Twin(id: id, name: name, state: state, providers: providers);
+    return Twin(
+      id: id,
+      name: name,
+      state: state,
+      providers: providers,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
   }
 
   group('TwinsTable', () {
@@ -140,7 +147,7 @@ void main() {
       expect(find.byIcon(Icons.delete), findsWidgets);
     });
 
-    testWidgets('handles date display for null dates', (tester) async {
+    testWidgets('displays the required update timestamp', (tester) async {
       final twins = [createTestTwin(id: '1', name: 'Test Twin')];
 
       await tester.pumpWidget(
@@ -158,8 +165,7 @@ void main() {
         ),
       );
 
-      // Should show '-' for null dates
-      expect(find.text('-'), findsOneWidget);
+      expect(find.text('1/1/2026'), findsOneWidget);
     });
   });
 }

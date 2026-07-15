@@ -9,6 +9,7 @@ import '../../models/architecture_path.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/deployer_config.dart';
+import '../../models/optimizer_config.dart';
 import '../../models/pricing_health.dart';
 import '../../utils/twin_state_utils.dart';
 
@@ -126,11 +127,8 @@ class WizardState extends Equatable {
   final bool isCalcFormValid; // Whether the calculation form passes validation
   final CalcResult? calcResult;
   final CalcResult? savedCalcResult; // Last saved result from DB (for revert)
-  final Map<String, dynamic>? calcResultRaw;
-  final Map<String, dynamic>?
-  savedCalcResultRaw; // Last saved raw result (for revert)
-  final Map<String, dynamic>? pricingSnapshots;
-  final Map<String, String?>? pricingTimestamps;
+  final OptimizationResultData? optimizationResultData;
+  final OptimizationResultData? savedOptimizationResultData;
   final PricingHealthResponse? pricingHealth;
   final bool isPricingHealthLoading;
   final String? pricingHealthError;
@@ -148,7 +146,6 @@ class WizardState extends Equatable {
   artifactValidationFeedback;
 
   // === Persistent Data: Step 3 Section 3 (L1) ===
-  final Map<String, dynamic>? deployerConfig;
   final String? payloadsJson; // L1: payloads.json content
   final bool payloadsValidated; // L1: validation state
 
@@ -218,10 +215,8 @@ class WizardState extends Equatable {
     this.isCalcFormValid = true, // Default to valid
     this.calcResult,
     this.savedCalcResult,
-    this.calcResultRaw,
-    this.savedCalcResultRaw,
-    this.pricingSnapshots,
-    this.pricingTimestamps,
+    this.optimizationResultData,
+    this.savedOptimizationResultData,
     this.pricingHealth,
     this.isPricingHealthLoading = false,
     this.pricingHealthError,
@@ -233,7 +228,6 @@ class WizardState extends Equatable {
     this.configIotDevicesValidated = false,
     this.validatingArtifactIds = const {},
     this.artifactValidationFeedback = const {},
-    this.deployerConfig,
     this.payloadsJson,
     this.payloadsValidated = false,
     // L2 fields
@@ -546,10 +540,8 @@ class WizardState extends Equatable {
     bool? isCalcFormValid,
     CalcResult? calcResult,
     CalcResult? savedCalcResult,
-    Map<String, dynamic>? calcResultRaw,
-    Map<String, dynamic>? savedCalcResultRaw,
-    Map<String, dynamic>? pricingSnapshots,
-    Map<String, String?>? pricingTimestamps,
+    OptimizationResultData? optimizationResultData,
+    OptimizationResultData? savedOptimizationResultData,
     PricingHealthResponse? pricingHealth,
     bool? isPricingHealthLoading,
     String? pricingHealthError,
@@ -562,7 +554,6 @@ class WizardState extends Equatable {
     bool? configIotDevicesValidated,
     Set<String>? validatingArtifactIds,
     Map<String, DeployerArtifactValidationFeedback>? artifactValidationFeedback,
-    Map<String, dynamic>? deployerConfig,
     String? payloadsJson,
     bool? payloadsValidated,
     // L2 fields
@@ -635,10 +626,10 @@ class WizardState extends Equatable {
       isCalcFormValid: isCalcFormValid ?? this.isCalcFormValid,
       calcResult: calcResult ?? this.calcResult,
       savedCalcResult: savedCalcResult ?? this.savedCalcResult,
-      calcResultRaw: calcResultRaw ?? this.calcResultRaw,
-      savedCalcResultRaw: savedCalcResultRaw ?? this.savedCalcResultRaw,
-      pricingSnapshots: pricingSnapshots ?? this.pricingSnapshots,
-      pricingTimestamps: pricingTimestamps ?? this.pricingTimestamps,
+      optimizationResultData:
+          optimizationResultData ?? this.optimizationResultData,
+      savedOptimizationResultData:
+          savedOptimizationResultData ?? this.savedOptimizationResultData,
       pricingHealth: pricingHealth ?? this.pricingHealth,
       isPricingHealthLoading:
           isPricingHealthLoading ?? this.isPricingHealthLoading,
@@ -658,7 +649,6 @@ class WizardState extends Equatable {
           validatingArtifactIds ?? this.validatingArtifactIds,
       artifactValidationFeedback:
           artifactValidationFeedback ?? this.artifactValidationFeedback,
-      deployerConfig: deployerConfig ?? this.deployerConfig,
       payloadsJson: payloadsJson ?? this.payloadsJson,
       payloadsValidated: payloadsValidated ?? this.payloadsValidated,
       // L2 fields
@@ -732,10 +722,8 @@ class WizardState extends Equatable {
     isCalcFormValid,
     calcResult,
     savedCalcResult,
-    calcResultRaw,
-    savedCalcResultRaw,
-    pricingSnapshots,
-    pricingTimestamps,
+    optimizationResultData,
+    savedOptimizationResultData,
     pricingHealth,
     isPricingHealthLoading,
     pricingHealthError,
@@ -747,7 +735,6 @@ class WizardState extends Equatable {
     configIotDevicesValidated,
     validatingArtifactIds,
     artifactValidationFeedback,
-    deployerConfig,
     payloadsJson,
     payloadsValidated,
     // L2 fields

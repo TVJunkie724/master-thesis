@@ -1,6 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
+import 'package:twin2multicloud_flutter/models/calc_params.dart';
+import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployer_config.dart';
+import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/models/twin_configuration_view.dart';
+
+import '../fixtures/typed_api_fixtures.dart';
 
 void main() {
   group('TwinConfigurationView', () {
@@ -13,7 +19,7 @@ void main() {
       expect(view.optimization.numberOfDevices, '12');
       expect(view.optimization.messagesPerHour, '12.0');
       expect(view.optimization.retention, '6 months');
-      expect(view.optimization.calculatedAt, '2026-06-21T10:00:00Z');
+      expect(view.optimization.calculatedAt, '2026-06-21T10:00:00.000Z');
       expect(view.pricingSnapshots, hasLength(3));
       expect(view.pricingSnapshots.first.filename, 'aws_pricing.json');
       expect(
@@ -24,7 +30,12 @@ void main() {
 
     test('maps provider-specific deployment artifact filenames', () {
       final view = TwinConfigurationView.fromState(
-        _state(cheapestPath: const {'l2': 'gcp', 'l4': 'azure'}),
+        _state(
+          cheapestPath: const CheapestPath(
+            l2: CloudProvider.gcp,
+            l4: CloudProvider.azure,
+          ),
+        ),
       );
 
       expect(
@@ -46,11 +57,8 @@ void main() {
     test('omits empty optional artifacts defensively', () {
       final view = TwinConfigurationView.fromState(
         _state(
-          optimizerResult: null,
-          optimizerParams: null,
-          deployerConfig: const {},
-          pricingAws: null,
-          pricingAwsUpdatedAt: null,
+          includeOptimizer: false,
+          deployerConfig: const DeployerConfigData(),
         ),
       );
 
@@ -65,29 +73,26 @@ void main() {
 }
 
 TwinOverviewLoaded _state({
-  Map<String, dynamic>? optimizerResult = const {
-    'totalCost': 42.5,
-    'cheapestPath': ['L1_AWS', 'L2_Azure', 'L4_GCP'],
-  },
-  Map<String, dynamic>? optimizerParams = const {
+  bool includeOptimizer = true,
+  CheapestPath cheapestPath = const CheapestPath(
+    l2: CloudProvider.aws,
+    l4: CloudProvider.aws,
+  ),
+  DeployerConfigData deployerConfig = TypedApiFixtures.deployerConfig,
+}) {
+  final calculatedAt = DateTime.parse('2026-06-21T10:00:00Z');
+  final params = CalcParams.fromJson({
+    ...CalcParams.defaultParams().toJson(),
     'numberOfDevices': 12,
     'deviceSendingIntervalInMinutes': 5,
     'hotStorageDurationInMonths': 1,
     'coolStorageDurationInMonths': 2,
     'archiveStorageDurationInMonths': 3,
-  },
-  Map<String, dynamic>? cheapestPath = const {'l2': 'aws', 'l4': 'aws'},
-  Map<String, dynamic>? pricingAws = const {'messages': 0.1},
-  String? pricingAwsUpdatedAt = '2026-06-21T10:00:00Z',
-  Map<String, dynamic>? deployerConfig = const {
-    'config_events_json': '{"events":[]}',
-    'state_machine_content': 'workflow',
-    'hierarchy_content': '{"hierarchy":[]}',
-    'scene_config_content': '{"scenes":[]}',
-    'user_config_content': '{"users":[]}',
-    'processor_contents': {'processor-a': 'def handler(): pass'},
-  },
-}) {
+  });
+  final optimization = TypedApiFixtures.optimization(
+    totalCost: 42.5,
+    cheapestPath: const ['L1_AWS', 'L2_Azure', 'L4_GCP'],
+  );
   return TwinOverviewLoaded(
     twinId: 'twin-1',
     projectName: 'Demo Twin',
@@ -97,16 +102,25 @@ TwinOverviewLoaded _state({
     canDestroy: false,
     canEdit: true,
     canDelete: true,
-    optimizerResult: optimizerResult,
-    optimizerParams: optimizerParams,
-    calculatedAt: '2026-06-21T10:00:00Z',
-    cheapestPath: cheapestPath,
-    pricingAws: pricingAws,
-    pricingAwsUpdatedAt: pricingAwsUpdatedAt,
-    pricingAzure: const {'messages': 0.2},
-    pricingAzureUpdatedAt: '2026-06-21T10:00:00Z',
-    pricingGcp: const {'messages': 0.3},
-    pricingGcpUpdatedAt: '2026-06-21T10:00:00Z',
+    optimizerConfig: includeOptimizer
+        ? OptimizerConfigData(
+            id: 'optimizer-twin-1',
+            twinId: 'twin-1',
+            params: params,
+            optimization: optimization,
+            cheapestPath: cheapestPath,
+            calculatedAt: calculatedAt,
+            pricingSnapshots: {
+              for (final provider in CloudProvider.values)
+                provider: ProviderPricingSnapshot(
+                  provider: provider,
+                  payload: {'messages': provider.index + 0.1},
+                  updatedAt: calculatedAt,
+                ),
+            },
+            updatedAt: calculatedAt,
+          )
+        : null,
     deployerConfig: deployerConfig,
   );
 }

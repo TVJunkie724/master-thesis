@@ -42,12 +42,12 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     // Issue 3 fix: When advancing from Step 2 to Step 3 for first time,
     // snapshot current calcResult as savedCalcResult for revert capability
     CalcResult? snapshotCalcResult;
-    Map<String, dynamic>? snapshotCalcResultRaw;
+    OptimizationResultData? snapshotOptimizationResultData;
     if (state.currentStep == 1 &&
         nextStep == 2 &&
         state.savedCalcResult == null) {
       snapshotCalcResult = state.calcResult;
-      snapshotCalcResultRaw = state.calcResultRaw;
+      snapshotOptimizationResultData = state.optimizationResultData;
     }
 
     emit(
@@ -57,7 +57,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
             ? nextStep
             : state.highestStepReached,
         savedCalcResult: snapshotCalcResult,
-        savedCalcResultRaw: snapshotCalcResultRaw,
+        savedOptimizationResultData: snapshotOptimizationResultData,
       ),
     );
   }
@@ -161,8 +161,8 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     emit(state.copyWith(isCalculating: true, clearError: true));
 
     try {
-      final response = await _api.calculateCosts(state.calcParams!.toJson());
-      final result = CalcResult.fromJson(response);
+      final response = await _api.calculateCosts(state.calcParams!);
+      final result = response.result;
 
       // Check for unconfigured providers in optimal path
       final unconfigured = _getUnconfiguredProviders(result.cheapestPath);
@@ -192,7 +192,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         state.copyWith(
           isCalculating: false,
           calcResult: result,
-          calcResultRaw: response,
+          optimizationResultData: response,
           hasUnsavedChanges: true,
           step3Invalidated: invalidatesStep3,
           warningMessage: warning,
@@ -228,16 +228,6 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     );
   }
 
-  /// Extract provider name from cheapest path for a given layer prefix
-  String? _extractProvider(List<String> path, String prefix) {
-    for (final segment in path) {
-      if (segment.startsWith(prefix)) {
-        return segment.replaceFirst(prefix, '').toLowerCase();
-      }
-    }
-    return null;
-  }
-
   bool _shouldPersistDeployerConfig() {
     return WizardConfigRequestBuilder.shouldPersistDeployerConfig(state);
   }
@@ -268,7 +258,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           return;
         }
         final result = await _api.createTwin(state.twinName!);
-        twinId = result['id'];
+        twinId = result.id;
       }
 
       // Save config and capture response for state sync
@@ -278,7 +268,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       );
 
       // Track if state was regressed by backend
-      final String? newTwinState = configResponse['twin_state'] as String?;
+      final newTwinState = configResponse.twinState;
       final bool stateRegressed =
           newTwinState != null &&
           newTwinState != state.twinState &&
@@ -286,57 +276,21 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
 
       // Save optimizer result with pricing snapshots (if calc result exists)
       if (state.calcParams != null &&
-          state.calcResultRaw != null &&
+          state.optimizationResultData != null &&
           state.calcResult != null) {
-        try {
-          // Fetch current pricing snapshots from Optimizer service
-          final awsPricing = await _api.exportPricing('aws');
-          final azurePricing = await _api.exportPricing('azure');
-          final gcpPricing = await _api.exportPricing('gcp');
-
-          // Build cheapest path map from CalcResult
-          final cheapestPath = <String, String?>{
-            'l1': _extractProvider(state.calcResult!.cheapestPath, 'L1_'),
-            'l2': _extractProvider(state.calcResult!.cheapestPath, 'L2_'),
-            'l3_hot': _extractProvider(
-              state.calcResult!.cheapestPath,
-              'L3_hot_',
-            ),
-            'l3_cool': _extractProvider(
-              state.calcResult!.cheapestPath,
-              'L3_cool_',
-            ),
-            'l3_archive': _extractProvider(
-              state.calcResult!.cheapestPath,
-              'L3_archive_',
-            ),
-            'l4': _extractProvider(state.calcResult!.cheapestPath, 'L4_'),
-            'l5': _extractProvider(state.calcResult!.cheapestPath, 'L5_'),
-          };
-
-          // Build pricing timestamps
-          final pricingTimestamps = <String, String?>{
-            'aws': awsPricing['updated_at'] as String?,
-            'azure': azurePricing['updated_at'] as String?,
-            'gcp': gcpPricing['updated_at'] as String?,
-          };
-
-          await _api.saveOptimizerResult(
-            twinId,
-            params: state.calcParams!.toJson(),
-            result: state.calcResultRaw!['result'] as Map<String, dynamic>,
-            cheapestPath: cheapestPath,
-            pricingSnapshots: {
-              'aws': awsPricing['pricing'],
-              'azure': azurePricing['pricing'],
-              'gcp': gcpPricing['pricing'],
-            },
-            pricingTimestamps: pricingTimestamps,
-          );
-        } catch (e) {
-          // Non-fatal: pricing snapshots are optional
-          _logger.warning(AppLogEvent.pricingSnapshotPersistenceFailed);
-        }
+        final pricingSnapshots = {
+          for (final provider in CloudProvider.values)
+            provider: await _api.exportPricing(provider.apiValue),
+        };
+        await _api.saveOptimizerResult(
+          twinId,
+          params: state.calcParams!,
+          optimization: state.optimizationResultData!,
+          cheapestPath: CheapestPath.fromSegments(
+            state.calcResult!.cheapestPath,
+          ),
+          pricingSnapshots: pricingSnapshots,
+        );
       }
 
       // Save all Step 3 data once the user reached the deployer step.
@@ -355,7 +309,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           hasUnsavedChanges: false,
           savedCalcResult:
               state.calcResult, // Update saved result on successful save
-          savedCalcResultRaw: state.calcResultRaw, // Update saved raw result
+          savedOptimizationResultData: state.optimizationResultData,
           step3Invalidated: false, // Clear invalidation after save
           successMessage: stateRegressed
               ? 'Saved. Configuration reverted to draft.'
@@ -402,7 +356,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           return;
         }
         final result = await _api.createTwin(state.twinName!);
-        twinId = result['id'];
+        twinId = result.id;
       }
 
       await _api.updateTwinConfigRequest(
@@ -492,8 +446,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       state.copyWith(
         step3Invalidated: false,
         calcResult: state.savedCalcResult, // Visually revert to saved result
-        calcResultRaw:
-            state.savedCalcResultRaw, // Revert raw data for persistence
+        optimizationResultData: state.savedOptimizationResultData,
         hasUnsavedChanges: false,
         successMessage: 'Changes discarded',
       ),

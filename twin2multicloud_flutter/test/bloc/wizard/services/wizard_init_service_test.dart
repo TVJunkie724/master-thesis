@@ -3,8 +3,11 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/deployer_config.dart';
+import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/services/wizard_init_service.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard_state.dart';
+
+import '../../../fixtures/typed_api_fixtures.dart';
 
 void main() {
   late WizardInitService service;
@@ -28,13 +31,11 @@ void main() {
     group('initializeEditMode', () {
       test('hydrates state from twin data', () {
         final data = TwinEditData(
-          twin: {'name': 'TestTwin', 'state': 'draft'},
-          config: {
-            'debug_mode': false,
-            'highest_step_reached': 1,
-            'aws_configured': true,
-            'aws': {'access_key': '***'},
-          },
+          twin: TypedApiFixtures.twin(name: 'TestTwin'),
+          config: TypedApiFixtures.twinConfig(
+            highestStepReached: 1,
+            configuredProviders: const {CloudProvider.aws},
+          ),
         );
 
         final result = service.initializeEditMode(
@@ -53,11 +54,10 @@ void main() {
 
       test('hydrates AWS credentials as inherited', () {
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {
-            'aws_configured': true,
-            'aws': {'access_key': '***MASKED***', 'secret_key': '***MASKED***'},
-          },
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            configuredProviders: const {CloudProvider.aws},
+          ),
         );
 
         final result = service.initializeEditMode(
@@ -71,13 +71,10 @@ void main() {
 
       test('hydrates Azure and GCP credentials', () {
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {
-            'azure_configured': true,
-            'azure': {'subscription_id': '***'},
-            'gcp_configured': true,
-            'gcp': {'project_id': '***'},
-          },
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            configuredProviders: const {CloudProvider.azure, CloudProvider.gcp},
+          ),
         );
 
         final result = service.initializeEditMode(
@@ -93,11 +90,8 @@ void main() {
 
       test('restores workload step without deployment credentials', () {
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {
-            'highest_step_reached': 2,
-            // No credentials configured
-          },
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(highestStepReached: 2),
         );
 
         final result = service.initializeEditMode(
@@ -110,13 +104,11 @@ void main() {
 
       test('resets step to 1 if step >= 2 but no optimizer result', () {
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {
-            'aws_configured': true,
-            'aws': {'key': 'value'},
-            'highest_step_reached': 2,
-            // No optimizer_result
-          },
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            highestStepReached: 2,
+            configuredProviders: const {CloudProvider.aws},
+          ),
         );
 
         final result = service.initializeEditMode(
@@ -129,8 +121,8 @@ void main() {
 
       test('hydrates deployer config from DeployerConfigData', () {
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {},
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(),
           deployerConfig: const DeployerConfigData(
             deployerDigitalTwinName: 'MyTwin',
             configEventsJson: '{"events": []}',
@@ -198,61 +190,39 @@ void main() {
     group('TwinEditData', () {
       test('can be constructed with all fields', () {
         final data = TwinEditData(
-          twin: {'name': 'Test'},
-          config: {'debug_mode': true},
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(debugMode: true),
           deployerConfig: const DeployerConfigData(
             deployerDigitalTwinName: 'Name',
           ),
         );
 
-        expect(data.twin['name'], 'Test');
-        expect(data.config['debug_mode'], true);
+        expect(data.twin.name, 'Test');
+        expect(data.config.debugMode, true);
         expect(data.deployerConfig?.deployerDigitalTwinName, 'Name');
       });
 
       test('deployerConfig is optional', () {
-        final data = TwinEditData(twin: {'name': 'Test'}, config: {});
+        final data = TwinEditData(
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(),
+        );
 
         expect(data.deployerConfig, isNull);
       });
     });
 
     group('unconfigured provider warning (GAP 3)', () {
-      // Helper to build valid optimizer_result structure
-      Map<String, dynamic> buildOptimizerResult(List<String> cheapestPath) {
-        return <String, dynamic>{
-          'awsCosts': <String, dynamic>{
-            'L1': <String, dynamic>{
-              'cost': 10.0,
-              'components': <String, double>{},
-            },
-          },
-          'azureCosts': <String, dynamic>{
-            'L2': <String, dynamic>{
-              'cost': 20.0,
-              'components': <String, double>{},
-            },
-          },
-          'gcpCosts': <String, dynamic>{},
-          'cheapestPath': cheapestPath,
-          'inputParamsUsed': <String, dynamic>{},
-        };
-      }
-
       test('generates warning when optimal path has unconfigured provider', () {
         // AWS configured, Azure not configured, optimal path uses both
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {
-            'aws_configured': true,
-            'aws': {'access_key': '***'},
-            // Azure NOT configured
-            'optimizer_result': buildOptimizerResult([
-              'L1_AWS',
-              'L2_AZURE',
-              'L3_AWS_HOT',
-            ]),
-          },
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            configuredProviders: const {CloudProvider.aws},
+            optimization: TypedApiFixtures.optimization(
+              cheapestPath: ['L1_AWS', 'L2_AZURE', 'L3_AWS_HOT'],
+            ),
+          ),
         );
 
         final result = service.initializeEditMode(
@@ -269,14 +239,13 @@ void main() {
       test('no warning when all providers in path are configured', () {
         // AWS & Azure both configured
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {
-            'aws_configured': true,
-            'aws': {'access_key': '***'},
-            'azure_configured': true,
-            'azure': {'subscription_id': '***'},
-            'optimizer_result': buildOptimizerResult(['L1_AWS', 'L2_AZURE']),
-          },
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            configuredProviders: const {CloudProvider.aws, CloudProvider.azure},
+            optimization: TypedApiFixtures.optimization(
+              cheapestPath: ['L1_AWS', 'L2_AZURE'],
+            ),
+          ),
         );
 
         final result = service.initializeEditMode(
@@ -289,12 +258,11 @@ void main() {
 
       test('handles empty optimal path gracefully', () {
         final data = TwinEditData(
-          twin: {'name': 'Test', 'state': 'draft'},
-          config: {
-            'aws_configured': true,
-            'aws': {'key': '***'},
-            'optimizer_result': buildOptimizerResult([]),
-          },
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            configuredProviders: const {CloudProvider.aws},
+            optimization: TypedApiFixtures.optimization(cheapestPath: const []),
+          ),
         );
 
         final result = service.initializeEditMode(

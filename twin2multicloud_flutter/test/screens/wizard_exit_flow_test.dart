@@ -12,6 +12,9 @@ import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/wizard_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
+import 'package:twin2multicloud_flutter/models/twin_config.dart';
+
+import '../fixtures/typed_api_fixtures.dart';
 
 final class _MockApiService extends Mock implements ApiService {}
 
@@ -22,10 +25,10 @@ void main() {
     tester,
   ) async {
     final api = _MockApiService();
-    final persistence = Completer<Map<String, dynamic>>();
-    when(
-      () => api.createTwin('Factory twin'),
-    ).thenAnswer((_) async => {'id': 'twin-1'});
+    final persistence = Completer<TwinConfigData>();
+    when(() => api.createTwin('Factory twin')).thenAnswer(
+      (_) async => TypedApiFixtures.twin(id: 'twin-1', name: 'Factory twin'),
+    );
     when(
       () => api.updateTwinConfigRequest('twin-1', any()),
     ).thenAnswer((_) => persistence.future);
@@ -45,7 +48,7 @@ void main() {
     verify(() => api.createTwin('Factory twin')).called(1);
     verify(() => api.updateTwinConfigRequest('twin-1', any())).called(1);
 
-    persistence.complete({'twin_state': 'draft'});
+    persistence.complete(TypedApiFixtures.twinConfig(twinId: 'twin-1'));
     await _pumpUntil(
       tester,
       () =>
@@ -131,12 +134,12 @@ void main() {
 }
 
 void _stubSuccessfulSave(_MockApiService api) {
-  when(
-    () => api.createTwin('Factory twin'),
-  ).thenAnswer((_) async => {'id': 'twin-1'});
+  when(() => api.createTwin('Factory twin')).thenAnswer(
+    (_) async => TypedApiFixtures.twin(id: 'twin-1', name: 'Factory twin'),
+  );
   when(
     () => api.updateTwinConfigRequest('twin-1', any()),
-  ).thenAnswer((_) async => {'twin_state': 'draft'});
+  ).thenAnswer((_) async => TypedApiFixtures.twinConfig(twinId: 'twin-1'));
 }
 
 Future<_WizardHarness> _pumpWizard(

@@ -7,7 +7,6 @@ class WizardConfigRequestBuilder {
   const WizardConfigRequestBuilder._();
 
   static TwinConfigUpdateRequest buildTwinConfigRequest(WizardState state) {
-    final optimizerResult = state.calcResultRaw?['result'];
     return TwinConfigUpdateRequest(
       debugMode: state.debugMode,
       cloudConnections: {
@@ -18,9 +17,7 @@ class WizardConfigRequestBuilder {
       clearAzure: state.azure.source == CredentialSource.cleared,
       clearGcp: state.gcp.source == CredentialSource.cleared,
       optimizerParams: state.calcParams?.toJson(),
-      optimizerResult: optimizerResult is Map
-          ? Map<String, dynamic>.from(optimizerResult)
-          : null,
+      optimizerResult: state.optimizationResultData?.payload,
       highestStepReached: state.highestStepReached,
     );
   }

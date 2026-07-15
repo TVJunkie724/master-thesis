@@ -6,6 +6,9 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/app_logger.dart';
 import '../../models/deployment_operations.dart';
+import '../../models/deployer_config.dart';
+import '../../models/optimizer_config.dart';
+import '../../models/twin.dart';
 import '../../services/log_stream_client.dart';
 import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
@@ -79,21 +82,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       final twin = await _api.getTwin(event.twinId);
       final deploymentStatus = await _api.getDeploymentStatus(event.twinId);
 
-      // Load optimizer config (includes pricing snapshots)
-      Map<String, dynamic>? optimizerConfig;
-      try {
-        optimizerConfig = await _api.getOptimizerConfig(event.twinId);
-      } catch (e) {
-        // Optimizer config may not exist yet
-      }
-
-      // Load deployer config
-      Map<String, dynamic>? deployerConfig;
-      try {
-        deployerConfig = await _api.getDeployerConfig(event.twinId);
-      } catch (e) {
-        // Deployer config may not exist yet
-      }
+      final optimizerConfig = await _api.getOptimizerConfig(event.twinId);
+      final deployerConfig = await _api.getDeployerConfig(event.twinId);
 
       final twinState = deploymentStatus.state.apiValue;
       final deploymentReadiness = await _loadCachedReadiness(event.twinId);
@@ -165,18 +155,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         final deploymentStatus = await _api.getDeploymentStatus(
           _currentTwinId!,
         );
-        Map<String, dynamic>? optimizerConfig;
-        try {
-          optimizerConfig = await _api.getOptimizerConfig(_currentTwinId!);
-        } catch (e) {
-          // Optimizer config may not exist yet
-        }
-        Map<String, dynamic>? deployerConfig;
-        try {
-          deployerConfig = await _api.getDeployerConfig(_currentTwinId!);
-        } catch (e) {
-          // Deployer config may not exist yet
-        }
+        final optimizerConfig = await _api.getOptimizerConfig(_currentTwinId!);
+        final deployerConfig = await _api.getDeployerConfig(_currentTwinId!);
 
         final twinState = deploymentStatus.state.apiValue;
         final deploymentReadiness = await _loadCachedReadiness(
@@ -1413,11 +1393,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   /// Build loaded state with calculated permissions based on twin state
   TwinOverviewLoaded _buildLoadedState({
     required String twinId,
-    required Map<String, dynamic> twin,
+    required Twin twin,
     required String twinState,
     String? lastError,
-    Map<String, dynamic>? optimizerConfig,
-    Map<String, dynamic>? deployerConfig,
+    OptimizerConfigData? optimizerConfig,
+    DeployerConfigData? deployerConfig,
     DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
     required DeploymentReadinessViewState deploymentReadiness,
@@ -1428,9 +1408,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
     return TwinOverviewLoaded(
       twinId: twinId,
-      projectName: twin['name'] as String? ?? 'Unnamed Twin',
-      cloudResourceName:
-          deployerConfig?['deployer_digital_twin_name'] as String?,
+      projectName: twin.name,
+      cloudResourceName: deployerConfig?.deployerDigitalTwinName,
       twinState: twinState,
       canDeploy: perms['canDeploy']!,
       canDestroy: perms['canDestroy']!,
@@ -1439,25 +1418,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       deploymentReadiness: deploymentReadiness,
       deploymentOperation: deploymentOperation,
       lastError: lastError,
-      lastDeploymentLogs: twin['last_deployment_logs'] as String?,
-      // Optimizer result and params
-      optimizerResult: optimizerConfig?['result'] as Map<String, dynamic>?,
-      optimizerParams: optimizerConfig?['params'] as Map<String, dynamic>?,
-      cheapestPath: optimizerConfig?['cheapest_path'] as Map<String, dynamic>?,
-      calculatedAt: optimizerConfig?['calculated_at'] as String?,
-      // Pricing snapshots - match API field names
-      pricingAws:
-          optimizerConfig?['pricing_aws_snapshot'] as Map<String, dynamic>?,
-      pricingAwsUpdatedAt:
-          optimizerConfig?['pricing_aws_updated_at'] as String?,
-      pricingAzure:
-          optimizerConfig?['pricing_azure_snapshot'] as Map<String, dynamic>?,
-      pricingAzureUpdatedAt:
-          optimizerConfig?['pricing_azure_updated_at'] as String?,
-      pricingGcp:
-          optimizerConfig?['pricing_gcp_snapshot'] as Map<String, dynamic>?,
-      pricingGcpUpdatedAt:
-          optimizerConfig?['pricing_gcp_updated_at'] as String?,
+      lastDeploymentLogs: twin.lastDeploymentLogs,
+      optimizerConfig: optimizerConfig,
       deployerConfig: deployerConfig,
       // Terraform outputs
       deploymentOutputs: deploymentOutputs,
@@ -1505,8 +1467,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       return;
     }
 
-    final provider =
-        (currentState.cheapestPath?['l1'] as String?)?.toLowerCase() ?? 'l1';
+    final provider = currentState.l1ProviderLabel;
 
     emit(
       currentState.copyWith(

@@ -62,14 +62,35 @@ class DeployerConfigData extends Equatable {
 
   factory DeployerConfigData.fromJson(Map<String, dynamic> json) {
     return DeployerConfigData(
-      deployerDigitalTwinName: _string(json['deployer_digital_twin_name']),
-      configEventsJson: _string(json['config_events_json']),
-      configIotDevicesJson: _string(json['config_iot_devices_json']),
-      configJsonValidated: json['config_json_validated'] == true,
-      configEventsValidated: json['config_events_validated'] == true,
-      configIotDevicesValidated: json['config_iot_devices_validated'] == true,
-      payloadsJson: _string(json['payloads_json']),
-      payloadsValidated: json['payloads_validated'] == true,
+      deployerDigitalTwinName: _string(
+        json['deployer_digital_twin_name'],
+        'deployer_digital_twin_name',
+      ),
+      configEventsJson: _string(
+        json['config_events_json'],
+        'config_events_json',
+      ),
+      configIotDevicesJson: _string(
+        json['config_iot_devices_json'],
+        'config_iot_devices_json',
+      ),
+      configJsonValidated: _bool(
+        json['config_json_validated'],
+        'config_json_validated',
+      ),
+      configEventsValidated: _bool(
+        json['config_events_validated'],
+        'config_events_validated',
+      ),
+      configIotDevicesValidated: _bool(
+        json['config_iot_devices_validated'],
+        'config_iot_devices_validated',
+      ),
+      payloadsJson: _string(json['payloads_json'], 'payloads_json'),
+      payloadsValidated: _bool(
+        json['payloads_validated'],
+        'payloads_validated',
+      ),
       processorContents: _stringMap(
         json['processor_contents'],
         'processor_contents',
@@ -82,9 +103,18 @@ class DeployerConfigData extends Equatable {
         json['processor_requirements'],
         'processor_requirements',
       ),
-      eventFeedbackContent: _string(json['event_feedback_content']),
-      eventFeedbackValidated: json['event_feedback_validated'] == true,
-      eventFeedbackRequirements: _string(json['event_feedback_requirements']),
+      eventFeedbackContent: _string(
+        json['event_feedback_content'],
+        'event_feedback_content',
+      ),
+      eventFeedbackValidated: _bool(
+        json['event_feedback_validated'],
+        'event_feedback_validated',
+      ),
+      eventFeedbackRequirements: _string(
+        json['event_feedback_requirements'],
+        'event_feedback_requirements',
+      ),
       eventActionContents: _stringMap(
         json['event_action_contents'],
         'event_action_contents',
@@ -97,15 +127,36 @@ class DeployerConfigData extends Equatable {
         json['event_action_requirements'],
         'event_action_requirements',
       ),
-      stateMachineContent: _string(json['state_machine_content']),
-      stateMachineValidated: json['state_machine_validated'] == true,
-      hierarchyContent: _string(json['hierarchy_content']),
-      hierarchyValidated: json['hierarchy_validated'] == true,
-      sceneGlbUploaded: json['scene_glb_uploaded'] == true,
-      sceneConfigContent: _string(json['scene_config_content']),
-      sceneConfigValidated: json['scene_config_validated'] == true,
-      userConfigContent: _string(json['user_config_content']),
-      userConfigValidated: json['user_config_validated'] == true,
+      stateMachineContent: _string(
+        json['state_machine_content'],
+        'state_machine_content',
+      ),
+      stateMachineValidated: _bool(
+        json['state_machine_validated'],
+        'state_machine_validated',
+      ),
+      hierarchyContent: _string(json['hierarchy_content'], 'hierarchy_content'),
+      hierarchyValidated: _bool(
+        json['hierarchy_validated'],
+        'hierarchy_validated',
+      ),
+      sceneGlbUploaded: _bool(json['scene_glb_uploaded'], 'scene_glb_uploaded'),
+      sceneConfigContent: _string(
+        json['scene_config_content'],
+        'scene_config_content',
+      ),
+      sceneConfigValidated: _bool(
+        json['scene_config_validated'],
+        'scene_config_validated',
+      ),
+      userConfigContent: _string(
+        json['user_config_content'],
+        'user_config_content',
+      ),
+      userConfigValidated: _bool(
+        json['user_config_validated'],
+        'user_config_validated',
+      ),
     );
   }
 
@@ -470,22 +521,52 @@ bool _isAwsOrAzure(String? provider) {
   return normalized == 'AWS' || normalized == 'AZURE';
 }
 
-String? _string(dynamic value) => value is String ? value : null;
+String? _string(Object? value, String field) {
+  if (value == null) return null;
+  if (value is! String) {
+    throw FormatException('Invalid API contract: $field must be a string.');
+  }
+  return value;
+}
+
+bool _bool(Object? value, String field) {
+  if (value == null) return false;
+  if (value is! bool) {
+    throw FormatException('Invalid API contract: $field must be a boolean.');
+  }
+  return value;
+}
 
 Map<String, String> _stringMap(dynamic value, String field) {
   if (value == null) return const {};
-  if (value is! Map) throw FormatException('$field must be an object');
-  return value.map((key, item) {
-    if (item is! String) throw FormatException('$field values must be strings');
-    return MapEntry(key.toString(), item);
-  });
+  if (value is! Map) {
+    throw FormatException('Invalid API contract: $field must be an object.');
+  }
+  return Map.unmodifiable(
+    value.map((key, item) {
+      if (key is! String || item is! String) {
+        throw FormatException(
+          'Invalid API contract: $field must contain string entries.',
+        );
+      }
+      return MapEntry(key, item);
+    }),
+  );
 }
 
 Map<String, bool> _boolMap(dynamic value, String field) {
   if (value == null) return const {};
-  if (value is! Map) throw FormatException('$field must be an object');
-  return value.map((key, item) {
-    if (item is! bool) throw FormatException('$field values must be booleans');
-    return MapEntry(key.toString(), item);
-  });
+  if (value is! Map) {
+    throw FormatException('Invalid API contract: $field must be an object.');
+  }
+  return Map.unmodifiable(
+    value.map((key, item) {
+      if (key is! String || item is! bool) {
+        throw FormatException(
+          'Invalid API contract: $field must contain boolean entries.',
+        );
+      }
+      return MapEntry(key, item);
+    }),
+  );
 }

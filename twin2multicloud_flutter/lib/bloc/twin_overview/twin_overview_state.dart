@@ -4,6 +4,8 @@
 import 'package:equatable/equatable.dart';
 import '../../models/deployment_readiness.dart';
 import '../../models/deployment_operations.dart';
+import '../../models/deployer_config.dart';
+import '../../models/optimizer_config.dart';
 
 enum DeploymentOperationViewPhase {
   idle,
@@ -373,22 +375,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String? lastError;
   final String? lastDeploymentLogs;
 
-  // Optimization data
-  final Map<String, dynamic>? optimizerResult;
-  final Map<String, dynamic>? optimizerParams;
-  final Map<String, dynamic>? cheapestPath; // {l1: 'aws', l2: 'azure', ...}
-  final String? calculatedAt;
-
-  // Pricing snapshots
-  final Map<String, dynamic>? pricingAws;
-  final String? pricingAwsUpdatedAt;
-  final Map<String, dynamic>? pricingAzure;
-  final String? pricingAzureUpdatedAt;
-  final Map<String, dynamic>? pricingGcp;
-  final String? pricingGcpUpdatedAt;
-
-  // Deployer config for display
-  final Map<String, dynamic>? deployerConfig;
+  final OptimizerConfigData? optimizerConfig;
+  final DeployerConfigData? deployerConfig;
 
   // Success/error/info messages
   final String? successMessage;
@@ -414,16 +402,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.simulatorDownload = const SimulatorDownloadViewState(),
     this.lastError,
     this.lastDeploymentLogs,
-    this.optimizerResult,
-    this.optimizerParams,
-    this.cheapestPath,
-    this.calculatedAt,
-    this.pricingAws,
-    this.pricingAwsUpdatedAt,
-    this.pricingAzure,
-    this.pricingAzureUpdatedAt,
-    this.pricingGcp,
-    this.pricingGcpUpdatedAt,
+    this.optimizerConfig,
     this.deployerConfig,
     this.successMessage,
     this.errorMessage,
@@ -444,6 +423,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
 
   List<String> get terminalLogs => deploymentOperation.formattedLogs;
 
+  String get l1ProviderLabel => optimizerConfig?.l1Provider?.apiValue ?? 'l1';
+
   /// Create copy with updated fields
   TwinOverviewLoaded copyWith({
     String? twinId,
@@ -460,17 +441,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     SimulatorDownloadViewState? simulatorDownload,
     String? lastError,
     String? lastDeploymentLogs,
-    Map<String, dynamic>? optimizerResult,
-    Map<String, dynamic>? optimizerParams,
-    Map<String, dynamic>? cheapestPath,
-    String? calculatedAt,
-    Map<String, dynamic>? pricingAws,
-    String? pricingAwsUpdatedAt,
-    Map<String, dynamic>? pricingAzure,
-    String? pricingAzureUpdatedAt,
-    Map<String, dynamic>? pricingGcp,
-    String? pricingGcpUpdatedAt,
-    Map<String, dynamic>? deployerConfig,
+    OptimizerConfigData? optimizerConfig,
+    DeployerConfigData? deployerConfig,
     String? successMessage,
     String? errorMessage,
     String? infoMessage,
@@ -498,17 +470,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
       simulatorDownload: simulatorDownload ?? this.simulatorDownload,
       lastError: clearLastError ? null : (lastError ?? this.lastError),
       lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
-      optimizerResult: optimizerResult ?? this.optimizerResult,
-      optimizerParams: optimizerParams ?? this.optimizerParams,
-      cheapestPath: cheapestPath ?? this.cheapestPath,
-      calculatedAt: calculatedAt ?? this.calculatedAt,
-      pricingAws: pricingAws ?? this.pricingAws,
-      pricingAwsUpdatedAt: pricingAwsUpdatedAt ?? this.pricingAwsUpdatedAt,
-      pricingAzure: pricingAzure ?? this.pricingAzure,
-      pricingAzureUpdatedAt:
-          pricingAzureUpdatedAt ?? this.pricingAzureUpdatedAt,
-      pricingGcp: pricingGcp ?? this.pricingGcp,
-      pricingGcpUpdatedAt: pricingGcpUpdatedAt ?? this.pricingGcpUpdatedAt,
+      optimizerConfig: optimizerConfig ?? this.optimizerConfig,
       deployerConfig: deployerConfig ?? this.deployerConfig,
       successMessage: clearSuccess
           ? null
@@ -540,16 +502,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     simulatorDownload,
     lastError,
     lastDeploymentLogs,
-    optimizerResult,
-    optimizerParams,
-    cheapestPath,
-    calculatedAt,
-    pricingAws,
-    pricingAwsUpdatedAt,
-    pricingAzure,
-    pricingAzureUpdatedAt,
-    pricingGcp,
-    pricingGcpUpdatedAt,
+    optimizerConfig,
     deployerConfig,
     successMessage,
     errorMessage,

@@ -6,6 +6,8 @@ import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
+import '../fixtures/typed_api_fixtures.dart';
+
 class MockApiService extends Mock implements ApiService {}
 
 void main() {
@@ -107,12 +109,12 @@ void main() {
     blocTest<WizardBloc, WizardState>(
       'saving CloudConnection-only draft sends cloud_connections without secrets',
       build: () {
-        when(
-          () => api.createTwin(any()),
-        ).thenAnswer((_) async => {'id': 'new-twin-id'});
-        when(
-          () => api.updateTwinConfigRequest(any(), any()),
-        ).thenAnswer((_) async => {'twin_state': 'draft'});
+        when(() => api.createTwin(any())).thenAnswer(
+          (_) async => TypedApiFixtures.twin(id: 'new-twin-id', name: 'Twin'),
+        );
+        when(() => api.updateTwinConfigRequest(any(), any())).thenAnswer(
+          (_) async => TypedApiFixtures.twinConfig(twinId: 'new-twin-id'),
+        );
         return WizardBloc(api: api);
       },
       seed: () => const WizardState(
@@ -162,9 +164,9 @@ void main() {
     blocTest<WizardBloc, WizardState>(
       'saving cleared provider sends explicit provider null',
       build: () {
-        when(
-          () => api.updateTwinConfigRequest(any(), any()),
-        ).thenAnswer((_) async => {'twin_state': 'draft'});
+        when(() => api.updateTwinConfigRequest(any(), any())).thenAnswer(
+          (_) async => TypedApiFixtures.twinConfig(twinId: 'existing-twin-id'),
+        );
         return WizardBloc(api: api);
       },
       seed: () => const WizardState(
@@ -195,12 +197,12 @@ void main() {
     blocTest<WizardBloc, WizardState>(
       'saving Step 3 draft persists payload-only deployer config',
       build: () {
-        when(
-          () => api.updateTwinConfigRequest(any(), any()),
-        ).thenAnswer((_) async => {'twin_state': 'draft'});
+        when(() => api.updateTwinConfigRequest(any(), any())).thenAnswer(
+          (_) async => TypedApiFixtures.twinConfig(twinId: 'existing-twin-id'),
+        );
         when(
           () => api.updateDeployerConfigRequest(any(), any()),
-        ).thenAnswer((_) async => {'twin_state': 'draft'});
+        ).thenAnswer((_) async => TypedApiFixtures.deployerConfig);
         return WizardBloc(api: api);
       },
       seed: () => const WizardState(

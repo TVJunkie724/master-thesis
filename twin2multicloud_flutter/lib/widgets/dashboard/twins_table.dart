@@ -51,14 +51,10 @@ class _TwinsTableState extends State<TwinsTable> {
           comparison = a.state.compareTo(b.state);
           break;
         case TwinSortField.createdAt:
-          final aDate = a.createdAt ?? DateTime(1970);
-          final bDate = b.createdAt ?? DateTime(1970);
-          comparison = aDate.compareTo(bDate);
+          comparison = a.createdAt.compareTo(b.createdAt);
           break;
         case TwinSortField.updatedAt:
-          final aDate = a.updatedAt ?? DateTime(1970);
-          final bDate = b.updatedAt ?? DateTime(1970);
-          comparison = aDate.compareTo(bDate);
+          comparison = a.updatedAt.compareTo(b.updatedAt);
           break;
         case TwinSortField.providers:
           comparison = a.providers.length.compareTo(b.providers.length);
@@ -272,8 +268,7 @@ class _TwinsTableState extends State<TwinsTable> {
     );
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return '-';
+  String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
 
