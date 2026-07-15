@@ -5,16 +5,10 @@ import 'package:flutter/material.dart';
 import '../../models/twin.dart';
 
 /// Sorting options for twins table
-enum TwinSortField {
-  name,
-  state,
-  createdAt,
-  updatedAt,
-  providers,
-}
+enum TwinSortField { name, state, createdAt, updatedAt, providers }
 
 /// A data table displaying twins with sorting and actions.
-/// 
+///
 /// Features:
 /// - Sortable columns
 /// - Status badges
@@ -27,7 +21,7 @@ class TwinsTable extends StatefulWidget {
   final Function(Twin) onEdit;
   final Function(Twin) onDelete;
   final Function(Twin)? onDeploy;
-  
+
   const TwinsTable({
     super.key,
     required this.twins,
@@ -36,7 +30,7 @@ class TwinsTable extends StatefulWidget {
     required this.onDelete,
     this.onDeploy,
   });
-  
+
   @override
   State<TwinsTable> createState() => _TwinsTableState();
 }
@@ -44,7 +38,7 @@ class TwinsTable extends StatefulWidget {
 class _TwinsTableState extends State<TwinsTable> {
   TwinSortField _sortField = TwinSortField.updatedAt;
   bool _sortAscending = false;
-  
+
   List<Twin> get _sortedTwins {
     final sorted = List<Twin>.from(widget.twins);
     sorted.sort((a, b) {
@@ -74,7 +68,7 @@ class _TwinsTableState extends State<TwinsTable> {
     });
     return sorted;
   }
-  
+
   void _onSort(TwinSortField field) {
     setState(() {
       if (_sortField == field) {
@@ -85,15 +79,15 @@ class _TwinsTableState extends State<TwinsTable> {
       }
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     if (widget.twins.isEmpty) {
       return _buildEmptyState(theme);
     }
-    
+
     return DataTable(
       headingRowColor: WidgetStateProperty.all(
         theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
@@ -108,7 +102,7 @@ class _TwinsTableState extends State<TwinsTable> {
       rows: _sortedTwins.map((twin) => _buildRow(twin, theme)).toList(),
     );
   }
-  
+
   DataColumn _buildColumn(String label, TwinSortField field) {
     return DataColumn(
       label: InkWell(
@@ -127,7 +121,7 @@ class _TwinsTableState extends State<TwinsTable> {
       ),
     );
   }
-  
+
   DataRow _buildRow(Twin twin, ThemeData theme) {
     return DataRow(
       cells: [
@@ -139,11 +133,11 @@ class _TwinsTableState extends State<TwinsTable> {
       ],
     );
   }
-  
+
   Widget _buildStateChip(String state, ThemeData theme) {
     Color color;
     IconData icon;
-    
+
     switch (state.toLowerCase()) {
       case 'deployed':
         color = Colors.green;
@@ -165,12 +159,16 @@ class _TwinsTableState extends State<TwinsTable> {
         color = Colors.grey;
         icon = Icons.circle;
     }
-    
+
     return Chip(
       avatar: Icon(icon, size: 16, color: color),
       label: Text(
         state.toUpperCase(),
-        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide.none,
@@ -178,14 +176,14 @@ class _TwinsTableState extends State<TwinsTable> {
       visualDensity: VisualDensity.compact,
     );
   }
-  
+
   Widget _buildProviderChips(List<String> providers, ThemeData theme) {
     return Wrap(
       spacing: 4,
       children: providers.map((p) => _buildProviderChip(p)).toList(),
     );
   }
-  
+
   Widget _buildProviderChip(String provider) {
     Color color;
     switch (provider.toUpperCase()) {
@@ -201,7 +199,7 @@ class _TwinsTableState extends State<TwinsTable> {
       default:
         color = Colors.grey;
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -210,11 +208,15 @@ class _TwinsTableState extends State<TwinsTable> {
       ),
       child: Text(
         provider,
-        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 10,
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
-  
+
   Widget _buildActions(Twin twin, ThemeData theme) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -231,14 +233,18 @@ class _TwinsTableState extends State<TwinsTable> {
         ),
         if (widget.onDeploy != null && twin.state != 'deployed')
           IconButton(
-            icon: Icon(Icons.rocket_launch, size: 20, color: theme.colorScheme.primary),
+            icon: Icon(
+              Icons.rocket_launch,
+              size: 20,
+              color: theme.colorScheme.primary,
+            ),
             tooltip: 'Deploy',
             onPressed: () => widget.onDeploy!(twin),
           ),
       ],
     );
   }
-  
+
   Widget _buildEmptyState(ThemeData theme) {
     return Center(
       child: Column(
@@ -265,12 +271,12 @@ class _TwinsTableState extends State<TwinsTable> {
       ),
     );
   }
-  
+
   String _formatDate(DateTime? date) {
     if (date == null) return '-';
     final now = DateTime.now();
     final diff = now.difference(date);
-    
+
     if (diff.inMinutes < 1) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';

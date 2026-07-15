@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform, Process;
 
 /// A widget displaying documentation links for credential setup.
-/// 
+///
 /// Features:
 /// - Provider-specific links
 /// - Opens in browser or VS Code (local files)
@@ -15,17 +15,17 @@ class CredentialDocLinks extends StatelessWidget {
   final String provider;
   final List<CredentialDocLink> links;
   final String? headerText;
-  
+
   const CredentialDocLinks({
     super.key,
     required this.provider,
     required this.links,
     this.headerText,
   });
-  
+
   Future<void> _openLink(String target) async {
     final uri = Uri.parse(target);
-    
+
     // Handle local file URIs
     if (target.startsWith('file://')) {
       try {
@@ -40,18 +40,18 @@ class CredentialDocLinks extends StatelessWidget {
         // Fallback to system handler
       }
     }
-    
+
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     if (links.isEmpty) return const SizedBox.shrink();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -74,10 +74,10 @@ class CredentialDocLinks extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildLinkChip(BuildContext context, CredentialDocLink link) {
     final theme = Theme.of(context);
-    
+
     return ActionChip(
       avatar: Icon(
         link.icon ?? _getDefaultIcon(link.target),
@@ -86,17 +86,16 @@ class CredentialDocLinks extends StatelessWidget {
       ),
       label: Text(
         link.label,
-        style: TextStyle(
-          color: theme.colorScheme.primary,
-          fontSize: 12,
-        ),
+        style: TextStyle(color: theme.colorScheme.primary, fontSize: 12),
       ),
-      backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+      backgroundColor: theme.colorScheme.primaryContainer.withValues(
+        alpha: 0.3,
+      ),
       side: BorderSide.none,
       onPressed: () => _openLink(link.target),
     );
   }
-  
+
   IconData _getDefaultIcon(String target) {
     if (target.startsWith('file://')) {
       return Icons.folder_open;
@@ -113,7 +112,7 @@ class CredentialDocLink {
   final String label;
   final String target;
   final IconData? icon;
-  
+
   const CredentialDocLink({
     required this.label,
     required this.target,
@@ -135,7 +134,7 @@ class CredentialDocLinkPresets {
       icon: Icons.open_in_new,
     ),
   ];
-  
+
   static List<CredentialDocLink> azure(String baseDocsPath) => [
     CredentialDocLink(
       label: 'Azure Setup Guide',
@@ -148,7 +147,7 @@ class CredentialDocLinkPresets {
       icon: Icons.open_in_new,
     ),
   ];
-  
+
   static List<CredentialDocLink> gcp(String baseDocsPath) => [
     CredentialDocLink(
       label: 'GCP Setup Guide',

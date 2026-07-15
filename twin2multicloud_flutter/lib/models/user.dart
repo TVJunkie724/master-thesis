@@ -3,10 +3,10 @@ class User {
   final String email;
   final String? name;
   final String? pictureUrl;
-  final String authProvider;  // "google" | "uibk"
+  final String authProvider; // "google" | "uibk"
   final bool uibkLinked;
   final bool googleLinked;
-  final String themePreference;  // "light" | "dark"
+  final String themePreference; // "light" | "dark"
 
   User({
     required this.id,
@@ -32,4 +32,3 @@ class User {
     );
   }
 }
-

@@ -35,10 +35,12 @@ Future<FileSaveResult> saveBinaryFile({
   try {
     final dotIndex = suggestedName.lastIndexOf('.');
     final hasExtension = dotIndex > 0 && dotIndex < suggestedName.length - 1;
-    final baseName =
-        hasExtension ? suggestedName.substring(0, dotIndex) : suggestedName;
-    final extension =
-        hasExtension ? suggestedName.substring(dotIndex + 1) : 'bin';
+    final baseName = hasExtension
+        ? suggestedName.substring(0, dotIndex)
+        : suggestedName;
+    final extension = hasExtension
+        ? suggestedName.substring(dotIndex + 1)
+        : 'bin';
 
     if (kIsWeb) {
       // Web: trigger a browser download via file_saver
@@ -49,7 +51,10 @@ Future<FileSaveResult> saveBinaryFile({
         mimeType: MimeType.custom,
         customMimeType: mimeType ?? 'application/octet-stream',
       );
-      return FileSaveResult(success: true, message: 'Downloaded $suggestedName');
+      return FileSaveResult(
+        success: true,
+        message: 'Downloaded $suggestedName',
+      );
     }
 
     // Desktop: native Save-As dialog, then write bytes ourselves

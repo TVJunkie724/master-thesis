@@ -11,25 +11,25 @@ void main() {
     group('Success', () {
       test('isSuccess returns true', () {
         final result = Success<int>(42);
-        
+
         expect(result.isSuccess, isTrue);
         expect(result.isFailure, isFalse);
       });
 
       test('dataOrNull returns data', () {
         final result = Success<String>('hello');
-        
+
         expect(result.dataOrNull, 'hello');
       });
 
       test('pattern matching extracts data', () {
         final Result<int> result = Success(42);
-        
+
         final value = switch (result) {
           Success(data: final d) => d,
           Failure() => -1,
         };
-        
+
         expect(value, 42);
       });
     });
@@ -37,31 +37,31 @@ void main() {
     group('Failure', () {
       test('isFailure returns true', () {
         final result = Failure<int>(const AppException('error'));
-        
+
         expect(result.isFailure, isTrue);
         expect(result.isSuccess, isFalse);
       });
 
       test('dataOrNull returns null', () {
         final result = Failure<String>(const AppException('error'));
-        
+
         expect(result.dataOrNull, isNull);
       });
 
       test('Failure.message factory creates instance', () {
         final result = Failure<int>.message('Something went wrong');
-        
+
         expect(result.error.message, 'Something went wrong');
       });
 
       test('pattern matching extracts error', () {
         final Result<int> result = Failure(const AppException('oops'));
-        
+
         final message = switch (result) {
           Success() => 'success',
           Failure(error: final e) => e.message,
         };
-        
+
         expect(message, 'oops');
       });
     });
@@ -75,7 +75,7 @@ void main() {
     group('construction', () {
       test('creates with message only', () {
         const error = AppException('Something failed');
-        
+
         expect(error.message, 'Something failed');
         expect(error.code, isNull);
         expect(error.originalError, isNull);
@@ -88,7 +88,7 @@ void main() {
           code: 'ERR_001',
           originalError: original,
         );
-        
+
         expect(error.message, 'Wrapped error');
         expect(error.code, 'ERR_001');
         expect(error.originalError, original);
@@ -96,7 +96,7 @@ void main() {
 
       test('toString includes code when present', () {
         const error = AppException('Failed', code: 'HTTP_404');
-        
+
         expect(error.toString(), contains('HTTP_404'));
         expect(error.toString(), contains('Failed'));
       });
@@ -112,9 +112,9 @@ void main() {
           type: DioExceptionType.connectionTimeout,
           requestOptions: RequestOptions(path: '/test'),
         );
-        
+
         final error = AppException.fromDioError(dioError);
-        
+
         expect(error.code, 'TIMEOUT');
         expect(error.message, contains('timed out'));
       });
@@ -124,9 +124,9 @@ void main() {
           type: DioExceptionType.receiveTimeout,
           requestOptions: RequestOptions(path: '/test'),
         );
-        
+
         final error = AppException.fromDioError(dioError);
-        
+
         expect(error.code, 'TIMEOUT');
         expect(error.message, contains('not responding'));
       });
@@ -136,9 +136,9 @@ void main() {
           type: DioExceptionType.connectionError,
           requestOptions: RequestOptions(path: '/test'),
         );
-        
+
         final error = AppException.fromDioError(dioError);
-        
+
         expect(error.code, 'CONNECTION');
         expect(error.message, contains('connect'));
       });
@@ -152,9 +152,9 @@ void main() {
           ),
           requestOptions: RequestOptions(path: '/test'),
         );
-        
+
         final error = AppException.fromDioError(dioError);
-        
+
         expect(error.code, 'HTTP_404');
       });
 
@@ -168,9 +168,9 @@ void main() {
           ),
           requestOptions: RequestOptions(path: '/test'),
         );
-        
+
         final error = AppException.fromDioError(dioError);
-        
+
         expect(error.message, 'Validation failed');
         expect(error.code, 'HTTP_422');
       });
@@ -180,9 +180,9 @@ void main() {
           type: DioExceptionType.cancel,
           requestOptions: RequestOptions(path: '/test'),
         );
-        
+
         final error = AppException.fromDioError(dioError);
-        
+
         expect(error.code, 'CANCELLED');
       });
 
@@ -192,9 +192,9 @@ void main() {
           message: 'Something weird happened',
           requestOptions: RequestOptions(path: '/test'),
         );
-        
+
         final error = AppException.fromDioError(dioError);
-        
+
         expect(error.message, contains('Network error'));
         expect(error.originalError, dioError);
       });

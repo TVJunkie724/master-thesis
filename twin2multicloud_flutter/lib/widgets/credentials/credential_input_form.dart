@@ -13,7 +13,7 @@ class CredentialFieldDef {
   final bool isMultiline;
   final String? helperText;
   final int maxLines;
-  
+
   const CredentialFieldDef({
     required this.key,
     required this.label,
@@ -27,7 +27,7 @@ class CredentialFieldDef {
 }
 
 /// A form for entering credential fields for a cloud provider.
-/// 
+///
 /// Features:
 /// - Dynamic field rendering based on field definitions
 /// - Secret field masking with toggle
@@ -40,7 +40,7 @@ class CredentialInputForm extends StatefulWidget {
   final bool hasStoredCredentials;
   final bool isDisabled;
   final ValueChanged<Map<String, String>> onChanged;
-  
+
   const CredentialInputForm({
     super.key,
     required this.fields,
@@ -50,14 +50,14 @@ class CredentialInputForm extends StatefulWidget {
     this.hasStoredCredentials = false,
     this.isDisabled = false,
   });
-  
+
   @override
   State<CredentialInputForm> createState() => _CredentialInputFormState();
 }
 
 class _CredentialInputFormState extends State<CredentialInputForm> {
   final Map<String, bool> _obscuredFields = {};
-  
+
   @override
   void initState() {
     super.initState();
@@ -68,13 +68,13 @@ class _CredentialInputFormState extends State<CredentialInputForm> {
       }
     }
   }
-  
+
   void _onFieldChanged(String key, String value) {
     final updated = Map<String, String>.from(widget.values);
     updated[key] = value;
     widget.onChanged(updated);
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -87,14 +87,15 @@ class _CredentialInputFormState extends State<CredentialInputForm> {
       ],
     );
   }
-  
+
   Widget _buildField(CredentialFieldDef field) {
     final theme = Theme.of(context);
     final controller = widget.controllers[field.key];
     final currentValue = widget.values[field.key] ?? '';
     final hasValue = currentValue.isNotEmpty;
-    final isSecretAndEmpty = field.isSecret && !hasValue && widget.hasStoredCredentials;
-    
+    final isSecretAndEmpty =
+        field.isSecret && !hasValue && widget.hasStoredCredentials;
+
     return TextField(
       controller: controller,
       enabled: !widget.isDisabled,
@@ -102,9 +103,7 @@ class _CredentialInputFormState extends State<CredentialInputForm> {
       maxLines: field.isSecret ? 1 : field.maxLines,
       decoration: InputDecoration(
         labelText: field.label,
-        hintText: isSecretAndEmpty 
-            ? 'Stored securely' 
-            : field.hint,
+        hintText: isSecretAndEmpty ? 'Stored securely' : field.hint,
         hintStyle: isSecretAndEmpty
             ? TextStyle(
                 color: theme.colorScheme.primary.withValues(alpha: 0.7),
@@ -114,15 +113,10 @@ class _CredentialInputFormState extends State<CredentialInputForm> {
         helperText: field.helperText,
         border: const OutlineInputBorder(),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: theme.colorScheme.outline,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: theme.colorScheme.primary,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
         ),
         suffixIcon: field.isSecret
             ? IconButton(
@@ -136,13 +130,11 @@ class _CredentialInputFormState extends State<CredentialInputForm> {
                     ? null
                     : () {
                         setState(() {
-                          _obscuredFields[field.key] = 
+                          _obscuredFields[field.key] =
                               !(_obscuredFields[field.key] ?? false);
                         });
                       },
-                tooltip: _obscuredFields[field.key] ?? false
-                    ? 'Show'
-                    : 'Hide',
+                tooltip: _obscuredFields[field.key] ?? false ? 'Show' : 'Hide',
               )
             : null,
         suffixText: field.isRequired ? null : '(optional)',

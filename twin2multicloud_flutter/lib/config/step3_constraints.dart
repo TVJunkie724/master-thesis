@@ -6,7 +6,6 @@ import '../../../config/step3_examples.dart';
 /// Provider-specific constraint and example text for Step 3.
 /// Extracted from step3_deployer.dart to reduce file size.
 class Step3Constraints {
-  
   /// Get provider-specific function constraints for UI
   static String getFunctionConstraints(String? provider) {
     switch (provider?.toLowerCase()) {
@@ -25,11 +24,15 @@ class Step3Constraints {
   /// Get provider-specific processor example
   static String getProcessorExample(String? provider) {
     switch (provider?.toLowerCase()) {
-      case 'aws': return Step3Examples.processors;
-      case 'azure': return Step3Examples.azureProcessors;
+      case 'aws':
+        return Step3Examples.processors;
+      case 'azure':
+        return Step3Examples.azureProcessors;
       case 'gcp':
-      case 'google': return Step3Examples.gcpProcessors;
-      default: return Step3Examples.processors;
+      case 'google':
+        return Step3Examples.gcpProcessors;
+      default:
+        return Step3Examples.processors;
     }
   }
 
@@ -50,13 +53,17 @@ class Step3Constraints {
   /// Get state machine example
   static String getStateMachineExample(String? provider) {
     switch (provider?.toLowerCase()) {
-      case 'aws': return Step3Examples.awsStateMachine;
-      case 'azure': return Step3Examples.azureStateMachine;
-      case 'gcp': return Step3Examples.gcpStateMachine;
-      default: return Step3Examples.stateMachine;
+      case 'aws':
+        return Step3Examples.awsStateMachine;
+      case 'azure':
+        return Step3Examples.azureStateMachine;
+      case 'gcp':
+        return Step3Examples.gcpStateMachine;
+      default:
+        return Step3Examples.stateMachine;
     }
   }
-  
+
   /// Get L4 hierarchy constraints
   static String getHierarchyConstraints(String provider) {
     final isAws = provider.toLowerCase() == 'aws';
@@ -64,7 +71,7 @@ class Step3Constraints {
         ? '• Define entities with components\n• Match entity IDs to scene config'
         : '• Define twins with DTDL model\n• Match twin IDs to scene config';
   }
-  
+
   /// Get L4 scene config constraints
   static String getSceneConfigConstraints(String provider) {
     final isAws = provider.toLowerCase() == 'aws';

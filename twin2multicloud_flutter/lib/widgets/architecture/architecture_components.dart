@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'architecture_service_map.dart';
 
 /// Shared component-building utilities for architecture visualization.
-/// 
+///
 /// Provides consistent styling for:
 /// - Layer cards
 /// - Component boxes (system, editable, storage)
@@ -13,11 +13,10 @@ import 'architecture_service_map.dart';
 /// - Arrows
 /// - Legend
 class ArchitectureComponents {
-  
   // ================================================================
   // Layer Cards
   // ================================================================
-  
+
   /// Build a layer card container
   static Widget buildLayerCard(
     BuildContext context, {
@@ -30,12 +29,18 @@ class ArchitectureComponents {
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final providerColor = ArchitectureServiceMap.getProviderColor(provider, isDark: isDark);
-    
+    final providerColor = ArchitectureServiceMap.getProviderColor(
+      provider,
+      isDark: isDark,
+    );
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ArchitectureServiceMap.getProviderBackgroundColor(provider, isDark: isDark),
+        color: ArchitectureServiceMap.getProviderBackgroundColor(
+          provider,
+          isDark: isDark,
+        ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: providerColor.withValues(alpha: 0.5),
@@ -75,7 +80,10 @@ class ArchitectureComponents {
               ),
               if (isEditable)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.pink.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -98,11 +106,11 @@ class ArchitectureComponents {
       ),
     );
   }
-  
+
   // ================================================================
   // Component Boxes
   // ================================================================
-  
+
   /// System component box - grey style for non-editable components
   static Widget buildSystemComponentBox(
     BuildContext context, {
@@ -113,7 +121,7 @@ class ArchitectureComponents {
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -143,7 +151,7 @@ class ArchitectureComponents {
       ),
     );
   }
-  
+
   /// Editable component box with pink EDIT badge
   static Widget buildEditableComponentBox(
     BuildContext context, {
@@ -152,15 +160,13 @@ class ArchitectureComponents {
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.pink.withValues(alpha: isDark ? 0.15 : 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: Colors.pink.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: Colors.pink.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -195,7 +201,7 @@ class ArchitectureComponents {
       ),
     );
   }
-  
+
   /// Storage tier box
   static Widget buildStorageBox(
     BuildContext context, {
@@ -205,9 +211,12 @@ class ArchitectureComponents {
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final providerColor = ArchitectureServiceMap.getProviderColor(provider, isDark: isDark);
+    final providerColor = ArchitectureServiceMap.getProviderColor(
+      provider,
+      isDark: isDark,
+    );
     final icon = ArchitectureServiceMap.getL3Icon(tier);
-    
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -238,14 +247,17 @@ class ArchitectureComponents {
       ),
     );
   }
-  
+
   // ================================================================
   // Provider Chips
   // ================================================================
-  
+
   static Widget buildProviderChip(String? provider, {bool isDark = false}) {
-    final color = ArchitectureServiceMap.getProviderColor(provider, isDark: isDark);
-    
+    final color = ArchitectureServiceMap.getProviderColor(
+      provider,
+      isDark: isDark,
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -263,10 +275,16 @@ class ArchitectureComponents {
       ),
     );
   }
-  
-  static Widget buildProviderChipSmall(String? provider, {bool isDark = false}) {
-    final color = ArchitectureServiceMap.getProviderColor(provider, isDark: isDark);
-    
+
+  static Widget buildProviderChipSmall(
+    String? provider, {
+    bool isDark = false,
+  }) {
+    final color = ArchitectureServiceMap.getProviderColor(
+      provider,
+      isDark: isDark,
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
@@ -283,11 +301,11 @@ class ArchitectureComponents {
       ),
     );
   }
-  
+
   // ================================================================
   // Arrows
   // ================================================================
-  
+
   static Widget buildArrow({bool small = false, bool vertical = true}) {
     return Icon(
       vertical ? Icons.arrow_downward : Icons.arrow_forward,
@@ -295,34 +313,45 @@ class ArchitectureComponents {
       color: Colors.grey.shade400,
     );
   }
-  
+
   // ================================================================
   // Legend
   // ================================================================
-  
+
   static Widget buildLegend(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.grey.shade100,
+        color: isDark
+            ? Colors.grey.shade800.withValues(alpha: 0.5)
+            : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Wrap(
         spacing: 16,
         runSpacing: 8,
         children: [
-          _legendItem('AWS', ArchitectureServiceMap.getProviderColor('AWS', isDark: isDark)),
-          _legendItem('Azure', ArchitectureServiceMap.getProviderColor('Azure', isDark: isDark)),
-          _legendItem('GCP', ArchitectureServiceMap.getProviderColor('GCP', isDark: isDark)),
+          _legendItem(
+            'AWS',
+            ArchitectureServiceMap.getProviderColor('AWS', isDark: isDark),
+          ),
+          _legendItem(
+            'Azure',
+            ArchitectureServiceMap.getProviderColor('Azure', isDark: isDark),
+          ),
+          _legendItem(
+            'GCP',
+            ArchitectureServiceMap.getProviderColor('GCP', isDark: isDark),
+          ),
           _legendItem('Editable', Colors.pink),
         ],
       ),
     );
   }
-  
+
   static Widget _legendItem(String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -338,10 +367,7 @@ class ArchitectureComponents {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
         ),
       ],
     );

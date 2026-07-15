@@ -321,21 +321,64 @@ live-cloud E2E. Existing real-stack integration coverage remains unchanged.
   newline, responsive overflow, plan-fidelity, state-matrix, and GLB
   picker-error findings.
 
+### Subphase 3 - Complete
+
+- Reduced `wizard_screen.dart` to the route, dialog, file-picker, notification,
+  and Riverpod-invalidation coordinator. Header, alerts, navigation, app bar,
+  dialogs, and loading/ready layout now live in presentation-only workspace
+  widgets with typed callbacks.
+- Split the single public `WizardBloc` implementation into private same-library
+  handler extensions for initialization/cloud access,
+  optimization/persistence, artifact content/validation, and ZIP/GLB commands.
+  The event registrations, public state machine, API ownership, and all 50
+  existing private handler/helper methods remain unchanged.
+- Replaced the fixed-delay and message-string-dependent Save & Leave flow with
+  a pending exit intent that navigates only after the BLoC reports a successful
+  persisted ready state with no unsaved changes. A failed exit save clears the
+  intent so a later manual save cannot navigate unexpectedly.
+- Added focused widget coverage for loading and ready chrome, alert precedence,
+  compact and wide navigation, disabled reasons, profile commands, typed exit
+  and invalidation dialogs, Escape cancellation, delayed persistence success,
+  lifecycle-regression success messages, and failed-save recovery.
+- Verification: the focused shell, exit-flow, and command-serialization suites
+  passed; the complete Flutter suite passed with 547 tests; handler parity was
+  exact at 50/50;
+  `flutter analyze`, format verification, and `git diff --check` passed. Two
+  review passes found and resolved delayed navigation, message coupling,
+  competing command execution, and confirmation-bypass findings.
+
+### Subphase 4 - Complete
+
+- The full static audit found no production `print`/`debugPrint`,
+  TODO/FIXME/HACK comments, direct Optimizer/Deployer URLs, Dio imports in
+  screens/widgets, or direct screen/widget Management API feature commands.
+- `flutter build web --release
+  --dart-define-from-file=config/dev.example.json` passed, including the Wasm
+  dry run.
+- `flutter build macos --debug
+  --dart-define-from-file=config/dev.example.json` passed.
+- `dart format --output=none --set-exit-if-changed lib test` checked 275 files
+  with zero changes; previously drifting sources were normalized in a separate
+  formatting-only commit.
+- Residual external warning: `file_saver` does not yet support Swift Package
+  Manager for macOS. Flutter reports this as a future compatibility warning;
+  it does not fail analysis, tests, or either build.
+
 ## Definition Of Done
 
-- [ ] All four subphases pass their focused and full gates.
-- [ ] Step 2 and every Step 3 command obey the BLoC boundary.
-- [ ] Wizard shell and deployment task widgets are presentation-only.
-- [ ] `WizardBloc` handlers are grouped by cohesive responsibility without
+- [x] All four subphases pass their focused and full gates.
+- [x] Step 2 and every Step 3 command obey the BLoC boundary.
+- [x] Wizard shell and deployment task widgets are presentation-only.
+- [x] `WizardBloc` handlers are grouped by cohesive responsibility without
       changing its public state machine.
-- [ ] No free-form error/secret data reaches application logs.
-- [ ] All credential help opens the canonical runtime-configured MkDocs site.
-- [ ] No production TODO/FIXME/HACK comments or stale Flutter TODO tracker remain.
-- [ ] Loading, error, empty, blocked, disabled, success, wide, and compact states
+- [x] No free-form error/secret data reaches application logs.
+- [x] All credential help opens the canonical runtime-configured MkDocs site.
+- [x] No production TODO/FIXME/HACK comments or stale Flutter TODO tracker remain.
+- [x] Loading, error, empty, blocked, disabled, success, wide, and compact states
       are covered with hard assertions.
-- [ ] Web and macOS builds succeed from `config/dev.example.json`.
-- [ ] Two code-review passes find no unresolved Critical, Major, or Minor findings.
+- [x] Web and macOS builds succeed from `config/dev.example.json`.
+- [x] Two code-review passes find no unresolved Critical, Major, or Minor findings.
 - [ ] Issue #38 is closed only when its remaining file-level decomposition and
       acceptance criteria are complete.
-- [ ] Issue #39 remains open until the complete lifecycle has integration evidence.
-- [ ] No live-cloud resources are created and no live-cloud E2E is executed.
+- [x] Issue #39 remains open until the complete lifecycle has integration evidence.
+- [x] No live-cloud resources are created and no live-cloud E2E is executed.

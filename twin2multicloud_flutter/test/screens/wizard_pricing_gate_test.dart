@@ -50,8 +50,8 @@ void main() {
     await tester.tap(find.text('Calculate alternatives'));
     await tester.pump();
 
-    ElevatedButton calculateButton() => tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, 'CALCULATE'),
+    FilledButton calculateButton() => tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'CALCULATE'),
     );
 
     expect(calculateButton().onPressed, isNull);

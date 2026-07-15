@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 /// A reusable slider widget with label and value display.
-/// 
+///
 /// Features:
 /// - Consistent styling
 /// - Value display (customizable format)
@@ -22,7 +22,7 @@ class ValidatedSlider extends StatelessWidget {
   final bool enabled;
   final String? helperText;
   final bool showMinMax;
-  
+
   const ValidatedSlider({
     super.key,
     required this.label,
@@ -36,12 +36,13 @@ class ValidatedSlider extends StatelessWidget {
     this.helperText,
     this.showMinMax = true,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayValue = valueFormatter?.call(value) ?? value.toStringAsFixed(1);
-    
+    final displayValue =
+        valueFormatter?.call(value) ?? value.toStringAsFixed(1);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -99,7 +100,9 @@ class ValidatedSlider extends StatelessWidget {
                   activeTrackColor: theme.colorScheme.primary,
                   inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
                   thumbColor: theme.colorScheme.primary,
-                  overlayColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  overlayColor: theme.colorScheme.primary.withValues(
+                    alpha: 0.12,
+                  ),
                 ),
                 child: Slider(
                   value: value.clamp(min, max),

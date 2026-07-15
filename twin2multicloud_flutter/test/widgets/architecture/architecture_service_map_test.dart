@@ -12,17 +12,17 @@ void main() {
         final color = ArchitectureServiceMap.getProviderColor('AWS');
         expect(color, isA<Color>());
       });
-      
+
       test('returns consistent color for AZURE', () {
         final color = ArchitectureServiceMap.getProviderColor('AZURE');
         expect(color, isA<Color>());
       });
-      
+
       test('returns consistent color for GCP', () {
         final color = ArchitectureServiceMap.getProviderColor('GCP');
         expect(color, isA<Color>());
       });
-      
+
       test('is case insensitive', () {
         expect(
           ArchitectureServiceMap.getProviderColor('aws'),
@@ -33,13 +33,13 @@ void main() {
           ArchitectureServiceMap.getProviderColor('AZURE'),
         );
       });
-      
+
       test('handles null provider', () {
         final color = ArchitectureServiceMap.getProviderColor(null);
         expect(color, isA<Color>());
       });
     });
-    
+
     group('extractProviderFromSegment', () {
       test('extracts provider from L1 segment', () {
         expect(
@@ -47,21 +47,21 @@ void main() {
           'AWS',
         );
       });
-      
+
       test('extracts provider from L2 segment', () {
         expect(
           ArchitectureServiceMap.extractProviderFromSegment('L2_AZURE'),
           'AZURE',
         );
       });
-      
+
       test('extracts provider from L3 storage segment', () {
         expect(
           ArchitectureServiceMap.extractProviderFromSegment('L3_hot_GCP'),
           'GCP',
         );
       });
-      
+
       test('returns null for invalid segment', () {
         expect(
           ArchitectureServiceMap.extractProviderFromSegment('invalid'),
@@ -69,38 +69,26 @@ void main() {
         );
       });
     });
-    
+
     group('L1 services', () {
       test('returns AWS IoT Core for AWS', () {
-        expect(
-          ArchitectureServiceMap.getL1Service('AWS'),
-          'AWS IoT Core',
-        );
+        expect(ArchitectureServiceMap.getL1Service('AWS'), 'AWS IoT Core');
       });
-      
+
       test('returns Azure IoT Hub for Azure', () {
-        expect(
-          ArchitectureServiceMap.getL1Service('AZURE'),
-          'Azure IoT Hub',
-        );
+        expect(ArchitectureServiceMap.getL1Service('AZURE'), 'Azure IoT Hub');
       });
-      
+
       test('returns default for unknown', () {
-        expect(
-          ArchitectureServiceMap.getL1Service('unknown'),
-          'IoT Gateway',
-        );
+        expect(ArchitectureServiceMap.getL1Service('unknown'), 'IoT Gateway');
       });
     });
-    
+
     group('L2 services', () {
       test('returns Lambda for AWS', () {
-        expect(
-          ArchitectureServiceMap.getL2Processor('AWS'),
-          'Lambda',
-        );
+        expect(ArchitectureServiceMap.getL2Processor('AWS'), 'Lambda');
       });
-      
+
       test('returns Azure Functions for Azure', () {
         expect(
           ArchitectureServiceMap.getL2Processor('AZURE'),
@@ -108,7 +96,7 @@ void main() {
         );
       });
     });
-    
+
     group('L3 icons', () {
       test('returns fire icon for hot tier', () {
         expect(
@@ -116,37 +104,31 @@ void main() {
           Icons.local_fire_department,
         );
       });
-      
+
       test('returns snowflake icon for cool tier', () {
-        expect(
-          ArchitectureServiceMap.getL3Icon('cool'),
-          Icons.ac_unit,
-        );
+        expect(ArchitectureServiceMap.getL3Icon('cool'), Icons.ac_unit);
       });
-      
+
       test('returns archive icon for archive tier', () {
-        expect(
-          ArchitectureServiceMap.getL3Icon('archive'),
-          Icons.archive,
-        );
+        expect(ArchitectureServiceMap.getL3Icon('archive'), Icons.archive);
       });
     });
-    
+
     group('getLayerTitle', () {
       test('returns correct title for L1', () {
         expect(ArchitectureServiceMap.getLayerTitle('L1'), 'Data Acquisition');
       });
-      
+
       test('returns correct title for L4', () {
         expect(ArchitectureServiceMap.getLayerTitle('L4'), 'Digital Twin');
       });
     });
-    
+
     group('buildProviderMap', () {
       test('builds map from cheapest path', () {
         final path = ['L1_AWS', 'L2_AZURE', 'L3_hot_GCP', 'L4_AWS'];
         final map = ArchitectureServiceMap.buildProviderMap(path);
-        
+
         expect(map['L1'], 'AWS');
         expect(map['L2'], 'AZURE');
         expect(map['L3_hot'], 'GCP');

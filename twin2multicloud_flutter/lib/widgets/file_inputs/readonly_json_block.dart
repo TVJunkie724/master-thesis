@@ -8,8 +8,8 @@ class ReadOnlyJsonBlock extends StatelessWidget {
   final String description;
   final String jsonContent;
   final IconData icon;
-  final String? sourceLabel;  // e.g., "Auto-generated from Step 2"
-  
+  final String? sourceLabel; // e.g., "Auto-generated from Step 2"
+
   const ReadOnlyJsonBlock({
     super.key,
     required this.filename,
@@ -18,7 +18,7 @@ class ReadOnlyJsonBlock extends StatelessWidget {
     this.icon = Icons.code,
     this.sourceLabel,
   });
-  
+
   void _copyToClipboard(BuildContext context) {
     Clipboard.setData(ClipboardData(text: jsonContent));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -29,15 +29,17 @@ class ReadOnlyJsonBlock extends StatelessWidget {
       ),
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800.withAlpha(100) : Colors.grey.shade100,
+        color: isDark
+            ? Colors.grey.shade800.withAlpha(100)
+            : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
@@ -61,14 +63,18 @@ class ReadOnlyJsonBlock extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                         fontSize: 14,
-                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                        color: isDark
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
                       ),
                     ),
                     Text(
                       description,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                        color: isDark
+                            ? Colors.grey.shade500
+                            : Colors.grey.shade600,
                       ),
                     ),
                   ],
@@ -77,16 +83,25 @@ class ReadOnlyJsonBlock extends StatelessWidget {
               // Auto-generated badge
               if (sourceLabel != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade700.withAlpha(isDark ? 80 : 40),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.blue.shade400.withAlpha(100)),
+                    border: Border.all(
+                      color: Colors.blue.shade400.withAlpha(100),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.auto_mode, size: 12, color: Colors.blue.shade400),
+                      Icon(
+                        Icons.auto_mode,
+                        size: 12,
+                        color: Colors.blue.shade400,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         sourceLabel!,
@@ -110,9 +125,9 @@ class ReadOnlyJsonBlock extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // JSON content display with syntax highlighting
           Container(
             height: 200,
@@ -129,7 +144,9 @@ class ReadOnlyJsonBlock extends StatelessWidget {
                   fontFamily: 'monospace',
                   fontSize: 12,
                   height: 1.5,
-                  color: jsonContent.isEmpty ? Colors.grey : Colors.grey.shade400,
+                  color: jsonContent.isEmpty
+                      ? Colors.grey
+                      : Colors.grey.shade400,
                 ),
               ),
             ),
@@ -139,4 +156,3 @@ class ReadOnlyJsonBlock extends StatelessWidget {
     );
   }
 }
-

@@ -95,6 +95,9 @@ abstract class AppSpacing {
   /// Twin Overview sections stack below this width.
   static const double twinOverviewCompactBreakpoint = 900;
 
+  /// Wizard navigation uses its three-region desktop layout from this width.
+  static const double configurationNavigationWideBreakpoint = 1024;
+
   /// Maximum width for confirmation-dialog content.
   static const double dialogContentMaxWidth = 480;
 

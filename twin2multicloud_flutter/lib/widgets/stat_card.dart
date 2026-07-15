@@ -19,7 +19,7 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Wrap Card in Container with shadow (shadow applied OUTSIDE the card)
     Widget cardContent = Container(
       decoration: BoxDecoration(
@@ -38,7 +38,9 @@ class StatCard extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.05),
             width: 1,
           ),
         ),
@@ -49,15 +51,19 @@ class StatCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(icon, color: color ?? Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Icon(
+                    icon,
+                    color: color ?? Theme.of(context).colorScheme.primary,
                   ),
+                  const SizedBox(width: 8),
+                  Text(title, style: Theme.of(context).textTheme.bodySmall),
                   if (tooltip != null) ...[
                     const SizedBox(width: 4),
-                    Icon(Icons.info_outline, size: 14, color: Colors.grey.shade500),
+                    Icon(
+                      Icons.info_outline,
+                      size: 14,
+                      color: Colors.grey.shade500,
+                    ),
                   ],
                 ],
               ),
@@ -73,14 +79,11 @@ class StatCard extends StatelessWidget {
         ),
       ),
     );
-    
+
     if (tooltip != null) {
-      cardContent = Tooltip(
-        message: tooltip!,
-        child: cardContent,
-      );
+      cardContent = Tooltip(message: tooltip!, child: cardContent);
     }
-    
+
     return Expanded(child: cardContent);
   }
 }

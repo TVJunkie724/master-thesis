@@ -4,13 +4,13 @@ import '../models/calc_params.dart';
 import '../theme/colors.dart';
 
 /// Utility class that builds individual architecture layer widgets.
-/// 
+///
 /// Used by both ArchitectureGraph (for full flowchart view) and
 /// Step3Deployer (for layer-aligned file editor view).
 class ArchitectureLayerBuilder {
   final CalcResult? calcResult;
   final CalcParams? calcParams;
-  
+
   // Colors
   static const Color editableColor = Color(0xFFD81B60);
   static const Color systemColor = Color(0xFF78909C);
@@ -24,12 +24,12 @@ class ArchitectureLayerBuilder {
   Map<String, String> get layerProviders {
     final result = <String, String>{};
     if (calcResult == null) return result;
-    
+
     for (final segment in calcResult!.cheapestPath) {
       final parts = segment.split('_');
       if (parts.isEmpty) continue;
       final layer = parts[0].toUpperCase();
-      
+
       // Handle L3_hot_GCP, L3_cool_AWS, L3_archive_Azure (storage layers)
       if (layer == 'L3' && parts.length >= 3) {
         final storageType = parts[1].toLowerCase();
@@ -37,7 +37,7 @@ class ArchitectureLayerBuilder {
         if (storageType == 'hot') {
           result['L3_hot'] = provider;
         } else if (storageType == 'cool') {
-          result['L3_cold'] = provider;  // Map 'cool' to 'cold' for consistency
+          result['L3_cold'] = provider; // Map 'cool' to 'cold' for consistency
         } else if (storageType == 'archive') {
           result['L3_archive'] = provider;
         }
@@ -70,7 +70,12 @@ class ArchitectureLayerBuilder {
     return _buildLayerCard(context, 'L1', 'Data Acquisition', layers['L1'], [
       _buildEditableSourceBox('IoT Devices', Icons.sensors),
       _buildArrow(small: true),
-      _buildComponentBox(context, _getL1Service(layers['L1']), layers['L1'], Icons.router),
+      _buildComponentBox(
+        context,
+        _getL1Service(layers['L1']),
+        layers['L1'],
+        Icons.router,
+      ),
       _buildArrow(small: true),
       _buildComponentBox(context, 'Dispatcher', layers['L1'], Icons.call_split),
       if (hasCrossCloudBoundary('L1', 'L2')) ...[
@@ -88,25 +93,30 @@ class ArchitectureLayerBuilder {
     final hasFeedback = calcParams?.returnFeedbackToDevice ?? false;
     final hasWorkflow = calcParams?.triggerNotificationWorkflow ?? false;
     final hasCrossToL3 = hasCrossCloudBoundary('L2', 'L3_hot');
-    
+
     return _buildLayerCard(context, 'L2', 'Processing', provider, [
       // Receiver if cross-cloud from L1
       if (hasCrossCloudBoundary('L1', 'L2')) ...[
         _buildGlueComponentBox('Receiver', provider),
         _buildArrow(small: true),
       ],
-      
+
       // Processor Wrapper
-      _buildComponentBox(context, 'Processor Wrapper', provider, Icons.settings),
+      _buildComponentBox(
+        context,
+        'Processor Wrapper',
+        provider,
+        Icons.settings,
+      ),
       _buildArrow(small: true),
-      
+
       // User Processors (editable)
       _buildEditableComponentBox('User Processors', Icons.code),
       _buildArrow(small: true),
-      
+
       // Persister
       _buildComponentBox(context, 'Persister', provider, Icons.save),
-      
+
       // === BRANCHING FROM PERSISTER ===
       if (hasEventBranch) ...[
         // Two arrows showing the split
@@ -135,14 +145,22 @@ class ArchitectureLayerBuilder {
                   ],
                   // Continuation line
                   Expanded(
-                    child: Container(
-                      width: 2,
-                      color: Colors.grey.shade400,
+                    child: Container(width: 2, color: Colors.grey.shade400),
+                  ),
+                  Icon(
+                    Icons.arrow_downward,
+                    size: 16,
+                    color: Colors.grey.shade500,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'to L3',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Icon(Icons.arrow_downward, size: 16, color: Colors.grey.shade500),
-                  const SizedBox(height: 4),
-                  Text('to L3', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
                 ],
               ),
               const SizedBox(width: 8),
@@ -161,80 +179,127 @@ class ArchitectureLayerBuilder {
     ], isEditable: true);
   }
 
-  Widget _buildEventBranchBox(BuildContext context, String? provider, bool hasFeedback, bool hasWorkflow) {
-  return Container(
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      // Use grey/system styling like other non-editable blocks
-      border: Border.all(color: systemColor.withAlpha(80)),
-      borderRadius: BorderRadius.circular(8),
-      color: systemColor.withAlpha(10),
-    ),
-    child: Column(
-      children: [
-        Text('Event Branch', style: TextStyle(fontSize: 10, color: systemColor, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 8),
-        // Event Checker is NOT editable - use grey system style
-        _buildComponentBox(context, 'Event Checker', provider, Icons.notification_important),
-        
-        // Branching arrows from Event Checker
-        if (hasFeedback || hasWorkflow) ...[
+  Widget _buildEventBranchBox(
+    BuildContext context,
+    String? provider,
+    bool hasFeedback,
+    bool hasWorkflow,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        // Use grey/system styling like other non-editable blocks
+        border: Border.all(color: systemColor.withAlpha(80)),
+        borderRadius: BorderRadius.circular(8),
+        color: systemColor.withAlpha(10),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Event Branch',
+            style: TextStyle(
+              fontSize: 10,
+              color: systemColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (hasFeedback) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
-              if (hasFeedback && hasWorkflow) const SizedBox(width: 40),
-              if (hasWorkflow) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
-            ],
+          // Event Checker is NOT editable - use grey system style
+          _buildComponentBox(
+            context,
+            'Event Checker',
+            provider,
+            Icons.notification_important,
           ),
-          const SizedBox(height: 6),
-          
-          // Feedback and Workflow on same row - these ARE editable
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (hasFeedback) ...[
-                Column(
-                  children: [
-                    _buildEditableComponentBoxSmallWithBadge('Feedback', Icons.replay),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.arrow_upward, size: 14, color: Colors.orange),
-                        const SizedBox(width: 4),
-                        Text('IoT Device', style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ],
-                ),
+
+          // Branching arrows from Event Checker
+          if (hasFeedback || hasWorkflow) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasFeedback)
+                  Icon(
+                    Icons.arrow_downward,
+                    size: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                if (hasFeedback && hasWorkflow) const SizedBox(width: 40),
+                if (hasWorkflow)
+                  Icon(
+                    Icons.arrow_downward,
+                    size: 14,
+                    color: Colors.grey.shade500,
+                  ),
               ],
-              if (hasFeedback && hasWorkflow) const SizedBox(width: 16),
-              if (hasWorkflow) ...[
-                Column(
-                  children: [
-                    _buildEditableComponentBoxSmallWithBadge('Workflow', Icons.account_tree),
-                    _buildArrow(small: true),
-                    _buildEditableComponentBoxSmallWithBadge('Event Actions', Icons.flash_on),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 6),
+
+            // Feedback and Workflow on same row - these ARE editable
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasFeedback) ...[
+                  Column(
+                    children: [
+                      _buildEditableComponentBoxSmallWithBadge(
+                        'Feedback',
+                        Icons.replay,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_upward,
+                            size: 14,
+                            color: Colors.orange,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'IoT Device',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.orange,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+                if (hasFeedback && hasWorkflow) const SizedBox(width: 16),
+                if (hasWorkflow) ...[
+                  Column(
+                    children: [
+                      _buildEditableComponentBoxSmallWithBadge(
+                        'Workflow',
+                        Icons.account_tree,
+                      ),
+                      _buildArrow(small: true),
+                      _buildEditableComponentBoxSmallWithBadge(
+                        'Event Actions',
+                        Icons.flash_on,
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
+          ],
         ],
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
 
   /// L3 Storage layer
   Widget buildL3Layer(BuildContext context) {
     final layers = layerProviders;
     final hasCrossFromL2 = hasCrossCloudBoundary('L2', 'L3_hot');
     final hasCrossToL4 = hasCrossCloudBoundary('L3_hot', 'L4');
-    
+
     return _buildLayerCard(context, 'L3', 'Storage', null, [
       Row(
         mainAxisSize: MainAxisSize.min,
@@ -244,14 +309,30 @@ class ArchitectureLayerBuilder {
           Column(
             children: [
               if (hasCrossFromL2) ...[
-                _buildGlueComponentBox('Hot Writer', layers['L3_hot'], showProviderBadge: true),
+                _buildGlueComponentBox(
+                  'Hot Writer',
+                  layers['L3_hot'],
+                  showProviderBadge: true,
+                ),
                 _buildArrow(small: true),
               ],
-              _buildStorageBox('Hot', _getL3HotService(layers['L3_hot']), layers['L3_hot']),
+              _buildStorageBox(
+                'Hot',
+                _getL3HotService(layers['L3_hot']),
+                layers['L3_hot'],
+              ),
               _buildArrow(small: true),
-              _buildStorageBox('Cool', _getL3CoolService(layers['L3_cold']), layers['L3_cold']),
+              _buildStorageBox(
+                'Cool',
+                _getL3CoolService(layers['L3_cold']),
+                layers['L3_cold'],
+              ),
               _buildArrow(small: true),
-              _buildStorageBox('Archive', _getL3ArchiveService(layers['L3_archive']), layers['L3_archive']),
+              _buildStorageBox(
+                'Archive',
+                _getL3ArchiveService(layers['L3_archive']),
+                layers['L3_archive'],
+              ),
             ],
           ),
           // RIGHT: Hot Reader branch
@@ -262,13 +343,27 @@ class ArchitectureLayerBuilder {
                 if (hasCrossFromL2) const SizedBox(height: 60),
                 Row(
                   children: [
-                    Icon(Icons.arrow_forward, size: 16, color: Colors.grey.shade500),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 16,
+                      color: Colors.grey.shade500,
+                    ),
                     const SizedBox(width: 8),
                     Column(
                       children: [
-                        _buildGlueComponentBox('Hot Reader', layers['L3_hot'], showProviderBadge: true),
+                        _buildGlueComponentBox(
+                          'Hot Reader',
+                          layers['L3_hot'],
+                          showProviderBadge: true,
+                        ),
                         const SizedBox(height: 4),
-                        Text('to L4/L5', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                        Text(
+                          'to L4/L5',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -313,7 +408,14 @@ class ArchitectureLayerBuilder {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Legend', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? Colors.grey.shade300 : Colors.grey.shade700)),
+          Text(
+            'Legend',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+            ),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 16,
@@ -336,18 +438,30 @@ class ArchitectureLayerBuilder {
   Widget _buildArrow({bool small = false}) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: small ? 4 : 8),
-      child: Icon(Icons.arrow_downward, size: small ? 18 : 24, color: Colors.grey.shade500),
+      child: Icon(
+        Icons.arrow_downward,
+        size: small ? 18 : 24,
+        color: Colors.grey.shade500,
+      ),
     );
   }
 
-  Widget _buildLayerCard(BuildContext context, String layer, String title, String? provider, List<Widget> components, {bool isEditable = false, bool isStorage = false}) {
+  Widget _buildLayerCard(
+    BuildContext context,
+    String layer,
+    String title,
+    String? provider,
+    List<Widget> components, {
+    bool isEditable = false,
+    bool isStorage = false,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // Use neutral grey for all layer cards (same as static input boxes)
     final boxColor = isDark ? Colors.grey.shade700 : Colors.grey.shade400;
     final bgColor = isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50;
     final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
     final titleTextColor = isDark ? Colors.grey.shade300 : Colors.grey.shade700;
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -366,12 +480,32 @@ class ArchitectureLayerBuilder {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: boxColor, borderRadius: BorderRadius.circular(4)),
-                    child: Text(layer, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: boxColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      layer,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
-                  Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: titleTextColor, fontSize: 14)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: titleTextColor,
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
               // Right: Provider chip (colored)
@@ -387,7 +521,12 @@ class ArchitectureLayerBuilder {
   }
 
   /// System component box - grey style for non-editable components (Dispatcher, IoT Core, etc.)
-  Widget _buildComponentBox(BuildContext context, String name, String? provider, IconData icon) {
+  Widget _buildComponentBox(
+    BuildContext context,
+    String name,
+    String? provider,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -400,7 +539,14 @@ class ArchitectureLayerBuilder {
         children: [
           Icon(icon, size: 16, color: systemColor),
           const SizedBox(width: 8),
-          Text(name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: systemColor)),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: systemColor,
+            ),
+          ),
         ],
       ),
     );
@@ -413,19 +559,42 @@ class ArchitectureLayerBuilder {
         color: editableColor.withAlpha(25),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: editableColor, width: 2),
-        boxShadow: [BoxShadow(color: editableColor.withAlpha(30), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: editableColor.withAlpha(30),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: editableColor),
           const SizedBox(width: 10),
-          Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: editableColor)),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: editableColor,
+            ),
+          ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            decoration: BoxDecoration(color: editableColor, borderRadius: BorderRadius.circular(3)),
-            child: const Text('EDIT', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: editableColor,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: const Text(
+              'EDIT',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -446,7 +615,14 @@ class ArchitectureLayerBuilder {
         children: [
           Icon(icon, size: 14, color: editableColor),
           const SizedBox(width: 6),
-          Text(name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: editableColor)),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: editableColor,
+            ),
+          ),
         ],
       ),
     );
@@ -466,12 +642,29 @@ class ArchitectureLayerBuilder {
         children: [
           Icon(icon, size: 12, color: editableColor),
           const SizedBox(width: 5),
-          Text(name, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: editableColor)),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: editableColor,
+            ),
+          ),
           const SizedBox(width: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-            decoration: BoxDecoration(color: editableColor, borderRadius: BorderRadius.circular(2)),
-            child: const Text('EDIT', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: editableColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: const Text(
+              'EDIT',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 7,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -485,7 +678,13 @@ class ArchitectureLayerBuilder {
         color: editableColor.withAlpha(25),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: editableColor, width: 2),
-        boxShadow: [BoxShadow(color: editableColor.withAlpha(30), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: editableColor.withAlpha(30),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -495,22 +694,49 @@ class ArchitectureLayerBuilder {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: editableColor)),
-              Text('Upload payload', style: TextStyle(fontSize: 10, color: editableColor.withAlpha(180))),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: editableColor,
+                ),
+              ),
+              Text(
+                'Upload payload',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: editableColor.withAlpha(180),
+                ),
+              ),
             ],
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            decoration: BoxDecoration(color: editableColor, borderRadius: BorderRadius.circular(3)),
-            child: const Text('EDIT', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: editableColor,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: const Text(
+              'EDIT',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGlueComponentBox(String name, String? provider, {bool showProviderBadge = false}) {
+  Widget _buildGlueComponentBox(
+    String name,
+    String? provider, {
+    bool showProviderBadge = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -523,12 +749,29 @@ class ArchitectureLayerBuilder {
         children: [
           Icon(Icons.swap_horiz, size: 14, color: glueColor),
           const SizedBox(width: 6),
-          Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: glueColor)),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: glueColor,
+            ),
+          ),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(color: glueColor, borderRadius: BorderRadius.circular(3)),
-            child: const Text('GLUE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: glueColor,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: const Text(
+              'GLUE',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           if (showProviderBadge && provider != null) ...[
             const SizedBox(width: 4),
@@ -553,12 +796,29 @@ class ArchitectureLayerBuilder {
         children: [
           Icon(Icons.swap_horiz, size: 12, color: glueColor),
           const SizedBox(width: 4),
-          Text(name, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: glueColor)),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w500,
+              color: glueColor,
+            ),
+          ),
           const SizedBox(width: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-            decoration: BoxDecoration(color: glueColor, borderRadius: BorderRadius.circular(2)),
-            child: const Text('GLUE', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: glueColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: const Text(
+              'GLUE',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 7,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -578,7 +838,14 @@ class ArchitectureLayerBuilder {
         children: [
           Icon(Icons.dns, size: 14, color: systemColor),
           const SizedBox(width: 8),
-          Text('$tier: $service', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: systemColor)),
+          Text(
+            '$tier: $service',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: systemColor,
+            ),
+          ),
           const SizedBox(width: 8),
           _buildProviderChipSmall(provider),
         ],
@@ -591,8 +858,18 @@ class ArchitectureLayerBuilder {
     final color = getProviderColor(provider);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
-      child: Text(provider.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        provider.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
@@ -601,8 +878,18 @@ class ArchitectureLayerBuilder {
     final color = getProviderColor(provider);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
-      child: Text(provider.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        provider.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
@@ -610,17 +897,60 @@ class ArchitectureLayerBuilder {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 10, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+          ),
+        ),
       ],
     );
   }
 
   // Service name helpers
-  String _getL1Service(String? p) => p == 'AWS' ? 'IoT Core' : p == 'AZURE' ? 'IoT Hub' : p == 'GCP' ? 'Pub/Sub' : 'IoT Hub';
-  String _getL3HotService(String? p) => p == 'AWS' ? 'DynamoDB' : p == 'AZURE' ? 'CosmosDB' : p == 'GCP' ? 'Firestore' : 'Hot Storage';
-  String _getL3CoolService(String? p) => p == 'AWS' ? 'S3 IA' : p == 'AZURE' ? 'Cool Blob' : p == 'GCP' ? 'Nearline' : 'Cool Storage';
-  String _getL3ArchiveService(String? p) => p == 'AWS' ? 'Glacier' : p == 'AZURE' ? 'Archive' : p == 'GCP' ? 'Coldline' : 'Archive';
-  String _getL4Service(String? p) => p == 'AWS' ? 'IoT TwinMaker' : p == 'AZURE' ? 'Digital Twins' : p == 'GCP' ? 'Supply Chain' : 'Digital Twin';
+  String _getL1Service(String? p) => p == 'AWS'
+      ? 'IoT Core'
+      : p == 'AZURE'
+      ? 'IoT Hub'
+      : p == 'GCP'
+      ? 'Pub/Sub'
+      : 'IoT Hub';
+  String _getL3HotService(String? p) => p == 'AWS'
+      ? 'DynamoDB'
+      : p == 'AZURE'
+      ? 'CosmosDB'
+      : p == 'GCP'
+      ? 'Firestore'
+      : 'Hot Storage';
+  String _getL3CoolService(String? p) => p == 'AWS'
+      ? 'S3 IA'
+      : p == 'AZURE'
+      ? 'Cool Blob'
+      : p == 'GCP'
+      ? 'Nearline'
+      : 'Cool Storage';
+  String _getL3ArchiveService(String? p) => p == 'AWS'
+      ? 'Glacier'
+      : p == 'AZURE'
+      ? 'Archive'
+      : p == 'GCP'
+      ? 'Coldline'
+      : 'Archive';
+  String _getL4Service(String? p) => p == 'AWS'
+      ? 'IoT TwinMaker'
+      : p == 'AZURE'
+      ? 'Digital Twins'
+      : p == 'GCP'
+      ? 'Supply Chain'
+      : 'Digital Twin';
 }
