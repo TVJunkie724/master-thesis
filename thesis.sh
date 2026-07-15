@@ -18,10 +18,19 @@ THESIS_DEV_AUTH_TOKEN="${THESIS_DEV_AUTH_TOKEN:-dev-token}"
 THESIS_FLUTTER_DEVICE="${THESIS_FLUTTER_DEVICE:-macos}"
 THESIS_DEMO_SCENARIO="${THESIS_DEMO_SCENARIO:-showcase}"
 THESIS_DOCKER_CONTEXT="${THESIS_DOCKER_CONTEXT:-}"
+THESIS_RUNTIME_SECRETS_DIR="${THESIS_RUNTIME_SECRETS_DIR:-$REPO_ROOT/.secrets/runtime}"
+THESIS_LOCAL_DATABASE_PATH="${THESIS_LOCAL_DATABASE_PATH:-$REPO_ROOT/twin2multicloud_backend/data/app.db}"
+if [[ "$THESIS_RUNTIME_SECRETS_DIR" != /* ]]; then
+  THESIS_RUNTIME_SECRETS_DIR="$REPO_ROOT/$THESIS_RUNTIME_SECRETS_DIR"
+fi
+if [[ "$THESIS_LOCAL_DATABASE_PATH" != /* ]]; then
+  THESIS_LOCAL_DATABASE_PATH="$REPO_ROOT/$THESIS_LOCAL_DATABASE_PATH"
+fi
 export THESIS_OPTIMIZER_PORT
 export THESIS_DEPLOYER_PORT
 export THESIS_MANAGEMENT_API_PORT
 export THESIS_DOCS_PORT
+export THESIS_RUNTIME_SECRETS_DIR
 
 WITH_CREDENTIALS=0
 SKIP_SMOKE=0
@@ -41,6 +50,7 @@ Usage:
   ./thesis.sh demo [options] [-- <extra flutter run args>]
   ./thesis.sh config
   ./thesis.sh setup
+  ./thesis.sh secrets
   ./thesis.sh status
   ./thesis.sh logs [service]
   ./thesis.sh down
@@ -57,6 +67,7 @@ App commands:
   demo               Start the offline Flutter demo without Docker or APIs.
   config             Write twin2multicloud_flutter/config/dev.json only.
   setup              Write config and run flutter pub get.
+  secrets            Create or validate durable local Management API secrets.
   status             Print URLs and matching Docker containers.
   logs [service]     Follow Docker logs. Service examples: management-api,
                      2twin2clouds, 3cloud-deployer.
@@ -104,6 +115,8 @@ Environment:
   THESIS_DEV_AUTH_TOKEN        Flutter dev auth token. Default: dev-token.
   THESIS_DEMO_SCENARIO         Offline fixture scenario. Default: showcase.
   THESIS_DOCKER_CONTEXT        Optional Docker context name.
+  THESIS_RUNTIME_SECRETS_DIR   Local runtime secret directory. Default: .secrets/runtime.
+  THESIS_LOCAL_DATABASE_PATH   Local Management API SQLite path used by the migration guard.
 
 Default startup is credential-free. Use --with-credentials only when
 .secrets/local contains intentional local cloud credentials for supervised
@@ -172,6 +185,13 @@ require_docker() {
 require_flutter() {
   require_command flutter
   require_command dart
+}
+
+bootstrap_local_runtime_secrets() {
+  require_command python3
+  python3 "$REPO_ROOT/scripts/bootstrap_local_runtime_secrets.py" \
+    --secrets-dir "$THESIS_RUNTIME_SECRETS_DIR" \
+    --database "$THESIS_LOCAL_DATABASE_PATH"
 }
 
 require_cloud_secret_files() {
@@ -363,6 +383,7 @@ smoke_app() {
 
 up_app() {
   require_docker
+  bootstrap_local_runtime_secrets
   if [ "$WITH_CREDENTIALS" -eq 1 ]; then
     require_cloud_secret_files
   fi
@@ -411,6 +432,7 @@ EOF
 
 run_backend_tests() {
   require_docker
+  bootstrap_local_runtime_secrets
   compose_cmd run --rm --no-deps management-api python -m pytest tests/ --ignore=tests/e2e -q
 }
 
@@ -441,6 +463,8 @@ run_frontend_integration_tests() {
   require_flutter
   [ "$WITH_CREDENTIALS" -eq 0 ] ||
     fail "Frontend integration tests must run without cloud credential overlays."
+
+  bootstrap_local_runtime_secrets
 
   info "Starting credential-free services for read-only Flutter integration tests."
   compose_cmd up -d 2twin2clouds 3cloud-deployer management-api
@@ -527,8 +551,13 @@ main() {
       ;;
     setup)
       parse_common_options "$@"
+      bootstrap_local_runtime_secrets
       write_flutter_config
       flutter_pub_get
+      ;;
+    secrets)
+      [ "$#" -eq 0 ] || fail "Unknown option for secrets: $1"
+      bootstrap_local_runtime_secrets
       ;;
     status)
       parse_common_options "$@"
