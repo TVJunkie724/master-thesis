@@ -64,7 +64,9 @@ App commands:
   test backend       Run Management API tests without tests/e2e.
   test frontend      Run static architecture, analysis, unit/widget, and build gates.
   test frontend-integration
-                     Run read-only Flutter contract tests against local containers.
+                     Run read-only Flutter contracts against credential-free
+                     local containers. Requires the macOS desktop toolchain;
+                     cloud credentials and cloud mutations are not supported.
 
 LaTeX commands:
   latex watch        Run latexmk watch mode in Docker.
@@ -543,6 +545,10 @@ main() {
       ;;
     test)
       local target="${1:-backend}"
+      if [ "$#" -gt 0 ]; then
+        shift
+      fi
+      [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
       case "$target" in
         backend) run_backend_tests ;;
         frontend) run_frontend_tests ;;
