@@ -1,4 +1,8 @@
+import base64
+import binascii
+import re
 from enum import StrEnum
+from pathlib import Path
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,8 +14,22 @@ class AppEnvironment(StrEnum):
     PRODUCTION = "production"
 
 
+KNOWN_INSECURE_SECRET_VALUES = {
+    "local-development-jwt-secret-change-me",
+    "local-development-encryption-key-change-me",
+    "your-secret-key-change-in-production",
+    "your-fernet-key-here",
+    "dev-secret-change-in-production",
+    "dev-secret-key",
+}
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        secrets_dir="/run/secrets" if Path("/run/secrets").is_dir() else None,
+    )
 
     APP_ENV: AppEnvironment = AppEnvironment.PRODUCTION
 
@@ -81,7 +99,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_security_boundary(self) -> "Settings":
-        """Reject development capabilities and weak secrets in production."""
+        """Reject unsafe capabilities and invalid runtime secrets."""
         non_production = {AppEnvironment.DEVELOPMENT, AppEnvironment.TEST}
         if self.DEV_AUTH_ENABLED and self.APP_ENV not in non_production:
             raise ValueError("DEV_AUTH_ENABLED is only allowed in development or test")
@@ -92,13 +110,42 @@ class Settings(BaseSettings):
         if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
             raise ValueError("DEV_AUTH_TOKEN is required when DEV_AUTH_ENABLED is true")
 
+        if len(self.JWT_SECRET_KEY) < 32:
+            raise ValueError("JWT_SECRET_KEY must contain at least 32 characters")
+        if len(self.ENCRYPTION_KEY) < 32:
+            raise ValueError("ENCRYPTION_KEY must contain at least 32 characters")
+        if self.JWT_SECRET_KEY != self.JWT_SECRET_KEY.strip():
+            raise ValueError("JWT_SECRET_KEY contains surrounding whitespace")
+        if self.ENCRYPTION_KEY != self.ENCRYPTION_KEY.strip():
+            raise ValueError("ENCRYPTION_KEY contains surrounding whitespace")
+        if any(
+            ord(character) < 32 or ord(character) == 127
+            for value in (self.JWT_SECRET_KEY, self.ENCRYPTION_KEY)
+            for character in value
+        ):
+            raise ValueError("Runtime secrets must not contain control characters")
+        if self.JWT_SECRET_KEY in KNOWN_INSECURE_SECRET_VALUES:
+            raise ValueError("JWT_SECRET_KEY uses a known insecure placeholder")
+        if self.ENCRYPTION_KEY in KNOWN_INSECURE_SECRET_VALUES:
+            raise ValueError("ENCRYPTION_KEY uses a known insecure placeholder")
+        if self.JWT_SECRET_KEY == self.ENCRYPTION_KEY:
+            raise ValueError("JWT_SECRET_KEY and ENCRYPTION_KEY must be different")
+        if re.fullmatch(r"[A-Za-z0-9_-]+={0,2}", self.ENCRYPTION_KEY) is None:
+            raise ValueError("ENCRYPTION_KEY must be a URL-safe base64 value")
+        try:
+            decoded_encryption_key = base64.b64decode(
+                self.ENCRYPTION_KEY.encode("ascii"),
+                altchars=b"-_",
+                validate=True,
+            )
+        except (binascii.Error, UnicodeEncodeError, ValueError) as exc:
+            raise ValueError("ENCRYPTION_KEY must be a URL-safe base64 value") from exc
+        if len(decoded_encryption_key) != 32:
+            raise ValueError("ENCRYPTION_KEY must encode exactly 32 bytes")
+
         if self.APP_ENV == AppEnvironment.PRODUCTION:
             if self.DEBUG:
                 raise ValueError("DEBUG must be false in production")
-            if len(self.JWT_SECRET_KEY) < 32:
-                raise ValueError("JWT_SECRET_KEY must contain at least 32 characters in production")
-            if len(self.ENCRYPTION_KEY) < 32:
-                raise ValueError("ENCRYPTION_KEY must contain at least 32 characters in production")
 
         return self
 

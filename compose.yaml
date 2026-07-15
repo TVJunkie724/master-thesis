@@ -56,8 +56,6 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./data/app.db
       - APP_ENV=development
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-local-development-jwt-secret-change-me}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-local-development-encryption-key-change-me}
       - DEBUG=true
       - DEV_AUTH_ENABLED=true
       - DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN:-dev-token}
@@ -69,6 +67,11 @@ services:
       - DEPLOYER_URL=http://3cloud-deployer:8000
       - DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES=${DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES:-1440}
       - UPLOAD_DIR=/app/uploads
+    secrets:
+      - source: management_api_jwt_secret
+        target: JWT_SECRET_KEY
+      - source: management_api_encryption_key
+        target: ENCRYPTION_KEY
     networks:
       - my_master_thesis_network
     depends_on:
@@ -106,3 +109,9 @@ networks:
 
 volumes:
   deployer_runtime_state:
+
+secrets:
+  management_api_jwt_secret:
+    file: ${THESIS_RUNTIME_SECRETS_DIR:-.secrets/runtime}/JWT_SECRET_KEY
+  management_api_encryption_key:
+    file: ${THESIS_RUNTIME_SECRETS_DIR:-.secrets/runtime}/ENCRYPTION_KEY

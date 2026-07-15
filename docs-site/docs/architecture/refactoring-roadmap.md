@@ -51,6 +51,7 @@ when work becomes actionable, then reference the issue here.
 | [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Cross-cutting Flutter architecture, test, build, and local contract gate |
 | [#72](https://github.com/TVJunkie724/master-thesis/issues/72) | Done | Stable twin, configuration, optimizer, pricing-export, and deployer response boundaries are typed and live-contract verified |
 | [#39](https://github.com/TVJunkie724/master-thesis/issues/39) | Done | Deployment and destroy lifecycle, persisted status, safe confirmations, and Management API log streaming reconciled |
+| [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Done | Durable local JWT/encryption secrets are generated safely while production remains fail-closed |
 
 ## Active And Planned Refactoring Issues
 
@@ -97,12 +98,12 @@ when work becomes actionable, then reference the issue here.
 | [#7](https://github.com/TVJunkie724/master-thesis/issues/7) | Done | Provider bootstrap and permission preflight checks. Slices 1-4 add static dry-run-first bootstrap artifacts, the Management API plan/import contract, normalized CloudConnection/Deployer preflight results, and offline provider permission artifact guardrails. Plan: [`docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md) |
 | [#79](https://github.com/TVJunkie724/master-thesis/issues/79) | Active | Stage 2 for provider credentials: `thesis-demo-v1` is implemented as the active versioned permission-set contract across bootstrap output, Deployer preflight, Management API CloudConnections, and docs. AWS, Azure, and GCP pre-E2E hardening now include provider-specific scope reviews and checker/artifact drift gates; final least-privilege still requires supervised provider validation. The permission-checker implementations remain a planned follow-up review/refactor target before final E2E sign-off. Plan: [`docs/plans/2026-06-04_permission_set_version_contract.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-06-04_permission_set_version_contract.md) |
 | [#8](https://github.com/TVJunkie724/master-thesis/issues/8) | Open | Production credential security controls |
-| [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Open | Local encryption/JWT key generation and persistence |
+| [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Done | Atomic local JWT/encryption secret bootstrap, read-only Compose mounts, and production fail-closed validation |
 | [#10](https://github.com/TVJunkie724/master-thesis/issues/10) | Open | Production authentication and UIBK login path |
 | [#78](https://github.com/TVJunkie724/master-thesis/issues/78) | Done | Legacy encrypted per-twin credential fallback removed; CloudConnections are the only runtime credential source |
-| [#11](https://github.com/TVJunkie724/master-thesis/issues/11) | Open | ProjectStorage abstraction for Deployer project data |
-| [#12](https://github.com/TVJunkie724/master-thesis/issues/12) | Open | Remove legacy global state in favor of explicit context |
-| [#13](https://github.com/TVJunkie724/master-thesis/issues/13) | Open, blocked by #11/#12 | Context-owned config loading |
+| [#11](https://github.com/TVJunkie724/master-thesis/issues/11) | Done | ProjectStorage abstraction for Deployer project data |
+| [#12](https://github.com/TVJunkie724/master-thesis/issues/12) | Done | Legacy global state replaced by explicit deployment context |
+| [#13](https://github.com/TVJunkie724/master-thesis/issues/13) | Done | Config loading unified through deployment context |
 | [#14](https://github.com/TVJunkie724/master-thesis/issues/14) | Open | Reduce monolithic Deployer modules |
 | [#16](https://github.com/TVJunkie724/master-thesis/issues/16) | Open | Optimize L0 glue conditional deployment |
 | [#20](https://github.com/TVJunkie724/master-thesis/issues/20) | Open | Observability variables through config/API/UI |
@@ -180,10 +181,14 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Finish the remaining Phase 4 credential/runtime work: #6, #79, #11, #12, #13.
-2. Reconcile the remaining Deployer contract and module debt in #19, #14, and
+1. Continue production credential controls in #8 now that durable local secret
+   bootstrap #9 is complete.
+2. Complete the production authentication boundary in #10.
+3. Keep the final supervised validation/removal gates in #6 and #79 aligned
+   with opt-in live-cloud evidence issue #107.
+4. Reconcile the remaining Deployer contract and module debt in #19, #14, and
    #45 after the explicit runtime-context boundary is complete.
-3. Move optimizer reliability work into Phase 6 once deployment/runtime
+5. Move optimizer reliability work into Phase 6 once deployment/runtime
    boundaries are stable.
-4. Keep live-cloud E2E evidence in opt-in issue #107; default verification must
+6. Keep live-cloud E2E evidence in opt-in issue #107; default verification must
    remain resource-free.
