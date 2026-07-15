@@ -98,7 +98,10 @@ def test_deployment_logs_filters_by_session_and_after_event_id(
 
 def test_deployment_logs_are_owner_scoped(authenticated_client, db_session):
     client, headers = authenticated_client
-    twin = _create_twin(db_session, "other-user", name="Other Twin")
+    other_user = User(email="deployment-logs-other@example.test")
+    db_session.add(other_user)
+    db_session.commit()
+    twin = _create_twin(db_session, other_user.id, name="Other Twin")
     _insert_log(db_session, twin.id, event_id=1)
 
     response = client.get(f"/twins/{twin.id}/logs", headers=headers)
@@ -117,9 +120,7 @@ def test_deployment_logs_redact_secret_like_messages(
         twin.id,
         event_id=1,
         message=(
-            'secret_access_key="very-sensitive" '
-            "token=abc123 "
-            "AKIA1234567890ABCDEF"
+            'secret_access_key="very-sensitive" token=abc123 AKIA1234567890ABCDEF'
         ),
         level="warning",
     )

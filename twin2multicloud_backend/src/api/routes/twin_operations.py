@@ -45,7 +45,12 @@ from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
-from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    ConflictError,
+    DownstreamServiceError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.twin_export_service import TwinExportService
 
 logger = logging.getLogger(__name__)
@@ -60,7 +65,10 @@ def _deployment_orchestrator(db: Session) -> DeploymentOrchestrator:
     test_deploy_stream_runner = None
     test_destroy_stream_runner = None
     if TEST_MODE:
-        from src.api.routes.test_endpoints import _run_test_deploy_stream, _run_test_destroy_stream
+        from src.api.routes.test_endpoints import (
+            _run_test_deploy_stream,
+            _run_test_destroy_stream,
+        )
 
         test_deploy_stream_runner = _run_test_deploy_stream
         test_destroy_stream_runner = _run_test_destroy_stream
@@ -96,7 +104,9 @@ def _raise_service_http_error(exc: Exception) -> None:
     if isinstance(exc, ConflictError):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if isinstance(exc, DownstreamServiceError):
-        raise HTTPException(status_code=exc.status_code, detail=exc.public_detail) from exc
+        raise HTTPException(
+            status_code=exc.status_code, detail=exc.public_detail
+        ) from exc
     raise exc
 
 
@@ -109,7 +119,11 @@ def _raise_service_http_error(exc: Exception) -> None:
         "Checks deployment cooldown readiness, including the GCP Firestore cooldown rule, "
         "before a destroyed twin is redeployed."
     ),
-    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404], 503: {"description": "Deployer API unavailable"}},
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        503: {"description": "Deployer API unavailable"},
+    },
 )
 async def can_redeploy(
     twin_id: str,
@@ -153,7 +167,12 @@ async def deploy_twin(
             user_id=current_user.id,
             test_mode=TEST_MODE,
         )
-    except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+    except (
+        ConflictError,
+        DownstreamServiceError,
+        EntityNotFoundError,
+        ValidationError,
+    ) as exc:
         _raise_service_http_error(exc)
 
 
@@ -184,7 +203,12 @@ async def destroy_twin_infrastructure(
             user_id=current_user.id,
             test_mode=TEST_MODE,
         )
-    except (ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+    except (
+        ConflictError,
+        DownstreamServiceError,
+        EntityNotFoundError,
+        ValidationError,
+    ) as exc:
         _raise_service_http_error(exc)
 
 
@@ -293,7 +317,9 @@ async def get_deployment_outputs(
 )
 async def get_deployment_history(
     twin_id: str,
-    limit: int = Query(10, ge=1, le=50, description="Max number of deployments to return"),
+    limit: int = Query(
+        10, ge=1, le=50, description="Max number of deployments to return"
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -366,7 +392,12 @@ async def start_log_trace(
         providers = ["aws"]
         if twin.optimizer_config:
             oc = twin.optimizer_config
-            unique = {p.lower() for p in filter(None, [oc.cheapest_l1, oc.cheapest_l2, oc.cheapest_l3_hot])}
+            unique = {
+                p.lower()
+                for p in filter(
+                    None, [oc.cheapest_l1, oc.cheapest_l2, oc.cheapest_l3_hot]
+                )
+            }
             if unique:
                 providers = list(unique)
 
@@ -396,28 +427,44 @@ async def start_log_trace(
     from src.services.deployment_service import prepare_project_for_deployment
 
     try:
-        resource_name = await prepare_project_for_deployment(twin, current_user.id)
+        prepared_project = await prepare_project_for_deployment(twin, current_user.id)
+    except DownstreamServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=redact_secret_like_text(exc.public_detail),
+        ) from exc
     except Exception as exc:
         logger.error(
             "Log trace preparation failed for twin %s (%s)",
             twin_id,
             type(exc).__name__,
         )
-        raise HTTPException(status_code=500, detail="Failed to prepare project for log trace") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to prepare project for log trace"
+        ) from exc
 
     try:
-        return await DeployerClient().start_log_trace(resource_name)
+        return await DeployerClient().start_log_trace(
+            prepared_project.resource_name,
+            prepared_project.operation_token,
+        )
     except ExternalServiceError as exc:
         detail = redact_secret_like_text(exc.public_detail)
         if exc.upstream_status_code == 429:
             try:
                 parsed = json.loads(detail)
-                detail = parsed.get("detail", "Rate limited") if isinstance(parsed, dict) else "Rate limited"
+                detail = (
+                    parsed.get("detail", "Rate limited")
+                    if isinstance(parsed, dict)
+                    else "Rate limited"
+                )
             except json.JSONDecodeError:
                 detail = "Rate limited"
         raise HTTPException(
             status_code=exc.upstream_status_code or 502,
-            detail=detail if exc.upstream_status_code == 429 else f"Deployer API error: {detail}",
+            detail=detail
+            if exc.upstream_status_code == 429
+            else f"Deployer API error: {detail}",
         ) from exc
     except ExternalServiceUnavailable as exc:
         raise HTTPException(status_code=503, detail="Deployer API unavailable") from exc
@@ -428,7 +475,11 @@ async def start_log_trace(
     operation_id="streamLogTrace",
     summary="Stream deployment log trace events",
     description="Streams Deployer log trace SSE events for a trace id while preserving the Deployer event format.",
-    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404], 503: {"description": "Deployer API unavailable"}},
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        503: {"description": "Deployer API unavailable"},
+    },
 )
 async def stream_log_trace(
     twin_id: str,
@@ -440,22 +491,42 @@ async def stream_log_trace(
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
 
-    resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
-        resource_name = twin.deployer_config.deployer_digital_twin_name
+    from src.services.deployment_service import prepare_project_for_deployment
+
+    try:
+        prepared_project = await prepare_project_for_deployment(twin, current_user.id)
+    except DownstreamServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=redact_secret_like_text(exc.public_detail),
+        ) from exc
+    except Exception as exc:
+        logger.error(
+            "Log trace stream preparation failed for twin %s (%s)",
+            twin_id,
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to prepare project for log trace",
+        ) from exc
 
     async def event_generator():
         try:
-            async for line in DeployerClient().stream_log_trace(resource_name, trace_id):
+            async for line in DeployerClient().stream_log_trace(
+                prepared_project.resource_name,
+                trace_id,
+                prepared_project.operation_token,
+            ):
                 yield line if line.endswith("\n") else f"{line}\n"
         except (ExternalServiceError, ExternalServiceUnavailable) as exc:
             safe_error = redact_secret_like_text(str(exc))
             logger.error("Log trace stream error: %s", safe_error)
-            yield "event: error\ndata: {\"message\": \"Deployer log trace stream failed\"}\n\n"
+            yield 'event: error\ndata: {"message": "Deployer log trace stream failed"}\n\n'
         except Exception as exc:
             safe_error = redact_secret_like_text(str(exc))
             logger.error("Log trace stream error: %s", safe_error)
-            yield "event: error\ndata: {\"message\": \"Deployer log trace stream failed\"}\n\n"
+            yield 'event: error\ndata: {"message": "Deployer log trace stream failed"}\n\n'
 
     return StreamingResponse(
         event_generator(),
@@ -579,7 +650,9 @@ async def export_twin_configuration(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        archive = _twin_export_service(db).export_twin(twin_id=twin_id, user_id=current_user.id)
+        archive = _twin_export_service(db).export_twin(
+            twin_id=twin_id, user_id=current_user.id
+        )
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
 

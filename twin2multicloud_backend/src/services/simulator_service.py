@@ -19,15 +19,22 @@ from src.clients.deployer_client import (
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
+from src.services.deployment_service import PreparedDeploymentProject
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.secret_redaction import redact_secret_like_text
-from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    DownstreamServiceError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.test_deployment_service import TestDeploymentService
 
 
-ProjectPreparer = Callable[[DigitalTwin, str], Awaitable[str]]
-SimulatorFetcher = Callable[[str, str], Awaitable[DeployerSimulatorArchive]]
+ProjectPreparer = Callable[[DigitalTwin, str], Awaitable[PreparedDeploymentProject]]
+SimulatorFetcher = Callable[
+    [PreparedDeploymentProject, str], Awaitable[DeployerSimulatorArchive]
+]
 
 _SAFE_FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,191}\.zip$")
 _PROVIDER_CREDENTIAL_CLASSES = {
@@ -63,20 +70,28 @@ class SimulatorDownloadService:
     ):
         self.db = db
         self.twin_repository = twin_repository
-        self.project_preparer = project_preparer or deployment_service.prepare_project_for_deployment
+        self.project_preparer = (
+            project_preparer or deployment_service.prepare_project_for_deployment
+        )
         self.deployer_client = deployer_client or DeployerClient()
         self.simulator_fetcher = simulator_fetcher or self._fetch_from_deployer
 
-    async def download(self, twin_id: str, user_id: str, *, test_mode: bool) -> SimulatorDownload:
+    async def download(
+        self, twin_id: str, user_id: str, *, test_mode: bool
+    ) -> SimulatorDownload:
         """Return the simulator archive for a deployed twin."""
         twin = self.twin_repository.get_active_for_user(twin_id, user_id)
         if not twin:
             raise EntityNotFoundError("Twin not found")
         if twin.state != TwinState.DEPLOYED:
-            raise ValidationError(f"Simulator only available for deployed twins. Current: {twin.state.value}")
+            raise ValidationError(
+                f"Simulator only available for deployed twins. Current: {twin.state.value}"
+            )
 
         if test_mode:
-            mock_archive = TestDeploymentService(self.db, self.twin_repository).build_mock_simulator_archive(
+            mock_archive = TestDeploymentService(
+                self.db, self.twin_repository
+            ).build_mock_simulator_archive(
                 twin_id=twin_id,
                 user_id=user_id,
             )
@@ -90,19 +105,28 @@ class SimulatorDownloadService:
 
         twin = self._reload_for_download(twin_id, user_id)
         if not twin.optimizer_config or not twin.optimizer_config.cheapest_l1:
-            raise EntityNotFoundError("Optimization not configured. Complete Step 2 first.")
+            raise EntityNotFoundError(
+                "Optimization not configured. Complete Step 2 first."
+            )
 
         l1_provider = provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
         try:
-            resource_name = await self.project_preparer(twin, user_id)
+            prepared_project = await self.project_preparer(twin, user_id)
+        except DownstreamServiceError as exc:
+            raise DownstreamServiceError(
+                status_code=exc.status_code,
+                public_detail=redact_secret_like_text(exc.public_detail),
+            ) from exc
         except Exception as exc:
-            logger.error("Simulator project preparation failed (%s)", type(exc).__name__)
+            logger.error(
+                "Simulator project preparation failed (%s)", type(exc).__name__
+            )
             raise DownstreamServiceError(
                 status_code=500,
                 public_detail="Failed to prepare project for simulator download",
             ) from exc
 
-        archive = await self.simulator_fetcher(resource_name, l1_provider)
+        archive = await self.simulator_fetcher(prepared_project, l1_provider)
         self._validate_archive(archive, expected_provider=l1_provider)
         return SimulatorDownload(
             content=io.BytesIO(archive.content),
@@ -133,11 +157,15 @@ class SimulatorDownloadService:
 
     async def _fetch_from_deployer(
         self,
-        resource_name: str,
+        prepared_project: PreparedDeploymentProject,
         l1_provider: str,
     ) -> DeployerSimulatorArchive:
         try:
-            return await self.deployer_client.download_simulator(resource_name, l1_provider)
+            return await self.deployer_client.download_simulator(
+                prepared_project.resource_name,
+                l1_provider,
+                prepared_project.operation_token,
+            )
         except ExternalServiceUnavailable as exc:
             raise DownstreamServiceError(
                 status_code=502,
@@ -145,7 +173,9 @@ class SimulatorDownloadService:
             ) from exc
         except ExternalServiceError as exc:
             if exc.upstream_status_code == 404:
-                raise EntityNotFoundError("Simulator not available. Ensure L1 deployed.") from exc
+                raise EntityNotFoundError(
+                    "Simulator not available. Ensure L1 deployed."
+                ) from exc
             raise DownstreamServiceError(
                 status_code=exc.upstream_status_code or 502,
                 public_detail=f"Deployer error: {redact_secret_like_text(exc.public_detail)}",
@@ -162,12 +192,16 @@ class SimulatorDownloadService:
                 status_code=502,
                 public_detail="Deployer returned mismatched simulator metadata.",
             )
-        if archive.media_type != "application/zip" or not _SAFE_FILENAME.fullmatch(archive.filename):
+        if archive.media_type != "application/zip" or not _SAFE_FILENAME.fullmatch(
+            archive.filename
+        ):
             raise DownstreamServiceError(
                 status_code=502,
                 public_detail="Deployer returned an invalid simulator archive contract.",
             )
-        if archive.credential_class != _PROVIDER_CREDENTIAL_CLASSES.get(expected_provider):
+        if archive.credential_class != _PROVIDER_CREDENTIAL_CLASSES.get(
+            expected_provider
+        ):
             raise DownstreamServiceError(
                 status_code=502,
                 public_detail="Deployer returned mismatched simulator credential metadata.",
