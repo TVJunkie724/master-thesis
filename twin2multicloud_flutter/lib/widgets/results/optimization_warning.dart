@@ -46,10 +46,7 @@ class OptimizationWarning extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'This ensures optimal data flow and minimizes cross-cloud transfer costs.',
-            style: TextStyle(
-              color: Colors.amber[800],
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.amber[800], fontSize: 12),
           ),
         ],
       ),

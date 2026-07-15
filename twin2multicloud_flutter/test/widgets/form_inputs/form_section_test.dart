@@ -18,29 +18,26 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.text('Test Section'), findsOneWidget);
     });
-    
+
     testWidgets('displays children', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: FormSection(
               title: 'Test',
-              children: [
-                Text('Child 1'),
-                Text('Child 2'),
-              ],
+              children: [Text('Child 1'), Text('Child 2')],
             ),
           ),
         ),
       );
-      
+
       expect(find.text('Child 1'), findsOneWidget);
       expect(find.text('Child 2'), findsOneWidget);
     });
-    
+
     testWidgets('displays icon when provided', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -53,10 +50,10 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.byIcon(Icons.settings), findsOneWidget);
     });
-    
+
     testWidgets('shows help button when callback provided', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -69,11 +66,11 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.byIcon(Icons.help_outline), findsOneWidget);
     });
   });
-  
+
   group('CollapsibleFormSection', () {
     testWidgets('shows title when collapsed', (tester) async {
       await tester.pumpWidget(
@@ -87,10 +84,10 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.text('Collapsible Section'), findsOneWidget);
     });
-    
+
     testWidgets('shows content when expanded', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -103,10 +100,10 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.text('Visible Content'), findsOneWidget);
     });
-    
+
     testWidgets('toggles on tap', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -119,16 +116,16 @@ void main() {
           ),
         ),
       );
-      
+
       // Initially collapsed - content hidden (uses AnimatedCrossFade)
       // Tap to expand
       await tester.tap(find.text('Tap to Toggle'));
       await tester.pumpAndSettle();
-      
+
       // Now visible
       expect(find.text('Toggle Content'), findsOneWidget);
     });
-    
+
     testWidgets('shows expand icon when collapsed', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -141,10 +138,10 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.byIcon(Icons.expand_more), findsOneWidget);
     });
-    
+
     testWidgets('shows collapse icon when expanded', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -157,7 +154,7 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.byIcon(Icons.expand_less), findsOneWidget);
     });
   });

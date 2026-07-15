@@ -10,11 +10,7 @@ import 'package:twin2multicloud_flutter/app.dart';
 void main() {
   testWidgets('Twin2MultiCloudApp smoke test', (WidgetTester tester) async {
     // Build our app wrapped in ProviderScope and trigger a frame.
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: Twin2MultiCloudApp(),
-      ),
-    );
+    await tester.pumpWidget(const ProviderScope(child: Twin2MultiCloudApp()));
 
     // Verify that the app renders without crashing.
     // The dashboard or login screen should be visible.

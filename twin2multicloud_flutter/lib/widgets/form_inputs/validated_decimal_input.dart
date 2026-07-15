@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// A reusable decimal input with validation, theming, and callbacks.
-/// 
+///
 /// Features:
 /// - Decimal number support
 /// - Min/max validation
@@ -25,7 +25,7 @@ class ValidatedDecimalInput extends StatefulWidget {
   final bool enabled;
   final String? suffix;
   final bool showClearButton;
-  
+
   const ValidatedDecimalInput({
     super.key,
     required this.label,
@@ -40,7 +40,7 @@ class ValidatedDecimalInput extends StatefulWidget {
     this.suffix,
     this.showClearButton = false,
   });
-  
+
   @override
   State<ValidatedDecimalInput> createState() => _ValidatedDecimalInputState();
 }
@@ -48,7 +48,7 @@ class ValidatedDecimalInput extends StatefulWidget {
 class _ValidatedDecimalInputState extends State<ValidatedDecimalInput> {
   late TextEditingController _controller;
   String? _validationError;
-  
+
   @override
   void initState() {
     super.initState();
@@ -56,7 +56,7 @@ class _ValidatedDecimalInputState extends State<ValidatedDecimalInput> {
       text: widget.value?.toStringAsFixed(widget.decimalPlaces) ?? '',
     );
   }
-  
+
   @override
   void didUpdateWidget(ValidatedDecimalInput oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -67,45 +67,45 @@ class _ValidatedDecimalInputState extends State<ValidatedDecimalInput> {
       }
     }
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   void _validate(String value) {
     if (value.isEmpty) {
       setState(() => _validationError = null);
       widget.onChanged(null);
       return;
     }
-    
+
     final parsed = double.tryParse(value);
     if (parsed == null) {
       setState(() => _validationError = 'Enter a valid decimal');
       return;
     }
-    
+
     if (widget.minValue != null && parsed < widget.minValue!) {
       setState(() => _validationError = 'Minimum: ${widget.minValue}');
       return;
     }
-    
+
     if (widget.maxValue != null && parsed > widget.maxValue!) {
       setState(() => _validationError = 'Maximum: ${widget.maxValue}');
       return;
     }
-    
+
     setState(() => _validationError = null);
     widget.onChanged(parsed);
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveError = widget.errorText ?? _validationError;
-    
+
     return TextField(
       controller: _controller,
       enabled: widget.enabled,
@@ -129,20 +129,13 @@ class _ValidatedDecimalInputState extends State<ValidatedDecimalInput> {
             : null,
         border: const OutlineInputBorder(),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: theme.colorScheme.outline,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: theme.colorScheme.primary,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: theme.colorScheme.error,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.error),
         ),
       ),
       onChanged: _validate,

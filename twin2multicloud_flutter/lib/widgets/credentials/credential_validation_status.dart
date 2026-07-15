@@ -4,15 +4,10 @@
 import 'package:flutter/material.dart';
 
 /// Validation state for credentials
-enum CredentialValidationState {
-  none,
-  validating,
-  valid,
-  invalid,
-}
+enum CredentialValidationState { none, validating, valid, invalid }
 
 /// Displays the validation status of credentials.
-/// 
+///
 /// Shows:
 /// - Loading indicator when validating
 /// - Success checkmark when valid
@@ -24,7 +19,7 @@ class CredentialValidationStatus extends StatelessWidget {
   final String? optimizerMessage;
   final String? deployerMessage;
   final bool showDualServices;
-  
+
   const CredentialValidationStatus({
     super.key,
     required this.state,
@@ -33,15 +28,15 @@ class CredentialValidationStatus extends StatelessWidget {
     this.deployerMessage,
     this.showDualServices = false,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     switch (state) {
       case CredentialValidationState.none:
         return const SizedBox.shrink();
-        
+
       case CredentialValidationState.validating:
         return Container(
           padding: const EdgeInsets.all(12),
@@ -70,7 +65,7 @@ class CredentialValidationStatus extends StatelessWidget {
             ],
           ),
         );
-        
+
       case CredentialValidationState.valid:
         return Container(
           padding: const EdgeInsets.all(12),
@@ -97,19 +92,25 @@ class CredentialValidationStatus extends StatelessWidget {
             ],
           ),
         );
-        
+
       case CredentialValidationState.invalid:
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: theme.colorScheme.error.withValues(alpha: 0.3),
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.error_outline, color: theme.colorScheme.error, size: 20),
+              Icon(
+                Icons.error_outline,
+                color: theme.colorScheme.error,
+                size: 20,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: showDualServices
@@ -127,7 +128,7 @@ class CredentialValidationStatus extends StatelessWidget {
         );
     }
   }
-  
+
   Widget _buildDualServiceStatus(ThemeData theme, bool overallValid) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,10 +147,13 @@ class CredentialValidationStatus extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildServiceRow(String service, String? message, ThemeData theme) {
-    final isValid = message == null || message.toLowerCase().contains('ok') || message.toLowerCase().contains('valid');
-    
+    final isValid =
+        message == null ||
+        message.toLowerCase().contains('ok') ||
+        message.toLowerCase().contains('valid');
+
     return Row(
       children: [
         Icon(

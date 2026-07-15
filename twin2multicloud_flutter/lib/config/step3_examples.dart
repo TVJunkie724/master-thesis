@@ -278,7 +278,7 @@ def process_event(request):
   "rootNodeIndexes": [0]
 }''';
 
-  /// Azure 3D Scenes Studio configuration example  
+  /// Azure 3D Scenes Studio configuration example
   static const azureSceneConfig = '''{
   "\$schema": "https://azureiotsolutions.com/3DScenes/1.0.0/schema.json",
   "configuration": {

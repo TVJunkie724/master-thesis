@@ -6,12 +6,7 @@ class TwinListItem extends StatelessWidget {
   final VoidCallback? onView;
   final VoidCallback? onEdit;
 
-  const TwinListItem({
-    super.key,
-    required this.twin,
-    this.onView,
-    this.onEdit,
-  });
+  const TwinListItem({super.key, required this.twin, this.onView, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -19,9 +14,11 @@ class TwinListItem extends StatelessWidget {
       child: ListTile(
         leading: _buildStateIcon(),
         title: Text(twin.name),
-        subtitle: Text(twin.providers.isEmpty 
-          ? 'No providers configured' 
-          : twin.providers.join(', ')),
+        subtitle: Text(
+          twin.providers.isEmpty
+              ? 'No providers configured'
+              : twin.providers.join(', '),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -44,7 +41,7 @@ class TwinListItem extends StatelessWidget {
   Widget _buildStateIcon() {
     IconData iconData;
     Color color;
-    
+
     switch (twin.state) {
       case 'deployed':
         iconData = Icons.cloud_done;
@@ -63,7 +60,7 @@ class TwinListItem extends StatelessWidget {
         iconData = Icons.cloud_queue;
         color = Colors.grey;
     }
-    
+
     return Icon(iconData, color: color);
   }
 }

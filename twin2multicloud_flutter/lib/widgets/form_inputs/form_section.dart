@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 /// A styled container for grouping related form inputs.
-/// 
+///
 /// Features:
 /// - Title with optional icon
 /// - Collapsible support
@@ -19,7 +19,7 @@ class FormSection extends StatelessWidget {
   final bool initiallyExpanded;
   final EdgeInsetsGeometry padding;
   final bool showDivider;
-  
+
   const FormSection({
     super.key,
     required this.title,
@@ -30,18 +30,16 @@ class FormSection extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.showDivider = true,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant,
-        ),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,11 +50,7 @@ class FormSection extends StatelessWidget {
             child: Row(
               children: [
                 if (icon != null) ...[
-                  Icon(
-                    icon,
-                    color: theme.colorScheme.primary,
-                    size: 22,
-                  ),
+                  Icon(icon, color: theme.colorScheme.primary, size: 22),
                   const SizedBox(width: 12),
                 ],
                 Expanded(
@@ -80,14 +74,11 @@ class FormSection extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Divider
           if (showDivider)
-            Divider(
-              height: 1,
-              color: theme.colorScheme.outlineVariant,
-            ),
-          
+            Divider(height: 1, color: theme.colorScheme.outlineVariant),
+
           // Content
           Padding(
             padding: padding,
@@ -100,10 +91,10 @@ class FormSection extends StatelessWidget {
       ),
     );
   }
-  
+
   List<Widget> _buildChildrenWithSpacing() {
     if (children.isEmpty) return [];
-    
+
     final result = <Widget>[];
     for (int i = 0; i < children.length; i++) {
       result.add(children[i]);
@@ -123,7 +114,7 @@ class CollapsibleFormSection extends StatefulWidget {
   final VoidCallback? onHelpPressed;
   final bool initiallyExpanded;
   final EdgeInsetsGeometry padding;
-  
+
   const CollapsibleFormSection({
     super.key,
     required this.title,
@@ -133,31 +124,29 @@ class CollapsibleFormSection extends StatefulWidget {
     this.initiallyExpanded = true,
     this.padding = const EdgeInsets.all(16),
   });
-  
+
   @override
   State<CollapsibleFormSection> createState() => _CollapsibleFormSectionState();
 }
 
 class _CollapsibleFormSectionState extends State<CollapsibleFormSection> {
   late bool _isExpanded;
-  
+
   @override
   void initState() {
     super.initState();
     _isExpanded = widget.initiallyExpanded;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant,
-        ),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,15 +196,12 @@ class _CollapsibleFormSectionState extends State<CollapsibleFormSection> {
               ),
             ),
           ),
-          
+
           // Content (animated)
           AnimatedCrossFade(
             firstChild: Column(
               children: [
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                Divider(height: 1, color: theme.colorScheme.outlineVariant),
                 Padding(
                   padding: widget.padding,
                   child: Column(
@@ -226,8 +212,8 @@ class _CollapsibleFormSectionState extends State<CollapsibleFormSection> {
               ],
             ),
             secondChild: const SizedBox.shrink(),
-            crossFadeState: _isExpanded 
-                ? CrossFadeState.showFirst 
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showFirst
                 : CrossFadeState.showSecond,
             duration: const Duration(milliseconds: 200),
           ),
@@ -235,10 +221,10 @@ class _CollapsibleFormSectionState extends State<CollapsibleFormSection> {
       ),
     );
   }
-  
+
   List<Widget> _buildChildrenWithSpacing() {
     if (widget.children.isEmpty) return [];
-    
+
     final result = <Widget>[];
     for (int i = 0; i < widget.children.length; i++) {
       result.add(widget.children[i]);

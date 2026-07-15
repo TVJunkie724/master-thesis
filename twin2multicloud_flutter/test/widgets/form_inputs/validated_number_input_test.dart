@@ -20,10 +20,10 @@ void main() {
             ),
           ),
         );
-        
+
         expect(find.text('Test Label'), findsOneWidget);
       });
-      
+
       testWidgets('displays initial value', (tester) async {
         await tester.pumpWidget(
           MaterialApp(
@@ -36,14 +36,14 @@ void main() {
             ),
           ),
         );
-        
+
         final textField = tester.widget<TextField>(find.byType(TextField));
         expect(textField.controller?.text, '100');
       });
-      
+
       testWidgets('calls onChanged with parsed value', (tester) async {
         int? changedValue;
-        
+
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
@@ -55,14 +55,14 @@ void main() {
             ),
           ),
         );
-        
+
         await tester.enterText(find.byType(TextField), '42');
         await tester.pump();
-        
+
         expect(changedValue, 42);
       });
     });
-    
+
     group('validation', () {
       testWidgets('input formatter blocks non-numeric chars', (tester) async {
         await tester.pumpWidget(
@@ -76,16 +76,16 @@ void main() {
             ),
           ),
         );
-        
+
         // Try to enter non-numeric - formatter blocks it
         await tester.enterText(find.byType(TextField), 'abc');
         await tester.pump();
-        
+
         // Field should be empty since formatter rejected it
         final textField = tester.widget<TextField>(find.byType(TextField));
         expect(textField.controller?.text, '');
       });
-      
+
       testWidgets('shows error for value below minimum', (tester) async {
         await tester.pumpWidget(
           MaterialApp(
@@ -99,13 +99,13 @@ void main() {
             ),
           ),
         );
-        
+
         await tester.enterText(find.byType(TextField), '5');
         await tester.pump();
-        
+
         expect(find.textContaining('Minimum'), findsOneWidget);
       });
-      
+
       testWidgets('shows error for value above maximum', (tester) async {
         await tester.pumpWidget(
           MaterialApp(
@@ -119,14 +119,14 @@ void main() {
             ),
           ),
         );
-        
+
         await tester.enterText(find.byType(TextField), '200');
         await tester.pump();
-        
+
         expect(find.textContaining('Maximum'), findsOneWidget);
       });
     });
-    
+
     group('disabled state', () {
       testWidgets('disables input when enabled is false', (tester) async {
         await tester.pumpWidget(
@@ -141,12 +141,12 @@ void main() {
             ),
           ),
         );
-        
+
         final textField = tester.widget<TextField>(find.byType(TextField));
         expect(textField.enabled, false);
       });
     });
-    
+
     group('edge cases', () {
       testWidgets('handles null initial value', (tester) async {
         await tester.pumpWidget(
@@ -160,14 +160,14 @@ void main() {
             ),
           ),
         );
-        
+
         final textField = tester.widget<TextField>(find.byType(TextField));
         expect(textField.controller?.text, '');
       });
-      
+
       testWidgets('handles negative numbers', (tester) async {
         int? changedValue;
-        
+
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
@@ -179,16 +179,16 @@ void main() {
             ),
           ),
         );
-        
+
         await tester.enterText(find.byType(TextField), '-10');
         await tester.pump();
-        
+
         expect(changedValue, -10);
       });
-      
+
       testWidgets('clears value on empty input', (tester) async {
         int? changedValue = 99;
-        
+
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
@@ -200,10 +200,10 @@ void main() {
             ),
           ),
         );
-        
+
         await tester.enterText(find.byType(TextField), '');
         await tester.pump();
-        
+
         expect(changedValue, null);
       });
     });

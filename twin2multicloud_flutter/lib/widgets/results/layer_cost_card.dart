@@ -12,6 +12,7 @@ class LayerCostCard extends StatelessWidget {
   final List<String> cheapestPath;
   final String? infoTitle;
   final String? infoBody;
+
   /// If true, hides the GCP row (used for L4/L5 where GCP is not implemented)
   final bool hideGcp;
 
@@ -31,7 +32,7 @@ class LayerCostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Extract L1, L2, L3_hot, etc. key for matching
     final layerKey = _getLayerKey(layer);
-    
+
     // Find selected provider
     String? selectedProvider;
     for (final segment in cheapestPath) {
@@ -39,24 +40,25 @@ class LayerCostCard extends StatelessWidget {
         final parts = segment.split('_');
         // Handle L3_hot_GCP vs L1_GCP
         if (layerKey.startsWith('L3')) {
-           // parts: [L3, hot, GCP] -> provider is index 2
-           if (parts.length > 2) selectedProvider = parts[2];
+          // parts: [L3, hot, GCP] -> provider is index 2
+          if (parts.length > 2) selectedProvider = parts[2];
         } else {
-           // parts: [L1, GCP] -> provider is index 1
-           if (parts.length > 1) selectedProvider = parts[1];
+          // parts: [L1, GCP] -> provider is index 1
+          if (parts.length > 1) selectedProvider = parts[1];
         }
         break;
       }
     }
 
-    final Color borderColor = selectedProvider != null 
+    final Color borderColor = selectedProvider != null
         ? AppColors.getProviderColor(selectedProvider)
         : Colors.transparent;
 
     // Check for glue code (heuristic: any component with 'dispatcher' or 'glue' or 'mover')
-    bool includesGlueCode = _checkGlueCode(awsLayer) || 
-                          _checkGlueCode(azureLayer) || 
-                          _checkGlueCode(gcpLayer);
+    bool includesGlueCode =
+        _checkGlueCode(awsLayer) ||
+        _checkGlueCode(azureLayer) ||
+        _checkGlueCode(gcpLayer);
 
     return Card(
       elevation: AppSpacing.cardElevation,
@@ -79,15 +81,17 @@ class LayerCostCard extends StatelessWidget {
                     children: [
                       Text(
                         layer,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       if (includesGlueCode)
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.cyan.shade100,
                               borderRadius: BorderRadius.circular(4),
@@ -95,14 +99,18 @@ class LayerCostCard extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.hub, size: 10, color: Colors.cyan),
+                                const Icon(
+                                  Icons.hub,
+                                  size: 10,
+                                  color: Colors.cyan,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Includes Glue Code',
                                   style: TextStyle(
-                                    fontSize: 10, 
-                                    color: Colors.cyan.shade900, 
-                                    fontWeight: FontWeight.bold
+                                    fontSize: 10,
+                                    color: Colors.cyan.shade900,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
@@ -122,20 +130,20 @@ class LayerCostCard extends StatelessWidget {
               ],
             ),
             const Divider(height: 24),
-            
+
             // Provider costs
             _buildProviderRow(
-              context, 
-              'AWS', 
-              awsLayer?.cost, 
+              context,
+              'AWS',
+              awsLayer?.cost,
               AppColors.aws,
               selectedProvider?.toUpperCase() == 'AWS',
             ),
             const SizedBox(height: AppSpacing.sm),
             _buildProviderRow(
-              context, 
-              'Azure', 
-              azureLayer?.cost, 
+              context,
+              'Azure',
+              azureLayer?.cost,
               AppColors.azure,
               selectedProvider?.toUpperCase() == 'AZURE',
             ),
@@ -143,9 +151,9 @@ class LayerCostCard extends StatelessWidget {
             if (!hideGcp) ...[
               const SizedBox(height: AppSpacing.sm),
               _buildProviderRow(
-                context, 
-                'GCP', 
-                gcpLayer?.cost, 
+                context,
+                'GCP',
+                gcpLayer?.cost,
                 AppColors.gcp,
                 selectedProvider?.toUpperCase() == 'GCP',
               ),
@@ -173,8 +181,8 @@ class LayerCostCard extends StatelessWidget {
     // Common keys: dispatcher, glue, mover, orchestration
     for (final key in layer.components.keys) {
       final k = key.toLowerCase();
-      if (k.contains('dispatcher') || 
-          k.contains('glue') || 
+      if (k.contains('dispatcher') ||
+          k.contains('glue') ||
           k.contains('mover')) {
         return true;
       }
@@ -193,13 +201,31 @@ class LayerCostCard extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildInfoSection(ctx, 'AWS', awsLayer, AppColors.aws, selectedProvider?.toUpperCase() == 'AWS'),
+                _buildInfoSection(
+                  ctx,
+                  'AWS',
+                  awsLayer,
+                  AppColors.aws,
+                  selectedProvider?.toUpperCase() == 'AWS',
+                ),
                 const SizedBox(height: AppSpacing.md),
-                _buildInfoSection(ctx, 'Azure', azureLayer, AppColors.azure, selectedProvider?.toUpperCase() == 'AZURE'),
+                _buildInfoSection(
+                  ctx,
+                  'Azure',
+                  azureLayer,
+                  AppColors.azure,
+                  selectedProvider?.toUpperCase() == 'AZURE',
+                ),
                 // Only show GCP section if not hidden
                 if (!hideGcp) ...[
                   const SizedBox(height: AppSpacing.md),
-                  _buildInfoSection(ctx, 'GCP', gcpLayer, AppColors.gcp, selectedProvider?.toUpperCase() == 'GCP'),
+                  _buildInfoSection(
+                    ctx,
+                    'GCP',
+                    gcpLayer,
+                    AppColors.gcp,
+                    selectedProvider?.toUpperCase() == 'GCP',
+                  ),
                 ],
               ],
             ),
@@ -218,16 +244,27 @@ class LayerCostCard extends StatelessWidget {
   /// Check if a component key is glue code
   bool _isGlueCodeComponent(String key) {
     final k = key.toLowerCase();
-    return k.contains('dispatcher') || k.contains('glue') || k.contains('mover');
+    return k.contains('dispatcher') ||
+        k.contains('glue') ||
+        k.contains('mover');
   }
 
-  Widget _buildInfoSection(BuildContext context, String title, LayerCost? layer, Color color, bool isSelected) {
+  Widget _buildInfoSection(
+    BuildContext context,
+    String title,
+    LayerCost? layer,
+    Color color,
+    bool isSelected,
+  ) {
     if (layer == null) return const SizedBox.shrink();
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: isSelected ? color : color.withAlpha(50), width: isSelected ? 2 : 1),
+        border: Border.all(
+          color: isSelected ? color : color.withAlpha(50),
+          width: isSelected ? 2 : 1,
+        ),
         borderRadius: BorderRadius.circular(8),
         color: isSelected ? color.withAlpha(25) : color.withAlpha(10),
       ),
@@ -236,16 +273,29 @@ class LayerCostCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+              Text(
+                title,
+                style: TextStyle(fontWeight: FontWeight.bold, color: color),
+              ),
               if (isSelected) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: color,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('SELECTED', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'SELECTED',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -260,7 +310,7 @@ class LayerCostCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      isGlue ? '${e.key} (Glue Code)' : e.key, 
+                      isGlue ? '${e.key} (Glue Code)' : e.key,
                       style: TextStyle(
                         fontSize: 12,
                         fontStyle: isGlue ? FontStyle.italic : FontStyle.normal,
@@ -268,7 +318,13 @@ class LayerCostCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text('\$${e.value.toStringAsFixed(4)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(
+                    '\$${e.value.toStringAsFixed(4)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -277,8 +333,14 @@ class LayerCostCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text('\$${layer.cost.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+              const Text(
+                'Total',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '\$${layer.cost.toStringAsFixed(2)}',
+                style: TextStyle(fontWeight: FontWeight.bold, color: color),
+              ),
             ],
           ),
         ],
@@ -308,22 +370,18 @@ class LayerCostCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                provider,
-                style: TextStyle(color: Colors.grey[400]),
-              ),
+              Text(provider, style: TextStyle(color: Colors.grey[400])),
             ],
           ),
-          Text(
-            'N/A',
-            style: TextStyle(color: Colors.grey[400]),
-          ),
+          Text('N/A', style: TextStyle(color: Colors.grey[400])),
         ],
       );
     }
 
     return Container(
-      padding: isSelected ? const EdgeInsets.all(8) : const EdgeInsets.symmetric(vertical: 4),
+      padding: isSelected
+          ? const EdgeInsets.all(8)
+          : const EdgeInsets.symmetric(vertical: 4),
       decoration: isSelected
           ? BoxDecoration(
               color: color.withAlpha(25),
@@ -338,10 +396,7 @@ class LayerCostCard extends StatelessWidget {
               Container(
                 width: 12,
                 height: 12,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Text(

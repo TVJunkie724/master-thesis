@@ -10,7 +10,7 @@ void main() {
     group('construction', () {
       test('defaultParams creates valid instance', () {
         final params = CalcParams.defaultParams();
-        
+
         expect(params.numberOfDevices, 100);
         expect(params.deviceSendingIntervalInMinutes, 2.0);
         expect(params.averageSizeOfMessageInKb, 0.25);
@@ -31,7 +31,7 @@ void main() {
           amountOfActiveEditors: 5,
           amountOfActiveViewers: 20,
         );
-        
+
         expect(params.numberOfDevices, 500);
         expect(params.needs3DModel, isTrue);
       });
@@ -41,7 +41,7 @@ void main() {
       test('serializes all 26 fields', () {
         final params = CalcParams.defaultParams();
         final json = params.toJson();
-        
+
         expect(json.keys.length, 26);
         expect(json['numberOfDevices'], 100);
         expect(json['deviceSendingIntervalInMinutes'], 2.0);
@@ -70,7 +70,7 @@ void main() {
           currency: 'EUR',
         );
         final json = params.toJson();
-        
+
         expect(json['useEventChecking'], isTrue);
         expect(json['eventsPerMessage'], 5);
         expect(json['currency'], 'EUR');
@@ -93,9 +93,9 @@ void main() {
           'amountOfActiveViewers': 15,
           'currency': 'EUR',
         };
-        
+
         final params = CalcParams.fromJson(json);
-        
+
         expect(params.numberOfDevices, 200);
         expect(params.deviceSendingIntervalInMinutes, 3.0);
         expect(params.needs3DModel, isTrue);
@@ -106,7 +106,7 @@ void main() {
       test('uses defaults for missing fields', () {
         final json = <String, dynamic>{};
         final params = CalcParams.fromJson(json);
-        
+
         expect(params.numberOfDevices, 100);
         expect(params.currency, 'USD');
         expect(params.useEventChecking, isFalse);
@@ -131,7 +131,7 @@ void main() {
           amountOfActiveEditors: 0,
           amountOfActiveViewers: 0,
         );
-        
+
         expect(params.isStorageDurationValid, isTrue);
       });
 
@@ -148,7 +148,7 @@ void main() {
           amountOfActiveEditors: 0,
           amountOfActiveViewers: 0,
         );
-        
+
         expect(params.isStorageDurationValid, isTrue);
       });
 
@@ -165,7 +165,7 @@ void main() {
           amountOfActiveEditors: 0,
           amountOfActiveViewers: 0,
         );
-        
+
         expect(params.isStorageDurationValid, isFalse);
       });
 
@@ -182,7 +182,7 @@ void main() {
           amountOfActiveEditors: 0,
           amountOfActiveViewers: 0,
         );
-        
+
         expect(params.isStorageDurationValid, isFalse);
       });
     });
@@ -193,9 +193,9 @@ void main() {
           'deviceSendingIntervalInMinutes': 5, // int instead of double
           'averageSizeOfMessageInKb': 1, // int instead of double
         };
-        
+
         final params = CalcParams.fromJson(json);
-        
+
         expect(params.deviceSendingIntervalInMinutes, 5.0);
         expect(params.averageSizeOfMessageInKb, 1.0);
       });

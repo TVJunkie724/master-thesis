@@ -6,7 +6,7 @@ import 'package:twin2multicloud_flutter/models/twin.dart';
 import 'package:twin2multicloud_flutter/models/user.dart';
 
 /// Creates a ProviderContainer with common mocks for testing.
-/// 
+///
 /// Usage:
 /// ```dart
 /// final container = createMockProviderContainer(
@@ -52,9 +52,12 @@ Twin createMockTwin({
     'name': name,
     'state': state,
     'providers': providers ?? ['AWS', 'Azure'],
-    'created_at': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
-    'updated_at': updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
-    if (lastDeployedAt != null) 'last_deployed_at': lastDeployedAt.toIso8601String(),
+    'created_at':
+        createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+    'updated_at':
+        updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+    if (lastDeployedAt != null)
+      'last_deployed_at': lastDeployedAt.toIso8601String(),
   });
 }
 
@@ -83,9 +86,7 @@ List<Twin> createMockTwinsList() {
 }
 
 /// Mock credentials for testing
-Map<String, dynamic> createMockAwsCredentials({
-  bool valid = true,
-}) {
+Map<String, dynamic> createMockAwsCredentials({bool valid = true}) {
   return {
     'aws_access_key_id': 'AKIAXXXXXXXXXXXXXXXX',
     'aws_secret_access_key': 'secret-key-12345',
@@ -94,9 +95,7 @@ Map<String, dynamic> createMockAwsCredentials({
   };
 }
 
-Map<String, dynamic> createMockAzureCredentials({
-  bool valid = true,
-}) {
+Map<String, dynamic> createMockAzureCredentials({bool valid = true}) {
   return {
     'azure_subscription_id': 'sub-12345',
     'azure_client_id': 'client-12345',
@@ -116,7 +115,7 @@ Map<String, dynamic> createMockGcpCredentials({
     'gcp_region': 'europe-west1',
     if (!valid) 'gcp_project_id': '', // Invalid if empty
   };
-  
+
   if (asJson) {
     baseCredentials['gcp_credentials_file'] = '''{
       "type": "service_account",
@@ -129,46 +128,117 @@ Map<String, dynamic> createMockGcpCredentials({
   } else {
     baseCredentials['gcp_credentials_file'] = '/path/to/credentials.json';
   }
-  
+
   return baseCredentials;
 }
 
 /// Mock calculation result for optimizer testing
-Map<String, dynamic> createMockCalcResult({
-  bool includeGcpL4L5 = false,
-}) {
+Map<String, dynamic> createMockCalcResult({bool includeGcpL4L5 = false}) {
   return {
     'result': {
       'awsCosts': {
-        'L1': {'cost': 10.50, 'components': {'IoT Core': 5.0, 'Lambda': 5.5}},
-        'L2': {'cost': 8.25, 'components': {'Step Functions': 8.25}},
-        'L3_hot': {'cost': 2.0, 'components': {'DynamoDB': 2.0}},
-        'L3_cool': {'cost': 1.0, 'components': {'S3 IA': 1.0}},
-        'L3_archive': {'cost': 0.5, 'components': {'Glacier': 0.5}},
-        'L4': {'cost': 15.0, 'components': {'IoT TwinMaker': 15.0}},
-        'L5': {'cost': 20.0, 'components': {'Managed Grafana': 20.0}},
+        'L1': {
+          'cost': 10.50,
+          'components': {'IoT Core': 5.0, 'Lambda': 5.5},
+        },
+        'L2': {
+          'cost': 8.25,
+          'components': {'Step Functions': 8.25},
+        },
+        'L3_hot': {
+          'cost': 2.0,
+          'components': {'DynamoDB': 2.0},
+        },
+        'L3_cool': {
+          'cost': 1.0,
+          'components': {'S3 IA': 1.0},
+        },
+        'L3_archive': {
+          'cost': 0.5,
+          'components': {'Glacier': 0.5},
+        },
+        'L4': {
+          'cost': 15.0,
+          'components': {'IoT TwinMaker': 15.0},
+        },
+        'L5': {
+          'cost': 20.0,
+          'components': {'Managed Grafana': 20.0},
+        },
       },
       'azureCosts': {
-        'L1': {'cost': 12.00, 'components': {'IoT Hub': 7.0, 'Functions': 5.0}},
-        'L2': {'cost': 9.50, 'components': {'Logic Apps': 9.5}},
-        'L3_hot': {'cost': 2.5, 'components': {'Cosmos DB': 2.5}},
-        'L3_cool': {'cost': 1.2, 'components': {'Blob Cool': 1.2}},
-        'L3_archive': {'cost': 0.6, 'components': {'Blob Archive': 0.6}},
-        'L4': {'cost': 18.0, 'components': {'ADT': 18.0}},
-        'L5': {'cost': 22.0, 'components': {'Managed Grafana': 22.0}},
+        'L1': {
+          'cost': 12.00,
+          'components': {'IoT Hub': 7.0, 'Functions': 5.0},
+        },
+        'L2': {
+          'cost': 9.50,
+          'components': {'Logic Apps': 9.5},
+        },
+        'L3_hot': {
+          'cost': 2.5,
+          'components': {'Cosmos DB': 2.5},
+        },
+        'L3_cool': {
+          'cost': 1.2,
+          'components': {'Blob Cool': 1.2},
+        },
+        'L3_archive': {
+          'cost': 0.6,
+          'components': {'Blob Archive': 0.6},
+        },
+        'L4': {
+          'cost': 18.0,
+          'components': {'ADT': 18.0},
+        },
+        'L5': {
+          'cost': 22.0,
+          'components': {'Managed Grafana': 22.0},
+        },
       },
       'gcpCosts': {
-        'L1': {'cost': 11.00, 'components': {'IoT Core': 6.0, 'Cloud Functions': 5.0}},
-        'L2': {'cost': 7.00, 'components': {'Workflows': 7.0}},
-        'L3_hot': {'cost': 1.8, 'components': {'Firestore': 1.8}},
-        'L3_cool': {'cost': 0.9, 'components': {'GCS Nearline': 0.9}},
-        'L3_archive': {'cost': 0.4, 'components': {'GCS Coldline': 0.4}},
-        if (includeGcpL4L5) 'L4': {'cost': 20.0, 'components': {'Custom': 20.0}},
-        if (includeGcpL4L5) 'L5': {'cost': 25.0, 'components': {'Custom': 25.0}},
+        'L1': {
+          'cost': 11.00,
+          'components': {'IoT Core': 6.0, 'Cloud Functions': 5.0},
+        },
+        'L2': {
+          'cost': 7.00,
+          'components': {'Workflows': 7.0},
+        },
+        'L3_hot': {
+          'cost': 1.8,
+          'components': {'Firestore': 1.8},
+        },
+        'L3_cool': {
+          'cost': 0.9,
+          'components': {'GCS Nearline': 0.9},
+        },
+        'L3_archive': {
+          'cost': 0.4,
+          'components': {'GCS Coldline': 0.4},
+        },
+        if (includeGcpL4L5)
+          'L4': {
+            'cost': 20.0,
+            'components': {'Custom': 20.0},
+          },
+        if (includeGcpL4L5)
+          'L5': {
+            'cost': 25.0,
+            'components': {'Custom': 25.0},
+          },
       },
-      'cheapestPath': ['L1_AWS', 'L2_GCP', 'L3_hot_GCP', 'L3_cool_GCP', 'L3_archive_GCP', 'L4_AWS', 'L5_AWS'],
+      'cheapestPath': [
+        'L1_AWS',
+        'L2_GCP',
+        'L3_hot_GCP',
+        'L3_cool_GCP',
+        'L3_archive_GCP',
+        'L4_AWS',
+        'L5_AWS',
+      ],
       'transferCosts': {'L1_to_L2': 0.05, 'L2_to_L3': 0.02},
-    }
+    },
   };
 }
 
