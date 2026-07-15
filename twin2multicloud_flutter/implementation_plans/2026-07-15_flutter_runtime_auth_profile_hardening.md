@@ -451,7 +451,7 @@ simulator cloud operation is allowed.
 - [x] Architecture checker and its unit tests pass redaction-safely.
 - [x] Handbook, frontend architecture baseline, #71, and #10 boundary are synchronized.
 - [x] Two review passes have no unresolved Critical, Major, or Minor findings.
-- [ ] Structured commits are merged to `master`; the user-owned pricing file is
+- [x] Structured commits are merged to `master`; the user-owned pricing file is
       never staged.
 
 ## 13. Verification Evidence
