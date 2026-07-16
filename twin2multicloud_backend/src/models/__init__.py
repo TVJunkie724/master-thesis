@@ -12,6 +12,7 @@ from src.models.cloud_connection import CloudConnection
 from src.models.cost_calculation import CostCalculationRun, CostCalculationResultItem
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.pricing_review import PricingCandidateReport, PricingReviewDecision
+from src.models.credential_security_event import CredentialSecurityEvent
 
 __all__ = [
     "Base", "get_db", "engine",
@@ -20,4 +21,5 @@ __all__ = [
     "DeploymentLog", "OperationType", "DeploymentPreflightCache", "CloudConnection",
     "CostCalculationRun", "CostCalculationResultItem", "PricingRefreshRun",
     "PricingCandidateReport", "PricingReviewDecision",
+    "CredentialSecurityEvent",
 ]

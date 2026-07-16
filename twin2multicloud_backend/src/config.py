@@ -1,8 +1,10 @@
 import base64
 import binascii
+import ipaddress
 import re
 from enum import StrEnum
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -69,6 +71,19 @@ class Settings(BaseSettings):
     HOST: str = "127.0.0.1"
     PORT: int = 5005
     DEBUG: bool = False
+
+    # Credential endpoint controls. A shared Redis-compatible store is
+    # mandatory in production; local/test runtimes may use process memory.
+    CREDENTIAL_RATE_LIMIT_ENABLED: bool = True
+    CREDENTIAL_RATE_LIMIT_STORAGE_URI: str = "memory://"
+    CREDENTIAL_WRITE_RATE_LIMIT: str = "10/minute"
+    CREDENTIAL_VALIDATION_RATE_LIMIT: str = "6/minute"
+    CREDENTIAL_BOOTSTRAP_RATE_LIMIT: str = "5/minute"
+
+    # TLS is terminated by the deployment edge. Forwarded scheme information
+    # is accepted only from these direct peer networks.
+    REQUIRE_HTTPS: bool | None = None
+    TRUSTED_PROXY_CIDRS: str = ""
 
     # Explicit local/test authentication capability. Never infer this from DEBUG.
     DEV_AUTH_ENABLED: bool = False
@@ -146,8 +161,50 @@ class Settings(BaseSettings):
         if self.APP_ENV == AppEnvironment.PRODUCTION:
             if self.DEBUG:
                 raise ValueError("DEBUG must be false in production")
+            if not self.CREDENTIAL_RATE_LIMIT_ENABLED:
+                raise ValueError("CREDENTIAL_RATE_LIMIT_ENABLED must be true in production")
+            if not self.CREDENTIAL_RATE_LIMIT_STORAGE_URI.startswith(("redis://", "rediss://")):
+                raise ValueError(
+                    "CREDENTIAL_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
+                )
+
+        if self.REQUIRE_HTTPS is None:
+            self.REQUIRE_HTTPS = self.APP_ENV == AppEnvironment.PRODUCTION
+        elif self.APP_ENV == AppEnvironment.PRODUCTION and not self.REQUIRE_HTTPS:
+            raise ValueError("REQUIRE_HTTPS must be true in production")
+
+        for field_name in (
+            "CREDENTIAL_WRITE_RATE_LIMIT",
+            "CREDENTIAL_VALIDATION_RATE_LIMIT",
+            "CREDENTIAL_BOOTSTRAP_RATE_LIMIT",
+        ):
+            if re.fullmatch(r"[1-9][0-9]*/(second|minute|hour|day)s?", getattr(self, field_name)) is None:
+                raise ValueError(f"{field_name} must use '<positive integer>/<time unit>' format")
+
+        for raw_cidr in self.trusted_proxy_cidrs:
+            try:
+                ipaddress.ip_network(raw_cidr, strict=False)
+            except ValueError as exc:
+                raise ValueError(f"TRUSTED_PROXY_CIDRS contains an invalid network: {raw_cidr}") from exc
+
+        if self.APP_ENV == AppEnvironment.PRODUCTION:
+            origins = self.cors_origins
+            if not origins:
+                raise ValueError("CORS_ORIGINS must contain at least one HTTPS origin in production")
+            for origin in origins:
+                parsed = urlparse(origin)
+                if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/"):
+                    raise ValueError("CORS_ORIGINS must contain only explicit HTTPS origins in production")
 
         return self
+
+    @property
+    def trusted_proxy_cidrs(self) -> tuple[str, ...]:
+        return tuple(value.strip() for value in self.TRUSTED_PROXY_CIDRS.split(",") if value.strip())
+
+    @property
+    def cors_origins(self) -> tuple[str, ...]:
+        return tuple(value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip())
 
 
 settings = Settings()

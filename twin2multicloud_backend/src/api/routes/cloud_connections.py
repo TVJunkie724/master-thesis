@@ -21,6 +21,14 @@ from src.services.cloud_credential_validation_service import (
 )
 from src.services.errors import CloudConnectionConflict
 from src.services.permission_sets import compare_permission_set_version
+from src.schemas.credential_security_event import (
+    CredentialSecurityAction,
+    CredentialSecurityEventDraft,
+    CredentialSecurityOutcome,
+)
+from src.security.rate_limit import CredentialRateClass, credential_rate_limit
+from src.security.request_context import current_request_id
+from src.services.credential_security_audit_service import CredentialSecurityAuditService
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
 
@@ -57,11 +65,20 @@ async def list_cloud_connections(
 async def create_cloud_connection(
     request: CloudConnectionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.WRITE,
+            CredentialSecurityAction.CONNECTION_CREATE,
+        )
+    ),
 ):
     service = CloudConnectionService(db)
     try:
-        return service.create_connection(current_user.id, request)
+        return service.create_connection(
+            current_user.id,
+            request,
+            _audit(current_user, CredentialSecurityAction.CONNECTION_CREATE, request.provider, request.purpose, 200),
+        )
     except CloudConnectionConflict as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except ValueError as exc:
@@ -104,14 +121,24 @@ async def update_cloud_connection(
     connection_id: str,
     request: CloudConnectionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.WRITE,
+            CredentialSecurityAction.CONNECTION_UPDATE,
+        )
+    ),
 ):
     service = CloudConnectionService(db)
     connection = service.get_connection(connection_id, current_user.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
     try:
-        return service.update_connection(connection, current_user.id, request)
+        return service.update_connection(
+            connection,
+            current_user.id,
+            request,
+            _audit(current_user, CredentialSecurityAction.CONNECTION_UPDATE, connection.provider, connection.purpose, 200),
+        )
     except CloudConnectionConflict as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except ValueError as exc:
@@ -132,7 +159,12 @@ async def update_cloud_connection(
 async def delete_cloud_connection(
     connection_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.WRITE,
+            CredentialSecurityAction.CONNECTION_DELETE,
+        )
+    ),
 ):
     service = CloudConnectionService(db)
     connection = service.get_connection(connection_id, current_user.id)
@@ -143,7 +175,10 @@ async def delete_cloud_connection(
             status_code=409,
             detail="Cloud connection is still bound to one or more twins",
         )
-    service.delete_connection(connection)
+    service.delete_connection(
+        connection,
+        _audit(current_user, CredentialSecurityAction.CONNECTION_DELETE, connection.provider, connection.purpose, 204),
+    )
 
 
 @router.post(
@@ -159,7 +194,12 @@ async def delete_cloud_connection(
 async def validate_cloud_connection(
     connection_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.VALIDATION,
+            CredentialSecurityAction.CONNECTION_VALIDATE,
+        )
+    ),
 ):
     service = CloudConnectionService(db)
     connection = service.get_connection(connection_id, current_user.id)
@@ -178,7 +218,22 @@ async def validate_cloud_connection(
             deployer_creds,
         )
         result = redact_validation_result(result, optimizer_creds, deployer_creds)
-    service.record_validation_result(connection, result)
+    service.record_validation_result(
+        connection,
+        result,
+        _audit(
+            current_user,
+            CredentialSecurityAction.CONNECTION_VALIDATE,
+            connection.provider,
+            connection.purpose,
+            200,
+            outcome=(
+                CredentialSecurityOutcome.SUCCEEDED
+                if result.get("valid", False)
+                else CredentialSecurityOutcome.REJECTED
+            ),
+        ),
+    )
     return CloudConnectionValidationResponse(
         id=connection.id,
         provider=connection.provider,
@@ -203,7 +258,12 @@ async def validate_cloud_connection(
 async def preflight_cloud_connection(
     connection_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.VALIDATION,
+            CredentialSecurityAction.CONNECTION_PREFLIGHT,
+        )
+    ),
 ):
     service = CloudConnectionService(db)
     connection = service.get_connection(connection_id, current_user.id)
@@ -232,6 +292,22 @@ async def preflight_cloud_connection(
         result,
         version_comparison=version_comparison,
     )
+    CredentialSecurityAuditService.commit_standalone(
+        db,
+        _audit(
+            current_user,
+            CredentialSecurityAction.CONNECTION_PREFLIGHT,
+            connection.provider,
+            connection.purpose,
+            200,
+            resource_id=connection.id,
+            outcome=(
+                CredentialSecurityOutcome.SUCCEEDED
+                if preflight["ready"]
+                else CredentialSecurityOutcome.REJECTED
+            ),
+        ),
+    )
     return CloudConnectionPreflightResponse(
         id=connection.id,
         provider=connection.provider,
@@ -241,4 +317,27 @@ async def preflight_cloud_connection(
         ready=preflight["ready"],
         summary=preflight["summary"],
         checks=preflight["checks"],
+    )
+
+
+def _audit(
+    user: User,
+    action: CredentialSecurityAction,
+    provider: str,
+    purpose: str,
+    status: int,
+    *,
+    resource_id: str | None = None,
+    outcome: CredentialSecurityOutcome = CredentialSecurityOutcome.SUCCEEDED,
+) -> CredentialSecurityEventDraft:
+    return CredentialSecurityEventDraft(
+        user_id=user.id,
+        action=action,
+        outcome=outcome,
+        resource_type="cloud_connection",
+        resource_id=resource_id,
+        provider=provider,
+        purpose=purpose,
+        http_status=status,
+        request_id=current_request_id(),
     )

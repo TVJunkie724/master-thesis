@@ -9,6 +9,11 @@ from src.schemas.twin_config import (
     InlineValidationRequest
 )
 from src.schemas.management_contracts import DualCredentialValidationResponse
+from src.schemas.credential_security_event import (
+    CredentialSecurityAction,
+    CredentialSecurityEventDraft,
+    CredentialSecurityOutcome,
+)
 from src.repositories.twin_repository import TwinRepository
 from src.services.cloud_credential_validation_service import perform_dual_validation
 from src.services.credential_resolution_service import CredentialResolutionService
@@ -18,6 +23,9 @@ from src.services.provider_contract import normalize_provider_id
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.services.twin_configuration_service import TwinConfigurationService
 from src.api.routes.error_models import ERROR_RESPONSES
+from src.security.rate_limit import CredentialRateClass, credential_rate_limit
+from src.security.request_context import current_request_id
+from src.services.credential_security_audit_service import CredentialSecurityAuditService
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
 inline_router = APIRouter(prefix="/config", tags=["configuration"])
@@ -180,18 +188,31 @@ async def validate_credentials(
     twin_id: str,
     provider: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.VALIDATION,
+            CredentialSecurityAction.STORED_VALIDATE,
+        )
+    )
 ):
     """
     Validate credentials by calling the Deployer API.
     DECRYPTS credentials with user+twin-specific key, sends to Deployer, never exposes to client.
     """
     try:
-        return await _credential_validation_service(db).validate_stored_with_deployer(
+        result = await _credential_validation_service(db).validate_stored_with_deployer(
             twin_id=twin_id,
             user_id=current_user.id,
             provider=provider,
         )
+        _commit_validation_audit(
+            db,
+            current_user,
+            CredentialSecurityAction.STORED_VALIDATE,
+            provider,
+            valid=result.valid,
+        )
+        return result
     except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
 
@@ -221,7 +242,12 @@ async def validate_credentials(
 async def validate_credentials_inline(
     request: InlineValidationRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.VALIDATION,
+            CredentialSecurityAction.INLINE_VALIDATE,
+        )
+    )
 ):
     """
     Validate credentials WITHOUT storing them.
@@ -229,7 +255,15 @@ async def validate_credentials_inline(
     Credentials are sent directly to Deployer API, never stored.
     """
     try:
-        return await _credential_validation_service(db).validate_inline_with_deployer(request)
+        result = await _credential_validation_service(db).validate_inline_with_deployer(request)
+        _commit_validation_audit(
+            db,
+            current_user,
+            CredentialSecurityAction.INLINE_VALIDATE,
+            request.provider,
+            valid=result.valid,
+        )
+        return result
     except ValidationError as exc:
         _raise_service_http_error(exc)
 
@@ -258,7 +292,12 @@ async def validate_credentials_inline(
 async def validate_credentials_dual(
     request: InlineValidationRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.VALIDATION,
+            CredentialSecurityAction.INLINE_VALIDATE,
+        )
+    )
 ):
     """
     Validate credentials against BOTH Optimizer and Deployer APIs.
@@ -272,11 +311,19 @@ async def validate_credentials_dual(
             provider,
             getattr(request, provider, None),
         )
-        return await _perform_dual_validation(
+        result = await _perform_dual_validation(
             provider,
             resolved.optimizer_payload,
             resolved.deployer_validation_payload,
         )
+        _commit_validation_audit(
+            db,
+            current_user,
+            CredentialSecurityAction.INLINE_VALIDATE,
+            provider,
+            valid=result.get("valid", False),
+        )
+        return result
     except CredentialResolutionFailed as exc:
         raise HTTPException(status_code=400, detail=_credential_resolution_failed_detail(exc)) from exc
     except ValidationError as exc:
@@ -312,7 +359,12 @@ async def validate_stored_credentials_dual(
     twin_id: str,
     provider: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.VALIDATION,
+            CredentialSecurityAction.STORED_VALIDATE,
+        )
+    )
 ):
     """
     Validate STORED credentials against BOTH Optimizer and Deployer APIs.
@@ -335,8 +387,41 @@ async def validate_stored_credentials_dual(
         )
         _set_provider_validated(twin.configuration, provider, result.get("valid", False))
         db.commit()
+        _commit_validation_audit(
+            db,
+            current_user,
+            CredentialSecurityAction.STORED_VALIDATE,
+            provider,
+            valid=result.get("valid", False),
+        )
         return result
     except CredentialResolutionFailed as exc:
         raise HTTPException(status_code=400, detail=_credential_resolution_failed_detail(exc)) from exc
     except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
+
+
+def _commit_validation_audit(
+    db: Session,
+    user: User,
+    action: CredentialSecurityAction,
+    provider: str,
+    *,
+    valid: bool,
+) -> None:
+    CredentialSecurityAuditService.commit_standalone(
+        db,
+        CredentialSecurityEventDraft(
+            user_id=user.id,
+            action=action,
+            outcome=(
+                CredentialSecurityOutcome.SUCCEEDED
+                if valid
+                else CredentialSecurityOutcome.REJECTED
+            ),
+            resource_type="credential_validation",
+            provider=provider.lower(),
+            http_status=200,
+            request_id=current_request_id(),
+        ),
+    )

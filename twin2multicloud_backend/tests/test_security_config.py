@@ -26,6 +26,9 @@ def _settings(**overrides) -> Settings:
         "SEED_DATA": False,
         "JWT_SECRET_KEY": VALID_JWT_SECRET,
         "ENCRYPTION_KEY": VALID_ENCRYPTION_KEY,
+        "CREDENTIAL_RATE_LIMIT_STORAGE_URI": "rediss://rate-limit.example.test:6379/0",
+        "CORS_ORIGINS": "https://app.example.test",
+        "REQUIRE_HTTPS": True,
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -86,6 +89,24 @@ def test_production_accepts_closed_runtime_with_strong_secrets():
     assert configured.DEBUG is False
     assert configured.DEV_AUTH_ENABLED is False
     assert configured.ENABLE_TEST_ENDPOINTS is False
+    assert configured.REQUIRE_HTTPS is True
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"CREDENTIAL_RATE_LIMIT_ENABLED": False}, "must be true"),
+        ({"CREDENTIAL_RATE_LIMIT_STORAGE_URI": "memory://"}, "must use redis"),
+        ({"REQUIRE_HTTPS": False}, "REQUIRE_HTTPS must be true"),
+        ({"CORS_ORIGINS": "http://app.example.test"}, "only explicit HTTPS origins"),
+        ({"CORS_ORIGINS": "*"}, "only explicit HTTPS origins"),
+        ({"TRUSTED_PROXY_CIDRS": "not-a-network"}, "invalid network"),
+        ({"CREDENTIAL_WRITE_RATE_LIMIT": "zero"}, "positive integer"),
+    ],
+)
+def test_production_rejects_disabled_or_unsafe_credential_controls(override, message):
+    with pytest.raises(ValidationError, match=message):
+        _settings(**override)
 
 
 @pytest.mark.parametrize(

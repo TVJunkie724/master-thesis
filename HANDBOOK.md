@@ -164,6 +164,39 @@ receive operator-provisioned keys through its deployment platform and fails at
 startup when keys are missing, weak, duplicated, malformed, or known
 development placeholders.
 
+### Production credential security boundary
+
+Production deployments additionally require:
+
+```text
+REQUIRE_HTTPS=true
+TRUSTED_PROXY_CIDRS=<edge proxy networks>
+CREDENTIAL_RATE_LIMIT_ENABLED=true
+CREDENTIAL_RATE_LIMIT_STORAGE_URI=rediss://<shared-redis-endpoint>/<database>
+CORS_ORIGINS=https://<frontend-origin>
+```
+
+The edge proxy terminates TLS. Uvicorn's implicit proxy-header handling is
+disabled, so the Management API accepts `X-Forwarded-Proto: https` only from a
+direct peer in `TRUSTED_PROXY_CIDRS`. Plain HTTP is rejected without redirecting
+credential-bearing requests; accepted production responses carry HSTS.
+
+CloudConnection mutation, bootstrap, preflight, and validation endpoints are
+limited per authenticated user and operation class. Production must use one
+shared Redis-compatible store across all API replicas; `memory://` is local and
+test only. A limiter outage fails closed before credential processing.
+
+The append-only `credential_security_events` table records typed, owner-scoped
+actions, outcomes, resource IDs, status, request ID, and time. It never stores
+request bodies, authorization headers, credential values, arbitrary metadata,
+raw IP addresses, or secret-derived values. `GET /credential-security-events/`
+exposes only the authenticated user's events. Backups and retention are an
+operator policy; the application intentionally provides no event deletion API.
+
+Runtime key rotation is not automatic. Rotating `ENCRYPTION_KEY` requires a
+separate transactional re-encryption procedure for every stored
+CloudConnection and remains explicit future work.
+
 ## 4. Cloud Credentials
 
 The default stack is credential-free. A clean clone can start without real cloud

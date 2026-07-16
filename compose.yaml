@@ -59,6 +59,9 @@ services:
       - DEBUG=true
       - DEV_AUTH_ENABLED=true
       - DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN:-dev-token}
+      - REQUIRE_HTTPS=false
+      - CREDENTIAL_RATE_LIMIT_ENABLED=true
+      - CREDENTIAL_RATE_LIMIT_STORAGE_URI=memory://
       - PYTHONUNBUFFERED=1
       - SEED_DATA=false
       # - ENABLE_TEST_ENDPOINTS=true
