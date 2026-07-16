@@ -188,7 +188,7 @@ Completed on 2026-07-16:
 | Local macOS release | passed after Swift Package Manager migration |
 | Read-only Management API integration | 9 passed against credential-free OrbStack services |
 | Strict MkDocs build | passed |
-| Native platform workflow | [run 29520314088](https://github.com/TVJunkie724/master-thesis/actions/runs/29520314088) passed Web, macOS, Windows, and Linux |
+| Native platform workflow | [master run 29520937121](https://github.com/TVJunkie724/master-thesis/actions/runs/29520937121) passed Web, macOS, Windows, and Linux |
 
 Review findings fixed during implementation:
 
