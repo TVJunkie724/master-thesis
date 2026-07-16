@@ -1,13 +1,14 @@
 /// File download utilities for cross-platform file persistence.
 ///
 /// Web: uses file_saver (browser download).
-/// Desktop: uses file_picker save dialog + dart:io to write bytes.
+/// Desktop: uses file_picker save dialog plus the native file-writer adapter.
 library;
 
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/foundation.dart';
+
+import 'file_writer.dart';
 
 /// Result of a file save operation.
 class FileSaveResult {
@@ -69,7 +70,7 @@ Future<FileSaveResult> saveBinaryFile({
       return FileSaveResult(cancelled: true);
     }
 
-    await File(outputPath).writeAsBytes(bytes);
+    await writeBytesToPath(outputPath, bytes);
     return FileSaveResult(success: true, message: 'Saved to $outputPath');
   } catch (e) {
     return FileSaveResult(error: 'Save failed: $e');

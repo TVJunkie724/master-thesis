@@ -15,9 +15,10 @@ THESIS_MANAGEMENT_API_PORT="${THESIS_MANAGEMENT_API_PORT:-5005}"
 THESIS_DOCS_PORT="${THESIS_DOCS_PORT:-5010}"
 THESIS_API_BASE_URL="${THESIS_API_BASE_URL:-http://localhost:${THESIS_MANAGEMENT_API_PORT}}"
 THESIS_DEV_AUTH_TOKEN="${THESIS_DEV_AUTH_TOKEN:-dev-token}"
-THESIS_FLUTTER_DEVICE="${THESIS_FLUTTER_DEVICE:-macos}"
+THESIS_FLUTTER_DEVICE="${THESIS_FLUTTER_DEVICE:-}"
 THESIS_DEMO_SCENARIO="${THESIS_DEMO_SCENARIO:-showcase}"
 THESIS_DOCKER_CONTEXT="${THESIS_DOCKER_CONTEXT:-}"
+THESIS_PYTHON_COMMAND="${THESIS_PYTHON_COMMAND:-}"
 THESIS_RUNTIME_SECRETS_DIR="${THESIS_RUNTIME_SECRETS_DIR:-$REPO_ROOT/.secrets/runtime}"
 THESIS_LOCAL_DATABASE_PATH="${THESIS_LOCAL_DATABASE_PATH:-$REPO_ROOT/twin2multicloud_backend/data/app.db}"
 if [[ "$THESIS_RUNTIME_SECRETS_DIR" != /* ]]; then
@@ -41,6 +42,7 @@ FLUTTER_DEVICE="$THESIS_FLUTTER_DEVICE"
 DEMO_SCENARIO="$THESIS_DEMO_SCENARIO"
 FLUTTER_ARGS=()
 FLUTTER_ARGS_COUNT=0
+PYTHON_COMMAND="$THESIS_PYTHON_COMMAND"
 
 usage() {
   cat <<'USAGE'
@@ -76,7 +78,7 @@ App commands:
   test frontend      Run static architecture, analysis, unit/widget, and build gates.
   test frontend-integration
                      Run read-only Flutter contracts against credential-free
-                     local containers. Requires the macOS desktop toolchain;
+                     local containers. Requires the host desktop toolchain;
                      cloud credentials and cloud mutations are not supported.
 
 LaTeX commands:
@@ -91,7 +93,8 @@ Docs commands:
   docs logs          Follow docs logs.
 
 Options for up/flutter/setup:
-  --device ID        Flutter device id. Default: THESIS_FLUTTER_DEVICE or macos.
+  --device ID        Flutter device id. Default: THESIS_FLUTTER_DEVICE or the
+                     detected macOS, Windows, or Linux host desktop.
   --setup            Run flutter pub get before flutter run.
   --no-flutter       For up: start containers and write config, but do not run Flutter.
   --skip-smoke       Skip HTTP smoke checks after docker compose up.
@@ -100,7 +103,8 @@ Options for up/flutter/setup:
   -h, --help         Show this help.
 
 Options for demo:
-  --device ID        Flutter device id. Default: THESIS_FLUTTER_DEVICE or macos.
+  --device ID        Flutter device id. Default: THESIS_FLUTTER_DEVICE or the
+                     detected macOS, Windows, or Linux host desktop.
   --scenario NAME    Fixture scenario: showcase, empty, or degraded.
   --setup            Run flutter pub get before flutter run.
   -h, --help         Show this help.
@@ -113,8 +117,12 @@ Environment:
   THESIS_DOCS_PORT             Host port for MkDocs. Default: 5010.
   THESIS_API_BASE_URL          Flutter API URL. Default: http://localhost:${THESIS_MANAGEMENT_API_PORT}.
   THESIS_DEV_AUTH_TOKEN        Flutter dev auth token. Default: dev-token.
+  THESIS_FLUTTER_DEVICE        Optional Flutter target override. By default the
+                               native macOS, Windows, or Linux host is selected.
   THESIS_DEMO_SCENARIO         Offline fixture scenario. Default: showcase.
   THESIS_DOCKER_CONTEXT        Optional Docker context name.
+  THESIS_PYTHON_COMMAND        Optional Python 3 executable override. By default
+                               python3 and then python are detected.
   THESIS_RUNTIME_SECRETS_DIR   Local runtime secret directory. Default: .secrets/runtime.
   THESIS_LOCAL_DATABASE_PATH   Local Management API SQLite path used by the migration guard.
 
@@ -131,6 +139,25 @@ fail() {
 
 info() {
   echo "==> $*"
+}
+
+resolve_host_desktop_device() {
+  local host_os="${1:-${THESIS_HOST_OS_OVERRIDE:-$(uname -s)}}"
+  case "$host_os" in
+    Darwin*) echo "macos" ;;
+    Linux*) echo "linux" ;;
+    MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+    *)
+      echo "ERROR: Unsupported host '$host_os'. Set THESIS_FLUTTER_DEVICE explicitly." >&2
+      return 2
+      ;;
+  esac
+}
+
+ensure_flutter_device() {
+  if [ -z "$FLUTTER_DEVICE" ]; then
+    FLUTTER_DEVICE="$(resolve_host_desktop_device)" || exit $?
+  fi
 }
 
 docker_cmd() {
@@ -174,6 +201,23 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "$1 is required but was not found on PATH."
 }
 
+ensure_python_command() {
+  if [ -z "$PYTHON_COMMAND" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+      PYTHON_COMMAND="python3"
+    elif command -v python >/dev/null 2>&1; then
+      PYTHON_COMMAND="python"
+    else
+      fail "Python 3 is required but neither python3 nor python was found on PATH."
+    fi
+  fi
+
+  command -v "$PYTHON_COMMAND" >/dev/null 2>&1 ||
+    fail "Configured Python executable '$PYTHON_COMMAND' was not found on PATH."
+  "$PYTHON_COMMAND" -c 'import sys; raise SystemExit(sys.version_info < (3, 9))' ||
+    fail "Python 3.9 or newer is required."
+}
+
 require_docker() {
   require_command docker
   if [ -n "$THESIS_DOCKER_CONTEXT" ]; then
@@ -188,8 +232,8 @@ require_flutter() {
 }
 
 bootstrap_local_runtime_secrets() {
-  require_command python3
-  python3 "$REPO_ROOT/scripts/bootstrap_local_runtime_secrets.py" \
+  ensure_python_command
+  "$PYTHON_COMMAND" "$REPO_ROOT/scripts/bootstrap_local_runtime_secrets.py" \
     --secrets-dir "$THESIS_RUNTIME_SECRETS_DIR" \
     --database "$THESIS_LOCAL_DATABASE_PATH"
 }
@@ -297,11 +341,11 @@ validate_demo_scenario() {
 }
 
 write_flutter_config() {
-  require_command python3
+  ensure_python_command
   mkdir -p "$FLUTTER_CONFIG_DIR"
   THESIS_API_BASE_URL="$THESIS_API_BASE_URL" \
   THESIS_DEV_AUTH_TOKEN="$THESIS_DEV_AUTH_TOKEN" \
-  python3 - "$FLUTTER_DEV_CONFIG" <<'PY'
+  "$PYTHON_COMMAND" - "$FLUTTER_DEV_CONFIG" <<'PY'
 import json
 import os
 import sys
@@ -325,6 +369,7 @@ flutter_pub_get() {
 
 run_flutter() {
   require_flutter
+  ensure_flutter_device
   write_flutter_config
   if [ "$RUN_SETUP" -eq 1 ]; then
     flutter_pub_get
@@ -339,6 +384,7 @@ run_flutter() {
 
 run_demo() {
   require_flutter
+  ensure_flutter_device
   validate_demo_scenario
   [ -f "$FLUTTER_DEMO_CONFIG" ] || fail "Missing tracked demo config: $FLUTTER_DEMO_CONFIG"
   if [ "$RUN_SETUP" -eq 1 ]; then
@@ -403,6 +449,7 @@ up_app() {
 }
 
 print_status() {
+  ensure_flutter_device
   cat <<EOF
 Twin2MultiCloud
   Compose project: $THESIS_COMPOSE_PROJECT
@@ -437,14 +484,16 @@ run_backend_tests() {
 }
 
 run_frontend_tests() {
-  require_command python3
+  ensure_python_command
   require_flutter
   [ -f "$FLUTTER_CONFIG_DIR/dev.example.json" ] ||
     fail "Missing tracked Flutter build config: $FLUTTER_CONFIG_DIR/dev.example.json"
 
   info "Testing the Flutter architecture gate."
-  (cd "$REPO_ROOT" && python3 -m unittest scripts.tests.test_check_flutter_architecture)
-  (cd "$REPO_ROOT" && python3 scripts/check_flutter_architecture.py)
+  (cd "$REPO_ROOT" && "$PYTHON_COMMAND" -m unittest \
+    scripts.tests.test_check_flutter_architecture \
+    scripts.tests.test_thesis_entrypoint)
+  (cd "$REPO_ROOT" && "$PYTHON_COMMAND" scripts/check_flutter_architecture.py)
 
   info "Checking Dart formatting and static analysis."
   (cd "$FLUTTER_DIR" && dart format --output=none --set-exit-if-changed lib test integration_test)
@@ -453,9 +502,11 @@ run_frontend_tests() {
   info "Running Flutter unit and widget tests."
   (cd "$FLUTTER_DIR" && flutter test)
 
-  info "Building Flutter Web release and macOS debug artifacts."
+  local host_device
+  host_device="$(resolve_host_desktop_device)" || exit $?
+  info "Building Flutter Web release and $host_device debug artifacts."
   (cd "$FLUTTER_DIR" && flutter build web --release --dart-define-from-file=config/dev.example.json)
-  (cd "$FLUTTER_DIR" && flutter build macos --debug --dart-define-from-file=config/dev.example.json)
+  (cd "$FLUTTER_DIR" && flutter build "$host_device" --debug --dart-define-from-file=config/dev.example.json)
 }
 
 run_frontend_integration_tests() {
@@ -471,10 +522,12 @@ run_frontend_integration_tests() {
   write_flutter_config
   smoke_app
 
-  info "Running the Management API readiness contract on macOS."
+  local host_device
+  host_device="$(resolve_host_desktop_device)" || exit $?
+  info "Running the Management API readiness contract on $host_device."
   (cd "$FLUTTER_DIR" && flutter test \
     integration_test/management_api_readiness_test.dart \
-    -d macos \
+    -d "$host_device" \
     --dart-define-from-file=config/dev.json)
 }
 
@@ -600,4 +653,6 @@ main() {
   esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
