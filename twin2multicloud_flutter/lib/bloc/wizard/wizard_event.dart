@@ -31,6 +31,10 @@ class WizardInitEdit extends WizardEvent {
   List<Object?> get props => [twinId];
 }
 
+class WizardProviderCapabilitiesLoadRequested extends WizardEvent {
+  const WizardProviderCapabilitiesLoadRequested();
+}
+
 // ============================================================
 // NAVIGATION EVENTS
 // ============================================================

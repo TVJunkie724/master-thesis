@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 import '../config/app_runtime.dart';
+import '../core/result.dart';
 
 typedef DemoClock = DateTime Function();
 
-class DemoApiException implements Exception {
+class DemoApiException implements UserFacingException {
   final String code;
+  @override
   final String message;
 
   const DemoApiException(this.code, this.message);

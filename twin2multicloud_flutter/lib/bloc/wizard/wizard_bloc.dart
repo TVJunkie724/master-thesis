@@ -63,6 +63,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
     on<WizardInitEdit>(_onInitEdit);
+    on<WizardProviderCapabilitiesLoadRequested>(
+      _onProviderCapabilitiesLoadRequested,
+    );
 
     // === Navigation ===
     on<WizardNextStep>(_onNextStep);

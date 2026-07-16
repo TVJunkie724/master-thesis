@@ -138,10 +138,6 @@ class Step3InfoCards {
       message = 'L4 visualization is not required by the workload intent';
       icon = Icons.info_outline;
       color = Colors.blue;
-    } else if (provider == 'GCP') {
-      message = 'GCP does not support 3D visualization in this thesis scope';
-      icon = Icons.block;
-      color = Colors.orange;
     } else if (provider == null) {
       message = 'No L4 provider is present in the architecture decision';
       icon = Icons.warning_amber;
@@ -185,9 +181,7 @@ class Step3InfoCards {
     final provider = l5Provider?.toUpperCase();
 
     String message;
-    if (provider == 'GCP') {
-      message = 'GCP Grafana configuration not supported in this thesis scope';
-    } else if (provider == null) {
+    if (provider == null) {
       message = 'No L5 provider is present in the architecture decision';
     } else {
       message = 'L5 config not required for $provider';

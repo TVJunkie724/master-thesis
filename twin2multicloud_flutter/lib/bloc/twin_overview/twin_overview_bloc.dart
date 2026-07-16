@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/app_logger.dart';
+import '../../core/result.dart';
 import '../../models/deployment_operations.dart';
 import '../../models/deployer_config.dart';
 import '../../models/optimizer_config.dart';
@@ -1654,7 +1655,8 @@ class _DeploymentReconnectDue extends TwinOverviewEvent {
   List<Object?> get props => [generation, sessionId];
 }
 
-class _DeploymentStreamContractException implements Exception {
+class _DeploymentStreamContractException implements UserFacingException {
+  @override
   final String message;
 
   const _DeploymentStreamContractException(this.message);

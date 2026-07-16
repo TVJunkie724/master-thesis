@@ -11,6 +11,7 @@ import '../../models/deployer_artifact_validation.dart';
 import '../../models/deployer_config.dart';
 import '../../models/optimizer_config.dart';
 import '../../models/pricing_health.dart';
+import '../../models/provider_capability.dart';
 import '../../utils/twin_state_utils.dart';
 
 // ============================================================
@@ -132,6 +133,9 @@ class WizardState extends Equatable {
   final PricingHealthResponse? pricingHealth;
   final bool isPricingHealthLoading;
   final String? pricingHealthError;
+  final PlatformProviderCapabilities? providerCapabilities;
+  final bool providerCapabilitiesLoading;
+  final String? providerCapabilitiesError;
 
   // === Persistent Data: Step 3 Section 2 ===
   final String?
@@ -220,6 +224,9 @@ class WizardState extends Equatable {
     this.pricingHealth,
     this.isPricingHealthLoading = false,
     this.pricingHealthError,
+    this.providerCapabilities,
+    this.providerCapabilitiesLoading = false,
+    this.providerCapabilitiesError,
     this.deployerDigitalTwinName,
     this.configEventsJson,
     this.configIotDevicesJson,
@@ -310,6 +317,18 @@ class WizardState extends Equatable {
       isCalcFormValid &&
       !isCalculating &&
       pricingCanCalculate;
+
+  PlatformLayerCapability? providerCapability(String? provider, String layer) {
+    if (provider == null || providerCapabilitiesError != null) return null;
+    try {
+      return providerCapabilities?.capability(provider, layer);
+    } on StateError {
+      return null;
+    }
+  }
+
+  bool isLayerSelectable(String? provider, String layer) =>
+      providerCapability(provider, layer)?.selectable == true;
 
   /// Set of configured provider names (uppercase)
   Set<String> get configuredProviders => {
@@ -546,6 +565,10 @@ class WizardState extends Equatable {
     bool? isPricingHealthLoading,
     String? pricingHealthError,
     bool clearPricingHealthError = false,
+    PlatformProviderCapabilities? providerCapabilities,
+    bool? providerCapabilitiesLoading,
+    String? providerCapabilitiesError,
+    bool clearProviderCapabilitiesError = false,
     String? deployerDigitalTwinName,
     String? configEventsJson,
     String? configIotDevicesJson,
@@ -636,6 +659,12 @@ class WizardState extends Equatable {
       pricingHealthError: clearPricingHealthError
           ? null
           : (pricingHealthError ?? this.pricingHealthError),
+      providerCapabilities: providerCapabilities ?? this.providerCapabilities,
+      providerCapabilitiesLoading:
+          providerCapabilitiesLoading ?? this.providerCapabilitiesLoading,
+      providerCapabilitiesError: clearProviderCapabilitiesError
+          ? null
+          : (providerCapabilitiesError ?? this.providerCapabilitiesError),
       deployerDigitalTwinName:
           deployerDigitalTwinName ?? this.deployerDigitalTwinName,
       configEventsJson: configEventsJson ?? this.configEventsJson,
@@ -727,6 +756,9 @@ class WizardState extends Equatable {
     pricingHealth,
     isPricingHealthLoading,
     pricingHealthError,
+    providerCapabilities,
+    providerCapabilitiesLoading,
+    providerCapabilitiesError,
     deployerDigitalTwinName, // FIXED: was missing
     configEventsJson,
     configIotDevicesJson,

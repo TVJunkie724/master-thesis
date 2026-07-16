@@ -8,8 +8,14 @@ import 'package:twin2multicloud_flutter/features/configuration_workspace/present
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import 'package:twin2multicloud_flutter/models/deployer_artifact_validation.dart';
+import 'package:twin2multicloud_flutter/models/provider_capability.dart';
+
+import '../../fixtures/provider_capability_fixture.dart';
 
 void main() {
+  final capabilities = PlatformProviderCapabilities.fromJson(
+    platformProviderCapabilitiesJson(),
+  );
   CalcResult result({
     String layer2 = 'GCP',
     String layer4 = 'AWS',
@@ -34,6 +40,7 @@ void main() {
   final state = WizardState(
     calcParams: CalcParams.defaultParams(),
     calcResult: result(),
+    providerCapabilities: capabilities,
   );
 
   Widget buildTask(
@@ -263,6 +270,7 @@ void main() {
         'needs3DModel': true,
       }),
       calcResult: result(layer4: 'AZURE', layer5: 'AZURE'),
+      providerCapabilities: capabilities,
       hierarchyValidated: true,
     );
 
@@ -284,6 +292,7 @@ void main() {
         'needs3DModel': true,
       }),
       calcResult: result(layer4: 'AWS', layer5: 'AWS'),
+      providerCapabilities: capabilities,
       hierarchyValidated: true,
     );
 
@@ -307,6 +316,7 @@ void main() {
           wizardState: WizardState(
             calcParams: CalcParams.defaultParams(),
             calcResult: result(layer4: 'GCP', layer5: 'GCP'),
+            providerCapabilities: capabilities,
           ),
         ),
       );
@@ -316,9 +326,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.text(
-          'GCP Grafana configuration not supported in this thesis scope',
-        ),
+        find.text('GCP L5 is outside the implemented thesis path.'),
         findsOneWidget,
       );
       expect(find.text('aws_hierarchy.json'), findsNothing);
@@ -339,12 +347,13 @@ void main() {
             'needs3DModel': true,
           }),
           calcResult: result(layer4: 'GCP', layer5: 'GCP'),
+          providerCapabilities: capabilities,
         ),
       ),
     );
 
     expect(
-      find.text('GCP does not support 3D visualization in this thesis scope'),
+      find.text('GCP L4 is outside the implemented thesis path.'),
       findsOneWidget,
     );
     expect(find.text('scene.json'), findsNothing);

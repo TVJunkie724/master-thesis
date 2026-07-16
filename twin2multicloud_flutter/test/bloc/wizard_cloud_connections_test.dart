@@ -7,6 +7,8 @@ import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 import '../fixtures/typed_api_fixtures.dart';
+import '../fixtures/provider_capability_fixture.dart';
+import 'package:twin2multicloud_flutter/models/provider_capability.dart';
 
 class MockApiService extends Mock implements ApiService {}
 
@@ -28,6 +30,11 @@ void main() {
 
   setUp(() {
     api = MockApiService();
+    when(() => api.getProviderCapabilities()).thenAnswer(
+      (_) async => PlatformProviderCapabilities.fromJson(
+        platformProviderCapabilitiesJson(),
+      ),
+    );
     when(() => api.listCloudConnections()).thenAnswer((_) async => []);
   });
 
@@ -44,6 +51,16 @@ void main() {
           WizardStatus.ready,
         ),
         isA<WizardState>().having(
+          (state) => state.providerCapabilitiesLoading,
+          'capabilities loading',
+          true,
+        ),
+        isA<WizardState>().having(
+          (state) => state.providerCapabilities?.complete,
+          'capabilities loaded',
+          true,
+        ),
+        isA<WizardState>().having(
           (state) => state.cloudConnectionLoading[CloudProvider.aws],
           'aws loading',
           true,
@@ -55,6 +72,7 @@ void main() {
         ),
       ],
       verify: (_) {
+        verify(() => api.getProviderCapabilities()).called(1);
         verify(() => api.listCloudConnections()).called(1);
       },
     );
@@ -73,6 +91,8 @@ void main() {
       act: (bloc) => bloc.add(const WizardInitCreate()),
       wait: const Duration(milliseconds: 1),
       expect: () => [
+        isA<WizardState>(),
+        isA<WizardState>(),
         isA<WizardState>(),
         isA<WizardState>(),
         isA<WizardState>().having(

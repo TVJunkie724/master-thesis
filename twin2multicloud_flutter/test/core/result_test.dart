@@ -207,7 +207,8 @@ void main() {
 
         final error = AppException.fromDioError(dioError);
 
-        expect(error.message, contains('Network error'));
+        expect(error.message, 'An unexpected network error occurred');
+        expect(error.message, isNot(contains('Something weird happened')));
         expect(error.originalError, dioError);
       });
     });

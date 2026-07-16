@@ -40,7 +40,7 @@ void main() {
 
     expect(bloc.state.pricingHealth, isNotNull);
     expect(bloc.state.pricingCanCalculate, isFalse);
-    expect(bloc.state.pricingHealthError, contains('health unavailable'));
+    expect(bloc.state.pricingHealthError, 'An unexpected error occurred');
     await bloc.close();
   });
 

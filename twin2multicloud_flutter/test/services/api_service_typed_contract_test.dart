@@ -7,6 +7,7 @@ import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 import '../fixtures/test_fixtures.dart';
+import '../fixtures/provider_capability_fixture.dart';
 
 void main() {
   group('ApiService typed contracts', () {
@@ -79,6 +80,20 @@ void main() {
         api.getOptimizerConfig('twin-1'),
         throwsFormatException,
       );
+    });
+
+    test('loads provider capabilities only through Management API', () async {
+      final api = ApiService(
+        dio: _dio((request) {
+          expect(request.method, 'GET');
+          expect(request.path, '/platform/provider-capabilities');
+          return _json(platformProviderCapabilitiesJson());
+        }),
+      );
+
+      final result = await api.getProviderCapabilities();
+
+      expect(result.capability('gcp', 'l4').selectable, isFalse);
     });
   });
 }

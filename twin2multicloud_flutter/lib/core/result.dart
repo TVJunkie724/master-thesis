@@ -27,6 +27,11 @@ sealed class Result<T> {
   };
 }
 
+/// Marker contract for errors whose message is intentionally safe for UI use.
+abstract interface class UserFacingException implements Exception {
+  String get message;
+}
+
 /// Represents a successful result containing data.
 class Success<T> extends Result<T> {
   final T data;
@@ -43,8 +48,9 @@ class Failure<T> extends Result<T> {
 }
 
 /// Application-level exception with structured error information.
-class AppException implements Exception {
+class AppException implements UserFacingException {
   /// Human-readable error message suitable for display.
+  @override
   final String message;
 
   /// Optional error code for programmatic handling (e.g., 'TIMEOUT', 'HTTP_404').
@@ -92,7 +98,7 @@ class AppException implements Exception {
         code: 'CANCELLED',
       ),
       DioExceptionType.unknown => AppException(
-        'Network error: ${e.message}',
+        'An unexpected network error occurred',
         originalError: e,
       ),
     };
