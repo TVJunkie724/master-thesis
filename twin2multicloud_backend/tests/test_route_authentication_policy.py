@@ -9,12 +9,13 @@ from src.main import app
 PUBLIC_ROUTE_KEYS = {
     ("GET", "/"),
     ("GET", "/health"),
-    ("GET", "/auth/google/login"),
+    ("POST", "/auth/providers/{provider}/login"),
     ("GET", "/auth/google/callback"),
-    ("GET", "/auth/uibk/login"),
     ("POST", "/auth/uibk/callback"),
     ("GET", "/auth/uibk/metadata"),
     ("GET", "/auth/providers"),
+    ("POST", "/auth/session/exchange"),
+    ("POST", "/auth/session/cancel"),
 }
 
 

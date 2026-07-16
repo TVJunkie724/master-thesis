@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import '../core/result.dart';
 import '../models/calc_result.dart';
+import '../models/authentication.dart';
+import '../models/user.dart';
 import '../models/calc_params.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
@@ -21,7 +23,25 @@ import '../models/wizard_config_requests.dart';
 abstract interface class SessionApi {
   void setToken(String? token);
 
+  void setUnauthorizedHandler(void Function()? handler);
+
   Future<String?> getAuthToken();
+}
+
+abstract interface class AuthenticationApi {
+  Future<List<AuthProviderCapability>> getAuthProviders();
+
+  Future<AuthLoginTransaction> startExternalLogin(IdentityProvider provider);
+
+  Future<AuthExchangeResult> exchangeAuthSession(
+    AuthLoginTransaction transaction,
+  );
+
+  Future<void> cancelAuthSession(AuthLoginTransaction transaction);
+
+  Future<void> logoutSession();
+
+  Future<User> getCurrentUser();
 }
 
 abstract interface class UserPreferencesApi {
@@ -219,6 +239,7 @@ abstract interface class VerificationApi {
 abstract interface class ManagementApi
     implements
         SessionApi,
+        AuthenticationApi,
         UserPreferencesApi,
         CloudAccessApi,
         TwinApi,

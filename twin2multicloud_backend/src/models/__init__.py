@@ -13,6 +13,12 @@ from src.models.cost_calculation import CostCalculationRun, CostCalculationResul
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.pricing_review import PricingCandidateReport, PricingReviewDecision
 from src.models.credential_security_event import CredentialSecurityEvent
+from src.models.authentication import (
+    AuthenticationEvent,
+    AuthLoginTransaction,
+    AuthSession,
+    ExternalIdentity,
+)
 
 __all__ = [
     "Base", "get_db", "engine",
@@ -22,4 +28,5 @@ __all__ = [
     "CostCalculationRun", "CostCalculationResultItem", "PricingRefreshRun",
     "PricingCandidateReport", "PricingReviewDecision",
     "CredentialSecurityEvent",
+    "AuthenticationEvent", "AuthLoginTransaction", "AuthSession", "ExternalIdentity",
 ]

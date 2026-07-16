@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
+import 'package:twin2multicloud_flutter/models/authentication.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/login_screen.dart';
 import 'package:twin2multicloud_flutter/services/management_api.dart';
@@ -57,7 +58,7 @@ void main() {
     expect(find.text('Sign in with UIBK'), findsOneWidget);
     expect(find.text('Sign in with Google'), findsOneWidget);
     expect(
-      find.text('Production sign-in is not configured in this build.'),
+      find.text('No production sign-in provider is currently enabled.'),
       findsOneWidget,
     );
     expect(
@@ -137,6 +138,25 @@ Future<void> _pump(
   );
   addTearDown(router.dispose);
 
+  if (runtime.mode == AppMode.production) {
+    when(() => api.getAuthProviders()).thenAnswer(
+      (_) async => const [
+        AuthProviderCapability(
+          provider: IdentityProvider.uibk,
+          displayName: 'UIBK',
+          enabled: false,
+          unavailableReason: 'not_enabled',
+        ),
+        AuthProviderCapability(
+          provider: IdentityProvider.google,
+          displayName: 'Google',
+          enabled: false,
+          unavailableReason: 'not_configured',
+        ),
+      ],
+    );
+  }
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -153,5 +173,5 @@ Future<void> _pump(
       ),
     ),
   );
-  await tester.pump();
+  await tester.pumpAndSettle();
 }

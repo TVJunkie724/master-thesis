@@ -42,14 +42,21 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60
+    JWT_ISSUER: str = "twin2multicloud-management-api"
+    JWT_AUDIENCE: str = "twin2multicloud-client"
+
+    # Durable external authentication transactions and abuse controls.
+    AUTH_TRANSACTION_TTL_SECONDS: int = Field(default=600, ge=60, le=1800)
+    AUTH_POLL_INTERVAL_MS: int = Field(default=1000, ge=500, le=5000)
+    AUTH_RATE_LIMIT_ENABLED: bool = True
+    AUTH_RATE_LIMIT_STORAGE_URI: str = ""
+    AUTH_LOGIN_RATE_LIMIT: str = "20/minute"
+    AUTH_EXCHANGE_RATE_LIMIT: str = "120/minute"
     
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:5005/auth/google/callback"
-    
-    # Frontend callback URL (configurable per environment)
-    FRONTEND_CALLBACK_URL: str = "http://localhost:8080/auth/callback"
+    GOOGLE_REDIRECT_URI: str = ""
     
     # UIBK SAML Configuration
     # Enable after ACOnet registration is complete
@@ -125,6 +132,31 @@ class Settings(BaseSettings):
         if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
             raise ValueError("DEV_AUTH_TOKEN is required when DEV_AUTH_ENABLED is true")
 
+        if self.JWT_ALGORITHM not in {"HS256", "HS384", "HS512"}:
+            raise ValueError("JWT_ALGORITHM must be HS256, HS384, or HS512")
+        if not self.JWT_ISSUER.strip() or not self.JWT_AUDIENCE.strip():
+            raise ValueError("JWT_ISSUER and JWT_AUDIENCE must be non-empty")
+
+        google_values = (
+            self.GOOGLE_CLIENT_ID,
+            self.GOOGLE_CLIENT_SECRET,
+            self.GOOGLE_REDIRECT_URI,
+        )
+        if any(google_values) and not all(google_values):
+            raise ValueError("Google authentication configuration must be complete")
+
+        saml_values = (
+            self.SAML_SP_ENTITY_ID,
+            self.SAML_ACS_URL,
+            self.SAML_SP_CERT,
+            self.SAML_SP_KEY,
+            self.SAML_IDP_ENTITY_ID,
+            self.SAML_IDP_SSO_URL,
+            self.SAML_IDP_CERT,
+        )
+        if self.SAML_ENABLED and not all(saml_values):
+            raise ValueError("SAML authentication configuration must be complete when enabled")
+
         if len(self.JWT_SECRET_KEY) < 32:
             raise ValueError("JWT_SECRET_KEY must contain at least 32 characters")
         if len(self.ENCRYPTION_KEY) < 32:
@@ -167,6 +199,16 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "CREDENTIAL_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
                 )
+            if not self.AUTH_RATE_LIMIT_ENABLED:
+                raise ValueError("AUTH_RATE_LIMIT_ENABLED must be true in production")
+            if not self.auth_rate_limit_storage_uri.startswith(("redis://", "rediss://")):
+                raise ValueError(
+                    "AUTH_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
+                )
+            if all(google_values) and urlparse(self.GOOGLE_REDIRECT_URI).scheme != "https":
+                raise ValueError("GOOGLE_REDIRECT_URI must use HTTPS in production")
+            if self.SAML_ENABLED and urlparse(self.SAML_ACS_URL).scheme != "https":
+                raise ValueError("SAML_ACS_URL must use HTTPS in production")
 
         if self.REQUIRE_HTTPS is None:
             self.REQUIRE_HTTPS = self.APP_ENV == AppEnvironment.PRODUCTION
@@ -177,6 +219,8 @@ class Settings(BaseSettings):
             "CREDENTIAL_WRITE_RATE_LIMIT",
             "CREDENTIAL_VALIDATION_RATE_LIMIT",
             "CREDENTIAL_BOOTSTRAP_RATE_LIMIT",
+            "AUTH_LOGIN_RATE_LIMIT",
+            "AUTH_EXCHANGE_RATE_LIMIT",
         ):
             if re.fullmatch(r"[1-9][0-9]*/(second|minute|hour|day)s?", getattr(self, field_name)) is None:
                 raise ValueError(f"{field_name} must use '<positive integer>/<time unit>' format")
@@ -205,6 +249,16 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> tuple[str, ...]:
         return tuple(value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip())
+
+    @property
+    def google_auth_enabled(self) -> bool:
+        return all(
+            (self.GOOGLE_CLIENT_ID, self.GOOGLE_CLIENT_SECRET, self.GOOGLE_REDIRECT_URI)
+        )
+
+    @property
+    def auth_rate_limit_storage_uri(self) -> str:
+        return self.AUTH_RATE_LIMIT_STORAGE_URI or self.CREDENTIAL_RATE_LIMIT_STORAGE_URI
 
 
 settings = Settings()

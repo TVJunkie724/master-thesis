@@ -1,10 +1,12 @@
 import secrets
+from datetime import datetime, timezone
 
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from src.models.database import get_db
 from src.models.user import User
-from src.auth.jwt import verify_token
+from src.models.authentication import AuthSession
+from src.auth.jwt import parse_bearer_token, verify_token
 from src.config import settings
 
 async def _get_current_user_real(
@@ -12,16 +14,26 @@ async def _get_current_user_real(
     db: Session = Depends(get_db)
 ) -> User:
     """Extract and validate JWT, return current user."""
-    if not authorization or not authorization.startswith("Bearer "):
+    token = parse_bearer_token(authorization)
+    if token is None:
         raise HTTPException(status_code=401, detail="Invalid auth header")
+
+    claims = verify_token(token)
     
-    token = authorization.split(" ")[1]
-    user_id = verify_token(token)
-    
-    if not user_id:
+    if not claims:
         raise HTTPException(status_code=401, detail="Invalid token")
-    
-    user = db.query(User).filter(User.id == user_id).first()
+
+    now = datetime.now(timezone.utc)
+    session = db.query(AuthSession).filter(
+        AuthSession.id == claims.session_id,
+        AuthSession.user_id == claims.user_id,
+        AuthSession.revoked_at.is_(None),
+        AuthSession.expires_at > now,
+    ).first()
+    if session is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = db.query(User).filter(User.id == claims.user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     

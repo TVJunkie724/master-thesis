@@ -11,10 +11,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=True)
     picture_url = Column(String, nullable=True)
-    google_id = Column(String, unique=True, nullable=True)
-    # UIBK Shibboleth SAML integration
-    uibk_id = Column(String, unique=True, nullable=True)  # eduPersonPrincipalName from SAML
-    auth_provider = Column(String, nullable=False, default="google")  # "google" | "uibk"
+    auth_provider = Column(String, nullable=False, default="development")
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
     theme_preference = Column(String, nullable=True, default="dark")  # "light" | "dark"
@@ -22,3 +19,13 @@ class User(Base):
     # Relationships
     twins = relationship("DigitalTwin", back_populates="owner")
     cloud_connections = relationship("CloudConnection", back_populates="owner", cascade="all, delete-orphan")
+    external_identities = relationship(
+        "ExternalIdentity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    auth_sessions = relationship(
+        "AuthSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

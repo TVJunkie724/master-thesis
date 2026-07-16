@@ -57,6 +57,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
   url_launcher: ^6.3.2
+  web: ^1.1.1
   collection: ^1.19.0
   
   # HTTP streaming for controlled Server-Sent Events

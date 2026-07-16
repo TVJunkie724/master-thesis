@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../core/result.dart';
 import '../models/calc_params.dart';
+import '../models/authentication.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
@@ -17,6 +18,7 @@ import '../models/pricing_refresh_run.dart';
 import '../models/pricing_export_snapshot.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
 import 'management_api.dart';
@@ -66,6 +68,7 @@ class ApiService implements ManagementApi {
   final Dio _dio;
   late final Uri _baseUri;
   String? _token;
+  void Function()? _unauthorizedHandler;
 
   ApiService({Dio? dio, Uri? baseUri, String? initialAuthToken})
     : _dio = _resolveDio(dio: dio, baseUri: baseUri),
@@ -79,6 +82,13 @@ class ApiService implements ManagementApi {
           }
           return handler.next(options);
         },
+        onError: (error, handler) {
+          if (error.response?.statusCode == 401 && _token != null) {
+            _token = null;
+            _unauthorizedHandler?.call();
+          }
+          return handler.next(error);
+        },
       ),
     );
   }
@@ -86,9 +96,74 @@ class ApiService implements ManagementApi {
   @override
   void setToken(String? token) => _token = _normalizeToken(token);
 
+  @override
+  void setUnauthorizedHandler(void Function()? handler) {
+    _unauthorizedHandler = handler;
+  }
+
   /// Get current auth token for SSE connections
   @override
   Future<String?> getAuthToken() async => _token;
+
+  @override
+  Future<List<AuthProviderCapability>> getAuthProviders() async {
+    final response = await _dio.get('/auth/providers');
+    final body = _contractMap(response.data, 'auth providers');
+    final providers = body['providers'];
+    if (providers is! List) {
+      throw const FormatException(
+        'Invalid API contract: auth providers must be an array.',
+      );
+    }
+    return List<AuthProviderCapability>.unmodifiable(
+      providers.indexed.map(
+        (entry) => AuthProviderCapability.fromJson(
+          _contractMap(entry.$2, 'auth providers[${entry.$1}]'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<AuthLoginTransaction> startExternalLogin(
+    IdentityProvider provider,
+  ) async {
+    final response = await _dio.post(
+      '/auth/providers/${provider.apiValue}/login',
+    );
+    return AuthLoginTransaction.fromJson(
+      _contractMap(response.data, 'authentication start'),
+    );
+  }
+
+  @override
+  Future<AuthExchangeResult> exchangeAuthSession(
+    AuthLoginTransaction transaction,
+  ) async {
+    final response = await _dio.post(
+      '/auth/session/exchange',
+      data: transaction.toCommandJson(),
+    );
+    return AuthExchangeResult.fromJson(
+      _contractMap(response.data, 'authentication exchange'),
+    );
+  }
+
+  @override
+  Future<void> cancelAuthSession(AuthLoginTransaction transaction) async {
+    await _dio.post('/auth/session/cancel', data: transaction.toCommandJson());
+  }
+
+  @override
+  Future<void> logoutSession() async {
+    await _dio.post('/auth/logout');
+  }
+
+  @override
+  Future<User> getCurrentUser() async {
+    final response = await _dio.get('/auth/me');
+    return User.fromJson(_contractMap(response.data, 'current user'));
+  }
 
   @override
   Future<List<CloudConnection>> listCloudConnections({

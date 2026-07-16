@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../core/result.dart';
 import '../models/calc_params.dart';
+import '../models/authentication.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
@@ -17,6 +18,7 @@ import '../models/pricing_refresh_run.dart';
 import '../models/pricing_export_snapshot.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
 import '../services/management_api.dart';
 import 'demo_fixture_store.dart';
@@ -37,7 +39,31 @@ class DemoManagementApi implements ManagementApi {
   void setToken(String? token) => _token = token;
 
   @override
+  void setUnauthorizedHandler(void Function()? handler) {}
+
+  @override
   Future<String?> getAuthToken() async => _token;
+
+  @override
+  Future<List<AuthProviderCapability>> getAuthProviders() async => const [];
+
+  @override
+  Future<AuthLoginTransaction> startExternalLogin(IdentityProvider provider) =>
+      throw StateError('External authentication is unavailable in demo mode.');
+
+  @override
+  Future<AuthExchangeResult> exchangeAuthSession(
+    AuthLoginTransaction transaction,
+  ) => throw StateError('External authentication is unavailable in demo mode.');
+
+  @override
+  Future<void> cancelAuthSession(AuthLoginTransaction transaction) async {}
+
+  @override
+  Future<void> logoutSession() async {}
+
+  @override
+  Future<User> getCurrentUser() async => User.fromJson(store.user);
 
   @override
   Future<Map<String, dynamic>> updateUserPreferences({

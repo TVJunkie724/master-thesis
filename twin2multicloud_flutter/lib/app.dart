@@ -42,13 +42,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PricingReviewScreen(),
       ),
       GoRoute(
-        path: '/auth/callback',
-        builder: (context, state) {
-          // OAuth callback placeholder until authentication is extended.
-          return const DashboardScreen();
-        },
-      ),
-      GoRoute(
         path: '/wizard',
         builder: (context, state) => const WizardScreen(),
       ),
