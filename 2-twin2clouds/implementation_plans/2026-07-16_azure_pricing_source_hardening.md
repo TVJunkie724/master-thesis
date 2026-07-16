@@ -1,6 +1,6 @@
 ---
 title: Azure Pricing Source Hardening
-status: Approved for implementation
+status: Completed
 issue: 110
 parentIssue: 32
 baseBranch: master
@@ -223,15 +223,29 @@ the tracked baseline is a separate, explicit step after all gates pass.
 
 ## 11. Definition Of Done
 
-- [ ] Exact reviewed mappings are the only selection SSOT for affected fields.
-- [ ] Tier-series matching is explicit, deterministic, and backward compatible.
-- [ ] Selected/rejected provider rows are inspectable and bounded.
-- [ ] Storage and transfer values are normalized from provider evidence.
-- [ ] All four former fallback paths are `fetched` or `derived`.
-- [ ] Azure transfer tiers are classified as fetched rather than curated.
-- [ ] Azure generated pricing validates as `publishable`.
-- [ ] Rejected fresh candidates cannot overwrite last-known-good pricing.
-- [ ] Calculation and API contracts remain compatible.
-- [ ] Deterministic and live verification gates pass.
-- [ ] Canonical documentation and issue state match implementation reality.
-- [ ] Two review passes have no unresolved findings.
+- [x] Exact reviewed mappings are the only selection SSOT for affected fields.
+- [x] Tier-series matching is explicit, deterministic, and backward compatible.
+- [x] Selected/rejected provider rows are inspectable and bounded.
+- [x] Storage and transfer values are normalized from provider evidence.
+- [x] All four former fallback paths are `fetched` or `derived`.
+- [x] Azure transfer tiers are classified as fetched rather than curated.
+- [x] Azure generated pricing validates as `publishable`.
+- [x] Rejected fresh candidates cannot overwrite last-known-good pricing.
+- [x] Calculation and API contracts remain compatible.
+- [x] Deterministic and live verification gates pass.
+- [x] Canonical documentation and issue state match implementation reality.
+- [x] Two review passes have no unresolved findings.
+
+## 12. Implementation Evidence
+
+- Public Azure Retail Prices API diagnostic completed for West Europe without
+  creating cloud resources.
+- Provider-contract checks passed for transfer, Cosmos DB storage, Cool Blob
+  storage, and Archive Blob storage.
+- The generated snapshot is `publishable` with no fallback or unsupported fields.
+- Live values: Cosmos DB `0.25`, Cool Blob `0.01`, Archive Blob `0.0018` USD per
+  GB-month; transfer tiers use the six catalog thresholds documented above.
+- Full Optimizer verification: `526 passed`.
+- Focused post-audit verification: `48 passed`; Bandit and strict MkDocs build pass.
+- Secret scan and `git diff --check` pass.
+- Both implementation review passes completed with all findings resolved.

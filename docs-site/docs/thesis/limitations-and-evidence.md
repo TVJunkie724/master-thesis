@@ -56,6 +56,15 @@ catalog APIs stable. Additional service tiers and historical price analytics rem
 future work. AI review is contractually prepared but not implemented as an OpenAI
 runtime adapter; current responses explicitly report it disabled.
 
+The Azure fallback-hardening slice was verified against the public Retail Prices API
+on 2026-07-16. It proved an important catalog property: a `meterId` can occur on rows
+with different product, SKU, price type, and price. Candidate identity therefore uses
+the combined provider dimensions, while reviewed matching requires semantic fields and
+stable identifiers. Exact storage values and all transfer thresholds passed provider
+contract validation and cumulative calculation boundary tests. This evidence supports
+the selected West Europe intents; it is not a timeless guarantee for every region or
+future Azure catalog revision.
+
 ### Provider Parity
 
 AWS, Azure, and GCP do not expose equivalent managed Digital Twin and visualization

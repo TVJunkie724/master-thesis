@@ -139,6 +139,7 @@ when work becomes actionable, then reference the issue here.
 | [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Open | Provider capabilities and unsupported layers |
 | [#31](https://github.com/TVJunkie724/master-thesis/issues/31) | Open | Tiered pricing for additional optimizer services |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |
+| [#110](https://github.com/TVJunkie724/master-thesis/issues/110) | Done | Azure Cosmos/Blob storage and bandwidth tier sources now use exact reviewed catalog evidence, collision-safe candidate identity, fail-closed publication, and a publishable live baseline |
 | [#33](https://github.com/TVJunkie724/master-thesis/issues/33) | Open | Pricing and region freshness in UI |
 | [#34](https://github.com/TVJunkie724/master-thesis/issues/34) | Open | Manual provider override with cost warnings |
 | [#42](https://github.com/TVJunkie724/master-thesis/issues/42) | Open | Validate theoretical cost formulas against real deployed data |
