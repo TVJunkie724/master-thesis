@@ -1,18 +1,23 @@
 # Architecture
 
-This section explains how the integrated Twin2MultiCloud platform is structured and why the current architecture differs from the original bachelor-project codebases.
+Twin2MultiCloud integrates two original Bachelor projects with a new orchestration
+and user-interface layer. The architecture deliberately separates user workflow,
+durable state, optimization semantics, and cloud execution.
 
-Start here:
+## Architectural Rules
 
-- [Platform Overview](platform-overview.md)
-- [Project Background](project-background.md)
-- [Architecture Roadmap](roadmap.md)
-- [Refactoring Roadmap](refactoring-roadmap.md)
+1. Flutter calls only the Management API.
+2. The Management API owns users, twins, durable workflow state, and orchestration.
+3. The Optimizer owns pricing intent, evidence, normalization, formulas, and ranking.
+4. The Deployer owns provider execution, Terraform state, packaging, and probes.
+5. Credentials are encrypted user-scoped CloudConnections; plaintext is transient.
+6. Versioned templates and registries are source material; generated artifacts are not editable truth.
+7. Live-cloud E2E is opt-in because it can create resources and cost.
 
-The architecture documentation has three jobs:
+Read in this order:
 
-- show the target service boundaries between UI, Management API, Optimizer, and Deployer,
-- preserve the thesis-relevant reasoning behind those boundaries,
-- make remaining architecture debt explicit without treating historical code paths as current design.
-
-Detailed cloud setup and API pages are migrated into this site as they become part of the current implementation. Until then, service-local documentation remains historical source material, not a competing source of truth.
+- [System Context](system-context.md)
+- [Responsibilities and Data Ownership](data-ownership.md)
+- [End-to-End Flows](end-to-end-flows.md)
+- [Security and Trust Boundaries](security-boundaries.md)
+- [Original to Current State](evolution.md)

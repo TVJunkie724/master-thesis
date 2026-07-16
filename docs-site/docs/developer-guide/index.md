@@ -1,68 +1,21 @@
 # Developer Guide
 
-This section explains how to work with the integrated Twin2MultiCloud repository.
+Start at the repository root and preserve service ownership. The most important rule is
+that a user-facing feature crosses the Management API rather than coupling Flutter to
+an internal service.
 
-The repository contains multiple related projects:
+## Change Workflow
 
-- `twin2multicloud_backend`: Management API and orchestration boundary.
-- `twin2multicloud_flutter`: Flutter UI.
-- `2-twin2clouds`: cost optimizer.
-- `3-cloud-deployer`: cloud infrastructure deployer.
-- `twin2multicloud-latex`: thesis source.
-- `docs-site`: canonical documentation site.
+1. identify the state owner and current contract;
+2. update the relevant GitHub issue/plan for material architecture work;
+3. change the owning service and its tests;
+4. update typed downstream/client contracts;
+5. update Flutter network and demo adapters if user-visible;
+6. run safe project gates;
+7. update current documentation and provenance when behavior/evolution changes.
 
-See [Project Structure](project-structure.md) for the migrated project-structure diagram and directory responsibilities.
-
-For a step-by-step local setup, use [Project Setup](setup.md). The same
-practical workflow is also available from the repository root in
-`HANDBOOK.md`.
-
-## Local Service Ports
-
-| Service | Port |
-|---------|------|
-| Optimizer | 5003 |
-| Deployer | 5004 |
-| Management API | 5005 |
-| Docs Site | 5010 |
-
-## Start The Application Stack
-
-```bash
-./thesis.sh up --no-flutter
-```
-
-Use `./thesis.sh up` when you also want to launch Flutter.
-
-## Start The Docs Site
-
-```bash
-./thesis.sh docs up
-```
-
-Open `http://localhost:5010`.
-
-## Run Flutter
-
-```bash
-cd twin2multicloud_flutter
-flutter run -d chrome --dart-define-from-file=config/dev.json
-```
-
-The preferred root command is:
-
-```bash
-./thesis.sh flutter --device chrome
-```
-
-## Safe Verification
-
-Unit and integration tests are safe to run. E2E tests may deploy real cloud resources and should only be run intentionally.
-
-```bash
-docker exec -e PYTHONPATH=/app master-thesis-management-api-1 python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -v
-```
-
-See [Testing](testing.md) for the migrated optimizer testing categories and the safe command split.
+- [Project Setup](setup.md)
+- [Project Structure](project-structure.md)
+- [API and Contracts](contracts.md)
+- [Extension Points](extension-points.md)
+- [Testing](testing.md)

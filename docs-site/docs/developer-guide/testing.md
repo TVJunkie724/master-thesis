@@ -1,38 +1,46 @@
-# Testing
+# Testing And Quality Gates
 
-The original Twin2Clouds documentation grouped tests by the part of the cost engine they verify. That structure is still useful for understanding the optimizer and for thesis evaluation.
+## Safe Default Matrix
 
-![Testing categories](../references/diagrams/testing_categories.png)
+| Project | Default verification | Cloud mutation |
+|---|---|---:|
+| Management API | `./thesis.sh test backend` | no |
+| Flutter | `./thesis.sh test frontend` | no |
+| Flutter integration | `./thesis.sh test frontend-integration` | no; read-only local stack |
+| Optimizer | container `pytest tests/ -v` | no live refresh by default |
+| Deployer | container `pytest tests/ --ignore=tests/e2e -v` | no |
+| Documentation | strict MkDocs build + link checks | no |
 
-## Optimizer Test Categories
+Current suites contain route/contract, unit, integration, security, migration, widget,
+architecture, demo, and build coverage. File count is not a quality metric; important
+boundaries require success, rejection, ownership, malformed-input, and downstream-error
+cases.
 
-| Category | Purpose |
-|----------|---------|
-| Formula tests | Verify AWS, Azure, and GCP cost formulas in isolation. |
-| Optimization tests | Verify graph construction and cheapest-path behavior. |
-| Data transfer tests | Verify bandwidth and cross-region transfer calculations. |
-| Pricing fetcher tests | Verify cloud pricing API parsing and fallback behavior. |
-| API tests | Verify FastAPI endpoints and response shapes. |
+## Python Security/Quality
 
-## Deployer Test Boundary
+Service images include development requirements for pytest and static/security checks.
+Bandit and Ruff findings must be evaluated in context; suppressions require a local,
+specific reason. Secret-redaction tests deliberately inject secret-like values into
+downstream messages and prove they do not persist or return.
 
-The Deployer has a separate risk profile because some tests can reach real cloud providers. The useful split is:
+## Flutter Gate
 
-| Category | Purpose |
-|----------|---------|
-| Unit tests | Validate configuration, path handling, provider helpers, and packaging logic without cloud access. |
-| Mocked integration tests | Exercise provider behavior with mocked SDKs such as moto for AWS. |
-| Validation tests | Check uploaded project structures, config files, function code, state machines, simulator payloads, and complete deployer input. |
-| E2E tests | Deploy or destroy real cloud resources and must only run intentionally. |
+The root frontend test command runs architecture checks, formatting, `flutter analyze`,
+unit/widget/demo tests, and Web/macOS build checks. UI tests should cover long text,
+loading/empty/error states, disabled controls, and representative screen sizes.
 
-## Safe Commands
+## E2E Safety
 
-Unit and integration tests are safe to run locally:
+Do not run provider E2E automatically. A live test plan must specify account/project,
+region, expected resources, cost exposure, cleanup/destroy proof, credentials, and
+evidence capture. Pricing API reads may be free at request time but can still require
+credentials/quotas and are not deterministic unit tests.
+
+## Documentation Gate
 
 ```bash
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -v
-docker exec -e PYTHONPATH=/app master-thesis-management-api-1 python -m pytest tests/ -v
+docker compose --profile docs run --rm docs mkdocs build --strict
 ```
 
-E2E tests are different: they can deploy real cloud resources and should only be run intentionally.
+Additionally verify internal links/assets, documented `thesis.sh` commands, Compose
+configuration, present-vs-planned wording, and absence of secret values.

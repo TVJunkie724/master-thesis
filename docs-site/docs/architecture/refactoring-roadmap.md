@@ -181,14 +181,13 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Continue production credential controls in #8 now that durable local secret
-   bootstrap #9 is complete.
-2. Complete the production authentication boundary in #10.
-3. Keep the final supervised validation/removal gates in #6 and #79 aligned
+1. Complete the production authentication boundary in #10 and its UIBK prerequisite
+   documentation in #49.
+2. Keep the final supervised validation/removal gates in #6 and #79 aligned
    with opt-in live-cloud evidence issue #107.
-4. Reconcile the remaining Deployer contract and module debt in #19, #14, and
+3. Reconcile the remaining Deployer contract and module debt in #19, #14, and
    #45 after the explicit runtime-context boundary is complete.
-5. Move optimizer reliability work into Phase 6 once deployment/runtime
+4. Move optimizer reliability work into Phase 6 once deployment/runtime
    boundaries are stable.
-6. Keep live-cloud E2E evidence in opt-in issue #107; default verification must
+5. Keep live-cloud E2E evidence in opt-in issue #107; default verification must
    remain resource-free.

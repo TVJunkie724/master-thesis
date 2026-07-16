@@ -1,50 +1,167 @@
-# Twin2Clouds Optimizer
+# Optimizer
 
-The Optimizer is the cost calculation engine.
+`2-twin2clouds` is the pricing and optimization engine. It owns provider catalog
+acquisition, pricing evidence, semantic intents, normalization, formulas, optimization
+profiles, and cost result traceability. It does not own users, twins, review history,
+or cloud deployment.
 
-Responsibilities:
+## Internal Structure
 
-- evaluate Digital Twin scenario parameters,
-- fetch or consume cloud pricing data,
-- apply the EDTConf'25 cost formulas,
-- recommend provider placement across the five Digital Twin layers.
+| Path | Responsibility |
+|---|---|
+| `rest_api.py`, `api/` | FastAPI entrypoint and internal service contracts |
+| `backend/fetch_data/` | provider-specific pricing and region acquisition |
+| `backend/pricing_*` | registry, evidence, candidate matching, publication, cache |
+| `pricing_registry/` | editable versioned pricing/strategy source of truth |
+| `backend/calculation_v2/` | typed components, formulas, layers, engine, traceability |
+| `backend/optimization/` | metric, model, scoring, and executable profile registry |
+| `json/fetched_data/` | generated provider results and region/currency snapshots |
 
-It should not deploy infrastructure or persist user/twin lifecycle state.
+## Pricing Registry SSOT
 
-## Provider Service Mapping
+The editable registry is YAML, not generated JSON and not the Management API DB:
 
-The original Twin2Clouds documentation mapped each Digital Twin layer to comparable services across AWS, Azure, and GCP. That mapping is central to the optimizer because the cost engine compares provider choices layer by layer.
+| Registry | Defines |
+|---|---|
+| `intents.yaml` | semantic values needed by calculations |
+| `normalization.yaml` | source-unit to canonical-unit transformations |
+| `service_models.yaml` | provider-neutral service model groupings |
+| `providers/*/mappings.yaml` | provider catalog filters and candidate extraction |
+| `pricing_model_classifications.yaml` | model/tier interpretation and review status |
+| `price_source_classifications.yaml` | provider API, official static, derived, unsupported, fallback |
+| `review_decisions.yaml` | reviewed mapping decisions that are source-controlled |
+| `optimization_bundles.yaml` | coherent metric/calculation/formula/workload/provider binding |
+| `calculation_strategies.yaml` | calculation strategy metadata |
+| `formula_sets.yaml` | formula ownership by bundle |
+| `workload_contracts.yaml` | required usage inputs and units |
+| `provider_pricing_contracts.yaml` | provider-specific required fields/build paths |
 
-![Provider service mapping](../references/diagrams/provider_service_mapping_v6.png)
+The loader rejects duplicate keys, schema/version mismatches, missing coverage,
+invalid references, non-publishable source types, and incoherent strategy bundles.
+Reviewed decisions may select mappings but may not store price overrides.
 
-## Provider Layer Mapping
+## Evidence And Candidate Flow
 
-The provider-layer mapping is used to reason about which services can satisfy each layer and which combinations create cross-cloud transfer costs.
+```text
+provider API/static official source
+  -> raw provider row/evidence
+  -> provider mapping predicates
+  -> candidates with accepted/rejected reasons
+  -> intent-specific normalization
+  -> classification + verification gates
+  -> publishable generated pricing field
+```
 
-![Provider layer mapping](../references/diagrams/provider_layer_mapping_1763756000144.png)
+Raw result identity and relevant dimensions remain inspectable so a future developer
+can determine why a row was selected. Ambiguous or drifted rows become review-required
+instead of silently falling back. Diagnostic fallback classifications are explicitly
+non-publishable.
 
-## Cost Optimization Flow
+## Dynamic And Static Pricing
 
-The optimizer evaluates possible provider assignments for the five Digital Twin layers. It combines layer-specific service mappings, provider capability rules, pricing data, and cross-cloud transfer assumptions. The important thesis behavior is not only the final cheapest provider, but the explanation of why a layer was mapped to a provider.
+Not every billable field is available from the same provider API. The source
+classification distinguishes:
 
-The original docs describe the optimizer as a decision graph: each layer/provider choice becomes a candidate node, edges represent valid transitions and transfer costs, and the cheapest path through the graph becomes the recommendation. That model is still the right mental model for the thesis platform.
+- provider API;
+- official static documentation;
+- official calculator reference;
+- reviewed curated model constant;
+- value derived from provider API fields;
+- not applicable or unsupported;
+- diagnostic fallback only.
 
-## Pricing Data
+Each field declares its build path and verification status. This prevents a static
+global charge from pretending to be a failed dynamic fetch and prevents an emergency
+fallback from becoming normal calculation input.
 
-| Provider | Pricing source | Credential behavior |
-|----------|----------------|---------------------|
-| AWS | AWS Price List API | read-only pricing credentials are enough for optimizer pricing fetches |
-| Azure | Azure Retail Prices API | public pricing data can be fetched without the same credential burden |
-| GCP | Cloud Billing Catalog API | service account/project setup may be required depending on fetch path |
+## Calculation Model
 
-Pricing freshness and fetch errors must be visible because stale or partial pricing data changes the quality of the recommendation.
+The calculation engine maps normalized workload quantities and provider pricing to
+typed layer/component results. Provider formulas own differing charging models such as
+per message, per million operations, GB-second, GiB-month, provisioned units, tier
+tables, and transfer brackets. The common result unit is monthly USD, not a claim that
+all raw provider units are identical.
 
-## Implementation Notes
+```text
+usage contract + pricing contract
+  -> provider component formula
+  -> LayerResult with component breakdown
+  -> provider path total
+  -> scoring strategy
+  -> cheapest compatible five-layer path
+  -> trace: profile + bundle + registry + formula + source evidence
+```
 
-- one canonical `LayerResult` model,
-- shared layer calculator contracts,
-- explicit provider capability modeling,
-- visible pricing freshness and fetch errors,
-- versioned pricing schema.
+AWS, Azure, and GCP have provider-specific tier tests. This is calculation coverage,
+not a guarantee that every future catalog row remains valid without refresh review.
 
-The optimizer remains a calculation service. It should not deploy resources, own user state, or assume that a recommendation has already been accepted by the user.
+## Optimization Strategy Bundle
+
+Cost is the only enabled thesis objective. The executable profile binds:
+
+- metric provider (`cost`);
+- pricing intent group;
+- calculation model (`cost_model_v1`);
+- optimization bundle;
+- provider pricing contracts;
+- formula set and workload contract;
+- scoring strategy;
+- result schema version and evidence requirements.
+
+Latency, emissions, and resilience are declarations or future entrypoints, not enabled
+features. A future objective must provide real metric acquisition, evidence policy,
+calculation model, formulas, scoring, schemas, and tests before it can be enabled.
+
+## API Areas
+
+Internal APIs expose calculation, provider pricing refresh/streaming, pricing registry
+metadata, candidate/evidence reports, region acquisition, file freshness, permission
+verification, and configuration validation. The Management API is the intended client.
+Exact fields are available at `http://localhost:5003/docs`.
+
+## Errors And Security
+
+- provider errors are shaped into explicit responses rather than partial success;
+- secrets are redacted from exceptions and validation output;
+- credential-file checks require an explicit local-only gate;
+- request-body credentials are used for normal Management API calls;
+- invalid registries fail before execution;
+- non-publishable evidence cannot enter the calculation contract.
+
+## Tests
+
+The suite covers registry validation, all provider fetchers/evidence adapters, candidate
+matching, publication rules, currency, formulas, provider tiering, engine consistency,
+strategy/profile contracts, API failures, and secret redaction.
+
+```bash
+docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 \
+  python -m pytest tests/ -v
+```
+
+Live provider refresh is not part of deterministic default verification.
+
+## Extension Points
+
+### New provider pricing field
+
+Declare intent/mapping/source/normalization/provider contract, implement acquisition,
+bind it to a formula, add evidence fixtures plus accepted/rejected/tier tests, and pass
+the registry validation gate.
+
+### New optimization objective
+
+Implement and declare metric provider, intent group, calculation model, formula set,
+workload/provider contracts, scoring strategy, result schema, profile, traceability,
+and broad tests. Only then mark its bundle/profile enabled.
+
+## Evolution And Gaps
+
+The original optimizer matched changing provider catalogs through strings and keywords,
+mixed fetched and fallback values, and coupled formulas to loosely structured JSON.
+The current registry/evidence/bundle architecture makes selection and calculation
+traceable and fail-closed.
+
+Final live refresh evidence, historical pricing analytics, additional service tiering,
+and non-cost objectives remain explicit future/evaluation work. Generated JSON snapshots
+are evidence artifacts, not proof that a current provider API will return the same rows.
