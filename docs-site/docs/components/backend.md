@@ -41,7 +41,7 @@ FastAPI route
 
 | Area | Purpose |
 |---|---|
-| `/auth` | development login, OAuth/SAML boundaries, current user/profile |
+| `/auth` | provider capabilities, durable OAuth/SAML login, session exchange/revocation, current user/profile |
 | `/twins` | CRUD, lifecycle, assets, operations, history, status, outputs |
 | `/twins/{id}/config` | configuration workspace persistence and validation |
 | `/twins/{id}/optimizer-config` | typed optimization inputs and projections |
@@ -61,6 +61,8 @@ Use live OpenAPI at `http://localhost:5005/docs` for exact fields.
 
 ```text
 User
+  +-- ExternalIdentity
+  +-- AuthSession
   +-- DigitalTwin
   |     +-- TwinConfiguration
   |     +-- OptimizerConfiguration -- CostCalculationRun -- ResultItem
@@ -74,6 +76,8 @@ PricingRefreshRun
 PricingCandidateReport
 PricingReviewDecision
 CredentialSecurityEvent
+AuthLoginTransaction
+AuthenticationEvent
 ```
 
 Twins are soft-deleted to `inactive`. CloudConnection references are checked before
@@ -115,6 +119,11 @@ require a managed relational database and a migration framework appropriate to i
 - settings fail startup on weak/missing/duplicated runtime secrets;
 - dev auth, seeding, and test routes are forbidden in production;
 - production HTTPS and trusted proxy rules are explicit;
+- external login uses durable one-time transactions, Google PKCE, SAML request
+  correlation, and server-side revocable sessions;
+- identity ownership is keyed by provider subject; email collisions require
+  explicit future account linking rather than implicit merge;
+- authentication and credential operations use separate fail-closed rate limits;
 - structured service errors map to stable HTTP status/error codes;
 - request IDs correlate errors and credential audit events;
 - required credential security-control outages return `503` and fail closed;
@@ -146,6 +155,7 @@ The first integration concentrated queries, state transitions, downstream HTTP c
 and archive construction in large route modules. The current structure separates
 repositories, lifecycle/application services, typed clients, and orchestration.
 
-Production UIBK login remains externally gated and requires a final hardening pass.
+The production authentication implementation is complete, while live UIBK activation
+remains externally gated by institutional federation registration and configuration.
 Encryption-key rotation is explicit future operational work. SQLite remains a bounded
 deployment choice, not a claim of horizontally scalable production persistence.

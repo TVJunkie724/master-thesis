@@ -44,8 +44,11 @@ shape. Flutter has no implicit runtime profile: missing or invalid
 
 Development authentication is available only after selecting the explicit
 local-development action on the Login screen. Production intentionally has no
-development bypass and remains fail-closed until its OAuth/SAML flow is
-implemented.
+development bypass. It discovers enabled Google/UIBK providers from the Management
+API, completes authentication in an external browser, and consumes the result through
+a one-time polling exchange. Production tokens stay in process memory and are cleared
+on logout or session expiry. Live UIBK activation still requires the institutional
+federation setup documented in the docs site.
 
 ## Quality Checks
 

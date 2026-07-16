@@ -1,73 +1,153 @@
 # Authentication
 
-Authentication is profile-specific. Development and demo are complete local
-capabilities; production identity is not yet enabled in Flutter.
+Twin2MultiCloud has three explicit runtime profiles. Development and demo are
+local capabilities; production uses an external browser and a durable,
+provider-neutral Management API session flow.
 
-## Current Profile Behavior
+## Profile Behavior
 
-| Profile | User experience | Backend behavior |
+| Profile | User experience | Trust boundary |
 |---|---|---|
-| development | explicit **Continue in local development** action | bearer token accepted only when `DEV_AUTH_ENABLED=true` in development/test |
-| demo | fixture identity, no login network call | no backend |
-| production | UIBK and Google buttons shown disabled with a configuration notice | OAuth/SAML routes exist but are not yet a production-ready end-to-end client flow |
+| `development` | explicit **Continue in local development** action | fixed bearer accepted only with `DEV_AUTH_ENABLED=true` outside production |
+| `demo` | pre-authenticated fixture identity | no backend, browser login, token, or network adapter |
+| `production` | enabled Google/UIBK actions are reported by the API | external provider callback plus one-time session exchange |
 
-## Google OAuth Boundary
+No profile falls back to another. Production rejects a development token, and
+the Flutter client keeps production access tokens in process memory only.
 
-Backend settings:
+## Production Data Flow
 
-- `GOOGLE_CLIENT_ID`;
-- `GOOGLE_CLIENT_SECRET`;
-- `GOOGLE_REDIRECT_URI`;
-- `FRONTEND_CALLBACK_URL`.
+```text
+Flutter                     Management API                Identity provider
+   | POST /providers/{p}/login   |                               |
+   |---------------------------->| create durable transaction    |
+   | auth URL + poll verifier    | hash state/poll verifier       |
+   |<----------------------------| encrypt Google PKCE verifier   |
+   |                                                             |
+   | open system browser ---------------------------------------->|
+   |                                  verified callback <---------|
+   |                                  consume callback state once |
+   |                                  bind immutable provider sub |
+   |                                                             |
+   | POST /session/exchange      |                               |
+   | transaction + poll verifier|                               |
+   |---------------------------->| consume result once            |
+   | JWT + user                  | create revocable DB session    |
+   |<----------------------------|                               |
+   | authenticated API requests |                               |
+   |---------------------------->| validate JWT and active session|
+```
 
-The backend can initiate OAuth, validate one-time in-memory state, exchange the code,
-create/find a user, and redirect with a JWT. This is not exposed as an enabled
-production Flutter flow. Multi-replica state storage, callback token transport, account
-linking policy, and client callback handling need the production-auth hardening issue.
+The callback returns a minimal no-secret HTML page. It never redirects a JWT,
+authorization result, or poll verifier to Flutter. Browser state and the
+client-held poll verifier are different random values and are stored only as
+digests. A transaction expires, can be cancelled, and can be consumed once.
 
-## UIBK SAML Boundary
+## Provider Contracts
 
-Backend settings:
+`GET /auth/providers` is the capability source of truth. Flutter renders only
+providers reported by that endpoint and keeps disabled providers visible with
+a safe availability reason.
 
-| Setting | Meaning |
+### Google OAuth
+
+- Authorization Code flow with PKCE S256 and a server-side client secret.
+- Required scopes: `openid email profile`.
+- The callback accepts only a matching, unexpired, one-time state.
+- UserInfo must contain an immutable subject and a verified email address.
+- The redirect URI must be HTTPS in production.
+
+### UIBK SAML
+
+- SP-initiated SAML 2.0 with signed AuthnRequests.
+- Assertions must be signed and match the stored request ID through
+  `InResponseTo`; unsolicited responses are rejected.
+- NameID is the immutable provider subject; `mail` is required and
+  `displayName`/`cn` is optional.
+- `GET /auth/uibk/metadata` serves the configured SP metadata only while SAML
+  is fully enabled.
+
+## Identity And Session Policy
+
+`external_identities` owns the unique `(provider, subject)` binding. Email is
+profile data, not an identity key. A first login creates a user only when no
+existing user has that email. If the email already exists under another
+identity, login fails with `IDENTITY_LINK_REQUIRED`; there is no implicit email
+linking.
+
+Issued JWTs contain `sub`, `jti`, `iss`, `aud`, `iat`, `nbf`, and `exp`. Every
+authenticated request also resolves the `jti` against `auth_sessions`, so
+logout revokes the server-side session immediately. Expired, revoked, unknown,
+or malformed sessions return `401` and Flutter clears its in-memory token.
+
+## Persistence And Audit
+
+The explicit database migration creates:
+
+| Table | Purpose |
 |---|---|
-| `SAML_ENABLED` | explicit capability gate |
-| `SAML_SP_ENTITY_ID` | registered service-provider entity ID |
-| `SAML_ACS_URL` | HTTPS assertion consumer endpoint `/auth/uibk/callback` |
-| `SAML_SP_CERT`, `SAML_SP_KEY` | service-provider signing certificate/key material |
-| `SAML_IDP_ENTITY_ID`, `SAML_IDP_SSO_URL`, `SAML_IDP_CERT` | federation IdP metadata |
+| `external_identities` | immutable provider-subject bindings |
+| `auth_login_transactions` | short-lived state, callback and exchange lifecycle |
+| `auth_sessions` | expiry and revocation record for each JWT |
+| `authentication_events` | append-only, secret-free security evidence |
 
-The backend exposes `/auth/uibk/metadata` for service-provider metadata and uses HTTP
-Redirect for login plus HTTP POST for the assertion callback. It requires `mail` and a
-NameID; display name may come from `displayName` or `cn`.
+Legacy Google/UIBK IDs are migrated into `external_identities`. Authentication
+events contain action, outcome, provider, transaction/user references, HTTP
+status, request ID, and timestamp, but no state, verifier, token, assertion, or
+provider response.
 
-## External UIBK/ACOnet Prerequisites
+## Security Controls
 
-Before live activation, the operator must coordinate with the UIBK ZID/IT identity team
-and the applicable ACOnet/eduID.at federation process to obtain or confirm:
+- login and exchange endpoints have separate moving-window limits;
+- production requires shared `redis://` or `rediss://` limiter storage and
+  fails closed when that control is unavailable;
+- provider and callback errors use stable public error codes;
+- callback HTML uses `no-store`, a deny-all CSP, `no-referrer`, and `nosniff`;
+- production callbacks, CORS origins, and API transport require HTTPS;
+- Management API access logging is disabled in the container so OAuth query
+  parameters are not copied into access logs;
+- any edge proxy must likewise omit or redact callback query strings.
 
-1. a stable public HTTPS Management API domain;
-2. the final SP entity ID and exact ACS URL;
-3. SP certificate lifecycle and secure private-key provisioning;
-4. IdP metadata/entity/SSO endpoint and current signing certificate;
-5. released attributes (`mail`, NameID, and optional display name);
-6. federation registration/approval and test identity procedure;
-7. logout, support, privacy, and account-linking expectations.
+## Configuration
 
-UIBK will not accept localhost as the production ACS URL.
+Common settings:
 
-## Required Hardening Before Enablement
+| Setting | Purpose |
+|---|---|
+| `JWT_SECRET_KEY`, `JWT_ALGORITHM` | sign access tokens; HMAC algorithms only |
+| `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_EXPIRE_MINUTES` | validate token scope and lifetime |
+| `AUTH_TRANSACTION_TTL_SECONDS`, `AUTH_POLL_INTERVAL_MS` | browser transaction lifetime/client polling |
+| `AUTH_RATE_LIMIT_ENABLED`, `AUTH_RATE_LIMIT_STORAGE_URI` | shared abuse-control boundary |
+| `AUTH_LOGIN_RATE_LIMIT`, `AUTH_EXCHANGE_RATE_LIMIT` | per-actor operation limits |
 
-The existing backend is a prepared thesis boundary, not a finished production auth
-system. Before enabling it:
+Google requires the complete tuple `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`. UIBK requires
+`SAML_ENABLED=true` plus all SP and IdP fields documented in the
+[UIBK activation section](#external-uibk-activation-gate).
 
-- replace process-local OAuth/SAML state with expiring shared or durable state;
-- validate replay/session behavior and proxy-derived scheme/host handling;
-- replace JWT-in-query redirect transport with a safer client session exchange;
-- define provider identity/account-linking rules instead of automatic email linking;
-- configure secure cookie/token storage and logout/expiry in Flutter;
-- add negative callback, replay, signature/certificate, multi-instance, and E2E tests;
-- enable Flutter buttons only from an authenticated provider-capability contract.
+## External UIBK Activation Gate
 
-This work is tracked by GitHub issues `#10` and `#49`. Until those gates are complete,
-production sign-in remains visibly unavailable rather than falling back to a dev token.
+The implementation is complete locally, but live UIBK login remains externally
+blocked by `#49 Document and resolve UIBK login prerequisites`. Activation
+requires UIBK/ACOnet coordination for the public HTTPS domain, exact entity and
+ACS identifiers, SP certificate lifecycle, IdP metadata/signing certificate,
+released attributes, test identities, and federation approval. Localhost is
+not a valid production ACS URL.
+
+This external gate does not justify a dev-token production fallback. Until the
+institutional configuration exists, `GET /auth/providers` reports UIBK as
+disabled and Flutter explains that it is unavailable.
+
+## Verification
+
+```bash
+./thesis.sh test backend
+./thesis.sh test frontend
+curl http://localhost:5005/auth/providers
+```
+
+Deterministic tests cover expiry, cancellation, replay, invalid verifier/state,
+identity collision, Google PKCE and verified-email parsing, SAML request
+correlation, session revocation, rate limiting, migration, Flutter polling,
+browser failure, cancellation, and `401` handling. Real UIBK authentication can
+only be proven after the external activation gate is satisfied.
