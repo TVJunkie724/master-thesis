@@ -13,7 +13,7 @@ Each layer calculator:
 
 from typing import Dict, Any
 
-from .contracts import LayerResult, SUPPORTED_LAYER_KEYS
+from .contracts import BaseLayerCalculatorSet, LayerResult, SUPPORTED_LAYER_KEYS
 
 from ..components.aws import (
     AWSIoTCoreCalculator,
@@ -27,7 +27,7 @@ from ..components.aws import (
     AWSGrafanaCalculator,
 )
 
-class AWSLayerCalculators:
+class AWSLayerCalculators(BaseLayerCalculatorSet):
     """
     AWS layer cost calculators for L1-L5.
     
@@ -85,8 +85,7 @@ class AWSLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="AWS",
+        return self._result(
             layer="L1",
             total_cost=total,
             data_size_gb=data_size_gb,
@@ -201,8 +200,7 @@ class AWSLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="AWS",
+        return self._result(
             layer="L2",
             total_cost=total,
             messages=executions_per_month,
@@ -257,8 +255,7 @@ class AWSLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="AWS",
+        return self._result(
             layer="L3_hot",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -313,8 +310,7 @@ class AWSLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="AWS",
+        return self._result(
             layer="L3_cool",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -368,8 +364,7 @@ class AWSLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="AWS",
+        return self._result(
             layer="L3_archive",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -395,8 +390,7 @@ class AWSLayerCalculators:
             pricing=pricing
         )
         
-        return LayerResult(
-            provider="AWS",
+        return self._result(
             layer="L4",
             total_cost=tm_cost,
             components={"twinmaker": tm_cost}
@@ -419,8 +413,7 @@ class AWSLayerCalculators:
             pricing=pricing
         )
         
-        return LayerResult(
-            provider="AWS",
+        return self._result(
             layer="L5",
             total_cost=grafana_cost,
             components={"grafana": grafana_cost}

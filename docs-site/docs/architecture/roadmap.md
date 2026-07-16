@@ -19,12 +19,14 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 
 ## Current Workstreams
 
-The latest completed cross-cutting slice is
-[#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109).
-It makes Web, macOS, Windows, and Linux one explicit application support
-contract with native build evidence. Remaining credential, pricing, provider,
-and external authentication work is independently tracked in its GitHub
-milestone rather than inferred from one global "current phase" label.
+The latest Optimizer architecture slice is
+[#68 Standardize optimizer LayerResult and layer calculator contracts](https://github.com/TVJunkie724/master-thesis/issues/68).
+It establishes one validated result model, one calculator/capability boundary,
+fail-closed unsupported-provider selection, and a complete provider-layer test
+matrix. Phase 6 continues with provider capability modeling, traceability, and
+expanded service/tier coverage. Credential, deployment, UI, and external
+authentication work remains independently tracked in its GitHub milestone rather
+than inferred from one global "current phase" label.
 
 ## Backlog Rule
 

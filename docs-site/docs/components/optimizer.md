@@ -129,6 +129,34 @@ usage contract + pricing contract
 AWS, Azure, and GCP have provider-specific tier tests. This is calculation coverage,
 not a guarantee that every future catalog row remains valid without refresh review.
 
+### Layer Result And Capability Contract
+
+All provider layer calculators return the single
+`backend.calculation_v2.layers.LayerResult` model. The model validates provider and
+layer identity, owns an immutable component-cost snapshot, rejects invalid numeric
+values, and requires a reason whenever a capability is unsupported.
+
+```text
+provider formula inputs
+  -> provider component calculators
+  -> BaseLayerCalculatorSet._result(...)
+  -> canonical LayerResult
+  -> cost-result.v1 adapter
+  -> supported provider candidates only
+  -> scoring strategy
+```
+
+AWS and Azure currently support L1 through L5. GCP supports L1 through the three L3
+storage tiers; GCP L4/L5 remain explicitly unsupported because the Deployer has no
+verified self-hosted path. The engine reads this capability state from each result
+instead of maintaining provider-name exceptions. If no provider supports a layer,
+calculation fails explicitly; an unsupported zero-cost result cannot win scoring.
+
+The deterministic matrix tests all 21 provider-layer combinations and preserves the
+existing `cost-result.v1` fields (`cost`, `components`, `supported`, optional
+`dataSizeInGB`, and `unsupportedReason`). The implementation contract is documented
+in `2-twin2clouds/implementation_plans/2026-07-17_layer_result_calculator_contracts.md`.
+
 ## Optimization Strategy Bundle
 
 Cost is the only enabled thesis objective. The executable profile binds:

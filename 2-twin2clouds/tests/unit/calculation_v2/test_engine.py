@@ -7,7 +7,6 @@ Integration tests for the new calculation engine.
 
 import json
 import pytest
-from unittest.mock import patch, MagicMock
 from types import SimpleNamespace
 
 
@@ -149,6 +148,143 @@ class TestEngineIntegration:
             assert isinstance(result[layer]["cost"], (int, float))
             assert result[layer]["cost"] >= 0
             assert result[layer]["supported"] is True
+
+    @pytest.mark.parametrize(
+        ("provider", "supported_layers"),
+        [
+            (
+                "AWS",
+                frozenset(
+                    {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
+                ),
+            ),
+            (
+                "Azure",
+                frozenset(
+                    {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
+                ),
+            ),
+            ("GCP", frozenset({"L1", "L2", "L3_hot", "L3_cool", "L3_archive"})),
+        ],
+    )
+    def test_provider_layer_result_matrix(
+        self,
+        provider,
+        supported_layers,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import (
+            calculate_aws_costs,
+            calculate_azure_costs,
+            calculate_gcp_costs,
+        )
+
+        calculators = {
+            "AWS": calculate_aws_costs,
+            "Azure": calculate_azure_costs,
+            "GCP": calculate_gcp_costs,
+        }
+        results = calculators[provider](sample_params, sample_pricing)
+        layers = {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
+
+        for layer in layers:
+            payload = results[layer]
+            assert set(payload) >= {"cost", "components", "supported"}
+            assert isinstance(payload["cost"], (int, float))
+            assert payload["cost"] >= 0
+            assert isinstance(payload["components"], dict)
+            assert payload["supported"] is (layer in supported_layers)
+            if layer in supported_layers:
+                assert "unsupportedReason" not in payload
+            else:
+                assert payload["unsupportedReason"]
+
+    def test_candidate_options_exclude_unsupported_zero_cost_result(self):
+        from backend.calculation_v2.engine import _supported_provider_options
+
+        options = _supported_provider_options(
+            {
+                "AWS": {"L4": {"cost": 4.0, "supported": True}},
+                "Azure": {"L4": {"cost": 5.0, "supported": True}},
+                "GCP": {
+                    "L4": {
+                        "cost": 0.0,
+                        "supported": False,
+                        "unsupportedReason": "Not implemented",
+                    }
+                },
+            },
+            "L4",
+        )
+
+        assert options == (("AWS", 4.0), ("Azure", 5.0))
+
+    def test_candidate_options_fail_when_no_provider_supports_layer(self):
+        from backend.calculation_v2.engine import _supported_provider_options
+
+        with pytest.raises(ValueError, match="No provider supports architecture layer L5"):
+            _supported_provider_options(
+                {
+                    "AWS": {
+                        "L5": {
+                            "cost": 0.0,
+                            "supported": False,
+                            "unsupportedReason": "Disabled for test",
+                        }
+                    },
+                    "Azure": {
+                        "L5": {
+                            "cost": 0.0,
+                            "supported": False,
+                            "unsupportedReason": "Disabled for test",
+                        }
+                    },
+                    "GCP": {
+                        "L5": {
+                            "cost": 0.0,
+                            "supported": False,
+                            "unsupportedReason": "Not implemented",
+                        }
+                    },
+                },
+                "L5",
+            )
+
+    def test_candidate_options_require_complete_provider_set(self):
+        from backend.calculation_v2.engine import _supported_provider_options
+
+        with pytest.raises(ValueError, match="canonical provider set"):
+            _supported_provider_options(
+                {"AWS": {"L1": {"cost": 1.0, "supported": True}}},
+                "L1",
+            )
+
+    def test_candidate_options_require_unsupported_reason(self):
+        from backend.calculation_v2.engine import _supported_provider_options
+
+        with pytest.raises(ValueError, match="Unsupported GCP result for L4"):
+            _supported_provider_options(
+                {
+                    "AWS": {"L4": {"cost": 1.0, "supported": True}},
+                    "Azure": {"L4": {"cost": 2.0, "supported": True}},
+                    "GCP": {"L4": {"cost": 0.0, "supported": False}},
+                },
+                "L4",
+            )
+
+    def test_candidate_options_reject_malformed_provider_result(self):
+        from backend.calculation_v2.engine import _supported_provider_options
+
+        with pytest.raises(ValueError, match="AWS provider cost result must be a mapping"):
+            _supported_provider_options(
+                {
+                    "AWS": None,
+                    "Azure": {"L1": {"cost": 2.0, "supported": True}},
+                    "GCP": {"L1": {"cost": 3.0, "supported": True}},
+                },
+                "L1",
+            )
 
     def test_gcp_unsupported_layers_are_explicit_in_engine_result(
         self,

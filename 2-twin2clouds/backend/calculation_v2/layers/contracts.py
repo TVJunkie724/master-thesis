@@ -2,14 +2,28 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, ClassVar, Mapping, Protocol, runtime_checkable
+from types import MappingProxyType
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 
 SUPPORTED_LAYER_KEYS = frozenset(
     {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
 )
+SUPPORTED_PROVIDER_KEYS = frozenset({"AWS", "Azure", "GCP"})
+
+
+def _validate_non_negative_number(name: str, value: Any) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Layer result value {name!r} must be numeric")
+    normalized = float(value)
+    if not isfinite(normalized):
+        raise ValueError(f"Layer result value {name!r} must be finite")
+    if normalized < 0:
+        raise ValueError(f"Layer result value {name!r} must be non-negative")
+    return normalized
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,22 +40,91 @@ class LayerResult:
     unsupported_reason: str | None = None
 
     def __post_init__(self) -> None:
+        if self.provider not in SUPPORTED_PROVIDER_KEYS:
+            raise ValueError(f"Unsupported layer result provider: {self.provider!r}")
         if self.layer not in SUPPORTED_LAYER_KEYS:
             raise ValueError(f"Unsupported layer result key: {self.layer}")
-        for name, value in {
+        values = {
             "total_cost": self.total_cost,
             "data_size_gb": self.data_size_gb,
             "messages": self.messages,
-            **dict(self.components),
-        }.items():
-            if not isinstance(value, (int, float)) or not isfinite(float(value)):
-                raise ValueError(f"Layer result value {name!r} must be finite")
-            if value < 0:
-                raise ValueError(f"Layer result value {name!r} must be non-negative")
-        if self.supported and self.unsupported_reason:
+        }
+        for name, value in values.items():
+            _validate_non_negative_number(name, value)
+
+        if not isinstance(self.components, Mapping):
+            raise ValueError("Layer result components must be a mapping")
+        normalized_components: dict[str, float] = {}
+        for name, value in self.components.items():
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Layer result component names must be non-empty strings")
+            normalized_components[name] = _validate_non_negative_number(name, value)
+        object.__setattr__(
+            self,
+            "components",
+            MappingProxyType(normalized_components),
+        )
+
+        if not isinstance(self.supported, bool):
+            raise ValueError("Layer result supported state must be boolean")
+        if self.unsupported_reason is not None and not isinstance(
+            self.unsupported_reason, str
+        ):
+            raise ValueError("Layer result unsupported reason must be a string")
+        normalized_reason = (self.unsupported_reason or "").strip() or None
+        object.__setattr__(self, "unsupported_reason", normalized_reason)
+
+        if self.supported and normalized_reason:
             raise ValueError("Supported layer results cannot declare an unsupported reason")
-        if not self.supported and not self.unsupported_reason:
+        if not self.supported and not normalized_reason:
             raise ValueError("Unsupported layer results require an explicit reason")
+
+
+class BaseLayerCalculatorSet:
+    """Shared provider identity, capability, and result-construction invariants."""
+
+    provider: ClassVar[str]
+    supported_layers: ClassVar[frozenset[str]]
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        provider = getattr(cls, "provider", None)
+        if provider not in SUPPORTED_PROVIDER_KEYS:
+            raise TypeError(f"Unknown layer calculator provider: {provider!r}")
+        supported_layers = frozenset(getattr(cls, "supported_layers", ()))
+        unknown_layers = supported_layers - SUPPORTED_LAYER_KEYS
+        if unknown_layers:
+            raise TypeError(
+                "Layer calculator declares unknown layers: "
+                f"{sorted(unknown_layers)}"
+            )
+        cls.supported_layers = supported_layers
+
+    def supports(self, layer: str) -> bool:
+        if layer not in SUPPORTED_LAYER_KEYS:
+            raise ValueError(f"Unknown architecture layer: {layer!r}")
+        return layer in self.supported_layers
+
+    def _result(
+        self,
+        *,
+        layer: str,
+        total_cost: float,
+        data_size_gb: float = 0.0,
+        messages: float = 0.0,
+        components: Mapping[str, float] | None = None,
+        unsupported_reason: str | None = None,
+    ) -> LayerResult:
+        return LayerResult(
+            provider=self.provider,
+            layer=layer,
+            total_cost=total_cost,
+            data_size_gb=data_size_gb,
+            messages=messages,
+            components=components or {},
+            supported=self.supports(layer),
+            unsupported_reason=unsupported_reason,
+        )
 
 
 @runtime_checkable
@@ -55,6 +138,8 @@ class LayerCalculatorSet(Protocol):
 
     provider: ClassVar[str]
     supported_layers: ClassVar[frozenset[str]]
+
+    def supports(self, layer: str) -> bool: ...
 
     def calculate_l1_cost(self, *args: Any, **kwargs: Any) -> LayerResult: ...
 

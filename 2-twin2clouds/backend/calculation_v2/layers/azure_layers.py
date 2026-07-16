@@ -7,7 +7,7 @@ Aggregates Azure component costs into layer-level costs (L1-L5).
 
 from typing import Dict, Any
 
-from .contracts import LayerResult, SUPPORTED_LAYER_KEYS
+from .contracts import BaseLayerCalculatorSet, LayerResult, SUPPORTED_LAYER_KEYS
 
 from ..components.azure import (
     AzureIoTHubCalculator,
@@ -21,7 +21,7 @@ from ..components.azure import (
     AzureGrafanaCalculator,
 )
 
-class AzureLayerCalculators:
+class AzureLayerCalculators(BaseLayerCalculatorSet):
     """
     Azure layer cost calculators for L1-L5.
     """
@@ -80,8 +80,7 @@ class AzureLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="Azure",
+        return self._result(
             layer="L1",
             total_cost=total,
             messages=messages_per_month,
@@ -181,8 +180,7 @@ class AzureLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="Azure",
+        return self._result(
             layer="L2",
             total_cost=total,
             messages=executions_per_month,
@@ -228,8 +226,7 @@ class AzureLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="Azure",
+        return self._result(
             layer="L3_hot",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -275,8 +272,7 @@ class AzureLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="Azure",
+        return self._result(
             layer="L3_cool",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -322,8 +318,7 @@ class AzureLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="Azure",
+        return self._result(
             layer="L3_archive",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -372,8 +367,7 @@ class AzureLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="Azure",
+        return self._result(
             layer="L4",
             total_cost=total,
             components=components
@@ -392,8 +386,7 @@ class AzureLayerCalculators:
             pricing=pricing
         )
         
-        return LayerResult(
-            provider="Azure",
+        return self._result(
             layer="L5",
             total_cost=grafana_cost,
             components={"grafana": grafana_cost}
