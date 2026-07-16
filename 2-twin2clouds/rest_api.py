@@ -14,7 +14,7 @@ from backend.logger import logger
 from backend.config_loader import load_config_file
 
 # Import API routers
-from api import calculation, pricing, pricing_registry, regions, file_status, credentials, validation
+from api import capabilities, calculation, pricing, pricing_registry, regions, file_status, credentials, validation
 
 
 # =============================================================================
@@ -75,6 +75,7 @@ app = FastAPI(
             ),
         },
         {"name": "Validation", "description": "Endpoints for validating optimizer configuration."},
+        {"name": "Capabilities", "description": "Provider-layer calculation capability contracts."},
     ],
     lifespan=lifespan
 )
@@ -129,3 +130,4 @@ app.include_router(regions.router)
 app.include_router(file_status.router)
 app.include_router(credentials.router)
 app.include_router(validation.router)
+app.include_router(capabilities.router)

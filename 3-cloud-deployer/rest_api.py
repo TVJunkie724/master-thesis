@@ -15,6 +15,7 @@ from src.api.error_handling import internal_server_error
 
 # Import API routers
 from src.api import (
+    capabilities,
     credentials,
     deployment,
     functions,
@@ -101,3 +102,4 @@ app.include_router(credentials.router)
 app.include_router(functions.router)
 app.include_router(logs.router)
 app.include_router(verify.router)
+app.include_router(capabilities.router)
