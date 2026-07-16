@@ -15,7 +15,7 @@ data acquisition, processing, storage, Digital Twin management, and visualizatio
                                    v
 +----------------+        +----------------------+        +----------------+
 | Flutter client |------->| Management API :5005 |------->| Optimizer :5003|
-| host/web/macOS | HTTP   | durable orchestration| HTTP   | pricing + cost |
+| Web/all desktop| HTTP   | durable orchestration| HTTP   | pricing + cost |
 +----------------+ + SSE  +----------+-----------+        +----------------+
                                      |
                                      | manifest/archive + operation requests

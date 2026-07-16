@@ -1,5 +1,9 @@
 # Authentication
 
+Production authentication uses the same capability-driven external-browser and
+one-time exchange contract on Web, macOS, Windows, and Linux. Platform support
+does not change provider configuration or trust boundaries.
+
 Twin2MultiCloud has three explicit runtime profiles. Development and demo are
 local capabilities; production uses an external browser and a durable,
 provider-neutral Management API session flow.

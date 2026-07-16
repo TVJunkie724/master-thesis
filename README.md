@@ -13,7 +13,7 @@ For the canonical published documentation site, see [`docs-site/`](docs-site/).
 
 | Directory | Role | Port |
 |-----------|------|------|
-| [`twin2multicloud_flutter/`](twin2multicloud_flutter/) | Flutter UI (macOS / web / …) | — |
+| [`twin2multicloud_flutter/`](twin2multicloud_flutter/) | Flutter UI (Web, macOS, Windows, Linux) | — |
 | [`twin2multicloud_backend/`](twin2multicloud_backend/) | Management API (FastAPI, SQLite) | 5005 |
 | [`2-twin2clouds/`](2-twin2clouds/) | Cost Optimizer — "Brain" | 5003 |
 | [`3-cloud-deployer/`](3-cloud-deployer/) | Cloud Deployer — "Muscle" | 5004 |
@@ -26,7 +26,10 @@ For the canonical published documentation site, see [`docs-site/`](docs-site/).
 
 - **Docker** (OrbStack, Docker Desktop, or similar) — used to run all three backend services
 - **Flutter SDK** ≥ 3.41 (with Dart ≥ 3.11) — for the UI
+- **Python** ≥ 3.9 — used by the root entrypoint and repository quality checks
 - **Git**
+- Native Flutter desktop tooling for macOS, Windows, or Linux; Windows users run
+  `thesis.sh` through Git Bash
 - Cloud credentials (AWS / GCP / Azure) — only required if you actually want to validate cloud access, seed sample twins with real credentials, or run deployments
 
 ---
@@ -91,7 +94,7 @@ Backend only:
 Flutter only:
 
 ```bash
-./thesis.sh flutter --device macos
+./thesis.sh flutter
 ```
 
 Status and logs:
@@ -245,7 +248,8 @@ In a second terminal:
 ```bash
 cd twin2multicloud_flutter
 flutter pub get
-flutter run -d macos --dart-define-from-file=config/dev.json
+flutter run -d <macos|windows|linux|chrome> \
+  --dart-define-from-file=config/dev.json
 ```
 
 The first screen will auto-login as the mock developer user, hit the Management API, and thereby seed the DB (see step 5).

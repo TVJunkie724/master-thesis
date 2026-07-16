@@ -37,6 +37,7 @@ nav:
   - Getting Started:
       - Overview: getting-started/index.md
       - Fresh Clone: getting-started/fresh-clone.md
+      - Supported Platforms: getting-started/supported-platforms.md
       - Runtime Profiles: getting-started/runtime-profiles.md
   - Architecture:
       - Overview: architecture/index.md

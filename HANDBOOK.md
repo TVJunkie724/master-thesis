@@ -59,7 +59,7 @@ Use [`thesis.sh`](thesis.sh) from the repository root for day-to-day local work.
 |---------|---------|
 | `./thesis.sh up` | Start backend stack, write Flutter config, smoke-check APIs, run Flutter. |
 | `./thesis.sh up --no-flutter` | Start backend stack and write Flutter config only. |
-| `./thesis.sh flutter --device macos` | Run Flutter against the generated dev config. |
+| `./thesis.sh flutter` | Run Flutter against the generated dev config on the detected macOS, Windows, or Linux host. |
 | `./thesis.sh demo` | Run the offline showcase with deterministic in-memory data. |
 | `./thesis.sh demo --scenario degraded` | Run the offline degraded-state scenario. |
 | `./thesis.sh config` | Generate `twin2multicloud_flutter/config/dev.json`. |
@@ -68,7 +68,7 @@ Use [`thesis.sh`](thesis.sh) from the repository root for day-to-day local work.
 | `./thesis.sh logs management-api` | Follow logs for one service. |
 | `./thesis.sh down` | Stop local Compose services for this project. |
 | `./thesis.sh test backend` | Run Management API tests, excluding E2E tests. |
-| `./thesis.sh test frontend` | Run Flutter architecture, format, analyze, unit/widget/demo, and Web/macOS build gates. |
+| `./thesis.sh test frontend` | Run Flutter architecture, format, analyze, unit/widget/demo, Web, and current-host desktop build gates. |
 | `./thesis.sh test frontend-integration` | Run read-only Flutter contracts against the credential-free local stack. |
 
 Useful environment overrides:
@@ -330,7 +330,7 @@ Generate it from the repository root:
 Then run Flutter through the script:
 
 ```bash
-./thesis.sh flutter --device macos
+./thesis.sh flutter
 ```
 
 ### A port is already in use

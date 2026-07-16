@@ -26,8 +26,13 @@ downstream messages and prove they do not persist or return.
 ## Flutter Gate
 
 The root frontend test command runs architecture checks, formatting, `flutter analyze`,
-unit/widget/demo tests, and Web/macOS build checks. UI tests should cover long text,
-loading/empty/error states, disabled controls, and representative screen sizes.
+unit/widget/demo tests, and Web plus current-host desktop build checks. Native CI
+additionally builds macOS, Windows, and Linux releases. UI tests should cover long
+text, loading/empty/error states, disabled controls, and representative screen sizes.
+
+A build on one desktop operating system is not evidence for another. The
+repository workflow is the authoritative cross-platform compilation gate; see
+[Supported Platforms](../getting-started/supported-platforms.md).
 
 ## E2E Safety
 
