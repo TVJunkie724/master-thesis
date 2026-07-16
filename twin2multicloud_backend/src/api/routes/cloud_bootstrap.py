@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
 from src.models.database import get_db
 from src.models.user import User
@@ -13,6 +12,14 @@ from src.schemas.cloud_bootstrap import (
 )
 from src.services.cloud_bootstrap_service import CloudBootstrapService
 from src.services.cloud_connection_service import CloudConnectionService
+from src.schemas.credential_security_event import (
+    CredentialSecurityAction,
+    CredentialSecurityEventDraft,
+    CredentialSecurityOutcome,
+)
+from src.security.rate_limit import CredentialRateClass, credential_rate_limit
+from src.security.request_context import current_request_id
+from src.services.credential_security_audit_service import CredentialSecurityAuditService
 
 router = APIRouter(prefix="/cloud-bootstrap", tags=["cloud-bootstrap"])
 
@@ -31,11 +38,21 @@ router = APIRouter(prefix="/cloud-bootstrap", tags=["cloud-bootstrap"])
 async def create_cloud_bootstrap_plan(
     provider: str,
     request: CloudBootstrapPlanRequest,
-    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_PLAN,
+        )
+    ),
 ):
-    del current_user
     try:
-        return CloudBootstrapService().build_plan(provider, request)
+        result = CloudBootstrapService().build_plan(provider, request)
+        CredentialSecurityAuditService.commit_standalone(
+            db,
+            _audit(current_user, CredentialSecurityAction.BOOTSTRAP_PLAN, result.provider, 200),
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -54,11 +71,43 @@ async def create_cloud_bootstrap_plan(
 async def import_cloud_bootstrap_connection(
     request: CloudBootstrapImportRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_IMPORT,
+        )
+    ),
 ):
     service = CloudConnectionService(db)
     try:
-        connection = service.create_connection(current_user.id, request.connection)
+        connection = service.create_connection(
+            current_user.id,
+            request.connection,
+            _audit(
+                current_user,
+                CredentialSecurityAction.BOOTSTRAP_IMPORT,
+                request.connection.provider,
+                200,
+            ),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return CloudBootstrapImportResponse(connection=connection)
+
+
+def _audit(
+    user: User,
+    action: CredentialSecurityAction,
+    provider: str,
+    status: int,
+) -> CredentialSecurityEventDraft:
+    return CredentialSecurityEventDraft(
+        user_id=user.id,
+        action=action,
+        outcome=CredentialSecurityOutcome.SUCCEEDED,
+        resource_type="cloud_bootstrap",
+        provider=provider,
+        purpose="bootstrap",
+        http_status=status,
+        request_id=current_request_id(),
+    )

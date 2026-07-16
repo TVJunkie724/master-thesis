@@ -8,12 +8,17 @@ import json
 import uuid
 from typing import Any
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.models.cloud_connection import CloudConnection
 from src.repositories.cloud_connection_repository import CloudConnectionRepository
 from src.schemas.cloud_connection import CloudConnectionCreate, CloudConnectionResponse, CloudConnectionUpdate
+from src.schemas.credential_security_event import CredentialSecurityEventDraft
+from src.services.credential_security_audit_service import (
+    CredentialAuditWriteFailed,
+    CredentialSecurityAuditService,
+)
 from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.errors import CloudConnectionConflict
 from src.utils.crypto import decrypt_scoped, encrypt_scoped
@@ -32,7 +37,12 @@ class CloudConnectionService:
     def get_connection(self, connection_id: str, user_id: str) -> CloudConnection | None:
         return self._repo.get_for_user(connection_id, user_id)
 
-    def create_connection(self, user_id: str, request: CloudConnectionCreate) -> CloudConnectionResponse:
+    def create_connection(
+        self,
+        user_id: str,
+        request: CloudConnectionCreate,
+        audit: CredentialSecurityEventDraft | None = None,
+    ) -> CloudConnectionResponse:
         connection_id = str(uuid.uuid4())
         payload = self._normalize_payload(request)
         payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -60,6 +70,7 @@ class CloudConnectionService:
             validation_status="untested",
         )
         self._repo.add(connection)
+        self._append_audit(audit, resource_id=connection_id)
         self._commit_default_change()
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
@@ -69,6 +80,7 @@ class CloudConnectionService:
         connection: CloudConnection,
         user_id: str,
         request: CloudConnectionUpdate,
+        audit: CredentialSecurityEventDraft | None = None,
     ) -> CloudConnectionResponse:
         if connection.purpose == "pricing" and request.permission_set_version is not None:
             raise ValueError("permission_set_version is only supported for deployment Cloud Connections")
@@ -86,23 +98,35 @@ class CloudConnectionService:
             connection.is_default_for_pricing = request.is_default_for_pricing
         connection.updated_at = datetime.utcnow()
 
+        self._append_audit(audit, resource_id=connection.id)
         self._commit_default_change()
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
 
-    def delete_connection(self, connection: CloudConnection) -> None:
+    def delete_connection(
+        self,
+        connection: CloudConnection,
+        audit: CredentialSecurityEventDraft | None = None,
+    ) -> None:
+        self._append_audit(audit, resource_id=connection.id)
         self._repo.delete(connection)
-        self._db.commit()
+        self._commit_audited_change()
 
     def count_twin_bindings(self, connection_id: str) -> int:
         return self._repo.count_twin_bindings(connection_id)
 
-    def record_validation_result(self, connection: CloudConnection, result: dict[str, Any]) -> None:
+    def record_validation_result(
+        self,
+        connection: CloudConnection,
+        result: dict[str, Any],
+        audit: CredentialSecurityEventDraft | None = None,
+    ) -> None:
         connection.validation_status = "valid" if result.get("valid") else "invalid"
         connection.validation_message = self._validation_message(result)
         connection.last_validated_at = datetime.utcnow()
         connection.updated_at = datetime.utcnow()
-        self._db.commit()
+        self._append_audit(audit, resource_id=connection.id)
+        self._commit_audited_change()
         self._db.refresh(connection)
 
     def record_successful_use(self, connection: CloudConnection) -> None:
@@ -117,6 +141,33 @@ class CloudConnectionService:
             raise CloudConnectionConflict(
                 "Another pricing default was selected concurrently; reload and retry."
             ) from exc
+        except SQLAlchemyError as exc:
+            self._db.rollback()
+            raise CredentialAuditWriteFailed("Credential transaction could not be audited") from exc
+
+    def _commit_audited_change(self) -> None:
+        try:
+            self._db.commit()
+        except SQLAlchemyError as exc:
+            self._db.rollback()
+            raise CredentialAuditWriteFailed("Credential transaction could not be audited") from exc
+
+    def _append_audit(
+        self,
+        audit: CredentialSecurityEventDraft | None,
+        *,
+        resource_id: str,
+    ) -> None:
+        if audit is None:
+            return
+        try:
+            CredentialSecurityAuditService.append(
+                self._db,
+                audit.model_copy(update={"resource_id": resource_id}),
+            )
+        except SQLAlchemyError as exc:
+            self._db.rollback()
+            raise CredentialAuditWriteFailed("Credential transaction could not be audited") from exc
 
     def to_response(self, connection: CloudConnection, user_id: str) -> CloudConnectionResponse:
         payload = self.decrypt_payload(connection, user_id)
