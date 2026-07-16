@@ -8,8 +8,9 @@ These PDFs and external records are intentionally preserved because the document
   - [JKU research portal record](https://research.jku.at/en/publications/twin2clouds-cost-aware-digital-twin-engineering-and-deployment-ac/)
   - [Google Scholar search](https://scholar.google.com/scholar?q=Twin2Clouds%3A+Cost-Aware+Digital+Twin+Engineering+and+Deployment+Across+Federated+Clouds)
 - [Bachelor Thesis: Multi-Cloud Digital Twins](bachelor_digital_twins.pdf)
-- [Documentation Migration Matrix](documentation-migration-matrix.md)
+- [Source Provenance Appendix](source-provenance.md)
 
-Duplicate copies may remain in service-local documentation during migration. They should only be removed after all published documentation links point here and file identity has been verified.
+Duplicate copies may remain in service-local historical documentation until a dedicated,
+credential-safe archive/cleanup verifies that no unique evidence is lost.
 
 Diagram assets copied from the original HTML documentation are used in their relevant architecture, optimizer, project-structure, and testing pages rather than collected on a standalone diagram page.

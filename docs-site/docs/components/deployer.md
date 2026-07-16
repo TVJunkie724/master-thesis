@@ -1,39 +1,146 @@
 # Cloud Deployer
 
-The Deployer is the infrastructure execution engine.
+`3-cloud-deployer` is the infrastructure execution boundary. It validates canonical
+deployment packages, provisions/destroys provider resources, packages user functions,
+runs bounded status/verification probes, and owns Terraform/runtime state.
 
-Responsibilities:
+It does not own users, twin lifecycle, reusable credential storage, cost formulas, or
+Flutter-facing orchestration.
 
-- validate deployer-specific configuration,
-- materialize deployment workspaces,
-- run Terraform-first deployment and destroy workflows,
-- manage provider-specific packaging and post-Terraform operations,
-- return structured deployment outputs and logs.
+## Internal Structure
 
-It should not own user lifecycle state. The Management API owns user/twin state and calls the Deployer through typed contracts.
+| Path | Responsibility |
+|---|---|
+| `rest_api.py`, `src/main.py`, `src/api/` | FastAPI entrypoint and operation contracts |
+| `src/core/` | context, paths, storage, registry, workspace, observability, secure files |
+| `src/providers/` | provider protocol and AWS/Azure/GCP implementations |
+| `src/providers/terraform/` | Terraform lifecycle, package builders, runtime outcomes |
+| `src/configuration_validation/`, `src/validation/` | aggregate package/config validation |
+| `src/project_archive/` | archive extraction and security policy |
+| `src/operation_packages.py` | staged immutable package/token lifecycle |
+| `src/log_tracing/`, `src/status/`, `src/verification/` | logs, status probes, data-flow evidence |
+| `src/simulator/`, `src/iot_device_simulator/` | simulator session and provider senders |
+| `templates/digital-twin/` | canonical versioned template source |
+| `upload/template/` | preserved legacy/example project material, not canonical runtime truth |
 
-## Implementation Notes
+## Canonical Contract
 
-- keep one canonical provider/Terraform path,
-- remove or isolate legacy deployment paths,
-- replace global project state with explicit deployment context,
-- separate versioned templates from runtime upload artifacts,
-- support credential preflight checks and least-privilege bootstrap flows.
+The Management API sends one validated ZIP containing `deployment_manifest.json`
+version `1.0` and the exact generated/project artifacts for an operation. The Deployer:
 
-Terraform remains the infrastructure execution layer, but it should be driven from explicit manifests and generated workspaces. The template directory is source material; deployment output is runtime state.
+1. applies upload limits and safe archive policy;
+2. validates manifest and required content;
+3. writes a runtime project definition;
+4. stages exact bytes as an operation package;
+5. returns a token and package metadata;
+6. requires the token for deploy/destroy;
+7. acquires it exclusively and invalidates it after use.
 
-The canonical default template is `3-cloud-deployer/templates/digital-twin/`. Runtime project folders belong under `3-cloud-deployer/upload/<project-name>/`. The old `upload/template/` path is treated as a local legacy fallback only and must not be mutated by normal deployment flows.
+Legacy layer-specific endpoints and the interactive CLI are historical, not canonical
+application interfaces.
 
-## Provider Responsibilities
+## Storage And Workspace Model
 
-The provider modules translate one conceptual Digital Twin deployment into provider-specific resources:
+```text
+versioned template (read-only source)
+       |
+Management API archive
+       v
+runtime project definition ----> staged operation package
+                                      |
+                                      v
+                               ephemeral workspace
+                                      |
+                         Terraform + provider SDK operations
+                                      |
+                     allowlisted durable outputs only
+```
 
-| Layer | AWS examples | Azure examples | GCP examples |
-|-------|--------------|----------------|--------------|
-| Data acquisition | IoT Core | IoT Hub | Pub/Sub or HTTP ingress |
-| Processing | Lambda | Azure Functions | Cloud Functions |
-| Storage | DynamoDB, S3 | Cosmos DB, Blob Storage | Firestore, Cloud Storage |
-| Management | IoT TwinMaker | Azure Digital Twins | limited managed equivalent |
-| Visualization | Managed Grafana | Managed Grafana | limited managed equivalent |
+`ProjectStorage` centralizes validated project names and paths, blocks traversal,
+protects template writes, and suppresses sensitive filenames from generic file trees
+and content endpoints. Operation workspaces reject symlinks and exclude caches/build
+artifacts.
 
-Cross-cloud boundaries require connector or wrapper functions. Those functions are part of the deployer implementation detail, while the Management API should still see one deployment workflow.
+Durable synchronized outputs include Terraform state/backup, IoT device auth material,
+generated simulator configuration, and selected build metadata. Generated tfvars,
+provider caches, and ordinary build products remain ephemeral.
+
+## Terraform And Provider Pattern
+
+`CloudProvider`/`BaseProvider` define provider behavior; `ProviderRegistry` resolves
+AWS, Azure, and GCP implementations. `TerraformDeployerStrategy` owns common deploy and
+destroy lifecycles while provider package builders generate provider-specific modules,
+functions, variables, and glue artifacts.
+
+Terraform is retained because infrastructure state, planning, idempotence, and destroy
+semantics fit the problem. Files are an implementation artifact inside an isolated
+operation workspace, not the user-facing source of truth.
+
+## Five-Layer Mapping
+
+| Layer | AWS | Azure | GCP |
+|---|---|---|---|
+| acquisition | IoT Core | IoT Hub | Pub/Sub / supported ingress path |
+| processing | Lambda / Step Functions | Functions / Logic Apps | Cloud Functions / Workflows |
+| storage | DynamoDB and S3 tiers | Cosmos DB and Blob tiers | Firestore and Cloud Storage tiers |
+| Digital Twin management | IoT TwinMaker | Azure Digital Twins | limited/custom equivalent |
+| visualization | Managed Grafana | Managed Grafana | limited/custom equivalent |
+
+Provider capability is not uniform. Unsupported or limited L4/L5 behavior must remain
+visible instead of being represented as equivalent deployment support.
+
+## User Functions And Packaging
+
+The package builders discover typed function definitions by layer and role, generate
+provider-specific archives, and preserve required wrapper/entrypoint conventions.
+User code is validated before packaging. Azure blueprints and provider dependency
+layouts differ from AWS Lambda and GCP Cloud Functions; see
+[User Function Patterns](user-functions.md).
+
+## Operations, Logging, And Errors
+
+- request/operation context provides project, provider, operation ID, and phase;
+- structured progress is streamed without exposing credential payloads;
+- formatter and error boundaries redact sensitive values;
+- Terraform subprocess outcomes become typed provider/runtime failures;
+- workspace sync failures are explicit and do not hide the original operation error;
+- deployment, destroy, cleanup, status, logs, simulator, and verification are distinct APIs;
+- project/package contention returns conflicts instead of concurrent mutation.
+
+## Preflight And Verification
+
+Provider permission sets are versioned and can be checked before deployment. Data-flow
+verification runs explicit phases/probes with outcomes rather than treating logs as
+proof. Safe unit/integration tests mock cloud boundaries; real provider proof remains
+an opt-in supervised E2E activity.
+
+## Tests
+
+```bash
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
+  python -m pytest tests/ --ignore=tests/e2e -v
+```
+
+Coverage includes API contracts, archive attacks/limits, storage, operation tokens,
+workspace cleanup/sync, validation aggregation, Terraform lifecycles, providers,
+permission checks, logging/redaction, simulator sessions, status, and verification.
+
+## Extension Points
+
+- implement/register a provider through the provider protocol and capability tests;
+- add provider package-builder behavior without branching orchestration routes;
+- register new user-function metadata and validate provider packaging contracts;
+- add a verification probe with typed phase output and side-effect bounds;
+- add durable workspace output only through the explicit sync allowlist;
+- evolve manifests with a new version and compatibility/validation tests.
+
+## Evolution And Gaps
+
+Originally, `upload/template` served simultaneously as template, development project,
+credential location, and runtime output. Global/current-project state and multiple CLI,
+layer, and REST paths made concurrent, reproducible operation difficult. The current
+manifest, project storage, token, and ephemeral-workspace design establishes one path.
+
+Provider feature parity, selected simulator behavior, Azure/GCP cross-cloud helpers,
+and final least-privilege/live deployment evidence remain visible gaps. They must not
+be hidden behind fallback endpoints or template mutation.

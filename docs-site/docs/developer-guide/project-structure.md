@@ -1,35 +1,34 @@
 # Project Structure
 
-The repository contains the integrated thesis platform and the original service projects it builds on.
-
-![Project structure diagram](../references/diagrams/project_structure_diagram_1763756022092.png)
-
-## Main Directories
-
-| Directory | Purpose |
-|-----------|---------|
-| `twin2multicloud_backend/` | Management API, persistence, orchestration, and the UI-facing backend contract. |
-| `twin2multicloud_flutter/` | Flutter application for scenario configuration, optimization review, deployment control, and twin operation. |
-| `2-twin2clouds/` | Optimizer service derived from the original Twin2Clouds cost-modeling project. |
-| `3-cloud-deployer/` | Deployer service derived from the cloud deployment bachelor project. |
-| `twin2multicloud-latex/` | Thesis source. |
-| `docs-site/` | Canonical documentation site. |
-
-Service-local docs under `2-twin2clouds/docs/` and `3-cloud-deployer/docs/` are migration source material. They can remain while content is being rewritten, but new thesis/developer documentation should live in `docs-site/`.
-
-## Important Integration Detail
-
-The original projects were developed as separate systems. In this thesis repository, the Management API is the integration boundary:
-
 ```text
-Flutter UI
-  -> Management API
-    -> Optimizer
-    -> Deployer
+master-thesis/
+|-- thesis.sh                    canonical local entrypoint
+|-- compose.yaml                 credential-free application stack
+|-- compose.cloud.local.yaml     opt-in local cloud credential overlay
+|-- bootstrap/                   versioned provider identity scripts
+|-- docs-site/                   canonical documentation
+|-- docs/plans/                  accepted concepts/implementation plans
+|-- twin2multicloud_flutter/     Flutter UI
+|-- twin2multicloud_backend/     Management API and SQLite domain state
+|-- 2-twin2clouds/               Optimizer and pricing registry
+|-- 3-cloud-deployer/            infrastructure execution engine
+`-- twin2multicloud-latex/       separate thesis source (not app runtime)
 ```
 
-That means old service-local setup docs remain useful as source material, but the integrated developer workflow should be described from the repository root.
+![Historical project structure diagram](../references/diagrams/project_structure_diagram_1763756022092.png)
 
-Generated deployment files, uploaded project bundles, Terraform state, and local credential files are runtime material. They should not be treated as architectural source files just because they appear in the repository during the transition.
+The image preserves the project lineage. The authoritative current boundaries are the
+text and diagrams in [System Context](../architecture/system-context.md).
 
-For the Deployer specifically, reusable source templates live under `3-cloud-deployer/templates/digital-twin/`. Runtime upload folders stay under `3-cloud-deployer/upload/<project-name>/`; `upload/template/` is a legacy local testing fallback and may contain ignored credentials.
+## Where A Change Belongs
+
+| Change | Owner |
+|---|---|
+| screen, navigation, interaction state | Flutter |
+| user/twin/config/history lifecycle | Management API |
+| cloud credential persistence and ownership | Management API |
+| pricing catalog matching/normalization/formulas | Optimizer |
+| provider resources, Terraform, function packaging | Deployer |
+| published explanation | docs site |
+
+Cross-project contract changes require consumer and provider tests in the same slice.

@@ -34,32 +34,60 @@ extra_javascript:
 
 nav:
   - Home: index.md
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Fresh Clone: getting-started/fresh-clone.md
+      - Runtime Profiles: getting-started/runtime-profiles.md
   - Architecture:
       - Overview: architecture/index.md
-      - Platform Overview: architecture/platform-overview.md
+      - System Context: architecture/system-context.md
+      - Responsibilities & Data Ownership: architecture/data-ownership.md
+      - End-to-End Flows: architecture/end-to-end-flows.md
+      - Security & Trust Boundaries: architecture/security-boundaries.md
+      - Original to Current State: architecture/evolution.md
       - Project Background: architecture/project-background.md
       - Roadmap: architecture/roadmap.md
       - Refactoring Roadmap: architecture/refactoring-roadmap.md
   - Components:
-      - Management API: components/backend.md
       - Flutter UI: components/flutter.md
+      - Management API: components/backend.md
       - Optimizer: components/optimizer.md
       - Deployer: components/deployer.md
       - User Function Patterns: components/user-functions.md
+      - Documentation Site: components/docs-site.md
   - Runtime:
       - Overview: runtime/index.md
+      - Authentication: runtime/authentication.md
+      - Configuration Reference: runtime/configuration.md
+      - State & Persistence: runtime/state-and-persistence.md
+      - Operations & Logging: runtime/operations.md
+      - Troubleshooting: runtime/troubleshooting.md
   - Developer Guide:
       - Overview: developer-guide/index.md
       - Project Setup: developer-guide/setup.md
       - Project Structure: developer-guide/project-structure.md
+      - API & Contracts: developer-guide/contracts.md
+      - Extension Points: developer-guide/extension-points.md
       - Testing: developer-guide/testing.md
   - User Guide:
       - Overview: user-guide/index.md
+      - Dashboard & Twins: user-guide/dashboard-and-twins.md
+      - Cloud Accounts: user-guide/cloud-accounts.md
+      - Configuration Workspace: user-guide/configuration-workspace.md
+      - Pricing Review: user-guide/pricing-review.md
+      - Deployment & Verification: user-guide/deployment.md
+      - Multi-Cloud Walkthrough: user-guide/multi-cloud-walkthrough.md
+      - Offline Demo: user-guide/demo.md
   - Cloud Setup:
       - Overview: cloud-setup/index.md
+      - AWS: cloud-setup/aws.md
+      - Azure: cloud-setup/azure.md
+      - Google Cloud: cloud-setup/gcp.md
       - Provider Links: cloud-setup/provider-links.md
   - API:
       - Overview: api/index.md
+  - Thesis & Evolution:
+      - Engineering Decisions: thesis/engineering-decisions.md
+      - Limitations & Evidence: thesis/limitations-and-evidence.md
   - References:
       - Overview: references/index.md
-      - Documentation Migration Matrix: references/documentation-migration-matrix.md

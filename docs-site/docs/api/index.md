@@ -1,36 +1,32 @@
 # API
 
-The Management API is the only API boundary the Flutter app should know about. Optimizer and Deployer APIs are internal service contracts used by the Management API.
+The Management API is the public application boundary. Optimizer and Deployer APIs are
+internal contracts used by it.
 
-## Contract Boundaries
+## Live References
 
-| Contract | Consumer | Purpose |
-|----------|----------|---------|
-| Flutter -> Management API | Flutter UI | users, twins, configuration, optimizer requests, deployment actions, status streams |
-| Management API -> Optimizer | Management API | scenario evaluation and provider placement |
-| Management API -> Deployer | Management API | deployment preflight, deploy, destroy, logs, outputs |
+| Service | Swagger UI | OpenAPI JSON |
+|---|---|---|
+| Management API | `http://localhost:5005/docs` | `http://localhost:5005/openapi.json` |
+| Optimizer | `http://localhost:5003/docs` | `http://localhost:5003/openapi.json` |
+| Deployer | `http://localhost:5004/docs` | `http://localhost:5004/openapi.json` |
 
-This keeps frontend state independent from provider-specific deployment mechanics and lets the backend normalize errors, retries, and long-running deployment events.
+## Authentication
 
-## Local API Docs
+Protected Management API endpoints require a bearer token. Development mode offers an
+explicit local token only when enabled. Production expects real OAuth/SAML-issued
+application tokens; institutional SAML activation remains externally gated.
 
-When the stack is running, service-local OpenAPI pages are available for implementation detail:
+## Streaming
 
-- Management API: `http://localhost:5005/docs`
-- Optimizer: `http://localhost:5003/docs`
-- Deployer: `http://localhost:5004/docs`
+Long-running deployment/log workflows use SSE for server-to-client progress. Durable
+status/history remains available through REST, so clients recover after stream or page
+loss by re-reading operation state.
 
-The published docs site should describe stable contracts and behavior. Raw service-local OpenAPI output is useful for development, but it should not replace the higher-level contract explanation.
+## Internal API Rule
 
-## Contract Topics
+Optimizer and Deployer ports are published for local development and OpenAPI inspection.
+That does not authorize Flutter to call them. Internal contract errors are transformed
+at the Management API boundary into owner-scoped, redacted public responses.
 
-| Topic | Belongs in | Notes |
-|-------|------------|-------|
-| Twin configuration | Management API | UI creates and edits this through typed twin/config endpoints. |
-| Cost calculation | Optimizer contract | The Management API sends scenario inputs and receives provider placement plus cost explanation. |
-| Deployment manifest | Management API -> Deployer | The manifest should be the deployer input, not an ad hoc folder layout assembled by Flutter. |
-| Deploy/destroy stream | Deployer contract, exposed through Management API | Long-running events should use stable event names and payload shapes. |
-| Credential validation | Cloud Connection workflow | Provider-specific checks belong behind a user-scoped credential abstraction. |
-| Verification and logs | Deployer contract, exposed through Management API | UI receives status, logs, outputs, and verification results through backend-owned routes. |
-
-The old deployer docs include several legacy layer-specific and Lambda-management endpoints. Those are useful historical context, but they should not be published as the current app contract unless they are part of the canonical Management API workflow.
+See [API and Contracts](../developer-guide/contracts.md) for evolution rules.

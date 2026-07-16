@@ -1,44 +1,28 @@
-# Runtime And Deployment State
+# Runtime
 
-The runtime model has to separate three concerns that were previously mixed together: local services, cloud credentials, and generated deployment files.
+The normal local runtime is credential-free and consists of three application
+containers plus host-run Flutter. Optional profiles add MkDocs or LaTeX without
+changing application startup.
 
-## Local Services
+| Service | Host port | Internal port | Health/contract |
+|---|---:|---:|---|
+| Optimizer (`2twin2clouds`) | 5003 | 8000 | `/`, `/docs`, pricing/validation APIs |
+| Deployer (`3cloud-deployer`) | 5004 | 8000 | `/`, `/docs`, project/infrastructure APIs |
+| Management API | 5005 | 5005 | `/health`, `/docs` |
+| MkDocs (`docs` profile) | 5010 | 8000 | documentation site |
 
-The default Compose stack runs the platform services needed for development:
+```text
+host Flutter -> localhost:5005
+Management API -> http://2twin2clouds:8000
+Management API -> http://3cloud-deployer:8000
+```
 
-| Service | Responsibility | Port |
-|---------|----------------|------|
-| Management API | UI-facing orchestration boundary | 5005 |
-| Twin2Clouds Optimizer | cost and provider-placement calculation | 5003 |
-| Cloud Deployer | infrastructure deploy/destroy executor | 5004 |
-| Docs Site | MkDocs documentation server | 5010 |
+Use `./thesis.sh` rather than memorizing raw commands. Port, Compose project, Docker
+context, device, API origin, and secret-directory overrides are explicit environment
+variables documented by `./thesis.sh help`.
 
-The docs site runs behind the `docs` profile so documentation can reload independently while Markdown files are edited.
-
-## Deployment Files
-
-Versioned templates and generated deployment workspaces must not be treated as the same thing.
-
-- Template files describe reusable provider deployment structure and live under `3-cloud-deployer/templates/digital-twin/`.
-- The Management API builds a deployment package from persisted twin state and Cloud Connection references.
-- Deployment manifests describe one requested deployment package and its file materialization without embedding secret payloads.
-- Generated workspaces live under `3-cloud-deployer/upload/<project-name>/` and contain concrete Terraform files, function packages, state, and provider outputs for one deployment run.
-
-The Deployer should materialize a fresh workspace from templates and the uploaded package, then return structured outputs to the Management API. A workspace can be inspected for debugging, but it should not become the source of truth for a twin.
-
-The legacy `3-cloud-deployer/upload/template/` folder may still exist during the transition because it has been used for supervised cloud testing and may contain local credentials. It is no longer the canonical source for template files.
-
-## Credentials
-
-The target source of truth is a user-scoped Cloud Connection stored through the Management API. The local repository should not contain live credentials as normal development state.
-
-Runtime credential resolution follows one rule:
-
-1. A provider Cloud Connection must be selected on the twin configuration.
-2. If no usable Cloud Connection exists, the Management API returns a structured validation error.
-
-Cloud Connection payloads are never returned by API read models. The deployment package still contains the concrete provider credential files required by the current Deployer contract, but that package is generated for the deployment operation, uploaded explicitly, and represented by a secrets-free `deployment_manifest.json`.
-
-For real cloud deployments, credentials should enter the system through an explicit cloud workflow: the user provides temporary bootstrap/admin credentials, the app creates or imports a least-privilege deployment identity, stores only that resulting connection, and discards bootstrap material. The default local stack should continue to work without real cloud credentials.
-
-Some legacy files still exist while the migration is in progress, especially around deployment templates and test material. They should be handled as transitional artifacts and never documented with real credential values.
+- [Authentication](authentication.md)
+- [Configuration Reference](configuration.md)
+- [State and Persistence](state-and-persistence.md)
+- [Operations and Logging](operations.md)
+- [Troubleshooting](troubleshooting.md)
