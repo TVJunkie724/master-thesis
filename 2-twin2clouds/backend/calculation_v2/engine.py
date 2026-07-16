@@ -13,6 +13,8 @@ This module provides the same interface as the old engine.py:
 But internally uses the new layer calculators from calculation_v2.
 """
 
+from collections.abc import Mapping
+from math import isfinite
 from typing import Dict, Any, Optional
 
 from backend.calculation_v2.layers import (
@@ -20,6 +22,8 @@ from backend.calculation_v2.layers import (
     AzureLayerCalculators,
     GCPLayerCalculators,
     LayerResult,
+    SUPPORTED_LAYER_KEYS,
+    SUPPORTED_PROVIDER_KEYS,
 )
 from backend.calculation_v2.currency import apply_result_currency
 from backend.calculation_v2.formulas import required_first_unit_price, tiered_unit_cost
@@ -67,6 +71,58 @@ def _layer_result_payload(
     if result.unsupported_reason is not None:
         payload["unsupportedReason"] = result.unsupported_reason
     return payload
+
+
+def _supported_provider_options(
+    provider_costs: Mapping[str, Mapping[str, Any]],
+    layer: str,
+) -> tuple[tuple[str, float], ...]:
+    """Return validated provider costs that are executable for a layer."""
+    if layer not in SUPPORTED_LAYER_KEYS:
+        raise ValueError(f"Unknown architecture layer: {layer!r}")
+    providers = frozenset(provider_costs)
+    if providers != SUPPORTED_PROVIDER_KEYS:
+        missing = sorted(SUPPORTED_PROVIDER_KEYS - providers)
+        unexpected = sorted(providers - SUPPORTED_PROVIDER_KEYS)
+        raise ValueError(
+            "Provider cost results must cover the canonical provider set; "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+
+    options: list[tuple[str, float]] = []
+    for provider, costs in provider_costs.items():
+        if not isinstance(costs, Mapping):
+            raise ValueError(f"{provider} provider cost result must be a mapping")
+        payload = costs.get(layer)
+        if not isinstance(payload, Mapping):
+            raise ValueError(f"Missing {provider} result for architecture layer {layer}")
+
+        supported = payload.get("supported")
+        if not isinstance(supported, bool):
+            raise ValueError(
+                f"{provider} result for {layer} must declare a boolean supported state"
+            )
+        if not supported:
+            reason = payload.get("unsupportedReason")
+            if not isinstance(reason, str) or not reason.strip():
+                raise ValueError(
+                    f"Unsupported {provider} result for {layer} requires a reason"
+                )
+            continue
+
+        cost = payload.get("cost")
+        if isinstance(cost, bool) or not isinstance(cost, (int, float)):
+            raise ValueError(f"{provider} result for {layer} must declare a numeric cost")
+        normalized_cost = float(cost)
+        if not isfinite(normalized_cost) or normalized_cost < 0:
+            raise ValueError(
+                f"{provider} result for {layer} must declare a finite non-negative cost"
+            )
+        options.append((provider, normalized_cost))
+
+    if not options:
+        raise ValueError(f"No provider supports architecture layer {layer}")
+    return tuple(options)
 
 
 # =============================================================================
@@ -527,22 +583,17 @@ def calculate_cheapest_costs(
     
     derived = _calculate_derived_params(params)
     
-    # GCP self-hosted options are disabled by default (not implemented)
-    allow_gcp_l4 = params.get("allowGcpSelfHostedL4", False)
-    allow_gcp_l5 = params.get("allowGcpSelfHostedL5", False)
+    provider_costs = {
+        "AWS": aws_costs,
+        "Azure": azure_costs,
+        "GCP": gcp_costs,
+    }
     
     # Determine cheapest for each layer
-    def get_cheapest(layer: str, include_gcp: bool = True) -> tuple:
+    def get_cheapest(layer: str) -> tuple:
         """Return (provider, cost) for cheapest option at this layer."""
-        options = [
-            ("AWS", aws_costs[layer]["cost"]),
-            ("Azure", azure_costs[layer]["cost"]),
-        ]
-        if include_gcp:
-            options.append(("GCP", gcp_costs[layer]["cost"]))
-
         candidates = []
-        for provider, cost in options:
+        for provider, cost in _supported_provider_options(provider_costs, layer):
             metric_result = cost_metric_provider.compute(
                 OptimizationMetricContext(
                     candidate_id=provider,
@@ -586,11 +637,11 @@ def calculate_cheapest_costs(
     }
     
     # L4
-    l4_provider, l4_cost = get_cheapest("L4", include_gcp=allow_gcp_l4)
+    l4_provider, l4_cost = get_cheapest("L4")
     result["L4"] = l4_provider
     
     # L5
-    l5_provider, l5_cost = get_cheapest("L5", include_gcp=allow_gcp_l5)
+    l5_provider, l5_cost = get_cheapest("L5")
     result["L5"] = l5_provider
     
     # Calculate transfer costs for cross-cloud transitions

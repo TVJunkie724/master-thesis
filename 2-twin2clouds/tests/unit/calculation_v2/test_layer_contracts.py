@@ -3,6 +3,7 @@ import pytest
 from backend.calculation_v2.layers import (
     AWSLayerCalculators,
     AzureLayerCalculators,
+    BaseLayerCalculatorSet,
     GCPLayerCalculators,
     LayerCalculatorSet,
     LayerResult,
@@ -30,6 +31,21 @@ def test_provider_calculators_share_capability_contract(
     assert isinstance(calculator, LayerCalculatorSet)
     assert calculator.provider == provider
     assert calculator.supported_layers == supported_layers
+    for layer in SUPPORTED_LAYER_KEYS:
+        assert calculator.supports(layer) is (layer in supported_layers)
+
+
+def test_capability_contract_rejects_unknown_layer():
+    with pytest.raises(ValueError, match="Unknown architecture layer"):
+        AWSLayerCalculators().supports("L9")
+
+
+def test_base_contract_rejects_invalid_provider_declaration():
+    with pytest.raises(TypeError, match="Unknown layer calculator provider"):
+
+        class InvalidProviderCalculators(BaseLayerCalculatorSet):
+            provider = "Other"
+            supported_layers = frozenset({"L1"})
 
 
 def test_gcp_marks_unimplemented_layers_as_unsupported():
@@ -52,6 +68,33 @@ def test_gcp_marks_unimplemented_layers_as_unsupported():
         {"provider": "AWS", "layer": "L9", "total_cost": 1.0},
         {"provider": "AWS", "layer": "L1", "total_cost": -1.0},
         {"provider": "AWS", "layer": "L1", "total_cost": float("inf")},
+        {"provider": "Other", "layer": "L1", "total_cost": 1.0},
+        {"provider": "AWS", "layer": "L1", "total_cost": True},
+        {
+            "provider": "AWS",
+            "layer": "L1",
+            "total_cost": 1.0,
+            "supported": 1,
+        },
+        {
+            "provider": "AWS",
+            "layer": "L1",
+            "total_cost": 1.0,
+            "supported": False,
+            "unsupported_reason": 42,
+        },
+        {
+            "provider": "AWS",
+            "layer": "L1",
+            "total_cost": 1.0,
+            "components": {"": 1.0},
+        },
+        {
+            "provider": "AWS",
+            "layer": "L1",
+            "total_cost": 1.0,
+            "components": None,
+        },
         {
             "provider": "AWS",
             "layer": "L1",
@@ -63,3 +106,19 @@ def test_gcp_marks_unimplemented_layers_as_unsupported():
 def test_layer_result_rejects_invalid_or_ambiguous_values(kwargs):
     with pytest.raises(ValueError):
         LayerResult(**kwargs)
+
+
+def test_layer_result_owns_an_immutable_component_snapshot():
+    components = {"service": 1}
+    result = LayerResult(
+        provider="AWS",
+        layer="L1",
+        total_cost=1,
+        components=components,
+    )
+
+    components["service"] = 2
+
+    assert result.components == {"service": 1.0}
+    with pytest.raises(TypeError):
+        result.components["service"] = 3

@@ -32,7 +32,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 3 | Repository Hygiene & Docs Site | Active | Separate docs, templates, runtime artifacts, and historical material |
 | Phase 4 | Runtime Credentials & Deployment State | Active | Credential SSOT, bootstrap, explicit deployment package/context, operation state |
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
-| Phase 6 | Brain Contracts & Pricing Reliability | Planned | Typed optimizer layer/pricing/capability contracts |
+| Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
 | Later | Multi-Cloud Extensions & Thesis | Backlog | Non-blocking provider extensions, evaluation, and thesis polishing |
 
@@ -134,7 +134,7 @@ when work becomes actionable, then reference the issue here.
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| [#68](https://github.com/TVJunkie724/master-thesis/issues/68) | Open | Standardize `LayerResult` and calculator contracts |
+| [#68](https://github.com/TVJunkie724/master-thesis/issues/68) | Done | Canonical immutable `LayerResult`, shared calculator/capability contract, fail-closed selection, and 21-combination provider-layer matrix |
 | [#69](https://github.com/TVJunkie724/master-thesis/issues/69) | Open | Explicit pricing failures and schema versions |
 | [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Open | Provider capabilities and unsupported layers |
 | [#31](https://github.com/TVJunkie724/master-thesis/issues/31) | Open | Tiered pricing for additional optimizer services |
@@ -185,14 +185,14 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Complete the external live gate for `#10 Implement production authentication and
-   UIBK login path` through `#49 Document and resolve UIBK login prerequisites`; the
-   local durable auth/session implementation is complete.
-2. Keep the final supervised validation/removal gates in #6 and #79 aligned
-   with opt-in live-cloud evidence issue #107.
-3. Reconcile the remaining Deployer contract and module debt in #19, #14, and
-   #45 after the explicit runtime-context boundary is complete.
-4. Move optimizer reliability work into Phase 6 once deployment/runtime
-   boundaries are stable.
-5. Keep live-cloud E2E evidence in opt-in issue #107; default verification must
-   remain resource-free.
+1. Complete [#70 Model provider capabilities and intentionally unsupported layers](https://github.com/TVJunkie724/master-thesis/issues/70)
+   on top of the canonical #68 calculator contract.
+2. Complete [#100 Expose intent-to-result pricing traceability](https://github.com/TVJunkie724/master-thesis/issues/100)
+   without changing the deterministic scoring authority.
+3. Reconcile the remaining service/tier scope in
+   [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
+   [#32](https://github.com/TVJunkie724/master-thesis/issues/32).
+4. Build pricing freshness and manual override UX only after these Optimizer
+   contracts are stable (#33 and #34).
+5. Keep live-cloud E2E evidence opt-in through #107; default verification remains
+   deterministic and resource-free.

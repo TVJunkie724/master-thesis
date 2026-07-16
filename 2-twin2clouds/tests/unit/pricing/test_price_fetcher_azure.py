@@ -242,8 +242,16 @@ def test_fetch_azure_price_cosmos_request_units(mock_query):
             "meterName": "Data Stored",
             "unitOfMeasure": "1 GB/Month",
             "unitPrice": 0.25,
-            "skuName": "Standard",
+            "retailPrice": 0.25,
+            "skuName": "RUs",
             "productName": "Azure Cosmos DB",
+            "meterId": "aa57abaf-ec18-4387-9348-07b177eab8db",
+            "productId": "DZH318Z0BPJH",
+            "skuId": "DZH318Z0BPJH/0028",
+            "type": "Consumption",
+            "currencyCode": "USD",
+            "armRegionName": "westeurope",
+            "isPrimaryMeterRegion": True,
         },
     ]
 

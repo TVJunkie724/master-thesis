@@ -63,6 +63,15 @@ contract, and result schema. Disabled declarations are not executable features.
 New provider layer calculators return the canonical
 `backend.calculation_v2.layers.LayerResult` contract. Unsupported capabilities
 must be explicit and must never enter provider selection as zero-cost options.
+Provider calculator sets inherit `BaseLayerCalculatorSet`, declare their
+`supported_layers`, and construct results through the provider-bound `_result`
+factory. New selection logic must use the result capability state; provider-name
+exceptions are not an accepted extension mechanism.
+
+The shared provider-layer test matrix is the minimum regression gate for changes
+to calculator capabilities or result fields. `LayerResult` owns an immutable
+component snapshot and rejects unknown providers/layers, booleans masquerading as
+numbers, negative/non-finite values, and ambiguous unsupported states.
 
 ## Planning And Backlog
 

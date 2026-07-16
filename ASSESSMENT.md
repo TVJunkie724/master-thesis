@@ -188,21 +188,23 @@ State-Management-Regel: Riverpod für App-/Service-Provider, BLoC für explizite
 
 ---
 
-### P1-2: Brain Layer-Calculation ohne gemeinsame Abstraktion
+### P1-2: Brain Layer-Calculation mit gemeinsamem Contract (behoben)
 
-**Befund:**
-`2-twin2clouds/backend/calculation_v2/layers/{aws,azure,gcp}_layers.py` enthalten je eigene Layer-Result-Typen und ähnliche Berechnungsmuster. `LayerResult` ist mehrfach definiert.
+**Aktueller Stand:**
+AWS, Azure und GCP verwenden genau ein validiertes, immutable `LayerResult` sowie
+den gemeinsamen `LayerCalculatorSet`-Contract und die
+`BaseLayerCalculatorSet`-Invarianten. Provider-spezifische Formeln bleiben
+gekapselt, während Capability-Abfrage, Result-Erzeugung und Optimizer-Selektion
+einheitlich sind.
 
-**Warum gravierend:**
-Provider-Erweiterungen oder Änderungen an Ergebnisfeldern müssen mehrfach nachvollzogen werden. Das erhöht Drift-Risiko zwischen AWS, Azure und GCP.
+Unsupported Provider-Layer werden mit Begründung modelliert und anhand ihres
+canonical `supported`-Status aus der Scoring-Auswahl entfernt. Eine gemeinsame
+Testmatrix prüft alle 21 Provider-Layer-Kombinationen. Damit kann ein nicht
+implementierter Zero-Cost-Pfad nicht als vermeintlich günstigste Option gewinnen.
 
-**Zielbild:**
-Gemeinsame Layer-Contracts:
-
-- ein `LayerResult`
-- ein `LayerCalculator`-Protocol oder eine abstrakte Basisklasse
-- provider-spezifische Komponenten bleiben austauschbar
-- gemeinsame Testmatrix für gleiche Layer über Provider hinweg
+**Nachweis:**
+[#68 Standardize optimizer LayerResult and layer calculator contracts](https://github.com/TVJunkie724/master-thesis/issues/68)
+und `2-twin2clouds/implementation_plans/2026-07-17_layer_result_calculator_contracts.md`.
 
 ---
 
@@ -448,19 +450,18 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 **Ziel:** Provider-Berechnungen werden konsistent und erweiterbar.
 
-**Reihenfolge:**
+**Aktueller Stand und Reihenfolge:**
 
-1. Gemeinsames `LayerResult` einführen.
-2. Layer-Calculator-Contract definieren.
-3. AWS/Azure/GCP Layer-Calculators schrittweise an den Contract binden.
-4. GCP L4/L5 als bewusst deaktivierte Capability modellieren, nicht als halb sichtbare Option.
-5. Pricing-Fetcher-Fehler nicht als `{}` verschlucken; Fehlerstatus explizit propagieren.
-6. Pricing-Schema versionieren.
+1. [x] Gemeinsames `LayerResult` und Layer-Calculator-Contract einführen (#68).
+2. [x] AWS/Azure/GCP anbinden und unsupported Capabilities fail-closed behandeln (#68).
+3. [x] Pricing-Fetcher-Fehler, Review-Status und versionierte Pricing-Contracts explizit machen (#69, #81-#86).
+4. [ ] Provider-Capability-Modelle über den aktuellen Layer-Contract hinaus vervollständigen (#70).
+5. [ ] Zusätzliche Services, Tiers und Provider-Fetcher-Coverage vervollständigen (#31, #32).
 
 **Exit-Kriterien:**
 
-- Keine mehrfachen `LayerResult`-Definitionen.
-- Provider-Layer können über eine gemeinsame Testmatrix geprüft werden.
+- Keine mehrfachen `LayerResult`-Definitionen. (erfüllt)
+- Provider-Layer können über eine gemeinsame Testmatrix geprüft werden. (erfüllt)
 - Pricing-Fetch-Failures sind sichtbar und führen nicht still zu falschen Kosten.
 
 ---

@@ -10,7 +10,7 @@ implemented in the deployer (future work).
 
 from typing import Dict, Any
 
-from .contracts import LayerResult, SUPPORTED_LAYER_KEYS
+from .contracts import BaseLayerCalculatorSet, LayerResult, SUPPORTED_LAYER_KEYS
 
 from ..components.gcp import (
     GCPPubSubCalculator,
@@ -22,7 +22,7 @@ from ..components.gcp import (
     GCPComputeEngineCalculator,
 )
 
-class GCPLayerCalculators:
+class GCPLayerCalculators(BaseLayerCalculatorSet):
     """
     GCP layer cost calculators for L1-L5.
     
@@ -76,8 +76,7 @@ class GCPLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="GCP",
+        return self._result(
             layer="L1",
             total_cost=total,
             data_size_gb=data_volume_gb,
@@ -167,8 +166,7 @@ class GCPLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="GCP",
+        return self._result(
             layer="L2",
             total_cost=total,
             messages=executions_per_month,
@@ -214,8 +212,7 @@ class GCPLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="GCP",
+        return self._result(
             layer="L3_hot",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -262,8 +259,7 @@ class GCPLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="GCP",
+        return self._result(
             layer="L3_cool",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -310,8 +306,7 @@ class GCPLayerCalculators:
         
         total = sum(components.values())
         
-        return LayerResult(
-            provider="GCP",
+        return self._result(
             layer="L3_archive",
             total_cost=total,
             data_size_gb=storage_gb,
@@ -330,12 +325,10 @@ class GCPLayerCalculators:
         DISABLED: Self-hosted Twin Management is not implemented in the deployer.
         Returns 0 cost. This is planned for future work.
         """
-        return LayerResult(
-            provider="GCP",
+        return self._result(
             layer="L4",
             total_cost=0.0,
             components={},
-            supported=False,
             unsupported_reason="GCP self-hosted L4 is not implemented by the Deployer",
         )
     
@@ -351,12 +344,10 @@ class GCPLayerCalculators:
         DISABLED: Self-hosted Grafana is not implemented in the deployer.
         Returns 0 cost. This is planned for future work.
         """
-        return LayerResult(
-            provider="GCP",
+        return self._result(
             layer="L5",
             total_cost=0.0,
             components={},
-            supported=False,
             unsupported_reason="GCP self-hosted L5 is not implemented by the Deployer",
         )
     
