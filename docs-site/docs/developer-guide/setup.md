@@ -5,13 +5,17 @@ Use the [Fresh Clone](../getting-started/fresh-clone.md) path first. Developer v
 ```bash
 ./thesis.sh setup
 ./thesis.sh up --no-flutter --build
-./thesis.sh flutter --device macos
+./thesis.sh flutter
 ./thesis.sh docs up
 ```
 
 Raw service commands are useful only for debugging. Compose bind-mounts all Python
 projects, so source changes are visible in containers; dependency changes require image
 rebuilds. Flutter runs on the host.
+
+The entrypoint detects macOS, Windows, or Linux unless `--device` is supplied.
+Windows execution uses Git Bash. Native prerequisites and build guarantees are
+defined under [Supported Platforms](../getting-started/supported-platforms.md).
 
 ## Local Files
 

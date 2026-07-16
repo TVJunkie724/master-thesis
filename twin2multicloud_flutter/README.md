@@ -1,6 +1,7 @@
 # Twin2MultiCloud Flutter
 
-Flutter Web/Desktop UI for the Twin2MultiCloud Management API.
+Flutter UI for the Twin2MultiCloud Management API. Supported targets are Web,
+macOS, Windows, and Linux. Android, iOS, and Fuchsia are unsupported.
 
 ## Offline Demo
 
@@ -53,13 +54,13 @@ federation setup documented in the docs site.
 ## Quality Checks
 
 ```bash
-flutter pub get
-flutter analyze
-flutter test
-flutter build web --dart-define-from-file=config/dev.json
-flutter build web --release \
-  --dart-define-from-file=config/production.example.json
+./thesis.sh test frontend
 ```
+
+The local gate builds Web and the current host desktop. The repository Flutter
+workflow additionally builds macOS, Windows, and Linux releases on native CI
+runners. See the docs-site Supported Platforms page for prerequisites and the
+boundary between build support and signed distribution packages.
 
 Flutter must call the Management API only. Direct calls to Optimizer or
 Deployer service ports are architecture defects.

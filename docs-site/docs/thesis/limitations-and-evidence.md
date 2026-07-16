@@ -18,8 +18,15 @@
 - AWS/Azure/GCP tier/formula tests;
 - archive/path/symlink/upload security tests;
 - migration, encryption, redaction, rate-limit, audit, and transport tests;
-- deterministic offline demo and Web/macOS build gates;
+- deterministic offline demo plus Web, macOS, Windows, and Linux build gates;
 - local credential-free Compose integration.
+
+Cross-platform support means that the same Flutter source compiles for Web and
+all three desktop operating systems on native CI runners. It does not include
+signed installers, notarization, store publication, or platform certification.
+The current local universal macOS build may emit an upstream `objective_c`
+code-asset naming warning while still producing the release application; native
+single-runner CI builds complete successfully.
 
 ## Known Limitations
 

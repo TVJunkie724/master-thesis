@@ -1,24 +1,23 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'config/app_runtime.dart';
 import 'config/runtime_composition.dart';
+import 'config/supported_platforms.dart';
 import 'providers/runtime_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Twin2MultiCloud is a desktop/web-only tool — the wizard, terminal output,
-  // file uploads and Terraform dashboards are not laid out for phone screens.
-  // The android/ios platform folders are intentionally absent from the repo,
-  // but guard here too in case someone scaffolds them back via `flutter create`.
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+  final appPlatform = resolveSupportedAppPlatform(
+    isWeb: kIsWeb,
+    nativePlatform: defaultTargetPlatform,
+  );
+  if (appPlatform == null) {
     throw UnsupportedError(
-      'Twin2MultiCloud is not supported on mobile. '
-      'Run with: flutter run -d chrome | -d macos | -d linux | -d windows',
+      'Twin2MultiCloud supports Web, macOS, Windows, and Linux only. '
+      'Run with: flutter run -d chrome | -d macos | -d windows | -d linux',
     );
   }
 

@@ -3,7 +3,6 @@
 // Cross-platform download: file_picker save dialog for desktop, file_saver for web
 
 import 'dart:convert';
-import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +14,8 @@ import 'package:highlight/languages/python.dart' as hl_python;
 import 'package:highlight/languages/yaml.dart' as hl_yaml;
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
+
+import '../utils/file_writer.dart';
 
 /// Result of a download operation
 class DownloadResult {
@@ -134,9 +135,7 @@ Future<DownloadResult> downloadCodeFile({
         return const DownloadResult(success: false, cancelled: true);
       }
 
-      // Write file
-      final file = File(outputPath);
-      await file.writeAsString(content);
+      await writeTextToPath(outputPath, content);
 
       return DownloadResult(success: true, message: 'Saved to $outputPath');
     }

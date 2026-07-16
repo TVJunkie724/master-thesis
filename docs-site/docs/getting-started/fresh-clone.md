@@ -4,8 +4,13 @@
 
 - Git;
 - Docker Compose through OrbStack, Docker Desktop, or a compatible runtime;
-- a Flutter SDK compatible with `twin2multicloud_flutter/pubspec.yaml`;
-- macOS desktop tooling for the default device, or another configured Flutter device.
+- Flutter 3.44.0 with Dart 3.12, matching the platform CI gate;
+- Python 3.9 or newer, available as `python3` or `python`;
+- native Flutter tooling for the current macOS, Windows, or Linux desktop;
+- Git Bash when running the root entrypoint on Windows.
+
+See [Supported Platforms](supported-platforms.md) for the complete toolchain and
+support matrix.
 
 Cloud credentials are optional and must not be prepared for the first start.
 
@@ -58,7 +63,7 @@ Backend only:
 Flutter only, after the backend is running:
 
 ```bash
-./thesis.sh flutter --device macos
+./thesis.sh flutter
 ```
 
 ## 3. Verify The Runtime

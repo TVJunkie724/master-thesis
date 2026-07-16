@@ -323,6 +323,7 @@ cd twin2multicloud_flutter && flutter analyze
 cd twin2multicloud_flutter && flutter test
 cd twin2multicloud_flutter && flutter build web --dart-define-from-file=config/production.example.json
 cd twin2multicloud_flutter && flutter build macos --dart-define-from-file=config/production.example.json
+gh workflow run flutter-platforms.yml
 docker --context orbstack compose --profile docs run --rm docs mkdocs build --strict
 ```
 
@@ -344,8 +345,8 @@ automated verification. Live UIBK evidence remains explicitly gated by
 - [x] JWTs are backed by revocable server sessions and logout is effective.
 - [x] Auth endpoints are rate-limited through shared production storage and all
       security-relevant transitions emit secret-free audit evidence.
-- [x] Flutter production login is capability-driven and works on Web and macOS
-      through the system-browser plus polling flow.
+- [x] Flutter production login is capability-driven and uses the same
+      system-browser plus polling flow on Web, macOS, Windows, and Linux.
 - [x] Development and isolated demo auth behavior does not regress.
 - [x] Migration, backend, contract, Flutter, build, Bandit, and strict docs gates
       pass.

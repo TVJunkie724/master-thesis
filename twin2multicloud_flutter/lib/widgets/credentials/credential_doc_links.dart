@@ -1,9 +1,8 @@
-// lib/widgets/credentials/credential_doc_links.dart
-// Extracted documentation links widget for cloud credentials
-
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:io' show Platform, Process;
+
+// lib/widgets/credentials/credential_doc_links.dart
+// Extracted documentation links widget for cloud credentials
 
 /// A widget displaying documentation links for credential setup.
 ///
@@ -25,24 +24,8 @@ class CredentialDocLinks extends StatelessWidget {
 
   Future<void> _openLink(String target) async {
     final uri = Uri.parse(target);
-
-    // Handle local file URIs
-    if (target.startsWith('file://')) {
-      try {
-        // Try VS Code first
-        if (Platform.isWindows) {
-          await Process.run('code', [target.replaceFirst('file:///', '')]);
-        } else {
-          await Process.run('code', [target.replaceFirst('file://', '')]);
-        }
-        return;
-      } catch (e) {
-        // Fallback to system handler
-      }
-    }
-
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 

@@ -74,6 +74,10 @@ class AppException implements Exception {
         'Server not responding',
         code: 'TIMEOUT',
       ),
+      DioExceptionType.transformTimeout => const AppException(
+        'Response processing timed out',
+        code: 'TIMEOUT',
+      ),
       DioExceptionType.badCertificate => const AppException(
         'Certificate error',
         code: 'CERT_ERROR',

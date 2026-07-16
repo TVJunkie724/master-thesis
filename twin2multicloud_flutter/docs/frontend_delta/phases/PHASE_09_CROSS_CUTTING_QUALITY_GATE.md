@@ -16,7 +16,8 @@ version: "2.0"
 Phase 9 adds one reproducible release gate for the accumulated Flutter work. It
 does not add or redesign a product screen. It verifies the production and demo
 composition, the Management API boundary, representative UI states, safe
-diagnostics, tracked runtime configuration, and supported Web/macOS builds.
+diagnostics, tracked runtime configuration, and the Web/macOS builds verified
+locally at that point in time.
 
 The binding implementation contract is
 [`2026-07-15_frontend_delta_phase_09_quality_gate.md`](../../../implementation_plans/2026-07-15_frontend_delta_phase_09_quality_gate.md).
@@ -43,6 +44,11 @@ The full static, test, and build sequence is available as:
 ```bash
 ./thesis.sh test frontend
 ```
+
+The current application support contract has since been expanded and hardened
+through [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109).
+Web, macOS, Windows, and Linux now have native automated build gates. The table
+above remains the dated local evidence for this completed phase.
 
 ## Local Integration Matrix
 

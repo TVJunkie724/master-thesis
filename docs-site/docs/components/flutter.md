@@ -1,6 +1,7 @@
 # Flutter UI
 
-`twin2multicloud_flutter` is the user-facing application for macOS and Web. It owns
+`twin2multicloud_flutter` is the user-facing application for Web, macOS, Windows,
+and Linux. It owns
 presentation, local interaction state, navigation, and runtime adapter composition.
 It does not own business persistence, cloud credentials, pricing semantics, or
 deployment execution.
@@ -101,9 +102,15 @@ errors close to the affected task and preserve actionable recovery controls.
 ```
 
 The frontend gate checks architecture constraints, formatting, analysis, unit/widget
-tests, demo behavior, and Web/macOS builds. The integration gate is read-only against
-the credential-free stack. It must not refresh provider pricing, validate real cloud
+tests, demo behavior, and local Web/current-host builds. Native CI builds Web,
+macOS, Windows, and Linux. The integration gate is read-only against the
+credential-free stack. It must not refresh provider pricing, validate real cloud
 access, deploy, destroy, or run cloud simulator operations.
+
+The central runtime platform classifier rejects Android, iOS, and Fuchsia
+before repositories or authentication state are composed. Platform
+prerequisites and distribution boundaries are defined under
+[Supported Platforms](../getting-started/supported-platforms.md).
 
 ## Extension Points
 

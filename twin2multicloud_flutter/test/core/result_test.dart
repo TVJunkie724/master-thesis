@@ -131,6 +131,18 @@ void main() {
         expect(error.message, contains('not responding'));
       });
 
+      test('handles transformTimeout', () {
+        final dioError = DioException(
+          type: DioExceptionType.transformTimeout,
+          requestOptions: RequestOptions(path: '/test'),
+        );
+
+        final error = AppException.fromDioError(dioError);
+
+        expect(error.code, 'TIMEOUT');
+        expect(error.message, 'Response processing timed out');
+      });
+
       test('handles connectionError', () {
         final dioError = DioException(
           type: DioExceptionType.connectionError,

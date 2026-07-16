@@ -33,7 +33,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 4 | Runtime Credentials & Deployment State | Active | Credential SSOT, bootstrap, explicit deployment package/context, operation state |
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Planned | Typed optimizer layer/pricing/capability contracts |
-| Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed API boundaries, Twin Overview, demo, and quality gate completed |
+| Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
 | Later | Multi-Cloud Extensions & Thesis | Backlog | Non-blocking provider extensions, evaluation, and thesis polishing |
 
 ## Completed Refactorings
@@ -158,6 +158,7 @@ when work becomes actionable, then reference the issue here.
 | [#72](https://github.com/TVJunkie724/master-thesis/issues/72) | Done | Typed Flutter API responses and contained raw-payload exceptions |
 | [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation and presentation slices |
 | [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Frontend cross-cutting quality and thesis evidence gate |
+| [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109) | Done | One application contract and native build evidence for Web, macOS, Windows, and Linux |
 
 ### Later: Multi-Cloud Extensions & Thesis
 

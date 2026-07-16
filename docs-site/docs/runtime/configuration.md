@@ -6,13 +6,14 @@
 |---|---|---|
 | `THESIS_COMPOSE_PROJECT` | `master-thesis` | isolate Compose names/volumes |
 | `THESIS_DOCKER_CONTEXT` | current context | select OrbStack/Docker context |
+| `THESIS_PYTHON_COMMAND` | detected `python3` or `python` | optional Python 3 executable override |
 | `THESIS_OPTIMIZER_PORT` | `5003` | Optimizer host port |
 | `THESIS_DEPLOYER_PORT` | `5004` | Deployer host port |
 | `THESIS_MANAGEMENT_API_PORT` | `5005` | Management API host port |
 | `THESIS_DOCS_PORT` | `5010` | docs host port |
 | `THESIS_API_BASE_URL` | derived from API port | Flutter API origin |
 | `THESIS_DEV_AUTH_TOKEN` | `dev-token` | local-only explicit dev token |
-| `THESIS_FLUTTER_DEVICE` | `macos` | Flutter target |
+| `THESIS_FLUTTER_DEVICE` | detected host desktop | optional Flutter target override (`macos`, `windows`, `linux`, or `chrome`) |
 | `THESIS_DEMO_SCENARIO` | `showcase` | offline fixture set |
 | `THESIS_RUNTIME_SECRETS_DIR` | `.secrets/runtime` | ignored local runtime keys |
 | `THESIS_LOCAL_DATABASE_PATH` | backend app DB | bootstrap/migration guard path |
