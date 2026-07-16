@@ -89,6 +89,11 @@ operation workspace, not the user-facing source of truth.
 Provider capability is not uniform. Unsupported or limited L4/L5 behavior must remain
 visible instead of being represented as equivalent deployment support.
 
+`GET /capabilities/providers` publishes the provisioning-side matrix. Complete config
+validation and the Terraform package builder enforce that same registry, rejecting an
+unsupported row with `CAPABILITY_UNAVAILABLE` before filesystem or Terraform side
+effects. See [Provider Capabilities](../architecture/provider-capabilities.md).
+
 ## User Functions And Packaging
 
 The package builders discover typed function definitions by layer and role, generate

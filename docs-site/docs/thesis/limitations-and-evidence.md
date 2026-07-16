@@ -68,7 +68,10 @@ future Azure catalog revision.
 ### Provider Parity
 
 AWS, Azure, and GCP do not expose equivalent managed Digital Twin and visualization
-services. Some Azure/GCP L4/L5 and cross-cloud glue behavior remains planned or limited.
+services. The executable capability contract marks GCP L4/L5 unsupported and planned;
+those rows cannot enter scoring or deployment. AWS/Azure L4/L5 are contract-tested but
+still await final supervised live-cloud E2E evidence. Cross-cloud glue behavior remains
+partly planned. See [Provider Capabilities](../architecture/provider-capabilities.md).
 
 ### Simulator And Live Data Flow
 

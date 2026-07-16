@@ -23,6 +23,11 @@ Schema versions appear on durable/result contracts such as deployment status/out
 pricing registry/evidence, optimization results, and the deployment manifest. A version
 change requires compatibility behavior or an explicit coordinated migration.
 
+Provider support uses two internal `provider-service-capabilities.v1` contracts and the
+public `platform-provider-capabilities.v1` aggregate. Flutter consumes only the public
+Management API contract. See
+[Provider Capabilities](../architecture/provider-capabilities.md).
+
 ## Errors
 
 Public errors should provide stable code, safe message, actionable suggestion where

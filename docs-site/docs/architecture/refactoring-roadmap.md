@@ -54,6 +54,7 @@ when work becomes actionable, then reference the issue here.
 | [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Done | Durable local JWT/encryption secrets are generated safely while production remains fail-closed |
 | [#4](https://github.com/TVJunkie724/master-thesis/issues/4) | Done | Legacy service HTML content migrated into the canonical docs site with provenance |
 | [#30](https://github.com/TVJunkie724/master-thesis/issues/30) | Done | Multi-cloud walkthrough, troubleshooting, references, and project documentation completed |
+| [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Done | Federated Optimizer/Deployer provider capability contracts, fail-closed Management API aggregation, and Flutter enforcement completed |
 
 ## Active And Planned Refactoring Issues
 
@@ -136,7 +137,7 @@ when work becomes actionable, then reference the issue here.
 |-------|--------|-------|
 | [#68](https://github.com/TVJunkie724/master-thesis/issues/68) | Done | Canonical immutable `LayerResult`, shared calculator/capability contract, fail-closed selection, and 21-combination provider-layer matrix |
 | [#69](https://github.com/TVJunkie724/master-thesis/issues/69) | Open | Explicit pricing failures and schema versions |
-| [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Open | Provider capabilities and unsupported layers |
+| [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Done | Explicit 3 x 7 provider-layer capability matrix and unsupported-path enforcement |
 | [#31](https://github.com/TVJunkie724/master-thesis/issues/31) | Open | Tiered pricing for additional optimizer services |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |
 | [#110](https://github.com/TVJunkie724/master-thesis/issues/110) | Done | Azure Cosmos/Blob storage and bandwidth tier sources now use exact reviewed catalog evidence, collision-safe candidate identity, fail-closed publication, and a publishable live baseline |
@@ -160,6 +161,7 @@ when work becomes actionable, then reference the issue here.
 | [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation and presentation slices |
 | [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Frontend cross-cutting quality and thesis evidence gate |
 | [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109) | Done | One application contract and native build evidence for Web, macOS, Windows, and Linux |
+| [#111 Run final manual visual audit of the Flutter application](https://github.com/TVJunkie724/master-thesis/issues/111) | Planned | User-led visual and interaction audit after functional issue work, before final E2E |
 
 ### Later: Multi-Cloud Extensions & Thesis
 
@@ -182,17 +184,20 @@ when work becomes actionable, then reference the issue here.
 | [#59](https://github.com/TVJunkie724/master-thesis/issues/59) | Open | Azure/GCP inter-cloud glue functions |
 | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Open | Cross-cloud storage lifecycle mover functions |
 | [#62](https://github.com/TVJunkie724/master-thesis/issues/62) | Open | Closed-loop redeployment from cost pattern changes |
+| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Separate bachelor baseline, implemented thesis architecture, and evidence-based future target |
 
 ## Next Recommended Sequence
 
-1. Complete [#70 Model provider capabilities and intentionally unsupported layers](https://github.com/TVJunkie724/master-thesis/issues/70)
-   on top of the canonical #68 calculator contract.
-2. Complete [#100 Expose intent-to-result pricing traceability](https://github.com/TVJunkie724/master-thesis/issues/100)
+1. Complete [#100 Expose intent-to-result pricing traceability](https://github.com/TVJunkie724/master-thesis/issues/100)
    without changing the deterministic scoring authority.
-3. Reconcile the remaining service/tier scope in
+2. Reconcile the remaining service/tier scope in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32).
-4. Build pricing freshness and manual override UX only after these Optimizer
+3. Build pricing freshness and manual override UX only after these Optimizer
    contracts are stable (#33 and #34).
-5. Keep live-cloud E2E evidence opt-in through #107; default verification remains
-   deterministic and resource-free.
+4. Complete the remaining functional issues, then run the user-led visual audit in
+   [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
+5. Audit the five-layer Twin architecture against provider-native alternatives in
+   [#112](https://github.com/TVJunkie724/master-thesis/issues/112), preserving the
+   bachelor baseline as provenance.
+6. Keep live-cloud E2E and finalization deferred until both audits are complete.

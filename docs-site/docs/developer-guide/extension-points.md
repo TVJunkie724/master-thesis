@@ -34,6 +34,14 @@ preflight permissions, cleanup/destroy behavior, outputs, status/verification pr
 and mocked tests. Add workspace synchronization only for state required by later
 operations and use the explicit allowlist.
 
+## Add Provider-Layer Capability
+
+Do not edit a copied UI matrix. Implement calculation support in the Optimizer and
+provisioning support in the Deployer, then update each owning runtime registry. The
+Management API derives the platform row and Flutter consumes it. A planned issue or
+price mapping is insufficient evidence for `available`; follow the ordered gate in
+[Provider Capabilities](../architecture/provider-capabilities.md).
+
 ## Add A User Function
 
 Register layer/role metadata, preserve provider entrypoint/package conventions, validate

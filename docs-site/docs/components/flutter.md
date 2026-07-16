@@ -75,6 +75,12 @@ review workspace because pricing readiness is account-level, not twin configurat
 Demo mode uses the same `ManagementApi` interface and screens. Its fixture store
 supports `showcase`, `empty`, and `degraded`; requesting network dependencies fails.
 
+The deployment workspace loads `platform-provider-capabilities.v1` through
+`ManagementApi`. L4/L5 editors are selectable only when the aggregate contract permits
+the provider-layer row. Loading errors are visible and retryable; saved configuration
+remains readable. Production and demo adapters expose the same complete matrix, and
+widgets contain no provider-name capability exceptions.
+
 Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
 opens a system browser, polls the one-time Management API exchange, retains the access
 token in memory, and clears identity/token state after logout or any authenticated
@@ -85,7 +91,8 @@ and secrets never enter Flutter routes or URL parameters.
 ## Error And Logging Behavior
 
 - `Result` and typed models keep expected API failures out of widget parsing;
-- `ApiErrorHandler` converts transport/API errors into user-facing messages;
+- `ApiErrorHandler` exposes only structured transport messages or explicitly marked
+  `UserFacingException` messages; arbitrary exception details are neutralized;
 - feature BLoCs preserve retryable workflow state rather than dropping the screen;
 - `AppLogger` is the application logging boundary;
 - deployment and pricing streams are rendered as operation output, not application logs;

@@ -45,6 +45,7 @@ nav:
       - Responsibilities & Data Ownership: architecture/data-ownership.md
       - End-to-End Flows: architecture/end-to-end-flows.md
       - Security & Trust Boundaries: architecture/security-boundaries.md
+      - Provider Capabilities: architecture/provider-capabilities.md
       - Original to Current State: architecture/evolution.md
       - Project Background: architecture/project-background.md
       - Roadmap: architecture/roadmap.md

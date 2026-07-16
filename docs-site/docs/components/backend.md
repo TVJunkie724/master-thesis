@@ -50,6 +50,7 @@ FastAPI route
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
 | `/cloud-bootstrap` | transient admin credential bootstrap/validate workflows |
 | `/cloud-access` | account-level capability inventory |
+| `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
 | `/optimizer/pricing-refresh` | provider refresh run lifecycle |
 | `/optimizer/pricing-review` | health, candidates, evidence, decisions |
 | `/credential-security-events` | owner-scoped credential audit history |
@@ -92,6 +93,18 @@ one user-level pricing default is enforced per provider.
 
 Credential mutation/validation/bootstrap operations are rate limited and audited.
 Downstream validation messages are redacted before response or persistence.
+
+## Provider Capability Aggregation
+
+`ProviderCapabilityService` concurrently loads the Optimizer calculation matrix and
+Deployer provisioning matrix, validates both strict versioned contracts, and derives
+one complete platform response. Drift, malformed payloads, and source outages produce
+sanitized typed `502`/`503` errors; the service never guesses or returns a partial
+selectable matrix. Configuration validation preserves a Deployer
+`CAPABILITY_UNAVAILABLE` error with provider/layer context.
+
+See [Provider Capabilities](../architecture/provider-capabilities.md) for the matrix and
+extension sequence.
 
 ## Deployment Orchestration
 

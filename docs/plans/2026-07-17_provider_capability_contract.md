@@ -3,7 +3,7 @@ title: "Provider Capability Contract"
 description: "Implementation contract for fail-closed provider-layer capability discovery, aggregation, enforcement, and presentation."
 tags: [architecture, capabilities, optimizer, deployer, management-api, flutter]
 lastUpdated: "2026-07-17"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.0"
 - twin2multicloud_flutter/lib/bloc/wizard/ and lib/widgets/step3/info_cards.dart
 - docs-site/docs/architecture/refactoring-roadmap.md
 - User decision on 2026-07-17 to defer final live E2E until after UI and Twin architecture audits
-EXTRACTED: 2026-07-17 | VERSION: 1.0
+EXTRACTED: 2026-07-17 | VERSION: 1.1
 -->
 
 # Provider Capability Contract
@@ -22,7 +22,7 @@ EXTRACTED: 2026-07-17 | VERSION: 1.0
 **Issue:** [#70 Model provider capabilities and intentionally unsupported layers](https://github.com/TVJunkie724/master-thesis/issues/70)  
 **Base branch:** `master`  
 **Feature branch:** `codex/provider-capability-contract`  
-**Status:** Approved for implementation  
+**Status:** Implemented and verified without live-cloud E2E
 **Live-cloud E2E:** Explicitly deferred
 
 ## Objective
@@ -395,7 +395,7 @@ real Management API; it may not replace it with a mocked HTTP adapter.
 - Python format/lint/type checks used by each touched project;
 - full non-E2E test suites for Optimizer, Deployer, and Management API;
 - Flutter analyze and full test suite;
-- docs build with strict link validation;
+- docs build in strict mode;
 - Docker Compose build/start smoke check without cloud credentials;
 - no live cloud E2E and no billable provider operation in this issue.
 
@@ -411,12 +411,34 @@ real Management API; it may not replace it with a mocked HTTP adapter.
 
 ## Definition Of Done
 
-- [ ] All 21 provider-layer combinations are explicit in both internal services and in
+- [x] All 21 provider-layer combinations are explicit in both internal services and in
   the aggregate platform response.
-- [ ] Unsupported combinations fail before deployment side effects with typed,
+- [x] Unsupported combinations fail before deployment side effects with typed,
   actionable errors.
-- [ ] Optimizer and Deployer disagreement is detected and cannot become selectable.
-- [ ] Flutter has no provider-name capability truth.
-- [ ] Demo and production adapters expose the same capability contract.
-- [ ] Documentation and roadmap reflect the implemented state and deferred live gates.
-- [ ] All default non-E2E verification gates pass.
+- [x] Optimizer and Deployer disagreement is detected and cannot become selectable.
+- [x] Flutter has no provider-name capability truth.
+- [x] Demo and production adapters expose the same capability contract.
+- [x] Documentation and roadmap reflect the implemented state and deferred live gates.
+- [x] All default non-E2E verification gates pass.
+
+## Verification Evidence
+
+The implementation was verified on 2026-07-17 without provider credentials or
+billable cloud operations:
+
+- Optimizer: 165 tests passed.
+- Deployer: 1,290 unit/API tests passed.
+- Management API: 737 tests passed; targeted capability and distributed-validation
+  regression set: 33 tests passed after final formatting and error-handling review.
+- Flutter: analyzer clean; 625 tests passed.
+- Docker Compose: Optimizer, Deployer, Management API, and docs services rebuilt and
+  started successfully.
+- Runtime contract smoke: all three capability endpoints returned exactly 21 rows;
+  aggregate GCP L4/L5 returned `unsupported`, `planned`, `not_verified`.
+- Documentation: `mkdocs build --strict` passed.
+- Python quality gate for the final Management API changes: Ruff lint and format
+  checks passed.
+
+Final supervised live-cloud E2E remains deferred by explicit decision. Therefore no
+row is promoted to `live_verified`, and this plan makes no production-cloud evidence
+claim.
