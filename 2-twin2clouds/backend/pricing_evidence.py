@@ -48,8 +48,10 @@ def validate_evidence_record(record: dict[str, Any]) -> list[str]:
     if source_type not in ALLOWED_SOURCE_TYPES:
         errors.append(f"Unsupported source_type: {source_type!r}")
 
-    if source_type == FETCHED and not record.get("selected_row"):
-        errors.append("Fetched evidence requires selected_row")
+    if source_type == FETCHED and not (
+        record.get("selected_row") or record.get("selected_rows")
+    ):
+        errors.append("Fetched evidence requires selected_row or selected_rows")
 
     if source_type == DERIVED and not record.get("source_evidence_ids"):
         errors.append("Derived evidence requires source_evidence_ids")
@@ -65,6 +67,10 @@ def validate_evidence_record(record: dict[str, Any]) -> list[str]:
         errors.append("candidate_rows must be a list")
     if "rejected_rows" in record and not isinstance(record["rejected_rows"], list):
         errors.append("rejected_rows must be a list")
+    if "selected_rows" in record and not isinstance(record["selected_rows"], list):
+        errors.append("selected_rows must be a list")
+    if "normalized_tiers" in record and not isinstance(record["normalized_tiers"], list):
+        errors.append("normalized_tiers must be a list")
 
     return errors
 

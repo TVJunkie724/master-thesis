@@ -1028,9 +1028,9 @@ provider_pricing_contracts:
     - source_type
     - request_scope
     - normalization_rule
-    - normalized_value
     - currency
-    - selected_row
+    - selected_rows
+    - normalized_tiers
     curated_model_constants: {}
     normalization_rules:
     - per_gb
@@ -1040,7 +1040,7 @@ provider_pricing_contracts:
     consumed_workload_fields: *id016
     output_metric_unit: USD/month
     status: ready
-    reviewed_at: '2026-06-10'
+    reviewed_at: '2026-07-16'
   gcp.api_request_million.pricing_contract.v1:
     id: gcp.api_request_million.pricing_contract.v1
     provider: gcp

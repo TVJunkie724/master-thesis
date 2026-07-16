@@ -14,7 +14,12 @@ from typing import Any
 PRICING_SCHEMA_VERSION = "pricing-provider-schema.v1"
 PRICING_CONTRACT_VERSION = "2026.06.08"
 
-RESERVED_PRICING_KEYS = {"__schema__", "__quality__"}
+RESERVED_PRICING_KEYS = {
+    "__schema__",
+    "__quality__",
+    "__evidence__",
+    "__publication__",
+}
 
 FETCHED = "fetched"
 DERIVED = "derived"
@@ -225,7 +230,6 @@ CURATED_FIELDS = {
         "cosmosDB.RUsPerWrite",
         "functions.freeRequests",
         "functions.freeComputeTime",
-        "transfer.pricing_tiers",
     },
     "gcp": {
         "transfer.pricing_tiers",
@@ -304,7 +308,56 @@ def attach_pricing_metadata(
         "fallback_fields": fallback_fields,
         "unsupported_fields": unsupported_fields,
     }
+    evidence = _build_generated_evidence(provider, fetched or {})
+    if evidence:
+        payload["__evidence__"] = evidence
     return payload
+
+
+def _build_generated_evidence(
+    provider: str,
+    fetched: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    if provider != "azure":
+        return None
+    neutral_to_service = {
+        neutral: service
+        for service, neutral in PROVIDER_SERVICE_TO_NEUTRAL[provider].items()
+    }
+    fields: dict[str, Any] = {}
+    for neutral_service, fetched_values in fetched.items():
+        provider_service = neutral_to_service.get(neutral_service)
+        if not provider_service or not isinstance(fetched_values, dict):
+            continue
+        field_evidence = fetched_values.get("__evidence__") or {}
+        for field_key, record in field_evidence.items():
+            fields[f"{provider_service}.{field_key}"] = record
+
+    transfer_record = fields.get("transfer.pricing_tiers")
+    if transfer_record:
+        fields["blobStorageCool.transferCostFromCosmosDB"] = {
+            "schema_version": "pricing-derived-evidence.v1",
+            "source_type": DERIVED,
+            "field_path": "blobStorageCool.transferCostFromCosmosDB",
+            "depends_on": "transfer.pricing_tiers",
+            "derivation": "first positive normalized transfer tier price",
+            "normalized_value": next(
+                (
+                    tier.get("price")
+                    for tier in transfer_record.get("normalized_tiers", [])
+                    if isinstance(tier.get("price"), (int, float))
+                    and tier["price"] > 0
+                ),
+                None,
+            ),
+        }
+    if not fields:
+        return None
+    return {
+        "schema_version": "pricing-generated-evidence.v1",
+        "provider": provider,
+        "fields": dict(sorted(fields.items())),
+    }
 
 
 def build_field_sources(

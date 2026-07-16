@@ -307,7 +307,11 @@ class PricingContractValidationService:
 
         tier_semantics = str(model.get("tier_semantics") or "")
         selected_row = (evidence_record or {}).get("selected_row") or {}
-        has_tier_metadata = bool((evidence_record or {}).get("tier") or selected_row.get("tier"))
+        has_tier_metadata = bool(
+            (evidence_record or {}).get("tier")
+            or selected_row.get("tier")
+            or (evidence_record or {}).get("normalized_tiers")
+        )
         if (
             evidence_source_type == FETCHED
             and "tier" in tier_semantics
