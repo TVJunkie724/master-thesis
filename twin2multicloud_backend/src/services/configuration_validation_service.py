@@ -196,7 +196,7 @@ class ConfigurationValidationService:
                 "step": 2,
                 "code": "OPTIMIZER_UNAVAILABLE",
                 "field": "optimizer",
-                "message": f"Optimizer API error: {result}",
+                "message": "Optimizer validation failed unexpectedly",
             }]
         if not result.get("valid"):
             return [{"step": 2, **error} for error in result.get("errors", [])]
@@ -222,7 +222,7 @@ class ConfigurationValidationService:
                 "step": 3,
                 "code": "DEPLOYER_UNAVAILABLE",
                 "field": "deployer",
-                "message": f"Deployer API error: {result}",
+                "message": "Deployer validation failed unexpectedly",
             }]
         if not result.get("valid"):
             return [{"step": 3, **error} for error in result.get("errors", [])]
