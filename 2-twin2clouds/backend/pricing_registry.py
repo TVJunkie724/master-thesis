@@ -417,7 +417,9 @@ def _index_provider_mappings(
                 )
             mapping = dict(mapping)
             mapping["provider"] = expected_provider
-            mapping["mapping_version"] = doc.get("mapping_version")
+            mapping["mapping_version"] = (
+                mapping.get("mapping_version") or doc.get("mapping_version")
+            )
             provider_index[str(intent_id)] = mapping
         indexed[expected_provider] = provider_index
     return indexed
@@ -525,6 +527,15 @@ def _validate_provider_mappings(
             cardinality = mapping.get("expected_cardinality")
             if cardinality not in SUPPORTED_CARDINALITIES:
                 errors.append(f"{label}: unsupported expected_cardinality {cardinality!r}")
+            selection_mode = mapping.get("selection_mode", "single")
+            if selection_mode not in {"single", "tier_series"}:
+                errors.append(f"{label}: unsupported selection_mode {selection_mode!r}")
+            if selection_mode == "tier_series" and cardinality not in {
+                "one_or_more_per_region",
+            }:
+                errors.append(
+                    f"{label}: tier_series requires one_or_more_per_region cardinality"
+                )
             if not isinstance(mapping.get("match"), dict) or not mapping["match"]:
                 errors.append(f"{label}: match must be a non-empty object")
             if not mapping.get("mapping_version"):

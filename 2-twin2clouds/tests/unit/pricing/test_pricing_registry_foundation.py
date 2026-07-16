@@ -160,7 +160,14 @@ def test_registry_rejects_review_decision_price_overrides(tmp_path):
 def test_evidence_record_requires_selected_row_for_fetched_source():
     errors = validate_evidence_record(_valid_evidence(selected_row=None))
 
-    assert "Fetched evidence requires selected_row" in errors
+    assert "Fetched evidence requires selected_row or selected_rows" in errors
+
+
+def test_evidence_record_accepts_selected_rows_for_tier_series():
+    record = _valid_evidence(selected_row=None)
+    record["selected_rows"] = [{"meterId": "tier-meter"}]
+
+    assert validate_evidence_record(record) == []
 
 
 def test_publishable_evidence_rejects_fallback_static():

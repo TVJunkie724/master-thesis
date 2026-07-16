@@ -117,7 +117,7 @@ def test_azure_evidence_report_preserves_selected_retail_row_and_normalization()
     assert record["selected_row"]["meterId"] == "meter-api-consumption"
     assert record["selected_row"]["skuId"] == "sku-consumption"
     assert record["selected_row"]["productId"] == "product-api-management"
-    assert record["selected_row"]["raw_payload_ref"]["meterId"] == "meter-api-consumption"
+    assert "raw_payload_ref" not in record["selected_row"]
     assert record["candidate_rows"][0]["candidate_id"].startswith("azure:meter-api-consumption")
     assert validate_evidence_report(report["records"], publishable=True) == []
 

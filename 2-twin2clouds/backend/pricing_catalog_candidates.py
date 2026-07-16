@@ -159,10 +159,14 @@ def _extract_azure_candidates(
         product_id = item.get("productId")
         tier_minimum_units = item.get("tierMinimumUnits")
         tier_id = "base" if tier_minimum_units is None else str(tier_minimum_units)
+        price_type = item.get("priceType") or item.get("type")
         candidates.append(
             _candidate(
                 provider="azure",
-                candidate_id=f"azure:{meter_id or sku_id or item.get('meterName')}:{tier_id}",
+                candidate_id=(
+                    f"azure:{meter_id or item.get('meterName')}:{product_id or '-'}:"
+                    f"{sku_id or '-'}:{price_type or '-'}:{tier_id}"
+                ),
                 source_snapshot_id=source_snapshot_id,
                 fetched_at=fetched_at,
                 provider_identifiers={
@@ -179,13 +183,18 @@ def _extract_azure_candidates(
                 meter_name=item.get("meterName"),
                 region=item.get("armRegionName") or item.get("location"),
                 unit=item.get("unitOfMeasure"),
-                price_type=item.get("priceType") or item.get("type"),
+                price_type=price_type,
                 currency=item.get("currencyCode"),
-                raw_price=_to_float(item.get("retailPrice")),
+                raw_price=_to_float(
+                    item.get("retailPrice")
+                    if item.get("retailPrice") is not None
+                    else item.get("unitPrice")
+                ),
                 tier={"tier_minimum_units": tier_minimum_units},
                 evidence={
                     "is_primary_meter_region": item.get("isPrimaryMeterRegion"),
                     "reservation_term": item.get("reservationTerm"),
+                    "effective_start_date": item.get("effectiveStartDate"),
                 },
                 raw_payload_ref=item,
             )

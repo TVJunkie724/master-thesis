@@ -45,9 +45,11 @@ def _azure_pricing(**overrides):
         "transfer": {
             "pricing_tiers": {
                 "freeTier": {"limit": 100, "price": 0},
-                "tier1": {"limit": 10_240, "price": 0.087},
-                "tier2": {"limit": 51_200, "price": 0.083},
-                "tier3": {"limit": "Infinity", "price": 0.07},
+                "tier1": {"limit": 10_335, "price": 0.087},
+                "tier2": {"limit": 51_295, "price": 0.083},
+                "tier3": {"limit": 153_695, "price": 0.07},
+                "tier4": {"limit": 512_095, "price": 0.05},
+                "tier5": {"limit": "Infinity", "price": 0.05},
             }
         },
     }
@@ -168,5 +170,29 @@ class TestAzureTransferTiering:
             source_provider="Azure",
         )
 
-        expected = ((10_240 - 100) * 0.087) + ((10_500 - 10_240) * 0.083)
+        expected = ((10_335 - 100) * 0.087) + ((10_500 - 10_335) * 0.083)
+        assert result == pytest.approx(expected)
+
+    @pytest.mark.parametrize(
+        ("data_gb", "expected"),
+        [
+            (0, 0),
+            (100, 0),
+            (101, 0.087),
+            (10_335, 10_235 * 0.087),
+            (10_336, (10_235 * 0.087) + 0.083),
+            (51_295, (10_235 * 0.087) + (40_960 * 0.083)),
+            (
+                51_296,
+                (10_235 * 0.087) + (40_960 * 0.083) + 0.07,
+            ),
+        ],
+    )
+    def test_azure_egress_live_catalog_boundaries(self, data_gb, expected):
+        result = _calculate_egress_cost(
+            data_gb=data_gb,
+            pricing=_azure_pricing(),
+            source_provider="Azure",
+        )
+
         assert result == pytest.approx(expected)

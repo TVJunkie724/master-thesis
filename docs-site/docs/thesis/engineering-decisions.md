@@ -50,6 +50,12 @@ reliable, while opaque AI-only selection is not reproducible or auditable. The c
 reserves an advisory AI result for future work, but no OpenAI adapter is currently
 enabled; deterministic evidence and user review remain authoritative.
 
+Tiered provider prices opt into a separate `tier_series` selection mode. A series must
+contain a zero threshold, unique non-negative lower bounds, numeric non-negative prices,
+and one reviewed meter identity. Candidate IDs combine meter, product, SKU, price type,
+and tier because Azure may reuse a meter ID across Consumption and Reservation rows.
+Failed or review-required refreshes cannot overwrite the last-known-good snapshot.
+
 ## Optimization Bundles
 
 **Decision:** bind optimization metric, intent group, calculation model, formula set,

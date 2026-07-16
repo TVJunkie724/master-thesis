@@ -17,6 +17,7 @@ CHANGED = "changed"
 FAILED = "failed"
 
 MATCH_STATUSES = (MATCHED, MISSING, AMBIGUOUS, CHANGED, FAILED)
+SUPPORTED_SELECTION_MODES = {"single", "tier_series"}
 
 CANONICAL_PRICING_INTENTS = (
     "transfer.egress_gb",
@@ -85,6 +86,28 @@ def match_pricing_intent(
             }
         )
 
+    selection_mode = mapping.get("selection_mode", "single")
+    if selection_mode == "tier_series" and matches:
+        tier_errors = _validate_tier_series(matches)
+        if tier_errors:
+            return _result(
+                FAILED,
+                mapping,
+                candidates=matches,
+                rejections=rejections,
+                normalization=mapping.get("normalization"),
+                errors=tier_errors,
+            )
+        ordered_tiers = sorted(matches, key=_tier_threshold)
+        return _result(
+            MATCHED,
+            mapping,
+            selected_candidates=ordered_tiers,
+            candidates=ordered_tiers,
+            rejections=rejections,
+            normalization=mapping.get("normalization"),
+        )
+
     if len(matches) == 1:
         return _result(
             MATCHED,
@@ -135,6 +158,10 @@ def validate_mapping(mapping: dict[str, Any]) -> list[str]:
     if mapping.get("match") and not isinstance(mapping["match"], dict):
         errors.append("Mapping field 'match' must be an object")
 
+    selection_mode = mapping.get("selection_mode", "single")
+    if selection_mode not in SUPPORTED_SELECTION_MODES:
+        errors.append(f"Unsupported selection_mode: {selection_mode}")
+
     return errors
 
 
@@ -144,11 +171,10 @@ def _candidate_matches(
 ) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     for field, expected in rules.items():
-        if field == "provider_identifiers":
+        if field in {"provider_identifiers", "tier", "evidence"}:
             actual_values = candidate.get("provider_identifiers", {})
-            reasons.extend(_nested_mismatch_reasons(field, actual_values, expected))
-        elif field == "tier":
-            actual_values = candidate.get("tier", {})
+            if field != "provider_identifiers":
+                actual_values = candidate.get(field, {})
             reasons.extend(_nested_mismatch_reasons(field, actual_values, expected))
         else:
             actual = candidate.get(field)
@@ -201,11 +227,48 @@ def _candidate_sort_key(candidate: dict[str, Any]) -> str:
     return str(candidate.get("candidate_id") or "")
 
 
+def _tier_threshold(candidate: dict[str, Any]) -> float:
+    return float((candidate.get("tier") or {}).get("tier_minimum_units"))
+
+
+def _validate_tier_series(candidates: list[dict[str, Any]]) -> list[str]:
+    errors: list[str] = []
+    thresholds: dict[float, float] = {}
+    for candidate in candidates:
+        candidate_id = candidate.get("candidate_id")
+        threshold = (candidate.get("tier") or {}).get("tier_minimum_units")
+        price = candidate.get("raw_price")
+        if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
+            errors.append(f"{candidate_id}: tierMinimumUnits must be numeric")
+            continue
+        if float(threshold) < 0:
+            errors.append(f"{candidate_id}: tierMinimumUnits must be non-negative")
+        if not isinstance(price, (int, float)) or isinstance(price, bool):
+            errors.append(f"{candidate_id}: raw_price must be numeric")
+            continue
+        if float(price) < 0:
+            errors.append(f"{candidate_id}: raw_price must be non-negative")
+        normalized_threshold = float(threshold)
+        normalized_price = float(price)
+        if normalized_threshold in thresholds:
+            previous = thresholds[normalized_threshold]
+            qualifier = "conflicting" if previous != normalized_price else "duplicate"
+            errors.append(
+                f"{candidate_id}: {qualifier} tierMinimumUnits {normalized_threshold:g}"
+            )
+        thresholds[normalized_threshold] = normalized_price
+
+    if thresholds and 0.0 not in thresholds:
+        errors.append("tier series must contain tierMinimumUnits 0")
+    return errors
+
+
 def _result(
     status: str,
     mapping: dict[str, Any],
     *,
     selected_candidate: dict[str, Any] | None = None,
+    selected_candidates: list[dict[str, Any]] | None = None,
     candidates: list[dict[str, Any]] | None = None,
     rejections: list[dict[str, Any]] | None = None,
     normalization: dict[str, Any] | None = None,
@@ -221,6 +284,10 @@ def _result(
         "selected_candidate": _candidate_summary(selected_candidate)
         if selected_candidate
         else None,
+        "selected_candidates": [
+            _candidate_summary(candidate) for candidate in (selected_candidates or [])
+        ],
+        "selection_mode": mapping.get("selection_mode", "single"),
         "candidates": [_candidate_summary(candidate) for candidate in candidate_list],
         "candidate_count": len(candidate_list),
         "rejections": sorted(rejections or [], key=lambda item: item.get("candidate_id") or ""),

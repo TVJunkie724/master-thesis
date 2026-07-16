@@ -27,18 +27,19 @@ the common output metric `USD/month`.
 ## Pricing Refresh And Review
 
 ```text
-User selects provider/account
-  -> Management API resolves owned pricing CloudConnection
+User selects provider and confirms source scope
+  -> AWS/GCP: Management API resolves owned pricing CloudConnection
+  -> Azure: public catalog request uses selected pricing region
   -> provider refresh starts in Optimizer
   -> provider API rows / official-static classifications
   -> raw evidence retained
   -> intent contract filters and normalizes candidates
   -> deterministic candidate report
-  -> publishable match? ---- yes ---> generated pricing snapshot
+  -> publishable match? ---- yes ---> atomic last-known-good replacement
               |
               no
               v
-       review-required candidates
+       review-required candidates; last-known-good remains active
               |
        user records a decision in Management API DB
               |

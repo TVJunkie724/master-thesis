@@ -24,8 +24,10 @@ Existing client secrets are not multiplied silently. Rotation requires
 
 Azure retail pricing APIs can provide public catalog data for many scenarios, while
 deployment and some account/scope checks require tenant/subscription credentials. The
-application still records which account context was used for refresh so evidence is
-auditable. Do not infer deployment authorization from successful public pricing access.
+application records the requested region, source endpoint, selected catalog identities,
+and mapping version so pricing evidence remains auditable; no Azure credential is used
+for this public refresh. Do not infer deployment authorization from successful public
+pricing access.
 
 Role/policy references and the setup helper under `3-cloud-deployer/docs/references`
 are baseline inputs. Azure Functions hosting model, diagnostic settings, Digital Twins,

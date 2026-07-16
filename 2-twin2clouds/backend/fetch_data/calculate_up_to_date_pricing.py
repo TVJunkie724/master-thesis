@@ -14,6 +14,11 @@ from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
 from backend.pricing_schema import attach_pricing_metadata
 from backend.pricing_cache import serialized_provider_refresh, write_json_atomically
+from backend.pricing_intent_registry import FAILED
+from backend.pricing_publication_state import (
+    PUBLISHABLE as PUBLICATION_PUBLISHABLE,
+    build_pricing_publication_decision,
+)
 
 # Factory Pattern: Centralized creation of price fetcher instances
 # All provider-specific fetching is done through the Factory
@@ -77,7 +82,7 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             logger.warning("AWS credentials missing, skipping fetch.")
 
     elif target_provider == "azure":
-        _log_provider_fetch_start("Azure")
+        _log_provider_fetch_start("Azure", credential_mode="public catalog")
         
         # Load Region Map
         region_map = _load_region_map("Azure", CONSTANTS.AZURE_REGIONS_FILE_PATH)
@@ -113,8 +118,21 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
                 validation.get("unsupported_fields", []),
             )
             
-        write_json_atomically(Path(target_file_path), output_data)
-        logger.info(f"✅ Wrote {target_file_path.name} successfully!")
+        if target_provider == "azure":
+            output_data = _publish_azure_pricing_candidate(
+                output_data,
+                Path(target_file_path),
+                validation,
+            )
+            if output_data["__publication__"]["status"] == PUBLICATION_PUBLISHABLE:
+                logger.info("✅ Wrote %s successfully!", target_file_path.name)
+            else:
+                logger.info(
+                    "Azure pricing refresh completed in review state; no file was replaced"
+                )
+        else:
+            write_json_atomically(Path(target_file_path), output_data)
+            logger.info(f"✅ Wrote {target_file_path.name} successfully!")
         return output_data
     else:
         logger.warning(f"⚠️ No data fetched for {target_provider} or credentials missing.")
@@ -218,6 +236,103 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
     else:
         logger.warning(f"⚠️ No data fetched for {target_provider}")
     return {}
+
+
+def _publish_azure_pricing_candidate(
+    candidate: dict,
+    target_path: Path,
+    validation: dict,
+) -> dict:
+    """Publish only evidence-backed Azure pricing; preserve the prior snapshot otherwise."""
+    evidence_fields = ((candidate.get("__evidence__") or {}).get("fields") or {})
+    intent_results = []
+    seen_intents = set()
+    for record in evidence_fields.values():
+        intent_id = record.get("intent_id") if isinstance(record, dict) else None
+        if not intent_id or intent_id in seen_intents:
+            continue
+        seen_intents.add(intent_id)
+        intent_results.append(
+            {
+                "intent_id": intent_id,
+                "provider": "azure",
+                "mapping_version": record.get("mapping_version"),
+                "status": record.get("match_status", FAILED),
+                "selected_candidate": record.get("selected_row"),
+                "candidate_count": len(record.get("selected_rows") or [])
+                or int(record.get("selected_row") is not None),
+                "errors": list(record.get("errors") or []),
+            }
+        )
+    if validation.get("status") != "valid" or validation.get("review_required"):
+        intent_results.append(
+            {
+                "intent_id": "azure.provider_pricing_contract",
+                "provider": "azure",
+                "status": FAILED,
+                "errors": [
+                    "Fresh Azure pricing failed schema or source-quality validation"
+                ],
+            }
+        )
+
+    last_known_good = None
+    if target_path.exists():
+        try:
+            last_known_good = json.loads(target_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Could not read prior Azure pricing snapshot: %s", exc)
+
+    fresh_descriptor = _azure_snapshot_descriptor(candidate)
+    last_known_good_descriptor = (
+        _azure_snapshot_descriptor(last_known_good) if last_known_good else None
+    )
+    decision = build_pricing_publication_decision(
+        "azure",
+        intent_results,
+        fresh_snapshot=fresh_descriptor,
+        last_known_good_snapshot=last_known_good_descriptor,
+    )
+    response = dict(candidate)
+    response["__publication__"] = decision
+    if decision["status"] != PUBLICATION_PUBLISHABLE:
+        logger.warning(
+            "Azure pricing candidate was not published; preserving last-known-good snapshot"
+        )
+        return response
+
+    write_json_atomically(target_path, response)
+    return response
+
+
+def _azure_snapshot_descriptor(payload: dict) -> dict:
+    schema = payload.get("__schema__") or {}
+    evidence_fields = ((payload.get("__evidence__") or {}).get("fields") or {})
+    mapping_versions = sorted(
+        {
+            record.get("mapping_version")
+            for record in evidence_fields.values()
+            if isinstance(record, dict) and record.get("mapping_version")
+        }
+    )
+    generated_at = schema.get("generated_at")
+    return {
+        "snapshot_id": f"azure:{generated_at}" if generated_at else None,
+        "schema_version": schema.get("schema_version"),
+        "provider": "azure",
+        "source_api": "azure-retail-prices",
+        "fetched_at": generated_at,
+        "published_at": generated_at,
+        "mapping_version": ",".join(mapping_versions) or None,
+        "candidate_count": sum(
+            len(record.get("selected_rows") or [])
+            or int(record.get("selected_row") is not None)
+            for record in evidence_fields.values()
+            if isinstance(record, dict) and record.get("intent_id")
+        ),
+        "raw_item_count": None,
+        "is_stale": False,
+    }
 
 
 def build_aws_pricing_client_credentials(credentials: dict) -> dict:

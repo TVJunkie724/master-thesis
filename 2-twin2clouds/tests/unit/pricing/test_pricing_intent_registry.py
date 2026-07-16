@@ -1,3 +1,5 @@
+import pytest
+
 from backend.pricing_intent_registry import (
     AMBIGUOUS,
     CHANGED,
@@ -212,3 +214,78 @@ def test_match_pricing_intent_failed_for_invalid_mapping():
 
     assert result["status"] == FAILED
     assert result["errors"] == ["Unknown pricing intent: unknown.intent"]
+
+
+def test_match_pricing_intent_accepts_explicit_tier_series_in_threshold_order():
+    mapping = _mapping(
+        selection_mode="tier_series",
+        match={
+            "service_name": "Bandwidth",
+            "evidence": {"is_primary_meter_region": False},
+        },
+    )
+    candidates = [
+        _candidate(
+            candidate_id="azure:tier-100",
+            service_name="Bandwidth",
+            raw_price=0.087,
+            tier={"tier_minimum_units": 100},
+            evidence={"is_primary_meter_region": False},
+        ),
+        _candidate(
+            candidate_id="azure:tier-0",
+            service_name="Bandwidth",
+            raw_price=0.0,
+            tier={"tier_minimum_units": 0},
+            evidence={"is_primary_meter_region": False},
+        ),
+    ]
+
+    result = match_pricing_intent(candidates, mapping)
+
+    assert result["status"] == MATCHED
+    assert result["selected_candidate"] is None
+    assert [
+        candidate["tier"]["tier_minimum_units"]
+        for candidate in result["selected_candidates"]
+    ] == [0, 100]
+
+
+@pytest.mark.parametrize(
+    ("tiers", "error_fragment"),
+    [
+        ([(100, 0.087)], "must contain tierMinimumUnits 0"),
+        ([(0, 0), (0, 0.087)], "conflicting tierMinimumUnits 0"),
+        ([(0, -0.01)], "raw_price must be non-negative"),
+        ([(0, 0), ("100", 0.087)], "tierMinimumUnits must be numeric"),
+    ],
+)
+def test_match_pricing_intent_rejects_invalid_tier_series(tiers, error_fragment):
+    mapping = _mapping(
+        selection_mode="tier_series",
+        match={"service_name": "Bandwidth"},
+    )
+    candidates = [
+        _candidate(
+            candidate_id=f"azure:tier-{index}",
+            service_name="Bandwidth",
+            raw_price=price,
+            tier={"tier_minimum_units": threshold},
+        )
+        for index, (threshold, price) in enumerate(tiers)
+    ]
+
+    result = match_pricing_intent(candidates, mapping)
+
+    assert result["status"] == FAILED
+    assert any(error_fragment in error for error in result["errors"])
+
+
+def test_match_pricing_intent_rejects_unknown_selection_mode():
+    result = match_pricing_intent(
+        [_candidate()],
+        _mapping(selection_mode="cheapest"),
+    )
+
+    assert result["status"] == FAILED
+    assert result["errors"] == ["Unsupported selection_mode: cheapest"]

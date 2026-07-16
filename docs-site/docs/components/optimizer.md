@@ -46,10 +46,14 @@ Reviewed decisions may select mappings but may not store price overrides.
 provider API/static official source
   -> raw provider row/evidence
   -> provider mapping predicates
-  -> candidates with accepted/rejected reasons
+  -> collision-safe canonical candidates
+  -> single-row or explicit tier-series selection
+  -> selected/rejected rows with bounded reasons
   -> intent-specific normalization
   -> classification + verification gates
-  -> publishable generated pricing field
+  -> publication decision
+       | publishable: atomically replace last-known-good
+       | review-required: retain last-known-good and expose candidate evidence
 ```
 
 Raw result identity and relevant dimensions remain inspectable so a future developer
@@ -85,15 +89,23 @@ of the baseline: `publishable` means every required field passed its source gate
 as newly verified pricing.
 
 The Azure baseline generated on 2026-07-16 is reproducible against the public Azure
-Retail Prices API. It remains `review_required` because these source paths are not yet
-resolved dynamically:
+Retail Prices API and is `publishable`. Four former static fallback paths now have
+reviewed, versioned catalog evidence:
 
-- `blobStorageArchive.storagePrice`;
-- `blobStorageCool.storagePrice`;
-- `blobStorageCool.transferCostFromCosmosDB`;
-- `cosmosDB.storagePrice`.
+- Cosmos DB `Data Stored` is selected as `RUs`, `1 GB/Month`, Consumption;
+- Blob Storage Cool and Archive select the exact LRS data-stored meters;
+- Bandwidth selects `Rtn Preference: MGN` / `Standard Data Transfer Out` as an
+  ordered tier series;
+- Cosmos-to-Blob transfer cost derives from the first paid fetched egress tier.
 
-Their provider mapping and source work is tracked in
+The live West Europe evidence produced storage values `0.25`, `0.01`, and `0.0018`
+USD per GB-month. Transfer thresholds are read from `tierMinimumUnits`; the generated
+absolute limits are `100`, `10335`, `51295`, `153695`, `512095`, and `Infinity` GB.
+Stable meter/product/SKU identifiers act as drift markers alongside semantic fields;
+they are not a cheapest-row heuristic.
+
+[#110 Resolve Azure pricing fallback sources with catalog evidence](https://github.com/TVJunkie724/master-thesis/issues/110)
+records this hardening. The broader multi-service fetcher work remains tracked by
 [#32 Refresh optimizer pricing schema and provider fetchers for expanded services](https://github.com/TVJunkie724/master-thesis/issues/32).
 
 ## Calculation Model

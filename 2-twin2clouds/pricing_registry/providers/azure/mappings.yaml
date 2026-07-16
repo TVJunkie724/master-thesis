@@ -3,10 +3,28 @@ provider: azure
 mapping_version: "2026.06.08"
 mappings:
   - intent_id: transfer.egress_gb
-    review_status: draft
+    mapping_version: "2026.07.16"
+    review_status: reviewed
     normalization_rule: per_gb
     expected_cardinality: one_or_more_per_region
-    match: {service_name: Bandwidth, unit: GB}
+    selection_mode: tier_series
+    match:
+      service_name: Bandwidth
+      product_name: "Rtn Preference: MGN"
+      sku_name: Standard
+      meter_name: Standard Data Transfer Out
+      unit: 1 GB
+      price_type: Consumption
+      provider_identifiers:
+        meter_id: 9995d93a-7d35-4d3f-9c69-7a7fea447ef4
+        product_id: DZH318Z0BNVX
+        sku_id: DZH318Z0BNVX/003F
+      evidence:
+        is_primary_meter_region: false
+    drift_markers:
+      service_name: Bandwidth
+      product_name: "Rtn Preference: MGN"
+      meter_name: Standard Data Transfer Out
   - intent_id: iot.message_ingest
     review_status: draft
     normalization_rule: per_1m_messages
@@ -23,10 +41,27 @@ mappings:
     expected_cardinality: one_or_more_per_region
     match: {service_name: Functions, unit: GB Second}
   - intent_id: storage.hot.storage_gb_month
-    review_status: draft
+    mapping_version: "2026.07.16"
+    review_status: reviewed
     normalization_rule: per_gb_month
-    expected_cardinality: one_or_more_per_region
-    match: {service_name: Azure Cosmos DB}
+    expected_cardinality: one_per_region
+    match:
+      service_name: Azure Cosmos DB
+      product_name: Azure Cosmos DB
+      sku_name: RUs
+      meter_name: Data Stored
+      unit: 1 GB/Month
+      price_type: Consumption
+      provider_identifiers:
+        meter_id: aa57abaf-ec18-4387-9348-07b177eab8db
+        product_id: DZH318Z0BPJH
+        sku_id: DZH318Z0BPJH/0028
+      evidence:
+        is_primary_meter_region: true
+    drift_markers:
+      service_name: Azure Cosmos DB
+      product_name: Azure Cosmos DB
+      meter_name: Data Stored
   - intent_id: storage.hot.read_request
     review_status: draft
     normalization_rule: per_request
@@ -38,15 +73,49 @@ mappings:
     expected_cardinality: one_or_more_per_region
     match: {service_name: Azure Cosmos DB, meter_name: Write}
   - intent_id: storage.cool.storage_gb_month
-    review_status: draft
+    mapping_version: "2026.07.16"
+    review_status: reviewed
     normalization_rule: per_gb_month
-    expected_cardinality: one_or_more_per_region
-    match: {service_name: Storage, sku_name: Cool}
+    expected_cardinality: one_per_region
+    match:
+      service_name: Storage
+      product_name: Blob Storage
+      sku_name: Cool LRS
+      meter_name: Cool LRS Data Stored
+      unit: 1 GB/Month
+      price_type: Consumption
+      provider_identifiers:
+        meter_id: 8bf84600-37ce-42ab-a6d7-0c322aed8182
+        product_id: DZH318Z0BNZJ
+        sku_id: DZH318Z0BNZJ/0096
+      evidence:
+        is_primary_meter_region: true
+    drift_markers:
+      service_name: Storage
+      product_name: Blob Storage
+      meter_name: Cool LRS Data Stored
   - intent_id: storage.archive.storage_gb_month
-    review_status: draft
+    mapping_version: "2026.07.16"
+    review_status: reviewed
     normalization_rule: per_gb_month
-    expected_cardinality: one_or_more_per_region
-    match: {service_name: Storage, sku_name: Archive}
+    expected_cardinality: one_per_region
+    match:
+      service_name: Storage
+      product_name: Blob Storage
+      sku_name: Archive LRS
+      meter_name: Archive LRS Data Stored
+      unit: 1 GB/Month
+      price_type: Consumption
+      provider_identifiers:
+        meter_id: 7d07cbf5-5686-4123-9ebe-36ca3e461c43
+        product_id: DZH318Z0BNZJ
+        sku_id: DZH318Z0BNZJ/0097
+      evidence:
+        is_primary_meter_region: true
+    drift_markers:
+      service_name: Storage
+      product_name: Blob Storage
+      meter_name: Archive LRS Data Stored
   - intent_id: storage.archive.write_request
     review_status: draft
     normalization_rule: per_10k_requests

@@ -4,6 +4,8 @@ from typing import Dict, Any, Iterable, List, Optional
 import requests
 
 from backend.logger import logger
+from backend.azure_pricing_evidence import build_azure_intent_evidence
+from backend.pricing_intent_registry import MATCHED
 from backend.fetch_data.fetch_evidence import (
     FieldMatchEvidence,
     MatchStatus,
@@ -131,6 +133,13 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
         },
         "include": ["Bandwidth"],
     },
+}
+
+REGISTRY_BACKED_AZURE_FIELDS = {
+    "transfer": ("transfer.egress_gb", "pricing_tiers"),
+    "storage_hot": ("storage.hot.storage_gb_month", "storagePrice"),
+    "storage_cool": ("storage.cool.storage_gb_month", "storagePrice"),
+    "storage_archive": ("storage.archive.storage_gb_month", "storagePrice"),
 }
 
 # -----------------------------------------------------------------------------
@@ -459,6 +468,67 @@ def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Di
 
     return result
 
+
+def _fetch_registry_backed_field(
+    rows: List[Dict[str, Any]],
+    neutral: str,
+    region: str,
+) -> Dict[str, Any]:
+    intent_id, field_key = REGISTRY_BACKED_AZURE_FIELDS[neutral]
+    evidence = build_azure_intent_evidence(
+        rows,
+        intent_id=intent_id,
+        region=region,
+    )
+    result: Dict[str, Any] = {"__evidence__": {field_key: evidence}}
+    if evidence["match_status"] != MATCHED or evidence["review_required"]:
+        logger.warning(
+            "Azure pricing intent %s requires review in region %s: %s",
+            intent_id,
+            region,
+            evidence.get("errors") or [evidence["match_status"]],
+        )
+        return result
+    if evidence.get("currency") != "USD":
+        evidence["review_required"] = True
+        evidence["errors"] = [
+            f"Azure pricing intent {intent_id} returned non-USD currency"
+        ]
+        return result
+
+    if neutral == "transfer":
+        normalized_tiers = evidence.get("normalized_tiers") or []
+        if not normalized_tiers:
+            evidence["review_required"] = True
+            evidence["errors"] = ["Azure transfer intent returned no normalized tiers"]
+            return result
+        result["pricing_tiers"] = {
+            "freeTier" if index == 0 else f"tier{index}": {
+                "limit": tier["limit"],
+                "price": tier["price"],
+            }
+            for index, tier in enumerate(normalized_tiers)
+        }
+        first_paid = next(
+            (tier["price"] for tier in normalized_tiers if tier["price"] > 0),
+            None,
+        )
+        if first_paid is None:
+            evidence["review_required"] = True
+            evidence["errors"] = ["Azure transfer intent has no paid tier"]
+            result.pop("pricing_tiers", None)
+            return result
+        result["egressPrice"] = first_paid
+        return result
+
+    normalized_value = evidence.get("normalized_value")
+    if not isinstance(normalized_value, (int, float)):
+        evidence["review_required"] = True
+        evidence["errors"] = [f"Azure pricing intent {intent_id} is not numeric"]
+        return result
+    result[field_key] = float(normalized_value)
+    return result
+
 # -----------------------------------------------------------------------------
 # MAIN ENTRY POINT
 # -----------------------------------------------------------------------------
@@ -498,9 +568,27 @@ def fetch_azure_price(service_name: str, region_code: str, region_map: Dict[str,
         # 4. Dispatch to Fetcher
         if neutral == "iot":
             fetched = _fetch_iot_hub(rows, neutral, debug)
+        elif neutral in REGISTRY_BACKED_AZURE_FIELDS:
+            fetched = (
+                {}
+                if neutral == "transfer"
+                else _fetch_standard(rows, neutral, debug)
+            )
+            _, registry_field_key = REGISTRY_BACKED_AZURE_FIELDS[neutral]
+            fetched.pop(registry_field_key, None)
+            fetched.update(_fetch_registry_backed_field(rows, neutral, region))
         else:
             fetched = _fetch_standard(rows, neutral, debug)
 
-    logger.info(f"✅ Final Azure prices for {neutral}: {fetched}")
+    evidence_statuses = {
+        key: value.get("match_status")
+        for key, value in (fetched.get("__evidence__") or {}).items()
+    }
+    logger.info(
+        "Final Azure pricing fields for %s: %s; evidence: %s",
+        neutral,
+        sorted(key for key in fetched if key != "__evidence__"),
+        evidence_statuses,
+    )
     print("")
     return fetched

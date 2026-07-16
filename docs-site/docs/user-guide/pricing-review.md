@@ -8,9 +8,11 @@ twin because refresh credentials and cached provider pricing are account-level s
 AWS, Azure, and GCP refresh independently. This keeps slow or failing providers from
 blocking review of the others and makes the credential/account context explicit.
 
-Before refresh, the confirmation shows which stored pricing connection and cloud scope
-will be used. A missing or invalid default disables refresh with a recovery path to
-Cloud Accounts.
+Before an authenticated refresh, the confirmation shows which stored pricing connection
+and cloud scope will be used. A missing or invalid AWS/GCP default disables that
+provider refresh with a recovery path to Cloud Accounts. Azure catalog refresh uses
+the unauthenticated public Retail Prices API and therefore shows the requested pricing
+region rather than an account credential.
 
 ## Status
 
@@ -28,6 +30,10 @@ Collapsed details expose the full decision path without overwhelming the default
 - normalization/build path;
 - contract and publication status;
 - latest refresh run and errors.
+
+Azure tier-series evidence includes every selected `tierMinimumUnits` row and the
+normalized absolute-limit table. Rejected routing preferences, reservation products,
+storage products, SKUs, and meters are bounded and remain available with reasons.
 
 ## Review Decision
 
