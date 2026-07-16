@@ -25,8 +25,10 @@
 
 ### Authentication
 
-UIBK SAML needs institutional registration and final live callback/session hardening.
-Local development auth is deliberately not a production substitute.
+The durable OAuth/SAML transaction, one-time exchange, provider-subject identity, and
+revocable session boundaries are implemented and deterministically tested. UIBK SAML
+still needs institutional registration and a supervised live callback. Local
+development auth is deliberately not a production substitute.
 
 ### Credential Operations
 

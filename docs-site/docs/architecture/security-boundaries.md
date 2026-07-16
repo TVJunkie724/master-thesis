@@ -6,6 +6,9 @@
 |---|---|---|---|
 | Management API JWT key | long-lived runtime secret | read-only Docker secret | sign application access tokens |
 | Management API encryption key | long-lived runtime secret | read-only Docker secret | encrypt CloudConnection payloads |
+| OAuth/SAML provider secret/key | long-lived runtime secret | deployment secret/config boundary | authenticate the Management API to an external IdP |
+| login state/poll verifier | one short transaction | database digest; opaque value held by browser/client | correlate and consume an external login once |
+| application access token | short-lived session | Flutter process memory plus revocable DB session ID | authorize Management API calls |
 | bootstrap/admin credential | one operation | transient request memory | create scoped provider credentials |
 | deployment CloudConnection | reusable, user-owned | encrypted database payload | validate and deploy a twin |
 | pricing CloudConnection | reusable user default | encrypted database payload | refresh provider pricing |
@@ -27,16 +30,25 @@ valid substitutes for application runtime secrets.
 - production CORS accepts only explicit HTTPS origins;
 - upload/archive boundaries enforce limits, traversal protection, and secret-safe file listing;
 - operation workspaces reject symlinks and synchronize only allowlisted outputs.
+- external login transactions persist only digests for browser state and poll
+  verifiers; Google PKCE verifiers are encrypted at rest;
+- JWT issuer/audience/time claims are validated and every token is backed by a
+  revocable server-side session;
+- provider subjects, not email addresses, are identity keys and implicit account
+  linking is forbidden;
+- authentication endpoints have their own fail-closed distributed limiter and
+  secret-free audit events.
 
 ## Authentication Status
 
 Development authentication is an explicit non-production capability controlled by
 `DEV_AUTH_ENABLED` and `DEV_AUTH_TOKEN`; it is not inferred from generic debug mode.
 
-Google OAuth and UIBK SAML provider boundaries exist in the Management API. The UIBK
-production path is **externally gated** by institutional SAML registration, metadata,
-certificates, and approved callback values. Until that setup and a final auth security
-review are complete, documentation must not present production login as available.
+Google OAuth and UIBK SAML share a durable browser-transaction and session-exchange
+boundary. The UIBK production path is **externally gated** by institutional SAML
+registration, metadata, certificates, and approved callback values. The API exposes
+that fact through provider capabilities; production never falls back to development
+authentication.
 
 ## Known Operational Limits
 

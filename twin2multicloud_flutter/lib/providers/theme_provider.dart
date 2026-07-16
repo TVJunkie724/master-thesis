@@ -35,6 +35,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
   /// Load theme from local storage immediately on app start
   Future<void> _loadFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!ref.mounted) return;
     final stored = prefs.getString(_storageKey);
     if (stored != null) {
       state = stored == 'light' ? ThemeMode.light : ThemeMode.dark;

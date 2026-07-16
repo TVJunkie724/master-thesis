@@ -74,6 +74,13 @@ review workspace because pricing readiness is account-level, not twin configurat
 Demo mode uses the same `ManagementApi` interface and screens. Its fixture store
 supports `showcase`, `empty`, and `degraded`; requesting network dependencies fails.
 
+Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
+opens a system browser, polls the one-time Management API exchange, retains the access
+token in memory, and clears identity/token state after logout or any authenticated
+`401`. Web reserves its popup synchronously before the API call to satisfy browser
+popup-blocking rules; desktop opens the external system browser. Provider callbacks
+and secrets never enter Flutter routes or URL parameters.
+
 ## Error And Logging Behavior
 
 - `Result` and typed models keep expected API failures out of widget parsing;
@@ -118,6 +125,6 @@ long forms, raw JSON, and mixed state concerns. It was decomposed into typed ada
 Riverpod composition, workflow BLoCs, reusable controls, and the task-oriented
 configuration workspace. Pricing review became a first-class account workflow.
 
-Remaining gaps include final production identity UX, selected simulator defects, and
+Remaining gaps include live institutional UIBK activation, selected simulator defects, and
 continued consolidation of cross-screen notifications. These are not reasons to bypass
 the Management API or introduce mock-only production paths.

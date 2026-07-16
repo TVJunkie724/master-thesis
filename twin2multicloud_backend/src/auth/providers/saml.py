@@ -17,6 +17,7 @@ Note: The real UIBK IdP will REJECT localhost URLs - registration with ACOnet is
 """
 
 import re
+from urllib.parse import urlparse
 from typing import Optional
 
 # Note: python3-saml requires xmlsec library. If not installed, these imports will fail.
@@ -30,17 +31,8 @@ except ImportError:
     OneLogin_Saml2_Auth = None
     OneLogin_Saml2_Utils = None
 
-from dataclasses import dataclass
+from src.auth.providers.base import ProviderAuthorization, VerifiedExternalIdentity
 from src.config import settings
-
-
-@dataclass
-class SAMLUserInfo:
-    """User information extracted from SAML assertion."""
-    email: str
-    name: Optional[str]
-    picture_url: Optional[str]
-    provider_id: str  # eduPersonPrincipalName (e.g., "csab1234@uibk.ac.at")
 
 
 class UIBKSAMLProvider:
@@ -59,8 +51,8 @@ class UIBKSAMLProvider:
             )
         
         self.saml_settings = {
-            "strict": not settings.DEBUG,  # Relaxed in dev for testing
-            "debug": settings.DEBUG,
+            "strict": True,
+            "debug": False,
             "sp": {
                 "entityId": settings.SAML_SP_ENTITY_ID,
                 "assertionConsumerService": {
@@ -77,10 +69,21 @@ class UIBKSAMLProvider:
                     "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
                 },
                 "x509cert": settings.SAML_IDP_CERT,
-            }
+            },
+            "security": {
+                "authnRequestsSigned": True,
+                "wantAssertionsSigned": True,
+                "wantMessagesSigned": False,
+                "wantAttributeStatement": True,
+                "rejectUnsolicitedResponsesWithInResponseTo": True,
+            },
         }
     
-    def get_login_url(self, request_data: dict, relay_state: Optional[str] = None) -> str:
+    def get_login_url(
+        self,
+        request_data: dict,
+        relay_state: Optional[str] = None,
+    ) -> ProviderAuthorization:
         """
         Generate SAML AuthnRequest redirect URL.
         
@@ -92,9 +95,15 @@ class UIBKSAMLProvider:
             URL to redirect user to for authentication
         """
         auth = self._init_saml_auth(request_data)
-        return auth.login(return_to=relay_state)
+        url = auth.login(return_to=relay_state)
+        return ProviderAuthorization(auth_url=url, request_id=auth.get_last_request_id())
     
-    async def handle_callback(self, request_data: dict, post_data: dict) -> SAMLUserInfo:
+    async def handle_callback(
+        self,
+        request_data: dict,
+        post_data: dict,
+        request_id: str,
+    ) -> VerifiedExternalIdentity:
         """
         Process SAML Response and extract user attributes.
         
@@ -110,11 +119,11 @@ class UIBKSAMLProvider:
         """
         request_data['post_data'] = post_data
         auth = self._init_saml_auth(request_data)
-        auth.process_response()
+        auth.process_response(request_id=request_id)
         errors = auth.get_errors()
         
         if errors:
-            raise ValueError(f"SAML Error: {', '.join(errors)}")
+            raise ValueError("SAML response validation failed")
         
         if not auth.is_authenticated():
             raise ValueError("SAML authentication failed")
@@ -134,14 +143,30 @@ class UIBKSAMLProvider:
             raise ValueError("SAML response missing required 'mail' attribute")
         
         if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
-            raise ValueError(f"Invalid email format from SAML: {email}")
+            raise ValueError("SAML response contained an invalid email address")
+
+        subject = auth.get_nameid()
+        if not isinstance(subject, str) or not subject.strip():
+            raise ValueError("SAML response missing a stable subject identifier")
         
-        return SAMLUserInfo(
-            email=email,
+        return VerifiedExternalIdentity(
+            email=email.strip().lower(),
             name=attributes.get('displayName', [None])[0] or attributes.get('cn', [None])[0],
-            picture_url=None,  # Not provided by UIBK
-            provider_id=auth.get_nameid()  # eduPersonPrincipalName (e.g., "csab1234@uibk.ac.at")
+            picture_url=None,
+            subject=subject.strip(),
         )
+
+    @staticmethod
+    def request_data(*, query: dict | None = None, post: dict | None = None) -> dict:
+        """Build python3-saml request metadata from the configured, registered ACS."""
+        acs = urlparse(settings.SAML_ACS_URL)
+        return {
+            "https": "on" if acs.scheme == "https" else "off",
+            "http_host": acs.netloc,
+            "script_name": acs.path,
+            "get_data": query or {},
+            "post_data": post or {},
+        }
     
     def _init_saml_auth(self, request_data: dict) -> 'OneLogin_Saml2_Auth':
         """

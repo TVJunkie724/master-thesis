@@ -52,10 +52,10 @@ class SettingsScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             offset: const Offset(0, AppSpacing.actionButtonHeight),
             tooltip: 'Profile menu',
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'logout') {
-                ref.read(authProvider.notifier).logout();
-                context.go('/login');
+                await ref.read(authProvider.notifier).logout();
+                if (context.mounted) context.go('/login');
               }
             },
             itemBuilder: (context) => [

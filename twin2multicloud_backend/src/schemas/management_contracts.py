@@ -15,31 +15,6 @@ class MessageResponse(BaseModel):
     message: str
 
 
-class AuthUrlResponse(BaseModel):
-    """Authentication redirect URL response."""
-
-    auth_url: str
-
-
-class AuthProvidersResponse(BaseModel):
-    """Enabled authentication providers."""
-
-    providers: list[str]
-
-
-class CurrentUserResponse(BaseModel):
-    """Current authenticated user profile returned to the Flutter client."""
-
-    id: str
-    email: str
-    name: str | None = None
-    picture_url: str | None = None
-    auth_provider: str
-    theme_preference: str
-    uibk_linked: bool
-    google_linked: bool
-
-
 class HealthResponse(BaseModel):
     """Management API health check response."""
 

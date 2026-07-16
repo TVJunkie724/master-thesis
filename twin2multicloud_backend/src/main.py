@@ -33,8 +33,16 @@ from src.security.rate_limit import (
 from src.security.request_context import RequestContextMiddleware, current_request_id
 from src.security.transport import ProductionTransportMiddleware
 from src.services.credential_security_audit_service import CredentialAuditWriteFailed
+from src.security.auth_rate_limit import (
+    AuthRateLimitExceeded,
+    AuthSecurityControlUnavailable,
+)
+from src.services.auth_flow_service import AuthFlowError
 
 initialize_database_schema(engine, settings.DATABASE_URL)
+
+if settings.SAML_ENABLED and not auth.is_saml_available():
+    raise RuntimeError("SAML_ENABLED requires the python3-saml runtime dependency")
 
 
 @asynccontextmanager
@@ -91,6 +99,55 @@ async def credential_security_unavailable_handler(
         content={
             "error_code": "SECURITY_CONTROL_UNAVAILABLE",
             "message": "A required credential security control is unavailable.",
+            "fix_suggestion": "Retry after the service operator restores the security control.",
+            "http_status": 503,
+            "request_id": current_request_id(),
+        },
+    )
+
+
+@app.exception_handler(AuthFlowError)
+async def auth_flow_error_handler(_request: Request, exc: AuthFlowError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.http_status,
+        content={
+            "error_code": exc.error_code,
+            "message": exc.message,
+            "fix_suggestion": exc.fix_suggestion,
+            "http_status": exc.http_status,
+            "request_id": current_request_id(),
+        },
+    )
+
+
+@app.exception_handler(AuthRateLimitExceeded)
+async def auth_rate_limit_handler(
+    _request: Request,
+    exc: AuthRateLimitExceeded,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        headers=exc.headers,
+        content={
+            "error_code": "RATE_LIMITED",
+            "message": "Too many authentication requests were submitted.",
+            "fix_suggestion": "Wait for the Retry-After interval before retrying.",
+            "http_status": 429,
+            "request_id": current_request_id(),
+        },
+    )
+
+
+@app.exception_handler(AuthSecurityControlUnavailable)
+async def auth_security_unavailable_handler(
+    _request: Request,
+    _exc: AuthSecurityControlUnavailable,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error_code": "SECURITY_CONTROL_UNAVAILABLE",
+            "message": "A required authentication security control is unavailable.",
             "fix_suggestion": "Retry after the service operator restores the security control.",
             "http_status": 503,
             "request_id": current_request_id(),

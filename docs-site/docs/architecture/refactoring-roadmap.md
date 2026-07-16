@@ -52,6 +52,8 @@ when work becomes actionable, then reference the issue here.
 | [#72](https://github.com/TVJunkie724/master-thesis/issues/72) | Done | Stable twin, configuration, optimizer, pricing-export, and deployer response boundaries are typed and live-contract verified |
 | [#39](https://github.com/TVJunkie724/master-thesis/issues/39) | Done | Deployment and destroy lifecycle, persisted status, safe confirmations, and Management API log streaming reconciled |
 | [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Done | Durable local JWT/encryption secrets are generated safely while production remains fail-closed |
+| [#4](https://github.com/TVJunkie724/master-thesis/issues/4) | Done | Legacy service HTML content migrated into the canonical docs site with provenance |
+| [#30](https://github.com/TVJunkie724/master-thesis/issues/30) | Done | Multi-cloud walkthrough, troubleshooting, references, and project documentation completed |
 
 ## Active And Planned Refactoring Issues
 
@@ -86,8 +88,8 @@ when work becomes actionable, then reference the issue here.
 | [#1](https://github.com/TVJunkie724/master-thesis/issues/1) | Open | MkDocs/docs-site and repository hygiene umbrella |
 | [#2](https://github.com/TVJunkie724/master-thesis/issues/2) | Done | Template/runtime upload separation |
 | [#3](https://github.com/TVJunkie724/master-thesis/issues/3) | Open | Non-destructive hygiene guardrail check |
-| [#4](https://github.com/TVJunkie724/master-thesis/issues/4) | Open | Migrate service HTML documentation into docs-site |
-| [#30](https://github.com/TVJunkie724/master-thesis/issues/30) | Open | Multi-cloud examples, troubleshooting, walkthrough docs |
+| [#4](https://github.com/TVJunkie724/master-thesis/issues/4) | Done | Migrate service HTML documentation into docs-site |
+| [#30](https://github.com/TVJunkie724/master-thesis/issues/30) | Done | Multi-cloud examples, troubleshooting, walkthrough docs |
 | [#49](https://github.com/TVJunkie724/master-thesis/issues/49) | Open | UIBK login prerequisites |
 
 ### Phase 4: Runtime Credentials & Deployment State
@@ -99,7 +101,7 @@ when work becomes actionable, then reference the issue here.
 | [#79](https://github.com/TVJunkie724/master-thesis/issues/79) | Active | Stage 2 for provider credentials: `thesis-demo-v1` is implemented as the active versioned permission-set contract across bootstrap output, Deployer preflight, Management API CloudConnections, and docs. AWS, Azure, and GCP pre-E2E hardening now include provider-specific scope reviews and checker/artifact drift gates; final least-privilege still requires supervised provider validation. The permission-checker implementations remain a planned follow-up review/refactor target before final E2E sign-off. Plan: [`docs/plans/2026-06-04_permission_set_version_contract.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-06-04_permission_set_version_contract.md) |
 | [#8](https://github.com/TVJunkie724/master-thesis/issues/8) | Done | Production HTTPS/trusted-proxy boundary, distributed per-user credential rate limits, request correlation, and append-only secret-free audit evidence. Plan: `twin2multicloud_backend/implementation_plans/2026-07-16_production_credential_security_controls.md` |
 | [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Done | Atomic local JWT/encryption secret bootstrap, read-only Compose mounts, and production fail-closed validation |
-| [#10](https://github.com/TVJunkie724/master-thesis/issues/10) | Open | Production authentication and UIBK login path |
+| [#10](https://github.com/TVJunkie724/master-thesis/issues/10) | Active | Durable provider-neutral login transactions, Google PKCE, correlated UIBK SAML callbacks, revocable sessions, and Flutter browser exchange are implemented; live UIBK activation remains blocked by #49 |
 | [#78](https://github.com/TVJunkie724/master-thesis/issues/78) | Done | Legacy encrypted per-twin credential fallback removed; CloudConnections are the only runtime credential source |
 | [#11](https://github.com/TVJunkie724/master-thesis/issues/11) | Done | ProjectStorage abstraction for Deployer project data |
 | [#12](https://github.com/TVJunkie724/master-thesis/issues/12) | Done | Legacy global state replaced by explicit deployment context |
@@ -181,8 +183,9 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Complete the production authentication boundary in #10 and its UIBK prerequisite
-   documentation in #49.
+1. Complete the external live gate for `#10 Implement production authentication and
+   UIBK login path` through `#49 Document and resolve UIBK login prerequisites`; the
+   local durable auth/session implementation is complete.
 2. Keep the final supervised validation/removal gates in #6 and #79 aligned
    with opt-in live-cloud evidence issue #107.
 3. Reconcile the remaining Deployer contract and module debt in #19, #14, and

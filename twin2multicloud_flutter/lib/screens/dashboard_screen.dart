@@ -91,14 +91,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           PopupMenuButton<String>(
             offset: const Offset(0, 56),
             tooltip: 'Profile menu',
-            onSelected: (value) {
+            onSelected: (value) async {
               switch (value) {
                 case 'settings':
                   context.go('/settings');
                   break;
                 case 'logout':
-                  ref.read(authProvider.notifier).logout();
-                  context.go('/login');
+                  await ref.read(authProvider.notifier).logout();
+                  if (context.mounted) context.go('/login');
                   break;
               }
             },

@@ -27,6 +27,7 @@ def _settings(**overrides) -> Settings:
         "JWT_SECRET_KEY": VALID_JWT_SECRET,
         "ENCRYPTION_KEY": VALID_ENCRYPTION_KEY,
         "CREDENTIAL_RATE_LIMIT_STORAGE_URI": "rediss://rate-limit.example.test:6379/0",
+        "AUTH_RATE_LIMIT_STORAGE_URI": "rediss://rate-limit.example.test:6379/0",
         "CORS_ORIGINS": "https://app.example.test",
         "REQUIRE_HTTPS": True,
     }
@@ -90,6 +91,39 @@ def test_production_accepts_closed_runtime_with_strong_secrets():
     assert configured.DEV_AUTH_ENABLED is False
     assert configured.ENABLE_TEST_ENDPOINTS is False
     assert configured.REQUIRE_HTTPS is True
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"GOOGLE_CLIENT_ID": "client-only"}, "Google authentication configuration"),
+        (
+            {
+                "GOOGLE_CLIENT_ID": "client",
+                "GOOGLE_CLIENT_SECRET": "secret",
+                "GOOGLE_REDIRECT_URI": "http://api.example.test/auth/google/callback",
+            },
+            "GOOGLE_REDIRECT_URI must use HTTPS",
+        ),
+        ({"SAML_ENABLED": True}, "SAML authentication configuration"),
+        ({"JWT_ALGORITHM": "none"}, "JWT_ALGORITHM"),
+        ({"AUTH_RATE_LIMIT_ENABLED": False}, "AUTH_RATE_LIMIT_ENABLED"),
+        ({"AUTH_RATE_LIMIT_STORAGE_URI": "memory://"}, "AUTH_RATE_LIMIT_STORAGE_URI"),
+    ],
+)
+def test_production_rejects_incomplete_authentication_configuration(override, message):
+    with pytest.raises(ValidationError, match=message):
+        _settings(**override)
+
+
+def test_production_accepts_complete_google_authentication_configuration():
+    configured = _settings(
+        GOOGLE_CLIENT_ID="client",
+        GOOGLE_CLIENT_SECRET="secret",
+        GOOGLE_REDIRECT_URI="https://api.example.test/auth/google/callback",
+    )
+
+    assert configured.google_auth_enabled is True
 
 
 @pytest.mark.parametrize(

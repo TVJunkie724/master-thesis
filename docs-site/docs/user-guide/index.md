@@ -1,5 +1,9 @@
 # User Guide
 
+Start with [Sign In](sign-in.md), then use the dashboard to create or open a
+twin. The remaining pages follow the main account, configuration, pricing, and
+deployment workflows.
+
 Twin2MultiCloud separates account-level cloud readiness from twin-specific design and
 deployment. The main user journey is:
 
@@ -14,8 +18,10 @@ sign in
 ```
 
 The offline demo exposes the same screens with deterministic data. Production login
-remains externally gated; local development uses an explicit development sign-in.
+is capability-driven; live UIBK activation remains institutionally gated. Local
+development uses an explicit development sign-in.
 
+- [Sign In](sign-in.md)
 - [Dashboard and Twins](dashboard-and-twins.md)
 - [Cloud Accounts](cloud-accounts.md)
 - [Configuration Workspace](configuration-workspace.md)

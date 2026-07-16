@@ -154,7 +154,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
         !state.hasUnsavedChanges;
     if (exitSaveCompleted) {
       _pendingExitDestination = null;
-      _executeExit(context, exitDestination);
+      unawaited(_executeExit(context, exitDestination));
       return;
     }
 
@@ -316,7 +316,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
   ) async {
     if (_commandInProgress(state)) return;
     if (!state.hasUnsavedChanges && !state.step3Invalidated) {
-      _executeExit(context, destination);
+      unawaited(_executeExit(context, destination));
       return;
     }
 
@@ -326,7 +326,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
     if (!context.mounted) return;
     switch (choice) {
       case WorkspaceExitChoice.discard:
-        _executeExit(context, destination);
+        unawaited(_executeExit(context, destination));
       case WorkspaceExitChoice.save:
         _pendingExitDestination = destination;
         context.read<WizardBloc>().add(
@@ -409,10 +409,10 @@ class _WizardViewState extends ConsumerState<WizardView> {
     bloc.add(WizardGoToStep(targetStep));
   }
 
-  void _executeExit(
+  Future<void> _executeExit(
     BuildContext context,
     _WorkspaceExitDestination destination,
-  ) {
+  ) async {
     ref.invalidate(twinsProvider);
     switch (destination) {
       case _WorkspaceExitDestination.dashboard:
@@ -420,8 +420,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
       case _WorkspaceExitDestination.settings:
         context.go('/settings');
       case _WorkspaceExitDestination.logout:
-        ref.read(authProvider.notifier).logout();
-        context.go('/login');
+        await ref.read(authProvider.notifier).logout();
+        if (context.mounted) context.go('/login');
     }
   }
 }

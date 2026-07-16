@@ -12,7 +12,10 @@ from src.main import app
 
 def _response_ref(path: str, method: str = "get") -> str | None:
     operation = app.openapi()["paths"][path][method]
-    response = operation["responses"]["200"]
+    success_status = next(
+        status for status in operation["responses"] if status.startswith("2")
+    )
+    response = operation["responses"][success_status]
     content = response.get("content", {}).get("application/json")
     if not content:
         return None
@@ -22,8 +25,10 @@ def _response_ref(path: str, method: str = "get") -> str | None:
 def test_management_json_contracts_have_response_models():
     """Stable Flutter-facing JSON endpoints expose explicit OpenAPI schemas."""
     expected_refs = {
-        ("/auth/google/login", "get"): "#/components/schemas/AuthUrlResponse",
-        ("/auth/uibk/login", "get"): "#/components/schemas/AuthUrlResponse",
+        ("/auth/providers/{provider}/login", "post"): "#/components/schemas/AuthStartResponse",
+        ("/auth/session/exchange", "post"): "#/components/schemas/AuthSessionExchangeResponse",
+        ("/auth/session/cancel", "post"): "#/components/schemas/MessageResponse",
+        ("/auth/logout", "post"): "#/components/schemas/MessageResponse",
         ("/auth/me", "get"): "#/components/schemas/CurrentUserResponse",
         ("/auth/me", "patch"): "#/components/schemas/CurrentUserResponse",
         ("/auth/providers", "get"): "#/components/schemas/AuthProvidersResponse",
@@ -87,6 +92,19 @@ def test_management_json_contracts_have_response_models():
 
     for (path, method), expected_ref in expected_refs.items():
         assert _response_ref(path, method) == expected_ref
+
+
+def test_auth_response_secrets_are_not_misclassified_as_write_only():
+    components = app.openapi()["components"]["schemas"]
+
+    poll_verifier = components["AuthStartResponse"]["properties"]["poll_verifier"]
+    access_token = components["AuthSessionExchangeResponse"]["properties"][
+        "access_token"
+    ]
+    assert poll_verifier["x-sensitive"] is True
+    assert access_token["x-sensitive"] is True
+    assert "writeOnly" not in poll_verifier
+    assert "writeOnly" not in access_token
 
 
 def test_twin_routes_keep_openapi_summaries_and_descriptions():

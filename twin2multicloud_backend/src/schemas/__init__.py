@@ -1,6 +1,6 @@
 from src.schemas.user import UserBase, UserResponse
 from src.schemas.twin import TwinCreate, TwinUpdate, TwinResponse
-from src.schemas.auth import TokenResponse, AuthUrlResponse
+from src.schemas.auth import AuthStartResponse
 from src.schemas.twin_config import (
     AWSCredentials, AzureCredentials, GCPCredentials,
     TwinConfigCreate, TwinConfigUpdate, TwinConfigResponse,
@@ -34,7 +34,7 @@ from src.schemas.pricing_review_contracts import (
 __all__ = [
     "UserBase", "UserResponse",
     "TwinCreate", "TwinUpdate", "TwinResponse",
-    "TokenResponse", "AuthUrlResponse",
+    "AuthStartResponse",
     "AWSCredentials", "AzureCredentials", "GCPCredentials",
     "TwinConfigCreate", "TwinConfigUpdate", "TwinConfigResponse",
     "CredentialValidationResult", "CloudConnectionCreate", "CloudConnectionResponse",

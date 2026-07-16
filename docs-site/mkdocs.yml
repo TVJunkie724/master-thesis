@@ -71,6 +71,7 @@ nav:
       - Testing: developer-guide/testing.md
   - User Guide:
       - Overview: user-guide/index.md
+      - Sign In: user-guide/sign-in.md
       - Dashboard & Twins: user-guide/dashboard-and-twins.md
       - Cloud Accounts: user-guide/cloud-accounts.md
       - Configuration Workspace: user-guide/configuration-workspace.md

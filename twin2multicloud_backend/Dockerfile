@@ -27,7 +27,7 @@ USER management
 
 EXPOSE 5005
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "5005", "--no-proxy-headers"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "5005", "--no-proxy-headers", "--no-access-log"]
 
 
 FROM production AS development
@@ -39,4 +39,4 @@ RUN pip install --no-cache-dir \
     -c requirements.lock
 USER management
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "5005", "--reload", "--no-proxy-headers"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "5005", "--reload", "--no-proxy-headers", "--no-access-log"]
