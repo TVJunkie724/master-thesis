@@ -74,6 +74,28 @@ Each field declares its build path and verification status. This prevents a stat
 global charge from pretending to be a failed dynamic fetch and prevents an emergency
 fallback from becoming normal calculation input.
 
+### Versioned Pricing Baselines
+
+The tracked files under `2-twin2clouds/json/fetched_data/pricing_dynamic_*.json`
+provide inspectable offline and last-known-good baselines. A live refresh may update
+these generated files, but a changed snapshot is committed only after its values,
+schema metadata, and source classifications have been reviewed. The metadata is part
+of the baseline: `publishable` means every required field passed its source gate;
+`review_required` keeps usable last-known-good values visible without presenting them
+as newly verified pricing.
+
+The Azure baseline generated on 2026-07-16 is reproducible against the public Azure
+Retail Prices API. It remains `review_required` because these source paths are not yet
+resolved dynamically:
+
+- `blobStorageArchive.storagePrice`;
+- `blobStorageCool.storagePrice`;
+- `blobStorageCool.transferCostFromCosmosDB`;
+- `cosmosDB.storagePrice`.
+
+Their provider mapping and source work is tracked in
+[#32 Refresh optimizer pricing schema and provider fetchers for expanded services](https://github.com/TVJunkie724/master-thesis/issues/32).
+
 ## Calculation Model
 
 The calculation engine maps normalized workload quantities and provider pricing to
@@ -162,6 +184,7 @@ mixed fetched and fallback values, and coupled formulas to loosely structured JS
 The current registry/evidence/bundle architecture makes selection and calculation
 traceable and fail-closed.
 
-Final live refresh evidence, historical pricing analytics, additional service tiering,
-and non-cost objectives remain explicit future/evaluation work. Generated JSON snapshots
-are evidence artifacts, not proof that a current provider API will return the same rows.
+Final provider-wide live refresh evidence, historical pricing analytics, additional
+service tiering, and non-cost objectives remain explicit future/evaluation work.
+Generated JSON snapshots are evidence artifacts, not proof that a future provider API
+will continue returning the same rows.

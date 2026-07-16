@@ -58,7 +58,7 @@
     "minimumRequestUnits": 400,
     "RUsPerRead": 1,
     "RUsPerWrite": 10,
-    "storagePrice": 0.02
+    "storagePrice": 0.25
   },
   "blobStorageCool": {
     "storagePrice": 0.01,
@@ -69,7 +69,7 @@
     "transferCostFromCosmosDB": 0.087
   },
   "blobStorageArchive": {
-    "storagePrice": 0.0018,
+    "storagePrice": 0.00099,
     "writePrice": 1.3e-05,
     "dataRetrievalPrice": 0.024
   },
@@ -96,7 +96,7 @@
   },
   "azureManagedGrafana": {
     "userPrice": 6.0,
-    "hourlyPrice": 0.069
+    "hourlyPrice": 0.0445
   },
   "logicApps": {
     "pricePer1kStateTransitions": 0.125,
@@ -107,5 +107,54 @@
   },
   "apiManagement": {
     "pricePerMillionCalls": 3.5000000000000004
+  },
+  "__schema__": {
+    "schema_version": "pricing-provider-schema.v1",
+    "contract_version": "2026.06.08",
+    "provider": "azure",
+    "generated_at": "2026-07-16T17:58:08.368786+00:00"
+  },
+  "__quality__": {
+    "quality_status": "review_required",
+    "review_required": true,
+    "field_sources": {
+      "apiManagement.pricePerMillionCalls": "fetched",
+      "azureDigitalTwins.messagePrice": "fetched",
+      "azureDigitalTwins.operationPrice": "fetched",
+      "azureDigitalTwins.queryPrice": "fetched",
+      "azureDigitalTwins.queryUnitTiers": "curated",
+      "azureManagedGrafana.hourlyPrice": "fetched",
+      "azureManagedGrafana.userPrice": "fetched",
+      "blobStorageArchive.dataRetrievalPrice": "fetched",
+      "blobStorageArchive.storagePrice": "fallback_static",
+      "blobStorageArchive.writePrice": "fetched",
+      "blobStorageCool.dataRetrievalPrice": "fetched",
+      "blobStorageCool.readPrice": "fetched",
+      "blobStorageCool.storagePrice": "fallback_static",
+      "blobStorageCool.transferCostFromCosmosDB": "fallback_static",
+      "blobStorageCool.upfrontPrice": "curated",
+      "blobStorageCool.writePrice": "fetched",
+      "cosmosDB.RUsPerRead": "curated",
+      "cosmosDB.RUsPerWrite": "curated",
+      "cosmosDB.minimumRequestUnits": "curated",
+      "cosmosDB.requestPrice": "fetched",
+      "cosmosDB.storagePrice": "fallback_static",
+      "eventGrid.pricePerMillionEvents": "fetched",
+      "functions.durationPrice": "fetched",
+      "functions.freeComputeTime": "curated",
+      "functions.freeRequests": "curated",
+      "functions.requestPrice": "fetched",
+      "iotHub.pricing_tiers": "fetched",
+      "logicApps.pricePer1kStateTransitions": "fetched",
+      "logicApps.pricePerStateTransition": "derived",
+      "transfer.pricing_tiers": "curated"
+    },
+    "fallback_fields": [
+      "blobStorageArchive.storagePrice",
+      "blobStorageCool.storagePrice",
+      "blobStorageCool.transferCostFromCosmosDB",
+      "cosmosDB.storagePrice"
+    ],
+    "unsupported_fields": []
   }
 }

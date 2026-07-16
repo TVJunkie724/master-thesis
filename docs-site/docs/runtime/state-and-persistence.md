@@ -9,7 +9,7 @@
 | JWT/encryption keys | operator/bootstrap | `.secrets/runtime`, mounted read-only | durable, never auto-rotated |
 | local cloud compatibility files | local operator | `.secrets/local`, mounted read-only | optional, ignored |
 | pricing registry | Optimizer developers | `2-twin2clouds/pricing_registry` | versioned editable SSOT |
-| fetched pricing/regions/currency | Optimizer | `2-twin2clouds/json/fetched_data` | generated/evidence snapshot |
+| fetched pricing/regions/currency | Optimizer | `2-twin2clouds/json/fetched_data` | reviewed versioned baseline plus generated runtime refresh output |
 | deployment template | Deployer developers | `3-cloud-deployer/templates/digital-twin` | versioned source |
 | legacy/example template material | Deployer history | `3-cloud-deployer/upload/template` | protected compatibility/provenance |
 | Deployer project definitions | Deployer | `3-cloud-deployer/upload/<project>` in source bind | durable non-secret project definition |
