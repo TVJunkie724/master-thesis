@@ -40,7 +40,7 @@ void main() {
       (state) => !state.isLoadingPricingHealth && !state.isLoadingCloudAccess,
     );
 
-    expect(bloc.state.pricingHealthError, contains('health unavailable'));
+    expect(bloc.state.pricingHealthError, 'An unexpected error occurred');
     expect(bloc.state.accessFor('aws')?.canRefreshPricing, isTrue);
     await bloc.close();
   });

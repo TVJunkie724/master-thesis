@@ -8,6 +8,7 @@ import '../../../../widgets/architecture_layer_builder.dart';
 import '../../../../widgets/file_inputs/collapsible_block_wrapper.dart';
 import '../../../../widgets/file_inputs/file_editor_block.dart';
 import '../../../../widgets/step3/info_cards.dart';
+import '../../../../widgets/step3/provider_capability_status_card.dart';
 import '../../../../widgets/step3/step3_glb_upload_card.dart';
 import '../../../../widgets/step3/step3_layout_widgets.dart';
 import 'deployment_contracts.dart';
@@ -156,7 +157,9 @@ class DeploymentLayerOverview extends StatelessWidget {
   }
 
   List<Widget> _buildSceneRows(BuildContext context) {
-    final supportsAssets = _supportsTwinAssets(state.layer4Provider);
+    final provider = state.layer4Provider;
+    final capability = state.providerCapability(provider, 'l4');
+    final supportsAssets = state.isLayerSelectable(provider, 'l4');
     final hasEditableScene =
         state.calcParams?.needs3DModel == true &&
         state.hierarchyValidated &&
@@ -178,11 +181,23 @@ class DeploymentLayerOverview extends StatelessWidget {
               onUploadGlb: onUploadGlb,
               onDeleteGlb: onDeleteGlb,
             )
-          else
+          else if (state.calcParams?.needs3DModel != true || provider == null)
             Step3InfoCards.l4Info(
               context,
               needs3DModel: state.calcParams?.needs3DModel ?? false,
-              l4Provider: state.layer4Provider,
+              l4Provider: provider,
+            ),
+          if (state.calcParams?.needs3DModel == true &&
+              provider != null &&
+              !supportsAssets)
+            ProviderCapabilityStatusCard(
+              layer: 'l4',
+              provider: provider,
+              capability: capability,
+              isLoading: state.providerCapabilitiesLoading,
+              loadError: state.providerCapabilitiesError,
+              onRetry: () =>
+                  onEvent(const WizardProviderCapabilitiesLoadRequested()),
             ),
         ],
       ),
@@ -194,12 +209,15 @@ class DeploymentLayerOverview extends StatelessWidget {
   }
 
   Widget _buildUserConfigRow(BuildContext context) {
+    final provider = state.layer5Provider;
+    final capability = state.providerCapability(provider, 'l5');
+    final selectable = state.isLayerSelectable(provider, 'l5');
     return Step3LayerRow(
       showFlowchart: showFlowchart,
       flowchartWidth: flowchartWidth,
       flowchart: layerBuilder.buildL5Layer(context),
       editors: [
-        if (_supportsTwinAssets(state.layer5Provider))
+        if (selectable)
           CollapsibleBlockWrapper(
             title: 'config_user.json',
             subtitle: 'Grafana dashboard configuration',
@@ -235,8 +253,18 @@ class DeploymentLayerOverview extends StatelessWidget {
               autoValidateOnUpload: true,
             ),
           )
+        else if (provider == null)
+          Step3InfoCards.l5Info(context, l5Provider: provider)
         else
-          Step3InfoCards.l5Info(context, l5Provider: state.layer5Provider),
+          ProviderCapabilityStatusCard(
+            layer: 'l5',
+            provider: provider,
+            capability: capability,
+            isLoading: state.providerCapabilitiesLoading,
+            loadError: state.providerCapabilitiesError,
+            onRetry: () =>
+                onEvent(const WizardProviderCapabilitiesLoadRequested()),
+          ),
       ],
     );
   }
@@ -310,9 +338,4 @@ class _SceneEditor extends StatelessWidget {
       ],
     );
   }
-}
-
-bool _supportsTwinAssets(String? provider) {
-  final normalized = provider?.toUpperCase();
-  return normalized == 'AWS' || normalized == 'AZURE';
 }

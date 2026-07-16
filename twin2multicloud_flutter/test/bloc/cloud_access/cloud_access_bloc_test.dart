@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/cloud_access/cloud_access.dart';
+import 'package:twin2multicloud_flutter/core/result.dart';
 import 'package:twin2multicloud_flutter/models/cloud_access_inventory.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
@@ -47,7 +48,7 @@ void main() {
     await bloc.stream.firstWhere((state) => state.loadError != null);
 
     expect(bloc.state.inventory, isNotNull);
-    expect(bloc.state.loadError, contains('Management API unavailable'));
+    expect(bloc.state.loadError, 'An unexpected error occurred');
     await bloc.close();
   });
 
@@ -93,7 +94,7 @@ void main() {
     ).thenAnswer((_) async => _inventory());
     when(
       () => api.deleteCloudConnection('aws-pricing'),
-    ).thenThrow(Exception('Connection is still in use'));
+    ).thenThrow(const AppException('Connection is still in use'));
     final bloc = CloudAccessBloc(api)..add(const CloudAccessStarted());
     await bloc.stream.firstWhere((state) => state.inventory != null);
 
@@ -123,7 +124,7 @@ void main() {
       expect(bloc.state.feedback?.isError, isFalse);
       expect(bloc.state.feedback?.message, contains('deleted'));
       expect(bloc.state.feedback?.message, contains('Refresh cloud access'));
-      expect(bloc.state.loadError, contains('Inventory reload unavailable'));
+      expect(bloc.state.loadError, 'An unexpected error occurred');
       expect(bloc.state.busyConnectionIds, isEmpty);
       await bloc.close();
     },

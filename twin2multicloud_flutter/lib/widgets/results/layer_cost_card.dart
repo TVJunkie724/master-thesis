@@ -13,9 +13,6 @@ class LayerCostCard extends StatelessWidget {
   final String? infoTitle;
   final String? infoBody;
 
-  /// If true, hides the GCP row (used for L4/L5 where GCP is not implemented)
-  final bool hideGcp;
-
   const LayerCostCard({
     super.key,
     required this.layer,
@@ -25,7 +22,6 @@ class LayerCostCard extends StatelessWidget {
     required this.cheapestPath,
     this.infoTitle,
     this.infoBody,
-    this.hideGcp = false,
   });
 
   @override
@@ -135,7 +131,7 @@ class LayerCostCard extends StatelessWidget {
             _buildProviderRow(
               context,
               'AWS',
-              awsLayer?.cost,
+              awsLayer,
               AppColors.aws,
               selectedProvider?.toUpperCase() == 'AWS',
             ),
@@ -143,21 +139,18 @@ class LayerCostCard extends StatelessWidget {
             _buildProviderRow(
               context,
               'Azure',
-              azureLayer?.cost,
+              azureLayer,
               AppColors.azure,
               selectedProvider?.toUpperCase() == 'AZURE',
             ),
-            // Only show GCP row if not hidden (L4/L5 has GCP not implemented)
-            if (!hideGcp) ...[
-              const SizedBox(height: AppSpacing.sm),
-              _buildProviderRow(
-                context,
-                'GCP',
-                gcpLayer?.cost,
-                AppColors.gcp,
-                selectedProvider?.toUpperCase() == 'GCP',
-              ),
-            ],
+            const SizedBox(height: AppSpacing.sm),
+            _buildProviderRow(
+              context,
+              'GCP',
+              gcpLayer,
+              AppColors.gcp,
+              selectedProvider?.toUpperCase() == 'GCP',
+            ),
           ],
         ),
       ),
@@ -216,17 +209,14 @@ class LayerCostCard extends StatelessWidget {
                   AppColors.azure,
                   selectedProvider?.toUpperCase() == 'AZURE',
                 ),
-                // Only show GCP section if not hidden
-                if (!hideGcp) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  _buildInfoSection(
-                    ctx,
-                    'GCP',
-                    gcpLayer,
-                    AppColors.gcp,
-                    selectedProvider?.toUpperCase() == 'GCP',
-                  ),
-                ],
+                const SizedBox(height: AppSpacing.md),
+                _buildInfoSection(
+                  ctx,
+                  'GCP',
+                  gcpLayer,
+                  AppColors.gcp,
+                  selectedProvider?.toUpperCase() == 'GCP',
+                ),
               ],
             ),
           ),
@@ -257,6 +247,28 @@ class LayerCostCard extends StatelessWidget {
     bool isSelected,
   ) {
     if (layer == null) return const SizedBox.shrink();
+
+    if (!layer.supported) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withAlpha(50)),
+          borderRadius: BorderRadius.circular(AppSpacing.borderRadiusSm),
+          color: color.withAlpha(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(fontWeight: FontWeight.bold, color: color),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(layer.unsupportedReason!),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -351,11 +363,12 @@ class LayerCostCard extends StatelessWidget {
   Widget _buildProviderRow(
     BuildContext context,
     String provider,
-    double? cost,
+    LayerCost? layer,
     Color color,
     bool isSelected,
   ) {
-    if (cost == null) {
+    if (layer == null || !layer.supported) {
+      final status = layer == null ? 'N/A' : 'Unavailable';
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -373,7 +386,10 @@ class LayerCostCard extends StatelessWidget {
               Text(provider, style: TextStyle(color: Colors.grey[400])),
             ],
           ),
-          Text('N/A', style: TextStyle(color: Colors.grey[400])),
+          Tooltip(
+            message: layer?.unsupportedReason ?? 'No calculation result.',
+            child: Text(status, style: TextStyle(color: Colors.grey[400])),
+          ),
         ],
       );
     }
@@ -412,7 +428,7 @@ class LayerCostCard extends StatelessWidget {
             ],
           ),
           Text(
-            '\$${cost.toStringAsFixed(2)}', // Removed /mo for cleaner look
+            '\$${layer.cost.toStringAsFixed(2)}',
             style: TextStyle(
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               color: isSelected ? color : null,

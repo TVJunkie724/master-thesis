@@ -12,6 +12,10 @@ from src.api.models.complete_validation import (
     DeployerValidationResponse,
     ValidationError,
 )
+from src.provider_capabilities import (
+    selections_from_cheapest_path,
+    validate_provider_selections,
+)
 
 
 PROVIDERS = {"aws", "azure", "gcp"}
@@ -32,6 +36,7 @@ def validate_complete_configuration(
     _validate_core(config, errors)
 
     path = config.cheapest_path or {}
+    _validate_path_capabilities(path, errors)
     l2 = _provider(path, "L2", PROVIDERS, errors)
     l4 = _provider(path, "L4", OPTIONAL_LAYER_PROVIDERS, errors)
     l5 = _provider(path, "L5", OPTIONAL_LAYER_PROVIDERS, errors)
@@ -44,6 +49,30 @@ def validate_complete_configuration(
     _validate_event_extensions(config, l2, params, errors)
     _validate_user_config(config.user_config, l5, errors)
     return DeployerValidationResponse(valid=not errors, errors=errors)
+
+
+def _validate_path_capabilities(
+    path: dict,
+    errors: list[ValidationError],
+) -> None:
+    try:
+        violations = validate_provider_selections(
+            selections_from_cheapest_path(path)
+        )
+    except ValueError as exc:
+        _add(errors, "INVALID_PROVIDER", "cheapest_path", str(exc))
+        return
+    for violation in violations:
+        _add(
+            errors,
+            "CAPABILITY_UNAVAILABLE",
+            f"cheapest_path.{violation.layer}",
+            (
+                f"{violation.provider.upper()} {violation.layer} is "
+                f"{violation.availability.value}: {violation.reason} "
+                f"({violation.reason_code})"
+            ),
+        )
 
 
 def _validate_core(

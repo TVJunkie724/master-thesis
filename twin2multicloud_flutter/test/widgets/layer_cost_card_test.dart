@@ -71,6 +71,34 @@ void main() {
       expect(find.text('N/A'), findsOneWidget); // GCP
     });
 
+    testWidgets(
+      'shows explicit unsupported result without rendering zero cost',
+      (tester) async {
+        const reason = 'GCP L4 is outside the implemented deployment path.';
+        await tester.pumpWidget(
+          buildTestWidget(
+            layer: 'L4 - Twin Management',
+            awsLayer: LayerCost(cost: 15.0, components: {}),
+            azureLayer: LayerCost(cost: 18.0, components: {}),
+            gcpLayer: LayerCost(
+              cost: 0,
+              components: const {},
+              supported: false,
+              unsupportedReason: reason,
+            ),
+            cheapestPath: const ['L4_AWS'],
+          ),
+        );
+
+        expect(find.text('Unavailable'), findsOneWidget);
+        expect(find.text('\$0.00'), findsNothing);
+
+        await tester.tap(find.byIcon(Icons.info_outline));
+        await tester.pumpAndSettle();
+        expect(find.text(reason), findsOneWidget);
+      },
+    );
+
     testWidgets('highlights selected provider from cheapest path', (
       tester,
     ) async {

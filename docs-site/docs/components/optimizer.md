@@ -157,6 +157,11 @@ existing `cost-result.v1` fields (`cost`, `components`, `supported`, optional
 `dataSizeInGB`, and `unsupportedReason`). The implementation contract is documented
 in `2-twin2clouds/implementation_plans/2026-07-17_layer_result_calculator_contracts.md`.
 
+`GET /capabilities/providers` publishes the complete calculation-side matrix as
+`provider-service-capabilities.v1`. It is generated from calculator declarations,
+contains no credential or provider calls, and is aggregated with Deployer capability
+by the Management API. See [Provider Capabilities](../architecture/provider-capabilities.md).
+
 ## Optimization Strategy Bundle
 
 Cost is the only enabled thesis objective. The executable profile binds:

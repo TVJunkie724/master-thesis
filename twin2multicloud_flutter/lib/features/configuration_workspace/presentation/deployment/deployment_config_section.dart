@@ -150,7 +150,8 @@ class DeploymentConfigSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        if (showHierarchy && _supportsTwinAssets(state.layer4Provider)) ...[
+        if (showHierarchy &&
+            state.isLayerSelectable(state.layer4Provider, 'l4')) ...[
           _HierarchyEditor(state: state, onEvent: onEvent),
           const SizedBox(height: AppSpacing.md),
         ],
@@ -289,11 +290,6 @@ class _GeneratedProviderConfig extends StatelessWidget {
       ),
     );
   }
-}
-
-bool _supportsTwinAssets(String? provider) {
-  final normalized = provider?.toUpperCase();
-  return normalized == 'AWS' || normalized == 'AZURE';
 }
 
 String _buildConfigOptimizationJson(WizardState state) {

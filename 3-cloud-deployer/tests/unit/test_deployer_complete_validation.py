@@ -39,8 +39,8 @@ VALID_AWS_HIERARCHY = '[{"type": "entity", "id": "root", "children": [{"type": "
 class TestDeployerCompleteValidation:
     """Tests for POST /validate/deployer-complete endpoint."""
     
-    def test_D1_all_valid_gcp(self):
-        """D1: All valid with L4=GCP should return valid=true."""
+    def test_D1_gcp_l4_l5_are_rejected_as_unavailable(self):
+        """D1: GCP L4/L5 must fail before deployment side effects."""
         response = client.post("/validate/deployer-complete", json={
             "deployer_digital_twin_name": "my-twin",
             "config_events": VALID_CONFIG_EVENTS,
@@ -53,8 +53,15 @@ class TestDeployerCompleteValidation:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["valid"] is True
-        assert data["errors"] == []
+        assert data["valid"] is False
+        capability_errors = [
+            error for error in data["errors"]
+            if error["code"] == "CAPABILITY_UNAVAILABLE"
+        ]
+        assert {error["field"] for error in capability_errors} == {
+            "cheapest_path.l4",
+            "cheapest_path.l5",
+        }
     
     def test_D2_empty_digital_twin_name(self):
         """D2: Empty digital_twin_name should return EMPTY_NAME error."""
@@ -141,8 +148,8 @@ class TestDeployerCompleteValidation:
         assert data["valid"] is False
         assert any(e["code"] == "MISSING_SCENE_GLB" for e in data["errors"])
     
-    def test_D7_l4_gcp_needs_3d_no_scene_valid(self):
-        """D7: L4=GCP with needs3DModel should be valid (no scene required for GCP)."""
+    def test_D7_l4_gcp_needs_3d_is_explicitly_unavailable(self):
+        """D7: GCP L4 remains unavailable even without a scene payload."""
         response = client.post("/validate/deployer-complete", json={
             "deployer_digital_twin_name": "my-twin",
             "config_events": VALID_CONFIG_EVENTS,
@@ -155,7 +162,12 @@ class TestDeployerCompleteValidation:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["valid"] is True
+        assert data["valid"] is False
+        assert any(
+            error["code"] == "CAPABILITY_UNAVAILABLE"
+            and error["field"] == "cheapest_path.l4"
+            for error in data["errors"]
+        )
     
     def test_D8_return_feedback_missing(self):
         """D8: returnFeedbackToDevice=true but missing event_feedback should error."""
@@ -453,7 +465,7 @@ class TestDeployerCompleteValidation:
             "payloads": VALID_PAYLOADS,
             "processors": {"device-1": VALID_AWS_PROCESSOR},
             "user_config": '{"admin_email":"admin@example.com"}',
-            "cheapest_path": {"l2": "aws", "l4": "gcp", "l5": "aws"},
+            "cheapest_path": {"l2": "aws", "l4": "none", "l5": "aws"},
         })
 
         assert response.status_code == 200
@@ -466,7 +478,7 @@ class TestDeployerCompleteValidation:
             "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
             "payloads": VALID_PAYLOADS,
             "processors": {"device-1": VALID_GCP_PROCESSOR},
-            "cheapest_path": {"L2": "google", "L4": "gcp", "L5": "gcp"},
+            "cheapest_path": {"L2": "google", "L4": "none", "L5": "none"},
         })
 
         assert response.status_code == 200

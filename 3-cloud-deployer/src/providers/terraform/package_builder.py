@@ -44,6 +44,7 @@ from src.providers.terraform.package_builders.user import (
     build_user_packages,
     get_user_package_path,
 )
+from src.provider_capabilities import validate_terraform_provider_capabilities
 
 logger = logging.getLogger(__name__)
 BUILD_DIR = ".build"
@@ -57,6 +58,7 @@ def build_all_packages(
     """Build every provider and user-function package required by one deployment."""
     terraform_dir = Path(terraform_dir)
     project_path = Path(project_path)
+    validate_terraform_provider_capabilities(providers_config)
 
     packages: Dict[str, Path] = {}
     packages.update(build_aws_lambda_packages(terraform_dir, project_path, providers_config))

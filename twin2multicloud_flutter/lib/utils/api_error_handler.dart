@@ -1,11 +1,14 @@
 import 'package:dio/dio.dart';
 
+import '../core/result.dart';
+
 /// Utility for extracting user-friendly error messages from API responses.
 ///
 /// This handles various error scenarios:
 /// - DioException with structured JSON error response (detail, message, error)
 /// - Connection timeouts and network errors
-/// - Generic exceptions
+/// - Explicitly user-facing application exceptions
+/// - Neutral fallback for all unexpected exceptions
 class ApiErrorHandler {
   /// Extract a user-friendly error message from any exception.
   ///
@@ -16,17 +19,12 @@ class ApiErrorHandler {
   /// 4. Connection-specific messages
   /// 5. Generic fallback
   static String extractMessage(dynamic error) {
-    if (error is DioException) {
-      return _handleDioException(error);
+    if (error is UserFacingException) {
+      return error.message;
     }
 
-    if (error is Exception) {
-      final message = error.toString();
-      // Remove "Exception: " prefix if present
-      if (message.startsWith('Exception: ')) {
-        return message.substring(11);
-      }
-      return message;
+    if (error is DioException) {
+      return _handleDioException(error);
     }
 
     return 'An unexpected error occurred';

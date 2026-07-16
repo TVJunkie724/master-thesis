@@ -16,6 +16,7 @@ import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/pricing_export_snapshot.dart';
+import '../models/provider_capability.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user.dart';
@@ -264,6 +265,14 @@ class ApiService implements ManagementApi {
     final response = await _dio.get('/dashboard/stats');
     return DashboardStats.fromJson(
       Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
+  @override
+  Future<PlatformProviderCapabilities> getProviderCapabilities() async {
+    final response = await _dio.get('/platform/provider-capabilities');
+    return PlatformProviderCapabilities.fromJson(
+      _contractMap(response.data, 'platform provider capabilities'),
     );
   }
 

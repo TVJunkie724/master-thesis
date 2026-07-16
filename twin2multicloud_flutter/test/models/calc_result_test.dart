@@ -4,6 +4,34 @@ import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import '../fixtures/test_fixtures.dart';
 
 void main() {
+  test('LayerCost preserves explicit unsupported contract metadata', () {
+    final layer = LayerCost.fromJson({
+      'cost': 0,
+      'components': <String, dynamic>{},
+      'supported': false,
+      'unsupportedReason': 'Provider path is not implemented.',
+    });
+
+    expect(layer.supported, isFalse);
+    expect(layer.unsupportedReason, 'Provider path is not implemented.');
+  });
+
+  test('LayerCost rejects unsupported results without a reason', () {
+    expect(
+      () => LayerCost.fromJson({
+        'cost': 0,
+        'components': <String, dynamic>{},
+        'supported': false,
+      }),
+      throwsFormatException,
+    );
+
+    expect(
+      () => LayerCost(cost: 0, components: const {}, supported: false),
+      throwsArgumentError,
+    );
+  });
+
   group('CalcResult', () {
     // ============================================================
     // Happy Path Tests

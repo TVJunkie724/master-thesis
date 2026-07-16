@@ -27,6 +27,15 @@ void main() {
   });
 
   group('session and cloud access', () {
+    test('exposes the production capability contract in demo mode', () async {
+      final capabilities = await api.getProviderCapabilities();
+
+      expect(capabilities.providers, hasLength(3));
+      expect(capabilities.capability('aws', 'l5').selectable, isTrue);
+      expect(capabilities.capability('gcp', 'l4').selectable, isFalse);
+      expect(capabilities.capability('gcp', 'l5').selectable, isFalse);
+    });
+
     test('updates session state and user preferences in memory', () async {
       api.setToken('session-token');
       final user = await api.updateUserPreferences(themePreference: 'light');

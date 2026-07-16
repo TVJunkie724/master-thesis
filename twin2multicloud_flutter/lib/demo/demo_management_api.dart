@@ -16,6 +16,7 @@ import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/pricing_export_snapshot.dart';
+import '../models/provider_capability.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user.dart';
@@ -294,6 +295,12 @@ class DemoManagementApi implements ManagementApi {
       totalTwins: twins.length,
       estimatedMonthlyCost: monthlyCost,
     );
+  }
+
+  @override
+  Future<PlatformProviderCapabilities> getProviderCapabilities() async {
+    await _pause();
+    return PlatformProviderCapabilities.fromJson(_demoProviderCapabilities());
   }
 
   @override
@@ -1728,6 +1735,94 @@ class DemoManagementApi implements ManagementApi {
         'total': 1,
         'healthy': true,
       },
+    };
+  }
+
+  Map<String, dynamic> _demoProviderCapabilities() {
+    Map<String, dynamic> source({
+      required bool available,
+      required bool planned,
+    }) {
+      return {
+        'availability': available ? 'available' : 'unsupported',
+        'roadmap': planned ? 'planned' : 'none',
+        'reason_code': available ? null : 'DEPLOYMENT_PATH_NOT_IMPLEMENTED',
+        'reason': available
+            ? null
+            : 'GCP capability is outside the implemented thesis path.',
+        'verification_level': available ? 'contract_tested' : 'not_verified',
+      };
+    }
+
+    return {
+      'schema_version': 'platform-provider-capabilities.v1',
+      'complete': true,
+      'sources': {
+        for (final service in const ['optimizer', 'deployer'])
+          service: {
+            'status': 'available',
+            'schema_version': 'provider-service-capabilities.v1',
+          },
+      },
+      'providers': [
+        for (final provider in const ['aws', 'azure', 'gcp'])
+          {
+            'provider': provider,
+            'layers': [
+              for (final layer in const [
+                'l1',
+                'l2',
+                'l3_hot',
+                'l3_cool',
+                'l3_archive',
+                'l4',
+                'l5',
+              ])
+                {
+                  'layer': layer,
+                  'availability':
+                      provider == 'gcp' && {'l4', 'l5'}.contains(layer)
+                      ? 'unsupported'
+                      : 'available',
+                  'roadmap': provider == 'gcp' && {'l4', 'l5'}.contains(layer)
+                      ? 'planned'
+                      : 'none',
+                  'reason_code':
+                      provider == 'gcp' && {'l4', 'l5'}.contains(layer)
+                      ? 'DEPLOYMENT_PATH_NOT_IMPLEMENTED'
+                      : null,
+                  'reason': provider == 'gcp' && {'l4', 'l5'}.contains(layer)
+                      ? 'GCP capability is outside the implemented thesis path.'
+                      : null,
+                  'selectable':
+                      !(provider == 'gcp' && {'l4', 'l5'}.contains(layer)),
+                  'sources_agree': true,
+                  'restriction_source':
+                      provider == 'gcp' && {'l4', 'l5'}.contains(layer)
+                      ? 'restricted_by_both'
+                      : 'none',
+                  'verification_level':
+                      provider == 'gcp' && {'l4', 'l5'}.contains(layer)
+                      ? 'not_verified'
+                      : 'contract_tested',
+                  'sources': {
+                    'optimizer': source(
+                      available:
+                          !(provider == 'gcp' && {'l4', 'l5'}.contains(layer)),
+                      planned:
+                          provider == 'gcp' && {'l4', 'l5'}.contains(layer),
+                    ),
+                    'deployer': source(
+                      available:
+                          !(provider == 'gcp' && {'l4', 'l5'}.contains(layer)),
+                      planned:
+                          provider == 'gcp' && {'l4', 'l5'}.contains(layer),
+                    ),
+                  },
+                },
+            ],
+          },
+      ],
     };
   }
 

@@ -10,6 +10,7 @@ extension _WizardInitializationCloudAccessHandlers on WizardBloc {
     Emitter<WizardState> emit,
   ) async {
     emit(_initService.initializeCreateMode());
+    await _loadProviderCapabilities(emit);
     await _loadCloudConnections(emit);
   }
 
@@ -37,6 +38,7 @@ extension _WizardInitializationCloudAccessHandlers on WizardBloc {
         ),
       );
       emit(result.state);
+      await _loadProviderCapabilities(emit);
       await _loadCloudConnections(emit);
     } catch (e) {
       _logger.warning(AppLogEvent.wizardInitializationFailed);
@@ -45,6 +47,39 @@ extension _WizardInitializationCloudAccessHandlers on WizardBloc {
           status: WizardStatus.error,
           errorMessage:
               'Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onProviderCapabilitiesLoadRequested(
+    WizardProviderCapabilitiesLoadRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    await _loadProviderCapabilities(emit);
+  }
+
+  Future<void> _loadProviderCapabilities(Emitter<WizardState> emit) async {
+    emit(
+      state.copyWith(
+        providerCapabilitiesLoading: true,
+        clearProviderCapabilitiesError: true,
+      ),
+    );
+    try {
+      final capabilities = await _api.getProviderCapabilities();
+      emit(
+        state.copyWith(
+          providerCapabilities: capabilities,
+          providerCapabilitiesLoading: false,
+          clearProviderCapabilitiesError: true,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          providerCapabilitiesLoading: false,
+          providerCapabilitiesError: ApiErrorHandler.extractMessage(error),
         ),
       );
     }

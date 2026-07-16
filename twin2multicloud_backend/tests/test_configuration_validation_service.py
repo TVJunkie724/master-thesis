@@ -8,7 +8,11 @@ from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin
 from src.models.twin_config import TwinConfiguration
 from src.services.configuration_validation_service import ConfigurationValidationService
-from src.services.errors import ConfigurationValidationFailed, ExternalServiceError, ExternalServiceUnavailable
+from src.services.errors import (
+    ConfigurationValidationFailed,
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+)
 from src.utils.crypto import encrypt_scoped
 
 
@@ -55,7 +59,9 @@ def _configured_twin() -> DigitalTwin:
         display_name="AWS Dev",
         cloud_scope="{}",
         auth_type="access_key",
-        encrypted_payload=encrypt_scoped(json.dumps(payload), "user-1", "connection-aws"),
+        encrypted_payload=encrypt_scoped(
+            json.dumps(payload), "user-1", "connection-aws"
+        ),
         payload_fingerprint="fingerprint",
     )
     twin.optimizer_config = OptimizerConfiguration(
@@ -187,8 +193,12 @@ async def test_validate_configured_transition_collects_local_step_errors():
 
 @pytest.mark.asyncio
 async def test_validate_configured_transition_collects_optimizer_and_deployer_validation_errors():
-    optimizer = FakeOptimizerClient({"valid": False, "errors": [{"code": "BAD_PARAMS", "field": "params"}]})
-    deployer = FakeDeployerClient({"valid": False, "errors": [{"code": "BAD_DEPLOYER", "field": "config"}]})
+    optimizer = FakeOptimizerClient(
+        {"valid": False, "errors": [{"code": "BAD_PARAMS", "field": "params"}]}
+    )
+    deployer = FakeDeployerClient(
+        {"valid": False, "errors": [{"code": "BAD_DEPLOYER", "field": "config"}]}
+    )
     service = ConfigurationValidationService(optimizer, deployer)
 
     with pytest.raises(ConfigurationValidationFailed) as exc_info:
@@ -201,9 +211,73 @@ async def test_validate_configured_transition_collects_optimizer_and_deployer_va
 
 
 @pytest.mark.asyncio
+async def test_validate_configured_transition_preserves_capability_error_contract():
+    optimizer = FakeOptimizerClient({"valid": True})
+    deployer = FakeDeployerClient(
+        {
+            "valid": False,
+            "errors": [
+                {
+                    "code": "CAPABILITY_UNAVAILABLE",
+                    "field": "cheapest_path.L4",
+                    "provider": "gcp",
+                    "layer": "l4",
+                    "message": "GCP L4 deployment is outside the implemented thesis path.",
+                }
+            ],
+        }
+    )
+    service = ConfigurationValidationService(optimizer, deployer)
+
+    with pytest.raises(ConfigurationValidationFailed) as exc_info:
+        await service.validate_configured_transition(_configured_twin())
+
+    assert exc_info.value.errors == [
+        {
+            "step": 3,
+            "code": "CAPABILITY_UNAVAILABLE",
+            "field": "cheapest_path.L4",
+            "provider": "gcp",
+            "layer": "l4",
+            "message": "GCP L4 deployment is outside the implemented thesis path.",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_validate_configured_transition_redacts_unexpected_exception_details():
+    optimizer = FakeOptimizerClient(Exception("credential=must-not-leak"))
+    deployer = FakeDeployerClient(Exception("private_key=must-not-leak"))
+    service = ConfigurationValidationService(optimizer, deployer)
+
+    with pytest.raises(ConfigurationValidationFailed) as exc_info:
+        await service.validate_configured_transition(_configured_twin())
+
+    assert exc_info.value.errors == [
+        {
+            "step": 2,
+            "code": "OPTIMIZER_UNAVAILABLE",
+            "field": "optimizer",
+            "message": "Optimizer validation failed unexpectedly",
+        },
+        {
+            "step": 3,
+            "code": "DEPLOYER_UNAVAILABLE",
+            "field": "deployer",
+            "message": "Deployer validation failed unexpectedly",
+        },
+    ]
+    assert "must-not-leak" not in str(exc_info.value.errors)
+
+
+@pytest.mark.asyncio
 async def test_validate_configured_transition_maps_external_client_failures():
-    optimizer = FakeOptimizerClient(ExternalServiceUnavailable("Optimizer API unavailable"))
-    deployer = FakeDeployerClient(ExternalServiceError("Deployer API returned 500: boom"))
+    optimizer = FakeOptimizerClient(
+        ExternalServiceUnavailable("Optimizer API unavailable")
+    )
+    deployer = FakeDeployerClient(
+        ExternalServiceError("Deployer API returned 500: boom")
+    )
     service = ConfigurationValidationService(optimizer, deployer)
 
     with pytest.raises(ConfigurationValidationFailed) as exc_info:

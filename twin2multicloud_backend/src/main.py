@@ -13,6 +13,7 @@ from src.api.routes import (
     cloud_connections,
     credential_security_events,
     health,
+    provider_capabilities,
     twin_operations,
     twins,
 )
@@ -184,6 +185,7 @@ app.include_router(cloud_connections.router)
 app.include_router(credential_security_events.router)
 app.include_router(cloud_bootstrap.router)
 app.include_router(cloud_access.router)
+app.include_router(provider_capabilities.router)
 app.include_router(config_router)
 app.include_router(config_inline_router)
 app.include_router(optimizer_router)

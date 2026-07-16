@@ -30,18 +30,26 @@ class ConfigurationValidationService:
     ):
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.deployer_client = deployer_client or DeployerClient()
-        self.credential_resolution_service = credential_resolution_service or CredentialResolutionService()
+        self.credential_resolution_service = (
+            credential_resolution_service or CredentialResolutionService()
+        )
 
     async def validate_configured_transition(self, twin: DigitalTwin) -> None:
         errors: list[dict[str, Any]] = []
         errors.extend(self._validate_local_step(twin))
 
-        optimizer_payload, deployer_payload, payload_errors = self._build_validation_payloads(twin)
+        optimizer_payload, deployer_payload, payload_errors = (
+            self._build_validation_payloads(twin)
+        )
         errors.extend(payload_errors)
 
         if not errors:
-            optimizer_task = self.optimizer_client.validate_optimizer_config(optimizer_payload)
-            deployer_task = self.deployer_client.validate_deployer_complete(deployer_payload)
+            optimizer_task = self.optimizer_client.validate_optimizer_config(
+                optimizer_payload
+            )
+            deployer_task = self.deployer_client.validate_deployer_complete(
+                deployer_payload
+            )
             optimizer_result, deployer_result = await asyncio.gather(
                 optimizer_task,
                 deployer_task,
@@ -65,24 +73,34 @@ class ConfigurationValidationService:
     def _validate_local_step(self, twin: DigitalTwin) -> list[dict[str, Any]]:
         errors: list[dict[str, Any]] = []
         if not twin.name or not twin.name.strip():
-            errors.append({
-                "step": 1,
-                "code": "EMPTY_NAME",
-                "field": "twin_name",
-                "message": "Twin name is required",
-            })
+            errors.append(
+                {
+                    "step": 1,
+                    "code": "EMPTY_NAME",
+                    "field": "twin_name",
+                    "message": "Twin name is required",
+                }
+            )
 
-        configured_providers = self.credential_resolution_service.configured_providers(twin)
+        configured_providers = self.credential_resolution_service.configured_providers(
+            twin
+        )
         if not configured_providers:
-            errors.append({
-                "step": 1,
-                "code": "MISSING_CREDENTIALS",
-                "field": "credentials",
-                "message": "At least one cloud provider credentials required",
-            })
+            errors.append(
+                {
+                    "step": 1,
+                    "code": "MISSING_CREDENTIALS",
+                    "field": "credentials",
+                    "message": "At least one cloud provider credentials required",
+                }
+            )
             return errors
 
-        required_providers = self.credential_resolution_service.required_providers_from_optimizer(twin.optimizer_config)
+        required_providers = (
+            self.credential_resolution_service.required_providers_from_optimizer(
+                twin.optimizer_config
+            )
+        )
         providers_to_validate = required_providers or configured_providers
         try:
             self.credential_resolution_service.resolve_deployment_credentials(
@@ -91,10 +109,7 @@ class ConfigurationValidationService:
                 required_providers=providers_to_validate,
             )
         except CredentialResolutionFailed as exc:
-            errors.extend(
-                {"step": 1, **error}
-                for error in exc.errors
-            )
+            errors.extend({"step": 1, **error} for error in exc.errors)
         return errors
 
     def _build_validation_payloads(
@@ -127,9 +142,15 @@ class ConfigurationValidationService:
         }
 
         deployer_payload = {
-            "deployer_digital_twin_name": deployer_config.deployer_digital_twin_name if deployer_config else None,
-            "config_events": deployer_config.config_events_json if deployer_config else None,
-            "config_iot_devices": deployer_config.config_iot_devices_json if deployer_config else None,
+            "deployer_digital_twin_name": deployer_config.deployer_digital_twin_name
+            if deployer_config
+            else None,
+            "config_events": deployer_config.config_events_json
+            if deployer_config
+            else None,
+            "config_iot_devices": deployer_config.config_iot_devices_json
+            if deployer_config
+            else None,
             "payloads": deployer_config.payloads_json if deployer_config else None,
             "processors": self._parse_json_field(
                 deployer_config.processor_contents if deployer_config else None,
@@ -137,7 +158,9 @@ class ConfigurationValidationService:
                 field="deployer.processors",
                 errors=errors,
             ),
-            "event_feedback": deployer_config.event_feedback_content if deployer_config else None,
+            "event_feedback": deployer_config.event_feedback_content
+            if deployer_config
+            else None,
             "event_actions": self._parse_json_field(
                 deployer_config.event_action_contents if deployer_config else None,
                 step=3,
@@ -145,10 +168,18 @@ class ConfigurationValidationService:
                 errors=errors,
             ),
             "hierarchy": deployer_config.hierarchy_content if deployer_config else None,
-            "scene_config": deployer_config.scene_config_content if deployer_config else None,
-            "scene_glb_uploaded": deployer_config.scene_glb_uploaded if deployer_config else False,
-            "state_machine": deployer_config.state_machine_content if deployer_config else None,
-            "user_config": deployer_config.user_config_content if deployer_config else None,
+            "scene_config": deployer_config.scene_config_content
+            if deployer_config
+            else None,
+            "scene_glb_uploaded": deployer_config.scene_glb_uploaded
+            if deployer_config
+            else False,
+            "state_machine": deployer_config.state_machine_content
+            if deployer_config
+            else None,
+            "user_config": deployer_config.user_config_content
+            if deployer_config
+            else None,
             "optimizer_params": optimizer_params,
             "cheapest_path": cheapest_path,
         }
@@ -168,62 +199,76 @@ class ConfigurationValidationService:
         try:
             return json.loads(value)
         except json.JSONDecodeError as exc:
-            errors.append({
-                "step": step,
-                "code": "INVALID_JSON",
-                "field": field,
-                "message": f"Invalid JSON: {exc.msg}",
-            })
+            errors.append(
+                {
+                    "step": step,
+                    "code": "INVALID_JSON",
+                    "field": field,
+                    "message": f"Invalid JSON: {exc.msg}",
+                }
+            )
             return None
 
     def _collect_optimizer_errors(self, result: Any) -> list[dict[str, Any]]:
         if isinstance(result, ExternalServiceUnavailable):
-            return [{
-                "step": 2,
-                "code": "OPTIMIZER_UNAVAILABLE",
-                "field": "optimizer",
-                "message": f"Optimizer API error: {result.message}",
-            }]
+            return [
+                {
+                    "step": 2,
+                    "code": "OPTIMIZER_UNAVAILABLE",
+                    "field": "optimizer",
+                    "message": f"Optimizer API error: {result.message}",
+                }
+            ]
         if isinstance(result, ExternalServiceError):
-            return [{
-                "step": 2,
-                "code": "OPTIMIZER_ERROR",
-                "field": "optimizer",
-                "message": f"Optimizer validation failed: {result.message}",
-            }]
+            return [
+                {
+                    "step": 2,
+                    "code": "OPTIMIZER_ERROR",
+                    "field": "optimizer",
+                    "message": f"Optimizer validation failed: {result.message}",
+                }
+            ]
         if isinstance(result, Exception):
-            return [{
-                "step": 2,
-                "code": "OPTIMIZER_UNAVAILABLE",
-                "field": "optimizer",
-                "message": f"Optimizer API error: {result}",
-            }]
+            return [
+                {
+                    "step": 2,
+                    "code": "OPTIMIZER_UNAVAILABLE",
+                    "field": "optimizer",
+                    "message": "Optimizer validation failed unexpectedly",
+                }
+            ]
         if not result.get("valid"):
             return [{"step": 2, **error} for error in result.get("errors", [])]
         return []
 
     def _collect_deployer_errors(self, result: Any) -> list[dict[str, Any]]:
         if isinstance(result, ExternalServiceUnavailable):
-            return [{
-                "step": 3,
-                "code": "DEPLOYER_UNAVAILABLE",
-                "field": "deployer",
-                "message": f"Deployer API error: {result.message}",
-            }]
+            return [
+                {
+                    "step": 3,
+                    "code": "DEPLOYER_UNAVAILABLE",
+                    "field": "deployer",
+                    "message": f"Deployer API error: {result.message}",
+                }
+            ]
         if isinstance(result, ExternalServiceError):
-            return [{
-                "step": 3,
-                "code": "DEPLOYER_ERROR",
-                "field": "deployer",
-                "message": f"Deployer validation failed: {result.message}",
-            }]
+            return [
+                {
+                    "step": 3,
+                    "code": "DEPLOYER_ERROR",
+                    "field": "deployer",
+                    "message": f"Deployer validation failed: {result.message}",
+                }
+            ]
         if isinstance(result, Exception):
-            return [{
-                "step": 3,
-                "code": "DEPLOYER_UNAVAILABLE",
-                "field": "deployer",
-                "message": f"Deployer API error: {result}",
-            }]
+            return [
+                {
+                    "step": 3,
+                    "code": "DEPLOYER_UNAVAILABLE",
+                    "field": "deployer",
+                    "message": "Deployer validation failed unexpectedly",
+                }
+            ]
         if not result.get("valid"):
             return [{"step": 3, **error} for error in result.get("errors", [])]
         return []

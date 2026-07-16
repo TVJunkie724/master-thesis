@@ -175,7 +175,7 @@ void main() {
           .having(
             (state) => state.errorMessage,
             'error',
-            contains('transport unavailable'),
+            'GLB upload failed: An unexpected error occurred',
           ),
     ],
   );

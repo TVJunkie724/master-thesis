@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
+import 'package:twin2multicloud_flutter/core/result.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
@@ -827,7 +828,7 @@ void main() {
       ),
       setUp: () => when(
         () => api.startLogTrace('test-id'),
-      ).thenThrow(Exception('Too many requests')),
+      ).thenThrow(const AppException('Too many requests', code: 'HTTP_429')),
       build: () => _buildBloc(api),
       act: (bloc) => bloc.add(const TwinOverviewStartLogTrace()),
       expect: () => [
@@ -1139,7 +1140,7 @@ void main() {
       seed: () => _loaded(twinState: 'deployed'),
       setUp: () => when(
         () => api.downloadSimulator('test-id'),
-      ).thenThrow(Exception('Request timed out')),
+      ).thenThrow(const AppException('Request timed out', code: 'TIMEOUT')),
       build: () => _buildBloc(api),
       act: (bloc) => bloc.add(
         const TwinOverviewDownloadSimulator(

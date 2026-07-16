@@ -79,7 +79,7 @@ class CalcParams {
   /// Only shown when needs3DModel is true
   final double average3DModelSizeInMB;
 
-  /// Allow GCP self-hosted L4 (ALWAYS FALSE - not implemented)
+  /// Legacy wire field; provider availability comes from the capability contract.
   final bool allowGcpSelfHostedL4;
 
   // ============================================================
@@ -101,7 +101,7 @@ class CalcParams {
   /// Number of monthly viewers (required, min: 0)
   final int amountOfActiveViewers;
 
-  /// Allow GCP self-hosted L5 (ALWAYS FALSE - not implemented)
+  /// Legacy wire field; provider availability comes from the capability contract.
   final bool allowGcpSelfHostedL5;
 
   // ============================================================
