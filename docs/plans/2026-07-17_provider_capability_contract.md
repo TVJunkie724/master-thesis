@@ -187,6 +187,8 @@ For each provider-layer row it includes:
 - `selectable` as a derived boolean;
 - aggregate `verification_level` using the weaker source level;
 - `sources.optimizer` and `sources.deployer` for diagnostics;
+- `sources_agree` and `restriction_source` so both agreement and the effective
+  restriction boundary are explicit;
 - source health metadata at response level.
 
 Derivation rules are deterministic:

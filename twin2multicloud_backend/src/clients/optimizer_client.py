@@ -54,6 +54,13 @@ class OptimizerClient(ExternalServiceClient):
             timeout=60.0,
         )
 
+    async def get_provider_capabilities(self) -> dict[str, Any]:
+        return await self._request_json(
+            "GET",
+            "/capabilities/providers",
+            timeout=10.0,
+        )
+
     async def get_cache_status(
         self,
         *,

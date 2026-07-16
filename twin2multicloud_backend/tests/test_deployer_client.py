@@ -60,6 +60,24 @@ async def test_validate_deployer_complete_posts_exact_endpoint_and_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_provider_capabilities_uses_read_only_contract_endpoint():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"service": "deployer"})
+
+    response = await _client_with_handler(handler).get_provider_capabilities()
+
+    assert response == {"service": "deployer"}
+    assert seen == {
+        "method": "GET",
+        "url": "http://deployer.test/capabilities/providers",
+    }
+
+
+@pytest.mark.asyncio
 async def test_verify_permissions_posts_exact_provider_endpoint_and_payload():
     seen = {}
 

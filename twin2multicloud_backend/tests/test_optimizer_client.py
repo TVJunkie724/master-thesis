@@ -106,6 +106,27 @@ async def test_calculate_puts_exact_endpoint_and_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_provider_capabilities_uses_read_only_contract_endpoint():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"service": "optimizer"})
+
+    client = OptimizerClient(
+        base_url="http://optimizer.test",
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert await client.get_provider_capabilities() == {"service": "optimizer"}
+    assert seen == {
+        "method": "GET",
+        "url": "http://optimizer.test/capabilities/providers",
+    }
+
+
+@pytest.mark.asyncio
 async def test_get_cache_status_preserves_provider_non_200_without_throwing():
     async def handler(request: httpx.Request) -> httpx.Response:
         assert str(request.url) == "http://optimizer.test/pricing_age/aws"

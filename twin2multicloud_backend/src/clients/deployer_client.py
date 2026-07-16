@@ -58,6 +58,13 @@ class DeployerClient(ExternalServiceClient):
             timeout=30.0,
         )
 
+    async def get_provider_capabilities(self) -> dict[str, Any]:
+        return await self._request_json(
+            "GET",
+            "/capabilities/providers",
+            timeout=10.0,
+        )
+
     async def verify_permissions(
         self, provider: str, credentials: dict[str, Any]
     ) -> dict[str, Any]:

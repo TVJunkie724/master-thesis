@@ -78,6 +78,10 @@ class OptimizerContractError(DomainError):
         self.errors = errors or []
 
 
+class ProviderCapabilityContractInvalid(DomainError):
+    status_code = 502
+
+
 class CostCalculationRunSelectionError(DomainError):
     status_code = 409
 
