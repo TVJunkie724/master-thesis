@@ -431,7 +431,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                   azureLayer: result.azureCosts.l4,
                   gcpLayer: result.gcpCosts.l4,
                   cheapestPath: result.cheapestPath,
-                  hideGcp: true,
                 ),
               ),
               SizedBox(
@@ -442,7 +441,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                   azureLayer: result.azureCosts.l5,
                   gcpLayer: result.gcpCosts.l5,
                   cheapestPath: result.cheapestPath,
-                  hideGcp: true,
                 ),
               ),
             ],

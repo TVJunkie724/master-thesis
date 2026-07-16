@@ -19,9 +19,9 @@ EXTRACTED: 2026-07-17 | VERSION: 1.1
 
 # Provider Capability Contract
 
-**Issue:** [#70 Model provider capabilities and intentionally unsupported layers](https://github.com/TVJunkie724/master-thesis/issues/70)  
-**Base branch:** `master`  
-**Feature branch:** `codex/provider-capability-contract`  
+**Issue:** [#70 Model provider capabilities and intentionally unsupported layers](https://github.com/TVJunkie724/master-thesis/issues/70)
+**Base branch:** `master`
+**Feature branch:** `codex/provider-capability-contract`
 **Status:** Implemented and verified without live-cloud E2E
 **Live-cloud E2E:** Explicitly deferred
 
@@ -430,7 +430,8 @@ billable cloud operations:
 - Deployer: 1,290 unit/API tests passed.
 - Management API: 737 tests passed; targeted capability and distributed-validation
   regression set: 33 tests passed after final formatting and error-handling review.
-- Flutter: analyzer clean; 625 tests passed.
+- Flutter: analyzer clean; 629 tests passed. Unsupported calculation rows retain
+  their canonical reason and render as unavailable instead of zero-cost candidates.
 - Docker Compose: Optimizer, Deployer, Management API, and docs services rebuilt and
   started successfully.
 - Runtime contract smoke: all three capability endpoints returned exactly 21 rows;

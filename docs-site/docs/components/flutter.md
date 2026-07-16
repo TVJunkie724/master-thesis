@@ -81,6 +81,11 @@ the provider-layer row. Loading errors are visible and retryable; saved configur
 remains readable. Production and demo adapters expose the same complete matrix, and
 widgets contain no provider-name capability exceptions.
 
+Optimizer results also preserve each layer result's `supported` and
+`unsupportedReason` fields. Cost cards and service details render unsupported rows as
+unavailable with their reason; they never present an unsupported zero-cost result as a
+valid alternative.
+
 Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
 opens a system browser, polls the one-time Management API exchange, retains the access
 token in memory, and clears identity/token state after logout or any authenticated

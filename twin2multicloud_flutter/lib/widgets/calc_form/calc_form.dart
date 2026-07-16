@@ -904,15 +904,6 @@ class _CalcFormState extends State<CalcForm> {
                 },
               ),
             ],
-
-            const Divider(),
-
-            // GCP Self-Hosted L4 (disabled)
-            _buildDisabledSwitchWithBadge(
-              title: 'Allow GCP Self-Hosted L4',
-              tooltip:
-                  'GCP lacks a managed Twin service like AWS TwinMaker or Azure Digital Twins. Self-hosted Compute Engine option is not yet implemented.',
-            ),
           ],
         ),
       ),
@@ -999,15 +990,6 @@ class _CalcFormState extends State<CalcForm> {
                 });
                 _updateParams();
               },
-            ),
-
-            const Divider(),
-
-            // GCP Self-Hosted L5 (disabled)
-            _buildDisabledSwitchWithBadge(
-              title: 'Allow GCP Self-Hosted L5',
-              tooltip:
-                  'GCP lacks a managed Grafana service. Self-hosted Grafana on Compute Engine option is not yet implemented.',
             ),
           ],
         ),

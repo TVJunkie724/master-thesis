@@ -159,11 +159,11 @@ class ServiceBreakdown extends StatelessWidget {
         subtitle: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildMiniTotal('AWS', aws?.cost, Colors.orange),
+            _buildMiniTotal(aws, Colors.orange),
             const SizedBox(width: 12),
-            _buildMiniTotal('Azure', azure?.cost, Colors.blue),
+            _buildMiniTotal(azure, Colors.blue),
             const SizedBox(width: 12),
-            _buildMiniTotal('GCP', gcp?.cost, Colors.green),
+            _buildMiniTotal(gcp, Colors.green),
           ],
         ),
         children: [
@@ -188,13 +188,15 @@ class ServiceBreakdown extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniTotal(String label, double? cost, Color color) {
-    if (cost == null) return const SizedBox();
-    return Text(
-      //'$label: \$${cost.toStringAsFixed(2)}',
-      '\$${cost.toStringAsFixed(2)}',
+  Widget _buildMiniTotal(LayerCost? layer, Color color) {
+    if (layer == null) return const SizedBox();
+    final value = Text(
+      layer.supported ? '\$${layer.cost.toStringAsFixed(2)}' : 'N/A',
       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
     );
+    return layer.supported
+        ? value
+        : Tooltip(message: layer.unsupportedReason!, child: value);
   }
 
   Widget _buildProviderColumn(
@@ -232,7 +234,15 @@ class ServiceBreakdown extends StatelessWidget {
             ),
 
             // Content
-            if (cost != null && cost.components.isNotEmpty)
+            if (cost != null && !cost.supported)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  cost.unsupportedReason!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              )
+            else if (cost != null && cost.components.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Column(

@@ -12,7 +12,7 @@ class CalcResult {
   /// Azure cost breakdown by layer
   final ProviderCosts azureCosts;
 
-  /// GCP cost breakdown by layer (some layers null - L4/L5 not implemented)
+  /// GCP cost breakdown by layer, including explicit unsupported results.
   final ProviderCosts gcpCosts;
 
   /// Cheapest path as list of segments (e.g., ['L1_AWS', 'L2_Azure', ...])
@@ -488,7 +488,35 @@ class LayerCost {
   /// Data size in GB (optional, for storage layers)
   final double? dataSizeInGB;
 
-  LayerCost({required this.cost, required this.components, this.dataSizeInGB});
+  /// Whether this provider-layer result can participate in optimization.
+  final bool supported;
+
+  /// Stable, user-safe explanation when [supported] is false.
+  final String? unsupportedReason;
+
+  LayerCost({
+    required this.cost,
+    required this.components,
+    this.dataSizeInGB,
+    this.supported = true,
+    this.unsupportedReason,
+  }) {
+    final reason = unsupportedReason?.trim();
+    if (!supported && (reason == null || reason.isEmpty)) {
+      throw ArgumentError.value(
+        unsupportedReason,
+        'unsupportedReason',
+        'Unsupported layer costs require an explicit reason.',
+      );
+    }
+    if (supported && reason?.isNotEmpty == true) {
+      throw ArgumentError.value(
+        unsupportedReason,
+        'unsupportedReason',
+        'Supported layer costs cannot declare an unsupported reason.',
+      );
+    }
+  }
 
   factory LayerCost.fromJson(Map<String, dynamic> json) {
     final componentsRaw = json['components'] as Map<String, dynamic>? ?? {};
@@ -500,10 +528,26 @@ class LayerCost {
       }
     });
 
+    final supported = json['supported'] as bool? ?? true;
+    final unsupportedReason = json['unsupportedReason']?.toString().trim();
+    if (!supported &&
+        (unsupportedReason == null || unsupportedReason.isEmpty)) {
+      throw const FormatException(
+        'Unsupported layer costs require an explicit reason.',
+      );
+    }
+    if (supported && unsupportedReason?.isNotEmpty == true) {
+      throw const FormatException(
+        'Supported layer costs cannot declare an unsupported reason.',
+      );
+    }
+
     return LayerCost(
       cost: (json['cost'] as num?)?.toDouble() ?? 0,
       components: components,
       dataSizeInGB: (json['dataSizeInGB'] as num?)?.toDouble(),
+      supported: supported,
+      unsupportedReason: unsupportedReason,
     );
   }
 }
