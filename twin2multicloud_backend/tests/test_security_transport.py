@@ -65,3 +65,21 @@ def test_malformed_request_id_is_replaced():
     assert response.status_code == 200
     assert response.headers["x-request-id"] != "contains spaces and secrets"
     assert len(response.headers["x-request-id"]) == 36
+
+
+def test_request_completion_log_is_correlated_without_untrusted_request_id(caplog):
+    client = TestClient(_app(require_https=False))
+    caplog.set_level("INFO", logger="twin2multicloud.request")
+
+    response = client.get(
+        "/probe?credential=must-not-be-logged",
+        headers={"X-Request-ID": "invalid request secret"},
+    )
+
+    assert response.status_code == 200
+    message = next(record.message for record in caplog.records if "request_completed" in record.message)
+    assert f"request_id={response.headers['x-request-id']}" in message
+    assert "method=GET" in message
+    assert "path=/probe" in message
+    assert "must-not-be-logged" not in message
+    assert "invalid request secret" not in message

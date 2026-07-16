@@ -167,7 +167,7 @@ Both reviews must report zero unresolved findings before merge.
 
 ### Final evidence
 
-- Complete Management API suite excluding live-cloud E2E: **679 passed**.
+- Complete Management API suite excluding live-cloud E2E: **681 passed**.
 - Focused final credential/security regressions after the last audit-outcome
   refinement: **45 passed**.
 - Ruff: passed with zero findings.
