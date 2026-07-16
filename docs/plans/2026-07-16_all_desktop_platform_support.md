@@ -1,6 +1,6 @@
 ---
 title: "Web and All-Desktop Flutter Support"
-status: "Approved for implementation"
+status: "Implemented"
 issue: 109
 baseBranch: master
 featureBranch: codex/all-desktop-platform-support
@@ -162,15 +162,49 @@ All four jobs must pass before the support claim is considered verified.
 
 ## 7. Definition Of Done
 
-- [ ] One typed runtime contract covers every Flutter target.
-- [ ] Focused tests prove all supported and unsupported classifications.
-- [ ] The root entrypoint auto-selects macOS, Windows, or Linux without a
+- [x] One typed runtime contract covers every Flutter target.
+- [x] Focused tests prove all supported and unsupported classifications.
+- [x] The root entrypoint auto-selects macOS, Windows, or Linux without a
       macOS fallback.
-- [ ] Local gates build Web plus the current host desktop.
-- [ ] Native CI builds Web, macOS, Windows, and Linux successfully.
-- [ ] Platform-specific adapters compile on every supported target.
-- [ ] Canonical documentation states one consistent platform matrix.
-- [ ] Historical evidence is clearly distinguished from current support.
-- [ ] Full Flutter, integration, strict docs, and diff-hygiene gates pass.
-- [ ] Two review passes have no unresolved findings.
-- [ ] Structured commits reference [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109).
+- [x] Local gates build Web plus the current host desktop.
+- [x] Native CI builds Web, macOS, Windows, and Linux successfully.
+- [x] Platform-specific adapters compile on every supported target.
+- [x] Canonical documentation states one consistent platform matrix.
+- [x] Historical evidence is clearly distinguished from current support.
+- [x] Full Flutter, integration, strict docs, and diff-hygiene gates pass.
+- [x] Two review passes have no unresolved findings.
+- [x] Structured commits reference [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109).
+
+## 8. Verification Evidence
+
+Completed on 2026-07-16:
+
+| Gate | Result |
+|---|---|
+| Repository Python self-tests | 30 passed, including entrypoint and architecture contracts |
+| Flutter unit/widget/demo suite | 613 passed in the final CI run |
+| Flutter analyzer | no issues |
+| Local Web release | passed |
+| Local macOS release | passed after Swift Package Manager migration |
+| Read-only Management API integration | 9 passed against credential-free OrbStack services |
+| Strict MkDocs build | passed |
+| Native platform workflow | [run 29520314088](https://github.com/TVJunkie724/master-thesis/actions/runs/29520314088) passed Web, macOS, Windows, and Linux |
+
+Review findings fixed during implementation:
+
+1. Windows commonly exposes Python as `python`, while the entrypoint required
+   `python3`; Python 3.9+ detection is now host-neutral and tested.
+2. Shared Web/Desktop files imported direct OS process and filesystem APIs;
+   native file writes now use conditional adapters and links use
+   `url_launcher`.
+3. Initial CI actions emitted Node 20 deprecation annotations; checkout now
+   uses the pinned Node 24 action and the legacy indirect cache is disabled.
+4. `file_saver` lacked current macOS package support; version `0.4.0` is used,
+   CocoaPods integration was removed, and macOS plugins use Swift Package
+   Manager.
+5. The dependency update exposed Dio's new response-transformation timeout;
+   both central error boundaries now map it consistently with regression tests.
+
+The local universal macOS build still reports an upstream `objective_c`
+framework-name warning while producing a valid release app. This is recorded as
+a toolchain limitation, not hidden or treated as Windows/Linux evidence.

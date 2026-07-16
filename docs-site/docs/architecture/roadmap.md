@@ -17,13 +17,14 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 | Phase 6 | Stabilize Optimizer layer contracts, pricing reliability, and provider capability modeling. |
 | Phase 7 | Slice Flutter wizard and twin views into testable feature-owned surfaces. |
 
-## Current Focus
+## Current Workstreams
 
-The active cross-cutting slice is
-[#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109)
-in Phase 7. It makes Web, macOS, Windows, and Linux one explicit application
-support contract with native build evidence. Phase 4 credential and Phase 6
-pricing work remain independently tracked in their milestones.
+The latest completed cross-cutting slice is
+[#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109).
+It makes Web, macOS, Windows, and Linux one explicit application support
+contract with native build evidence. Remaining credential, pricing, provider,
+and external authentication work is independently tracked in its GitHub
+milestone rather than inferred from one global "current phase" label.
 
 ## Backlog Rule
 

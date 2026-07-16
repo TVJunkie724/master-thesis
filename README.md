@@ -25,7 +25,7 @@ For the canonical published documentation site, see [`docs-site/`](docs-site/).
 ## Prerequisites
 
 - **Docker** (OrbStack, Docker Desktop, or similar) — used to run all three backend services
-- **Flutter SDK** ≥ 3.41 (with Dart ≥ 3.11) — for the UI
+- **Flutter SDK** 3.44.0 (with Dart 3.12) — pinned by the platform CI gate
 - **Python** ≥ 3.9 — used by the root entrypoint and repository quality checks
 - **Git**
 - Native Flutter desktop tooling for macOS, Windows, or Linux; Windows users run

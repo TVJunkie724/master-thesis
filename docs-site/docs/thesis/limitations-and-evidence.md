@@ -24,6 +24,9 @@
 Cross-platform support means that the same Flutter source compiles for Web and
 all three desktop operating systems on native CI runners. It does not include
 signed installers, notarization, store publication, or platform certification.
+The current local universal macOS build may emit an upstream `objective_c`
+code-asset naming warning while still producing the release application; native
+single-runner CI builds complete successfully.
 
 ## Known Limitations
 
