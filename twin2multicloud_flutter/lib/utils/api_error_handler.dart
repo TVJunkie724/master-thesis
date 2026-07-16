@@ -96,6 +96,8 @@ class ApiErrorHandler {
         return 'Request timed out while sending data.';
       case DioExceptionType.receiveTimeout:
         return 'Response timed out. The server may be busy.';
+      case DioExceptionType.transformTimeout:
+        return 'Response processing timed out. Please try again.';
       case DioExceptionType.connectionError:
         return 'Cannot connect to server. Please check if the service is running.';
       case DioExceptionType.badCertificate:

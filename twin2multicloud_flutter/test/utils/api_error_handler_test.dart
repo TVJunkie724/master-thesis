@@ -3,6 +3,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/utils/api_error_handler.dart';
 
 void main() {
+  test('maps response transformation timeouts to a retryable message', () {
+    final error = DioException(
+      requestOptions: RequestOptions(path: '/twins'),
+      type: DioExceptionType.transformTimeout,
+    );
+
+    expect(
+      ApiErrorHandler.extractMessage(error),
+      'Response processing timed out. Please try again.',
+    );
+  });
+
   test('extracts structured distributed validation errors', () {
     final error = DioException(
       requestOptions: RequestOptions(path: '/twins/twin-1'),
