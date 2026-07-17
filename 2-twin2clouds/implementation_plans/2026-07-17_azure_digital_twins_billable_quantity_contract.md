@@ -766,32 +766,99 @@ The reviewer must verify:
 Both reviews must be repeated after implementation. Findings must be fixed and
 the review repeated until zero findings remain.
 
+## Implementation Record
+
+Implemented on 2026-07-17 in commit `4bf4a10` with `Refs #114`.
+
+The completed slice:
+
+- derives ADT operation, routed-message, and query-unit quantities before price
+  multiplication;
+- uses exact Azure Retail Prices mappings and preserves the selected provider
+  rows as evidence;
+- publishes operation, query-unit, routed-message, and ADT Pusher components
+  for Azure L4;
+- applies one shared Management API parameter model to all five mutation
+  boundaries;
+- records compatibility-default versus explicit-input provenance in both
+  calculation traces;
+- exposes the two advanced assumptions in compact-by-default Flutter controls;
+- restarts bind-mounted local services before read-only integration tests and
+  compares the live Optimizer and Management OpenAPI contracts field by field.
+
+Verification evidence:
+
+| Gate | Result |
+|---|---|
+| Optimizer unit and integration suite | 592 passed |
+| Management API suite | 776 passed |
+| Flutter unit/widget/demo suite | 636 passed |
+| Flutter analysis | no issues |
+| Flutter builds | Web release and macOS debug passed |
+| Read-only desktop integration | 10 passed |
+| Bandit | Optimizer and Management API scans passed |
+| Documentation | strict MkDocs build passed |
+| Azure pricing evidence | live public Retail Prices refresh published all seven reviewed Azure intents without fallback |
+| Provider deployment | not executed |
+
+## Post-Implementation Reviews
+
+### Review 1: Contract And Calculation
+
+Findings were fixed before commit:
+
+- generated Azure pricing initially lacked the three selected ADT evidence
+  rows even though canonical values were present;
+- strategy contracts still exposed legacy raw aliases and a redundant
+  per-1K normalizer;
+- Flutter validation used a stricter arbitrary floor than the API;
+- one Management service still accepted an untyped parameter dictionary;
+- registry tests relied on brittle global counts instead of semantic provider
+  expectations;
+- historical review documents still described the removed tier model.
+
+The repeated review found zero open contract, formula, trace, compatibility, or
+documentation findings.
+
+### Review 2: Runtime, Security, And Operations
+
+Findings were fixed before commit:
+
+- the integration command reused already-running bind-mounted services, allowing
+  cached OpenAPI documents to lag behind current source;
+- the engine formula imports were mechanically consolidated.
+
+The integration command now restarts the credential-free local services and
+compares both live schemas. Bandit, secret-pattern, stale-contract, shell,
+formatting, and diff checks found no open findings. No cloud deployment or
+credential-bearing mutation was executed.
+
 ## Definition Of Done
 
-- [ ] Issue #114 is linked and reflects the implemented scope.
-- [ ] `queryUnitTiers` is absent from runtime, registry, generated data, tests,
+- [x] Issue #114 is linked and reflects the implemented scope.
+- [x] `queryUnitTiers` is absent from runtime, registry, generated data, tests,
       and canonical documentation.
-- [ ] The canonical workload contract contains both additive fields with
+- [x] The canonical workload contract contains both additive fields with
       matching validation and explicit defaults.
-- [ ] Every Management API CalcParams mutation uses one shared typed schema;
+- [x] Every Management API CalcParams mutation uses one shared typed schema;
       no alternate untyped write path remains.
-- [ ] Azure operation, message, and query quantities follow the formulas in
+- [x] Azure operation, message, and query quantities follow the formulas in
       this plan.
-- [ ] Baseline ADT routed-message quantity and cost are exactly zero and the L1
+- [x] Baseline ADT routed-message quantity and cost are exactly zero and the L1
       Event Grid path remains independently priced.
-- [ ] Azure L4 publishes ADT operation/query/message and ADT Pusher components;
+- [x] Azure L4 publishes ADT operation/query/message and ADT Pusher components;
       stale ADT Updater/Event Grid components are absent.
-- [ ] The calculator consumes explicit derived quantities only.
-- [ ] `intentTrace` and `resultTrace` prove every changed quantity, topology
+- [x] The calculator consumes explicit derived quantities only.
+- [x] `intentTrace` and `resultTrace` prove every changed quantity, topology
       assumption, formula, and evidence reference.
-- [ ] Old API payloads and persisted JSON remain readable.
-- [ ] Trace distinguishes `explicit_input` from `compatibility_default`
+- [x] Old API payloads and persisted JSON remain readable.
+- [x] Trace distinguishes `explicit_input` from `compatibility_default`
       without trusting client-supplied provenance.
-- [ ] Flutter exposes the assumptions in a collapsed advanced section.
-- [ ] Optimizer, Management API, Flutter, and docs tests pass.
-- [ ] Web and macOS builds pass; platform-neutral Windows/Linux support is not
+- [x] Flutter exposes the assumptions in a collapsed advanced section.
+- [x] Optimizer, Management API, Flutter, and docs tests pass.
+- [x] Web and macOS builds pass; platform-neutral Windows/Linux support is not
       regressed.
-- [ ] Strict MkDocs build passes.
-- [ ] No real cloud deployment was executed.
-- [ ] Two post-implementation reviews report zero open findings.
-- [ ] The implementation is committed separately with `Refs #114`.
+- [x] Strict MkDocs build passes.
+- [x] No real cloud deployment was executed.
+- [x] Two post-implementation reviews report zero open findings.
+- [x] The implementation is committed separately with `Refs #114`.

@@ -340,12 +340,24 @@ drill-down. Historical runs remain readable.
 
 ### Phase 17
 
+**Status:** Complete on 2026-07-17 in commit `4bf4a10` (`Refs #114`).
+
 Removes the fabricated Azure Digital Twins `queryUnitTiers` field and replaces
 it with an explicit workload contract for average query units and query response
 size. The engine derives operation, routed-message, and query-unit billable
 quantities, including Azure's 1 KB increments, before the calculator multiplies
 them by normalized prices. Optimizer, Management API, persisted JSON, Flutter,
 trace output, tests, and documentation must agree on the additive contract.
+
+The completed implementation uses exact reviewed Azure Retail Prices evidence
+for operation, message, and query-unit meters in `westeurope`, preserves the
+selected catalog rows in the generated snapshot, and fails closed on drift.
+The executable baseline explicitly reports zero ADT routed-message units because
+it has no ADT Event Route. A read-only desktop integration gate compares the live
+Optimizer and Management API input schemas field by field.
+
+Implementation plan:
+`2-twin2clouds/implementation_plans/2026-07-17_azure_digital_twins_billable_quantity_contract.md`.
 
 ### Phase 18
 
