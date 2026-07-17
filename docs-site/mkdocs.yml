@@ -1,5 +1,5 @@
 site_name: Twin2MultiCloud Documentation
-site_description: Canonical project documentation for the Twin2MultiCloud thesis platform.
+site_description: Canonical user and developer documentation for Twin2MultiCloud.
 repo_url: https://github.com/TVJunkie724/master-thesis
 docs_dir: docs
 
@@ -46,6 +46,7 @@ nav:
       - End-to-End Flows: architecture/end-to-end-flows.md
       - Security & Trust Boundaries: architecture/security-boundaries.md
       - Provider Capabilities: architecture/provider-capabilities.md
+      - Engineering Decisions: architecture/engineering-decisions.md
       - Original to Current State: architecture/evolution.md
       - Project Background: architecture/project-background.md
       - Roadmap: architecture/roadmap.md
@@ -63,6 +64,7 @@ nav:
       - Configuration Reference: runtime/configuration.md
       - State & Persistence: runtime/state-and-persistence.md
       - Operations & Logging: runtime/operations.md
+      - Known Limitations: runtime/known-limitations.md
       - Troubleshooting: runtime/troubleshooting.md
   - Developer Guide:
       - Overview: developer-guide/index.md
@@ -89,8 +91,5 @@ nav:
       - Provider Links: cloud-setup/provider-links.md
   - API:
       - Overview: api/index.md
-  - Thesis & Evolution:
-      - Engineering Decisions: thesis/engineering-decisions.md
-      - Limitations & Evidence: thesis/limitations-and-evidence.md
   - References:
       - Overview: references/index.md

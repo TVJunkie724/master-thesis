@@ -9,7 +9,9 @@ The project is based on two important inputs:
 - **Twin2Clouds / EDTconf 2025 paper artifact**: the original cost-modeling tool and formulas from [Twin2Clouds: Cost-Aware Digital Twin Engineering and Deployment Across Federated Clouds](../references/EDT_25__CloudDT_engineering.pdf).
 - **Cloud Deployer bachelor project**: the deployment-oriented codebase for provisioning Digital Twin infrastructure across cloud providers.
 
-The current thesis project adds the missing orchestration layer between these worlds: a Management API and Flutter UI that turn cost optimization and infrastructure deployment into one workflow.
+The current platform adds the missing orchestration layer between these worlds: a
+Management API and Flutter UI that turn cost optimization and infrastructure
+deployment into one workflow.
 
 ## Original Optimizer
 
@@ -37,7 +39,7 @@ Important differences to the current platform:
 - the Management API owns user/twin state and calls the Deployer through service contracts,
 - deployment templates and runtime upload folders are being separated.
 
-## Current Thesis Integration
+## Current Integrated Platform
 
 The integrated target workflow is:
 
@@ -48,11 +50,13 @@ Flutter UI
     -> Cloud Deployer
 ```
 
-This integration is the core thesis contribution from an engineering perspective: the system connects theoretical cost modeling, user-facing configuration, persistent twin lifecycle state, and executable multi-cloud infrastructure deployment.
+The integrated system connects cost modeling, user-facing configuration, persistent
+twin lifecycle state, and executable multi-cloud infrastructure deployment.
 
 ## Documentation Goal
 
-This documentation should support two audiences:
-
-- thesis work: architecture, rationale, deviations from the source projects, and evaluation context,
-- developers: setup, service boundaries, cloud setup, API contracts, and implementation notes for maintaining the system.
+This documentation supports users, operators, and developers with setup, workflows,
+service boundaries, cloud configuration, API contracts, implementation details, and
+the technical evolution from the source projects. Research analysis and thesis
+synthesis are maintained separately under `docs/research/` and
+`twin2multicloud-latex/`.

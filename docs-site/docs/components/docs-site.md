@@ -1,9 +1,9 @@
 # Documentation Site
 
-`docs-site` is the canonical published documentation source. It uses MkDocs Material,
-supports light/dark mode, full-text search, contextual assets, and automatic local
-reload. Service-local READMEs remain concise entrypoints; they do not form a parallel
-canonical manual.
+`docs-site` is the canonical published user and developer documentation source. It uses
+MkDocs Material, supports light/dark mode, full-text search, contextual assets, and
+automatic local reload. Service-local READMEs remain concise entrypoints; they do not
+form a parallel canonical manual.
 
 ## Structure
 
@@ -19,14 +19,19 @@ docs-site/
     runtime/              configuration and operation
     cloud-setup/          provider/security setup
     developer-guide/      contracts, tests, extensions
-    thesis/               decisions, evidence, limitations
     references/           papers, diagrams, provenance
 ```
+
+Research hypotheses, theoretical evaluations, and material for later thesis synthesis
+live separately under `docs/research/`. Final thesis prose lives under
+`twin2multicloud-latex/`.
 
 ## Authoring Rules
 
 - document current behavior from code/config/tests first;
 - mark planned, externally gated, verification-pending, and historical claims;
+- keep research hypotheses and thesis evaluations in `docs/research/`;
+- do not present proposed research contributions as implemented product behavior;
 - never include live credentials, account IDs, private endpoints, or ignored files;
 - place diagrams beside the explanation they support;
 - prefer ASCII for maintained flows and existing images for historical/contextual value;

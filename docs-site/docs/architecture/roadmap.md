@@ -16,6 +16,7 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 | Phase 5 | Disentangle backend orchestration into repositories, services, typed clients, and orchestrators. |
 | Phase 6 | Stabilize Optimizer layer contracts, pricing reliability, and provider capability modeling. |
 | Phase 7 | Slice Flutter wizard and twin views into testable feature-owned surfaces. |
+| Phase 8 | Freeze a hardened five-layer baseline, introduce closed-world architecture profiles, and evaluate a bounded Eventing and Messaging extension. |
 
 ## Current Workstreams
 
@@ -24,10 +25,13 @@ The latest Optimizer architecture slice is
 It establishes one validated result model, one calculator/capability boundary,
 fail-closed unsupported-provider selection, and a complete provider-layer test
 matrix. Phase 6 continues with provider capability modeling, traceability, and
-expanded service/tier coverage. Credential, deployment, UI, and external
-authentication work remains independently tracked in its GitHub milestone rather
-than inferred from one global "current phase" label.
+expanded service/tier coverage. Phase 8 is planned, but starts only after the
+remaining current-system hardening and manual UI audit. Credential, deployment,
+UI, and external authentication work remains independently tracked in its
+GitHub milestone rather than inferred from one global "current phase" label.
 
 ## Backlog Rule
 
-TODO and future-work files are historical inputs. New active work should be represented as GitHub Issues assigned to a Milestone, then linked from the relevant documentation page only when the context matters for thesis or development work.
+TODO and future-work files are historical inputs. New active work should be represented
+as GitHub Issues assigned to a Milestone, then linked from the relevant documentation
+page only when the context matters for current users, operators, or developers.

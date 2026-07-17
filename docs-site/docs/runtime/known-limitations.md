@@ -1,4 +1,8 @@
-# Limitations And Evidence
+# Known Limitations And Verification Status
+
+This page records the current platform's supported boundaries and verification state
+for operators and developers. It does not evaluate research hypotheses or state thesis
+conclusions.
 
 ## Evidence Levels
 
@@ -89,10 +93,10 @@ complete production telemetry proof.
 
 ### Persistence And Scale
 
-SQLite is appropriate to the thesis/local single-node runtime. Multi-replica production
+SQLite is appropriate to the local single-node runtime. Multi-replica production
 requires external relational storage, coordinated migrations, backups, and operations.
 
-## Interpretation Rule
+## Quality Terminology
 
 “Enterprise-grade” in this repository means explicit ownership, typed contracts,
 fail-closed security, auditability, broad deterministic tests, and visible limitations.

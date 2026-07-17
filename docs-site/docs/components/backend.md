@@ -125,7 +125,7 @@ idempotent migration runner for existing SQLite databases. Migrations cover Clou
 Connections, purpose/version fields, pricing reviews, calculation runs, deployment
 lifecycle/operation state, credential audit events, and legacy credential disablement.
 
-SQLite is the thesis/local storage choice. A production multi-replica deployment would
+SQLite is the local single-node storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.
 
 ## Persisted Pricing Trace
