@@ -1,5 +1,11 @@
 # Thesis Structure Review — Updated After Feedback
 
+> **Historical planning note:** The research questions in this file have been
+> superseded by
+> [Research Questions And Evaluation Design](research/research_questions_and_evaluation_design.md).
+> Do not transfer the RQ wording below into the thesis without reconciling it
+> with that research source of truth.
+
 ## 1. Revised Research Questions
 
 Centered on the thesis goal: *creating a fully functional deployed digital twin in the cloud from configurations alone,* while also considering the adaptation and integration of the two bachelor thesis prototypes.

@@ -9,6 +9,19 @@ synthesis and the architecture audit in GitHub issue
 to replace the implemented architecture. It is deliberately not part of the
 published user and developer documentation.
 
+The related implementation hardening for user-provided function logic,
+provider packaging, and infrastructure-owned bindings is tracked in GitHub
+issue
+[#113](https://github.com/TVJunkie724/master-thesis/issues/113). That issue is
+part of the active thesis hardening backlog, not post-thesis future work.
+
+The broader literature landscape, citation-ready source metadata, and explicit
+differentiation from the planned thesis contribution are maintained in
+[Related Work: Multi-Cloud Cost, Functional Comparability, And Event-Driven
+Digital Twins](related_work_multicloud_cost_comparability_eventing.md).
+The working research questions and their evaluation design are maintained in
+[Research Questions And Evaluation Design](research_questions_and_evaluation_design.md).
+
 The assessment addresses three questions:
 
 1. Are the five layers required for the published cost comparison?
@@ -742,6 +755,334 @@ correct choice depends on the functional contract of the edge. It does establish
 that the current direct chains cannot be accepted as production-ready merely
 because they execute successfully in the proof of concept.
 
+### Does An Eventing Layer Remove The Current Hardcoding?
+
+Not by itself. Adding an `eventing_provider` field and provisioning one more
+managed service would preserve most of the current rigidity. The audit found
+hardcoding at several independent boundaries:
+
+| Boundary | Current coupling |
+|---|---|
+| Runtime calls | Dispatchers construct processor or connector names; processor wrappers call user processors and persisters; persisters know storage, event-checking, and selected L4 destinations. |
+| Event actions | `config_events.json` contains concrete function names and provider-specific action types; event checkers construct ARNs or call function URLs and workflow endpoints. |
+| Function catalog | `src/function_registry.py` contains a fixed `Layer` enum, a fixed static function set, and fixed layer-boundary rules. |
+| Infrastructure | Terraform exposes seven fixed provider variables and wires concrete function URLs, names, ARNs, resources, and conditional dependencies directly. |
+| Optimizer | The cost engine and provider capability contracts require the canonical fixed set `L1`, `L2`, `L3_hot`, `L3_cool`, `L3_archive`, `L4`, and `L5`. |
+| Management API | Provider selections are persisted and projected through dedicated `cheapest_l1` to `cheapest_l5` fields, then materialized into seven fixed Deployer keys. |
+| Deployment package | The manifest records providers but does not yet describe a versioned architecture profile, logical responsibilities, event contracts, or dataflow edges. |
+
+The existing system already uses provider eventing at the device-ingress edge:
+
+- AWS IoT Core rules invoke the L1 dispatcher;
+- Azure IoT Hub events reach the dispatcher through Event Grid; and
+- GCP Pub/Sub and Eventarc trigger the dispatcher.
+
+After that first edge, the implementations return largely to direct
+function-to-function or function-to-HTTP routing. The existence of a topic or
+event source at L1 therefore does not make the remaining layers independent.
+
+#### Independence Has Several Meanings
+
+| Independence dimension | Can `LE` provide it? | Required condition |
+|---|---|---|
+| Producer does not know consumer location or function name | Yes | Producers publish a logical, versioned event instead of invoking a concrete endpoint. |
+| Consumer failure does not immediately fail or block the producer | Mostly | Durable buffering, retry, dead-letter, acknowledgement, and backpressure semantics are explicit. |
+| A new consumer can be added without changing the producer | Yes | Fan-out subscriptions are owned by the architecture profile and Deployer. |
+| A layer can move to another provider without changing upstream domain code | Mostly | Cross-cloud bridges preserve the same event contract and are infrastructure adapters rather than domain logic. |
+| Event schemas can evolve independently | Partly | Compatibility policy, schema versions, consumer contract tests, and migration rules are enforced. |
+| All layers can be deployed in any order | No | Brokers, identities, subscriptions, schemas, and data stores still have provisioning dependencies. |
+| All runtime interactions can become asynchronous | No | Queries, commands requiring immediate acknowledgement, administration, and some workflow steps remain synchronous by contract. |
+| A completely new layer requires no cross-project work | No | A new responsibility still needs profile, pricing, capability, deployment, state, API, and UI support. |
+
+The realistic target is therefore **strong runtime decoupling and bounded
+architectural extensibility**, not literal independence.
+
+#### Bounded Target Architecture
+
+The Eventing-extended thesis profile should introduce the following contracts:
+
+1. A versioned `ArchitectureProfile` declares the approved responsibilities and
+   edges for `six-layer-eventing@1`.
+2. Every asynchronous edge references a logical channel and a versioned event
+   contract, not a function name or URL.
+3. Each provider has an Eventing adapter that maps logical channels,
+   subscriptions, delivery policies, and cross-cloud bridges to the curated
+   provider implementation.
+4. Producers publish through a small event-publisher port. They do not import a
+   downstream function SDK or construct downstream resource names.
+5. Consumers declare accepted event types and emit their own output event or
+   durable state change. Adding a consumer must not require changing the
+   producer.
+6. The Deployer resolves physical topics, queues, routes, identities, and
+   subscriptions from the architecture profile and records them in deployment
+   evidence.
+7. Every edge declares delivery semantics, ordering scope, retention, retry,
+   dead-letter handling, idempotency key, correlation metadata, trust boundary,
+   and cost owner.
+8. Synchronous read and control paths remain explicit typed ports. They are not
+   forced through Eventing merely to make the diagram look uniform.
+
+`LE` must not be inserted mechanically between every helper function. The
+decoupling unit is an architectural responsibility or a required fan-out
+boundary, not every implementation method:
+
+- the L2 wrapper and user processor can become one packaged processing
+  component when separate runtime isolation is not a functional requirement;
+- if user-code isolation is required, that internal L2 interaction needs an
+  explicit activity or work-queue contract, but it remains an implementation
+  detail of L2;
+- L3 hot-to-cold and cold-to-archive transitions may use provider-native
+  lifecycle policies where these satisfy the shared contract; and
+- cross-cloud storage movement, L4 state updates, alerts, and feedback are
+  explicit edges because they cross responsibility, provider, trust, or
+  delivery boundaries.
+
+This prevents the Eventing profile from replacing one over-segmented function
+chain with an equally rigid and more expensive chain of topics.
+
+Illustrative logical flow:
+
+```text
+L1 acquisition
+  |
+  | publishes telemetry.received.v1
+  v
+LE logical channel
+  |
+  +--> L2 processor subscription
+  |       |
+  |       | publishes telemetry.processed.v1
+  |       v
+  |     LE logical channel
+  |       |
+  |       +--> L3 persistence subscription
+  |       +--> L4 Twin-state subscription
+  |       +--> event-rule subscription
+  |
+  +--> audit or future analytics subscription
+
+L5 query/read path -- typed synchronous API --> L4 or L3 read capability
+```
+
+`LE` is a logical layer and may be implemented by more than one physical
+broker, topic, queue, or cross-cloud bridge. A single global broker would create
+a new central dependency and could distort transfer cost, latency, and
+availability. The provider profile must therefore own the physical topology
+while preserving the same logical contracts.
+
+#### Refactoring Outcome Required For The Thesis Profile
+
+The Eventing work has solved the relevant rigidity only when all of the
+following are true:
+
+- changing the provider of a downstream asynchronous responsibility does not
+  require editing the upstream function;
+- adding a second consumer does not require changing or redeploying the
+  producer;
+- no domain function constructs another domain function's name, ARN, or URL;
+- event and command contracts are versioned and tested across all provider
+  adapters;
+- the architecture profile, rather than scattered conditionals, is the source
+  of truth for active nodes and edges;
+- the Optimizer, Management API, Deployer, and Flutter client identify the
+  architecture profile version explicitly; and
+- unsupported profile or provider combinations fail before calculation or
+  deployment.
+
+Even after this refactoring, adding a completely new architectural
+responsibility is not a zero-code operation. It should become a modular
+cross-project extension instead of a rewrite: add the profile responsibility,
+provider implementations, pricing and capability contracts, deployment
+adapter, state projection, and UI representation without modifying unrelated
+existing responsibilities.
+
+### Closed-World Architecture Profile Boundary
+
+The agreed target is a closed-world model: runtime users select one of a small
+set of reviewed architecture profiles, while developers can extend the catalog
+through versioned code and data contracts.
+
+The thesis implementation should initially expose exactly two profiles:
+
+```text
+five-layer-baseline@1
+  original paper-compatible functional boundaries
+
+six-layer-eventing@1
+  baseline responsibilities plus explicit Eventing and Messaging
+```
+
+The second name is intentionally `six-layer-eventing@1`. Eventing is modeled as
+an additional logical responsibility even though its edges are not a linear
+sixth step after L5.
+
+The user does not:
+
+- create arbitrary layers;
+- enable and disable individual layers;
+- draw or edit a deployment graph;
+- supply Terraform;
+- choose physical function names or endpoints; or
+- create provider-service combinations that are absent from the reviewed
+  catalog.
+
+This keeps the architecture reproducible and the optimization search bounded.
+A developer may add a new profile version, provider implementation, or
+component adapter, but the complete profile must pass contract, capability,
+cost, and deployment validation before it becomes selectable.
+
+#### Four Distinct Models
+
+| Model | Responsibility | Expected owner |
+|---|---|---|
+| `ArchitectureProfile` | Logical Digital Twin responsibilities, required capabilities, approved edges, edge semantics, extension slots, and profile version | Shared architecture contract |
+| `ProviderImplementationProfile` | Curated AWS, Azure, or GCP service bundle that realizes one or more logical responsibilities, including constraints, pricing formulas, and internal resources | Optimizer and Deployer contract |
+| `DeploymentComponentCatalog` | Concrete Terraform modules, provider adapters, function templates, runtime wrappers, permissions, artifacts, and output bindings | Deployer-internal implementation catalog |
+| `ResolvedTwinArchitecture` | Immutable deployment decision for one Twin: profile version, provider assignments, selected implementation bundles, component instances, and logical-to-physical bindings | Management API and deployment manifest |
+
+Function templates and other currently hard-coded runtime artifacts therefore
+remain explicit. They move behind registered deployment components rather than
+being distributed as implicit knowledge across Flutter fields, API columns,
+Terraform string conventions, and function source code.
+
+A Terraform module is not a logical layer. It is one reusable infrastructure
+implementation unit that may provision all or part of a provider-specific
+implementation profile. Conversely, one logical layer may require several
+Terraform modules and runtime artifacts.
+
+#### Resolution Before Infrastructure Execution
+
+The target deployment dataflow is:
+
+```text
+user selects approved architecture profile
+                  |
+                  v
+workload and functional requirements
+                  |
+                  v
+Optimizer selects admissible provider implementations
+                  |
+                  v
+Management API creates ResolvedTwinArchitecture
+                  |
+                  v
+Deployer resolves component graph and runtime bindings
+                  |
+                  v
+contract + graph + permission + artifact preflight
+        |                         |
+        | invalid                 | valid
+        v                         v
+typed failure before       Terraform plan/apply
+Terraform execution              |
+                                 v
+                    runtime outputs and evidence
+```
+
+The resolved graph must be complete before infrastructure execution. Every
+required input declares its source; every provided output has one stable
+logical identifier; duplicate, missing, incompatible, or unauthorized bindings
+fail before `terraform plan`.
+
+Terraform should consume provider-resource references, module outputs, and
+validated binding objects. It must not depend on several independently repeated
+string conventions for function names, URLs, ARNs, topics, or storage
+resources. A centralized naming policy may still produce physical resource
+names, but domain code and user code must not reconstruct those names.
+
+Some runtime values only exist after infrastructure provisioning. Those values
+must use an explicit staged deployment contract:
+
+1. provision identities, infrastructure resources, and stable endpoints;
+2. collect typed provider outputs;
+3. build or configure runtime artifacts from validated bindings; and
+4. record the final binding evidence and artifact hashes.
+
+This does not make Terraform or cloud providers infallible. Quotas, eventual
+consistency, IAM propagation, regional incompatibility, provider drift, and
+cloud outages remain possible. The architectural gain is that missing or
+misnamed internal references become deterministic preflight or plan failures
+instead of scattered runtime surprises.
+
+#### Persistence And API Target
+
+The current dedicated provider-selection fields such as `cheapest_l1` through
+`cheapest_l5` encode the present topology in the database and API. The target
+stores:
+
+```text
+TwinArchitecture
+  twin_id
+  profile_id
+  profile_version
+  resolution_status
+  resolved_at
+
+ArchitectureAssignment
+  twin_architecture_id
+  responsibility_id
+  provider
+  implementation_profile_id
+  implementation_profile_version
+```
+
+The assignment rows are optimizer output and deployment input. They are not a
+free-form user topology. This representation allows another reviewed profile
+to add a responsibility without adding another `cheapest_*` column throughout
+the Management API and Flutter client.
+
+#### Flutter Target
+
+The configuration workflow should expose architecture intent without becoming
+an infrastructure editor:
+
+1. **Architecture:** select one approved profile and inspect a read-only
+   flowchart, responsibilities, and functional differences.
+2. **Workload:** enter the scenario quantities required by the selected
+   profile.
+3. **User Logic:** bind supported processing or event actions to declared
+   extension slots.
+4. **Optimize And Review:** inspect admissibility, provider assignments, cost
+   evidence, and profile-specific warnings.
+5. **Deployment Review:** inspect the resolved architecture and deployment
+   consequences before execution.
+
+The flowchart is derived from the selected `ArchitectureProfile`; it is not
+editable. Provider implementation details may be inspected during review but
+cannot be assembled into unsupported combinations by the user.
+
+#### User Logic Is A Separate Hardening Boundary
+
+The platform still needs an explicit decision about how much function logic a
+user may control. The supported surface must be narrower than a provider
+function editor:
+
+- the platform owns resource names, runtime handlers, provider entrypoints,
+  topology bindings, credentials, permissions, lifecycle, and observability;
+- the user supplies domain logic through a versioned extension slot with typed
+  input and output contracts;
+- non-secret configuration is typed and validated;
+- secrets are injected through references and are never embedded in source,
+  manifests, logs, or Terraform variables;
+- runtime, dependency, artifact, timeout, network, retry, and resource policies
+  are explicit; and
+- packaging is deterministic and must not rewrite user source to insert
+  physical service names.
+
+Whether the user processor runs in the same deployable component as its
+platform wrapper or in an isolated worker is a trust and failure-isolation
+decision. Merely placing several functions in one Azure Function App does not
+remove their runtime coupling. If wrapper and user logic form one trusted L2
+component, the cleaner implementation is an in-process module behind a stable
+interface. If isolation is required, the boundary needs a durable work contract
+and remains an internal implementation detail of L2.
+
+The complete audit and implementation contract is tracked in
+[#113](https://github.com/TVJunkie724/master-thesis/issues/113). It includes the
+narrower dependency-validation work already tracked in
+[#36](https://github.com/TVJunkie724/master-thesis/issues/36).
+
 ## Recommended Research And Implementation Sequence
 
 The direction is deliberately incremental.
@@ -783,7 +1124,7 @@ The direction is deliberately incremental.
 - Keep theory-only event services outside executable optimizer and Deployer
   selection.
 
-### Future Profile: General Architecture-Topology Optimization
+### Out-Of-Scope Profile: General Architecture-Topology Optimization
 
 - Compare complete validated topology bundles.
 - Map each topology back to required capabilities.
@@ -794,8 +1135,9 @@ The direction is deliberately incremental.
   and validity discussion.
 
 The general topology profile must not be presented as a transparent extension
-of the two bounded layer models. It answers a broader research question and
-remains future work. No general dynamic architecture engine is planned.
+of the two bounded layer models. It answers a broader research question and is
+outside the implementation scope of this thesis. No general dynamic
+architecture engine is planned.
 
 ## Implications For Other Optimization Objectives
 
