@@ -8,9 +8,8 @@ Each category has:
 - 5 edge cases (boundary conditions)
 """
 
-import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import json
 
 from rest_api import app

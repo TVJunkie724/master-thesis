@@ -1,10 +1,8 @@
 
 import pytest
-import json
 import os
-from unittest.mock import patch, mock_open, MagicMock
-from backend import utils, config_loader, pricing_utils
-import backend.constants as CONSTANTS
+from unittest.mock import patch
+from backend import config_loader, pricing_utils
 
 # -----------------------------------------------------------------------------
 # 1. Pricing Utils & Math Precision

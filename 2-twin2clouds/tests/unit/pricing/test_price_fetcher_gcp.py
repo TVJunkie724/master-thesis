@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 from backend.fetch_data.cloud_price_fetcher_google import (
     fetch_gcp_price,

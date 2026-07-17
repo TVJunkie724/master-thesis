@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from backend.fetch_data.cloud_price_fetcher_azure import (
     fetch_azure_price,
     _find_best_match,

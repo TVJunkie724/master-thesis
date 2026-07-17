@@ -1,8 +1,7 @@
 
-import pytest
 import json
 from unittest.mock import MagicMock, patch
-from backend.fetch_data import cloud_price_fetcher_aws, cloud_price_fetcher_azure, cloud_price_fetcher_google
+from backend.fetch_data import cloud_price_fetcher_aws
 
 # -----------------------------------------------------------------------------
 # 1. API Schema Changes (Drift)

@@ -4,7 +4,6 @@ from backend.cross_provider_cost_validation import (
     FAILED,
     NON_APPLICABLE,
     PUBLISHABLE,
-    REVIEW_REQUIRED,
     build_cross_provider_cost_validation,
 )
 from backend.pricing_evidence import FALLBACK_STATIC, FETCHED, NOT_APPLICABLE
