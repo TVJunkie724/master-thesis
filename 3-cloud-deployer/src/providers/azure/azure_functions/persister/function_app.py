@@ -48,19 +48,23 @@ from azure.cosmos import CosmosClient
 
 # Handle import path for shared module
 try:
-    from _shared.inter_cloud import post_to_remote, safe_urlopen
+    from _shared.inter_cloud import post_to_remote, safe_urlopen, validate_https_url
     from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
-    from _shared.inter_cloud import post_to_remote, safe_urlopen
+    from _shared.inter_cloud import post_to_remote, safe_urlopen, validate_https_url
     from _shared.env_utils import require_env
 
 
 class ConfigurationError(Exception):
     """Raised when multi-cloud configuration is invalid."""
     pass
+
+
+class AdtDeliveryError(Exception):
+    """Raised when required Azure Digital Twins delivery fails."""
 
 
 # DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
@@ -84,7 +88,7 @@ COSMOS_DB_CONTAINER = os.environ.get("COSMOS_DB_CONTAINER", "").strip()
 REMOTE_WRITER_URL = os.environ.get("REMOTE_WRITER_URL", "").strip()
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 
-# ADT Pusher config (for multi-cloud L4 - L2 != L4 and L4 = Azure)
+# ADT Pusher config (required whenever L4 is Azure)
 REMOTE_ADT_PUSHER_URL = os.environ.get("REMOTE_ADT_PUSHER_URL", "").strip()
 ADT_PUSHER_TOKEN = os.environ.get("ADT_PUSHER_TOKEN", "").strip()
 
@@ -175,61 +179,88 @@ def _invoke_event_checker(event: dict) -> None:
         # Don't fail persister if event checker fails
 
 
-def _should_push_to_adt() -> bool:
-    """
-    Check if we should push data to remote ADT Pusher.
-    
-    Returns True only if:
-    1. REMOTE_ADT_PUSHER_URL is set AND non-empty
-    2. ADT_PUSHER_TOKEN is set AND non-empty
-    
-    ADT push is for multi-cloud L4 scenarios where L2 != L4 and L4 = Azure.
-    """
-    return bool(REMOTE_ADT_PUSHER_URL and ADT_PUSHER_TOKEN)
+def _get_adt_delivery_settings() -> tuple[str, str] | None:
+    """Resolve required ADT delivery settings from the configured L4 provider."""
+    providers = _get_digital_twin_info().get("config_providers")
+    if not isinstance(providers, dict):
+        raise ConfigurationError(
+            "config_providers is required in DIGITAL_TWIN_INFO"
+        )
+
+    layer_4_provider = providers.get("layer_4_provider")
+    if not isinstance(layer_4_provider, str) or not layer_4_provider.strip():
+        raise ConfigurationError("layer_4_provider is required")
+    if layer_4_provider.lower() != "azure":
+        return None
+
+    if not REMOTE_ADT_PUSHER_URL:
+        raise ConfigurationError(
+            "REMOTE_ADT_PUSHER_URL is required when L4 is Azure"
+        )
+    if not ADT_PUSHER_TOKEN:
+        raise ConfigurationError("ADT_PUSHER_TOKEN is required when L4 is Azure")
+    try:
+        validate_https_url(REMOTE_ADT_PUSHER_URL)
+    except ValueError:
+        raise ConfigurationError(
+            "REMOTE_ADT_PUSHER_URL must be an absolute HTTPS URL"
+        ) from None
+    return REMOTE_ADT_PUSHER_URL, ADT_PUSHER_TOKEN
+
+
+def _build_adt_payload(event: dict) -> dict:
+    """Build the provider-neutral telemetry payload accepted by ADT Pusher."""
+    telemetry = event.get("telemetry")
+    if telemetry is None:
+        excluded_keys = {
+            "device_id",
+            "device_type",
+            "id",
+            "time",
+            "timestamp",
+            "ts",
+            "telemetry",
+        }
+        telemetry = {key: value for key, value in event.items() if key not in excluded_keys}
+    if not isinstance(telemetry, dict) or not telemetry:
+        raise ValueError("Telemetry payload must be a non-empty object")
+
+    return {
+        "device_id": event.get("device_id"),
+        "device_type": event.get("device_type"),
+        "telemetry": telemetry,
+        "timestamp": event.get("timestamp") or event.get("time"),
+    }
 
 
 def _push_to_adt(event: dict) -> None:
     """
-    Push telemetry to remote ADT Pusher (L4 Multi-Cloud).
-    
-    This is called IN ADDITION TO storage persist, not instead of it.
-    Failures are logged but don't fail the overall persist operation.
+    Push telemetry to the canonical Azure L4 ADT Pusher.
+
+    This is called in addition to the idempotent storage write. Required
+    delivery failures propagate so callers can retry the complete operation.
     
     Args:
         event: Original telemetry event (with 'time' field)
     """
-    if not _should_push_to_adt():
+    settings = _get_adt_delivery_settings()
+    if settings is None:
         return
-    
-    logging.info(f"Pushing to ADT Pusher at {REMOTE_ADT_PUSHER_URL}")
-    
+    remote_url, token = settings
+
     try:
-        # Build ADT push payload
-        # Extract telemetry: prefer nested 'telemetry' key, fallback to root-level fields
-        telemetry = event.get("telemetry")
-        if not telemetry:
-            # Telemetry is at root level (after normalization)
-            # Exclude metadata keys to extract only telemetry values
-            excluded_keys = {"device_id", "device_type", "id", "time", "timestamp", "ts"}
-            telemetry = {k: v for k, v in event.items() if k not in excluded_keys}
-        
-        adt_payload = {
-            "device_id": event.get("device_id"),
-            "device_type": event.get("device_type"),
-            "telemetry": telemetry,
-            "timestamp": event.get("timestamp") or event.get("time")
-        }
-        
-        result = post_to_remote(
-            url=REMOTE_ADT_PUSHER_URL,
-            token=ADT_PUSHER_TOKEN,
-            payload=adt_payload,
-            target_layer="L4"
+        post_to_remote(
+            url=remote_url,
+            token=token,
+            payload=_build_adt_payload(event),
+            target_layer="L4",
         )
-        logging.info(f"ADT push successful: {result}")
-    except Exception as e:
-        # Log but don't fail - ADT is secondary to storage
-        logging.warning(f"ADT push failed (non-fatal): {e}")
+        logging.info("ADT push completed")
+    except (ConfigurationError, ValueError):
+        raise
+    except Exception as exc:
+        logging.error("ADT push failed: %s", type(exc).__name__)
+        raise AdtDeliveryError("Azure Digital Twins update failed") from None
 
 
 # ==========================================
@@ -248,6 +279,7 @@ def _validate_config():
                 "Cosmos DB configuration (ENDPOINT, KEY, DATABASE, CONTAINER) "
                 "is required for single-cloud storage mode"
             )
+    _get_adt_delivery_settings()
 
 
 @bp.function_name(name="persister")
@@ -261,11 +293,11 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
     based on multi-cloud configuration.
     """
     logging.info("Azure Persister: Received request")
-    
-    # Fail-fast validation
-    _validate_config()
-    
+
     try:
+        # Fail-fast validation remains inside the stable HTTP error boundary.
+        _validate_config()
+
         # Parse input data
         event = req.get_json()
         logging.info("Event received")
@@ -299,6 +331,10 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         
         # Remove 'time' to avoid duplicate data (timestamp is canonical)
         item.pop("time", None)
+
+        # Reject known Azure L4 payload errors before the storage write.
+        if _get_adt_delivery_settings() is not None:
+            _build_adt_payload(event)
         
         # Route based on multi-cloud config
         if _is_multi_cloud_storage():
@@ -321,8 +357,7 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
             container.upsert_item(item)
             logging.info("Item persisted to local Cosmos DB.")
         
-        # Multi-cloud L4: Push to ADT Pusher (IN ADDITION to storage)
-        # This is for scenarios where L2 != L4 and L4 = Azure
+        # Azure L4: update ADT after the idempotent storage write.
         _push_to_adt(event)
         
         # Optionally invoke Event Checker
@@ -335,18 +370,34 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except ConfigurationError as e:
-        logging.exception(f"Persister Configuration Error: {e}")
+    except ValueError as exc:
+        logging.warning("Persister payload validation failed: %s", type(exc).__name__)
         return func.HttpResponse(
-            json.dumps({"error": "Configuration error", "message": str(e)}),
+            json.dumps({"error": "Invalid telemetry payload"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    except ConfigurationError as exc:
+        logging.error("Persister configuration failed: %s", type(exc).__name__)
+        return func.HttpResponse(
+            json.dumps({"error": "Configuration error"}),
             status_code=500,
             mimetype="application/json"
         )
-        
-    except Exception as e:
-        logging.exception(f"Persister Error: {e}")
+
+    except AdtDeliveryError as exc:
+        logging.error("Persister ADT delivery failed: %s", type(exc).__name__)
         return func.HttpResponse(
-            json.dumps({"error": "Persister error", "message": str(e)}),
+            json.dumps({"error": "Azure Digital Twins update failed"}),
+            status_code=502,
+            mimetype="application/json"
+        )
+
+    except Exception as exc:
+        logging.error("Persister failed: %s", type(exc).__name__)
+        return func.HttpResponse(
+            json.dumps({"error": "Persister error"}),
             status_code=500,
             mimetype="application/json"
         )

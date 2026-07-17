@@ -113,6 +113,23 @@ class TestValidateToken:
         headers = {"x-inter-cloud-token": "some-token"}
         assert validate_token(headers, "") is False
 
+    def test_validate_token_uses_constant_time_comparison(self):
+        """Configured tokens must be compared through hmac.compare_digest."""
+        from _shared import inter_cloud
+
+        headers = {"x-inter-cloud-token": "received-token"}
+        with patch.object(
+            inter_cloud.hmac,
+            "compare_digest",
+            return_value=True,
+        ) as compare_digest:
+            assert inter_cloud.validate_token(headers, "expected-token") is True
+
+        compare_digest.assert_called_once_with(
+            "received-token",
+            "expected-token",
+        )
+
 
 class TestPostToRemote:
     """Tests for post_to_remote function."""

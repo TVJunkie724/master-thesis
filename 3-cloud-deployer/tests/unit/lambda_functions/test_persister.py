@@ -31,7 +31,10 @@ class TestPersisterLambda(unittest.TestCase):
         
         # Patch environment BEFORE loading module
         self.env_patch = patch.dict(os.environ, {
-            "DIGITAL_TWIN_INFO": '{"name": "test-twin"}',
+            "DIGITAL_TWIN_INFO": (
+                '{"name": "test-twin", "config_providers": '
+                '{"layer_4_provider": "aws"}}'
+            ),
             "DYNAMODB_TABLE_NAME": "test-dynamodb-table",
             "EVENT_CHECKER_LAMBDA_NAME": "test-event-checker",
             "USE_EVENT_CHECKING": "false" 
@@ -99,7 +102,10 @@ class TestPersisterAdtPush(unittest.TestCase):
     def _load_with_env(self, extra_env=None):
         """Load lambda module with specified environment."""
         env = {
-            "DIGITAL_TWIN_INFO": '{"name": "test-twin"}',
+            "DIGITAL_TWIN_INFO": (
+                '{"name": "test-twin", "config_providers": '
+                '{"layer_4_provider": "aws"}}'
+            ),
             "DYNAMODB_TABLE_NAME": "test-dynamodb-table",
             "EVENT_CHECKER_LAMBDA_NAME": "test-event-checker",
             "USE_EVENT_CHECKING": "false"
@@ -111,46 +117,44 @@ class TestPersisterAdtPush(unittest.TestCase):
         self.env_patch.start()
         return load_lambda_module(PERSISTER_PATH)
 
-    def test_should_push_to_adt_returns_false_when_no_url(self):
-        """_should_push_to_adt returns False when REMOTE_ADT_PUSHER_URL not set."""
-        module = self._load_with_env({
-            "ADT_PUSHER_TOKEN": "test-token"
-            # No REMOTE_ADT_PUSHER_URL
-        })
-        result = module._should_push_to_adt()
-        self.assertFalse(result)
-
-    def test_should_push_to_adt_returns_false_when_no_token(self):
-        """_should_push_to_adt returns False when ADT_PUSHER_TOKEN not set."""
-        module = self._load_with_env({
-            "REMOTE_ADT_PUSHER_URL": "https://example.com/adt-pusher"
-            # No ADT_PUSHER_TOKEN
-        })
-        result = module._should_push_to_adt()
-        self.assertFalse(result)
-
-    def test_should_push_to_adt_returns_true_when_both_set(self):
-        """_should_push_to_adt returns True when both URL and token are set."""
+    def test_adt_delivery_settings_skip_non_azure_l4(self):
         module = self._load_with_env({
             "REMOTE_ADT_PUSHER_URL": "https://example.com/adt-pusher",
-            "ADT_PUSHER_TOKEN": "test-token"
+            "ADT_PUSHER_TOKEN": "stale-token",
         })
-        result = module._should_push_to_adt()
-        self.assertTrue(result)
+        self.assertIsNone(module._get_adt_delivery_settings())
 
-    def test_push_to_adt_skips_when_not_configured(self):
-        """_push_to_adt does nothing when ADT push is not configured."""
-        module = self._load_with_env()  # No ADT config
-        
-        with patch.object(module, 'post_to_remote') as mock_post:
-            event = {"device_id": "device1", "time": "2023-01-01T00:00:00Z", "telemetry": {"temp": 25}}
-            module._push_to_adt(event)
-            
-            mock_post.assert_not_called()
+    def test_azure_l4_requires_url(self):
+        module = self._load_with_env({
+            "DIGITAL_TWIN_INFO": (
+                '{"name": "test-twin", "config_providers": '
+                '{"layer_4_provider": "azure"}}'
+            ),
+            "ADT_PUSHER_TOKEN": "test-token",
+            "REMOTE_ADT_PUSHER_URL": "",
+        })
+        with self.assertRaisesRegex(module.ConfigurationError, "REMOTE_ADT_PUSHER_URL"):
+            module._get_adt_delivery_settings()
+
+    def test_azure_l4_requires_token(self):
+        module = self._load_with_env({
+            "DIGITAL_TWIN_INFO": (
+                '{"name": "test-twin", "config_providers": '
+                '{"layer_4_provider": "azure"}}'
+            ),
+            "REMOTE_ADT_PUSHER_URL": "https://example.com/adt-pusher",
+            "ADT_PUSHER_TOKEN": "",
+        })
+        with self.assertRaisesRegex(module.ConfigurationError, "ADT_PUSHER_TOKEN"):
+            module._get_adt_delivery_settings()
 
     def test_push_to_adt_calls_remote_when_configured(self):
         """_push_to_adt calls post_to_remote when configured."""
         module = self._load_with_env({
+            "DIGITAL_TWIN_INFO": (
+                '{"name": "test-twin", "config_providers": '
+                '{"layer_4_provider": "azure"}}'
+            ),
             "REMOTE_ADT_PUSHER_URL": "https://adt-pusher.azurewebsites.net/api/adt-pusher",
             "ADT_PUSHER_TOKEN": "secret-token-123"
         })
@@ -169,24 +173,37 @@ class TestPersisterAdtPush(unittest.TestCase):
             self.assertEqual(call_args.kwargs["url"], "https://adt-pusher.azurewebsites.net/api/adt-pusher")
             self.assertEqual(call_args.kwargs["token"], "secret-token-123")
             self.assertEqual(call_args.kwargs["target_layer"], "L4")
+            self.assertEqual(
+                call_args.kwargs["payload"],
+                {
+                    "device_id": "device1",
+                    "device_type": "sensor",
+                    "telemetry": {"temp": 25, "humidity": 60},
+                    "timestamp": "2023-01-01T00:00:00Z",
+                },
+            )
 
-    def test_push_to_adt_does_not_fail_on_error(self):
-        """_push_to_adt logs error but does not raise when remote call fails."""
+    def test_push_to_adt_propagates_stable_delivery_error(self):
         module = self._load_with_env({
+            "DIGITAL_TWIN_INFO": (
+                '{"name": "test-twin", "config_providers": '
+                '{"layer_4_provider": "azure"}}'
+            ),
             "REMOTE_ADT_PUSHER_URL": "https://adt-pusher.azurewebsites.net/api/adt-pusher",
             "ADT_PUSHER_TOKEN": "secret-token-123"
         })
         
         with patch.object(module, 'post_to_remote', side_effect=Exception("Network error")) as mock_post:
             event = {"device_id": "device1", "time": "2023-01-01T00:00:00Z", "telemetry": {"temp": 25}}
-            
-            # Should not raise
-            module._push_to_adt(event)
-            
-            # post_to_remote was called (and failed)
+
+            with self.assertRaisesRegex(
+                module.AdtDeliveryError,
+                "Azure Digital Twins update failed",
+            ):
+                module._push_to_adt(event)
+
             mock_post.assert_called_once()
 
 
 if __name__ == '__main__':
     unittest.main()
-

@@ -9,6 +9,7 @@ Source: src/providers/azure/azure_functions/_shared/inter_cloud.py
 Editable: Yes - This is shared runtime code packaged with Azure Functions
 """
 import json
+import hmac
 import re
 import time
 import uuid
@@ -329,7 +330,7 @@ def validate_token(headers: dict, expected_token: str) -> bool:
         print("No X-Inter-Cloud-Token header in request")
         return False
     
-    if received_token != expected_token:
+    if not hmac.compare_digest(str(received_token), str(expected_token)):
         print("Token mismatch - invalid authentication")
         return False
     
