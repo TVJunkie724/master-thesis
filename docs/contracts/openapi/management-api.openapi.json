@@ -392,181 +392,114 @@
         "title": "BoundCloudConnectionSummary",
         "type": "object"
       },
-      "CalcParams": {
-        "description": "All 26 calculation parameters matching Optimizer API.",
+      "CapabilityAvailability": {
+        "enum": [
+          "available",
+          "disabled",
+          "unsupported"
+        ],
+        "title": "CapabilityAvailability",
+        "type": "string"
+      },
+      "CapabilityRoadmap": {
+        "enum": [
+          "none",
+          "planned"
+        ],
+        "title": "CapabilityRoadmap",
+        "type": "string"
+      },
+      "CapabilitySource": {
+        "additionalProperties": false,
         "properties": {
-          "allowGcpSelfHostedL4": {
-            "default": false,
-            "title": "Allowgcpselfhostedl4",
-            "type": "boolean"
+          "availability": {
+            "$ref": "#/components/schemas/CapabilityAvailability"
           },
-          "allowGcpSelfHostedL5": {
-            "default": false,
-            "title": "Allowgcpselfhostedl5",
-            "type": "boolean"
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           },
-          "amountOfActiveEditors": {
-            "default": 0,
-            "description": "Monthly active editors",
-            "minimum": 0.0,
-            "title": "Amountofactiveeditors",
-            "type": "integer"
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
           },
-          "amountOfActiveViewers": {
-            "default": 0,
-            "description": "Monthly active viewers",
-            "minimum": 0.0,
-            "title": "Amountofactiveviewers",
-            "type": "integer"
+          "roadmap": {
+            "$ref": "#/components/schemas/CapabilityRoadmap"
           },
-          "apiCallsPerDashboardRefresh": {
-            "default": 1,
-            "minimum": 1.0,
-            "title": "Apicallsperdashboardrefresh",
-            "type": "integer"
-          },
-          "archiveStorageDurationInMonths": {
-            "description": "Archive storage duration (months)",
-            "minimum": 6.0,
-            "title": "Archivestoragedurationinmonths",
-            "type": "integer"
-          },
-          "average3DModelSizeInMB": {
-            "default": 100.0,
-            "description": "Average 3D model size in MB",
-            "exclusiveMinimum": 0.0,
-            "title": "Average3Dmodelsizeinmb",
-            "type": "number"
-          },
-          "averageSizeOfMessageInKb": {
-            "description": "Average message size in KB",
-            "exclusiveMinimum": 0.0,
-            "title": "Averagesizeofmessageinkb",
-            "type": "number"
-          },
-          "coolStorageDurationInMonths": {
-            "description": "Cool storage duration (months)",
-            "minimum": 1.0,
-            "title": "Coolstoragedurationinmonths",
-            "type": "integer"
-          },
-          "currency": {
-            "default": "USD",
-            "description": "Currency code (USD or EUR)",
-            "title": "Currency",
-            "type": "string"
-          },
-          "dashboardActiveHoursPerDay": {
-            "default": 0,
-            "description": "Active hours per day",
-            "maximum": 24.0,
-            "minimum": 0.0,
-            "title": "Dashboardactivehoursperday",
-            "type": "integer"
-          },
-          "dashboardRefreshesPerHour": {
-            "default": 0,
-            "description": "Dashboard refresh rate",
-            "minimum": 0.0,
-            "title": "Dashboardrefreshesperhour",
-            "type": "integer"
-          },
-          "deviceSendingIntervalInMinutes": {
-            "description": "Sending interval in minutes",
-            "exclusiveMinimum": 0.0,
-            "title": "Devicesendingintervalinminutes",
-            "type": "number"
-          },
-          "entityCount": {
-            "default": 0,
-            "description": "Number of 3D entities",
-            "minimum": 0.0,
-            "title": "Entitycount",
-            "type": "integer"
-          },
-          "eventTriggerRate": {
-            "default": 0.1,
-            "description": "Event trigger rate (0-1)",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Eventtriggerrate",
-            "type": "number"
-          },
-          "eventsPerMessage": {
-            "default": 1,
-            "minimum": 1.0,
-            "title": "Eventspermessage",
-            "type": "integer"
-          },
-          "hotStorageDurationInMonths": {
-            "description": "Hot storage duration (months)",
-            "minimum": 1.0,
-            "title": "Hotstoragedurationinmonths",
-            "type": "integer"
-          },
-          "integrateErrorHandling": {
-            "default": false,
-            "title": "Integrateerrorhandling",
-            "type": "boolean"
-          },
-          "needs3DModel": {
-            "description": "Whether 3D model is needed",
-            "title": "Needs3Dmodel",
-            "type": "boolean"
-          },
-          "numberOfDeviceTypes": {
-            "default": 1,
-            "description": "Number of device types",
-            "minimum": 1.0,
-            "title": "Numberofdevicetypes",
-            "type": "integer"
-          },
-          "numberOfDevices": {
-            "description": "Number of IoT devices",
-            "exclusiveMinimum": 0.0,
-            "title": "Numberofdevices",
-            "type": "integer"
-          },
-          "numberOfEventActions": {
-            "default": 0,
-            "description": "Number of event actions",
-            "minimum": 0.0,
-            "title": "Numberofeventactions",
-            "type": "integer"
-          },
-          "orchestrationActionsPerMessage": {
-            "default": 3,
-            "minimum": 1.0,
-            "title": "Orchestrationactionspermessage",
-            "type": "integer"
-          },
-          "returnFeedbackToDevice": {
-            "default": false,
-            "title": "Returnfeedbacktodevice",
-            "type": "boolean"
-          },
-          "triggerNotificationWorkflow": {
-            "default": false,
-            "title": "Triggernotificationworkflow",
-            "type": "boolean"
-          },
-          "useEventChecking": {
-            "default": false,
-            "title": "Useeventchecking",
-            "type": "boolean"
+          "verification_level": {
+            "$ref": "#/components/schemas/CapabilityVerificationLevel"
           }
         },
         "required": [
-          "numberOfDevices",
-          "deviceSendingIntervalInMinutes",
-          "averageSizeOfMessageInKb",
-          "hotStorageDurationInMonths",
-          "coolStorageDurationInMonths",
-          "archiveStorageDurationInMonths",
-          "needs3DModel"
+          "availability",
+          "roadmap",
+          "reason_code",
+          "reason",
+          "verification_level"
         ],
-        "title": "CalcParams",
+        "title": "CapabilitySource",
         "type": "object"
+      },
+      "CapabilitySourceHealth": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "provider-service-capabilities.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "available",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "schema_version"
+        ],
+        "title": "CapabilitySourceHealth",
+        "type": "object"
+      },
+      "CapabilitySources": {
+        "additionalProperties": false,
+        "properties": {
+          "deployer": {
+            "$ref": "#/components/schemas/CapabilitySource"
+          },
+          "optimizer": {
+            "$ref": "#/components/schemas/CapabilitySource"
+          }
+        },
+        "required": [
+          "optimizer",
+          "deployer"
+        ],
+        "title": "CapabilitySources",
+        "type": "object"
+      },
+      "CapabilityVerificationLevel": {
+        "enum": [
+          "not_verified",
+          "contract_tested",
+          "live_verified"
+        ],
+        "title": "CapabilityVerificationLevel",
+        "type": "string"
       },
       "CheapestPathResponse": {
         "description": "Cheapest path for deployment.",
@@ -1790,12 +1723,11 @@
         "type": "object"
       },
       "CostCalculationRunCreate": {
+        "additionalProperties": false,
         "properties": {
           "params": {
-            "additionalProperties": true,
-            "description": "Optimizer calculation parameters",
-            "title": "Params",
-            "type": "object"
+            "$ref": "#/components/schemas/OptimizerCalculationParams",
+            "description": "Optimizer calculation parameters"
           },
           "pricing_evidence_version": {
             "anyOf": [
@@ -1807,17 +1739,6 @@
               }
             ],
             "title": "Pricing Evidence Version"
-          },
-          "pricing_run_reference": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Run Reference"
           },
           "pricing_snapshots": {
             "additionalProperties": true,
@@ -4205,6 +4126,187 @@
         "title": "OperationSessionResponse",
         "type": "object"
       },
+      "OptimizerCalculationParams": {
+        "additionalProperties": false,
+        "description": "Validated calculation inputs shared by every Management write path.",
+        "properties": {
+          "allowGcpSelfHostedL4": {
+            "default": false,
+            "title": "Allowgcpselfhostedl4",
+            "type": "boolean"
+          },
+          "allowGcpSelfHostedL5": {
+            "default": false,
+            "title": "Allowgcpselfhostedl5",
+            "type": "boolean"
+          },
+          "amountOfActiveEditors": {
+            "minimum": 0.0,
+            "title": "Amountofactiveeditors",
+            "type": "integer"
+          },
+          "amountOfActiveViewers": {
+            "minimum": 0.0,
+            "title": "Amountofactiveviewers",
+            "type": "integer"
+          },
+          "apiCallsPerDashboardRefresh": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Apicallsperdashboardrefresh",
+            "type": "integer"
+          },
+          "archiveStorageDurationInMonths": {
+            "minimum": 6.0,
+            "title": "Archivestoragedurationinmonths",
+            "type": "integer"
+          },
+          "average3DModelSizeInMB": {
+            "default": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Average3Dmodelsizeinmb",
+            "type": "number"
+          },
+          "averageDigitalTwinQueryResponseSizeInKb": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Averagedigitaltwinqueryresponsesizeinkb",
+            "type": "number"
+          },
+          "averageDigitalTwinQueryUnitsPerQuery": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Averagedigitaltwinqueryunitsperquery",
+            "type": "number"
+          },
+          "averageSizeOfMessageInKb": {
+            "exclusiveMinimum": 0.0,
+            "title": "Averagesizeofmessageinkb",
+            "type": "number"
+          },
+          "coolStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Coolstoragedurationinmonths",
+            "type": "integer"
+          },
+          "currency": {
+            "default": "USD",
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "dashboardActiveHoursPerDay": {
+            "maximum": 24.0,
+            "minimum": 0.0,
+            "title": "Dashboardactivehoursperday",
+            "type": "integer"
+          },
+          "dashboardRefreshesPerHour": {
+            "minimum": 0.0,
+            "title": "Dashboardrefreshesperhour",
+            "type": "integer"
+          },
+          "deviceSendingIntervalInMinutes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Devicesendingintervalinminutes",
+            "type": "number"
+          },
+          "entityCount": {
+            "minimum": 0.0,
+            "title": "Entitycount",
+            "type": "integer"
+          },
+          "eventTriggerRate": {
+            "default": 0.1,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Eventtriggerrate",
+            "type": "number"
+          },
+          "eventsPerMessage": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Eventspermessage",
+            "type": "integer"
+          },
+          "hotStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Hotstoragedurationinmonths",
+            "type": "integer"
+          },
+          "integrateErrorHandling": {
+            "default": false,
+            "title": "Integrateerrorhandling",
+            "type": "boolean"
+          },
+          "needs3DModel": {
+            "title": "Needs3Dmodel",
+            "type": "boolean"
+          },
+          "numberOfDeviceTypes": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Numberofdevicetypes",
+            "type": "integer"
+          },
+          "numberOfDevices": {
+            "exclusiveMinimum": 0.0,
+            "title": "Numberofdevices",
+            "type": "integer"
+          },
+          "numberOfEventActions": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Numberofeventactions",
+            "type": "integer"
+          },
+          "optimizationProfileId": {
+            "default": "cost_minimization_v1",
+            "title": "Optimizationprofileid",
+            "type": "string"
+          },
+          "orchestrationActionsPerMessage": {
+            "default": 3,
+            "minimum": 1.0,
+            "title": "Orchestrationactionspermessage",
+            "type": "integer"
+          },
+          "returnFeedbackToDevice": {
+            "default": false,
+            "title": "Returnfeedbacktodevice",
+            "type": "boolean"
+          },
+          "triggerNotificationWorkflow": {
+            "default": false,
+            "title": "Triggernotificationworkflow",
+            "type": "boolean"
+          },
+          "useEventChecking": {
+            "default": false,
+            "title": "Useeventchecking",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "numberOfDevices",
+          "deviceSendingIntervalInMinutes",
+          "averageSizeOfMessageInKb",
+          "hotStorageDurationInMonths",
+          "coolStorageDurationInMonths",
+          "archiveStorageDurationInMonths",
+          "needs3DModel",
+          "entityCount",
+          "amountOfActiveEditors",
+          "amountOfActiveViewers",
+          "dashboardRefreshesPerHour",
+          "dashboardActiveHoursPerDay"
+        ],
+        "title": "OptimizerCalculationParams",
+        "type": "object"
+      },
       "OptimizerConfigResponse": {
         "properties": {
           "calculated_at": {
@@ -4348,25 +4450,25 @@
         "type": "object"
       },
       "OptimizerParamsUpdate": {
+        "additionalProperties": false,
         "description": "Update calculation params only.",
         "properties": {
           "params": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/OptimizerCalculationParams"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Params"
+            ]
           }
         },
         "title": "OptimizerParamsUpdate",
         "type": "object"
       },
       "OptimizerResultUpdate": {
+        "additionalProperties": false,
         "description": "Save calculation result + pricing snapshots.",
         "properties": {
           "cheapest_path": {
@@ -4375,9 +4477,7 @@
             "type": "object"
           },
           "params": {
-            "additionalProperties": true,
-            "title": "Params",
-            "type": "object"
+            "$ref": "#/components/schemas/OptimizerCalculationParams"
           },
           "pricing_snapshots": {
             "additionalProperties": true,
@@ -4403,6 +4503,167 @@
           "pricing_timestamps"
         ],
         "title": "OptimizerResultUpdate",
+        "type": "object"
+      },
+      "PlatformCapabilitySourceHealth": {
+        "additionalProperties": false,
+        "properties": {
+          "deployer": {
+            "$ref": "#/components/schemas/CapabilitySourceHealth"
+          },
+          "optimizer": {
+            "$ref": "#/components/schemas/CapabilitySourceHealth"
+          }
+        },
+        "required": [
+          "optimizer",
+          "deployer"
+        ],
+        "title": "PlatformCapabilitySourceHealth",
+        "type": "object"
+      },
+      "PlatformLayerCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/CapabilityAvailability"
+          },
+          "layer": {
+            "enum": [
+              "l1",
+              "l2",
+              "l3_hot",
+              "l3_cool",
+              "l3_archive",
+              "l4",
+              "l5"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "restriction_source": {
+            "enum": [
+              "none",
+              "restricted_by_optimizer",
+              "restricted_by_deployer",
+              "restricted_by_both"
+            ],
+            "title": "Restriction Source",
+            "type": "string"
+          },
+          "roadmap": {
+            "$ref": "#/components/schemas/CapabilityRoadmap"
+          },
+          "selectable": {
+            "title": "Selectable",
+            "type": "boolean"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/CapabilitySources"
+          },
+          "sources_agree": {
+            "title": "Sources Agree",
+            "type": "boolean"
+          },
+          "verification_level": {
+            "$ref": "#/components/schemas/CapabilityVerificationLevel"
+          }
+        },
+        "required": [
+          "layer",
+          "availability",
+          "roadmap",
+          "reason_code",
+          "reason",
+          "selectable",
+          "sources_agree",
+          "restriction_source",
+          "verification_level",
+          "sources"
+        ],
+        "title": "PlatformLayerCapability",
+        "type": "object"
+      },
+      "PlatformProviderCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformProviderCapability"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "platform-provider-capabilities.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/PlatformCapabilitySourceHealth"
+          }
+        },
+        "required": [
+          "schema_version",
+          "complete",
+          "sources",
+          "providers"
+        ],
+        "title": "PlatformProviderCapabilities",
+        "type": "object"
+      },
+      "PlatformProviderCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformLayerCapability"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "layers"
+        ],
+        "title": "PlatformProviderCapability",
         "type": "object"
       },
       "PricingAiSuggestion": {
@@ -4699,6 +4960,29 @@
       },
       "PricingEvidenceDetailResponse": {
         "properties": {
+          "field_trace_available": {
+            "title": "Field Trace Available",
+            "type": "boolean"
+          },
+          "field_trace_records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Field Trace Records",
+            "type": "array"
+          },
+          "field_trace_schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Trace Schema Version"
+          },
           "profile": {
             "additionalProperties": true,
             "title": "Profile",
@@ -4784,7 +5068,8 @@
         "required": [
           "run_id",
           "twin_id",
-          "trace_available"
+          "trace_available",
+          "field_trace_available"
         ],
         "title": "PricingEvidenceDetailResponse",
         "type": "object"
@@ -6465,12 +6750,13 @@
           },
           "optimizer_params": {
             "anyOf": [
-              {},
+              {
+                "$ref": "#/components/schemas/OptimizerCalculationParams"
+              },
               {
                 "type": "null"
               }
-            ],
-            "title": "Optimizer Params"
+            ]
           },
           "optimizer_result": {
             "anyOf": [
@@ -8237,7 +8523,7 @@
     },
     "/config/validate-inline": {
       "post": {
-        "description": "**Purpose:** Validate credentials provided in request body without saving them to database.\n\n**When to call:** When user wants to test credentials before saving a new twin, or preview validation.\n\n**Request body:**\n- `provider`: 'aws', 'azure', or 'gcp'\n- `aws`/`azure`/`gcp`: Credential object matching the provider\n\n**Flow:**\n1. Takes plaintext credentials from request body\n2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n3. Returns result without storing anything\n\n**Use case:** Validate credentials \u2192 get result \u2192 if valid, decide to save via `updateTwinConfig`.",
+        "description": "**Purpose:** Validate credentials provided in request body without saving them to database.\n\n**When to call:** When user wants to test credentials before saving a new twin, or preview validation.\n\n**Request body:**\n- `provider`: 'aws', 'azure', or 'gcp'\n- `aws`/`azure`/`gcp`: Credential object matching the provider\n\n**Flow:**\n1. Takes plaintext credentials from request body\n2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n3. Returns result without storing anything\n\n**Use case:** Validate credentials → get result → if valid, decide to save via `updateTwinConfig`.",
         "operationId": "validateInlineCredentials",
         "parameters": [
           {
@@ -8513,7 +8799,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalcParams"
+                "$ref": "#/components/schemas/OptimizerCalculationParams"
               }
             }
           },
@@ -10039,6 +10325,61 @@
         "summary": "SSE stream for pricing refresh with real-time logs",
         "tags": [
           "optimizer"
+        ]
+      }
+    },
+    "/platform/provider-capabilities": {
+      "get": {
+        "operationId": "getPlatformProviderCapabilities",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProviderCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "Invalid upstream capability contract"
+          },
+          "503": {
+            "description": "Capability source unavailable"
+          }
+        },
+        "summary": "Get aggregate provider-layer platform capabilities",
+        "tags": [
+          "platform"
         ]
       }
     },
@@ -12911,7 +13252,7 @@
     },
     "/twins/{twin_id}/optimizer-config/": {
       "get": {
-        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n**Response fields:**\n- `params`: The 26 calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_*_snapshot`: Pricing data used at calculation time\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
+        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n**Response fields:**\n- `params`: The canonical calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_*_snapshot`: Pricing data used at calculation time\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
         "operationId": "getOptimizerConfig",
         "parameters": [
           {
@@ -13093,7 +13434,7 @@
     },
     "/twins/{twin_id}/optimizer-config/params": {
       "put": {
-        "description": "**Purpose:** Persist the 26 optimizer parameters without triggering calculation.\n\n**When to call:** When user changes any parameter in Step 2 (auto-save on blur/change).\n\n**Request body:**\n- `params`: Object containing all 26 calculation parameters (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n**Behavior:** Saves params but does NOT run calculation. Call `calculateOptimalDistribution` separately.",
+        "description": "**Purpose:** Persist the canonical optimizer parameters without triggering calculation.\n\n**When to call:** When user changes any parameter in Step 2 (auto-save on blur/change).\n\n**Request body:**\n- `params`: Complete validated calculation input (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n**Behavior:** Saves params but does NOT run calculation. Call `calculateOptimalDistribution` separately.",
         "operationId": "updateOptimizerParams",
         "parameters": [
           {
