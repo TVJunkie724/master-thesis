@@ -15,7 +15,9 @@ or cloud deployment.
 | `pricing_registry/` | editable versioned pricing/strategy source of truth |
 | `backend/calculation_v2/` | typed components, formulas, layers, engine, traceability |
 | `backend/optimization/` | metric, model, scoring, and executable profile registry |
-| `json/fetched_data/` | generated provider results and region/currency snapshots |
+| `json/pricing_catalog_baselines/` | pinned reviewed provider-region seed catalogs |
+| `json/fetched_data/` | region lists and currency snapshot only |
+| runtime catalog volume | immutable provider-region snapshots and atomic published pointers |
 
 ## Pricing Registry SSOT
 
@@ -78,15 +80,32 @@ Each field declares its build path and verification status. This prevents a stat
 global charge from pretending to be a failed dynamic fetch and prevents an emergency
 fallback from becoming normal calculation input.
 
-### Versioned Pricing Baselines
+### Immutable Regional Pricing Catalogs
 
-The tracked files under `2-twin2clouds/json/fetched_data/pricing_dynamic_*.json`
-provide inspectable offline and last-known-good baselines. A live refresh may update
-these generated files, but a changed snapshot is committed only after its values,
-schema metadata, and source classifications have been reviewed. The metadata is part
-of the baseline: `publishable` means every required field passed its source gate;
-`review_required` keeps usable last-known-good values visible without presenting them
-as newly verified pricing.
+The tracked seed package under
+`2-twin2clouds/json/pricing_catalog_baselines/` is the inspectable offline
+baseline. Each provider baseline is pinned by `baseline.json` to one exact
+provider-region snapshot, including schema, registry and mapping versions,
+fetch or review time, content digest, source, and review state.
+
+At runtime, the Optimizer initializes the named
+`optimizer_pricing_catalogs` volume at
+`/var/lib/twin2multicloud-optimizer/pricing-catalogs`. A refresh creates a new
+immutable snapshot. It atomically advances only the matching
+provider-and-region `published.json` pointer when every publication gate
+passes. Review-required candidates remain inspectable by exact snapshot ID but
+cannot replace last-known-good calculation pricing.
+
+Every calculation receives exactly one published AWS, Azure, and GCP reference
+through `providerPricingCatalogs`. All three documents are resolved and
+integrity-checked before formulas execute. The result returns the same
+references, so a later refresh cannot change the evidence of an existing run.
+The former provider-wide `pricing_dynamic_*.json` files and unscoped export
+endpoint are not part of the runtime contract.
+
+The metadata is part of the baseline: `published` means every required field
+passed its source gate; `review_required` keeps the candidate visible without
+presenting it as newly verified calculation pricing.
 
 The Azure baseline generated from the public Azure Retail Prices API is
 `publishable`. Former static fallback paths now have reviewed, versioned catalog

@@ -6,6 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from api.calculation import CalcParams
+from backend.pricing_catalog_models import PricingCatalogContext
+from backend.pricing_catalog_repository import get_pricing_catalog_repository
 from backend.calculation_v2.components.aws.twinmaker import (
     MAX_FUTURE_SKEW,
     MAX_OBSERVATION_AGE,
@@ -113,6 +115,16 @@ def _calculate(context):
 
 
 def _calc_params():
+    repository = get_pricing_catalog_repository()
+    pricing_catalogs = PricingCatalogContext(
+        catalogs={
+            provider: repository.resolve_baseline(
+                provider,
+                require_fresh=False,
+            ).reference
+            for provider in ("aws", "azure", "gcp")
+        }
+    )
     return {
         "numberOfDevices": 1,
         "deviceSendingIntervalInMinutes": 1,
@@ -126,6 +138,7 @@ def _calc_params():
         "amountOfActiveViewers": 0,
         "dashboardRefreshesPerHour": 0,
         "dashboardActiveHoursPerDay": 0,
+        "providerPricingCatalogs": pricing_catalogs.to_http_dict(),
     }
 
 

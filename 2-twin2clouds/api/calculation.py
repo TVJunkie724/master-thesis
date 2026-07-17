@@ -8,7 +8,7 @@ based on current pricing data and user-defined scenario parameters.
 from datetime import datetime
 from typing import Annotated, Literal, Union
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -19,7 +19,17 @@ from pydantic import (
 
 from backend.logger import logger
 from backend.utils import print_stack_trace
-from backend.config_loader import load_combined_pricing
+from backend.pricing_catalog_models import PricingCatalogContext
+from backend.pricing_catalog_repository import (
+    PricingCatalogNotFoundError,
+    PricingCatalogRegionMismatchError,
+    PricingCatalogStaleError,
+    PricingCatalogStorageError,
+    PricingCatalogTamperedError,
+    PricingCatalogUnreviewedError,
+    get_pricing_catalog_repository,
+)
+from backend.pricing_catalog_resolver import PricingCatalogResolver
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Calculation"])
@@ -194,6 +204,12 @@ class CalcParams(BaseModel):
         default="cost_minimization_v1",
         description="Executable optimization profile. Only cost_minimization_v1 is enabled.",
     )
+    providerPricingCatalogs: PricingCatalogContext = Field(
+        description=(
+            "Exact reviewed AWS, Azure, and GCP provider-region catalog "
+            "references. Calculations never resolve a mutable latest snapshot."
+        ),
+    )
     providerPricingContexts: ProviderPricingContexts = Field(
         default_factory=ProviderPricingContexts,
         description=(
@@ -222,35 +238,7 @@ class CalcParams(BaseModel):
             )
         return self
 
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, json_schema_extra={
-        "example": {
-            "numberOfDevices": 100,
-            "deviceSendingIntervalInMinutes": 2,
-            "averageSizeOfMessageInKb": 0.25,
-            "hotStorageDurationInMonths": 1,
-            "coolStorageDurationInMonths": 3,
-            "archiveStorageDurationInMonths": 12,
-            "needs3DModel": False,
-            "entityCount": 1,
-            "amountOfActiveEditors": 0,
-            "amountOfActiveViewers": 0,
-            "dashboardRefreshesPerHour": 2,
-            "dashboardActiveHoursPerDay": 0,
-            "currency": "USD",
-            "useEventChecking": True,
-            "triggerNotificationWorkflow": True,
-            "returnFeedbackToDevice": False,
-            "integrateErrorHandling": True,
-            "orchestrationActionsPerMessage": 3,
-            "eventsPerMessage": 1,
-            "apiCallsPerDashboardRefresh": 1,
-            "averageDigitalTwinQueryUnitsPerQuery": 1.0,
-            "averageDigitalTwinQueryResponseSizeInKb": 1.0,
-            "optimizationProfileId": "cost_minimization_v1",
-            "allowGcpSelfHostedL4": False,
-            "allowGcpSelfHostedL5": False
-        }
-    })
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 # --------------------------------------------------
@@ -271,9 +259,9 @@ class CalcParams(BaseModel):
         
         "**How it works:**\n"
         "1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n"
-        "2. Loads current pricing data for all three cloud providers\n"
+        "2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n"
         "3. Calculates costs for each of the 5 architectural layers on each provider\n"
-        "4. Returns the optimal provider per layer and detailed cost breakdowns\n\n"
+        "4. Returns the optimal provider per layer, detailed cost breakdowns, and the same catalog references\n\n"
         
         "**The 5 Architectural Layers:**\n"
         "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
@@ -314,38 +302,12 @@ class CalcParams(BaseModel):
             },
         },
         400: ERROR_RESPONSES[400],
+        409: ERROR_RESPONSES[409],
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
     },
 )
-def calc(params: CalcParams = Body(
-    ...,
-    examples=[{
-        "numberOfDevices": 100,
-        "deviceSendingIntervalInMinutes": 2.0,
-        "averageSizeOfMessageInKb": 0.25,
-        "hotStorageDurationInMonths": 1,
-        "coolStorageDurationInMonths": 3,
-        "archiveStorageDurationInMonths": 12,
-        "needs3DModel": False,
-        "entityCount": 0,
-        "amountOfActiveEditors": 2,
-        "amountOfActiveViewers": 10,
-        "dashboardRefreshesPerHour": 4,
-        "dashboardActiveHoursPerDay": 8,
-        "currency": "USD",
-        "useEventChecking": True,
-        "triggerNotificationWorkflow": True,
-        "returnFeedbackToDevice": False,
-        "integrateErrorHandling": True,
-        "orchestrationActionsPerMessage": 3,
-        "eventsPerMessage": 1,
-        "apiCallsPerDashboardRefresh": 1,
-        "averageDigitalTwinQueryUnitsPerQuery": 1.0,
-        "averageDigitalTwinQueryResponseSizeInKb": 1.0,
-        "optimizationProfileId": "cost_minimization_v1"
-    }]
-)):
+def calc(params: CalcParams):
     """
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
     """
@@ -354,7 +316,9 @@ def calc(params: CalcParams = Body(
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
         # Convert Pydantic model to dict
-        params_dict = params.model_dump()
+        params_dict = params.model_dump(
+            exclude={"providerPricingCatalogs"},
+        )
         optimization_profile_id = params_dict.pop("optimizationProfileId")
         params_dict["_assumption_sources"] = {
             field: (
@@ -368,15 +332,64 @@ def calc(params: CalcParams = Body(
             )
         }
         
-        # Load combined pricing from separate files
-        pricing_data = load_combined_pricing()
+        resolved_catalogs = PricingCatalogResolver(
+            get_pricing_catalog_repository()
+        ).resolve_context(
+            params.providerPricingCatalogs,
+            require_fresh=True,
+        )
         result = calculate_cheapest_costs(
             params_dict,
-            pricing=pricing_data,
+            pricing=resolved_catalogs.detached_pricing(),
             optimization_profile_id=optimization_profile_id,
         )
+        result["pricingCatalogs"] = resolved_catalogs.context.to_http_dict()
         
         return {"result": result}
+    except PricingCatalogStaleError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": e.code,
+                "message": str(e),
+                "fix_suggestion": (
+                    "Refresh the affected provider-region pricing catalog and "
+                    "retry with its newly published exact reference."
+                ),
+                "http_status": 409,
+            },
+        ) from e
+    except (
+        PricingCatalogNotFoundError,
+        PricingCatalogRegionMismatchError,
+        PricingCatalogUnreviewedError,
+    ) as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": e.code,
+                "message": str(e),
+                "fix_suggestion": (
+                    "Select exactly one published, reviewed catalog for AWS, "
+                    "Azure, and GCP before calculating."
+                ),
+                "http_status": 409,
+            },
+        ) from e
+    except (PricingCatalogTamperedError, PricingCatalogStorageError) as e:
+        logger.error("Pricing catalog resolution failed: %s", e.code)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": e.code,
+                "message": "Pricing catalog storage failed integrity validation.",
+                "fix_suggestion": (
+                    "Restore the durable pricing catalog volume from reviewed "
+                    "baselines or a verified backup before retrying."
+                ),
+                "http_status": 500,
+            },
+        ) from e
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

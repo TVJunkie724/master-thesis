@@ -1,7 +1,7 @@
 import json
 import traceback
-from copy import deepcopy
 from pathlib import Path
+
 import backend.config_loader as config_loader
 import backend.constants as CONSTANTS
 from backend.aws_twinmaker_pricing_plan import (
@@ -17,16 +17,12 @@ from backend.fetch_data.cloud_price_fetcher_google import (
 )
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
-from backend.pricing_schema import (
-    attach_pricing_metadata,
-    canonical_pricing_snapshot_digest,
+from backend.pricing_catalog_refresh_service import PricingCatalogRefreshService
+from backend.pricing_catalog_models import canonicalize_pricing_region
+from backend.pricing_catalog_repository import (
+    get_pricing_catalog_repository,
 )
-from backend.pricing_cache import serialized_provider_refresh, write_json_atomically
-from backend.pricing_intent_registry import FAILED
-from backend.pricing_publication_state import (
-    PUBLISHABLE as PUBLICATION_PUBLISHABLE,
-    build_pricing_publication_decision,
-)
+from backend.pricing_schema import attach_pricing_metadata
 
 # Factory Pattern: Centralized creation of price fetcher instances
 # All provider-specific fetching is done through the Factory
@@ -58,10 +54,14 @@ def _load_region_map(provider_label: str, path: Path) -> dict:
 # ============================================================
 # ENTRYPOINT
 # ============================================================
-@serialized_provider_refresh
-def calculate_up_to_date_pricing(target_provider: str, additional_debug = False):
+def calculate_up_to_date_pricing(
+    target_provider: str,
+    additional_debug=False,
+    *,
+    pricing_region: str | None = None,
+):
     """
-    Fetches pricing for a specific provider and saves it to its dedicated file.
+    Fetch pricing and publish an immutable provider-region catalog candidate.
     target_provider must be one of: 'aws', 'azure', 'gcp'.
     """
     logger.info(f"🔄 Starting pricing update for provider: {target_provider}")
@@ -72,20 +72,19 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
 
     service_mapping = config_loader.load_service_mapping()
     
-    output_data = {}
-    target_file_path = None
-    account_pricing_context = None
+    repository = get_pricing_catalog_repository()
+    refresh_service = PricingCatalogRefreshService(repository)
 
     if target_provider == "aws":
         credentials = config_loader.load_credentials_file()
-        if "aws" in credentials:
-            _log_provider_fetch_start("AWS")
-            
-            # Load Region Map
-            region_map = _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
-
-            aws_credentials = credentials.get("aws", {})
-            aws_region = _require_aws_target_region(aws_credentials)
+        aws_credentials = credentials.get("aws")
+        if not isinstance(aws_credentials, dict):
+            raise ValueError("AWS credentials are not configured")
+        _log_provider_fetch_start("AWS")
+        region_map = _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
+        aws_region = _require_aws_target_region(aws_credentials)
+        _assert_requested_region("aws", pricing_region, aws_region)
+        with repository.refresh_guard("aws", aws_region):
             session = build_aws_session(aws_credentials, aws_region)
             account_pricing_context = observe_aws_twinmaker_pricing_plan(
                 aws_credentials,
@@ -93,7 +92,7 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
                 configured_account_id=aws_credentials.get("aws_account_id"),
                 session=session,
             )
-            output_data = fetch_aws_data(
+            pricing = fetch_aws_data(
                 {"aws_region": aws_region},
                 service_mapping,
                 region_map,
@@ -102,78 +101,61 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
                     aws_credentials
                 ),
             )
-            target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
-        else:
-            logger.warning("AWS credentials missing, skipping fetch.")
+            return refresh_service.persist_refresh(
+                provider="aws",
+                pricing_region=aws_region,
+                pricing=pricing,
+                account_pricing_context=account_pricing_context,
+            )
 
     elif target_provider == "azure":
         _log_provider_fetch_start("Azure", credential_mode="public catalog")
-        
-        # Load Region Map
         region_map = _load_region_map("Azure", CONSTANTS.AZURE_REGIONS_FILE_PATH)
-            
-        output_data = fetch_azure_data({}, service_mapping, region_map, additional_debug)
-        target_file_path = CONSTANTS.AZURE_PRICING_FILE_PATH
+        azure_region = pricing_region or "westeurope"
+        azure_region = canonicalize_pricing_region("azure", azure_region)
+        with repository.refresh_guard("azure", azure_region):
+            pricing = fetch_azure_data(
+                {"azure_region": azure_region},
+                service_mapping,
+                region_map,
+                additional_debug,
+            )
+            return refresh_service.persist_refresh(
+                provider="azure",
+                pricing_region=azure_region,
+                pricing=pricing,
+            )
 
     elif target_provider == "gcp":
         credentials = config_loader.load_credentials_file()
-        if "gcp" in credentials:
-            _log_provider_fetch_start("GCP")
-            
-            # Load Region Map
-            region_map = _load_region_map("GCP", CONSTANTS.GCP_REGIONS_FILE_PATH)
-
-            google_credentials = credentials.get("gcp", {})
-            output_data = fetch_google_data(google_credentials, service_mapping, region_map, additional_debug)
-            target_file_path = CONSTANTS.GCP_PRICING_FILE_PATH
-        else:
-            logger.warning("GCP credentials missing, skipping fetch.")
-
-    if target_file_path and output_data:
-        # Validate schema
-        from backend.pricing_utils import validate_pricing_schema
-        validation = validate_pricing_schema(target_provider, output_data)
-        if validation["status"] != "valid":
-            logger.warning(f"⚠️ Pricing data for {target_provider} is incomplete. Missing keys: {validation['missing_keys']}")
-        if validation.get("review_required"):
-            logger.warning(
-                "⚠️ Pricing data for %s requires review. Fallback fields: %s; unsupported fields: %s",
-                target_provider,
-                validation.get("fallback_fields", []),
-                validation.get("unsupported_fields", []),
+        google_credentials = credentials.get("gcp")
+        if not isinstance(google_credentials, dict):
+            raise ValueError("GCP credentials are not configured")
+        _log_provider_fetch_start("GCP")
+        region_map = _load_region_map("GCP", CONSTANTS.GCP_REGIONS_FILE_PATH)
+        gcp_region = _require_gcp_target_region(google_credentials)
+        _assert_requested_region("gcp", pricing_region, gcp_region)
+        with repository.refresh_guard("gcp", gcp_region):
+            pricing = fetch_google_data(
+                google_credentials,
+                service_mapping,
+                region_map,
+                additional_debug,
             )
-            
-        if target_provider == "azure":
-            output_data = _publish_azure_pricing_candidate(
-                output_data,
-                Path(target_file_path),
-                validation,
+            return refresh_service.persist_refresh(
+                provider="gcp",
+                pricing_region=gcp_region,
+                pricing=pricing,
             )
-            if output_data["__publication__"]["status"] == PUBLICATION_PUBLISHABLE:
-                logger.info("✅ Wrote %s successfully!", target_file_path.name)
-            else:
-                logger.info(
-                    "Azure pricing refresh completed in review state; no file was replaced"
-                )
-        else:
-            if target_provider == "aws":
-                _assert_aws_snapshot_region_compatible(
-                    Path(target_file_path),
-                    output_data["__schema__"]["pricing_region"],
-                )
-            write_json_atomically(Path(target_file_path), output_data)
-            logger.info(f"✅ Wrote {target_file_path.name} successfully!")
-        return _with_account_pricing_context(
-            output_data,
-            account_pricing_context,
-        )
-    else:
-        logger.warning(f"⚠️ No data fetched for {target_provider} or credentials missing.")
-        return {}
+
+    raise AssertionError("Unreachable provider branch")
 
 
-@serialized_provider_refresh
-def calculate_up_to_date_pricing_with_credentials(target_provider: str, credentials: dict, additional_debug=False):
+def calculate_up_to_date_pricing_with_credentials(
+    target_provider: str,
+    credentials: dict,
+    additional_debug=False,
+):
     """
     Fetches pricing using provided credentials instead of loading from file.
     Used by Management API for credential-forward pricing refresh.
@@ -184,7 +166,7 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
         additional_debug: Enable verbose logging
     
     Returns:
-        dict: Pricing data for the provider
+        dict: Bounded immutable-catalog refresh result
     """
     logger.info(f"🔄 Starting pricing update for provider: {target_provider} (with provided credentials)")
 
@@ -192,46 +174,43 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
         raise ValueError(f"This function only supports aws/gcp, not {target_provider}. Use regular endpoint for Azure.")
 
     service_mapping = config_loader.load_service_mapping()
-    output_data = {}
-    target_file_path = None
-    account_pricing_context = None
+    repository = get_pricing_catalog_repository()
+    refresh_service = PricingCatalogRefreshService(repository)
 
     if target_provider == "aws":
         _log_provider_fetch_start("AWS", credential_mode="provided credentials")
-        
-        # Load Region Map
         region_map = _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
-
-        # Keep target pricing region separate from Pricing API client credentials.
         aws_region = _require_aws_target_region(credentials)
         aws_credentials = {"aws_region": aws_region}
-        session = build_aws_session(credentials, aws_region)
-        account_pricing_context = observe_aws_twinmaker_pricing_plan(
-            credentials,
-            aws_region,
-            configured_account_id=credentials.get("aws_configured_account_id"),
-            session=session,
-        )
-        client_credentials = build_aws_pricing_client_credentials(credentials)
-        
-        output_data = fetch_aws_data(
-            aws_credentials,
-            service_mapping,
-            region_map,
-            additional_debug,
-            aws_client_credentials=client_credentials,
-        )
-        target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
+        with repository.refresh_guard("aws", aws_region):
+            session = build_aws_session(credentials, aws_region)
+            account_pricing_context = observe_aws_twinmaker_pricing_plan(
+                credentials,
+                aws_region,
+                configured_account_id=credentials.get("aws_configured_account_id"),
+                session=session,
+            )
+            pricing = fetch_aws_data(
+                aws_credentials,
+                service_mapping,
+                region_map,
+                additional_debug,
+                aws_client_credentials=build_aws_pricing_client_credentials(
+                    credentials
+                ),
+            )
+            return refresh_service.persist_refresh(
+                provider="aws",
+                pricing_region=aws_region,
+                pricing=pricing,
+                account_pricing_context=account_pricing_context,
+            )
 
     elif target_provider == "gcp":
         _log_provider_fetch_start("GCP", credential_mode="provided credentials")
-        
-        # Load Region Map
         region_map = _load_region_map("GCP", CONSTANTS.GCP_REGIONS_FILE_PATH)
-
-        # Parse service account JSON and create credentials
         from google.oauth2 import service_account as gcp_service_account
-        
+
         sa_json = credentials.get("gcp_service_account_json", "{}")
         if isinstance(sa_json, str):
             try:
@@ -240,147 +219,26 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
                 raise ValueError("Invalid GCP service account JSON")
         else:
             sa_info = sa_json
-            
+
         gcp_creds = gcp_service_account.Credentials.from_service_account_info(sa_info)
-        
-        # Create billing client with provided credentials
         billing_client = billing_v1.CloudCatalogClient(credentials=gcp_creds)
-        
-        google_credentials = {
-            "gcp_region": credentials.get("gcp_region", "europe-west1")
-        }
-        
-        # Fetch with billing_client passed directly
-        output_data = fetch_google_data(
-            google_credentials, service_mapping, region_map, 
-            additional_debug, billing_client
-        )
-        target_file_path = CONSTANTS.GCP_PRICING_FILE_PATH
-
-    if target_file_path and output_data:
-        from backend.pricing_utils import validate_pricing_schema
-        validation = validate_pricing_schema(target_provider, output_data)
-        if validation["status"] != "valid":
-            logger.warning(f"⚠️ Pricing data incomplete. Missing: {validation['missing_keys']}")
-        if validation.get("review_required"):
-            logger.warning(
-                "⚠️ Pricing data for %s requires review. Fallback fields: %s; unsupported fields: %s",
-                target_provider,
-                validation.get("fallback_fields", []),
-                validation.get("unsupported_fields", []),
+        pricing_region = _require_gcp_target_region(credentials)
+        google_credentials = {"gcp_region": pricing_region}
+        with repository.refresh_guard("gcp", pricing_region):
+            pricing = fetch_google_data(
+                google_credentials,
+                service_mapping,
+                region_map,
+                additional_debug,
+                billing_client,
             )
-            
-        if target_provider == "aws":
-            _assert_aws_snapshot_region_compatible(
-                Path(target_file_path),
-                output_data["__schema__"]["pricing_region"],
+            return refresh_service.persist_refresh(
+                provider="gcp",
+                pricing_region=pricing_region,
+                pricing=pricing,
             )
-        write_json_atomically(Path(target_file_path), output_data)
-        logger.info(f"✅ Wrote {target_file_path.name} successfully!")
-        return _with_account_pricing_context(
-            output_data,
-            account_pricing_context,
-        )
-    else:
-        logger.warning(f"⚠️ No data fetched for {target_provider}")
-    return {}
 
-
-def _publish_azure_pricing_candidate(
-    candidate: dict,
-    target_path: Path,
-    validation: dict,
-) -> dict:
-    """Publish only evidence-backed Azure pricing; preserve the prior snapshot otherwise."""
-    evidence_fields = ((candidate.get("__evidence__") or {}).get("fields") or {})
-    intent_results = []
-    seen_intents = set()
-    for record in evidence_fields.values():
-        intent_id = record.get("intent_id") if isinstance(record, dict) else None
-        if not intent_id or intent_id in seen_intents:
-            continue
-        seen_intents.add(intent_id)
-        intent_results.append(
-            {
-                "intent_id": intent_id,
-                "provider": "azure",
-                "mapping_version": record.get("mapping_version"),
-                "status": record.get("match_status", FAILED),
-                "selected_candidate": record.get("selected_row"),
-                "candidate_count": len(record.get("selected_rows") or [])
-                or int(record.get("selected_row") is not None),
-                "errors": list(record.get("errors") or []),
-            }
-        )
-    if validation.get("status") != "valid" or validation.get("review_required"):
-        intent_results.append(
-            {
-                "intent_id": "azure.provider_pricing_contract",
-                "provider": "azure",
-                "status": FAILED,
-                "errors": [
-                    "Fresh Azure pricing failed schema or source-quality validation"
-                ],
-            }
-        )
-
-    last_known_good = None
-    if target_path.exists():
-        try:
-            last_known_good = json.loads(target_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning("Could not read prior Azure pricing snapshot: %s", exc)
-
-    fresh_descriptor = _azure_snapshot_descriptor(candidate)
-    last_known_good_descriptor = (
-        _azure_snapshot_descriptor(last_known_good) if last_known_good else None
-    )
-    decision = build_pricing_publication_decision(
-        "azure",
-        intent_results,
-        fresh_snapshot=fresh_descriptor,
-        last_known_good_snapshot=last_known_good_descriptor,
-    )
-    response = dict(candidate)
-    response["__publication__"] = decision
-    if decision["status"] != PUBLICATION_PUBLISHABLE:
-        logger.warning(
-            "Azure pricing candidate was not published; preserving last-known-good snapshot"
-        )
-        return response
-
-    write_json_atomically(target_path, response)
-    return response
-
-
-def _azure_snapshot_descriptor(payload: dict) -> dict:
-    schema = payload.get("__schema__") or {}
-    evidence_fields = ((payload.get("__evidence__") or {}).get("fields") or {})
-    mapping_versions = sorted(
-        {
-            record.get("mapping_version")
-            for record in evidence_fields.values()
-            if isinstance(record, dict) and record.get("mapping_version")
-        }
-    )
-    generated_at = schema.get("generated_at")
-    return {
-        "snapshot_id": f"azure:{generated_at}" if generated_at else None,
-        "schema_version": schema.get("schema_version"),
-        "provider": "azure",
-        "source_api": "azure-retail-prices",
-        "fetched_at": generated_at,
-        "published_at": generated_at,
-        "mapping_version": ",".join(mapping_versions) or None,
-        "candidate_count": sum(
-            len(record.get("selected_rows") or [])
-            or int(record.get("selected_row") is not None)
-            for record in evidence_fields.values()
-            if isinstance(record, dict) and record.get("intent_id")
-        ),
-        "raw_item_count": None,
-        "is_stale": False,
-    }
+    raise AssertionError("Unreachable provider branch")
 
 
 def build_aws_pricing_client_credentials(credentials: dict) -> dict:
@@ -408,45 +266,30 @@ def _require_aws_target_region(credentials: dict) -> str:
     region = credentials.get("aws_region")
     if not isinstance(region, str) or not region.strip():
         raise ValueError("Missing AWS credential field: aws_region")
-    return region.strip()
+    return canonicalize_pricing_region("aws", region)
 
 
-def _assert_aws_snapshot_region_compatible(
-    target_path: Path,
-    requested_region: str,
+def _require_gcp_target_region(credentials: dict) -> str:
+    region = credentials.get("gcp_region", "europe-west1")
+    if not isinstance(region, str) or not region.strip():
+        raise ValueError("Missing GCP credential field: gcp_region")
+    return canonicalize_pricing_region("gcp", region)
+
+
+def _assert_requested_region(
+    provider: str,
+    requested_region: str | None,
+    credential_region: str,
 ) -> None:
-    """Prevent the temporary global cache from silently changing regions."""
-
-    if not target_path.exists():
+    if requested_region is None:
         return
-    try:
-        current = json.loads(target_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    if canonicalize_pricing_region(
+        provider,
+        requested_region,
+    ) != canonicalize_pricing_region(provider, credential_region):
         raise ValueError(
-            "Existing AWS pricing snapshot cannot be validated for region migration."
-        ) from exc
-    current_region = (current.get("__schema__") or {}).get("pricing_region")
-    if current_region != requested_region:
-        raise ValueError(
-            "AWS pricing snapshot region migration is required before refreshing "
-            f"{requested_region}; current snapshot region is "
-            f"{current_region or 'unknown'}."
+            f"{provider.upper()} credential region does not match requested pricing region"
         )
-
-
-def _with_account_pricing_context(
-    public_snapshot: dict,
-    context: dict | None,
-) -> dict:
-    if context is None:
-        return public_snapshot
-    response = deepcopy(public_snapshot)
-    response_context = deepcopy(context)
-    response_context["catalog_snapshot_digest"] = (
-        canonical_pricing_snapshot_digest(public_snapshot)
-    )
-    response["__account_pricing_context__"] = response_context
-    return response
 
 # ============================================================
 # HELPER FUNCTION
@@ -829,7 +672,12 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
     }
 
     logger.info("✅ Azure pricing schema built successfully.")
-    return attach_pricing_metadata("azure", azure, fetched)
+    return attach_pricing_metadata(
+        "azure",
+        azure,
+        fetched,
+        pricing_region=region,
+    )
 
 
 # ============================================================
@@ -1014,7 +862,12 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
     }
 
     logger.info("✅ GCP pricing schema built successfully.")
-    return attach_pricing_metadata("gcp", gcp, fetched)
+    return attach_pricing_metadata(
+        "gcp",
+        gcp,
+        fetched,
+        pricing_region=region,
+    )
 
 
 if __name__ == "__main__":

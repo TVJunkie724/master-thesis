@@ -77,7 +77,9 @@ Canonical endpoints include:
 | `POST` | `/fetch_pricing_with_credentials/{provider}` | Refresh provider pricing with explicit credential context |
 | `POST` | `/stream/fetch_pricing/{provider}` | Stream one operation-scoped refresh |
 | `GET` | `/pricing/source_inventory` | Read pricing source governance |
-| `GET` | `/pricing/export/{provider}` | Export the current provider snapshot |
+| `GET` | `/pricing/catalogs/baseline/{provider}` | Read the pinned reviewed baseline reference |
+| `GET` | `/pricing/catalogs/{provider}/{region}/published` | Read the active regional reference and freshness |
+| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{snapshot_id}` | Inspect one explicitly identified immutable snapshot |
 | `POST` | `/permissions/verify/{provider}` | Validate pricing-access credentials |
 | `POST` | `/fetch_currency` | Refresh the USD/EUR conversion snapshot |
 
@@ -86,15 +88,22 @@ The local-file endpoints under `/fetch_pricing/{provider}` and
 `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`. That switch is reserved for the
 explicit local cloud overlay.
 
-Provider refreshes are isolated per operation, duplicate same-provider refreshes
-are rejected, and pricing snapshots are published atomically.
+Provider refreshes are isolated by provider and canonical pricing region.
+Duplicate same-region refreshes are rejected, immutable snapshots are written
+to the durable `optimizer_pricing_catalogs` volume, and reviewed references are
+published atomically. Review-required candidates never replace the regional
+last-known-good pointer.
 
 ## Calculation Contract
 
 Provider prices are normalized to canonical USD inputs. Calculation requests
-may ask for `USD` or `EUR` output. EUR results use the cached exchange-rate
-snapshot and expose `currencyConversion` metadata with source currency, target
-currency, rate, and retrieval time. Invalid or missing rates fail closed.
+must supply the exact reviewed AWS, Azure, and GCP catalog references under
+`providerPricingCatalogs`; the Optimizer resolves all three immutable snapshots
+before any formula executes and returns the same references in the result.
+Requests may ask for `USD` or `EUR` output. EUR results use the cached
+exchange-rate snapshot and expose `currencyConversion` metadata with source
+currency, target currency, rate, and retrieval time. Invalid or missing rates
+fail closed.
 
 The response also includes:
 
@@ -113,7 +122,9 @@ The response also includes:
 | `backend/optimization/` | Metrics, profiles, scoring, and extension points |
 | `backend/fetch_data/` | Provider pricing adapters and refresh orchestration |
 | `pricing_registry/` | Versioned pricing and optimization contracts |
-| `json/fetched_data/` | Current provider and currency snapshots |
+| `json/pricing_catalog_baselines/` | Pinned reviewed regional pricing seed snapshots |
+| `json/fetched_data/` | Region lists and currency snapshots only |
+| `/var/lib/twin2multicloud-optimizer/pricing-catalogs/` | Durable immutable runtime catalogs and regional published pointers |
 | `tests/` | Unit and API integration tests |
 | `implementation_plans/` | Approved and completed implementation records |
 

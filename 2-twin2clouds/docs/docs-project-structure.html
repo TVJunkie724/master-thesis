@@ -94,13 +94,14 @@
                         <li><code><strong>logger.py</strong></code> - Logging configuration</li>
                     </ul>
 
-                    <h3 class="mt-4 mb-2"><code>json/</code> - Pricing Data</h3>
+                    <h3 class="mt-4 mb-2"><code>json/</code> - Versioned Data</h3>
+                    <h4><code>json/pricing_catalog_baselines/</code></h4>
+                    <ul>
+                        <li><code><strong>baseline.json</strong></code> - Exact reviewed AWS, Azure, and GCP baseline references</li>
+                        <li><code><strong>[provider]/[region]/snapshots/</strong></code> - Immutable source-controlled seed snapshots</li>
+                    </ul>
                     <h4><code>json/fetched_data/</code></h4>
                     <ul>
-                        <li><code><strong>pricing_aws.json</strong></code> - Cached AWS pricing data (7-day TTL)</li>
-                        <li><code><strong>pricing_azure.json</strong></code> - Cached Azure pricing data (7-day TTL)
-                        </li>
-                        <li><code><strong>pricing_gcp.json</strong></code> - Cached GCP pricing data (7-day TTL)</li>
                         <li><code><strong>currency.json</strong></code> - Cached USD/EUR exchange rates (1-day TTL)</li>
                         <li><code><strong>aws_regions.json</strong></code> - AWS region mapping (7-day TTL)</li>
                         <li><code><strong>azure_regions.json</strong></code> - Azure region mapping (7-day TTL)</li>
@@ -189,7 +190,8 @@
                         <li>Parameters passed to calculation engine → <code>backend/calculation/engine.py</code>
                             <code>calculate_cheapest_costs()</code>
                         </li>
-                        <li>Pricing data loaded → <code>json/fetched_data/pricing_*.json</code></li>
+                        <li>Exact AWS, Azure, and GCP references resolved through
+                            <code>PricingCatalogResolver</code></li>
                         <li>Cost calculated for each provider:
                             <ul>
                                 <li><code>calculate_aws_costs()</code> → calls <code>backend/calculation/aws.py</code>
@@ -213,7 +215,8 @@
                     <h3 class="mt-4 mb-2">Pricing Fetch Flow</h3>
                     <ol>
                         <li>User or system triggers pricing fetch → <code>POST /pricing/fetch/{provider}</code></li>
-                        <li>Check cache freshness → <code>backend/utils.py</code> <code>is_file_fresh()</code></li>
+                        <li>Resolve the published provider-region reference and evaluate its
+                            provider observation time</li>
                         <li>If stale, fetch new pricing →
                             <code>backend/fetch_data/calculate_up_to_date_pricing.py</code>
                         </li>
@@ -227,7 +230,9 @@
                         <li>Validate schema → <code>backend/pricing_utils.py</code>
                             <code>validate_pricing_schema()</code>
                         </li>
-                        <li>Save to cache → <code>json/fetched_data/pricing_{provider}.json</code></li>
+                        <li>Write a new immutable catalog snapshot to the durable pricing volume</li>
+                        <li>Atomically publish the matching regional pointer only when the
+                            candidate passes validation and review gates</li>
                     </ol>
                 </div>
             </div>
@@ -257,14 +262,15 @@
                         <li>Add UI inputs to <code>index.html</code> and <code>api-client.js</code></li>
                     </ol>
 
-                    <h3 class="mt-4 mb-2">Caching Strategy</h3>
-                    <p>The application uses file-based caching with TTL (Time To Live):</p>
+                    <h3 class="mt-4 mb-2">Catalog And Cache Strategy</h3>
+                    <p>Public pricing and replaceable support caches have separate lifecycles:</p>
                     <ul>
-                        <li><strong>7-day cache:</strong> Pricing data, region lists (stable data)</li>
+                        <li><strong>7-day freshness:</strong> Published provider-region pricing references and region lists</li>
                         <li><strong>1-day cache:</strong> Currency exchange rates (more volatile)</li>
-                        <li>Cache validation uses file modification timestamps via <code>utils.is_file_fresh()</code>
-                        </li>
-                        <li>Cache files are stored in <code>json/fetched_data/</code></li>
+                        <li>Pricing freshness uses the immutable reference's provider observation time, never file mtime</li>
+                        <li>Runtime pricing catalogs live in the named durable volume at
+                            <code>/var/lib/twin2multicloud-optimizer/pricing-catalogs/</code></li>
+                        <li>Region and currency cache files remain under <code>json/fetched_data/</code></li>
                     </ul>
                 </div>
             </div>

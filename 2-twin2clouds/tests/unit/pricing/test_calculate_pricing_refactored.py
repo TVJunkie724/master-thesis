@@ -8,9 +8,18 @@ import backend.constants as CONSTANTS
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_service_mapping')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_data')
-@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "PricingCatalogRefreshService.persist_refresh",
+    return_value={"status": "published"},
+)
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "get_pricing_catalog_repository"
+)
 def test_calculate_pricing_aws_centralized_loading(
-    mock_write_text,
+    mock_repository,
+    mock_persist_refresh,
     mock_fetch_aws,
     mock_load_json,
     mock_load_mapping,
@@ -75,14 +84,28 @@ def test_calculate_pricing_aws_centralized_loading(
     # Signature: fetch_aws_data(aws_credentials, service_mapping, region_map, additional_debug)
     # region_map is the 3rd positional argument (index 2)
     assert args[2] == expected_region_map
+    mock_repository.return_value.refresh_guard.assert_called_once_with(
+        "aws",
+        "eu-central-1",
+    )
+    mock_persist_refresh.assert_called_once()
 
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_credentials_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_service_mapping')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_data')
-@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "PricingCatalogRefreshService.persist_refresh",
+    return_value={"status": "published"},
+)
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "get_pricing_catalog_repository"
+)
 def test_calculate_pricing_azure_centralized_loading(
-    mock_write_text,
+    mock_repository,
+    mock_persist_refresh,
     mock_fetch_azure,
     mock_load_json,
     mock_load_mapping,
@@ -112,6 +135,12 @@ def test_calculate_pricing_azure_centralized_loading(
     args, kwargs = mock_fetch_azure.call_args
     # Signature: fetch_azure_data(azure_credentials, service_mapping, region_map, additional_debug)
     assert args[2] == expected_region_map
+    assert args[0] == {"azure_region": "westeurope"}
+    mock_repository.return_value.refresh_guard.assert_called_once_with(
+        "azure",
+        "westeurope",
+    )
+    mock_persist_refresh.assert_called_once()
 
 
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')

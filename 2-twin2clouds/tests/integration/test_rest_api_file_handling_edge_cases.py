@@ -1,6 +1,8 @@
 
 from fastapi.testclient import TestClient
 from unittest.mock import patch
+
+from backend.pricing_catalog_repository import PricingCatalogNotFoundError
 from rest_api import app
 
 client = TestClient(app)
@@ -9,12 +11,10 @@ client = TestClient(app)
 # 1. File System Errors (Corrupt Cache / Permissions)
 # -----------------------------------------------------------------------------
 
-@patch("api.pricing.load_json_file")
-@patch("api.pricing.is_file_fresh")
-def test_pricing_endpoint_corrupt_cache(mock_is_fresh, mock_load):
-    """Test behavior when the cached file is corrupted (JSON decode error)."""
-    mock_is_fresh.return_value = True
-    mock_load.side_effect = Exception("Corrupt JSON")
+@patch("api.pricing._cached_refresh_result")
+def test_pricing_endpoint_corrupt_cache(mock_cached_result):
+    """Catalog integrity failures are never treated as valid cached pricing."""
+    mock_cached_result.side_effect = Exception("Corrupt catalog")
     
     response = client.post("/fetch_pricing/aws?force_fetch=false")
     
@@ -57,23 +57,25 @@ def test_fetch_regions_network_failure(mock_fetch):
 # 3. File Status Edge Cases
 # -----------------------------------------------------------------------------
 
-@patch("api.file_status.get_file_age_string")
-def test_get_pricing_age_returns_age_string(mock_age_str):
-    """Test that pricing age endpoint correctly returns the age string."""
-    mock_age_str.return_value = "2 days, 3 hours"
-    
+def test_get_pricing_age_returns_catalog_identity():
+    """Pricing status is derived from immutable catalog metadata."""
     response = client.get("/pricing_age/aws")
     assert response.status_code == 200
     data = response.json()
-    assert data["age"] == "2 days, 3 hours"
+    assert data["age"].endswith(("minutes", "hours", "days"))
+    assert data["active_reference"]["snapshotId"].startswith("pcs_")
+    assert data["pricing_region"] == "eu-central-1"
 
-@patch("api.file_status.get_file_age_string")
-def test_get_pricing_age_file_not_found(mock_age_str):
-    """Test pricing age returns appropriate message when file doesn't exist."""
-    # When file doesn't exist, get_file_age_string returns "File not found" or similar
-    mock_age_str.return_value = "File not found"
-    
+@patch("api.file_status.get_pricing_catalog_repository")
+def test_get_pricing_age_catalog_not_found(mock_repository):
+    """Missing provider-region catalogs return an explicit non-fresh state."""
+    mock_repository.return_value.resolve_published.side_effect = (
+        PricingCatalogNotFoundError("missing")
+    )
+
     response = client.get("/pricing_age/aws")
     assert response.status_code == 200
     data = response.json()
-    assert "not found" in data["age"].lower()
+    assert data["age"] == "missing"
+    assert data["status"] == "missing"
+    assert data["active_reference"] is None

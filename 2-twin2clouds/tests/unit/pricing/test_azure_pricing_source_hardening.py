@@ -5,9 +5,6 @@ import pytest
 
 from backend.azure_pricing_evidence import build_azure_intent_evidence
 from backend.fetch_data.cloud_price_fetcher_azure import fetch_azure_price
-from backend.fetch_data.calculate_up_to_date_pricing import (
-    _publish_azure_pricing_candidate,
-)
 from backend.pricing_schema import attach_pricing_metadata, validate_pricing_payload
 
 
@@ -394,75 +391,3 @@ def test_generated_metadata_exposes_bounded_evidence_and_derived_transfer_value(
     assert fields["transfer.pricing_tiers"]["selected_rows"]
     assert fields["blobStorageCool.transferCostFromCosmosDB"]["normalized_value"] == 0.087
     assert "__evidence__" not in validate_pricing_payload("azure", payload)["missing_keys"]
-
-
-@patch("backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically")
-def test_review_candidate_never_replaces_last_known_good(mock_write, tmp_path):
-    target = tmp_path / "pricing_dynamic_azure.json"
-    target.write_text('{"snapshot": "last-known-good"}', encoding="utf-8")
-    candidate = {
-        "__evidence__": {
-            "fields": {
-                "cosmosDB.storagePrice": {
-                    "intent_id": "storage.hot.storage_gb_month",
-                    "mapping_version": "2026.07.16",
-                    "match_status": "changed",
-                    "errors": ["provider identity drift"],
-                }
-            }
-        }
-    }
-
-    result = _publish_azure_pricing_candidate(
-        candidate,
-        target,
-        {"status": "valid", "review_required": True},
-    )
-
-    assert result["__publication__"]["status"] == "review_required"
-    assert target.read_text(encoding="utf-8") == '{"snapshot": "last-known-good"}'
-    mock_write.assert_not_called()
-
-
-@patch("backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically")
-def test_publishable_evidence_atomically_replaces_snapshot(mock_write, tmp_path):
-    target = tmp_path / "pricing_dynamic_azure.json"
-    candidate = {
-        "__schema__": {
-            "schema_version": "pricing-provider-schema.v1",
-            "generated_at": "2026-07-16T12:00:00+00:00",
-        },
-        "__evidence__": {
-            "fields": {
-                "cosmosDB.storagePrice": {
-                    "intent_id": "storage.hot.storage_gb_month",
-                    "mapping_version": "2026.07.16",
-                    "match_status": "matched",
-                    "selected_row": {"meterId": "meter"},
-                    "errors": [],
-                }
-            }
-        }
-    }
-
-    result = _publish_azure_pricing_candidate(
-        candidate,
-        target,
-        {"status": "valid", "review_required": False},
-    )
-
-    assert result["__publication__"]["status"] == "publishable"
-    assert result["__publication__"]["published_snapshot"] == {
-        "snapshot_id": "azure:2026-07-16T12:00:00+00:00",
-        "schema_version": "pricing-provider-schema.v1",
-        "provider": "azure",
-        "source_api": "azure-retail-prices",
-        "fetched_at": "2026-07-16T12:00:00+00:00",
-        "published_at": "2026-07-16T12:00:00+00:00",
-        "mapping_version": "2026.07.16",
-        "candidate_count": 1,
-        "raw_item_count": None,
-        "is_stale": False,
-        "stale_reason": None,
-    }
-    mock_write.assert_called_once_with(target, result)

@@ -342,6 +342,23 @@ def test_account_context_is_removed_and_secret_keys_are_rejected(repository):
     )
     assert "__account_pricing_context__" not in stored.pricing
 
+    camel_case_context = _pricing("aws")
+    camel_case_context["accountPricingContext"] = {"providerAccountId": "123"}
+    stored_camel_case = repository.store_candidate(
+        provider="aws",
+        pricing_region="eu-central-1",
+        pricing=camel_case_context,
+        provider_schema_version="pricing-provider-schema.v1",
+        contract_version="2026.07.17",
+        registry_version="2026.07.17",
+        mapping_versions=("2026.07.17",),
+        fetched_at=FETCHED_AT + timedelta(hours=1),
+        source="provider_api",
+        review_status="reviewed",
+        calculation_source="fresh",
+    )
+    assert "accountPricingContext" not in stored_camel_case.pricing
+
     unsafe = _pricing("aws")
     unsafe["service"]["aws_secret_access_key"] = "never-store-this"
     with pytest.raises(PricingCatalogStorageError, match="forbidden secret"):
@@ -500,6 +517,31 @@ def test_pricing_snapshot_digest_changes_with_quality_evidence():
 
     assert changed.content_digest != original.content_digest
     assert changed.snapshot_id != original.snapshot_id
+
+
+def test_resolve_snapshot_uses_explicit_provider_region_and_identity(repository):
+    manifest = repository.initialize_from_baseline()
+    expected = manifest.catalogs["azure"]
+
+    resolved = repository.resolve_snapshot(
+        "azure",
+        expected.pricing_region,
+        expected.snapshot_id,
+    )
+
+    assert resolved.reference == expected
+
+
+def test_resolve_snapshot_rejects_cross_region_lookup(repository):
+    manifest = repository.initialize_from_baseline()
+    expected = manifest.catalogs["azure"]
+
+    with pytest.raises(PricingCatalogNotFoundError):
+        repository.resolve_snapshot(
+            "azure",
+            "northeurope",
+            expected.snapshot_id,
+        )
 
 
 def test_default_repository_uses_configured_roots(monkeypatch, tmp_path):

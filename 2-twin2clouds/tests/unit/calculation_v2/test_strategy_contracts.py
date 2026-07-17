@@ -5,9 +5,6 @@ These tests keep the optimizer's objective, pricing intent, formula, and
 evidence declarations aligned with the bundled pricing shape.
 """
 
-import json
-from pathlib import Path
-
 import pytest
 
 from backend.calculation_v2.strategy_contracts import (
@@ -20,15 +17,18 @@ from backend.calculation_v2.strategy_contracts import (
     get_strategy_contract,
     strategy_contracts,
 )
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from backend.pricing_catalog_repository import get_pricing_catalog_repository
+from backend.pricing_schema import strip_pricing_metadata
 
 
 def _load_combined_pricing():
+    repository = get_pricing_catalog_repository()
     return {
-        provider: json.loads(
-            (PROJECT_ROOT / "json" / "fetched_data" / f"pricing_dynamic_{provider}.json").read_text()
+        provider: strip_pricing_metadata(
+            repository.resolve_baseline(
+                provider,
+                require_fresh=False,
+            ).pricing
         )
         for provider in ("aws", "azure", "gcp")
     }

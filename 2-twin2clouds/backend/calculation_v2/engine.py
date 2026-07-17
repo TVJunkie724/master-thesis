@@ -15,7 +15,7 @@ But internally uses the new layer calculators from calculation_v2.
 
 from collections.abc import Mapping
 from math import isfinite
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 from backend.calculation_v2.layers import (
     AWSLayerCalculators,
@@ -43,7 +43,6 @@ from backend.calculation_v2.traceability import (
     TRACE_SCHEMA_VERSION,
     build_intent_result_trace,
 )
-from backend.config_loader import load_combined_pricing
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
@@ -560,8 +559,8 @@ def _calculate_glue_cost(messages: float, pricing: Dict[str, Any], provider: str
 
 def calculate_cheapest_costs(
     params: Dict[str, Any],
-    pricing: Optional[Dict[str, Any]] = None,
-    optimization_profile_id: Optional[str] = None,
+    pricing: Dict[str, Any],
+    optimization_profile_id: str | None = None,
     pricing_registry_service: PricingRegistryService | None = None,
 ) -> Dict[str, Any]:
     """
@@ -575,7 +574,7 @@ def calculate_cheapest_costs(
     
     Args:
         params: Input parameters from the API
-        pricing: Optional pricing data (loaded if not provided)
+        pricing: Exact resolved pricing data for all providers
         optimization_profile_id: Optional executable optimization profile.
         
     Returns:
@@ -592,10 +591,6 @@ def calculate_cheapest_costs(
             "GCP self-hosted L4/L5 cannot be enabled until the Deployer "
             "implements and verifies those deployment paths"
         )
-
-    # Load pricing if not provided
-    if pricing is None:
-        pricing = load_combined_pricing()
 
     registry_service = pricing_registry_service or PricingRegistryService()
     profile_registry = (

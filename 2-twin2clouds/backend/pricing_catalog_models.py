@@ -46,6 +46,11 @@ _REGION_PATTERN = re.compile(r"^[a-z][a-z0-9-]{1,62}$")
 _AWS_REGION_PATTERN = re.compile(r"^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\d+$")
 
 
+def _to_camel(value: str) -> str:
+    head, *tail = value.split("_")
+    return head + "".join(part.capitalize() for part in tail)
+
+
 class PricingCatalogContractError(ValueError):
     """Raised when a pricing catalog contract is internally inconsistent."""
 
@@ -53,7 +58,13 @@ class PricingCatalogContractError(ValueError):
 class PricingCatalogReference(BaseModel):
     """Immutable identity for one provider-region catalog observation."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        allow_inf_nan=False,
+        populate_by_name=True,
+        alias_generator=_to_camel,
+    )
 
     schema_version: Literal["pricing-catalog-reference.v1"] = (
         CATALOG_REFERENCE_SCHEMA_VERSION
@@ -198,7 +209,12 @@ class PricingCatalogSnapshot(BaseModel):
 class PricingCatalogContext(BaseModel):
     """Exact three-provider pricing context required by a calculation."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        populate_by_name=True,
+        alias_generator=_to_camel,
+    )
 
     schema_version: Literal["provider-pricing-catalog-context.v1"] = (
         CATALOG_CONTEXT_SCHEMA_VERSION

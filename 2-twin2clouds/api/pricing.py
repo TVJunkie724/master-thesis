@@ -9,7 +9,6 @@ determine optimal cloud provider distribution.
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -19,12 +18,23 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.requests import Request
 
 from backend.logger import logger
-from backend.utils import is_file_fresh
-from backend.config_loader import load_json_file
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 from backend.calculation_v2.pricing_source_inventory import pricing_source_inventory
+from backend.pricing_catalog_models import (
+    PricingCatalogContractError,
+    canonicalize_pricing_region,
+)
 from backend.secret_redaction import credential_strings, redact_secret_like_text
-from backend.pricing_cache import PricingRefreshInProgressError
+from backend.pricing_catalog_refresh_service import PricingCatalogRefreshService
+from backend.pricing_catalog_repository import (
+    PricingCatalogNotFoundError,
+    PricingCatalogRegionMismatchError,
+    PricingCatalogRefreshInProgressError,
+    PricingCatalogStaleError,
+    PricingCatalogStorageError,
+    PricingCatalogTamperedError,
+    get_pricing_catalog_repository,
+)
 from backend.aws_twinmaker_pricing_plan import AwsTwinMakerPricingPlanError
 from backend.fetch_data.cloud_price_fetcher_aws import (
     TwinMakerPricingCatalogError,
@@ -35,7 +45,6 @@ from backend.sse_utils import (
     emit_sse,
     pricing_operation_id,
 )
-import backend.constants as CONSTANTS
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Pricing"])
@@ -71,6 +80,44 @@ def _pricing_error_detail(
         "fix_suggestion": fix_suggestion,
         "http_status": http_status,
     }
+
+
+def _pricing_catalog_http_error(
+    *,
+    status_code: int,
+    error_code: str,
+    message: str,
+    fix_suggestion: str,
+) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail=_pricing_error_detail(
+            error_code,
+            message,
+            fix_suggestion,
+            status_code,
+        ),
+    )
+
+
+def _cached_refresh_result(
+    provider: str,
+    pricing_region: str,
+) -> dict | None:
+    pricing_region = _validate_pricing_region(provider, pricing_region)
+    repository = get_pricing_catalog_repository()
+    try:
+        repository.resolve_published(
+            provider,
+            pricing_region,
+            require_fresh=True,
+        )
+    except (PricingCatalogNotFoundError, PricingCatalogStaleError):
+        return None
+    return PricingCatalogRefreshService(repository).cached_result(
+        provider,
+        pricing_region,
+    )
 
 
 class PricingSourceRecordResponse(BaseModel):
@@ -204,7 +251,11 @@ def get_pricing_source_inventory(provider: Optional[str] = None):
         500: ERROR_RESPONSES[500],
     }
 )
-def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False):
+def fetch_pricing_aws(
+    additional_debug: bool = False,
+    force_fetch: bool = False,
+    pricing_region: str = "eu-central-1",
+):
     """
     Fetches the latest AWS pricing data.
     
@@ -215,18 +266,33 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
     **Returns**: A JSON object containing the structured pricing data for AWS services.
     """
     try:
-        if not force_fetch and is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, max_age_days=7):
-            logger.info("✅ Using cached AWS pricing data")
-            return load_json_file(CONSTANTS.AWS_PRICING_FILE_PATH)
+        if not force_fetch:
+            cached = _cached_refresh_result("aws", pricing_region)
+            if cached is not None:
+                logger.info("Using cached AWS pricing catalog")
+                return cached
 
         _require_local_credential_file_checks_enabled()
-        logger.info("🔄 Fetching fresh AWS pricing...")
-        return calculate_up_to_date_pricing("aws", additional_debug)
-    except FileNotFoundError as e:
-        logger.error(f"Pricing file not found: {e}")
-        raise HTTPException(status_code=404, detail="AWS pricing data not available. Run refresh first.")
-    except PricingRefreshInProgressError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        logger.info("Fetching fresh AWS pricing catalog")
+        return calculate_up_to_date_pricing(
+            "aws",
+            additional_debug,
+            pricing_region=pricing_region,
+        )
+    except PricingCatalogContractError as e:
+        raise _pricing_catalog_http_error(
+            status_code=400,
+            error_code="PRICING_CATALOG_REFERENCE_INVALID",
+            message=str(e),
+            fix_suggestion="Provide a canonical AWS pricing region.",
+        ) from e
+    except PricingCatalogRefreshInProgressError as e:
+        raise _pricing_catalog_http_error(
+            status_code=409,
+            error_code=e.code,
+            message=str(e),
+            fix_suggestion="Wait for the active regional refresh to finish.",
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -252,7 +318,11 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
         500: ERROR_RESPONSES[500],
     }
 )
-def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = False):
+def fetch_pricing_azure(
+    additional_debug: bool = False,
+    force_fetch: bool = False,
+    pricing_region: str = "westeurope",
+):
     """
     Fetches the latest Azure pricing data.
     
@@ -263,17 +333,34 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
     **Returns**: A JSON object containing the structured pricing data for Azure services.
     """
     try:
-        if not force_fetch and is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, max_age_days=7):
-            logger.info("✅ Using cached Azure pricing data")
-            return load_json_file(CONSTANTS.AZURE_PRICING_FILE_PATH)
-        
-        logger.info("🔄 Fetching fresh Azure pricing...")
-        return calculate_up_to_date_pricing("azure", additional_debug)
-    except FileNotFoundError as e:
-        logger.error(f"Pricing file not found: {e}")
-        raise HTTPException(status_code=404, detail="Azure pricing data not available. Run refresh first.")
-    except PricingRefreshInProgressError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        if not force_fetch:
+            cached = _cached_refresh_result("azure", pricing_region)
+            if cached is not None:
+                logger.info("Using cached Azure pricing catalog")
+                return cached
+
+        logger.info("Fetching fresh Azure pricing catalog")
+        return calculate_up_to_date_pricing(
+            "azure",
+            additional_debug,
+            pricing_region=pricing_region,
+        )
+    except PricingCatalogContractError as e:
+        raise _pricing_catalog_http_error(
+            status_code=400,
+            error_code="PRICING_CATALOG_REFERENCE_INVALID",
+            message=str(e),
+            fix_suggestion="Provide a canonical Azure pricing region.",
+        ) from e
+    except PricingCatalogRefreshInProgressError as e:
+        raise _pricing_catalog_http_error(
+            status_code=409,
+            error_code=e.code,
+            message=str(e),
+            fix_suggestion="Wait for the active regional refresh to finish.",
+        ) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching Azure pricing: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch Azure pricing. Check server logs.")
@@ -300,7 +387,11 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
         500: ERROR_RESPONSES[500],
     }
 )
-def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False):
+def fetch_pricing_gcp(
+    additional_debug: bool = False,
+    force_fetch: bool = False,
+    pricing_region: str = "europe-west1",
+):
     """
     Fetches the latest Google Cloud Platform (GCP) pricing data.
     
@@ -311,18 +402,33 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
     **Returns**: A JSON object containing the structured pricing data for GCP services.
     """
     try:
-        if not force_fetch and is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, max_age_days=7):
-            logger.info("✅ Using cached GCP pricing data")
-            return load_json_file(CONSTANTS.GCP_PRICING_FILE_PATH)
+        if not force_fetch:
+            cached = _cached_refresh_result("gcp", pricing_region)
+            if cached is not None:
+                logger.info("Using cached GCP pricing catalog")
+                return cached
 
         _require_local_credential_file_checks_enabled()
-        logger.info("🔄 Fetching fresh GCP pricing...")
-        return calculate_up_to_date_pricing("gcp", additional_debug)
-    except FileNotFoundError as e:
-        logger.error(f"Pricing file not found: {e}")
-        raise HTTPException(status_code=404, detail="GCP pricing data not available. Run refresh first.")
-    except PricingRefreshInProgressError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        logger.info("Fetching fresh GCP pricing catalog")
+        return calculate_up_to_date_pricing(
+            "gcp",
+            additional_debug,
+            pricing_region=pricing_region,
+        )
+    except PricingCatalogContractError as e:
+        raise _pricing_catalog_http_error(
+            status_code=400,
+            error_code="PRICING_CATALOG_REFERENCE_INVALID",
+            message=str(e),
+            fix_suggestion="Provide a canonical GCP pricing region.",
+        ) from e
+    except PricingCatalogRefreshInProgressError as e:
+        raise _pricing_catalog_http_error(
+            status_code=409,
+            error_code=e.code,
+            message=str(e),
+            fix_suggestion="Wait for the active regional refresh to finish.",
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -371,65 +477,160 @@ def fetch_currency_rates():
 
 
 # --------------------------------------------------
-# Pricing Export (for snapshotting)
+# Immutable pricing catalog inspection
 # --------------------------------------------------
 
 @router.get(
-    "/pricing/export/{provider}",
-    operation_id="exportPricingSnapshot",
-    summary="Export cached pricing data for audit/snapshot purposes",
+    "/pricing/catalogs/baseline/{provider}",
+    operation_id="getPricingCatalogBaseline",
+    summary="Return the pinned reviewed baseline reference",
     description=(
-        "**Purpose:** Returns the complete cached pricing data for a provider with metadata.\n\n"
-        "**When to use:**\n"
-        "- To capture exact pricing data used in a calculation for audit trail\n"
-        "- To understand what pricing data is currently cached\n\n"
-        "**Parameters:**\n"
-        "- provider: 'aws', 'azure', or 'gcp'"
+        "Returns only the immutable reference for the source-controlled reviewed "
+        "provider baseline. Use the exact snapshot endpoint to inspect its payload."
     ),
     responses={
-        200: {
-            "description": "Full pricing data with metadata",
-            "content": {"application/json": {"example": {
-                "provider": "aws",
-                "updated_at": "2026-01-29T10:00:00Z",
-                "pricing": {"...full pricing object..."}
-            }}}
-        },
+        200: {"description": "Pinned baseline reference"},
         400: ERROR_RESPONSES[400],
         404: ERROR_RESPONSES[404],
     }
 )
-def export_pricing(provider: str):
-    """
-    Export full pricing JSON for a provider (for snapshotting).
-    
-    Used by Management API to capture the exact pricing data used
-    during a calculation for audit trail purposes.
-    
-    **Returns**: Provider name, last update timestamp, and full pricing data.
-    """
-    if provider not in ["aws", "azure", "gcp"]:
+def get_pricing_catalog_baseline(provider: str):
+    _validate_provider(provider)
+    try:
+        snapshot = get_pricing_catalog_repository().resolve_baseline(
+            provider,
+            require_fresh=False,
+        )
+        return snapshot.reference.to_http_dict()
+    except PricingCatalogNotFoundError as exc:
+        raise _pricing_catalog_http_error(
+            status_code=404,
+            error_code=exc.code,
+            message=str(exc),
+            fix_suggestion="Restore or regenerate the pinned provider baseline.",
+        ) from exc
+    except (PricingCatalogTamperedError, PricingCatalogStorageError) as exc:
+        logger.error("Pricing catalog baseline lookup failed: %s", exc.code)
+        raise _pricing_catalog_http_error(
+            status_code=500,
+            error_code=exc.code,
+            message="Pricing catalog storage failed integrity validation.",
+            fix_suggestion="Restore the catalog volume from a verified baseline or backup.",
+        ) from exc
+
+
+@router.get(
+    "/pricing/catalogs/{provider}/{pricing_region}/published",
+    operation_id="getPublishedPricingCatalog",
+    summary="Return the active provider-region pricing reference",
+    responses={
+        200: {"description": "Active immutable catalog reference"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
+    },
+)
+def get_published_pricing_catalog(provider: str, pricing_region: str):
+    _validate_provider(provider)
+    pricing_region = _validate_pricing_region(provider, pricing_region)
+    try:
+        snapshot = get_pricing_catalog_repository().resolve_published(
+            provider,
+            pricing_region,
+            require_fresh=False,
+        )
+        return {
+            "reference": snapshot.reference.to_http_dict(),
+            "isFresh": not get_pricing_catalog_repository().is_stale(
+                snapshot.reference
+            ),
+        }
+    except PricingCatalogNotFoundError as exc:
+        raise _pricing_catalog_http_error(
+            status_code=404,
+            error_code=exc.code,
+            message=str(exc),
+            fix_suggestion="Refresh or publish pricing for the requested provider region.",
+        ) from exc
+    except (
+        PricingCatalogRegionMismatchError,
+        PricingCatalogTamperedError,
+        PricingCatalogStorageError,
+    ) as exc:
+        logger.error("Published pricing catalog lookup failed: %s", exc.code)
+        raise _pricing_catalog_http_error(
+            status_code=500,
+            error_code=exc.code,
+            message="Pricing catalog storage failed integrity validation.",
+            fix_suggestion="Restore the catalog volume from a verified baseline or backup.",
+        ) from exc
+
+
+@router.get(
+    "/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}",
+    operation_id="getExactPricingCatalogSnapshot",
+    summary="Inspect one exact immutable provider pricing snapshot",
+    description=(
+        "Returns the full pricing and evidence payload only for an explicit "
+        "provider, pricing region, and immutable snapshot identity."
+    ),
+    responses={
+        200: {"description": "Exact immutable catalog snapshot"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
+    },
+)
+def get_exact_pricing_catalog_snapshot(
+    provider: str,
+    pricing_region: str,
+    snapshot_id: str,
+):
+    _validate_provider(provider)
+    pricing_region = _validate_pricing_region(provider, pricing_region)
+    try:
+        snapshot = get_pricing_catalog_repository().resolve_snapshot(
+            provider,
+            pricing_region,
+            snapshot_id,
+            require_fresh=False,
+        )
+        return {
+            "reference": snapshot.reference.to_http_dict(),
+            "pricing": snapshot.pricing,
+        }
+    except (PricingCatalogNotFoundError, PricingCatalogRegionMismatchError) as exc:
+        raise _pricing_catalog_http_error(
+            status_code=404,
+            error_code=exc.code,
+            message=str(exc),
+            fix_suggestion="Use an exact snapshot ID from the requested provider region.",
+        ) from exc
+    except (PricingCatalogTamperedError, PricingCatalogStorageError) as exc:
+        logger.error("Exact pricing catalog lookup failed: %s", exc.code)
+        raise _pricing_catalog_http_error(
+            status_code=500,
+            error_code=exc.code,
+            message="Pricing catalog storage failed integrity validation.",
+            fix_suggestion="Restore the catalog volume from a verified baseline or backup.",
+        ) from exc
+
+
+def _validate_provider(provider: str) -> None:
+    if provider not in {"aws", "azure", "gcp"}:
         raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
-    
-    file_map = {
-        "aws": CONSTANTS.AWS_PRICING_FILE_PATH,
-        "azure": CONSTANTS.AZURE_PRICING_FILE_PATH,
-        "gcp": CONSTANTS.GCP_PRICING_FILE_PATH,
-    }
-    
-    cache_file = file_map[provider]
-    if not os.path.exists(cache_file):
-        raise HTTPException(status_code=404, detail=f"No cached pricing for {provider}")
-    
-    data = load_json_file(cache_file)
-    mtime = os.path.getmtime(cache_file)
-    updated_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-    
-    return {
-        "provider": provider,
-        "updated_at": updated_at,
-        "pricing": data
-    }
+
+
+def _validate_pricing_region(provider: str, pricing_region: str) -> str:
+    try:
+        return canonicalize_pricing_region(provider, pricing_region)
+    except PricingCatalogContractError as exc:
+        raise _pricing_catalog_http_error(
+            status_code=400,
+            error_code="PRICING_CATALOG_REFERENCE_INVALID",
+            message=str(exc),
+            fix_suggestion=(
+                "Provide a canonical pricing region for the selected provider."
+            ),
+        ) from exc
 
 
 # --------------------------------------------------
@@ -450,6 +651,8 @@ class CredentialRequest(BaseModel):
         default=None,
         pattern=r"^\d{12}$",
     )
+    # Azure public catalog
+    azure_region: Optional[str] = "westeurope"
     # GCP
     gcp_service_account_json: Optional[str] = None
     gcp_project_id: Optional[str] = None
@@ -536,12 +739,34 @@ def fetch_pricing_with_credentials(
     try:
         # Azure uses public API - no credentials needed
         if provider == "azure":
-            if not force_fetch and is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, max_age_days=7):
-                logger.info("✅ Using cached Azure pricing data")
-                return load_json_file(CONSTANTS.AZURE_PRICING_FILE_PATH)
-            logger.info("🔄 Fetching fresh Azure pricing...")
-            return calculate_up_to_date_pricing("azure", additional_debug=False)
-        
+            pricing_region = credentials.azure_region or "westeurope"
+            if not force_fetch:
+                cached = _cached_refresh_result("azure", pricing_region)
+                if cached is not None:
+                    logger.info("Using cached Azure pricing catalog")
+                    return cached
+            logger.info("Fetching fresh Azure pricing catalog")
+            return calculate_up_to_date_pricing(
+                "azure",
+                additional_debug=False,
+                pricing_region=pricing_region,
+            )
+
+        pricing_region = (
+            credentials.aws_region
+            if provider == "aws"
+            else credentials.gcp_region
+        )
+        if not pricing_region:
+            raise ValueError(
+                f"{provider.upper()} pricing region is required"
+            )
+        if not force_fetch:
+            cached = _cached_refresh_result(provider, pricing_region)
+            if cached is not None:
+                logger.info("Using cached %s pricing catalog", provider.upper())
+                return cached
+
         # AWS/GCP need credentials
         from backend.fetch_data.calculate_up_to_date_pricing import (
             calculate_up_to_date_pricing_with_credentials
@@ -585,6 +810,8 @@ def fetch_pricing_with_credentials(
                 502,
             ),
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         redacted_message = _redact_credential_values(str(e), credentials)
         logger.warning("Invalid %s pricing credential request: %s", provider, redacted_message)
@@ -600,7 +827,7 @@ def fetch_pricing_with_credentials(
                 400,
             ),
         )
-    except PricingRefreshInProgressError as e:
+    except PricingCatalogRefreshInProgressError as e:
         raise HTTPException(
             status_code=409,
             detail=_pricing_error_detail(
@@ -686,7 +913,13 @@ async def stream_fetch_pricing(
                 token = pricing_operation_id.set(operation_id)
                 try:
                     if provider == "azure":
-                        return calculate_up_to_date_pricing(provider, False)
+                        return calculate_up_to_date_pricing(
+                            provider,
+                            False,
+                            pricing_region=(
+                                credentials.azure_region or "westeurope"
+                            ),
+                        )
                     return calculate_up_to_date_pricing_with_credentials(
                         provider, credentials.model_dump(), False
                     )

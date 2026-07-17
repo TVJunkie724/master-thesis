@@ -200,7 +200,7 @@ curl http://localhost:5003/api/currency_age</code></pre>
             <div class="card mb-4">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-database me-2"></i>Caching Behavior</h2>
-                    <p>The application implements intelligent caching to minimize API calls:</p>
+                    <p>Pricing uses immutable regional catalogs. Region and currency data retain a replaceable cache:</p>
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -213,7 +213,7 @@ curl http://localhost:5003/api/currency_age</code></pre>
                             <tr>
                                 <td>Cloud Pricing</td>
                                 <td>7 days</td>
-                                <td><code>json/fetched_data/pricing_[provider].json</code></td>
+                                <td><code>/var/lib/twin2multicloud-optimizer/pricing-catalogs/[provider]/[region]/</code></td>
                             </tr>
                             <tr>
                                 <td>Region Lists</td>
@@ -227,6 +227,11 @@ curl http://localhost:5003/api/currency_age</code></pre>
                             </tr>
                         </tbody>
                     </table>
+                    <p>Source-controlled defaults live under
+                        <code>json/pricing_catalog_baselines/</code>. A refresh writes a new
+                        immutable snapshot and advances the matching regional pointer only
+                        after publication validation. Calculations use exact references,
+                        not a provider-wide mutable pricing file.</p>
 
                     <h3 class="mb-2 mt-4">Debug Mode</h3>
                     <p>Enable debug logging by setting the <code>DEBUG</code> environment variable:</p>

@@ -14,6 +14,7 @@ from pathlib import Path
 import stat
 import tempfile
 import threading
+import re
 from typing import Any, Iterator
 
 from pydantic import ValidationError
@@ -50,6 +51,7 @@ _FORBIDDEN_SECRET_KEY_FRAGMENTS = {
     "sessiontoken",
     "token",
 }
+_SNAPSHOT_ID_PATTERN = re.compile(r"^pcs_[0-9a-f]{64}$")
 
 
 class PricingCatalogRepositoryError(RuntimeError):
@@ -190,6 +192,7 @@ class PricingCatalogRepository:
 
         sanitized_pricing = deepcopy(pricing)
         sanitized_pricing.pop("__account_pricing_context__", None)
+        sanitized_pricing.pop("accountPricingContext", None)
         sanitized_pricing.pop("__publication__", None)
         _reject_secret_keys(sanitized_pricing)
         reference = build_pricing_catalog_reference(
@@ -284,6 +287,53 @@ class PricingCatalogRepository:
         ):
             raise PricingCatalogRegionMismatchError(
                 "Published pricing catalog pointer has a region mismatch"
+            )
+        return self.resolve_exact(
+            reference,
+            require_fresh=require_fresh,
+            now=now,
+        )
+
+    def resolve_snapshot(
+        self,
+        provider: Provider,
+        pricing_region: str,
+        snapshot_id: str,
+        *,
+        require_fresh: bool = False,
+        now: datetime | None = None,
+    ) -> PricingCatalogSnapshot:
+        """Resolve one explicitly identified snapshot without trusting a pointer."""
+
+        canonical_region = canonicalize_pricing_region(provider, pricing_region)
+        if not isinstance(snapshot_id, str) or not _SNAPSHOT_ID_PATTERN.fullmatch(
+            snapshot_id
+        ):
+            raise PricingCatalogNotFoundError(
+                "Pricing catalog snapshot identity is invalid"
+            )
+        path = (
+            self._region_root(self.runtime_root, provider, canonical_region)
+            / "snapshots"
+            / f"{snapshot_id}.json"
+        )
+        payload = self._read_json(
+            path,
+            not_found_message="Pricing catalog snapshot is missing",
+        )
+        reference_payload = payload.get("reference")
+        if not isinstance(reference_payload, dict):
+            raise PricingCatalogTamperedError(
+                "Pricing catalog snapshot reference is invalid"
+            )
+        reference = self._parse_reference(reference_payload)
+        if (
+            reference.provider != provider
+            or reference.pricing_region != canonical_region
+            or reference.snapshot_id != snapshot_id
+        ):
+            raise PricingCatalogRegionMismatchError(
+                "Pricing catalog snapshot identity does not match its path"
             )
         return self.resolve_exact(
             reference,

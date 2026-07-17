@@ -1,4 +1,4 @@
-"""Migrate legacy provider-wide pricing files into reviewed baseline seeds."""
+"""One-time migration of an explicit legacy export into reviewed baselines."""
 
 from __future__ import annotations
 
@@ -184,7 +184,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--legacy-root",
         type=Path,
-        default=Path("json/fetched_data"),
+        required=True,
+        help="Explicit directory containing the three legacy provider exports",
     )
     parser.add_argument(
         "--output-root",

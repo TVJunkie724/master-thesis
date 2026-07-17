@@ -15,9 +15,17 @@ from backend.fetch_data.calculate_up_to_date_pricing import (
 @patch('backend.fetch_data.cloud_price_fetcher_google.fetch_gcp_price')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.billing_v1.CloudCatalogClient')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.load_gcp_credentials')
-@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "PricingCatalogRefreshService.persist_refresh"
+)
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "get_pricing_catalog_repository"
+)
 def test_calculate_up_to_date_pricing_integration(
-    mock_write_text,
+    mock_repository,
+    mock_persist_refresh,
     mock_load_gcp_credentials,
     mock_cloud_catalog_client,
     mock_gcp_price,
@@ -66,6 +74,11 @@ def test_calculate_up_to_date_pricing_integration(
     mock_gcp_price.return_value = {"pricePerMessage": 0.0011}
     mock_load_gcp_credentials.return_value = object()
     mock_cloud_catalog_client.return_value = object()
+    mock_persist_refresh.side_effect = (
+        {"provider": "aws", "status": "review_required"},
+        {"provider": "azure", "status": "review_required"},
+        {"provider": "gcp", "status": "review_required"},
+    )
 
     # Execute for AWS
     with (
@@ -85,20 +98,17 @@ def test_calculate_up_to_date_pricing_integration(
         )
 
     # Verify AWS
-    assert result_aws is not None
-    # assert "aws" in result_aws # It returns the data directly
-    assert "iot" in result_aws or "iotCore" in result_aws
-
-    # Verify file was written
-    mock_write_text.assert_called()
+    assert result_aws == {"provider": "aws", "status": "review_required"}
 
     # Execute for Azure
     result_azure = calculate_up_to_date_pricing("azure", additional_debug=False)
-    assert "iot" in result_azure or "iotHub" in result_azure
+    assert result_azure == {"provider": "azure", "status": "review_required"}
 
     # Execute for GCP
     result_gcp = calculate_up_to_date_pricing("gcp", additional_debug=False)
-    assert "iot" in result_gcp
+    assert result_gcp == {"provider": "gcp", "status": "review_required"}
+    assert mock_persist_refresh.call_count == 3
+    assert mock_repository.return_value.refresh_guard.call_count == 3
 
 def test_get_or_warn_with_fetched_value():
     """Test _get_or_warn when value is successfully fetched"""
@@ -221,9 +231,18 @@ def test_fetch_google_data_structure(mock_fetch):
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_credentials_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
 @patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
-@patch('backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically')
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "PricingCatalogRefreshService.persist_refresh",
+    return_value={"provider": "aws", "status": "review_required"},
+)
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing."
+    "get_pricing_catalog_repository"
+)
 def test_calculate_up_to_date_pricing_handles_errors(
-    mock_write_text,
+    mock_repository,
+    mock_persist_refresh,
     mock_aws_price,
     mock_load_json,
     mock_load_creds
@@ -271,6 +290,7 @@ def test_calculate_up_to_date_pricing_handles_errors(
             additional_debug=False,
         )
 
-    assert result is not None
-    # assert "aws" in result
-    assert "iot" in result or "iotCore" in result
+    assert result == {"provider": "aws", "status": "review_required"}
+    pricing = mock_persist_refresh.call_args.kwargs["pricing"]
+    assert "iotCore" in pricing
+    mock_repository.return_value.refresh_guard.assert_called_once()

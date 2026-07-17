@@ -8,7 +8,6 @@ import yaml
 
 from backend.pricing_catalog_models import PricingCatalogBaselineManifest
 from backend.pricing_catalog_repository import PricingCatalogRepository
-from backend.pricing_schema import strip_pricing_metadata
 from scripts.migrate_pricing_catalog_baselines import migrate_baselines
 
 
@@ -113,28 +112,3 @@ def test_migration_refuses_to_replace_existing_output(tmp_path):
         pass
     else:
         raise AssertionError("Existing baseline output must not be replaced")
-
-
-def test_committed_baselines_preserve_legacy_calculation_payloads(tmp_path):
-    project_root = Path(__file__).resolve().parents[3]
-    repository = PricingCatalogRepository(
-        runtime_root=tmp_path / "runtime",
-        baseline_root=project_root / "json" / "pricing_catalog_baselines",
-    )
-    repository.initialize_from_baseline()
-    for provider in ("aws", "azure", "gcp"):
-        legacy = json.loads(
-            (
-                project_root
-                / "json"
-                / "fetched_data"
-                / f"pricing_dynamic_{provider}.json"
-            ).read_text(encoding="utf-8")
-        )
-        baseline = repository.resolve_baseline(
-            provider,
-            require_fresh=False,
-        )
-        assert strip_pricing_metadata(baseline.pricing) == (
-            strip_pricing_metadata(legacy)
-        )

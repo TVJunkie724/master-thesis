@@ -30,82 +30,36 @@ def test_get_regions_age_aws(mock_get_age, mock_is_fresh):
     mock_get_age.assert_called_with(CONSTANTS.AWS_REGIONS_FILE_PATH)
 
 def test_get_pricing_age():
-    with patch("api.file_status.get_file_age_string") as mock_age, \
-         patch("api.file_status.load_json_file") as mock_load, \
-         patch("backend.pricing_utils.validate_pricing_schema") as mock_validate, \
-         patch("api.file_status.is_file_fresh") as mock_is_fresh, \
-         patch("os.path.isfile") as mock_isfile:
-        
-        mock_age.return_value = "2 days"
-        mock_isfile.return_value = True
-        mock_load.return_value = {"some": "data"}
-        mock_validate.return_value = {
-            "schema_version": "pricing-provider-schema.v1",
-            "contract_version": "2026.06.08",
-            "status": "valid",
-            "missing_keys": [],
-            "quality_status": "publishable",
-            "review_required": False,
-            "fallback_fields": [],
-            "unsupported_fields": [],
-        }
-        mock_is_fresh.return_value = True
-        
-        response = client.get("/pricing_age/aws")
-        assert response.status_code == 200
-        assert response.json() == {
-            "age": "2 days",
-            "schema_version": "pricing-provider-schema.v1",
-            "contract_version": "2026.06.08",
-            "status": "valid",
-            "missing_keys": [],
-            "quality_status": "publishable",
-            "review_required": False,
-            "fallback_fields": [],
-            "unsupported_fields": [],
-            "is_fresh": True,
-            "threshold_days": 7
-        }
-        mock_age.assert_called_with(CONSTANTS.AWS_PRICING_FILE_PATH)
-        mock_validate.assert_called_with("aws", {"some": "data"})
+    response = client.get("/pricing_age/aws?pricing_region=eu-central-1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["provider"] == "aws"
+    assert payload["pricing_region"] == "eu-central-1"
+    assert payload["active_reference"]["provider"] == "aws"
+    assert payload["threshold_days"] == 7
+    assert payload["status"] == "valid"
 
 def test_get_pricing_age_incomplete():
-    with patch("api.file_status.get_file_age_string") as mock_age, \
-         patch("api.file_status.load_json_file") as mock_load, \
-         patch("backend.pricing_utils.validate_pricing_schema") as mock_validate, \
-         patch("api.file_status.is_file_fresh") as mock_is_fresh, \
-         patch("os.path.isfile") as mock_isfile:
-        
-        mock_age.return_value = "5 hours"
-        mock_isfile.return_value = True
-        mock_load.return_value = {"some": "data"}
-        mock_validate.return_value = {
-            "schema_version": "pricing-provider-schema.v1",
-            "contract_version": "2026.06.08",
-            "status": "incomplete",
-            "missing_keys": ["service.key"],
-            "quality_status": "review_required",
-            "review_required": True,
-            "fallback_fields": ["lambda.requestPrice"],
-            "unsupported_fields": [],
-        }
-        mock_is_fresh.return_value = True
-        
-        response = client.get("/pricing_age/azure")
-        assert response.status_code == 200
-        assert response.json() == {
-            "age": "5 hours",
-            "schema_version": "pricing-provider-schema.v1",
-            "contract_version": "2026.06.08",
-            "status": "incomplete",
-            "missing_keys": ["service.key"],
-            "quality_status": "review_required",
-            "review_required": True,
-            "fallback_fields": ["lambda.requestPrice"],
-            "unsupported_fields": [],
-            "is_fresh": True,
-            "threshold_days": 7
-        }
+    response = client.get("/pricing_age/azure?pricing_region=northeurope")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "provider": "azure",
+        "pricing_region": "northeurope",
+        "age": "missing",
+        "schema_version": None,
+        "contract_version": None,
+        "status": "missing",
+        "missing_keys": [],
+        "quality_status": "review_required",
+        "review_required": True,
+        "fallback_fields": [],
+        "unsupported_fields": [],
+        "is_fresh": False,
+        "threshold_days": 7,
+        "active_reference": None,
+    }
 
 @patch("api.file_status.get_file_age_string")
 def test_get_currency_age(mock_get_age):

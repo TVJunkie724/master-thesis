@@ -58,23 +58,6 @@ def test_load_json_file_race_condition(mock_logger):
     
     assert mock_logger.error.called
 
-@patch("backend.config_loader.load_json_file_optional")
-def test_load_combined_pricing_partial_failure(mock_load_opt):
-    """Test behavior when one provider fails to load (returns empty dict)."""
-    def side_effect(path):
-        s_path = str(path)
-        if "gcp" in s_path: 
-            return {}
-        return {"some": "data"}
-    
-    mock_load_opt.side_effect = side_effect
-    
-    combined = config_loader.load_combined_pricing()
-    assert combined["aws"] == {"some": "data"}
-    assert combined["azure"] == {"some": "data"}
-    assert combined["gcp"] == {}
-
-
 @patch("backend.config_loader.logger")
 def test_load_config_file_uses_default_when_config_mount_missing(mock_logger):
     """Optimizer should start without the optional /config/config.json mount."""

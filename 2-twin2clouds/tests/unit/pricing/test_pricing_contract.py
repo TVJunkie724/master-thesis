@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from backend import config_loader
 from backend.fetch_data.calculate_up_to_date_pricing import (
     fetch_aws_data,
     fetch_azure_data,
@@ -14,7 +13,6 @@ from backend.pricing_schema import (
     PRICING_SCHEMA_VERSION,
     attach_pricing_metadata,
     canonical_pricing_snapshot_digest,
-    strip_pricing_metadata,
     validate_pricing_payload,
 )
 
@@ -335,26 +333,3 @@ def test_fetched_provider_payloads_are_schema_valid_and_publishable():
         assert validation["quality_status"] == "publishable"
         assert validation["fallback_fields"] == []
         assert payload["__schema__"]["provider"] == provider
-
-
-def test_combined_pricing_strips_reserved_metadata_before_calculation():
-    aws = attach_pricing_metadata(
-        "aws",
-        json.loads(Path("json/pricing.json").read_text())["aws"],
-        fetched={},
-        pricing_region="eu-central-1",
-    )
-
-    with patch.object(
-        config_loader,
-        "load_json_file_optional",
-        side_effect=[aws, {"__schema__": {}, "functions": {}}, {"__quality__": {}, "iot": {}}],
-    ):
-        combined = config_loader.load_combined_pricing()
-
-    assert "__schema__" not in combined["aws"]
-    assert "__quality__" not in combined["aws"]
-    assert "__schema__" not in combined["azure"]
-    assert "__quality__" not in combined["gcp"]
-    assert combined["aws"] == strip_pricing_metadata(aws)
-    assert combined["__aws_schema__"] == aws["__schema__"]

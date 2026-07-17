@@ -9,7 +9,9 @@
 | JWT/encryption keys | operator/bootstrap | `.secrets/runtime`, mounted read-only | durable, never auto-rotated |
 | local cloud compatibility files | local operator | `.secrets/local`, mounted read-only | optional, ignored |
 | pricing registry | Optimizer developers | `2-twin2clouds/pricing_registry` | versioned editable SSOT |
-| fetched pricing/regions/currency | Optimizer | `2-twin2clouds/json/fetched_data` | reviewed versioned baseline plus generated runtime refresh output |
+| pricing baseline seed | Optimizer developers | `2-twin2clouds/json/pricing_catalog_baselines` | versioned, reviewed, read-only |
+| runtime pricing catalogs | Optimizer | `optimizer_pricing_catalogs` volume | durable immutable snapshots plus atomic regional pointers |
+| fetched regions/currency | Optimizer | `2-twin2clouds/json/fetched_data` | replaceable local cache |
 | deployment template | Deployer developers | `3-cloud-deployer/templates/digital-twin` | versioned source |
 | legacy/example template material | Deployer history | `3-cloud-deployer/upload/template` | protected compatibility/provenance |
 | Deployer project definitions | Deployer | `3-cloud-deployer/upload/<project>` in source bind | durable non-secret project definition |
@@ -48,3 +50,7 @@ For a coherent local backup, stop mutating operations and preserve together:
 - versioned registry/template source from Git.
 
 Credential audit retention and production backup policy are operator responsibilities.
+The Optimizer pricing volume is also part of a reproducible audit backup when
+calculations reference runtime catalogs newer than the committed baseline.
+Catalog documents contain public pricing evidence only; credentials and
+account-scoped observations are forbidden.

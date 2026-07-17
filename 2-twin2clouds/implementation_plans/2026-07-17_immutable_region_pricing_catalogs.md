@@ -1160,6 +1160,38 @@ comparison and must not be extended for pricing behavior. Unit/widget tests
 may use fake `ManagementApi` adapters. No integration test mocks `dio`, and no
 test invokes a deployment or provider mutation.
 
+## Implementation Status
+
+| Slice | Status | Evidence |
+|---|---|---|
+| Slice 1: Catalog domain and migration | Done | immutable repository, reviewed seed package, durable Compose volume, startup readiness and migration tests |
+| Slice 2: Optimizer refresh and calculation integration | Done | provider-region refresh publication, exact calculation resolution, regional status/read APIs, removal of provider-wide pricing files; 680-test Optimizer suite green |
+| Slice 3: Management ownership and persistence | Pending | begins after the Optimizer contract passes all local gates |
+| Slice 4: Flutter read model and UX | Pending | depends on the final Management API contract |
+| Slice 5: Documentation and generated contracts | In progress | Optimizer/runtime docs updated with each completed boundary |
+| Slice 6: Review pass 1 | Pending | cross-project flow review after Slices 1-5 |
+| Slice 7: Review pass 2 and full gates | Pending | independent final non-E2E audit |
+
+### Slice 2 Verification Evidence
+
+- all three provider refresh paths emit bounded
+  `pricing-catalog-refresh-result.v2` summaries;
+- provider and canonical pricing region must match the embedded provider
+  metadata before a candidate can be stored;
+- account-scoped pricing context is excluded from immutable public snapshots
+  and bound to the active calculation reference digest;
+- calculations require, resolve, integrity-check, and return the same exact
+  three-provider reference context;
+- provider-wide production pricing files, constants, implicit engine loading,
+  and the unscoped export endpoint are removed;
+- regional status and exact diagnostic reads use reference timestamps and an
+  8 MiB repository read limit rather than file mtime;
+- focused catalog, refresh, API, calculation, credential-forwarding, and
+  repository suites passed after both review findings were fixed;
+- the complete Optimizer suite passed with `680 passed`;
+- Ruff, Bandit, `compileall`, `pip check`, Compose validation, and strict
+  MkDocs build passed.
+
 ## Review Checklists
 
 ### Plan Review

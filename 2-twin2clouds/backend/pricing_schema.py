@@ -310,6 +310,10 @@ def attach_pricing_metadata(
         "provider": provider,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    if pricing_region is not None:
+        if not isinstance(pricing_region, str) or not pricing_region.strip():
+            raise ValueError("pricing_region must be a non-empty string.")
+        schema["pricing_region"] = pricing_region.strip().lower()
     if provider == "aws":
         if (
             not isinstance(pricing_region, str)
@@ -318,7 +322,6 @@ def attach_pricing_metadata(
             raise ValueError(
                 "A valid pricing_region is required for AWS pricing snapshots."
             )
-        schema["pricing_region"] = pricing_region
     payload["__schema__"] = schema
     payload["__quality__"] = {
         "quality_status": (
@@ -332,10 +335,9 @@ def attach_pricing_metadata(
     evidence = _build_generated_evidence(provider, fetched or {})
     if evidence:
         payload["__evidence__"] = evidence
-    if provider == "aws":
-        payload["__schema__"]["snapshot_digest"] = (
-            canonical_pricing_snapshot_digest(payload)
-        )
+    payload["__schema__"]["snapshot_digest"] = canonical_pricing_snapshot_digest(
+        payload
+    )
     return payload
 
 
