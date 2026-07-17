@@ -9,7 +9,8 @@ version: "1.0"
 # Phase 1: Contract and Deployment-Dimension Matrix
 
 **Issue:** [#127](https://github.com/TVJunkie724/master-thesis/issues/127)  
-**Status:** Reviewed and implementation-ready  
+**Status:** Implemented and verified
+
 **Depends on:** None
 
 ## 1. Decision
@@ -56,7 +57,7 @@ The top-level object uses `additionalProperties: false` and contains:
 | `schema_version` | string | Exactly `resolved-deployment-specification.v1` |
 | `calculation_run_id` | UUID string | Created by Management before the Optimizer call and echoed unchanged |
 | `architecture_profile` | object | Exactly `five-layer-baseline@1`; no Phase 8 registry |
-| `optimization_context` | object | Profile, strategy, formula set, workload contract, pricing registry, and catalog references |
+| `optimization_context` | object | Profile, strategy, formula set, workload contract, pricing registry, and exact catalog snapshot, pricing-region, and content-digest references |
 | `currency` | string | ISO-style uppercase code used by the calculation |
 | `components` | array | Stable, unique component selections in canonical component order |
 | `digest` | string | `sha256:` plus lowercase hexadecimal digest |
@@ -197,8 +198,8 @@ content or complete manifest payloads.
 - JSON syntax and schema self-validation.
 - Valid all-AWS, all-Azure, and mixed-path fixtures.
 - Invalid secret field, unknown field, unknown service, wrong classification,
-  invalid value, duplicate component, missing slot, unsupported GCP L4/L5, and
-  digest-tampering fixtures.
+  invalid value and cross-field combinations, duplicate component, missing
+  slot, unsupported GCP L4/L5, and digest-tampering fixtures.
 - Deterministic digest test across Optimizer, Management API, and Deployer
   adapters.
 - Matrix audit against every calculator component and every Terraform SKU,
@@ -206,9 +207,9 @@ content or complete manifest payloads.
 
 ## 10. Definition of Done
 
-- [ ] #127 is closed with commit and verification evidence.
-- [ ] The canonical schema, dimension registry, and fixtures are committed.
-- [ ] Generated project copies are byte-identical and drift-checked.
-- [ ] Every child plan references this exact contract.
-- [ ] The complete Terraform literal audit is represented in the matrix.
-- [ ] No runtime selection, persistence, or Terraform behavior changed.
+- [x] #127 is closed with commit and verification evidence.
+- [x] The canonical schema, dimension registry, and fixtures are committed.
+- [x] Generated project copies are byte-identical and drift-checked.
+- [x] Every child plan references this exact contract.
+- [x] The complete Terraform literal audit is represented in the matrix.
+- [x] No runtime selection, persistence, or Terraform behavior changed.

@@ -90,6 +90,8 @@ isodate==0.7.2
 itsdangerous==2.2.0
 janus==2.0.0
 jmespath==1.1.0
+jsonschema-specifications==2025.9.1
+jsonschema==4.25.1
 markdown-it-py==4.2.0
 mdurl==0.1.2
 moto==5.2.2
@@ -119,8 +121,10 @@ python-multipart==0.0.32
 requests-oauthlib==2.0.0
 requests-unixsocket2==1.0.1
 requests==2.34.2
+referencing==0.37.0
 responses==0.26.2
 rich==15.0.0
+rpds-py==2026.6.3
 ruff==0.15.21
 s3transfer==0.19.1
 six==1.17.0

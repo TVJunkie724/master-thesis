@@ -1,0 +1,316 @@
+{
+  "expected_error": "unsupported_deployment_selection",
+  "specification": {
+    "schema_version": "resolved-deployment-specification.v1",
+    "calculation_run_id": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
+    "architecture_profile": {
+      "profile_id": "five-layer-baseline",
+      "profile_version": "1"
+    },
+    "optimization_context": {
+      "optimization_profile_id": "cost_minimization_v1",
+      "optimization_profile_version": "2026.06.08",
+      "calculation_strategy_id": "cost_calculation_v2",
+      "formula_set_id": "cost_formula_set_v1",
+      "workload_contract_id": "digital_twin_workload_v1",
+      "pricing_registry_version": "2026.07.17",
+      "catalog_references": {
+        "aws": {
+          "snapshot_id": "pcs_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "pricing_region": "eu-central-1",
+          "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "azure": {
+          "snapshot_id": "pcs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "pricing_region": "westeurope",
+          "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "gcp": {
+          "snapshot_id": "pcs_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "pricing_region": "europe-west1",
+          "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      }
+    },
+    "currency": "USD",
+    "components": [
+      {
+        "component_id": "l1.azure.iot_hub",
+        "slot_id": "l1_ingestion",
+        "provider": "azure",
+        "service_id": "azure.iot_hub",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.iot_hub.sku",
+            "classification": "deployable_selection",
+            "value": "F1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "catalog:pcs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "terraform_target": "azure_iot_hub_sku"
+          },
+          {
+            "dimension_id": "azure.iot_hub.capacity",
+            "classification": "deployable_selection",
+            "value": 2,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "catalog:pcs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "unit": "units",
+            "terraform_target": "azure_iot_hub_capacity"
+          }
+        ]
+      },
+      {
+        "component_id": "l1.azure.function_plan",
+        "slot_id": "l1_ingestion",
+        "provider": "azure",
+        "service_id": "azure.functions",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l1_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          }
+        ]
+      },
+      {
+        "component_id": "l1.azure.event_grid",
+        "slot_id": "l1_ingestion",
+        "provider": "azure",
+        "service_id": "azure.event_grid",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.event_grid.billing",
+            "classification": "usage_tier",
+            "value": "operations",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "catalog:pcs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ]
+      },
+      {
+        "component_id": "l2.azure.function_plan",
+        "slot_id": "l2_processing",
+        "provider": "azure",
+        "service_id": "azure.functions",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l2_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          }
+        ]
+      },
+      {
+        "component_id": "l3_hot.azure.cosmos_db",
+        "slot_id": "l3_hot_storage",
+        "provider": "azure",
+        "service_id": "azure.cosmos_db",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.cosmos_db.capacity_mode",
+            "classification": "deployable_selection",
+            "value": "serverless",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_cosmos_capacity_mode"
+          }
+        ]
+      },
+      {
+        "component_id": "l3_hot.azure.function_plan",
+        "slot_id": "l3_hot_storage",
+        "provider": "azure",
+        "service_id": "azure.functions",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l3_function_plan_sku"
+          }
+        ]
+      },
+      {
+        "component_id": "l3_cool.azure.blob_storage",
+        "slot_id": "l3_cool_storage",
+        "provider": "azure",
+        "service_id": "azure.blob_storage",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.storage.account_tier",
+            "classification": "deployable_selection",
+            "value": "Standard",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_storage_account_tier"
+          },
+          {
+            "dimension_id": "azure.storage.replication_type",
+            "classification": "deployable_selection",
+            "value": "LRS",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_storage_replication_type"
+          },
+          {
+            "dimension_id": "azure.blob.tier",
+            "classification": "deployable_selection",
+            "value": "Cool",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l3_cool_blob_tier"
+          }
+        ]
+      },
+      {
+        "component_id": "l3_cool.azure.function_plan",
+        "slot_id": "l3_cool_storage",
+        "provider": "azure",
+        "service_id": "azure.functions",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l3_cool_function_plan_sku"
+          }
+        ]
+      },
+      {
+        "component_id": "l3_archive.azure.blob_storage",
+        "slot_id": "l3_archive_storage",
+        "provider": "azure",
+        "service_id": "azure.blob_storage",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.storage.account_tier",
+            "classification": "deployable_selection",
+            "value": "Standard",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_storage_account_tier"
+          },
+          {
+            "dimension_id": "azure.storage.replication_type",
+            "classification": "deployable_selection",
+            "value": "LRS",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_storage_replication_type"
+          },
+          {
+            "dimension_id": "azure.blob.tier",
+            "classification": "deployable_selection",
+            "value": "Archive",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l3_archive_blob_tier"
+          }
+        ]
+      },
+      {
+        "component_id": "l3_archive.azure.function_plan",
+        "slot_id": "l3_archive_storage",
+        "provider": "azure",
+        "service_id": "azure.functions",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l3_archive_function_plan_sku"
+          }
+        ]
+      },
+      {
+        "component_id": "l4.azure.digital_twins",
+        "slot_id": "l4_twin_state",
+        "provider": "azure",
+        "service_id": "azure.digital_twins",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.digital_twins.billing",
+            "classification": "usage_tier",
+            "value": "operations_query_units_and_messages",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "catalog:pcs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ]
+      },
+      {
+        "component_id": "l4.azure.pusher_function",
+        "slot_id": "l4_twin_state",
+        "provider": "azure",
+        "service_id": "azure.functions",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l4_function_plan_sku"
+          }
+        ]
+      },
+      {
+        "component_id": "l5.azure.managed_grafana",
+        "slot_id": "l5_visualization",
+        "provider": "azure",
+        "service_id": "azure.managed_grafana",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.grafana.sku",
+            "classification": "deployable_selection",
+            "value": "Standard",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_grafana_sku"
+          }
+        ]
+      }
+    ],
+    "digest": "sha256:ba91b6ef8039f15bf0ab6c0434a065c66b0ffab1938c129a15729f7ca98002af"
+  }
+}

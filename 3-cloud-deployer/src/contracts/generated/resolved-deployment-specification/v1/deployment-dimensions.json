@@ -1,0 +1,1220 @@
+{
+  "registry_version": "resolved-deployment-dimensions.v1",
+  "specification_schema_version": "resolved-deployment-specification.v1",
+  "architecture_profile": {
+    "profile_id": "five-layer-baseline",
+    "profile_version": "1"
+  },
+  "classifications": [
+    "deployable_selection",
+    "usage_tier",
+    "account_scope",
+    "non_deployable_assumption"
+  ],
+  "resolution_types": [
+    "optimizer_selection",
+    "baseline_invariant",
+    "formula_input",
+    "pricing_model"
+  ],
+  "dimension_resolution": {
+    "aws.iot_core.message_pricing": "pricing_model",
+    "aws.lambda.memory_mb": "baseline_invariant",
+    "aws.lambda.duration_ms": "formula_input",
+    "aws.step_functions.billing": "pricing_model",
+    "aws.eventbridge.billing": "pricing_model",
+    "aws.dynamodb.billing_mode": "baseline_invariant",
+    "aws.s3.storage_class": "baseline_invariant",
+    "aws.twinmaker.account_plan": "pricing_model",
+    "aws.grafana.user_billing": "pricing_model",
+    "azure.iot_hub.sku": "optimizer_selection",
+    "azure.iot_hub.capacity": "optimizer_selection",
+    "azure.functions.plan_sku": "baseline_invariant",
+    "azure.functions.memory_mb": "formula_input",
+    "azure.event_grid.billing": "pricing_model",
+    "azure.logic_apps.billing": "pricing_model",
+    "azure.cosmos_db.capacity_mode": "baseline_invariant",
+    "azure.storage.account_tier": "baseline_invariant",
+    "azure.storage.replication_type": "baseline_invariant",
+    "azure.blob.tier": "baseline_invariant",
+    "azure.digital_twins.billing": "pricing_model",
+    "azure.grafana.sku": "baseline_invariant",
+    "gcp.pubsub.billing": "pricing_model",
+    "gcp.functions.memory_mb": "baseline_invariant",
+    "gcp.functions.min_instance_count": "baseline_invariant",
+    "gcp.functions.max_instance_count": "baseline_invariant",
+    "gcp.functions.duration_ms": "formula_input",
+    "gcp.workflows.billing": "pricing_model",
+    "gcp.firestore.mode": "baseline_invariant",
+    "gcp.storage.storage_class": "baseline_invariant"
+  },
+  "dimension_units": {
+    "aws.lambda.memory_mb": "MB",
+    "aws.lambda.duration_ms": "ms",
+    "azure.iot_hub.capacity": "units",
+    "azure.functions.memory_mb": "MB",
+    "gcp.functions.memory_mb": "MB",
+    "gcp.functions.min_instance_count": "instances",
+    "gcp.functions.max_instance_count": "instances",
+    "gcp.functions.duration_ms": "ms"
+  },
+  "slots": {
+    "l1_ingestion": {
+      "optimizer_key": "L1",
+      "deployer_key": "layer_1_provider"
+    },
+    "l2_processing": {
+      "optimizer_key": "L2",
+      "deployer_key": "layer_2_provider"
+    },
+    "l3_hot_storage": {
+      "optimizer_key": "L3_hot",
+      "deployer_key": "layer_3_hot_provider"
+    },
+    "l3_cool_storage": {
+      "optimizer_key": "L3_cool",
+      "deployer_key": "layer_3_cold_provider"
+    },
+    "l3_archive_storage": {
+      "optimizer_key": "L3_archive",
+      "deployer_key": "layer_3_archive_provider"
+    },
+    "l4_twin_state": {
+      "optimizer_key": "L4",
+      "deployer_key": "layer_4_provider"
+    },
+    "l5_visualization": {
+      "optimizer_key": "L5",
+      "deployer_key": "layer_5_provider"
+    },
+    "cross_cloud_glue": {
+      "optimizer_key": null,
+      "deployer_key": null
+    }
+  },
+  "cross_cloud_glue_policy": {
+    "component_by_provider": {
+      "aws": "glue.aws.lambda",
+      "azure": "glue.azure.functions",
+      "gcp": "glue.gcp.functions"
+    },
+    "boundaries": [
+      {
+        "boundary_id": "l1_to_l2",
+        "source_slot": "l1_ingestion",
+        "target_slot": "l2_processing",
+        "receiver_slot": "l2_processing"
+      },
+      {
+        "boundary_id": "l2_to_l3_hot",
+        "source_slot": "l2_processing",
+        "target_slot": "l3_hot_storage",
+        "receiver_slot": "l3_hot_storage"
+      },
+      {
+        "boundary_id": "l3_hot_to_l3_cool",
+        "source_slot": "l3_hot_storage",
+        "target_slot": "l3_cool_storage",
+        "receiver_slot": "l3_cool_storage"
+      },
+      {
+        "boundary_id": "l3_cool_to_l3_archive",
+        "source_slot": "l3_cool_storage",
+        "target_slot": "l3_archive_storage",
+        "receiver_slot": "l3_archive_storage"
+      },
+      {
+        "boundary_id": "l4_to_l3_hot_read",
+        "source_slot": "l4_twin_state",
+        "target_slot": "l3_hot_storage",
+        "receiver_slot": "l3_hot_storage"
+      }
+    ]
+  },
+  "slot_requirements": {
+    "l1_ingestion": {
+      "aws": {
+        "required_components": [
+          "l1.aws.iot_core",
+          "l1.aws.dispatcher_lambda"
+        ],
+        "optional_components": []
+      },
+      "azure": {
+        "required_components": [
+          "l1.azure.iot_hub",
+          "l1.azure.function_plan",
+          "l1.azure.event_grid"
+        ],
+        "optional_components": []
+      },
+      "gcp": {
+        "required_components": [
+          "l1.gcp.pubsub",
+          "l1.gcp.dispatcher_function"
+        ],
+        "optional_components": []
+      }
+    },
+    "l2_processing": {
+      "aws": {
+        "required_components": [
+          "l2.aws.processing_lambdas"
+        ],
+        "optional_components": [
+          "l2.aws.step_functions",
+          "l2.aws.eventbridge"
+        ]
+      },
+      "azure": {
+        "required_components": [
+          "l2.azure.function_plan"
+        ],
+        "optional_components": [
+          "l2.azure.logic_apps",
+          "l2.azure.event_grid"
+        ]
+      },
+      "gcp": {
+        "required_components": [
+          "l2.gcp.processing_functions"
+        ],
+        "optional_components": [
+          "l2.gcp.workflows"
+        ]
+      }
+    },
+    "l3_hot_storage": {
+      "aws": {
+        "required_components": [
+          "l3_hot.aws.dynamodb",
+          "l3_hot.aws.reader_lambdas"
+        ],
+        "optional_components": []
+      },
+      "azure": {
+        "required_components": [
+          "l3_hot.azure.cosmos_db",
+          "l3_hot.azure.function_plan"
+        ],
+        "optional_components": []
+      },
+      "gcp": {
+        "required_components": [
+          "l3_hot.gcp.firestore",
+          "l3_hot.gcp.reader_function"
+        ],
+        "optional_components": []
+      }
+    },
+    "l3_cool_storage": {
+      "aws": {
+        "required_components": [
+          "l3_cool.aws.s3",
+          "l3_cool.aws.mover_lambda"
+        ],
+        "optional_components": []
+      },
+      "azure": {
+        "required_components": [
+          "l3_cool.azure.blob_storage",
+          "l3_cool.azure.function_plan"
+        ],
+        "optional_components": []
+      },
+      "gcp": {
+        "required_components": [
+          "l3_cool.gcp.cloud_storage",
+          "l3_cool.gcp.mover_function"
+        ],
+        "optional_components": []
+      }
+    },
+    "l3_archive_storage": {
+      "aws": {
+        "required_components": [
+          "l3_archive.aws.s3",
+          "l3_archive.aws.mover_lambda"
+        ],
+        "optional_components": []
+      },
+      "azure": {
+        "required_components": [
+          "l3_archive.azure.blob_storage",
+          "l3_archive.azure.function_plan"
+        ],
+        "optional_components": []
+      },
+      "gcp": {
+        "required_components": [
+          "l3_archive.gcp.cloud_storage",
+          "l3_archive.gcp.mover_function"
+        ],
+        "optional_components": []
+      }
+    },
+    "l4_twin_state": {
+      "aws": {
+        "required_components": [
+          "l4.aws.twinmaker",
+          "l4.aws.connector_lambda"
+        ],
+        "optional_components": []
+      },
+      "azure": {
+        "required_components": [
+          "l4.azure.digital_twins",
+          "l4.azure.pusher_function"
+        ],
+        "optional_components": []
+      }
+    },
+    "l5_visualization": {
+      "aws": {
+        "required_components": [
+          "l5.aws.managed_grafana"
+        ],
+        "optional_components": []
+      },
+      "azure": {
+        "required_components": [
+          "l5.azure.managed_grafana"
+        ],
+        "optional_components": []
+      }
+    }
+  },
+  "components": {
+    "l1.aws.iot_core": {
+      "slot_id": "l1_ingestion",
+      "provider": "aws",
+      "service_id": "aws.iot_core",
+      "dimensions": {
+        "aws.iot_core.message_pricing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "progressive_usage"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l1.aws.dispatcher_lambda": {
+      "slot_id": "l1_ingestion",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "dimensions": {
+        "aws.lambda.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "aws_l1_lambda_memory_mb",
+          "required": true
+        },
+        "aws.lambda.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
+        }
+      }
+    },
+    "l2.aws.processing_lambdas": {
+      "slot_id": "l2_processing",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "dimensions": {
+        "aws.lambda.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "aws_l2_lambda_memory_mb",
+          "required": true
+        },
+        "aws.lambda.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
+        }
+      }
+    },
+    "l2.aws.step_functions": {
+      "slot_id": "l2_processing",
+      "provider": "aws",
+      "service_id": "aws.step_functions",
+      "dimensions": {
+        "aws.step_functions.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "state_transitions"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l2.aws.eventbridge": {
+      "slot_id": "l2_processing",
+      "provider": "aws",
+      "service_id": "aws.eventbridge",
+      "dimensions": {
+        "aws.eventbridge.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "events"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l3_hot.aws.dynamodb": {
+      "slot_id": "l3_hot_storage",
+      "provider": "aws",
+      "service_id": "aws.dynamodb",
+      "dimensions": {
+        "aws.dynamodb.billing_mode": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "PAY_PER_REQUEST"
+          ],
+          "terraform_target": "aws_dynamodb_billing_mode",
+          "required": true
+        }
+      }
+    },
+    "l3_hot.aws.reader_lambdas": {
+      "slot_id": "l3_hot_storage",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "dimensions": {
+        "aws.lambda.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "aws_l3_reader_lambda_memory_mb",
+          "required": true
+        }
+      }
+    },
+    "l3_cool.aws.s3": {
+      "slot_id": "l3_cool_storage",
+      "provider": "aws",
+      "service_id": "aws.s3",
+      "dimensions": {
+        "aws.s3.storage_class": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "STANDARD_IA"
+          ],
+          "terraform_target": "aws_l3_cool_storage_class",
+          "required": true
+        }
+      }
+    },
+    "l3_cool.aws.mover_lambda": {
+      "slot_id": "l3_cool_storage",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "dimensions": {
+        "aws.lambda.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            512
+          ],
+          "terraform_target": "aws_l3_cool_mover_memory_mb",
+          "required": true
+        },
+        "aws.lambda.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
+        }
+      }
+    },
+    "l3_archive.aws.s3": {
+      "slot_id": "l3_archive_storage",
+      "provider": "aws",
+      "service_id": "aws.s3",
+      "dimensions": {
+        "aws.s3.storage_class": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "DEEP_ARCHIVE"
+          ],
+          "terraform_target": "aws_l3_archive_storage_class",
+          "required": true
+        }
+      }
+    },
+    "l3_archive.aws.mover_lambda": {
+      "slot_id": "l3_archive_storage",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "dimensions": {
+        "aws.lambda.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            512
+          ],
+          "terraform_target": "aws_l3_archive_mover_memory_mb",
+          "required": true
+        },
+        "aws.lambda.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
+        }
+      }
+    },
+    "l4.aws.twinmaker": {
+      "slot_id": "l4_twin_state",
+      "provider": "aws",
+      "service_id": "aws.iot_twinmaker",
+      "dimensions": {
+        "aws.twinmaker.account_plan": {
+          "classification": "account_scope",
+          "value_type": "string",
+          "allowed_values": [
+            "STANDARD"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l4.aws.connector_lambda": {
+      "slot_id": "l4_twin_state",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "dimensions": {
+        "aws.lambda.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "aws_l4_lambda_memory_mb",
+          "required": true
+        }
+      }
+    },
+    "l5.aws.managed_grafana": {
+      "slot_id": "l5_visualization",
+      "provider": "aws",
+      "service_id": "aws.managed_grafana",
+      "dimensions": {
+        "aws.grafana.user_billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "licensed_users"
+          ],
+          "required": true
+        }
+      }
+    },
+    "glue.aws.lambda": {
+      "slot_id": "cross_cloud_glue",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "dimensions": {
+        "aws.lambda.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "aws_glue_lambda_memory_mb",
+          "required": true
+        },
+        "aws.lambda.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
+        }
+      }
+    },
+    "l1.azure.iot_hub": {
+      "slot_id": "l1_ingestion",
+      "provider": "azure",
+      "service_id": "azure.iot_hub",
+      "dimensions": {
+        "azure.iot_hub.sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "F1",
+            "S1",
+            "S2",
+            "S3"
+          ],
+          "terraform_target": "azure_iot_hub_sku",
+          "required": true
+        },
+        "azure.iot_hub.capacity": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "terraform_target": "azure_iot_hub_capacity",
+          "required": true
+        }
+      },
+      "combination_constraints": [
+        {
+          "selector_dimension": "azure.iot_hub.sku",
+          "dependent_dimension": "azure.iot_hub.capacity",
+          "ranges_by_selector": {
+            "F1": {
+              "minimum": 1,
+              "maximum": 1
+            },
+            "S1": {
+              "minimum": 1,
+              "maximum": 200
+            },
+            "S2": {
+              "minimum": 1,
+              "maximum": 200
+            },
+            "S3": {
+              "minimum": 1,
+              "maximum": 10
+            }
+          }
+        }
+      ]
+    },
+    "l1.azure.function_plan": {
+      "slot_id": "l1_ingestion",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "dimensions": {
+        "azure.functions.plan_sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Y1"
+          ],
+          "terraform_target": "azure_l1_function_plan_sku",
+          "required": true
+        },
+        "azure.functions.memory_mb": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 128,
+          "maximum": 1536,
+          "required": true
+        }
+      }
+    },
+    "l1.azure.event_grid": {
+      "slot_id": "l1_ingestion",
+      "provider": "azure",
+      "service_id": "azure.event_grid",
+      "dimensions": {
+        "azure.event_grid.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "operations"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l2.azure.function_plan": {
+      "slot_id": "l2_processing",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "dimensions": {
+        "azure.functions.plan_sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Y1"
+          ],
+          "terraform_target": "azure_l2_function_plan_sku",
+          "required": true
+        },
+        "azure.functions.memory_mb": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 128,
+          "maximum": 1536,
+          "required": true
+        }
+      }
+    },
+    "l2.azure.logic_apps": {
+      "slot_id": "l2_processing",
+      "provider": "azure",
+      "service_id": "azure.logic_apps",
+      "dimensions": {
+        "azure.logic_apps.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "actions"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l2.azure.event_grid": {
+      "slot_id": "l2_processing",
+      "provider": "azure",
+      "service_id": "azure.event_grid",
+      "dimensions": {
+        "azure.event_grid.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "operations"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l3_hot.azure.cosmos_db": {
+      "slot_id": "l3_hot_storage",
+      "provider": "azure",
+      "service_id": "azure.cosmos_db",
+      "dimensions": {
+        "azure.cosmos_db.capacity_mode": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "serverless"
+          ],
+          "terraform_target": "azure_cosmos_capacity_mode",
+          "required": true
+        }
+      }
+    },
+    "l3_hot.azure.function_plan": {
+      "slot_id": "l3_hot_storage",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "dimensions": {
+        "azure.functions.plan_sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Y1"
+          ],
+          "terraform_target": "azure_l3_function_plan_sku",
+          "required": true
+        }
+      }
+    },
+    "l3_cool.azure.blob_storage": {
+      "slot_id": "l3_cool_storage",
+      "provider": "azure",
+      "service_id": "azure.blob_storage",
+      "dimensions": {
+        "azure.storage.account_tier": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard"
+          ],
+          "terraform_target": "azure_storage_account_tier",
+          "required": true
+        },
+        "azure.storage.replication_type": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "LRS"
+          ],
+          "terraform_target": "azure_storage_replication_type",
+          "required": true
+        },
+        "azure.blob.tier": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Cool"
+          ],
+          "terraform_target": "azure_l3_cool_blob_tier",
+          "required": true
+        }
+      }
+    },
+    "l3_cool.azure.function_plan": {
+      "slot_id": "l3_cool_storage",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "dimensions": {
+        "azure.functions.plan_sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Y1"
+          ],
+          "terraform_target": "azure_l3_cool_function_plan_sku",
+          "required": true
+        }
+      }
+    },
+    "l3_archive.azure.blob_storage": {
+      "slot_id": "l3_archive_storage",
+      "provider": "azure",
+      "service_id": "azure.blob_storage",
+      "dimensions": {
+        "azure.storage.account_tier": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard"
+          ],
+          "terraform_target": "azure_storage_account_tier",
+          "required": true
+        },
+        "azure.storage.replication_type": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "LRS"
+          ],
+          "terraform_target": "azure_storage_replication_type",
+          "required": true
+        },
+        "azure.blob.tier": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Archive"
+          ],
+          "terraform_target": "azure_l3_archive_blob_tier",
+          "required": true
+        }
+      }
+    },
+    "l3_archive.azure.function_plan": {
+      "slot_id": "l3_archive_storage",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "dimensions": {
+        "azure.functions.plan_sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Y1"
+          ],
+          "terraform_target": "azure_l3_archive_function_plan_sku",
+          "required": true
+        }
+      }
+    },
+    "l4.azure.digital_twins": {
+      "slot_id": "l4_twin_state",
+      "provider": "azure",
+      "service_id": "azure.digital_twins",
+      "dimensions": {
+        "azure.digital_twins.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "operations_query_units_and_messages"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l4.azure.pusher_function": {
+      "slot_id": "l4_twin_state",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "dimensions": {
+        "azure.functions.plan_sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Y1"
+          ],
+          "terraform_target": "azure_l4_function_plan_sku",
+          "required": true
+        }
+      }
+    },
+    "l5.azure.managed_grafana": {
+      "slot_id": "l5_visualization",
+      "provider": "azure",
+      "service_id": "azure.managed_grafana",
+      "dimensions": {
+        "azure.grafana.sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard"
+          ],
+          "terraform_target": "azure_grafana_sku",
+          "required": true
+        }
+      }
+    },
+    "glue.azure.functions": {
+      "slot_id": "cross_cloud_glue",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "dimensions": {
+        "azure.functions.plan_sku": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "Y1"
+          ],
+          "terraform_target": "azure_glue_function_plan_sku",
+          "required": true
+        },
+        "azure.functions.memory_mb": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 128,
+          "maximum": 1536,
+          "required": true
+        }
+      }
+    },
+    "l1.gcp.pubsub": {
+      "slot_id": "l1_ingestion",
+      "provider": "gcp",
+      "service_id": "gcp.pubsub",
+      "dimensions": {
+        "gcp.pubsub.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "throughput"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l1.gcp.dispatcher_function": {
+      "slot_id": "l1_ingestion",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "dimensions": {
+        "gcp.functions.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "gcp_l1_function_memory_mb",
+          "required": true
+        },
+        "gcp.functions.min_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            0
+          ],
+          "terraform_target": "gcp_l1_function_min_instances",
+          "required": true
+        },
+        "gcp.functions.max_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            10
+          ],
+          "terraform_target": "gcp_l1_function_max_instances",
+          "required": true
+        },
+        "gcp.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 3600000,
+          "required": true
+        }
+      }
+    },
+    "l2.gcp.processing_functions": {
+      "slot_id": "l2_processing",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "dimensions": {
+        "gcp.functions.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "gcp_l2_function_memory_mb",
+          "required": true
+        },
+        "gcp.functions.min_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            0
+          ],
+          "terraform_target": "gcp_l2_function_min_instances",
+          "required": true
+        },
+        "gcp.functions.max_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            10
+          ],
+          "terraform_target": "gcp_l2_function_max_instances",
+          "required": true
+        },
+        "gcp.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 3600000,
+          "required": true
+        }
+      }
+    },
+    "l2.gcp.workflows": {
+      "slot_id": "l2_processing",
+      "provider": "gcp",
+      "service_id": "gcp.workflows",
+      "dimensions": {
+        "gcp.workflows.billing": {
+          "classification": "usage_tier",
+          "value_type": "string",
+          "allowed_values": [
+            "steps"
+          ],
+          "required": true
+        }
+      }
+    },
+    "l3_hot.gcp.firestore": {
+      "slot_id": "l3_hot_storage",
+      "provider": "gcp",
+      "service_id": "gcp.firestore",
+      "dimensions": {
+        "gcp.firestore.mode": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "FIRESTORE_NATIVE"
+          ],
+          "terraform_target": "gcp_firestore_mode",
+          "required": true
+        }
+      }
+    },
+    "l3_hot.gcp.reader_function": {
+      "slot_id": "l3_hot_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "dimensions": {
+        "gcp.functions.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "gcp_l3_reader_function_memory_mb",
+          "required": true
+        },
+        "gcp.functions.min_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            0
+          ],
+          "terraform_target": "gcp_l3_reader_function_min_instances",
+          "required": true
+        },
+        "gcp.functions.max_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            10
+          ],
+          "terraform_target": "gcp_l3_reader_function_max_instances",
+          "required": true
+        }
+      }
+    },
+    "l3_cool.gcp.cloud_storage": {
+      "slot_id": "l3_cool_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_storage",
+      "dimensions": {
+        "gcp.storage.storage_class": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "NEARLINE"
+          ],
+          "terraform_target": "gcp_l3_cool_storage_class",
+          "required": true
+        }
+      }
+    },
+    "l3_cool.gcp.mover_function": {
+      "slot_id": "l3_cool_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "dimensions": {
+        "gcp.functions.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            512
+          ],
+          "terraform_target": "gcp_l3_cool_mover_memory_mb",
+          "required": true
+        },
+        "gcp.functions.min_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            0
+          ],
+          "terraform_target": "gcp_l3_cool_mover_min_instances",
+          "required": true
+        },
+        "gcp.functions.max_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            1
+          ],
+          "terraform_target": "gcp_l3_cool_mover_max_instances",
+          "required": true
+        },
+        "gcp.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 3600000,
+          "required": true
+        }
+      }
+    },
+    "l3_archive.gcp.cloud_storage": {
+      "slot_id": "l3_archive_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_storage",
+      "dimensions": {
+        "gcp.storage.storage_class": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "ARCHIVE"
+          ],
+          "terraform_target": "gcp_l3_archive_storage_class",
+          "required": true
+        }
+      }
+    },
+    "l3_archive.gcp.mover_function": {
+      "slot_id": "l3_archive_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "dimensions": {
+        "gcp.functions.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            512
+          ],
+          "terraform_target": "gcp_l3_archive_mover_memory_mb",
+          "required": true
+        },
+        "gcp.functions.min_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            0
+          ],
+          "terraform_target": "gcp_l3_archive_mover_min_instances",
+          "required": true
+        },
+        "gcp.functions.max_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            1
+          ],
+          "terraform_target": "gcp_l3_archive_mover_max_instances",
+          "required": true
+        },
+        "gcp.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 3600000,
+          "required": true
+        }
+      }
+    },
+    "glue.gcp.functions": {
+      "slot_id": "cross_cloud_glue",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "dimensions": {
+        "gcp.functions.memory_mb": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            256
+          ],
+          "terraform_target": "gcp_glue_function_memory_mb",
+          "required": true
+        },
+        "gcp.functions.min_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            0
+          ],
+          "terraform_target": "gcp_glue_function_min_instances",
+          "required": true
+        },
+        "gcp.functions.max_instance_count": {
+          "classification": "deployable_selection",
+          "value_type": "integer",
+          "allowed_values": [
+            10
+          ],
+          "terraform_target": "gcp_glue_function_max_instances",
+          "required": true
+        },
+        "gcp.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 3600000,
+          "required": true
+        }
+      }
+    }
+  }
+}

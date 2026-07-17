@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/resolved-deployment-specification/v1/schema.json",
+  "title": "ResolvedDeploymentSpecification v1",
+  "description": "Secrets-free, immutable deployment selections resolved from one optimizer run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "calculation_run_id",
+    "architecture_profile",
+    "optimization_context",
+    "currency",
+    "components",
+    "digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "resolved-deployment-specification.v1"
+    },
+    "calculation_run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "architecture_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_version"
+      ],
+      "properties": {
+        "profile_id": {
+          "const": "five-layer-baseline"
+        },
+        "profile_version": {
+          "const": "1"
+        }
+      }
+    },
+    "optimization_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "optimization_profile_id",
+        "optimization_profile_version",
+        "calculation_strategy_id",
+        "formula_set_id",
+        "workload_contract_id",
+        "pricing_registry_version",
+        "catalog_references"
+      ],
+      "properties": {
+        "optimization_profile_id": {
+          "$ref": "#/$defs/reference"
+        },
+        "optimization_profile_version": {
+          "$ref": "#/$defs/reference"
+        },
+        "calculation_strategy_id": {
+          "$ref": "#/$defs/reference"
+        },
+        "formula_set_id": {
+          "$ref": "#/$defs/reference"
+        },
+        "workload_contract_id": {
+          "$ref": "#/$defs/reference"
+        },
+        "pricing_registry_version": {
+          "$ref": "#/$defs/reference"
+        },
+        "catalog_references": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "aws",
+            "azure",
+            "gcp"
+          ],
+          "properties": {
+            "aws": {
+              "$ref": "#/$defs/catalog_reference"
+            },
+            "azure": {
+              "$ref": "#/$defs/catalog_reference"
+            },
+            "gcp": {
+              "$ref": "#/$defs/catalog_reference"
+            }
+          }
+        }
+      }
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "components": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "catalog_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "pricing_region",
+        "content_digest"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "pattern": "^pcs_[0-9a-f]{64}$"
+        },
+        "pricing_region": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,62}$"
+        },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]*$"
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "slot_id",
+        "provider",
+        "service_id",
+        "required",
+        "dimensions"
+      ],
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/reference"
+        },
+        "slot_id": {
+          "enum": [
+            "l1_ingestion",
+            "l2_processing",
+            "l3_hot_storage",
+            "l3_cool_storage",
+            "l3_archive_storage",
+            "l4_twin_state",
+            "l5_visualization",
+            "cross_cloud_glue"
+          ]
+        },
+        "provider": {
+          "enum": [
+            "aws",
+            "azure",
+            "gcp"
+          ]
+        },
+        "service_id": {
+          "$ref": "#/$defs/reference"
+        },
+        "required": {
+          "const": true
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/dimension"
+          }
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension_id",
+        "classification",
+        "value",
+        "formula_reference",
+        "evidence_reference"
+      ],
+      "properties": {
+        "dimension_id": {
+          "$ref": "#/$defs/reference"
+        },
+        "classification": {
+          "enum": [
+            "deployable_selection",
+            "usage_tier",
+            "account_scope",
+            "non_deployable_assumption"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "integer",
+            "boolean"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "terraform_target": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,127}$"
+        },
+        "formula_reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "evidence_reference": {
+          "$ref": "#/$defs/reference"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "const": "deployable_selection"
+              }
+            },
+            "required": [
+              "classification"
+            ]
+          },
+          "then": {
+            "required": [
+              "terraform_target"
+            ]
+          },
+          "else": {
+            "properties": {
+              "terraform_target": false
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,423 @@
+{
+  "schema_version": "resolved-deployment-specification.v1",
+  "calculation_run_id": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
+  "architecture_profile": {
+    "profile_id": "five-layer-baseline",
+    "profile_version": "1"
+  },
+  "optimization_context": {
+    "optimization_profile_id": "cost_minimization_v1",
+    "optimization_profile_version": "2026.06.08",
+    "calculation_strategy_id": "cost_calculation_v2",
+    "formula_set_id": "cost_formula_set_v1",
+    "workload_contract_id": "digital_twin_workload_v1",
+    "pricing_registry_version": "2026.07.17",
+    "catalog_references": {
+      "aws": {
+        "snapshot_id": "pcs_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pricing_region": "eu-central-1",
+        "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "azure": {
+        "snapshot_id": "pcs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "pricing_region": "westeurope",
+        "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "gcp": {
+        "snapshot_id": "pcs_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "pricing_region": "europe-west1",
+        "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    }
+  },
+  "currency": "USD",
+  "components": [
+    {
+      "component_id": "l1.gcp.pubsub",
+      "slot_id": "l1_ingestion",
+      "provider": "gcp",
+      "service_id": "gcp.pubsub",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.pubsub.billing",
+          "classification": "usage_tier",
+          "value": "throughput",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "catalog:pcs_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    },
+    {
+      "component_id": "l1.gcp.dispatcher_function",
+      "slot_id": "l1_ingestion",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.functions.memory_mb",
+          "classification": "deployable_selection",
+          "value": 256,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "gcp_l1_function_memory_mb"
+        },
+        {
+          "dimension_id": "gcp.functions.min_instance_count",
+          "classification": "deployable_selection",
+          "value": 0,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_l1_function_min_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.max_instance_count",
+          "classification": "deployable_selection",
+          "value": 10,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_l1_function_max_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.duration_ms",
+          "classification": "non_deployable_assumption",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "component_id": "l2.azure.function_plan",
+      "slot_id": "l2_processing",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "azure.functions.plan_sku",
+          "classification": "deployable_selection",
+          "value": "Y1",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "azure_l2_function_plan_sku"
+        },
+        {
+          "dimension_id": "azure.functions.memory_mb",
+          "classification": "non_deployable_assumption",
+          "value": 128,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "MB"
+        }
+      ]
+    },
+    {
+      "component_id": "l3_hot.gcp.firestore",
+      "slot_id": "l3_hot_storage",
+      "provider": "gcp",
+      "service_id": "gcp.firestore",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.firestore.mode",
+          "classification": "deployable_selection",
+          "value": "FIRESTORE_NATIVE",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "gcp_firestore_mode"
+        }
+      ]
+    },
+    {
+      "component_id": "l3_hot.gcp.reader_function",
+      "slot_id": "l3_hot_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.functions.memory_mb",
+          "classification": "deployable_selection",
+          "value": 256,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "gcp_l3_reader_function_memory_mb"
+        },
+        {
+          "dimension_id": "gcp.functions.min_instance_count",
+          "classification": "deployable_selection",
+          "value": 0,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_l3_reader_function_min_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.max_instance_count",
+          "classification": "deployable_selection",
+          "value": 10,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_l3_reader_function_max_instances"
+        }
+      ]
+    },
+    {
+      "component_id": "l3_cool.aws.s3",
+      "slot_id": "l3_cool_storage",
+      "provider": "aws",
+      "service_id": "aws.s3",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "aws.s3.storage_class",
+          "classification": "deployable_selection",
+          "value": "STANDARD_IA",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "aws_l3_cool_storage_class"
+        }
+      ]
+    },
+    {
+      "component_id": "l3_cool.aws.mover_lambda",
+      "slot_id": "l3_cool_storage",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "aws.lambda.memory_mb",
+          "classification": "deployable_selection",
+          "value": 512,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "aws_l3_cool_mover_memory_mb"
+        },
+        {
+          "dimension_id": "aws.lambda.duration_ms",
+          "classification": "non_deployable_assumption",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "component_id": "l3_archive.gcp.cloud_storage",
+      "slot_id": "l3_archive_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_storage",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.storage.storage_class",
+          "classification": "deployable_selection",
+          "value": "ARCHIVE",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "gcp_l3_archive_storage_class"
+        }
+      ]
+    },
+    {
+      "component_id": "l3_archive.gcp.mover_function",
+      "slot_id": "l3_archive_storage",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.functions.memory_mb",
+          "classification": "deployable_selection",
+          "value": 512,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "gcp_l3_archive_mover_memory_mb"
+        },
+        {
+          "dimension_id": "gcp.functions.min_instance_count",
+          "classification": "deployable_selection",
+          "value": 0,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_l3_archive_mover_min_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.max_instance_count",
+          "classification": "deployable_selection",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_l3_archive_mover_max_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.duration_ms",
+          "classification": "non_deployable_assumption",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "component_id": "l4.azure.digital_twins",
+      "slot_id": "l4_twin_state",
+      "provider": "azure",
+      "service_id": "azure.digital_twins",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "azure.digital_twins.billing",
+          "classification": "usage_tier",
+          "value": "operations_query_units_and_messages",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "catalog:pcs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    {
+      "component_id": "l4.azure.pusher_function",
+      "slot_id": "l4_twin_state",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "azure.functions.plan_sku",
+          "classification": "deployable_selection",
+          "value": "Y1",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "azure_l4_function_plan_sku"
+        }
+      ]
+    },
+    {
+      "component_id": "l5.aws.managed_grafana",
+      "slot_id": "l5_visualization",
+      "provider": "aws",
+      "service_id": "aws.managed_grafana",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "aws.grafana.user_billing",
+          "classification": "usage_tier",
+          "value": "licensed_users",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "catalog:pcs_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "component_id": "glue.aws.lambda",
+      "slot_id": "cross_cloud_glue",
+      "provider": "aws",
+      "service_id": "aws.lambda",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "aws.lambda.memory_mb",
+          "classification": "deployable_selection",
+          "value": 256,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "aws_glue_lambda_memory_mb"
+        },
+        {
+          "dimension_id": "aws.lambda.duration_ms",
+          "classification": "non_deployable_assumption",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "component_id": "glue.azure.functions",
+      "slot_id": "cross_cloud_glue",
+      "provider": "azure",
+      "service_id": "azure.functions",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "azure.functions.plan_sku",
+          "classification": "deployable_selection",
+          "value": "Y1",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "azure_glue_function_plan_sku"
+        },
+        {
+          "dimension_id": "azure.functions.memory_mb",
+          "classification": "non_deployable_assumption",
+          "value": 128,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "MB"
+        }
+      ]
+    },
+    {
+      "component_id": "glue.gcp.functions",
+      "slot_id": "cross_cloud_glue",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_gen2",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.functions.memory_mb",
+          "classification": "deployable_selection",
+          "value": 256,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "gcp_glue_function_memory_mb"
+        },
+        {
+          "dimension_id": "gcp.functions.min_instance_count",
+          "classification": "deployable_selection",
+          "value": 0,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_glue_function_min_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.max_instance_count",
+          "classification": "deployable_selection",
+          "value": 10,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_glue_function_max_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.duration_ms",
+          "classification": "non_deployable_assumption",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "ms"
+        }
+      ]
+    }
+  ],
+  "digest": "sha256:1de18f0a0580296c938c4ace04af901cc46ccb02607e57ce5baba024665064ac"
+}

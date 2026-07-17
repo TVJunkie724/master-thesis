@@ -46,6 +46,59 @@ public-catalog context; `providerPricingContexts` carries optional owner-scoped 
 observations. Flutter supplies neither. The Management API resolves and injects them,
 and the live integration gate compares every remaining workload field exactly.
 
+### Resolved Deployment Specification
+
+`ResolvedDeploymentSpecification v1` is the repository contract that binds a
+cost-model winner to its eventual infrastructure settings. Its source of truth is:
+
+```text
+contracts/resolved-deployment-specification/v1/
+  schema.json
+  deployment-dimensions.json
+  fixtures/
+```
+
+The schema fixes the wire shape. The dimension registry is the closed-world
+mapping for the current `five-layer-baseline@1`: component IDs, provider and
+slot ownership, allowed values, value origin, unit, classification, and
+Terraform target. The optimization context binds each provider's immutable
+catalog snapshot ID, pricing region, and content digest. It also defines the
+five existing cross-cloud receiver
+boundaries; glue components are required exactly for receiver providers whose
+boundary crosses clouds, and are forbidden for a single-cloud path. Generated
+copies below the Optimizer, Management API, and Deployer build contexts are
+never edited by hand.
+
+```bash
+python scripts/sync_resolved_deployment_contract.py --sync --check
+```
+
+The command validates JSON Schema Draft 2020-12, semantic component
+cardinality, canonical ordering, provider support, value bounds, cross-field
+combinations, units,
+secret-like fields, canonical SHA-256 digests, positive fixtures, negative
+fixtures, and byte identity of all generated copies. Run it after every
+contract edit.
+
+Every dimension belongs to exactly one semantic class:
+
+| Classification | Meaning | May become a Terraform variable |
+|---|---|---|
+| `deployable_selection` | exact SKU, plan, storage class, capacity, or runtime setting | yes, through its allowlisted target |
+| `usage_tier` | progressive billing or metering behavior | no |
+| `account_scope` | provider-account state not owned by one twin | no |
+| `non_deployable_assumption` | formula input that the selected resource cannot enforce directly | no |
+
+To extend the existing baseline, update the canonical registry and all affected
+formula/provider adapters, regenerate fixtures and copies, and pass the
+cross-service contract tests. A new architecture topology is not added to this
+registry; it requires a versioned architecture profile and a new contract
+version. Runtime emission, persistence, manifest binding, and typed Terraform
+translation are delivered by the child phases of
+[#118](https://github.com/TVJunkie724/master-thesis/issues/118). Until those
+phases are complete, the v1 package is a validated shared contract rather than
+a deployment authorization.
+
 ### Transfer Pricing Catalog
 
 Every provider-region pricing snapshot contains one
