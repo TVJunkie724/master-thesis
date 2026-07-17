@@ -39,9 +39,9 @@ STATIC_DEFAULTS_AZURE = {
     "iot": {
         "pricing_tiers": {
             "freeTier": {"limit": 240_000, "threshold": 0, "price": 0},
-            "tier1": {"limit": 120_000_000, "threshold": 12_000_000},
-            "tier2": {"limit": 1_800_000_000, "threshold": 180_000_000},
-            "tier3": {"limit": "Infinity", "threshold": 9_000_000_000},
+            "tier1": {"limit": 2_400_000_000, "threshold": 12_000_000},
+            "tier2": {"limit": 36_000_000_000, "threshold": 180_000_000},
+            "tier3": {"limit": 90_000_000_000, "threshold": 9_000_000_000},
         }
     },
     "functions": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},

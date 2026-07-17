@@ -10,8 +10,22 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from typing import Any
+
+
+@dataclass(frozen=True, slots=True)
+class CapacityTierSelection:
+    """Exact provider capacity tier selected for a monthly workload."""
+
+    tier_id: str
+    sku: str
+    capacity: int
+    billable_quantity: float
+    included_quantity_per_unit: float
+    unit_price: float
+    total_cost: float
 
 
 def unit_price(raw_price: float | int | str | None, source_quantity: float = 1.0) -> float:
@@ -59,17 +73,37 @@ def required_first_unit_price(
 
 def billable_1kb_units(item_count: float, average_size_kb: float) -> float:
     """Return billable one-KB units using a ceiling increment per item."""
+    return billable_block_units(
+        item_count,
+        average_size_kb,
+        block_size_kb=1.0,
+    )
+
+
+def billable_block_units(
+    item_count: float,
+    average_size_kb: float,
+    *,
+    block_size_kb: float,
+) -> float:
+    """Return billable units using a provider-specific size block per item."""
+
     count = _finite_non_negative("item_count", item_count)
     if count == 0:
         return 0.0
 
     size = _finite_positive("average_size_kb", average_size_kb)
+    block_size = _finite_positive("block_size_kb", block_size_kb)
     try:
         increment = int(
-            Decimal(str(size)).to_integral_value(rounding=ROUND_CEILING)
+            (Decimal(str(size)) / Decimal(str(block_size))).to_integral_value(
+                rounding=ROUND_CEILING
+            )
         )
-    except (InvalidOperation, ValueError) as exc:
-        raise ValueError("average_size_kb must be a finite positive number") from exc
+    except (InvalidOperation, ValueError, ZeroDivisionError) as exc:
+        raise ValueError(
+            "message size and billing block must be finite positive numbers"
+        ) from exc
     return count * max(1, increment)
 
 
@@ -89,48 +123,128 @@ def capacity_tier_cost(
     price and an included message capacity per unit. The implementation chooses
     the cheapest valid tier for the requested quantity.
     """
-    usage = float(quantity)
-    if usage <= 0:
+    usage = _finite_non_negative("quantity", quantity)
+    if usage == 0:
         return 0.0
 
-    tier_list = _tier_items(tiers)
-    free_candidates = [
-        tier for tier in tier_list if _to_float(tier.get(price_key), 0.0) == 0.0
-    ]
-    for tier in free_candidates:
-        limit = _normalize_limit(tier.get(limit_key))
-        if usage <= limit:
-            return 0.0
+    return select_capacity_tier(
+        usage,
+        tiers,
+        included_quantity_key=included_quantity_key,
+        limit_key=limit_key,
+        price_key=price_key,
+        minimum_paid_units=minimum_paid_units,
+    ).total_cost
 
-    costs: list[float] = []
-    for tier in tier_list:
+
+def select_capacity_tier(
+    quantity: float,
+    tiers: Mapping[str, Mapping[str, Any]] | Iterable[Mapping[str, Any]],
+    *,
+    tier_skus: Mapping[str, str] | None = None,
+    maximum_units_by_sku: Mapping[str, int] | None = None,
+    quantity_by_sku: Mapping[str, float] | None = None,
+    included_quantity_key: str = "threshold",
+    limit_key: str = "limit",
+    price_key: str = "price",
+    minimum_paid_units: int = 1,
+) -> CapacityTierSelection:
+    """Return the cheapest valid tier together with its exact SKU and capacity."""
+
+    usage = _finite_positive("quantity", quantity)
+    if (
+        isinstance(minimum_paid_units, bool)
+        or not isinstance(minimum_paid_units, int)
+        or minimum_paid_units < 1
+    ):
+        raise ValueError("minimum_paid_units must be a positive integer")
+
+    sku_map = dict(tier_skus or {})
+    maximums = dict(maximum_units_by_sku or {})
+    quantities = dict(quantity_by_sku or {})
+    candidates: list[CapacityTierSelection] = []
+    for tier_id, tier in _named_tier_items(tiers):
+        sku = str(sku_map.get(tier_id) or tier.get("sku") or tier_id)
+        if not sku:
+            raise ValueError(f"pricing tier {tier_id!r} has no stable SKU")
+        candidate_usage = _finite_positive(
+            f"quantity_by_sku[{sku}]",
+            quantities.get(sku, usage),
+        )
+
         price = _to_float(tier.get(price_key), 0.0)
-        if price <= 0:
-            continue
-
-        included_quantity = _to_float(
-            _first_present(
+        limit = _normalize_limit(tier.get(limit_key))
+        if price == 0:
+            included_quantity = _first_positive_value(
                 tier,
                 included_quantity_key,
                 "messagesPerUnit",
                 "includedMessagesPerUnit",
                 limit_key,
-            ),
-            0.0,
-        )
+            )
+        else:
+            included_quantity = _to_float(
+                _first_present(
+                    tier,
+                    included_quantity_key,
+                    "messagesPerUnit",
+                    "includedMessagesPerUnit",
+                    limit_key,
+                ),
+                0.0,
+            )
         if included_quantity <= 0:
             continue
 
-        limit = _normalize_limit(tier.get(limit_key))
-        if usage > limit:
+        if price == 0:
+            if candidate_usage > included_quantity:
+                continue
+            units = 1
+        elif price > 0:
+            if sku not in maximums and candidate_usage > limit:
+                continue
+            units = max(
+                int(math.ceil(candidate_usage / included_quantity)),
+                minimum_paid_units,
+            )
+        else:
             continue
 
-        units = max(int(math.ceil(usage / included_quantity)), minimum_paid_units)
-        costs.append(units * price)
+        maximum_units = maximums.get(sku)
+        if maximum_units is not None:
+            if (
+                isinstance(maximum_units, bool)
+                or not isinstance(maximum_units, int)
+                or maximum_units < 1
+            ):
+                raise ValueError(f"maximum capacity for {sku} is invalid")
+            if units > maximum_units:
+                continue
 
-    if not costs:
-        raise ValueError("pricing tiers do not contain a valid paid tier for quantity")
-    return min(costs)
+        candidates.append(
+            CapacityTierSelection(
+                tier_id=tier_id,
+                sku=sku,
+                capacity=units,
+                billable_quantity=candidate_usage,
+                included_quantity_per_unit=included_quantity,
+                unit_price=price,
+                total_cost=units * price,
+            )
+        )
+
+    if not candidates:
+        raise ValueError(
+            "pricing tiers do not contain a valid paid tier for quantity"
+        )
+    return min(
+        candidates,
+        key=lambda candidate: (
+            candidate.total_cost,
+            candidate.sku,
+            candidate.capacity,
+        ),
+    )
 
 
 def tiered_unit_cost(
@@ -179,6 +293,27 @@ def _tier_items(
     return sorted(values, key=lambda tier: _normalize_limit(tier.get("limit")))
 
 
+def _named_tier_items(
+    tiers: Mapping[str, Mapping[str, Any]] | Iterable[Mapping[str, Any]],
+) -> list[tuple[str, Mapping[str, Any]]]:
+    if isinstance(tiers, Mapping):
+        items = [(str(key), value) for key, value in tiers.items()]
+    else:
+        items = []
+        for index, tier in enumerate(tiers):
+            tier_id = str(tier.get("tier_id") or tier.get("sku") or index)
+            items.append((tier_id, tier))
+    if any(not isinstance(tier, Mapping) for _, tier in items):
+        raise ValueError("pricing tiers must contain objects")
+    return sorted(
+        items,
+        key=lambda item: (
+            _normalize_limit(item[1].get("limit")),
+            item[0],
+        ),
+    )
+
+
 def _normalize_limit(limit: Any) -> float:
     if limit is None:
         return float("inf")
@@ -194,6 +329,19 @@ def _to_float(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _first_positive_value(
+    source: Mapping[str, Any],
+    *keys: str,
+) -> float:
+    for key in keys:
+        if key not in source or source[key] is None:
+            continue
+        candidate = _to_float(source[key], 0.0)
+        if candidate > 0:
+            return candidate
+    return 0.0
 
 
 def _first_present(source: Mapping[str, Any], *keys: str) -> Any:

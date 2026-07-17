@@ -1,7 +1,7 @@
 # Phase 2: Optimizer Specification Emission
 
 **Issue:** [#129](https://github.com/TVJunkie724/master-thesis/issues/129)  
-**Status:** Reviewed and implementation-ready  
+**Status:** Implemented and verified
 **Blocked by:** #127
 
 ## Target
@@ -37,7 +37,7 @@ canonical dimension registry, never inferred later from Terraform defaults.
 
 | Area | Files |
 | --- | --- |
-| Request contract | `api/validation.py`, optimizer REST request tests |
+| Request contract | `api/calculation.py`, optimizer REST request tests |
 | Layer result | `backend/calculation_v2/layers/contracts.py` |
 | Provider selections | `backend/calculation_v2/layers/aws_layers.py`, `azure_layers.py`, `gcp_layers.py` |
 | Tier selection | `backend/calculation_v2/formulas/pricing_units.py`, `components/azure/iot_hub.py` |
@@ -60,6 +60,7 @@ references. It must not emit a partial specification.
 
 - layer-result immutability and schema validation;
 - exact Azure F1/S1/S2/S3 capacity selections;
+- Azure F1 0.5 KB and paid-tier 4 KB message-block normalization;
 - exact AWS and GCP function-memory formula inputs;
 - AWS Deep Archive and GCP Archive storage-class alignment;
 - all supported provider/slot combinations;
@@ -70,10 +71,10 @@ references. It must not emit a partial specification.
 
 ## Definition of Done
 
-- [ ] Every successful result contains one complete v1 specification.
-- [ ] All 21 provider-slot capability combinations retain fail-closed behavior.
-- [ ] Formula inputs equal emitted deployment selections where enforceable.
-- [ ] AWS and GCP archive service models equal emitted storage classes.
-- [ ] Currency conversion does not alter the specification digest.
-- [ ] Optimizer unit, integration, Ruff, Bandit, and compile gates pass.
-- [ ] #129 is closed with commit and verification evidence.
+- [x] Every successful result contains one complete v1 specification.
+- [x] All 21 provider-slot capability combinations retain fail-closed behavior.
+- [x] Formula inputs equal emitted deployment selections where enforceable.
+- [x] AWS and GCP archive service models equal emitted storage classes.
+- [x] Currency conversion does not alter the specification digest.
+- [x] Optimizer unit, integration, Ruff, Bandit, and compile gates pass.
+- [x] #129 is closed with commit and verification evidence.

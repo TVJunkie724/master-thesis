@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 
 import pytest
 
@@ -38,6 +39,14 @@ class FakeOptimizerClient:
         result = self.payload.get("result", self.payload)
         if isinstance(result, dict):
             result["pricingCatalogs"] = params["providerPricingCatalogs"]
+            specification = result.setdefault(
+                "resolvedDeploymentSpecification",
+                {},
+            )
+            specification.setdefault(
+                "calculation_run_id",
+                params["calculationRunId"],
+            )
         return self.payload
 
     async def get_pricing_catalog_baseline(self, provider):
@@ -341,18 +350,19 @@ def test_create_run_persists_history_items_and_compatibility_state(
     assert json.loads(run.pricing_catalog_context_json) == (
         catalog_context().to_http_dict()
     )
-    assert fake.calls == [
-        {
-            **sample_calc_params,
-            "providerPricingCatalogs": catalog_context().to_http_dict(),
-            "providerPricingContexts": {
-                "awsTwinMaker": {
-                    "status": "unavailable",
-                    "reasonCode": "AWS_TWINMAKER_PLAN_UNOBSERVED",
-                }
-            },
-        }
-    ]
+    assert len(fake.calls) == 1
+    optimizer_call = dict(fake.calls[0])
+    assert str(UUID(optimizer_call.pop("calculationRunId"))) == data["id"]
+    assert optimizer_call == {
+        **sample_calc_params,
+        "providerPricingCatalogs": catalog_context().to_http_dict(),
+        "providerPricingContexts": {
+            "awsTwinMaker": {
+                "status": "unavailable",
+                "reasonCode": "AWS_TWINMAKER_PLAN_UNOBSERVED",
+            }
+        },
+    }
 
 
 def test_create_run_rejects_client_owned_pricing_run_reference(
@@ -1006,6 +1016,36 @@ def test_invalid_optimizer_contract_returns_structured_502_without_successful_ru
 
     assert response.status_code == 502
     assert response.json()["detail"]["error_code"] == "OPTIMIZER_CONTRACT_INVALID"
+    assert db_session.query(CostCalculationRun).count() == 0
+
+
+def test_optimizer_calculation_identity_mismatch_is_rejected_without_persistence(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload(
+        {
+            "resolvedDeploymentSpecification": {
+                "calculation_run_id": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88aff",
+            }
+        }
+    )
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["error_code"] == "OPTIMIZER_CONTRACT_INVALID"
+    assert "calculation_run_id" in str(
+        response.json()["detail"]["field_errors"]
+    )
     assert db_session.query(CostCalculationRun).count() == 0
 
 

@@ -7,7 +7,12 @@ Aggregates Azure component costs into layer-level costs (L1-L5).
 
 from typing import Dict, Any
 
-from .contracts import BaseLayerCalculatorSet, LayerResult, SUPPORTED_LAYER_KEYS
+from .contracts import (
+    BaseLayerCalculatorSet,
+    ComponentDeploymentSelection,
+    LayerResult,
+    SUPPORTED_LAYER_KEYS,
+)
 
 from ..components.azure import (
     AzureIoTHubCalculator,
@@ -20,6 +25,33 @@ from ..components.azure import (
     AzureDigitalTwinsCalculator,
     AzureGrafanaCalculator,
 )
+from ..deployment_profiles import (
+    AZURE_FUNCTION_MEMORY_MB,
+    MOVER_FUNCTION_DURATION_MS,
+    STANDARD_FUNCTION_DURATION_MS,
+)
+
+
+def _selection(
+    component_id: str,
+    **dimensions: str | int | bool,
+) -> ComponentDeploymentSelection:
+    return ComponentDeploymentSelection(component_id, dimensions)
+
+
+def _function_selection(
+    component_id: str,
+    *,
+    duration_ms: int = STANDARD_FUNCTION_DURATION_MS,
+) -> ComponentDeploymentSelection:
+    return _selection(
+        component_id,
+        **{
+            "azure.functions.plan_sku": "Y1",
+            "azure.functions.memory_mb": AZURE_FUNCTION_MEMORY_MB,
+            "azure.functions.duration_ms": duration_ms,
+        },
+    )
 
 class AzureLayerCalculators(BaseLayerCalculatorSet):
     """
@@ -44,7 +76,8 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         self,
         messages_per_month: float,
         pricing: Dict[str, Any],
-        units: int = 1
+        units: int = 1,
+        average_message_size_kb: float | None = None,
     ) -> LayerResult:
         """
         Calculate L1 Data Acquisition layer cost.
@@ -57,12 +90,13 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         components = {}
         
         # IoT Hub cost
-        hub_cost = self.iot_hub.calculate_cost(
+        hub_selection = self.iot_hub.calculate_selection(
             messages_per_month=messages_per_month,
             pricing=pricing,
-            units=units
+            units=units,
+            average_message_size_kb=average_message_size_kb,
         )
-        components["iot_hub"] = hub_cost
+        components["iot_hub"] = hub_selection.total_cost
         
         # Dispatcher Function - runs once per message to route to L2
         dispatcher_cost = self.functions.calculate_cost(
@@ -84,7 +118,32 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
             layer="L1",
             total_cost=total,
             messages=messages_per_month,
-            components=components
+            components=components,
+            details={
+                "tierSelection": {
+                    "sku": hub_selection.sku,
+                    "capacity": hub_selection.capacity,
+                    "physicalMessages": messages_per_month,
+                    "billableMessages": hub_selection.billable_quantity,
+                    "includedMessagesPerUnit": (
+                        hub_selection.included_quantity_per_unit
+                    ),
+                }
+            },
+            deployment_selections=(
+                _selection(
+                    "l1.azure.iot_hub",
+                    **{
+                        "azure.iot_hub.sku": hub_selection.sku,
+                        "azure.iot_hub.capacity": hub_selection.capacity,
+                    },
+                ),
+                _function_selection("l1.azure.function_plan"),
+                _selection(
+                    "l1.azure.event_grid",
+                    **{"azure.event_grid.billing": "operations"},
+                ),
+            ),
         )
     
     def calculate_l2_cost(
@@ -180,11 +239,30 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         
         total = sum(components.values())
         
+        deployment_selections = [
+            _function_selection("l2.azure.function_plan")
+        ]
+        if use_event_checking and use_orchestration:
+            deployment_selections.append(
+                _selection(
+                    "l2.azure.logic_apps",
+                    **{"azure.logic_apps.billing": "actions"},
+                )
+            )
+        if use_error_handling:
+            deployment_selections.append(
+                _selection(
+                    "l2.azure.event_grid",
+                    **{"azure.event_grid.billing": "operations"},
+                )
+            )
+
         return self._result(
             layer="L2",
             total_cost=total,
             messages=executions_per_month,
-            components=components
+            components=components,
+            deployment_selections=tuple(deployment_selections),
         )
     
     def calculate_l3_hot_cost(
@@ -230,7 +308,14 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
             layer="L3_hot",
             total_cost=total,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_hot.azure.cosmos_db",
+                    **{"azure.cosmos_db.capacity_mode": "serverless"},
+                ),
+                _function_selection("l3_hot.azure.function_plan"),
+            ),
         )
     
     def calculate_l3_cool_cost(
@@ -266,7 +351,8 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         mover_cost = self.functions.calculate_cost(
             executions=mover_runs_per_month,
             pricing=pricing,
-            duration_ms=5000  # Mover takes longer (5 seconds)
+            duration_ms=MOVER_FUNCTION_DURATION_MS,
+            memory_mb=AZURE_FUNCTION_MEMORY_MB,
         )
         components["hot_cold_mover_function"] = mover_cost
         
@@ -276,7 +362,21 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
             layer="L3_cool",
             total_cost=total,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_cool.azure.blob_storage",
+                    **{
+                        "azure.storage.account_tier": "Standard",
+                        "azure.storage.replication_type": "LRS",
+                        "azure.blob.tier": "Cool",
+                    },
+                ),
+                _function_selection(
+                    "l3_cool.azure.function_plan",
+                    duration_ms=MOVER_FUNCTION_DURATION_MS,
+                ),
+            ),
         )
     
     def calculate_l3_archive_cost(
@@ -312,7 +412,8 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         mover_cost = self.functions.calculate_cost(
             executions=mover_runs_per_month,
             pricing=pricing,
-            duration_ms=5000  # Mover takes longer (5 seconds)
+            duration_ms=MOVER_FUNCTION_DURATION_MS,
+            memory_mb=AZURE_FUNCTION_MEMORY_MB,
         )
         components["cold_archive_mover_function"] = mover_cost
         
@@ -322,7 +423,21 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
             layer="L3_archive",
             total_cost=total,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_archive.azure.blob_storage",
+                    **{
+                        "azure.storage.account_tier": "Standard",
+                        "azure.storage.replication_type": "LRS",
+                        "azure.blob.tier": "Archive",
+                    },
+                ),
+                _function_selection(
+                    "l3_archive.azure.function_plan",
+                    duration_ms=MOVER_FUNCTION_DURATION_MS,
+                ),
+            ),
         )
     
     def calculate_l4_cost(
@@ -356,7 +471,18 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         return self._result(
             layer="L4",
             total_cost=total,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l4.azure.digital_twins",
+                    **{
+                        "azure.digital_twins.billing": (
+                            "operations_query_units_and_messages"
+                        )
+                    },
+                ),
+                _function_selection("l4.azure.pusher_function"),
+            ),
         )
     
     def calculate_l5_cost(
@@ -375,7 +501,13 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         return self._result(
             layer="L5",
             total_cost=grafana_cost,
-            components={"grafana": grafana_cost}
+            components={"grafana": grafana_cost},
+            deployment_selections=(
+                _selection(
+                    "l5.azure.managed_grafana",
+                    **{"azure.grafana.sku": "Standard"},
+                ),
+            ),
         )
     
     def calculate_glue_cost(
@@ -388,3 +520,6 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
             messages=messages,
             pricing=pricing
         )
+
+    def glue_deployment_selection(self) -> ComponentDeploymentSelection:
+        return _function_selection("glue.azure.functions")

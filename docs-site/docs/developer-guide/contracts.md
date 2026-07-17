@@ -41,10 +41,12 @@ not additive unless its record explicitly proves that property. Alternative prov
 and rejected pricing rows are different concepts and must remain separate fields.
 
 The public Management calculation input and the internal Optimizer input intentionally
-differ by two server-owned fields. `providerPricingCatalogs` is the mandatory exact
-public-catalog context; `providerPricingContexts` carries optional owner-scoped account
-observations. Flutter supplies neither. The Management API resolves and injects them,
-and the live integration gate compares every remaining workload field exactly.
+differ by three server-owned fields. `calculationRunId` is the Management-owned UUID
+that binds the result to its durable run. `providerPricingCatalogs` is the mandatory
+exact public-catalog context; `providerPricingContexts` carries optional owner-scoped
+account observations. Flutter supplies none of them. The Management API resolves and
+injects them, and the live integration gate compares every remaining workload field
+exactly.
 
 ### Resolved Deployment Specification
 
@@ -99,11 +101,13 @@ To extend the existing baseline, update the canonical registry and all affected
 formula/provider adapters, regenerate fixtures and copies, and pass the
 cross-service contract tests. A new architecture topology is not added to this
 registry; it requires a versioned architecture profile and a new contract
-version. Runtime emission, persistence, manifest binding, and typed Terraform
-translation are delivered by the child phases of
+version. The Optimizer emits the complete specification from the selected
+route-aware winner and rejects incomplete or contradictory component mappings.
+Persistence, manifest binding, and typed Terraform translation are delivered by
+the remaining child phases of
 [#118](https://github.com/TVJunkie724/master-thesis/issues/118). Until those
-phases are complete, the v1 package is a validated shared contract rather than
-a deployment authorization.
+phases are complete, the emitted v1 object is verified calculation output, not
+deployment authorization.
 
 ### Transfer Pricing Catalog
 

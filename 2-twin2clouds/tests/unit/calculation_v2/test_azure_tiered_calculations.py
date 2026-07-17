@@ -38,7 +38,7 @@ def test_azure_iot_hub_scales_units_inside_tier_capacity():
 def test_azure_iot_hub_selects_next_tier_when_lower_tier_capacity_is_exceeded():
     calc = AzureIoTHubCalculator()
 
-    assert calc.calculate_cost(200_000_000, _iot_pricing()) == 500.0
+    assert calc.calculate_cost(200_000_000, _iot_pricing()) == 425.0
 
 
 def test_azure_iot_hub_raises_when_tier_table_cannot_cover_volume():
@@ -46,8 +46,8 @@ def test_azure_iot_hub_raises_when_tier_table_cannot_cover_volume():
     pricing = _iot_pricing()
     pricing["azure"]["iotHub"]["pricing_tiers"].pop("tier3")
 
-    with pytest.raises(ValueError, match="cannot cover"):
-        calc.calculate_cost(2_000_000_000, pricing)
+    with pytest.raises(ValueError, match="valid paid tier"):
+        calc.calculate_cost(36_000_000_001, pricing)
 
 
 def test_azure_digital_twins_normalizes_legacy_per_1k_prices():

@@ -8,7 +8,7 @@ from backend.calculation_v2.components.gcp import (
     GCPComputeEngineCalculator,
     GCPFirestoreCalculator,
     GCPPubSubCalculator,
-    GCSColdlineCalculator,
+    GCSArchiveCalculator,
     GCSNearlineCalculator,
 )
 from backend.calculation_v2.engine import _calculate_egress_cost
@@ -163,8 +163,8 @@ class TestGCPCloudStorageUnits:
         expected = 1.0 + (2 * 0.10) + (3 * 0.01) + (10 * 0.01)
         assert result == pytest.approx(expected)
 
-    def test_coldline_normalizes_lifecycle_operation_blocks_and_retrieval(self):
-        result = GCSColdlineCalculator().calculate_cost(
+    def test_archive_normalizes_lifecycle_operation_blocks_and_retrieval(self):
+        result = GCSArchiveCalculator().calculate_cost(
             storage_gb=100,
             writes_per_month=20_000,
             reads_per_month=10_000,

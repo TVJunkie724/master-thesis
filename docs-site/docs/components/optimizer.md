@@ -218,6 +218,33 @@ omitted additive assumptions so their provenance is not lost.
 records this hardening. The broader multi-service fetcher work remains tracked by
 [#32 Refresh optimizer pricing schema and provider fetchers for expanded services](https://github.com/TVJunkie724/master-thesis/issues/32).
 
+### Azure IoT Hub Tier Selection
+
+Azure IoT Hub is modeled as provisioned monthly capacity, not as a progressive
+usage-price tier. The Optimizer determines the exact F1, S1, S2, or S3 SKU and
+capacity needed by the workload. It enforces the provider maximum of one F1
+unit, 200 S1 units, 200 S2 units, or 10 S3 units and fails when no registered
+combination can satisfy the workload.
+
+The provider bills messages in size blocks. The formula therefore converts
+physical workload messages before selecting capacity:
+
+```text
+F1 billable messages = physical messages * ceil(message size / 0.5 KB)
+S1-S3 billable messages = physical messages * ceil(message size / 4 KB)
+```
+
+The selected result retains SKU, capacity, physical messages, billable
+messages, included messages per unit, unit price, and total cost under
+`details.tierSelection`. The corresponding SKU and capacity are emitted as
+deployment selections; billing quantities remain calculation evidence and
+never become Terraform variables.
+
+The limits and billing blocks are verified against the official
+[Azure IoT Hub scaling documentation](https://learn.microsoft.com/en-us/azure/iot-hub/iot-hub-scaling)
+and
+[Azure service limits](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits).
+
 ## Calculation Model
 
 The calculation engine maps normalized workload quantities and provider pricing to
@@ -229,10 +256,11 @@ all raw provider units are identical.
 ```text
 usage contract + pricing contract
   -> provider component formula
-  -> LayerResult with component breakdown
+  -> LayerResult with cost breakdown + deployment selections
   -> provider path total
   -> scoring strategy
   -> cheapest compatible five-layer path
+  -> ResolvedDeploymentSpecification v1
   -> trace: profile + bundle + registry + formula + source evidence
 ```
 
@@ -243,8 +271,9 @@ not a guarantee that every future catalog row remains valid without refresh revi
 
 All provider layer calculators return the single
 `backend.calculation_v2.layers.LayerResult` model. The model validates provider and
-layer identity, owns an immutable component-cost snapshot, rejects invalid numeric
-values, and requires a reason whenever a capability is unsupported.
+layer identity, owns immutable component-cost and deployment-selection snapshots,
+rejects invalid numeric values, and requires a reason whenever a capability is
+unsupported.
 
 ```text
 provider formula inputs
@@ -264,13 +293,45 @@ calculation fails explicitly; an unsupported zero-cost result cannot win scoring
 
 The deterministic matrix tests all 21 provider-layer combinations and preserves the
 existing `cost-result.v1` fields (`cost`, `components`, `supported`, optional
-`dataSizeInGB`, and `unsupportedReason`). The implementation contract is documented
-in `2-twin2clouds/implementation_plans/2026-07-17_layer_result_calculator_contracts.md`.
+`dataSizeInGB`, and `unsupportedReason`). The additive
+`deploymentSelections` field contains stable component IDs and ordered typed
+dimensions only. Every selection must match the canonical component registry
+exactly; unknown, missing, duplicated, out-of-range, or contradictory values
+fail before scoring can produce a deployable result. The implementation
+contract is documented in
+`2-twin2clouds/implementation_plans/2026-07-17_layer_result_calculator_contracts.md`.
 
 `GET /capabilities/providers` publishes the complete calculation-side matrix as
 `provider-service-capabilities.v1`. It is generated from calculator declarations,
 contains no credential or provider calls, and is aggregated with Deployer capability
 by the Management API. See [Provider Capabilities](../architecture/provider-capabilities.md).
+
+### Resolved Deployment Output
+
+The Management API creates the calculation run UUID before calling the
+Optimizer. After the route-aware winner is known, the Optimizer combines its
+registered layer selections with required cross-cloud receiver components and
+the exact pricing/formula evidence:
+
+```text
+Management calculationRunId
+  -> route-aware winning provider slots
+  -> registered component selections
+  -> optimization and pricing evidence
+  -> JSON Schema + semantic registry validation
+  -> canonical SHA-256 digest
+  -> resolvedDeploymentSpecification
+```
+
+The specification is built from canonical USD calculation state before output
+currency conversion. Therefore USD and EUR views of the same run have identical
+deployment selections and digest. No downstream service may reconstruct SKU,
+capacity, storage class, or runtime configuration from defaults.
+
+The emitted object becomes deployment-authoritative only after the remaining
+Management persistence, DeploymentManifest, Deployer preflight, and Terraform
+translation phases of
+[#118](https://github.com/TVJunkie724/master-thesis/issues/118) are complete.
 
 ## Optimization Strategy Bundle
 

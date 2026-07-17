@@ -13,7 +13,12 @@ Each layer calculator:
 
 from typing import Dict, Any
 
-from .contracts import BaseLayerCalculatorSet, LayerResult, SUPPORTED_LAYER_KEYS
+from .contracts import (
+    BaseLayerCalculatorSet,
+    ComponentDeploymentSelection,
+    LayerResult,
+    SUPPORTED_LAYER_KEYS,
+)
 
 from ..components.aws import (
     AWSIoTCoreCalculator,
@@ -27,6 +32,39 @@ from ..components.aws import (
     AWSGrafanaCalculator,
 )
 from ..components.aws.twinmaker import evaluate_twinmaker_context
+from ..deployment_profiles import (
+    AWS_MOVER_LAMBDA_MEMORY_MB,
+    AWS_STANDARD_LAMBDA_MEMORY_MB,
+    MOVER_FUNCTION_DURATION_MS,
+    STANDARD_FUNCTION_DURATION_MS,
+)
+
+
+def _selection(
+    component_id: str,
+    **dimensions: str | int | bool,
+) -> ComponentDeploymentSelection:
+    return ComponentDeploymentSelection(component_id, dimensions)
+
+
+def _standard_lambda_selection(component_id: str) -> ComponentDeploymentSelection:
+    return _selection(
+        component_id,
+        **{
+            "aws.lambda.memory_mb": AWS_STANDARD_LAMBDA_MEMORY_MB,
+            "aws.lambda.duration_ms": STANDARD_FUNCTION_DURATION_MS,
+        },
+    )
+
+
+def _mover_lambda_selection(component_id: str) -> ComponentDeploymentSelection:
+    return _selection(
+        component_id,
+        **{
+            "aws.lambda.memory_mb": AWS_MOVER_LAMBDA_MEMORY_MB,
+            "aws.lambda.duration_ms": MOVER_FUNCTION_DURATION_MS,
+        },
+    )
 
 class AWSLayerCalculators(BaseLayerCalculatorSet):
     """
@@ -91,7 +129,14 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             total_cost=total,
             data_size_gb=data_size_gb,
             messages=messages_per_month,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l1.aws.iot_core",
+                    **{"aws.iot_core.message_pricing": "progressive_usage"},
+                ),
+                _standard_lambda_selection("l1.aws.dispatcher_lambda"),
+            ),
         )
     
     def calculate_l2_cost(
@@ -201,11 +246,30 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         
         total = sum(components.values())
         
+        deployment_selections = [
+            _standard_lambda_selection("l2.aws.processing_lambdas")
+        ]
+        if use_event_checking and trigger_notification_workflow:
+            deployment_selections.append(
+                _selection(
+                    "l2.aws.step_functions",
+                    **{"aws.step_functions.billing": "state_transitions"},
+                )
+            )
+        if integrate_error_handling:
+            deployment_selections.append(
+                _selection(
+                    "l2.aws.eventbridge",
+                    **{"aws.eventbridge.billing": "events"},
+                )
+            )
+
         return self._result(
             layer="L2",
             total_cost=total,
             messages=executions_per_month,
-            components=components
+            components=components,
+            deployment_selections=tuple(deployment_selections),
         )
     
     def calculate_l3_hot_cost(
@@ -260,7 +324,14 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             layer="L3_hot",
             total_cost=total,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_hot.aws.dynamodb",
+                    **{"aws.dynamodb.billing_mode": "PAY_PER_REQUEST"},
+                ),
+                _standard_lambda_selection("l3_hot.aws.reader_lambdas"),
+            ),
         )
     
     def calculate_l3_cool_cost(
@@ -298,7 +369,8 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         mover_cost = self.lambda_calc.calculate_cost(
             executions=mover_runs_per_month,
             pricing=pricing,
-            duration_ms=5000  # Mover takes longer (5 seconds)
+            duration_ms=MOVER_FUNCTION_DURATION_MS,
+            memory_mb=AWS_MOVER_LAMBDA_MEMORY_MB,
         )
         components["hot_cold_mover_lambda"] = mover_cost
         
@@ -315,7 +387,14 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             layer="L3_cool",
             total_cost=total,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_cool.aws.s3",
+                    **{"aws.s3.storage_class": "STANDARD_IA"},
+                ),
+                _mover_lambda_selection("l3_cool.aws.mover_lambda"),
+            ),
         )
     
     def calculate_l3_archive_cost(
@@ -352,7 +431,8 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         mover_cost = self.lambda_calc.calculate_cost(
             executions=mover_runs_per_month,
             pricing=pricing,
-            duration_ms=5000  # Mover takes longer (5 seconds)
+            duration_ms=MOVER_FUNCTION_DURATION_MS,
+            memory_mb=AWS_MOVER_LAMBDA_MEMORY_MB,
         )
         components["cold_archive_mover_lambda"] = mover_cost
         
@@ -369,7 +449,14 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             layer="L3_archive",
             total_cost=total,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_archive.aws.s3",
+                    **{"aws.s3.storage_class": "DEEP_ARCHIVE"},
+                ),
+                _mover_lambda_selection("l3_archive.aws.mover_lambda"),
+            ),
         )
     
     def calculate_l4_cost(
@@ -445,6 +532,16 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
                     ],
                 },
             },
+            deployment_selections=(
+                _selection(
+                    "l4.aws.twinmaker",
+                    **{"aws.twinmaker.account_plan": "STANDARD"},
+                ),
+                _selection(
+                    "l4.aws.connector_lambda",
+                    **{"aws.lambda.memory_mb": AWS_STANDARD_LAMBDA_MEMORY_MB},
+                ),
+            ),
         )
     
     def calculate_l5_cost(
@@ -467,7 +564,13 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         return self._result(
             layer="L5",
             total_cost=grafana_cost,
-            components={"grafana": grafana_cost}
+            components={"grafana": grafana_cost},
+            deployment_selections=(
+                _selection(
+                    "l5.aws.managed_grafana",
+                    **{"aws.grafana.user_billing": "licensed_users"},
+                ),
+            ),
         )
     
     def calculate_glue_cost(
@@ -484,3 +587,6 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             messages=messages,
             pricing=pricing
         )
+
+    def glue_deployment_selection(self) -> ComponentDeploymentSelection:
+        return _standard_lambda_selection("glue.aws.lambda")

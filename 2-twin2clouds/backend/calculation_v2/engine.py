@@ -55,6 +55,9 @@ from backend.calculation_v2.transfer_pricing import (
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
+from backend.deployment_specification import (
+    build_resolved_deployment_specification,
+)
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_registry_service import PricingRegistryService
 from backend.transfer_catalog import validate_transfer_catalog
@@ -78,6 +81,9 @@ def _layer_result_payload(
     payload: Dict[str, Any] = {
         "cost": result.total_cost,
         "components": dict(result.components),
+        "deploymentSelections": [
+            selection.as_dict() for selection in result.deployment_selections
+        ],
         "supported": result.supported,
     }
     if data_size_gb is not None:
@@ -357,7 +363,8 @@ def calculate_azure_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Di
     # L1: Data Acquisition
     l1 = _azure_calc.calculate_l1_cost(
         messages_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
+        average_message_size_kb=derived["msg_size_kb"],
     )
     
     # L2: Data Processing
@@ -784,6 +791,21 @@ def calculate_cheapest_costs(
         "cheapestPath": cheapest_path,
         "totalCost": round(float(winner.total_cost), 2),
     }
+    result_payload["resolvedDeploymentSpecification"] = (
+        build_resolved_deployment_specification(
+            calculation_run_id=str(params.get("calculationRunId") or ""),
+            selected_providers=selected,
+            provider_costs=provider_costs,
+            glue_selections={
+                "aws": _aws_calc.glue_deployment_selection(),
+                "azure": _azure_calc.glue_deployment_selection(),
+                "gcp": _gcp_calc.glue_deployment_selection(),
+            },
+            optimization_metadata=optimization_metadata,
+            execution_context=execution_context,
+            pricing_catalog_context=pricing_catalog_context,
+        )
+    )
     result_payload["intentTrace"] = build_intent_result_trace(
         params=params,
         derived=derived,

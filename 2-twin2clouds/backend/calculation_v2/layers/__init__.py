@@ -10,6 +10,7 @@ from .aws_layers import AWSLayerCalculators
 from .azure_layers import AzureLayerCalculators
 from .contracts import (
     BaseLayerCalculatorSet,
+    ComponentDeploymentSelection,
     LayerCalculatorSet,
     LayerResult,
     SUPPORTED_LAYER_KEYS,
@@ -22,6 +23,7 @@ __all__ = [
     "AzureLayerCalculators",
     "GCPLayerCalculators",
     "BaseLayerCalculatorSet",
+    "ComponentDeploymentSelection",
     "LayerCalculatorSet",
     "LayerResult",
     "SUPPORTED_LAYER_KEYS",

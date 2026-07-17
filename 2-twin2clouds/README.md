@@ -98,9 +98,11 @@ last-known-good pointer.
 ## Calculation Contract
 
 Provider prices are normalized to canonical USD inputs. Calculation requests
-must supply the exact reviewed AWS, Azure, and GCP catalog references under
+must supply a Management-owned UUID under `calculationRunId` and the exact
+reviewed AWS, Azure, and GCP catalog references under
 `providerPricingCatalogs`; the Optimizer resolves all three immutable snapshots
-before any formula executes and returns the same references in the result.
+before any formula executes and returns the same run ID and references in the
+result.
 Requests may ask for `USD` or `EUR` output. EUR results use the cached
 exchange-rate snapshot and expose `currencyConversion` metadata with source
 currency, target currency, rate, and retrieval time. Invalid or missing rates
@@ -117,7 +119,10 @@ The response also includes:
   counts,
 - optimization profile and strategy identifiers,
 - registry/evidence references,
-- bounded `intentTrace` and `resultTrace` diagnostics.
+- bounded `intentTrace` and `resultTrace` diagnostics,
+- one schema-valid `resolvedDeploymentSpecification` with exact component,
+  tier, SKU, capacity, storage-class, and runtime selections for the winning
+  path.
 
 Selection is not greedy per layer. The Optimizer enumerates every executable
 provider assignment for the closed Five-Layer baseline, calculates layer and
@@ -125,6 +130,13 @@ route costs as one candidate total, applies each transfer allowance once per
 source-provider billing pool, and passes those totals to the active scoring
 strategy. Unsupported routes and capabilities fail closed rather than entering
 selection as zero-cost alternatives.
+
+Azure IoT Hub sizing returns the selected F1/S1/S2/S3 SKU and unit capacity
+rather than only a cost. Physical workload messages are normalized to the
+provider billing blocks first: 0.5 KB for F1 and 4 KB for paid Standard tiers.
+The result keeps physical messages, billable messages, included messages per
+unit, SKU, and capacity together under `details.tierSelection`, making the
+formula and deployable selection directly auditable.
 
 ## Repository Layout
 

@@ -28,6 +28,7 @@ class TestEngineIntegration:
     def sample_params(self):
         """Standard test parameters."""
         return {
+            "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
             "numberOfDevices": 100,
             "deviceSendingIntervalInMinutes": 2.0,
             "averageSizeOfMessageInKb": 0.25,
@@ -118,9 +119,28 @@ class TestEngineIntegration:
             },
             "azure": {
                 "iotHub": {
-                    "pricePerUnit": 25.0,
-                    "messagesPerUnit": 400000,
-                    "additionalMessagePrice": 0.000004,
+                    "pricing_tiers": {
+                        "freeTier": {
+                            "limit": 240_000,
+                            "threshold": 240_000,
+                            "price": 0,
+                        },
+                        "tier1": {
+                            "limit": 120_000_000,
+                            "threshold": 12_000_000,
+                            "price": 25,
+                        },
+                        "tier2": {
+                            "limit": 1_800_000_000,
+                            "threshold": 180_000_000,
+                            "price": 250,
+                        },
+                        "tier3": {
+                            "limit": "Infinity",
+                            "threshold": 9_000_000_000,
+                            "price": 2500,
+                        },
+                    },
                 },
                 "functions": {
                     "requestPrice": 0.0000002,
@@ -217,6 +237,10 @@ class TestEngineIntegration:
             calculate_azure_costs,
             calculate_gcp_costs,
         )
+        from backend.deployment_specification.builder import (
+            LAYER_TO_SLOT,
+            _contract,
+        )
 
         calculators = {
             "AWS": calculate_aws_costs,
@@ -225,18 +249,50 @@ class TestEngineIntegration:
         }
         results = calculators[provider](sample_params, sample_pricing)
         layers = {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
+        registry = _contract()[1]
 
         for layer in layers:
             payload = results[layer]
-            assert set(payload) >= {"cost", "components", "supported"}
+            assert set(payload) >= {
+                "cost",
+                "components",
+                "deploymentSelections",
+                "supported",
+            }
             assert isinstance(payload["cost"], (int, float))
             assert payload["cost"] >= 0
             assert isinstance(payload["components"], dict)
+            assert isinstance(payload["deploymentSelections"], list)
             assert payload["supported"] is (layer in supported_layers)
             if layer in supported_layers:
+                assert payload["deploymentSelections"]
                 assert "unsupportedReason" not in payload
+                requirement = registry["slot_requirements"][
+                    LAYER_TO_SLOT[layer]
+                ][provider.lower()]
+                actual_ids = [
+                    selection["componentId"]
+                    for selection in payload["deploymentSelections"]
+                ]
+                assert actual_ids[: len(requirement["required_components"])] == (
+                    requirement["required_components"]
+                )
+                assert set(actual_ids[len(requirement["required_components"]):]) <= (
+                    set(requirement["optional_components"])
+                )
+                for selection in payload["deploymentSelections"]:
+                    definition = registry["components"][
+                        selection["componentId"]
+                    ]
+                    assert list(selection["dimensions"]) == list(
+                        definition["dimensions"]
+                    )
             else:
+                assert payload["deploymentSelections"] == []
                 assert payload["unsupportedReason"]
+                assert provider.lower() not in registry["slot_requirements"][
+                    LAYER_TO_SLOT[layer]
+                ]
 
     def test_candidate_options_exclude_unsupported_zero_cost_result(self):
         from backend.calculation_v2.engine import _supported_provider_options
@@ -416,6 +472,160 @@ class TestEngineIntegration:
         assert "Hot" in calc_result["L3"]
         assert "Cool" in calc_result["L3"]
         assert "Archive" in calc_result["L3"]
+
+    def test_winner_contains_complete_resolved_deployment_specification(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+
+        result = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
+        )
+        specification = result["resolvedDeploymentSpecification"]
+
+        assert specification["schema_version"] == (
+            "resolved-deployment-specification.v1"
+        )
+        assert specification["calculation_run_id"] == (
+            sample_params["calculationRunId"]
+        )
+        assert specification["architecture_profile"] == {
+            "profile_id": "five-layer-baseline",
+            "profile_version": "1",
+        }
+        assert specification["currency"] == "USD"
+        assert specification["digest"].startswith("sha256:")
+        assert len(specification["digest"]) == 71
+
+        selected_provider_by_slot = {
+            "l1_ingestion": result["calculationResult"]["L1"].lower(),
+            "l2_processing": result["calculationResult"]["L2"].lower(),
+            "l3_hot_storage": result["calculationResult"]["L3"]["Hot"].lower(),
+            "l3_cool_storage": result["calculationResult"]["L3"]["Cool"].lower(),
+            "l3_archive_storage": result["calculationResult"]["L3"][
+                "Archive"
+            ].lower(),
+            "l4_twin_state": result["calculationResult"]["L4"].lower(),
+            "l5_visualization": result["calculationResult"]["L5"].lower(),
+        }
+        components = specification["components"]
+        for slot_id, provider in selected_provider_by_slot.items():
+            selected_components = [
+                component
+                for component in components
+                if component["slot_id"] == slot_id
+            ]
+            assert selected_components
+            assert {
+                component["provider"] for component in selected_components
+            } == {provider}
+            assert all(component["dimensions"] for component in selected_components)
+
+        assert any(
+            component["slot_id"] == "cross_cloud_glue"
+            for component in components
+        )
+        assert all(
+            dimension["formula_reference"]
+            == "formula_set:cost_formula_set_v1"
+            and dimension["evidence_reference"]
+            for component in components
+            for dimension in component["dimensions"]
+        )
+
+    def test_function_formula_profiles_and_archive_classes_are_emitted_exactly(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.deployment_profiles import (
+            AWS_MOVER_LAMBDA_MEMORY_MB,
+            AWS_STANDARD_LAMBDA_MEMORY_MB,
+            GCP_MOVER_FUNCTION_MEMORY_MB,
+            GCP_STANDARD_FUNCTION_MEMORY_MB,
+            MOVER_FUNCTION_DURATION_MS,
+            STANDARD_FUNCTION_DURATION_MS,
+        )
+        from backend.calculation_v2.engine import (
+            calculate_aws_costs,
+            calculate_gcp_costs,
+        )
+
+        aws = calculate_aws_costs(sample_params, sample_pricing)
+        gcp = calculate_gcp_costs(sample_params, sample_pricing)
+
+        def selection(costs, layer, component_id):
+            return next(
+                item
+                for item in costs[layer]["deploymentSelections"]
+                if item["componentId"] == component_id
+            )["dimensions"]
+
+        assert selection(
+            aws,
+            "L1",
+            "l1.aws.dispatcher_lambda",
+        ) == {
+            "aws.lambda.memory_mb": AWS_STANDARD_LAMBDA_MEMORY_MB,
+            "aws.lambda.duration_ms": STANDARD_FUNCTION_DURATION_MS,
+        }
+        assert selection(
+            aws,
+            "L3_archive",
+            "l3_archive.aws.mover_lambda",
+        ) == {
+            "aws.lambda.memory_mb": AWS_MOVER_LAMBDA_MEMORY_MB,
+            "aws.lambda.duration_ms": MOVER_FUNCTION_DURATION_MS,
+        }
+        assert selection(
+            aws,
+            "L3_archive",
+            "l3_archive.aws.s3",
+        ) == {"aws.s3.storage_class": "DEEP_ARCHIVE"}
+        assert selection(
+            gcp,
+            "L1",
+            "l1.gcp.dispatcher_function",
+        )["gcp.functions.memory_mb"] == GCP_STANDARD_FUNCTION_MEMORY_MB
+        assert selection(
+            gcp,
+            "L3_archive",
+            "l3_archive.gcp.mover_function",
+        )["gcp.functions.memory_mb"] == GCP_MOVER_FUNCTION_MEMORY_MB
+        assert selection(
+            gcp,
+            "L3_archive",
+            "l3_archive.gcp.cloud_storage",
+        ) == {"gcp.storage.storage_class": "ARCHIVE"}
+
+    def test_currency_conversion_does_not_change_deployment_specification(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+
+        context = pricing_catalog_context_for(sample_pricing)
+        usd = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=context,
+        )
+        eur_params = {**sample_params, "currency": "EUR"}
+        eur = calculate_cheapest_costs(
+            eur_params,
+            sample_pricing,
+            pricing_catalog_context=context,
+        )
+
+        assert eur["currency"] == "EUR"
+        assert eur["resolvedDeploymentSpecification"] == (
+            usd["resolvedDeploymentSpecification"]
+        )
 
     def test_disabled_optimization_profile_is_rejected(self, sample_params, sample_pricing):
         """Only enabled profiles may execute."""

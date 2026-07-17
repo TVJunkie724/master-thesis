@@ -8,6 +8,7 @@ parameters.
 """
 from datetime import datetime
 from typing import Annotated, Literal, Union
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 from pydantic import (
@@ -144,6 +145,11 @@ class CalcParams(BaseModel):
     - Storage duration ordering: Hot ≤ Cool ≤ Archive
     - Non-negative values for editor/viewer counts and dashboard settings
     """
+    calculationRunId: UUID = Field(
+        ...,
+        description="Management-owned immutable calculation run identity.",
+    )
+
     # Core IoT parameters - must be positive
     numberOfDevices: int = Field(..., gt=0, description="Number of IoT devices (must be > 0)")
     deviceSendingIntervalInMinutes: float = Field(..., gt=0, description="Sending interval in minutes (must be > 0)")
@@ -351,6 +357,7 @@ def calc(params: CalcParams):
         params_dict = params.model_dump(
             exclude={"providerPricingCatalogs"},
         )
+        params_dict["calculationRunId"] = str(params.calculationRunId)
         optimization_profile_id = params_dict.pop("optimizationProfileId")
         params_dict["_assumption_sources"] = {
             field: (

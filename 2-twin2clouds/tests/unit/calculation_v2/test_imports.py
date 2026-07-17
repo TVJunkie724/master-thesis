@@ -78,8 +78,8 @@ class TestModuleImports:
             GCPCloudFunctionsCalculator,
             GCPCloudWorkflowsCalculator,
             GCPFirestoreCalculator,
+            GCSArchiveCalculator,
             GCSNearlineCalculator,
-            GCSColdlineCalculator,
             GCPComputeEngineCalculator,
         )
         assert GCPCloudFunctionsCalculator().formula_type

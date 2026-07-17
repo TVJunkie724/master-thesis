@@ -18,6 +18,7 @@ from tests.unit.pricing.transfer_fixtures import (
 
 # Standard test parameters matching typical use cases
 STANDARD_PARAMS = {
+    "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
     "numberOfDevices": 100,
     "deviceSendingIntervalInMinutes": 2.0,
     "averageSizeOfMessageInKb": 0.25,
@@ -81,9 +82,28 @@ REALISTIC_PRICING = {
     },
     "azure": {
         "iotHub": {
-            "pricePerUnit": 25.0,
-            "messagesPerUnit": 400000,
-            "additionalMessagePrice": 0.000004,
+            "pricing_tiers": {
+                "freeTier": {
+                    "limit": 240_000,
+                    "threshold": 240_000,
+                    "price": 0,
+                },
+                "tier1": {
+                    "limit": 120_000_000,
+                    "threshold": 12_000_000,
+                    "price": 25,
+                },
+                "tier2": {
+                    "limit": 1_800_000_000,
+                    "threshold": 180_000_000,
+                    "price": 250,
+                },
+                "tier3": {
+                    "limit": "Infinity",
+                    "threshold": 9_000_000_000,
+                    "price": 2500,
+                },
+            },
         },
         "functions": {
             "requestPrice": 0.0000002,

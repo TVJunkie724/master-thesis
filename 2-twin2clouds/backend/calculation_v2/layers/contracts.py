@@ -52,6 +52,44 @@ def _plain_detail_value(value: Any) -> Any:
     return value
 
 
+DeploymentScalar = str | int | bool
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentDeploymentSelection:
+    """Immutable deployment dimensions emitted by one costed component bundle."""
+
+    component_id: str
+    dimensions: Mapping[str, DeploymentScalar]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.component_id, str) or not self.component_id.strip():
+            raise ValueError("Deployment selection component_id must be non-empty")
+        if not isinstance(self.dimensions, Mapping) or not self.dimensions:
+            raise ValueError("Deployment selection dimensions must be a non-empty mapping")
+
+        normalized: dict[str, DeploymentScalar] = {}
+        for dimension_id, value in self.dimensions.items():
+            if not isinstance(dimension_id, str) or not dimension_id.strip():
+                raise ValueError("Deployment dimension IDs must be non-empty strings")
+            if type(value) not in {str, int, bool}:
+                raise ValueError(
+                    f"Deployment dimension {dimension_id!r} must be a scalar"
+                )
+            if isinstance(value, str) and not value:
+                raise ValueError(
+                    f"Deployment dimension {dimension_id!r} must be non-empty"
+                )
+            normalized[dimension_id] = value
+        object.__setattr__(self, "dimensions", MappingProxyType(normalized))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "componentId": self.component_id,
+            "dimensions": dict(self.dimensions),
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class LayerResult:
     """Canonical result returned by every provider layer calculator."""
@@ -62,6 +100,7 @@ class LayerResult:
     data_size_gb: float = 0.0
     messages: float = 0.0
     components: Mapping[str, float] = field(default_factory=dict)
+    deployment_selections: tuple[ComponentDeploymentSelection, ...] = ()
     details: Mapping[str, Any] = field(default_factory=dict)
     supported: bool = True
     unsupported_reason: str | None = None
@@ -91,6 +130,18 @@ class LayerResult:
             "components",
             MappingProxyType(normalized_components),
         )
+        if not isinstance(self.deployment_selections, tuple):
+            raise ValueError("Layer deployment selections must be a tuple")
+        component_ids: list[str] = []
+        for selection in self.deployment_selections:
+            if not isinstance(selection, ComponentDeploymentSelection):
+                raise ValueError(
+                    "Layer deployment selections must use "
+                    "ComponentDeploymentSelection"
+                )
+            component_ids.append(selection.component_id)
+        if len(component_ids) != len(set(component_ids)):
+            raise ValueError("Layer deployment selection component IDs must be unique")
         if not isinstance(self.details, Mapping):
             raise ValueError("Layer result details must be a mapping")
         object.__setattr__(
@@ -152,6 +203,7 @@ class BaseLayerCalculatorSet:
         data_size_gb: float = 0.0,
         messages: float = 0.0,
         components: Mapping[str, float] | None = None,
+        deployment_selections: tuple[ComponentDeploymentSelection, ...] = (),
         details: Mapping[str, Any] | None = None,
         unsupported_reason: str | None = None,
     ) -> LayerResult:
@@ -162,6 +214,7 @@ class BaseLayerCalculatorSet:
             data_size_gb=data_size_gb,
             messages=messages,
             components=components or {},
+            deployment_selections=deployment_selections,
             details=details or {},
             supported=self.supports(layer) and unsupported_reason is None,
             unsupported_reason=unsupported_reason,
@@ -198,3 +251,6 @@ class LayerCalculatorSet(Protocol):
 
     def calculate_glue_cost(self, messages: float, pricing: dict) -> float:
         """Calculate the provider's cross-cloud glue function cost."""
+
+    def glue_deployment_selection(self) -> ComponentDeploymentSelection:
+        """Return the exact runtime profile used for glue-function pricing."""

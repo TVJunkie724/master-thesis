@@ -153,6 +153,13 @@ gcp.iot.l1
   review_status: verified
 ```
 
+For Azure IoT Hub, provider-neutral physical messages are not yet the billable
+quantity. F1 uses 0.5 KB billing blocks and paid Standard tiers use 4 KB billing
+blocks. The calculation must normalize message size per candidate SKU before it
+compares required capacity. Its result must preserve both the workload quantity
+and the provider-derived billable quantity so the thesis evaluation can explain
+why two providers charge different units for the same functional workload.
+
 The calculation must not execute in publishable mode if the classification is
 missing, ambiguous, unsupported, stale, or not reviewed.
 

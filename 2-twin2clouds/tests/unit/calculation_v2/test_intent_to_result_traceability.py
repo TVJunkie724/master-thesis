@@ -12,6 +12,7 @@ from tests.unit.pricing.transfer_fixtures import (
 
 def _sample_params():
     return {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,

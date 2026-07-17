@@ -16,6 +16,7 @@ from backend.calculation_v2.formulas import (
     tiered_message_cost,
     unit_price,
     first_unit_price,
+    billable_block_units,
     billable_1kb_units,
     capacity_tier_cost,
     tiered_unit_cost,
@@ -235,6 +236,43 @@ class TestPricingUnitHelpers:
     ):
         with pytest.raises(ValueError):
             billable_1kb_units(item_count, average_size_kb)
+
+    @pytest.mark.parametrize(
+        ("average_size_kb", "block_size_kb", "expected"),
+        [
+            (0.25, 0.5, 10),
+            (0.51, 0.5, 20),
+            (4.0, 4.0, 10),
+            (4.01, 4.0, 20),
+            (8.0, 4.0, 20),
+        ],
+    )
+    def test_billable_block_units_uses_provider_specific_increment(
+        self,
+        average_size_kb,
+        block_size_kb,
+        expected,
+    ):
+        assert (
+            billable_block_units(
+                10,
+                average_size_kb,
+                block_size_kb=block_size_kb,
+            )
+            == expected
+        )
+
+    @pytest.mark.parametrize("block_size_kb", [0, -1, float("inf"), True, "4"])
+    def test_billable_block_units_rejects_invalid_block_size(
+        self,
+        block_size_kb,
+    ):
+        with pytest.raises(ValueError):
+            billable_block_units(
+                1,
+                1,
+                block_size_kb=block_size_kb,
+            )
 
     def test_capacity_tier_cost_selects_cheapest_valid_unit_tier(self):
         tiers = {

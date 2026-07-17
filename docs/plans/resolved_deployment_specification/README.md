@@ -29,7 +29,7 @@ Optimizer winner
 | Phase | Issue | Deliverable | Blocked By |
 | --- | --- | --- | --- |
 | 1 | [#127](https://github.com/TVJunkie724/master-thesis/issues/127) | Done: canonical contract, dimension registry, matrix, and fixtures | None |
-| 2 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Optimizer emits an exact resolved specification | #127 |
+| 2 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Done: Optimizer emits an exact resolved specification | #127 |
 | 3 | [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Management API validates, persists, freezes, and manifests it | #127, #129 |
 | 4 | [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Deployer validates it and generates typed tfvars | #127, #130 |
 | 5 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | AWS Terraform alignment | #131 |

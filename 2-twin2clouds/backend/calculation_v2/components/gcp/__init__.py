@@ -12,7 +12,7 @@ from .pubsub import GCPPubSubCalculator
 from .cloud_functions import GCPCloudFunctionsCalculator
 from .cloud_workflows import GCPCloudWorkflowsCalculator
 from .firestore import GCPFirestoreCalculator
-from .cloud_storage import GCSNearlineCalculator, GCSColdlineCalculator
+from .cloud_storage import GCSArchiveCalculator, GCSNearlineCalculator
 from .compute_engine import GCPComputeEngineCalculator
 
 __all__ = [
@@ -21,6 +21,6 @@ __all__ = [
     "GCPCloudWorkflowsCalculator",
     "GCPFirestoreCalculator",
     "GCSNearlineCalculator",
-    "GCSColdlineCalculator",
+    "GCSArchiveCalculator",
     "GCPComputeEngineCalculator",
 ]

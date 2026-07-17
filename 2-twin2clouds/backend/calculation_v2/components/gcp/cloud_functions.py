@@ -12,6 +12,10 @@ Pricing Model:
 
 from typing import Dict, Any
 from ..types import GCPComponent, FormulaType
+from ...deployment_profiles import (
+    GCP_STANDARD_FUNCTION_MEMORY_MB,
+    STANDARD_FUNCTION_DURATION_MS,
+)
 from ...formulas import execution_based_cost, required_first_unit_price
 
 
@@ -32,9 +36,8 @@ class GCPCloudFunctionsCalculator:
     component_type = GCPComponent.CLOUD_FUNCTIONS
     formula_type = FormulaType.CE
     
-    # Default assumptions (consistent with AWS/Azure)
-    DEFAULT_DURATION_MS = 100
-    DEFAULT_MEMORY_MB = 128
+    DEFAULT_DURATION_MS = STANDARD_FUNCTION_DURATION_MS
+    DEFAULT_MEMORY_MB = GCP_STANDARD_FUNCTION_MEMORY_MB
     
     def calculate_cost(
         self,

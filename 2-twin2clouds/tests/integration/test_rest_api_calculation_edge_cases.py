@@ -36,6 +36,7 @@ def _resolved_catalogs(pricing: dict) -> ResolvedPricingCatalogs:
 
 def _valid_payload():
     return {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -66,9 +67,24 @@ def test_calculate_missing_fields():
     # detail is a list of dicts
     assert any(err["loc"][-1] == "numberOfDevices" for err in data["detail"])
 
+
+def test_calculate_rejects_invalid_calculation_run_id():
+    payload = _valid_payload()
+    payload["calculationRunId"] = "not-a-uuid"
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 422
+    assert any(
+        error["loc"][-1] == "calculationRunId"
+        for error in response.json()["detail"]
+    )
+
+
 def test_calculate_invalid_data_types():
     """Test sending string for integer field returns 422."""
     payload = {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": "one_hundred", # Invalid
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -91,6 +107,7 @@ def test_calculate_invalid_data_types():
 def test_calculate_negative_values():
     """Test validation of negative values where positive are required."""
     payload = {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": -50, # Invalid
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -111,6 +128,7 @@ def test_calculate_negative_values():
 def test_calculate_storage_duration_logic_ordering():
     """Test logic: Hot <= Cool <= Archive."""
     payload = {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -170,6 +188,7 @@ def test_calculate_load_pricing_failure(mock_resolve_pricing):
     mock_resolve_pricing.side_effect = Exception("Disk failure simulation")
     
     payload = {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -201,6 +220,7 @@ def test_calculate_engine_internal_error(mock_resolve, mock_engine):
     mock_engine.side_effect = ValueError("Calculation logic exploded")
     
     payload = {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100, 
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -265,6 +285,7 @@ def test_feature_toggle_gcp_l4_disabled(mock_resolve_pricing):
         mock_resolve_pricing.return_value = _resolved_catalogs({})
         
         payload = {
+            "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
             "numberOfDevices": 100,
             "deviceSendingIntervalInMinutes": 2.0,
             "averageSizeOfMessageInKb": 0.25,
@@ -299,6 +320,7 @@ def test_calculate_response_exposes_additive_trace_metadata(mock_resolve_pricing
 
     mock_resolve_pricing.return_value = _resolved_catalogs(_sample_pricing())
     payload = {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -364,6 +386,7 @@ def test_calculate_preserves_explicit_adt_assumptions_in_trace(
 
 def test_calculate_rejects_unimplemented_gcp_self_hosted_paths():
     payload = {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,

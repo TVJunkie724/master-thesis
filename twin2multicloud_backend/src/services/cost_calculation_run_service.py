@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 import re
 from typing import Any
+import uuid
 
 from sqlalchemy.orm import Session
 
@@ -47,6 +48,35 @@ ENABLED_OPTIMIZATION_PROFILES = {"cost_minimization_v1"}
 SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
 
 
+def _validate_optimizer_calculation_run_id(
+    result: dict[str, Any],
+    expected_run_id: str,
+) -> None:
+    specification = result.get("resolvedDeploymentSpecification")
+    if not isinstance(specification, dict):
+        raise OptimizerContractError(
+            "Optimizer response is missing its resolved deployment specification",
+            [
+                {
+                    "field": "resolvedDeploymentSpecification",
+                    "message": "Missing object",
+                }
+            ],
+        )
+    if specification.get("calculation_run_id") != expected_run_id:
+        raise OptimizerContractError(
+            "Optimizer response calculation identity does not match the request",
+            [
+                {
+                    "field": (
+                        "resolvedDeploymentSpecification.calculation_run_id"
+                    ),
+                    "message": "Mismatched calculation run identity",
+                }
+            ],
+        )
+
+
 class CostCalculationRunService:
     """Owns Management API persistence for optimizer calculation runs."""
 
@@ -85,6 +115,8 @@ class CostCalculationRunService:
 
         optimizer_params = params.to_optimizer_payload()
         persisted_params = params.to_persisted_payload()
+        run_id = str(uuid.uuid4())
+        optimizer_params["calculationRunId"] = run_id
         catalog_context = await self.pricing_catalog_contexts.resolve_for_user(user_id)
         optimizer_params["providerPricingCatalogs"] = catalog_context.to_http_dict()
         aws_context = await self.aws_twinmaker_contexts.resolve(
@@ -101,6 +133,7 @@ class CostCalculationRunService:
             raise
 
         result = self._extract_optimizer_result(optimizer_payload)
+        _validate_optimizer_calculation_run_id(result, run_id)
         contract = self._validate_optimizer_result(result)
         _validate_optimizer_pricing_catalog_context(result, catalog_context)
         transfer_pricing = validate_optimizer_transfer_pricing_result(
@@ -123,6 +156,7 @@ class CostCalculationRunService:
             self.db.flush()
 
             run = CostCalculationRun(
+                id=run_id,
                 twin_id=twin_id,
                 user_id=user_id,
                 optimizer_config_id=config.id,

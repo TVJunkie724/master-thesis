@@ -126,6 +126,7 @@ def _calc_params():
         }
     )
     return {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 1,
         "deviceSendingIntervalInMinutes": 1,
         "averageSizeOfMessageInKb": 1,

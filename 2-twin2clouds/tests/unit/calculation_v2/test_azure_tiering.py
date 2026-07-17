@@ -10,6 +10,9 @@ from backend.calculation_v2.components.azure import (
     AzureIoTHubCalculator,
     AzureLogicAppsCalculator,
 )
+from backend.calculation_v2.components.azure.iot_hub import (
+    IOT_HUB_MAXIMUM_CAPACITY,
+)
 from backend.calculation_v2.engine import _calculate_egress_cost
 from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
@@ -18,7 +21,7 @@ def _azure_pricing(**overrides):
     base = {
         "iotHub": {
             "pricing_tiers": {
-                "freeTier": {"limit": 240_000, "threshold": 240_000, "price": 0},
+                "freeTier": {"limit": 240_000, "threshold": 0, "price": 0},
                 "tier1": {"limit": 120_000_000, "threshold": 12_000_000, "price": 25},
                 "tier2": {"limit": 1_800_000_000, "threshold": 180_000_000, "price": 250},
                 "tier3": {"limit": "Infinity", "threshold": 9_000_000_000, "price": 2500},
@@ -50,29 +53,112 @@ def _azure_pricing(**overrides):
 
 
 class TestAzureIoTHubTiering:
+    def test_formula_capacity_limits_match_deployment_registry(self):
+        from backend.deployment_specification.builder import _contract
+
+        registry = _contract()[1]
+        constraints = registry["components"]["l1.azure.iot_hub"][
+            "combination_constraints"
+        ][0]["ranges_by_selector"]
+
+        assert IOT_HUB_MAXIMUM_CAPACITY == {
+            sku: values["maximum"]
+            for sku, values in constraints.items()
+        }
+
     def test_free_tier_is_used_for_small_workloads(self):
-        result = AzureIoTHubCalculator().calculate_cost(
+        result = AzureIoTHubCalculator().calculate_selection(
             messages_per_month=200_000,
             pricing=_azure_pricing(),
         )
 
-        assert result == 0
+        assert result.sku == "F1"
+        assert result.capacity == 1
+        assert result.total_cost == 0
 
     def test_paid_tier_units_scale_with_message_volume(self):
-        result = AzureIoTHubCalculator().calculate_cost(
+        result = AzureIoTHubCalculator().calculate_selection(
             messages_per_month=12_000_001,
             pricing=_azure_pricing(),
         )
 
-        assert result == 50
+        assert result.sku == "S1"
+        assert result.capacity == 2
+        assert result.total_cost == 50
 
     def test_cheapest_valid_paid_tier_is_selected_for_high_volume(self):
-        result = AzureIoTHubCalculator().calculate_cost(
+        result = AzureIoTHubCalculator().calculate_selection(
             messages_per_month=180_000_000,
             pricing=_azure_pricing(),
         )
 
-        assert result == 250
+        assert result.sku == "S2"
+        assert result.capacity == 1
+        assert result.total_cost == 250
+
+    def test_s1_remains_eligible_beyond_the_legacy_catalog_limit(self):
+        result = AzureIoTHubCalculator().calculate_selection(
+            messages_per_month=200_000_000,
+            pricing=_azure_pricing(),
+        )
+
+        assert result.sku == "S1"
+        assert result.capacity == 17
+        assert result.total_cost == 425
+
+    def test_s3_tier_is_selected_when_lower_tiers_exceed_maximum_capacity(self):
+        result = AzureIoTHubCalculator().calculate_selection(
+            messages_per_month=45_000_000_000,
+            pricing=_azure_pricing(),
+        )
+
+        assert result.sku == "S3"
+        assert result.capacity == 5
+        assert result.total_cost == 12_500
+
+    def test_workload_above_all_supported_capacity_fails_closed(self):
+        with pytest.raises(ValueError, match="valid paid tier"):
+            AzureIoTHubCalculator().calculate_selection(
+                messages_per_month=90_000_000_001,
+                pricing=_azure_pricing(),
+            )
+
+    def test_unknown_provider_tier_fails_closed(self):
+        pricing = _azure_pricing()
+        pricing["azure"]["iotHub"]["pricing_tiers"]["previewTier"] = {
+            "limit": "Infinity",
+            "threshold": 1,
+            "price": 1,
+        }
+
+        with pytest.raises(ValueError, match="unsupported tiers"):
+            AzureIoTHubCalculator().calculate_selection(
+                messages_per_month=1,
+                pricing=pricing,
+            )
+
+    def test_message_size_uses_provider_specific_quota_blocks(self):
+        result = AzureIoTHubCalculator().calculate_selection(
+            messages_per_month=200_000,
+            average_message_size_kb=1.0,
+            pricing=_azure_pricing(),
+        )
+
+        assert result.sku == "S1"
+        assert result.capacity == 1
+        assert result.billable_quantity == 200_000
+        assert result.total_cost == 25
+
+    def test_paid_tier_capacity_uses_four_kb_billable_message_blocks(self):
+        result = AzureIoTHubCalculator().calculate_selection(
+            messages_per_month=12_000_000,
+            average_message_size_kb=8.0,
+            pricing=_azure_pricing(),
+        )
+
+        assert result.sku == "S1"
+        assert result.capacity == 2
+        assert result.billable_quantity == 24_000_000
 
 
 class TestAzureDigitalTwinsUnitNormalization:
