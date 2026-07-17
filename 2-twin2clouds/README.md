@@ -13,7 +13,7 @@ The Optimizer owns:
 - provider pricing acquisition and evidence,
 - pricing-source and normalization contracts,
 - monthly cost calculation,
-- cost-based provider selection for layers L1-L5,
+- complete-path cost optimization across layers L1-L5,
 - bounded intent-to-result traceability,
 - pricing readiness and credential preflight contracts.
 
@@ -110,9 +110,21 @@ The response also includes:
 
 - selected providers per layer,
 - provider and transfer cost breakdowns,
+- all six evaluated baseline edges from L1-to-L2 through L4-to-L5,
+- exact route, tier, billing-pool, and immutable catalog evidence for the
+  winning complete path,
+- bounded complete-path diagnostics with evaluated and rejected candidate
+  counts,
 - optimization profile and strategy identifiers,
 - registry/evidence references,
 - bounded `intentTrace` and `resultTrace` diagnostics.
+
+Selection is not greedy per layer. The Optimizer enumerates every executable
+provider assignment for the closed Five-Layer baseline, calculates layer and
+route costs as one candidate total, applies each transfer allowance once per
+source-provider billing pool, and passes those totals to the active scoring
+strategy. Unsupported routes and capabilities fail closed rather than entering
+selection as zero-cost alternatives.
 
 ## Repository Layout
 

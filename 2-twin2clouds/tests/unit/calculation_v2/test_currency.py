@@ -28,6 +28,26 @@ def _result_payload() -> dict:
         "azureCosts": {"L1": {"cost": 8.0, "components": {"iot": 3.0}}},
         "gcpCosts": {"L1": {"cost": 9.0, "components": {"iot": 2.0}}},
         "transferCosts": {"L1_to_L2": 2.0},
+        "transferPricingContext": {
+            "currency": "USD",
+            "routes": [
+                {
+                    "egressCost": 1.0,
+                    "glueCost": 0.5,
+                    "totalCost": 1.5,
+                    "tierContributions": [
+                        {"unitPrice": 0.1, "cost": 1.0},
+                    ],
+                }
+            ],
+            "pools": [{"aggregateEgressCost": 1.0}],
+        },
+        "optimizationDiagnostics": {
+            "winningScore": 10.0,
+            "winningLayerCost": 8.0,
+            "winningTransferCost": 2.0,
+            "scoreUnit": "USD/month",
+        },
         "totalCost": 10.0,
         "intentTrace": {
             "selected_path": [{"cost": 8.0}],
@@ -65,6 +85,21 @@ def test_eur_conversion_updates_costs_and_trace_metadata(tmp_path):
     assert calculation["sourceCurrency"] == "USD"
     assert calculation["currency"] == "EUR"
     assert result["transferCosts"]["L1_to_L2"] == 1.6
+    transfer_context = result["transferPricingContext"]
+    assert transfer_context["currency"] == "EUR"
+    assert transfer_context["routes"][0]["egressCost"] == 0.8
+    assert transfer_context["routes"][0]["glueCost"] == 0.4
+    assert transfer_context["routes"][0]["totalCost"] == 1.2
+    assert (
+        transfer_context["routes"][0]["tierContributions"][0]["unitPrice"]
+        == 0.08
+    )
+    assert transfer_context["pools"][0]["aggregateEgressCost"] == 0.8
+    diagnostics = result["optimizationDiagnostics"]
+    assert diagnostics["winningScore"] == 8.0
+    assert diagnostics["winningLayerCost"] == 6.4
+    assert diagnostics["winningTransferCost"] == 1.6
+    assert diagnostics["scoreUnit"] == "EUR/month"
     assert result["intentTrace"]["records"][0]["contribution"]["cost"] == 6.4
     assert result["resultTrace"][0]["cost_contribution"] == 6.4
     assert result["resultTrace"][0]["source_currency"] == "USD"

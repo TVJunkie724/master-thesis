@@ -1,3 +1,4 @@
+import os
 import shutil
 
 from fastapi.testclient import TestClient
@@ -59,6 +60,34 @@ def test_pricing_registry_service_reloads_registry_version(tmp_path):
     service = PricingRegistryService(root)
 
     assert service.get_registry_version() == "2026.07.18"
+
+
+def test_pricing_registry_service_invalidates_cached_snapshot(tmp_path):
+    root = _copy_registry(tmp_path)
+    service = PricingRegistryService(root)
+
+    assert service.get_registry_version() == "2026.07.17"
+
+    for path in root.glob("*.yaml"):
+        path.write_text(path.read_text().replace("2026.07.17", "2026.07.18"))
+
+    assert service.get_registry_version() == "2026.07.18"
+
+
+def test_pricing_registry_service_invalidates_for_provider_mapping_change(
+    tmp_path,
+):
+    root = _copy_registry(tmp_path)
+    service = PricingRegistryService(root)
+    initial = service.load()
+    mapping_path = root / "providers" / "aws" / "mappings.yaml"
+    metadata = mapping_path.stat()
+    os.utime(
+        mapping_path,
+        ns=(metadata.st_atime_ns, metadata.st_mtime_ns + 1_000_000_000),
+    )
+
+    assert service.load() is not initial
 
 
 def test_pricing_registry_service_rejects_unknown_provider():

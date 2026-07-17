@@ -59,8 +59,13 @@ before a transfer value can enter scoring.
 AWS and Azure use decimal GB; GCP uses GiB. The common comparison quantity is
 bytes. No API adapter, Management service, or Flutter model may reconstruct a
 scalar transfer rate or substitute a default when the catalog is unavailable.
-Aggregate pool allocation and complete-path selection remain owned by the
-route-aware optimizer work, not by clients.
+Aggregate pool allocation and complete-path selection are owned by
+`calculation_v2/path_optimizer.py`, not by clients. The Optimizer evaluates all
+executable combinations of the seven baseline slots and all six approved
+directed edges before the active scoring strategy selects a winner. Clients may
+display `complete-path-transfer-pricing.v1` and
+`complete-path-optimization.v1`; they must not recalculate pools, infer missing
+routes, or replace exact catalog references.
 
 ## Errors
 

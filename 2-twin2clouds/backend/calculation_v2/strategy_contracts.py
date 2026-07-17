@@ -666,7 +666,7 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
         _binding("cost.aws.l5.grafana", FormulaType.CU, ("aws.l5.grafana",), "AWSGrafanaCalculator.calculate_cost", "L5.grafana", ("num_editors", "num_viewers")),
         _binding("cost.azure.l5.grafana", FormulaType.CU, ("azure.l5.grafana",), "AzureGrafanaCalculator.calculate_cost", "L5.grafana", ("num_editors", "num_viewers", "hours_per_month")),
         _binding("cost.gcp.l5.self_hosted_grafana", FormulaType.CU, ("gcp.l5.self_hosted_grafana",), "GCPComputeEngineCalculator.calculate_grafana_cost", "L5.self_hosted_grafana", ("hours_per_month", "disk_gb")),
-        _binding("cost.transfer.egress", FormulaType.CTRANSFER, ("aws.transfer.egress", "azure.transfer.egress", "gcp.transfer.egress"), "calculation_v2.engine._calculate_egress_cost", "transfer.egress", ("data_gb", "source_provider"), normalizer="canonical_transfer_catalog"),
+        _binding("cost.transfer.egress", FormulaType.CTRANSFER, ("aws.transfer.egress", "azure.transfer.egress", "gcp.transfer.egress"), "calculation_v2.path_optimizer.evaluate_complete_paths", "transfer.egress", ("volume_bytes", "source_provider", "destination_provider", "catalog_snapshot_id"), normalizer="canonical_transfer_catalog"),
     )
 
     return OptimizationStrategyContract(

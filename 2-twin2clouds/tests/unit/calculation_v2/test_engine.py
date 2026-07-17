@@ -11,7 +11,10 @@ from types import SimpleNamespace
 import json
 import pytest
 
-from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
+from tests.unit.pricing.transfer_fixtures import (
+    canonical_transfer_catalog,
+    pricing_catalog_context_for,
+)
 
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -352,7 +355,11 @@ class TestEngineIntegration:
         sample_params.pop("providerPricingContexts")
 
         aws = calculate_aws_costs(sample_params, sample_pricing)
-        result = calculate_cheapest_costs(sample_params, sample_pricing)
+        result = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
+        )
 
         assert aws["L4"]["supported"] is False
         assert aws["L4"]["unsupportedReason"] == (
@@ -366,7 +373,11 @@ class TestEngineIntegration:
         """Test full calculation returns expected structure."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
-        result = calculate_cheapest_costs(sample_params, sample_pricing)
+        result = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
+        )
         
         # Verify structure
         assert "calculationResult" in result
@@ -415,6 +426,9 @@ class TestEngineIntegration:
             calculate_cheapest_costs(
                 sample_params,
                 sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
                 optimization_profile_id="latency_minimization_v1",
             )
 
@@ -426,36 +440,36 @@ class TestEngineIntegration:
         sample_params["allowGcpSelfHostedL4"] = True
 
         with pytest.raises(ValueError, match="cannot be enabled"):
-            calculate_cheapest_costs(sample_params, sample_pricing)
+            calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
+            )
 
-    def test_cost_profile_preserves_min_cost_provider_selection(self, sample_params, sample_pricing):
-        """Selected providers must match the minimum cost for each executable layer."""
+    def test_cost_profile_scores_complete_paths(self, sample_params, sample_pricing):
+        """The enabled strategy scores complete, transfer-aware candidates."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
 
-        result = calculate_cheapest_costs(sample_params, sample_pricing)
+        result = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
+        )
 
-        layer_to_result_key = {
-            "L1": result["calculationResult"]["L1"],
-            "L2": result["calculationResult"]["L2"],
-            "L3_hot": result["calculationResult"]["L3"]["Hot"],
-            "L3_cool": result["calculationResult"]["L3"]["Cool"],
-            "L3_archive": result["calculationResult"]["L3"]["Archive"],
-            "L4": result["calculationResult"]["L4"],
-            "L5": result["calculationResult"]["L5"],
-        }
-        provider_cost_key = {
-            "AWS": "awsCosts",
-            "Azure": "azureCosts",
-            "GCP": "gcpCosts",
-        }
-
-        for layer, selected_provider in layer_to_result_key.items():
-            options = {
-                provider: result[cost_key][layer]["cost"]
-                for provider, cost_key in provider_cost_key.items()
-                if provider != "GCP" or layer not in {"L4", "L5"}
-            }
-            assert selected_provider == min(options, key=options.get)
+        diagnostics = result["optimizationDiagnostics"]
+        assert diagnostics["schemaVersion"] == "complete-path-optimization.v1"
+        assert diagnostics["enumeratedPathCount"] == 972
+        assert diagnostics["evaluatedPathCount"] == 972
+        assert diagnostics["rejectedPathCount"] == 0
+        assert diagnostics["canonicalProviderOrder"] == [
+            "aws",
+            "azure",
+            "gcp",
+        ]
+        assert diagnostics["winningScore"] >= diagnostics["winningLayerCost"]
+        assert len(result["transferPricingContext"]["routes"]) == 6
 
     def test_scoring_strategy_does_not_receive_provider_pricing_payload(
         self,
@@ -528,7 +542,11 @@ class TestEngineIntegration:
             lambda: FakeProfileRegistry(),
         )
 
-        result = engine.calculate_cheapest_costs(sample_params, sample_pricing)
+        result = engine.calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
+        )
 
         assert result["optimization_profile_id"] == "cost_minimization_v1"
         assert len(strategy.seen_payloads) >= 7
@@ -584,11 +602,21 @@ class TestEngineIntegration:
         )
 
         with pytest.raises(ValueError, match="primary metric"):
-            engine.calculate_cheapest_costs(sample_params, sample_pricing)
+            engine.calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
+            )
     
     def test_total_cost_is_positive(self, sample_params, sample_pricing):
         """Total cost should be positive for non-zero usage."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
-        result = calculate_cheapest_costs(sample_params, sample_pricing)
+        result = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
+        )
         assert result["totalCost"] > 0

@@ -71,11 +71,19 @@ future Azure catalog revision.
 
 AWS, Azure, and GCP transfer catalogs now use exact reviewed tier series,
 provider-native GB/GiB units, explicit routing policy, and fail-closed runtime
-validation. Complete-path scoring and account-level allowance aggregation are
-still being implemented under issue #116. Until that slice lands, the current
-engine can validate each segment's catalog but must not be interpreted as a
-provider invoice reconciliation or as proof that greedy layer selection found
-the global minimum including transfer.
+validation. The Optimizer now scores all complete baseline paths and applies
+transfer allowances once per source-provider billing pool. This is an
+estimation model, not provider invoice reconciliation: it does not import
+unrelated account traffic, negotiated discounts, taxes, or billing exports.
+
+Destination glue free tiers are aggregated across glue routes in one
+calculation. Existing provider layer calculators still price several
+serverless components independently, so account-wide request and compute
+allowances shared between layer functions, glue functions, and unrelated
+workloads are not yet reconciled as one provider invoice pool. This must be
+measured and corrected, where material, under
+[formula validation issue #42](https://github.com/TVJunkie724/master-thesis/issues/42)
+before final thesis evaluation and supervised E2E.
 
 Calculation traceability now connects the optimization profile and selected path to
 provider pricing contracts, source classifications, formula bindings, evidence

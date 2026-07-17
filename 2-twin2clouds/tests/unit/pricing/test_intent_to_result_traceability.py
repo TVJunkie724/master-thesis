@@ -13,10 +13,15 @@ from tests.unit.calculation_v2.test_engine_consistency import (
     REALISTIC_PRICING,
     STANDARD_PARAMS,
 )
+from tests.unit.pricing.transfer_fixtures import pricing_catalog_context_for
 
 
 def _trace():
-    result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+    result = calculate_cheapest_costs(
+        STANDARD_PARAMS,
+        REALISTIC_PRICING,
+        pricing_catalog_context=pricing_catalog_context_for(REALISTIC_PRICING),
+    )
     return result, result["resultTrace"]
 
 
@@ -142,7 +147,11 @@ def test_aws_twinmaker_trace_separates_standard_dimensions_and_bundle_mode():
         }
     }
 
-    result = calculate_cheapest_costs(params, pricing)
+    result = calculate_cheapest_costs(
+        params,
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
     trace = result["resultTrace"]
 
     expected = {
@@ -289,6 +298,9 @@ def test_trace_redacts_credential_like_source_values(tmp_path):
     result = calculate_cheapest_costs(
         STANDARD_PARAMS,
         REALISTIC_PRICING,
+        pricing_catalog_context=pricing_catalog_context_for(
+            REALISTIC_PRICING
+        ),
         pricing_registry_service=PricingRegistryService(root),
     )
     serialized = json.dumps(result["resultTrace"])

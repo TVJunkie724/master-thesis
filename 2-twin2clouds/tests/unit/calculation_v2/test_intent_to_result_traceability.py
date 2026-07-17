@@ -4,7 +4,10 @@ import json
 
 from backend.calculation_v2.engine import calculate_cheapest_costs
 from backend.calculation_v2.traceability import TRACE_SCHEMA_VERSION
-from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
+from tests.unit.pricing.transfer_fixtures import (
+    canonical_transfer_catalog,
+    pricing_catalog_context_for,
+)
 
 
 def _sample_params():
@@ -112,7 +115,12 @@ def _sample_pricing():
 
 
 def test_calculation_result_contains_stable_intent_trace_shape():
-    result = calculate_cheapest_costs(_sample_params(), _sample_pricing())
+    pricing = _sample_pricing()
+    result = calculate_cheapest_costs(
+        _sample_params(),
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
 
     assert result["trace_schema_version"] == TRACE_SCHEMA_VERSION
     trace = result["intentTrace"]
@@ -152,7 +160,12 @@ def test_calculation_result_contains_stable_intent_trace_shape():
 
 
 def test_selected_trace_records_match_selected_path():
-    result = calculate_cheapest_costs(_sample_params(), _sample_pricing())
+    pricing = _sample_pricing()
+    result = calculate_cheapest_costs(
+        _sample_params(),
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
     trace = result["intentTrace"]
 
     selected_path = {
@@ -173,7 +186,12 @@ def test_selected_trace_records_match_selected_path():
 
 
 def test_trace_is_bounded_and_secret_free():
-    result = calculate_cheapest_costs(_sample_params(), _sample_pricing())
+    pricing = _sample_pricing()
+    result = calculate_cheapest_costs(
+        _sample_params(),
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
     serialized = json.dumps(result["intentTrace"])
 
     assert "aws_secret_access_key" not in serialized

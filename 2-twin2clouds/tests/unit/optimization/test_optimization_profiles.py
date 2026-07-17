@@ -258,6 +258,31 @@ def test_cost_only_strategy_ranks_by_metric_result_without_pricing_payload():
     assert "pricePerGB" not in json.dumps(selected.to_dict())
 
 
+def test_cost_only_strategy_uses_candidate_id_as_deterministic_tie_break():
+    from backend.optimization.metrics import MetricResult
+    from backend.optimization.scoring import OptimizationCandidate
+
+    strategy = CostOnlyScoringStrategy()
+    tied = [
+        OptimizationCandidate(
+            candidate_id=candidate_id,
+            metrics={
+                "cost": MetricResult(
+                    "cost",
+                    10.0,
+                    "USD/month",
+                    "api_backed",
+                )
+            },
+        )
+        for candidate_id in ("gcp|aws", "azure|aws", "aws|aws")
+    ]
+
+    assert [
+        candidate.candidate_id for candidate in strategy.rank(tied)
+    ] == ["aws|aws", "azure|aws", "gcp|aws"]
+
+
 def test_result_metadata_is_management_api_serializable_and_uses_pricing_service():
     service = FakePricingRegistryService()
     registry = build_default_profile_registry(service)

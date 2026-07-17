@@ -709,11 +709,40 @@ Implementation evidence:
 
 ### Slice 3: Complete-Path Optimizer
 
-- build all baseline routes for each candidate path;
-- aggregate billing pools;
-- replace greedy layer choice with complete-path scoring;
-- add L4-to-L5 and corrected query-response volumes;
-- return exact route/pool diagnostics and structured failures.
+Status: completed locally on 2026-07-18.
+
+- all executable combinations of the seven baseline slots are evaluated as
+  complete paths, with a stable all-supported count of 972;
+- six typed routes are built for every candidate, including `L4_to_L5`;
+- telemetry, steady-state storage-transition cohorts, and explicit Digital
+  Twin query-response bytes use separate documented volume bases;
+- source-provider egress tiers and allowances are allocated once per exact
+  provider billing pool in canonical edge order;
+- destination glue allowances are aggregated across glue routes for the
+  calculation, while the trace explicitly states that selected layer functions
+  and unrelated account workloads are not imported into that pool;
+- unsupported paths are rejected before scoring and counted by stable error
+  code; a missing complete path maps to `TRANSFER_NO_COMPLETE_PATH`;
+- the existing metric/scoring strategy receives only complete candidate totals,
+  provider assignments, and evidence references, never provider pricing blobs;
+- deterministic ties use canonical AWS, Azure, GCP ordering;
+- exact catalog snapshot IDs, route endpoints, provider-native tier
+  contributions, pool totals, assumptions, and bounded solver diagnostics are
+  returned under versioned additive contracts;
+- the Pricing Registry service now caches one validated editable snapshot per
+  file signature, reducing one calculation from 64 YAML parses to one while
+  automatically invalidating after registry edits;
+- focused review gates cover global-vs-greedy selection, aggregate allowance
+  allocation, all six same-provider routes, KiB query-response conversion,
+  canonical candidate ordering, duplicate rejection, cache invalidation,
+  currency conversion, and structured API conflicts.
+- the final safe gate passed all `755` Optimizer tests, Ruff, Bandit,
+  `compileall`, `pip check`, Compose validation, MkDocs strict, and an OpenAPI
+  example contract check;
+- review pass 2 extended cache invalidation to nested provider mapping YAML and
+  aligned README/OpenAPI terminology and examples with complete-path runtime
+  behavior;
+- no provider mutation, deployment, or paid workload was executed.
 
 Commit:
 

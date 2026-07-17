@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from backend.pricing_evidence import validate_evidence_report
@@ -23,9 +24,37 @@ class PricingRegistryService:
 
     def __init__(self, root: Path | str = REGISTRY_ROOT):
         self.root = Path(root)
+        self._cache_lock = RLock()
+        self._cached_signature: tuple[tuple[str, int, int], ...] | None = None
+        self._cached_registry: PricingRegistry | None = None
 
     def load(self) -> PricingRegistry:
-        return load_pricing_registry(self.root)
+        signature = self._registry_signature()
+        with self._cache_lock:
+            if (
+                self._cached_registry is not None
+                and self._cached_signature == signature
+            ):
+                return self._cached_registry
+            registry = load_pricing_registry(self.root)
+            self._cached_registry = registry
+            self._cached_signature = signature
+            return registry
+
+    def _registry_signature(self) -> tuple[tuple[str, int, int], ...]:
+        """Return a cheap invalidation signature for editable registry files."""
+
+        signature = []
+        for path in sorted(self.root.rglob("*.yaml")):
+            metadata = path.stat()
+            signature.append(
+                (
+                    path.relative_to(self.root).as_posix(),
+                    metadata.st_mtime_ns,
+                    metadata.st_size,
+                )
+            )
+        return tuple(signature)
 
     def get_registry_version(self) -> str:
         return self.load().registry_version

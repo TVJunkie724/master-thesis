@@ -422,6 +422,7 @@ def _selected_transfer_source_providers(result_payload: dict[str, Any]) -> set[s
         "L3_hot_to_L3_cool": "L3_hot",
         "L3_cool_to_L3_archive": "L3_cool",
         "L3_hot_to_L4": "L3_hot",
+        "L4_to_L5": "L4",
     }
     providers = set()
     for segment in result_payload.get("transferCosts") or {}:

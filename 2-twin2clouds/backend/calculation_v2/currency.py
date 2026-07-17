@@ -42,6 +42,7 @@ def apply_result_currency(
 
     if target_currency == "EUR":
         _convert_provider_costs(result, rate)
+        _convert_complete_path_costs(result, rate)
         _convert_trace_costs(result, rate, target_currency)
         result["totalCost"] = round(_money(result.get("totalCost"), rate), 2)
 
@@ -97,6 +98,28 @@ def _convert_calculation_details(details: Any, rate: float) -> None:
         _convert_key(dimension, "contribution", rate)
     calculation["sourceCurrency"] = "USD"
     calculation["currency"] = "EUR"
+
+
+def _convert_complete_path_costs(result: dict[str, Any], rate: float) -> None:
+    transfer_context = result.get("transferPricingContext") or {}
+    transfer_context["currency"] = "EUR"
+    for route in transfer_context.get("routes") or []:
+        for key in ("egressCost", "glueCost", "totalCost"):
+            _convert_key(route, key, rate)
+        for contribution in route.get("tierContributions") or []:
+            _convert_key(contribution, "unitPrice", rate)
+            _convert_key(contribution, "cost", rate)
+    for pool in transfer_context.get("pools") or []:
+        _convert_key(pool, "aggregateEgressCost", rate)
+
+    diagnostics = result.get("optimizationDiagnostics") or {}
+    for key in (
+        "winningScore",
+        "winningLayerCost",
+        "winningTransferCost",
+    ):
+        _convert_key(diagnostics, key, rate)
+    diagnostics["scoreUnit"] = "EUR/month"
 
 
 def _convert_trace_costs(

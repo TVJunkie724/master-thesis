@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 from rest_api import app
+from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_catalog_repository import (
     PricingCatalogStaleError,
@@ -222,6 +223,33 @@ def test_calculate_engine_internal_error(mock_resolve, mock_engine):
     assert "detail" in data
     assert "Calculation logic exploded" in data["detail"]
 
+
+@patch("backend.calculation_v2.engine.calculate_cheapest_costs")
+@patch("api.calculation.PricingCatalogResolver.resolve_context")
+def test_calculate_returns_structured_transfer_contract_conflict(
+    mock_resolve,
+    mock_engine,
+):
+    mock_resolve.return_value = _resolved_catalogs({})
+    mock_engine.side_effect = TransferPricingContractError(
+        "TRANSFER_NO_COMPLETE_PATH",
+        "no complete baseline path satisfies the transfer contract",
+    )
+
+    response = client.put("/calculate", json=_valid_payload())
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "error_code": "TRANSFER_NO_COMPLETE_PATH",
+        "message": "no complete baseline path satisfies the transfer contract",
+        "fix_suggestion": (
+            "Review the selected provider regions, transfer-route contract, "
+            "and published transfer pricing evidence."
+        ),
+        "http_status": 409,
+    }
+
+
 # -----------------------------------------------------------------------------
 # 3. Feature Toggle Verification
 # -----------------------------------------------------------------------------
@@ -257,10 +285,11 @@ def test_feature_toggle_gcp_l4_disabled(mock_resolve_pricing):
         client.put("/calculate", json=payload)
         
         # Verify call args
-        args, _ = mock_calc.call_args
+        args, kwargs = mock_calc.call_args
         params_arg = args[0]
         assert params_arg["allowGcpSelfHostedL4"] is False
         assert params_arg["allowGcpSelfHostedL5"] is False
+        assert kwargs["pricing_catalog_context"] == _catalog_context()
 
 
 @patch("api.calculation.PricingCatalogResolver.resolve_context")

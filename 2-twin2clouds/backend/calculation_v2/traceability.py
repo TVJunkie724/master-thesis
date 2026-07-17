@@ -401,6 +401,7 @@ def _transfer_trace_entries(
         "L3_cool": (calculation_result.get("L3") or {}).get("Cool"),
         "L3_archive": (calculation_result.get("L3") or {}).get("Archive"),
         "L4": calculation_result.get("L4"),
+        "L5": calculation_result.get("L5"),
     }
     segment_layers = {
         "L1_to_L2": ("L1", "L2"),
@@ -408,6 +409,7 @@ def _transfer_trace_entries(
         "L3_hot_to_L3_cool": ("L3_hot", "L3_cool"),
         "L3_cool_to_L3_archive": ("L3_cool", "L3_archive"),
         "L3_hot_to_L4": ("L3_hot", "L4"),
+        "L4_to_L5": ("L4", "L5"),
     }
 
     entries = []
@@ -430,8 +432,7 @@ def _transfer_trace_entries(
                 "source_intent_id": source_intent_id,
                 "evidence_reference_ids": (
                     [
-                        f"{pricing_registry_reference}/{source_intent_id}.egress",
-                        f"{pricing_registry_reference}/{source_intent_id}.egress_tiers",
+                        f"{pricing_registry_reference}/{source_intent_id}.catalog",
                     ]
                     if source_intent_id
                     else []

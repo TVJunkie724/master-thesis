@@ -59,15 +59,22 @@ with distinct, validated divisors. Same-provider/inter-region transfer is
 recognized but fails closed because the current profile supports one region per
 provider.
 
-The contract, provider evidence adapters, strict catalog documents, and exact
-unit arithmetic are present. The runtime formula rejects missing or malformed
-catalogs and has no scalar egress fallback. Migration of the legacy greedy path
-selection, aggregate billing pools, persisted route trace, and Flutter evidence
-view remains in progress under
+The runtime formula rejects missing or malformed catalogs and has no scalar
+egress fallback. `calculation_v2/path_optimizer.py` evaluates every executable
+complete baseline path, prices all six approved edges including `L4 -> L5`,
+and applies each source-provider transfer allowance once per exact billing
+pool. It then passes complete totals to the active scoring strategy; the
+engine no longer chooses providers greedily per layer.
+
+The additive `complete-path-transfer-pricing.v1` result records every winning
+route, same-provider zero routes, regions, geographies, network tier, byte
+volume, exact catalog/evidence identities, cumulative tier contributions,
+egress/glue totals, and model assumptions. Bounded
+`complete-path-optimization.v1` diagnostics expose enumerated, evaluated, and
+rejected path counts plus the deterministic winner. Persistence of these exact
+objects in Management and their collapsed Flutter evidence view remain in
+progress under
 [GitHub issue #116](https://github.com/TVJunkie724/master-thesis/issues/116).
-Until the complete-path slice is finished, `calculation_v2/engine.py` still
-evaluates transfer segments after layer selection and therefore does not yet
-apply account-level allowances across the whole candidate path.
 
 ## Evidence And Candidate Flow
 

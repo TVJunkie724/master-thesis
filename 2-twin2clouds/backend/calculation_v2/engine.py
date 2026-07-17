@@ -30,6 +30,12 @@ from backend.calculation_v2.currency import apply_result_currency
 from backend.calculation_v2.formulas import (
     billable_1kb_units,
 )
+from backend.calculation_v2.path_optimizer import (
+    LAYER_ORDER,
+    build_optimization_diagnostics,
+    build_transfer_pricing_context,
+    evaluate_complete_paths,
+)
 from backend.calculation_v2.strategy_context import (
     CalculationStrategyExecutionContext,
     resolve_calculation_strategy_execution_context,
@@ -42,10 +48,14 @@ from backend.calculation_v2.traceability import (
     TRACE_SCHEMA_VERSION,
     build_intent_result_trace,
 )
-from backend.calculation_v2.transfer_pricing import TransferPricingContractError
+from backend.calculation_v2.transfer_pricing import (
+    TransferPricingContractError,
+    TransferRouteClass,
+)
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
+from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_registry_service import PricingRegistryService
 from backend.transfer_catalog import validate_transfer_catalog
 
@@ -557,6 +567,8 @@ def _calculate_glue_cost(messages: float, pricing: Dict[str, Any], provider: str
 def calculate_cheapest_costs(
     params: Dict[str, Any],
     pricing: Dict[str, Any],
+    *,
+    pricing_catalog_context: PricingCatalogContext,
     optimization_profile_id: str | None = None,
     pricing_registry_service: PricingRegistryService | None = None,
 ) -> Dict[str, Any]:
@@ -565,13 +577,14 @@ def calculate_cheapest_costs(
     
     This function:
     1. Calculates costs for each provider (AWS, Azure, GCP)
-    2. For each layer, determines the cheapest provider
-    3. Accounts for cross-cloud transfer costs
-    4. Returns the optimal path and all cost breakdowns
+    2. Enumerates every executable complete baseline path
+    3. Applies route-aware pooled transfer and glue costs
+    4. Scores complete paths and returns the globally cheapest result
     
     Args:
         params: Input parameters from the API
         pricing: Exact resolved pricing data for all providers
+        pricing_catalog_context: Exact immutable catalog references and regions
         optimization_profile_id: Optional executable optimization profile.
         
     Returns:
@@ -588,8 +601,11 @@ def calculate_cheapest_costs(
             "GCP self-hosted L4/L5 cannot be enabled until the Deployer "
             "implements and verifies those deployment paths"
         )
+    if not isinstance(pricing_catalog_context, PricingCatalogContext):
+        raise TypeError("pricing_catalog_context must be a PricingCatalogContext")
 
     registry_service = pricing_registry_service or PricingRegistryService()
+    pricing_registry = registry_service.load()
     profile_registry = (
         build_default_profile_registry(registry_service)
         if pricing_registry_service is not None
@@ -633,140 +649,101 @@ def calculate_cheapest_costs(
         "Azure": azure_costs,
         "GCP": gcp_costs,
     }
-    
-    # Determine cheapest for each layer
-    def get_cheapest(layer: str) -> tuple:
-        """Return (provider, cost) for cheapest option at this layer."""
-        candidates = []
-        for provider, cost in _supported_provider_options(provider_costs, layer):
-            metric_result = cost_metric_provider.compute(
-                OptimizationMetricContext(
-                    candidate_id=provider,
-                    metric_inputs={"cost": cost},
-                    evidence_references=(
-                        pricing_registry_reference,
-                    ),
-                    metadata={"layer": layer, "provider": provider},
-                )
-            )
-            candidates.append(
-                OptimizationCandidate(
-                    candidate_id=provider,
-                    dimensions={"layer": layer, "provider": provider},
-                    metrics={"cost": metric_result},
-                )
-            )
 
-        best = scoring_strategy.select_best(candidates)
-        return best.candidate_id, best.metric_value("cost")
-    
-    # Find cheapest path
-    result = {}
-    
-    # L1
-    l1_provider, l1_cost = get_cheapest("L1")
-    result["L1"] = l1_provider
-    
-    # L2
-    l2_provider, l2_cost = get_cheapest("L2")
-    result["L2"] = l2_provider
-    
-    # L3 (hot, cool, archive)
-    l3_hot_provider, l3_hot_cost = get_cheapest("L3_hot")
-    l3_cool_provider, l3_cool_cost = get_cheapest("L3_cool")
-    l3_archive_provider, l3_archive_cost = get_cheapest("L3_archive")
-    result["L3"] = {
-        "Hot": l3_hot_provider,
-        "Cool": l3_cool_provider,
-        "Archive": l3_archive_provider
+    for provider in ("aws", "azure", "gcp"):
+        execution_context.ensure_formula_ref(
+            "transfer_tier_cost",
+            provider=provider,
+            field="transfer.egress_gb",
+        )
+
+    layer_options = {
+        layer_key: _supported_provider_options(provider_costs, layer_key)
+        for layer_key, _ in LAYER_ORDER
     }
-    
-    # L4
-    l4_provider, l4_cost = get_cheapest("L4")
-    result["L4"] = l4_provider
-    
-    # L5
-    l5_provider, l5_cost = get_cheapest("L5")
-    result["L5"] = l5_provider
-    
-    # Calculate transfer costs for cross-cloud transitions
-    transfer_costs = {}
-    
-    # L1 → L2 transfer
-    if l1_provider != l2_provider:
-        egress = _calculate_egress_cost(
-            derived["data_size_per_month_gb"],
-            pricing,
-            l1_provider,
-            execution_context,
+
+    def resolve_glue_cost(provider, invocations):
+        label = {
+            "aws": "AWS",
+            "azure": "Azure",
+            "gcp": "GCP",
+        }[provider.value]
+        return Decimal(
+            str(_calculate_glue_cost(float(invocations), pricing, label))
         )
-        glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l2_provider)
-        transfer_costs["L1_to_L2"] = egress + glue
-    
-    # L2 → L3_hot transfer
-    if l2_provider != l3_hot_provider:
-        egress = _calculate_egress_cost(
-            derived["data_size_per_month_gb"],
-            pricing,
-            l2_provider,
-            execution_context,
-        )
-        glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l3_hot_provider)
-        transfer_costs["L2_to_L3_hot"] = egress + glue
-    
-    # L3_hot → L3_cool transfer
-    if l3_hot_provider != l3_cool_provider:
-        egress = _calculate_egress_cost(
-            derived["hot_storage_gb"],
-            pricing,
-            l3_hot_provider,
-            execution_context,
-        )
-        # Glue runs with mover (daily = 30/month), not per-message
-        glue = _calculate_glue_cost(30, pricing, l3_cool_provider)
-        transfer_costs["L3_hot_to_L3_cool"] = egress + glue
-    
-    # L3_cool → L3_archive transfer
-    if l3_cool_provider != l3_archive_provider:
-        egress = _calculate_egress_cost(
-            derived["cool_storage_gb"],
-            pricing,
-            l3_cool_provider,
-            execution_context,
-        )
-        # Glue runs with mover (weekly = 4/month), not per-message
-        glue = _calculate_glue_cost(4, pricing, l3_archive_provider)
-        transfer_costs["L3_cool_to_L3_archive"] = egress + glue
-    
-    # L3_hot → L4 transfer (Hot Reader for Digital Twin queries)
-    if l3_hot_provider != l4_provider:
-        # Queries from L4 go through Hot Reader Function URL
-        egress = _calculate_egress_cost(
-            derived["queries_per_month"] * derived["msg_size_kb"] / (1024 * 1024),
-            pricing,
-            l3_hot_provider,
-            execution_context,
-        )
-        glue = _calculate_glue_cost(derived["queries_per_month"], pricing, l4_provider)
-        transfer_costs["L3_hot_to_L4"] = egress + glue
-    
-    # Calculate total cost
-    total_cost = (
-        l1_cost + l2_cost +
-        l3_hot_cost + l3_cool_cost + l3_archive_cost +
-        l4_cost + l5_cost +
-        sum(transfer_costs.values())
+
+    evaluation_set = evaluate_complete_paths(
+        layer_options=layer_options,
+        derived=derived,
+        pricing=pricing,
+        pricing_catalog_context=pricing_catalog_context,
+        pricing_registry=pricing_registry,
+        glue_cost_resolver=resolve_glue_cost,
     )
-    
-    # Build cheapest path list
+    snapshot_references = tuple(
+        f"pricing_catalog:{pricing_catalog_context.catalogs[provider].snapshot_id}"
+        for provider in ("aws", "azure", "gcp")
+    )
+    candidates = []
+    evaluations_by_id = {}
+    for evaluation in evaluation_set.evaluations:
+        evaluations_by_id[evaluation.candidate_id] = evaluation
+        metric_result = cost_metric_provider.compute(
+            OptimizationMetricContext(
+                candidate_id=evaluation.candidate_id,
+                metric_inputs={"cost": float(evaluation.total_cost)},
+                evidence_references=(
+                    pricing_registry_reference,
+                    *snapshot_references,
+                ),
+                metadata={
+                    assignment.layer_key: assignment.provider.value
+                    for assignment in evaluation.assignments
+                },
+            )
+        )
+        candidates.append(
+            OptimizationCandidate(
+                candidate_id=evaluation.candidate_id,
+                dimensions={
+                    assignment.layer_key: assignment.provider.value
+                    for assignment in evaluation.assignments
+                },
+                metrics={"cost": metric_result},
+            )
+        )
+    best_candidate = scoring_strategy.select_best(candidates)
+    winner = evaluations_by_id[best_candidate.candidate_id]
+
+    provider_labels = {
+        "aws": "AWS",
+        "azure": "Azure",
+        "gcp": "GCP",
+    }
+    selected = {
+        assignment.layer_key: provider_labels[assignment.provider.value]
+        for assignment in winner.assignments
+    }
+    result = {
+        "L1": selected["L1"],
+        "L2": selected["L2"],
+        "L3": {
+            "Hot": selected["L3_hot"],
+            "Cool": selected["L3_cool"],
+            "Archive": selected["L3_archive"],
+        },
+        "L4": selected["L4"],
+        "L5": selected["L5"],
+    }
+    transfer_costs = {
+        charge.route.segment_id: float(charge.total_cost)
+        for charge in winner.transfer_charges
+        if charge.route.route_class
+        == TransferRouteClass.CROSS_PROVIDER_PUBLIC_INTERNET
+    }
     cheapest_path = [
-        f"L1_{l1_provider}",
-        f"L2_{l2_provider}",
-        f"L3_hot_{l3_hot_provider}",
-        f"L3_cool_{l3_cool_provider}",
-        f"L3_archive_{l3_archive_provider}",
-        f"L4_{l4_provider}",
-        f"L5_{l5_provider}",
+        f"{assignment.layer_key}_{provider_labels[assignment.provider.value]}"
+        for assignment in winner.assignments
     ]
     
     result_payload = {
@@ -799,8 +776,13 @@ def calculate_cheapest_costs(
             "awsTwinMaker": aws_costs.get("providerPricingContext"),
         },
         "transferCosts": transfer_costs,
+        "transferPricingContext": build_transfer_pricing_context(winner),
+        "optimizationDiagnostics": build_optimization_diagnostics(
+            evaluation_set,
+            winner,
+        ),
         "cheapestPath": cheapest_path,
-        "totalCost": round(total_cost, 2),
+        "totalCost": round(float(winner.total_cost), 2),
     }
     result_payload["intentTrace"] = build_intent_result_trace(
         params=params,

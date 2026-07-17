@@ -2,8 +2,9 @@
 Calculation API endpoints.
 
 This module provides the core cost optimization endpoint for Digital Twin deployments.
-It calculates the optimal cloud provider distribution across all 5 architectural layers
-based on current pricing data and user-defined scenario parameters.
+It calculates the optimal complete cloud-provider path across all 5 architectural
+layers based on exact pricing catalogs, route costs, and user-defined scenario
+parameters.
 """
 from datetime import datetime
 from typing import Annotated, Literal, Union
@@ -18,6 +19,7 @@ from pydantic import (
 )
 
 from backend.logger import logger
+from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.utils import print_stack_trace
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_catalog_repository import (
@@ -260,8 +262,10 @@ class CalcParams(BaseModel):
         "**How it works:**\n"
         "1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n"
         "2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n"
-        "3. Calculates costs for each of the 5 architectural layers on each provider\n"
-        "4. Returns the optimal provider per layer, detailed cost breakdowns, and the same catalog references\n\n"
+        "3. Enumerates every executable complete Five-Layer provider assignment\n"
+        "4. Prices all six approved layer-to-layer routes with aggregate transfer allowances\n"
+        "5. Scores complete layer and route totals and returns the deterministic winner\n"
+        "6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n"
         
         "**The 5 Architectural Layers:**\n"
         "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
@@ -273,7 +277,10 @@ class CalcParams(BaseModel):
         "**Important:** This is a calculation-only endpoint. It does not deploy any resources. "
         "Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure."
     ),
-    response_description="Complete cost analysis with optimal provider per layer and detailed breakdowns",
+    response_description=(
+        "Complete-path cost analysis with selected providers, route pricing, "
+        "immutable evidence, and bounded optimization diagnostics"
+    ),
     responses={
         200: {
             "description": "Successful calculation - returns cost breakdown and optimal configuration",
@@ -283,15 +290,40 @@ class CalcParams(BaseModel):
                         "result": {
                             "calculationResult": {
                                 "L1": "GCP",
-                                "L2": {"Hot": "AWS", "Cool": "GCP", "Archive": "AWS"},
-                                "L3": "AWS",
+                                "L2": "AWS",
+                                "L3": {
+                                    "Hot": "AWS",
+                                    "Cool": "GCP",
+                                    "Archive": "AWS",
+                                },
                                 "L4": "Azure",
-                                "L5": "GCP"
+                                "L5": "Azure",
                             },
-                            "awsCosts": {"L1": 12.50, "L2_Hot": 5.00, "L2_Cool": 8.00, "L2_Archive": 2.00},
-                            "azureCosts": {"L1": 15.00, "L4": 20.00},
-                            "gcpCosts": {"L1": 10.00, "L5": 18.00},
-                            "cheapestPath": ["L1_GCP", "L2_AWS_Hot", "L2_GCP_Cool", "L2_AWS_Archive", "L3_AWS", "L4_Azure", "L5_GCP"],
+                            "cheapestPath": [
+                                "L1_GCP",
+                                "L2_AWS",
+                                "L3_hot_AWS",
+                                "L3_cool_GCP",
+                                "L3_archive_AWS",
+                                "L4_Azure",
+                                "L5_Azure",
+                            ],
+                            "transferPricingContext": {
+                                "schemaVersion": "complete-path-transfer-pricing.v1",
+                                "currency": "USD",
+                                "routes": [],
+                                "pools": [],
+                            },
+                            "optimizationDiagnostics": {
+                                "schemaVersion": "complete-path-optimization.v1",
+                                "enumeratedPathCount": 972,
+                                "evaluatedPathCount": 972,
+                                "rejectedPathCount": 0,
+                                "winningCandidateId": (
+                                    "gcp|aws|aws|gcp|aws|azure|azure"
+                                ),
+                                "scoreUnit": "USD/month",
+                            },
                             "totalCost": 85.50,
                             "optimization_profile_id": "cost_minimization_v1",
                             "result_schema_version": "cost-result.v1",
@@ -341,6 +373,7 @@ def calc(params: CalcParams):
         result = calculate_cheapest_costs(
             params_dict,
             pricing=resolved_catalogs.detached_pricing(),
+            pricing_catalog_context=resolved_catalogs.context,
             optimization_profile_id=optimization_profile_id,
         )
         result["pricingCatalogs"] = resolved_catalogs.context.to_http_dict()
@@ -388,6 +421,19 @@ def calc(params: CalcParams):
                     "baselines or a verified backup before retrying."
                 ),
                 "http_status": 500,
+            },
+        ) from e
+    except TransferPricingContractError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": e.code,
+                "message": e.message,
+                "fix_suggestion": (
+                    "Review the selected provider regions, transfer-route "
+                    "contract, and published transfer pricing evidence."
+                ),
+                "http_status": 409,
             },
         ) from e
     except ValueError as e:
