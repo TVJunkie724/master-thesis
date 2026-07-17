@@ -201,9 +201,10 @@ first-class.
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
 | 16 | `2026-06-21_intent_to_result_traceability.md` | implemented (#100) | Expose bounded, secret-free calculation trace metadata from intent to selected result |
-| 17 | `2026-07-17_azure_digital_twins_billable_quantity_contract.md` | planned (#114) | Replace fabricated Azure query tiers with explicit billable-quantity inputs, 1 KB increments, and traceability |
-| 18 | Plan created after Phase 17 completion | planned (#115) | Align AWS TwinMaker estimates with functional and account-scoped pricing-plan semantics |
-| 19 | Plan created after Phase 18 completion | planned (#116) | Resolve transfer cost through explicit route, region, transfer-class, and network-tier contracts |
+| 17 | `2026-07-17_azure_digital_twins_billable_quantity_contract.md` | implemented (#114) | Replace fabricated Azure query tiers with explicit billable-quantity inputs, 1 KB increments, and traceability |
+| 18 | `2026-07-17_aws_twinmaker_pricing_plan_contract.md` | planned (#115) | Align AWS TwinMaker estimates with functional and account-scoped pricing-plan semantics |
+| 18.1 | Plan created after Phase 18 completion | planned (#119) | Replace mutable provider-wide pricing files with immutable provider-and-region keyed catalog snapshots and deterministic calculation bindings |
+| 19 | Plan created after Phase 18.1 completion | planned (#116) | Resolve transfer cost through explicit route, region, transfer-class, and network-tier contracts |
 | 20 | Plan created after Phase 19 completion | planned (#118) | Bind deployable service selections from the selected optimization run to the DeploymentManifest and Terraform |
 
 ## Phase Boundaries
@@ -366,6 +367,25 @@ modes. Basic is not functionally equivalent to the semantic L4 baseline.
 Tiered Bundle is account-scoped and must not be allocated to one twin without
 explicit aggregate context and an allocation policy. The application must
 observe and model pricing mode but must never switch it automatically.
+
+The final contract separates global, region-scoped AWS Price List evidence from
+user-scoped `GetPricingPlan` observations persisted in Management API pricing
+refresh runs. Public requests cannot inject trusted account context. Standard
+is executable only when the account observation is fresh and compatible;
+Basic, pending changes, and Tiered Bundle without explicit aggregate allocation
+are excluded from AWS L4 comparison with structured diagnostics. The detailed
+implementation plan is
+`2-twin2clouds/implementation_plans/2026-07-17_aws_twinmaker_pricing_plan_contract.md`.
+
+### Phase 18.1
+
+Must remove the remaining last-writer-wins provider pricing cache before
+route-aware transfer pricing. Public catalog snapshots become immutable and
+keyed by provider plus canonical region, and every calculation persists exact
+snapshot IDs and digests. Last-known-good and review state are isolated per
+provider/region. This is tracked by
+[#119](https://github.com/TVJunkie724/master-thesis/issues/119); Phase 19 is
+blocked until this ownership boundary is complete.
 
 ### Phase 19
 
