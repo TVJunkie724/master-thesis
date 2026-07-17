@@ -65,8 +65,7 @@ resource "google_cloudfunctions2_function" "persister" {
         var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.hot_writer}" : ""
       ) : ""
 
-      # Multi-cloud L2→L4: When GCP L2 sends to Azure ADT (Azure-only feature)
-      # ADT pusher is part of L0 Glue layer, like other cross-cloud receivers
+      # Canonical L2→L4 path when GCP L2 sends to Azure Digital Twins
       REMOTE_ADT_PUSHER_URL = var.layer_2_provider == "google" && var.layer_4_provider == "azure" ? (
         "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.adt_pusher}"
       ) : ""

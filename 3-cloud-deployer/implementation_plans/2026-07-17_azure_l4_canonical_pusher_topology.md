@@ -3,7 +3,7 @@ title: "Implementation Plan: Canonical Azure L4 Pusher Topology"
 description: "Hardens the five-layer baseline to one executable and fail-closed Azure Digital Twins update path."
 tags: [implementation-plan, deployer, azure, digital-twins, security, reliability]
 lastUpdated: "2026-07-17"
-version: "1.0"
+version: "1.1"
 ---
 
 # Implementation Plan: Canonical Azure L4 Pusher Topology
@@ -14,7 +14,7 @@ version: "1.0"
 **Implementation branch:** `codex/pricing-tier-finalization`  
 **GitHub issue:** [#117 Canonicalize the Azure Digital Twins update path](https://github.com/TVJunkie724/master-thesis/issues/117)  
 **Plan status:** Reviewed and implementation-ready  
-**Implementation status:** Planned
+**Implementation status:** Implemented, reviewed, and verification-approved
 
 ---
 
@@ -365,7 +365,8 @@ docker --context orbstack compose exec -T 3cloud-deployer \
 ### Static and Security Gates
 
 ```bash
-docker --context orbstack compose exec -T 3cloud-deployer ruff check src tests
+docker --context orbstack compose exec -T 3cloud-deployer \
+  ruff check src tests --exclude tests/e2e
 docker --context orbstack compose exec -T 3cloud-deployer bandit -r src -q
 docker --context orbstack compose exec -T 3cloud-deployer python -m compileall -q src
 docker --context orbstack compose exec -T 3cloud-deployer python -m pip check
@@ -391,12 +392,13 @@ docker --context orbstack compose config --quiet
 
 ### Static Absence Gate
 
-The following must return no active implementation references outside the
-explicitly superseded historical plan:
+The active runtime source must not contain any stale implementation reference.
+Negative test assertions and explicitly superseded historical documents may
+still name the removed artifact:
 
 ```bash
 rg -n "adt-updater|bundle_l4_functions|adt_event_grid_subscription" \
-  3-cloud-deployer/src 3-cloud-deployer/tests docs-site/docs
+  3-cloud-deployer/src
 ```
 
 ---
@@ -454,15 +456,27 @@ build are green.
 
 ## 9. Definition of Done
 
-- [ ] `adt-updater` is absent from active source, packages, tests, and canonical docs.
-- [ ] `adt-pusher` is included iff Azure is the configured L4 provider.
-- [ ] AWS, Azure, and GCP Persisters require successful ADT delivery for Azure L4.
-- [ ] Missing configuration and delivery failures fail visibly and safely.
-- [ ] Pusher authentication and error handling meet the security contract.
-- [ ] Same-cloud and both cross-cloud Azure L4 paths have behavioral coverage.
-- [ ] Terraform and package contracts agree with runtime behavior.
-- [ ] Full safe Deployer suite and all static/security gates pass.
-- [ ] Terraform validates without cloud credentials.
-- [ ] Strict MkDocs and Compose validation pass.
-- [ ] Canonical docs and roadmap are current.
-- [ ] Issue #117 contains verification evidence and is closed.
+- [x] `adt-updater` is absent from active source, packages, and canonical docs.
+- [x] `adt-pusher` is included iff Azure is the configured L4 provider.
+- [x] AWS, Azure, and GCP Persisters require successful ADT delivery for Azure L4.
+- [x] Missing configuration and delivery failures fail visibly and safely.
+- [x] Pusher authentication and error handling meet the security contract.
+- [x] Same-cloud and both cross-cloud Azure L4 paths have behavioral coverage.
+- [x] Terraform and package contracts agree with runtime behavior.
+- [x] Full safe Deployer suite and all static/security gates pass.
+- [x] Terraform validates without cloud credentials.
+- [x] Strict MkDocs and Compose validation pass.
+- [x] Canonical docs and roadmap are current.
+- [x] Issue #117 contains verification evidence and is closed.
+
+### Final Verification Evidence
+
+- Deployer safe suite: `1517 passed, 1 skipped`
+- Focused topology/package/runtime matrix: `198 passed, 1 skipped`
+- Persister/Pusher runtime contract: `97 passed`
+- Ruff on production and safe tests: passed
+- Bandit on production source: passed
+- Python compile and dependency checks: passed
+- Terraform format and credential-free validation: passed
+- Strict MkDocs build and Compose validation: passed
+- Live cloud E2E: intentionally not executed

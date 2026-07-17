@@ -1,7 +1,13 @@
 # Azure ADT Live Data Integration - Complete Implementation Plan
 
 **Date:** 2025-12-13  
-**Status:** 📋 PLANNING - AWAITING REVIEW
+**Status:** Superseded historical plan
+
+> This document preserves the original design history. Its Event Grid
+> `adt-updater` path is not part of the executable baseline. The reviewed current
+> contract is defined in
+> `2026-07-17_azure_l4_canonical_pusher_topology.md`: every selected L2 Persister
+> updates Azure L4 through the L0 ADT Pusher.
 
 ## Goal Description
 

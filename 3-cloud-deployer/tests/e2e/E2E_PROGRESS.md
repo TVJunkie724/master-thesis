@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-09 21:40  
+**Last Updated:** 2026-07-17
 **Status:** 🎉 **ALL 11 SCENARIOS CONFIGURED** (8 cross-cloud + 3 same-cloud)
 
 ---
@@ -69,7 +69,7 @@
 | L1 (Acquisition) | dispatcher |
 | L2 (Processing) | persister, processor_wrapper, event-checker, event_feedback_wrapper |
 | L3 (Storage) | hot-reader, hot-reader-last-entry, hot-to-cold-mover, cold-to-archive-mover |
-| L4 (Management) | adt-updater (Azure), digital-twin-data-connector (AWS) |
+| L4 (Management) | Azure Digital Twins service via L0 `adt-pusher`; `digital-twin-data-connector` (AWS) |
 
 ---
 

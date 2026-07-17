@@ -1,7 +1,13 @@
 # Azure E2E Test Handoff Document
 
 **Created:** 2025-12-15  
-**Purpose:** Enable next agent to run Azure E2E tests successfully
+**Status:** Historical handoff, superseded by the canonical MkDocs documentation
+**Purpose:** Preserve prior live-test evidence; do not use as the current setup or architecture guide
+
+> The current Deployer setup, architecture, and safe test commands live in
+> `docs-site/docs/components/deployer.md` and `docs-site/docs/setup/`.
+> In particular, the baseline no longer deploys an L4 Function App or
+> `adt-updater`; Azure L4 updates run through the L0 ADT Pusher.
 
 ---
 
@@ -71,7 +77,7 @@ Implemented idempotent resource creation across 18 functions:
 | L1 | `create_iot_hub`, `create_l1_app_service_plan`, `create_l1_function_app`, `create_iot_device` |
 | L2 | `create_l2_app_service_plan`, `create_l2_function_app` |
 | L3 | `create_cosmos_account`, `create_cosmos_database`, `create_hot_cosmos_container`, `create_cold_blob_container`, `create_archive_blob_container`, `create_l3_app_service_plan`, `create_l3_function_app` |
-| L4 | `create_adt_instance`, `create_l4_app_service_plan`, `create_l4_function_app` |
+| L4 | Historical SDK path; current baseline provisions ADT through Terraform and updates it through the L0 ADT Pusher |
 
 ### Phase 2: E2E Partial Cleanup ✓
 

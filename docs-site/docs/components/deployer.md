@@ -94,6 +94,38 @@ validation and the Terraform package builder enforce that same registry, rejecti
 unsupported row with `CAPABILITY_UNAVAILABLE` before filesystem or Terraform side
 effects. See [Provider Capabilities](../architecture/provider-capabilities.md).
 
+## Azure L4 Update Path
+
+The canonical five-layer baseline has one executable Azure Digital Twins update path
+for both same-cloud and cross-cloud assignments:
+
+```text
+selected L2 Persister (AWS, Azure, or GCP)
+  |
+  | HTTPS + X-Inter-Cloud-Token
+  v
+Azure L0 ADT Pusher
+  |
+  | Azure SDK + user-assigned managed identity
+  v
+Azure Digital Twins
+```
+
+| Component or edge | Activation | Contract |
+|---|---|---|
+| provider L2 Persister | selected L2 provider | writes the deterministic storage item, then performs the required ADT push |
+| ADT Pusher package | `layer_4_provider == azure` | included exactly once in the Azure L0 package |
+| Persister to Pusher | Azure L4 | HTTPS endpoint and token are mandatory; missing configuration fails before storage |
+| Pusher to ADT | Azure L4 | managed identity and `DefaultAzureCredential`; no static Azure credential |
+| failed Pusher delivery | after storage write | Persister fails so an upstream retry repeats the idempotent storage write and ADT update |
+
+There is no active `adt-updater` Function App and no ADT Event Grid subscription in
+`five-layer-baseline@1`. The current synchronous path provides visible failure and
+bounded sender retries, but not durable replay or a dead-letter queue. Those delivery
+capabilities remain tracked in
+[#60](https://github.com/TVJunkie724/master-thesis/issues/60) and are not presented as
+part of the baseline.
+
 ## User Functions And Packaging
 
 The package builders discover typed function definitions by layer and role, generate
@@ -146,6 +178,6 @@ credential location, and runtime output. Global/current-project state and multip
 layer, and REST paths made concurrent, reproducible operation difficult. The current
 manifest, project storage, token, and ephemeral-workspace design establishes one path.
 
-Provider feature parity, selected simulator behavior, Azure/GCP cross-cloud helpers,
-and final least-privilege/live deployment evidence remain visible gaps. They must not
-be hidden behind fallback endpoints or template mutation.
+Provider feature parity, selected simulator behavior, durable cross-cloud replay, and
+final least-privilege/live deployment evidence remain visible gaps. They must not be
+hidden behind fallback endpoints or template mutation.

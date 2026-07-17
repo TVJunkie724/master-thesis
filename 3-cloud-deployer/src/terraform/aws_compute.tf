@@ -164,8 +164,7 @@ resource "aws_lambda_function" "l2_persister" {
         var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
       ) : ""
 
-      # Multi-cloud L2→L4: When AWS L2 sends to Azure ADT (Azure-only feature)
-      # ADT pusher is part of L0 Glue layer, like other cross-cloud receivers
+      # Canonical L2→L4 path when AWS L2 sends to Azure Digital Twins
       REMOTE_ADT_PUSHER_URL = var.layer_2_provider == "aws" && var.layer_4_provider == "azure" ? (
         "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.adt_pusher}"
       ) : ""

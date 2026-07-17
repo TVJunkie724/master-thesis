@@ -96,6 +96,27 @@ configured twin
 The canonical operation never mutates the versioned template. Generic project-file
 APIs hide credential files and reject traversal.
 
+## Azure Digital Twins Runtime Update
+
+```text
+normalized telemetry
+  -> provider L2 Persister
+  -> validate Azure-L4 endpoint/token and telemetry shape
+  -> idempotent provider storage write
+  -> authenticated HTTPS ADT Pusher call
+  -> validate token and request envelope
+  -> resolve device-to-twin mapping
+  -> build JSON Patch
+  -> managed-identity Azure Digital Twins SDK update
+  -> acknowledge Persister success
+```
+
+The same path applies when L2 is Azure and when L2 is AWS or GCP. If Azure is not L4,
+the Pusher is absent and no ADT update is attempted. Known configuration and payload
+errors fail before the storage write. An exhausted Pusher delivery fails after the
+idempotent write so the caller can retry without creating a second storage identity.
+The baseline does not claim durable replay or exactly-once delivery.
+
 ## Offline Demo
 
 ```text
