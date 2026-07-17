@@ -210,6 +210,25 @@ Latency, emissions, and resilience are declarations or future entrypoints, not e
 features. A future objective must provide real metric acquisition, evidence policy,
 calculation model, formulas, scoring, schemas, and tests before it can be enabled.
 
+## AWS TwinMaker Account Pricing
+
+AWS TwinMaker uses two distinct evidence scopes:
+
+| Evidence | Scope | Owner |
+|---|---|---|
+| regional Price List catalog | public provider/region snapshot | Optimizer |
+| current and pending pricing plan | user/account observation | Management API refresh history |
+
+The Optimizer validates Standard dimensions and Tiered Bundle tiers, while Management
+binds each successful account observation to the exact user-owned pricing connection,
+fingerprint, verified account, region, catalog digest, and refresh run. Basic is
+functionally incomplete for the current Five-Layer profile. Pending plan changes and
+Tiered Bundle plans without an explicit allocation policy are not comparable.
+
+Calculations retain the plan context even when AWS L4 does not win. Selecting an AWS L4
+result for deployment requires the current account evidence to match the persisted
+calculation. The Deployer remains read-only with respect to pricing plans.
+
 ## API Areas
 
 Internal APIs expose calculation, provider pricing refresh/streaming, pricing registry

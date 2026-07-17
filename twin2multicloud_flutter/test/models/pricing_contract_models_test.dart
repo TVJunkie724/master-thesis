@@ -158,6 +158,131 @@ void main() {
       },
     );
 
+    test('parses immutable AWS TwinMaker account pricing context', () {
+      final run = PricingRefreshRun.fromJson(
+        _awsRefreshRunJson(
+          currentPlan: {
+            'mode': 'TIERED_BUNDLE',
+            'billable_entity_count': 1001,
+            'effective_at': '2026-07-17T10:00:00+02:00',
+            'updated_at': '2026-07-17T08:00:00Z',
+            'update_reason': 'Account plan update',
+            'bundle': {
+              'tier': 'TIER_2',
+              'names': ['factory', 'warehouse'],
+            },
+          },
+          pendingPlan: {
+            'mode': 'STANDARD',
+            'billable_entity_count': 1001,
+            'effective_at': '2026-07-20T08:00:00Z',
+            'updated_at': null,
+            'update_reason': null,
+            'bundle': null,
+          },
+        ),
+      );
+
+      final context = run.awsTwinMakerContext!;
+      expect(
+        context.schemaVersion,
+        AwsTwinMakerPricingContext.supportedSchemaVersion,
+      );
+      expect(context.provider, 'aws');
+      expect(context.service, 'iot_twinmaker');
+      expect(context.region, 'eu-central-1');
+      expect(context.verifiedAccountId, '123456789012');
+      expect(context.observedAt, DateTime.parse('2026-07-17T08:00:00Z'));
+      expect(
+        context.currentPlan.mode,
+        AwsTwinMakerPricingPlanMode.tieredBundle,
+      );
+      expect(context.currentPlan.billableEntityCount, 1001);
+      expect(context.currentPlan.bundle!.tier, AwsTwinMakerBundleTier.tier2);
+      expect(context.currentPlan.bundle!.names, ['factory', 'warehouse']);
+      expect(context.pendingPlan!.mode, AwsTwinMakerPricingPlanMode.standard);
+      expect(context.connectionId, 'aws-1');
+      expect(
+        () => context.currentPlan.bundle!.names.add('mutable'),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('omits malformed optional AWS context without losing the run', () {
+      final malformedContexts = [
+        {'schema_version': 'unknown'},
+        {..._awsAccountContext(), 'provider': 'azure'},
+        {..._awsAccountContext(), 'observed_at': '2026-07-17T08:00:00'},
+        {
+          ..._awsAccountContext(),
+          'current_plan': {..._standardPlan(), 'billable_entity_count': -1},
+        },
+        {
+          ..._awsAccountContext(),
+          'current_plan': {..._standardPlan(), 'mode': 'UNKNOWN'},
+        },
+        {
+          ..._awsAccountContext(),
+          'current_plan': {
+            ..._standardPlan(),
+            'bundle': {
+              'tier': 'TIER_1',
+              'names': ['invalid for standard'],
+            },
+          },
+        },
+        {
+          ..._awsAccountContext(),
+          'management_binding': {
+            ..._managementBinding(),
+            'pricing_connection_id': 'other-connection',
+          },
+        },
+        {..._awsAccountContext(), 'verified_account_id': 123456789012},
+        {
+          ..._awsAccountContext(),
+          'management_binding': {
+            ..._managementBinding(),
+            'pricing_connection_id': 123,
+          },
+        },
+        {
+          ..._awsAccountContext(),
+          'current_plan': {..._standardPlan(), 'update_reason': 123},
+        },
+      ];
+
+      for (final malformed in malformedContexts) {
+        final json = _awsRefreshRunJson();
+        (json['result_summary']
+                as Map<String, dynamic>)['__account_pricing_context__'] =
+            malformed;
+        final run = PricingRefreshRun.fromJson(json);
+
+        expect(run.refreshRunId, 'run-aws');
+        expect(run.succeeded, isTrue);
+        expect(run.awsTwinMakerContext, isNull);
+        expect(run.resultSummary, isNotNull);
+      }
+    });
+
+    test('rejects account context embedded in the wrong outer run', () {
+      final wrongProvider = _awsRefreshRunJson()..['provider'] = 'azure';
+      final wrongAccount = _awsRefreshRunJson();
+      (wrongAccount['credential_summary']
+              as Map<String, dynamic>)['provider_account_id'] =
+          '999999999999';
+
+      expect(
+        PricingRefreshRun.fromJson(wrongProvider).awsTwinMakerContext,
+        isNull,
+      );
+      expect(
+        PricingRefreshRun.fromJson(wrongAccount).awsTwinMakerContext,
+        isNull,
+      );
+    });
+
     test('parses failed run with defensive date fallback', () {
       final run = PricingRefreshRun.fromJson({
         'refresh_run_id': 'run-2',
@@ -293,3 +418,69 @@ void main() {
     });
   });
 }
+
+Map<String, dynamic> _awsRefreshRunJson({
+  Map<String, dynamic>? currentPlan,
+  Map<String, dynamic>? pendingPlan,
+}) {
+  return {
+    'schema_version': 'pricing-refresh-run.v1',
+    'refresh_run_id': 'run-aws',
+    'provider': 'aws',
+    'status': 'succeeded',
+    'credential_summary': {
+      'connection_id': 'aws-1',
+      'identity_label': 'AWS Pricing',
+      'scope': 'user',
+      'provider_account_id': '123456789012',
+    },
+    'force': true,
+    'sse_url': '/optimizer/pricing-refresh/runs/run-aws/stream',
+    'result_summary': {
+      'status': 'ok',
+      '__account_pricing_context__': _awsAccountContext(
+        currentPlan: currentPlan,
+        pendingPlan: pendingPlan,
+      ),
+    },
+    'created_at': '2026-07-17T08:00:00Z',
+    'completed_at': '2026-07-17T08:03:00Z',
+  };
+}
+
+Map<String, dynamic> _awsAccountContext({
+  Map<String, dynamic>? currentPlan,
+  Map<String, dynamic>? pendingPlan,
+}) {
+  return {
+    'schema_version': 'aws-twinmaker-account-pricing-context.v1',
+    'provider': 'aws',
+    'service': 'iot_twinmaker',
+    'region': 'eu-central-1',
+    'verified_account_id': '123456789012',
+    'catalog_snapshot_digest':
+        'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'observed_at': '2026-07-17T08:00:00Z',
+    'current_plan': currentPlan ?? _standardPlan(),
+    'pending_plan': pendingPlan,
+    'management_binding': _managementBinding(),
+  };
+}
+
+Map<String, dynamic> _standardPlan() => {
+  'mode': 'STANDARD',
+  'billable_entity_count': 42,
+  'effective_at': null,
+  'updated_at': '2026-07-17T08:00:00Z',
+  'update_reason': null,
+  'bundle': null,
+};
+
+Map<String, dynamic> _managementBinding() => {
+  'schema_version': 'aws-twinmaker-management-binding.v1',
+  'pricing_connection_id': 'aws-1',
+  'connection_fingerprint':
+      'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  'verified_account_id': '123456789012',
+  'configured_account_id': '123456789012',
+};

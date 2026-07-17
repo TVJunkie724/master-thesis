@@ -538,6 +538,39 @@ class DemoManagementApi implements ManagementApi {
       'result_summary': {
         'status': 'ok',
         'report_count': store.pricingReports(normalized).length,
+        if (normalized == 'aws')
+          '__account_pricing_context__': {
+            'schema_version': 'aws-twinmaker-account-pricing-context.v1',
+            'provider': 'aws',
+            'service': 'iot_twinmaker',
+            'region':
+                (connection?['cloud_scope'] as Map?)?['region'] ??
+                'eu-central-1',
+            'verified_account_id':
+                (connection?['payload_summary'] as Map?)?['account_id'],
+            'catalog_snapshot_digest':
+                'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+            'observed_at': now.toIso8601String(),
+            'current_plan': {
+              'mode': 'STANDARD',
+              'billable_entity_count': 42,
+              'effective_at': null,
+              'updated_at': now.toIso8601String(),
+              'update_reason': null,
+              'bundle': null,
+            },
+            'pending_plan': null,
+            'management_binding': {
+              'schema_version': 'aws-twinmaker-management-binding.v1',
+              'pricing_connection_id': connection?['id'],
+              'connection_fingerprint':
+                  'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+              'verified_account_id':
+                  (connection?['payload_summary'] as Map?)?['account_id'],
+              'configured_account_id':
+                  (connection?['payload_summary'] as Map?)?['account_id'],
+            },
+          },
       },
       'created_at': now.toIso8601String(),
       'started_at': now.toIso8601String(),

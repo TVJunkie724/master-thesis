@@ -27,6 +27,42 @@ abstract class PricingReviewStrings {
   static const fetchingMayTakeSeveralMinutes =
       'Fetching provider pricing. This can take several minutes.';
   static const latestRefresh = 'Latest refresh';
+  static const awsTwinMakerPlan = 'AWS TwinMaker plan';
+  static const currentPlan = 'Current';
+  static const account = 'Account';
+  static const observed = 'Observed';
+  static const pendingPlan = 'Pending';
+  static const none = 'None';
+  static const technicalDetails = 'Technical details';
+  static const region = 'Region';
+  static const billableEntities = 'Billable entities';
+  static const bundle = 'Bundle';
+  static const contextSchema = 'Context schema';
+  static const pricingConnection = 'Pricing connection';
+  static const refreshRun = 'Refresh run';
+  static const exactObservation = 'Observed at';
+  static const unavailable = 'Unavailable';
+  static const refreshFailure = 'Pricing refresh failed';
+  static const twinMakerBasicWarning =
+      'Basic does not provide the complete TwinMaker functionality required '
+      'by the current architecture profile.';
+  static const twinMakerBundleWarning =
+      'Tiered Bundle requires an explicit account-cost allocation before it '
+      'can participate in a comparable calculation.';
+  static const twinMakerPendingWarning =
+      'AWS reports a pending pricing-plan change. Refresh pricing after the '
+      'change becomes effective before calculating.';
+  static const twinMakerStaleWarning =
+      'This account observation is older than seven days. Refresh AWS pricing '
+      'before calculating.';
+  static const twinMakerPermissionFailure =
+      'AWS pricing-plan access is missing. Validate the pricing connection '
+      'permissions and refresh again.';
+  static const twinMakerThrottledFailure =
+      'AWS temporarily throttled the pricing-plan request. Retry the refresh.';
+  static const twinMakerInvalidResponseFailure =
+      'AWS returned an unsupported pricing-plan response. Review the '
+      'connection and refresh again.';
   static const noCandidateEvidence =
       'No candidate evidence was produced by this refresh.';
   static const candidateEvidenceCollapsed =
@@ -51,6 +87,62 @@ abstract class PricingReviewStrings {
       'Pricing will be fetched using ${accessLabel(access)}.';
 
   static String runId(String runId) => 'Run ID: $runId';
+
+  static String planMode(AwsTwinMakerPricingPlanMode mode) => switch (mode) {
+    AwsTwinMakerPricingPlanMode.basic => 'Basic',
+    AwsTwinMakerPricingPlanMode.standard => 'Standard',
+    AwsTwinMakerPricingPlanMode.tieredBundle => 'Tiered Bundle',
+  };
+
+  static String bundleTier(AwsTwinMakerBundleTier tier) => switch (tier) {
+    AwsTwinMakerBundleTier.tier1 => 'Tier 1',
+    AwsTwinMakerBundleTier.tier2 => 'Tier 2',
+    AwsTwinMakerBundleTier.tier3 => 'Tier 3',
+    AwsTwinMakerBundleTier.tier4 => 'Tier 4',
+  };
+
+  static String bundleDescription(AwsTwinMakerPricingBundle bundleValue) {
+    final names = bundleValue.names.isEmpty
+        ? ''
+        : ' · ${bundleValue.names.join(', ')}';
+    return '${bundleTier(bundleValue.tier)}$names';
+  }
+
+  static String pendingPlanDescription(AwsTwinMakerPricingPlan? plan) {
+    if (plan == null) return none;
+    final effective = plan.effectiveAt == null
+        ? ''
+        : ' · effective ${formatTimestamp(plan.effectiveAt!)}';
+    return '${planMode(plan.mode)}$effective';
+  }
+
+  static String relativeObservation(DateTime observedAt, {DateTime? now}) {
+    final reference = (now ?? DateTime.now()).toUtc();
+    final difference = reference.difference(observedAt.toUtc());
+    if (difference.isNegative || difference.inMinutes < 1) return 'just now';
+    if (difference.inHours < 1) {
+      return '${difference.inMinutes} min ago';
+    }
+    if (difference.inDays < 1) {
+      return '${difference.inHours} h ago';
+    }
+    return '${difference.inDays} d ago';
+  }
+
+  static String formatTimestamp(DateTime value) =>
+      value.toUtc().toIso8601String();
+
+  static String twinMakerFailureMessage(
+    String? errorCode,
+    String? fallbackMessage,
+  ) {
+    return switch (errorCode) {
+      'AWS_TWINMAKER_PLAN_PERMISSION_DENIED' => twinMakerPermissionFailure,
+      'AWS_TWINMAKER_PLAN_THROTTLED' => twinMakerThrottledFailure,
+      'AWS_TWINMAKER_PLAN_RESPONSE_INVALID' => twinMakerInvalidResponseFailure,
+      _ => fallbackMessage ?? refreshFailure,
+    };
+  }
 
   static String age(String age) => 'Age: $age';
 

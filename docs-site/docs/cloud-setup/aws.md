@@ -28,6 +28,16 @@ pricing policy reference under `2-twin2clouds/docs/references` is separate from 
 Deployer baseline under `3-cloud-deployer/docs/references`. Do not merge them into an
 unreviewed broad role solely for convenience.
 
+The pricing identity must be able to:
+
+- verify its account with STS `GetCallerIdentity`;
+- read the regional public Price List evidence used by the Optimizer;
+- call the read-only IoT TwinMaker `GetPricingPlan` operation in the configured region.
+
+Pricing Review persists only a secret-free account observation bound to the user-owned
+pricing CloudConnection and its fingerprint. It never stores the returned credential
+payload in refresh evidence and never calls `UpdatePricingPlan`.
+
 ## Verification Status
 
 Static policy syntax, permission inventory, preflight behavior, and mocked provider

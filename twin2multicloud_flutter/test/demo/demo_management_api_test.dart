@@ -7,6 +7,7 @@ import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
+import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 
 import '../fixtures/typed_api_fixtures.dart';
@@ -178,6 +179,12 @@ void main() {
       final gcp = await api.startPricingRefresh('gcp');
 
       expect(aws.credentialSummary.connectionId, 'demo-aws-pricing');
+      expect(aws.awsTwinMakerContext, isNotNull);
+      expect(
+        aws.awsTwinMakerContext!.currentPlan.mode,
+        AwsTwinMakerPricingPlanMode.standard,
+      );
+      expect(aws.awsTwinMakerContext!.verifiedAccountId, '123456789012');
       expect(azure.credentialSummary.scope, 'public');
       expect(gcp.credentialSummary.connectionId, 'demo-gcp-pricing');
       final reports = await api.listPricingCandidateReports(
