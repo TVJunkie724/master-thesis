@@ -12,6 +12,7 @@ from src.models.cost_calculation import CostCalculationResultItem, CostCalculati
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.pricing_catalog import PricingCatalogContext
 from src.services.aws_twinmaker_pricing_context_service import (
     OPTIMIZER_CONTEXT_COMPARABLE_FIELDS,
     AwsTwinMakerPricingContextService,
@@ -23,7 +24,13 @@ from src.services.errors import (
     ExternalServiceError,
     ExternalServiceUnavailable,
     OptimizerContractError,
+    PricingCatalogUnavailable,
     TwinNotFound,
+)
+from src.services.pricing_catalog_context_service import (
+    PricingCatalogContextService,
+    parse_pricing_catalog_context,
+    pricing_catalog_contexts_match,
 )
 from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
 
@@ -43,13 +50,18 @@ class CostCalculationRunService:
         db: Session,
         optimizer_client: OptimizerClient | None = None,
         aws_twinmaker_contexts: AwsTwinMakerPricingContextService | None = None,
+        pricing_catalog_contexts: PricingCatalogContextService | None = None,
     ):
         self.db = db
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.twin_repository = TwinRepository(db)
         self.aws_twinmaker_contexts = (
             aws_twinmaker_contexts
-            or AwsTwinMakerPricingContextService(
+            or AwsTwinMakerPricingContextService(db)
+        )
+        self.pricing_catalog_contexts = (
+            pricing_catalog_contexts
+            or PricingCatalogContextService(
                 db,
                 optimizer_client=self.optimizer_client,
             )
@@ -61,8 +73,6 @@ class CostCalculationRunService:
         user_id: str,
         params: OptimizerCalculationParams,
         *,
-        pricing_snapshots: dict[str, Any] | None = None,
-        pricing_timestamps: dict[str, Any] | None = None,
         pricing_evidence_version: str | None = None,
     ) -> CostCalculationRun:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
@@ -71,7 +81,16 @@ class CostCalculationRunService:
 
         optimizer_params = params.to_optimizer_payload()
         persisted_params = params.to_persisted_payload()
-        aws_context = await self.aws_twinmaker_contexts.resolve(user_id)
+        catalog_context = await self.pricing_catalog_contexts.resolve_for_user(
+            user_id
+        )
+        optimizer_params["providerPricingCatalogs"] = (
+            catalog_context.to_http_dict()
+        )
+        aws_context = await self.aws_twinmaker_contexts.resolve(
+            user_id,
+            catalog_context.catalogs["aws"],
+        )
         optimizer_params["providerPricingContexts"] = {
             "awsTwinMaker": aws_context.payload
         }
@@ -83,6 +102,7 @@ class CostCalculationRunService:
 
         result = self._extract_optimizer_result(optimizer_payload)
         contract = self._validate_optimizer_result(result)
+        _validate_optimizer_pricing_catalog_context(result, catalog_context)
         _validate_optimizer_aws_selection_context(result, aws_context)
         cheapest_path = self._extract_cheapest_path(result)
         result_items = self._build_result_items(
@@ -112,6 +132,7 @@ class CostCalculationRunService:
                 pricing_registry_version=contract["pricing_registry_version"],
                 pricing_evidence_version=pricing_evidence_version,
                 pricing_run_reference=aws_context.source_refresh_run_id,
+                pricing_catalog_context_json=catalog_context.canonical_json(),
                 created_at=now,
                 completed_at=now,
             )
@@ -126,8 +147,7 @@ class CostCalculationRunService:
                 params=persisted_params,
                 result=result,
                 cheapest_path=cheapest_path,
-                pricing_snapshots=pricing_snapshots or {},
-                pricing_timestamps=pricing_timestamps or {},
+                pricing_catalog_context=catalog_context,
                 calculated_at=now,
             )
             self._before_commit()
@@ -216,6 +236,11 @@ class CostCalculationRunService:
                 ),
                 "field_trace_available": field_trace_available,
                 "field_trace_records": field_trace_records,
+                "pricing_catalog_context": (
+                    safe_pricing_catalog_context(
+                        run.pricing_catalog_context_json
+                    )
+                ),
                 "result_metadata": _result_metadata(result),
                 "warnings": warnings,
             }
@@ -234,8 +259,33 @@ class CostCalculationRunService:
                 error_code="COST_CALCULATION_RUN_NOT_SELECTABLE",
             )
         result = _json_loads(run.result_summary_json) or {}
+        persisted_catalog_context = _run_pricing_catalog_context(run)
+        if not pricing_catalog_contexts_match(
+            persisted_catalog_context,
+            result.get("pricingCatalogs"),
+        ):
+            raise CostCalculationRunSelectionError(
+                "The persisted calculation result no longer matches its pricing "
+                "catalog evidence; run the optimizer again before deployment.",
+                error_code="PRICING_CATALOG_CONTEXT_MISMATCH",
+            )
+        try:
+            verified_catalog_context = (
+                await self.pricing_catalog_contexts.verify_context(
+                    persisted_catalog_context
+                )
+            )
+        except PricingCatalogUnavailable as exc:
+            raise CostCalculationRunSelectionError(
+                "Pricing evidence is no longer fresh; refresh pricing and run "
+                "the optimizer again before deployment.",
+                error_code=exc.error_code,
+            ) from exc
         if _selected_l4_provider(result) == "aws":
-            current_context = await self.aws_twinmaker_contexts.resolve(user_id)
+            current_context = await self.aws_twinmaker_contexts.resolve(
+                user_id,
+                verified_catalog_context.catalogs["aws"],
+            )
             _validate_selected_aws_context(run, result, current_context)
         now = datetime.now(timezone.utc)
         (
@@ -461,23 +511,15 @@ class CostCalculationRunService:
         params: dict[str, Any],
         result: dict[str, Any],
         cheapest_path: dict[str, Any],
-        pricing_snapshots: dict[str, Any],
-        pricing_timestamps: dict[str, Any],
+        pricing_catalog_context: PricingCatalogContext,
         calculated_at: datetime,
     ) -> None:
         config.params = _json_dumps(params)
         config.result_json = _json_dumps(result)
+        config.pricing_catalog_context_json = (
+            pricing_catalog_context.canonical_json()
+        )
         self._apply_cheapest_path(config, cheapest_path)
-        config.pricing_aws_snapshot = _json_dumps_or_none(pricing_snapshots.get("aws"))
-        config.pricing_azure_snapshot = _json_dumps_or_none(
-            pricing_snapshots.get("azure")
-        )
-        config.pricing_gcp_snapshot = _json_dumps_or_none(pricing_snapshots.get("gcp"))
-        config.pricing_aws_updated_at = _parse_iso_safe(pricing_timestamps.get("aws"))
-        config.pricing_azure_updated_at = _parse_iso_safe(
-            pricing_timestamps.get("azure")
-        )
-        config.pricing_gcp_updated_at = _parse_iso_safe(pricing_timestamps.get("gcp"))
         config.calculated_at = calculated_at
         self.db.add(config)
 
@@ -566,14 +608,50 @@ def _validate_optimizer_aws_selection_context(
         )
 
 
+def _validate_optimizer_pricing_catalog_context(
+    result: dict[str, Any],
+    expected: PricingCatalogContext,
+) -> None:
+    if pricing_catalog_contexts_match(expected, result.get("pricingCatalogs")):
+        return
+    raise OptimizerContractError(
+        "Optimizer result is not bound to the exact pricing catalog context "
+        "supplied by Management.",
+        [
+            {
+                "field": "pricingCatalogs",
+                "message": "Exact catalog references do not match",
+            }
+        ],
+    )
+
+
+def _run_pricing_catalog_context(
+    run: CostCalculationRun,
+) -> PricingCatalogContext:
+    raw_context = _json_loads(run.pricing_catalog_context_json)
+    try:
+        return parse_pricing_catalog_context(raw_context)
+    except OptimizerContractError as exc:
+        raise CostCalculationRunSelectionError(
+            "This calculation predates verifiable pricing catalog evidence; "
+            "run the optimizer again before deployment.",
+            error_code="PRICING_CATALOG_CONTEXT_MISSING",
+        ) from exc
+
+
+def safe_pricing_catalog_context(value: str | None) -> dict[str, Any] | None:
+    """Return a validated public context or None for historical invalid rows."""
+
+    raw_context = _json_loads(value)
+    try:
+        return parse_pricing_catalog_context(raw_context).to_http_dict()
+    except OptimizerContractError:
+        return None
+
+
 def _json_dumps(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-
-def _json_dumps_or_none(value: Any) -> str | None:
-    if value is None:
-        return None
-    return _json_dumps(value)
 
 
 def _json_loads(value: str | None) -> dict[str, Any] | None:
@@ -584,16 +662,6 @@ def _json_loads(value: str | None) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return parsed if isinstance(parsed, dict) else None
-
-
-def _parse_iso_safe(value: Any) -> datetime | None:
-    if not isinstance(value, str) or not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def _float_or_none(value: Any) -> float | None:

@@ -21,6 +21,14 @@ def test_catalog_api_exposes_reference_then_exact_snapshot():
     assert published_response.status_code == 200
     assert published_response.json()["reference"] == reference
 
+    reference_response = client.get(
+        "/pricing/catalogs/azure/westeurope/snapshots/"
+        f"{reference['snapshotId']}/reference"
+    )
+    assert reference_response.status_code == 200
+    assert reference_response.json()["reference"] == reference
+    assert reference_response.json()["isFresh"] is True
+
     snapshot_response = client.get(
         "/pricing/catalogs/azure/westeurope/snapshots/"
         f"{reference['snapshotId']}"

@@ -566,6 +566,37 @@ def get_published_pricing_catalog(provider: str, pricing_region: str):
 
 
 @router.get(
+    "/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}/reference",
+    operation_id="getExactPricingCatalogReference",
+    summary="Verify one exact immutable provider pricing reference",
+    description=(
+        "Returns only the verified reference and freshness for an explicit "
+        "provider, pricing region, and immutable snapshot identity."
+    ),
+    responses={
+        200: {"description": "Verified exact catalog reference"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
+    },
+)
+def get_exact_pricing_catalog_reference(
+    provider: str,
+    pricing_region: str,
+    snapshot_id: str,
+):
+    snapshot = _resolve_exact_pricing_catalog_snapshot(
+        provider,
+        pricing_region,
+        snapshot_id,
+    )
+    repository = get_pricing_catalog_repository()
+    return {
+        "reference": snapshot.reference.to_http_dict(),
+        "isFresh": not repository.is_stale(snapshot.reference),
+    }
+
+
+@router.get(
     "/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}",
     operation_id="getExactPricingCatalogSnapshot",
     summary="Inspect one exact immutable provider pricing snapshot",
@@ -584,19 +615,31 @@ def get_exact_pricing_catalog_snapshot(
     pricing_region: str,
     snapshot_id: str,
 ):
+    snapshot = _resolve_exact_pricing_catalog_snapshot(
+        provider,
+        pricing_region,
+        snapshot_id,
+    )
+    return {
+        "reference": snapshot.reference.to_http_dict(),
+        "pricing": snapshot.pricing,
+    }
+
+
+def _resolve_exact_pricing_catalog_snapshot(
+    provider: str,
+    pricing_region: str,
+    snapshot_id: str,
+):
     _validate_provider(provider)
     pricing_region = _validate_pricing_region(provider, pricing_region)
     try:
-        snapshot = get_pricing_catalog_repository().resolve_snapshot(
+        return get_pricing_catalog_repository().resolve_snapshot(
             provider,
             pricing_region,
             snapshot_id,
             require_fresh=False,
         )
-        return {
-            "reference": snapshot.reference.to_http_dict(),
-            "pricing": snapshot.pricing,
-        }
     except (PricingCatalogNotFoundError, PricingCatalogRegionMismatchError) as exc:
         raise _pricing_catalog_http_error(
             status_code=404,

@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.pricing_catalog import PricingCatalogContext
 
 
 class CostCalculationRunCreate(BaseModel):
@@ -13,8 +14,6 @@ class CostCalculationRunCreate(BaseModel):
         ...,
         description="Optimizer calculation parameters",
     )
-    pricing_snapshots: dict = Field(default_factory=dict)
-    pricing_timestamps: dict = Field(default_factory=dict)
     pricing_evidence_version: Optional[str] = None
 
 
@@ -57,6 +56,7 @@ class CostCalculationRunSummaryResponse(BaseModel):
     pricing_registry_version: Optional[str] = None
     pricing_evidence_version: Optional[str] = None
     pricing_run_reference: Optional[str] = None
+    pricing_catalog_context: Optional[PricingCatalogContext] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
     selected_for_deployment_at: Optional[datetime] = None
@@ -89,6 +89,7 @@ class PricingEvidenceDetailResponse(BaseModel):
     field_trace_schema_version: Optional[str] = None
     field_trace_available: bool
     field_trace_records: list[dict] = Field(default_factory=list)
+    pricing_catalog_context: Optional[PricingCatalogContext] = None
     result_metadata: dict = Field(default_factory=dict)
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

@@ -18,23 +18,39 @@ class OptimizerStatusService:
     def __init__(self, optimizer_client: OptimizerClient | None = None):
         self.optimizer_client = optimizer_client or OptimizerClient()
 
-    async def get_pricing_status(self) -> dict[str, Any]:
+    async def get_pricing_status(
+        self,
+        *,
+        pricing_regions: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Return pricing freshness status for all providers."""
-        return await self._get_provider_status(endpoint_prefix="pricing_age")
+        return await self._get_provider_status(
+            endpoint_prefix="pricing_age",
+            pricing_regions=pricing_regions,
+        )
 
     async def get_regions_status(self) -> dict[str, Any]:
         """Return region freshness status for all providers."""
         return await self._get_provider_status(endpoint_prefix="regions_age")
 
-    async def _get_provider_status(self, endpoint_prefix: str) -> dict[str, Any]:
+    async def _get_provider_status(
+        self,
+        endpoint_prefix: str,
+        *,
+        pricing_regions: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         try:
-            responses = {
-                provider: await self.optimizer_client.get_cache_status(
-                    endpoint_prefix=endpoint_prefix,
-                    provider=provider,
+            responses = {}
+            for provider in PROVIDERS:
+                kwargs = {
+                    "endpoint_prefix": endpoint_prefix,
+                    "provider": provider,
+                }
+                if pricing_regions is not None:
+                    kwargs["pricing_region"] = pricing_regions[provider]
+                responses[provider] = await self.optimizer_client.get_cache_status(
+                    **kwargs,
                 )
-                for provider in PROVIDERS
-            }
         except (ExternalServiceError, ExternalServiceUnavailable) as exc:
             raise map_optimizer_client_error(exc) from exc
 

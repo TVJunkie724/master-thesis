@@ -34,6 +34,7 @@ class CostCalculationRun(Base):
     pricing_registry_version = Column(String, nullable=True)
     pricing_evidence_version = Column(String, nullable=True)
     pricing_run_reference = Column(String, nullable=True)
+    pricing_catalog_context_json = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     selected_for_deployment_at = Column(DateTime(timezone=True), nullable=True)
@@ -78,4 +79,3 @@ class CostCalculationResultItem(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     run = relationship("CostCalculationRun", back_populates="result_items")
-

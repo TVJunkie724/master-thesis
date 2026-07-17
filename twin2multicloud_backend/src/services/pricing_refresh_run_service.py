@@ -43,6 +43,16 @@ SENSITIVE_KEY_PARTS = (
 )
 MAX_RESULT_SUMMARY_ITEMS = 200
 MAX_RESULT_SUMMARY_TEXT_LENGTH = 500
+PRIORITIZED_RESULT_KEYS = (
+    "schemaVersion",
+    "status",
+    "candidateReference",
+    "activeCalculationReference",
+    "publication",
+    "quality",
+    "summary",
+    ACCOUNT_CONTEXT_KEY,
+)
 SAFE_OPTIMIZER_PRICING_ERRORS = {
     "AWS_TWINMAKER_PLAN_AUTHENTICATION_FAILED": (
         "AWS pricing credentials are invalid or expired."
@@ -72,10 +82,7 @@ class PricingRefreshRunService:
         self.db = db
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.cloud_connections = CloudConnectionService(db)
-        self.aws_twinmaker_contexts = AwsTwinMakerPricingContextService(
-            db,
-            optimizer_client=self.optimizer_client,
-        )
+        self.aws_twinmaker_contexts = AwsTwinMakerPricingContextService(db)
 
     async def create_run(
         self,
@@ -294,13 +301,15 @@ def _safe_result_summary(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
     result: dict[str, Any] = {}
-    prioritized_items = []
-    if ACCOUNT_CONTEXT_KEY in value:
-        prioritized_items.append((ACCOUNT_CONTEXT_KEY, value[ACCOUNT_CONTEXT_KEY]))
+    prioritized_items = [
+        (key, value[key])
+        for key in PRIORITIZED_RESULT_KEYS
+        if key in value
+    ]
     prioritized_items.extend(
         (key, raw)
         for key, raw in value.items()
-        if key != ACCOUNT_CONTEXT_KEY
+        if key not in PRIORITIZED_RESULT_KEYS
     )
     for key, raw in prioritized_items[:MAX_RESULT_SUMMARY_ITEMS]:
         if _is_sensitive_key(str(key)):

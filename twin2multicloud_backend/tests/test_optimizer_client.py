@@ -160,25 +160,33 @@ async def test_get_cache_status_returns_object_payload_for_success():
 
 
 @pytest.mark.asyncio
-async def test_export_pricing_snapshot_gets_exact_endpoint():
+async def test_get_exact_pricing_catalog_snapshot_gets_exact_endpoint():
     seen = {}
+    snapshot_id = "pcs_" + ("a" * 64)
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["method"] = request.method
         seen["url"] = str(request.url)
-        return httpx.Response(200, json={"provider": "azure"})
+        return httpx.Response(200, json={"reference": {}, "pricing": {}})
 
     client = OptimizerClient(
         base_url="http://optimizer.test",
         transport=httpx.MockTransport(handler),
     )
 
-    result = await client.export_pricing_snapshot("azure")
+    result = await client.get_exact_pricing_catalog_snapshot(
+        "azure",
+        "westeurope",
+        snapshot_id,
+    )
 
-    assert result == {"provider": "azure"}
+    assert result == {"reference": {}, "pricing": {}}
     assert seen == {
         "method": "GET",
-        "url": "http://optimizer.test/pricing/export/azure",
+        "url": (
+            "http://optimizer.test/pricing/catalogs/azure/westeurope/"
+            f"snapshots/{snapshot_id}"
+        ),
     }
 
 
@@ -201,7 +209,10 @@ async def test_refresh_azure_pricing_uses_force_fetch_endpoint():
     assert result == {"refreshed": True}
     assert seen == {
         "method": "POST",
-        "url": "http://optimizer.test/fetch_pricing/azure?force_fetch=true",
+        "url": (
+            "http://optimizer.test/fetch_pricing_with_credentials/"
+            "azure?force_fetch=true"
+        ),
     }
 
 
@@ -224,7 +235,10 @@ async def test_refresh_pricing_with_credentials_posts_payload():
 
     assert seen == {
         "method": "POST",
-        "url": "http://optimizer.test/fetch_pricing_with_credentials/aws",
+        "url": (
+            "http://optimizer.test/fetch_pricing_with_credentials/"
+            "aws?force_fetch=true"
+        ),
         "payload": '{"aws_region":"eu-west-1"}',
     }
 
@@ -274,6 +288,34 @@ async def test_json_object_rejects_non_object_payloads():
     )
 
     with pytest.raises(ExternalServiceError) as exc_info:
-        await client.export_pricing_snapshot("aws")
+        await client.get_exact_pricing_catalog_snapshot(
+            "aws",
+            "eu-central-1",
+            "pcs_" + ("a" * 64),
+        )
 
     assert exc_info.value.message == "Optimizer API returned non-object JSON"
+
+
+@pytest.mark.asyncio
+async def test_get_cache_status_sends_explicit_pricing_region():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"status": "valid"})
+
+    client = OptimizerClient(
+        base_url="http://optimizer.test",
+        transport=httpx.MockTransport(handler),
+    )
+
+    await client.get_cache_status(
+        endpoint_prefix="pricing_age",
+        provider="azure",
+        pricing_region="westeurope",
+    )
+
+    assert seen["url"] == (
+        "http://optimizer.test/pricing_age/azure?pricing_region=westeurope"
+    )

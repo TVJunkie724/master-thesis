@@ -10,6 +10,7 @@ from src.services.aws_twinmaker_pricing_context_service import (
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.optimizer_calculation_service import OptimizerCalculationService
 from src.services.service_errors import DownstreamServiceError
+from tests.pricing_catalog_test_data import catalog_context
 
 
 def _valid_route_params(sample_calc_params: dict) -> dict:
@@ -31,6 +32,9 @@ class FakeOptimizerClient:
         self.calls.append(params)
         if self.exc:
             raise self.exc
+        result = self.payload.get("result", self.payload)
+        if isinstance(result, dict):
+            result["pricingCatalogs"] = params["providerPricingCatalogs"]
         return self.payload
 
 
@@ -42,18 +46,29 @@ class FakeAwsTwinMakerContextService:
         }
         self.calls = []
 
-    async def resolve(self, user_id):
-        self.calls.append(user_id)
+    async def resolve(self, user_id, aws_catalog_reference):
+        self.calls.append((user_id, aws_catalog_reference))
         return ResolvedAwsTwinMakerPricingContext(
             payload=self.payload,
             source_refresh_run_id=None,
         )
 
 
+class FakePricingCatalogContextService:
+    def __init__(self):
+        self.context = catalog_context()
+        self.calls = []
+
+    async def resolve_for_user(self, user_id):
+        self.calls.append(user_id)
+        return self.context
+
+
 def _service(fake):
     return OptimizerCalculationService(
         optimizer_client=fake,
         aws_twinmaker_contexts=FakeAwsTwinMakerContextService(),
+        pricing_catalog_contexts=FakePricingCatalogContextService(),
     )
 
 
@@ -64,10 +79,14 @@ async def test_calculate_forwards_params_and_returns_optimizer_payload():
 
     result = await _service(fake).calculate(params, "user-1")
 
-    assert result == {"cheapestPath": ["L1_AWS"]}
+    assert result == {
+        "cheapestPath": ["L1_AWS"],
+        "pricingCatalogs": catalog_context().to_http_dict(),
+    }
     assert fake.calls == [
         {
             **params,
+            "providerPricingCatalogs": catalog_context().to_http_dict(),
             "providerPricingContexts": {
                 "awsTwinMaker": {
                     "status": "unavailable",
@@ -125,7 +144,7 @@ async def test_calculate_rejects_aws_l4_without_trusted_result_context():
         await _service(fake).calculate({"numberOfDevices": 10}, "user-1")
 
     assert exc_info.value.status_code == 502
-    assert "trusted AWS pricing context" in exc_info.value.public_detail
+    assert "trusted pricing context" in exc_info.value.public_detail
 
 
 def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_calc_params):
@@ -140,9 +159,13 @@ def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_
         response = client.put("/optimizer/calculate", json=_valid_route_params(sample_calc_params), headers=headers)
 
     assert response.status_code == 200
-    assert response.json() == {"cheapestPath": ["L1_AWS"]}
+    assert response.json() == {
+        "cheapestPath": ["L1_AWS"],
+        "pricingCatalogs": catalog_context().to_http_dict(),
+    }
     assert fake.calls[0] == {
         **_valid_route_params(sample_calc_params),
+        "providerPricingCatalogs": catalog_context().to_http_dict(),
         "providerPricingContexts": {
             "awsTwinMaker": {
                 "status": "unavailable",
@@ -176,6 +199,7 @@ def test_calculate_route_preserves_omitted_adt_assumption_provenance(
     assert response.status_code == 200
     assert fake.calls[0] == {
         **params,
+        "providerPricingCatalogs": catalog_context().to_http_dict(),
         "providerPricingContexts": {
             "awsTwinMaker": {
                 "status": "unavailable",

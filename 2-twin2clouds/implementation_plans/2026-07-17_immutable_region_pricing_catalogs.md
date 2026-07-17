@@ -955,10 +955,10 @@ Each step is implemented, tested, reviewed, and committed before the next one.
 | Slice | Status | Local evidence |
 |---|---|---|
 | 1. Catalog Domain And Migration | Complete | 49 focused domain, migration, legacy-parity, schema, cache, restart, Ruff, Bandit, compile, dependency, Compose, readiness, and secret-scan checks passed |
-| 2. Refresh, Publication, And Optimizer API | In progress | Implementation follows after the Slice 1 commit |
-| 3. Management Ownership And Persistence | Planned | Blocked by Slice 2 contracts |
+| 2. Refresh, Publication, And Optimizer API | Complete | All provider-region publication, strict calculation resolution, exact read contracts, and 680 Optimizer tests passed |
+| 3. Management Ownership And Persistence | Complete | Exact owner-safe resolution, migration 019, calculation/deployment persistence, reference-only diagnostics, and 816 Management API tests passed |
 | 4. Flutter Read Model And UX | Planned | Blocked by Slice 3 contracts |
-| 5. Documentation And Generated Contracts | Planned | Runs after all code boundaries |
+| 5. Documentation And Generated Contracts | In progress | Optimizer and Management API ownership, runtime, flow, and user docs follow each completed boundary |
 | 6. Review Pass 1 | Planned | Runs after Slice 5 |
 | 7. Review Pass 2 And Full Gates | Planned | Final local and platform gate |
 
@@ -1166,7 +1166,7 @@ test invokes a deployment or provider mutation.
 |---|---|---|
 | Slice 1: Catalog domain and migration | Done | immutable repository, reviewed seed package, durable Compose volume, startup readiness and migration tests |
 | Slice 2: Optimizer refresh and calculation integration | Done | provider-region refresh publication, exact calculation resolution, regional status/read APIs, removal of provider-wide pricing files; 680-test Optimizer suite green |
-| Slice 3: Management ownership and persistence | Pending | begins after the Optimizer contract passes all local gates |
+| Slice 3: Management ownership and persistence | Done | owner-safe reference resolution, exact calculation and deployment persistence, migration 019, reference-only diagnostics, all 816 Management API tests green |
 | Slice 4: Flutter read model and UX | Pending | depends on the final Management API contract |
 | Slice 5: Documentation and generated contracts | In progress | Optimizer/runtime docs updated with each completed boundary |
 | Slice 6: Review pass 1 | Pending | cross-project flow review after Slices 1-5 |
@@ -1191,6 +1191,28 @@ test invokes a deployment or provider mutation.
 - the complete Optimizer suite passed with `680 passed`;
 - Ruff, Bandit, `compileall`, `pip check`, Compose validation, and strict
   MkDocs build passed.
+
+### Slice 3 Verification Evidence
+
+- the Management API, not Flutter, resolves the exact AWS, Azure, and GCP
+  references used by direct and persisted calculations;
+- calculation results must echo the identical three-provider context before
+  they may be persisted or selected for deployment;
+- migration `019_pricing_catalog_context` adds and idempotently backfills
+  reference-only context fields while leaving ambiguous historical rows
+  readable but non-selectable;
+- Pricing Health, Pricing Review, and account-scoped AWS TwinMaker observations
+  use the same exact catalog identity selected by the calculation resolver;
+- the authenticated diagnostic endpoint exposes one explicitly addressed,
+  integrity-checked catalog with an 8 MiB response bound and no owner secrets;
+- the complete Management API suite passed with `816 passed`; all focused
+  catalog, migration, calculation, configuration, status, review, error, and
+  contract suites passed, including the final 39-test integrity regression
+  group;
+- Ruff, Bandit, `compileall`, `pip check`, Compose validation, migration 019
+  against the runtime SQLite database, strict MkDocs build, and a real
+  Management-to-Optimizer local smoke check passed;
+- no deployment E2E, provider mutation, or cloud-resource creation was run.
 
 ## Review Checklists
 

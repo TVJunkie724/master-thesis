@@ -1,6 +1,12 @@
-from datetime import datetime, timezone
+"""Project immutable Optimizer catalog status into the Management review contract."""
+
+from __future__ import annotations
+
 from typing import Any
 
+from pydantic import ValidationError
+
+from src.schemas.pricing_catalog import PricingCatalogReference
 from src.schemas.pricing_review import (
     PricingReviewReason,
     PricingReviewStateResponse,
@@ -14,28 +20,19 @@ STALE = "stale"
 REVIEW_REQUIRED = "review_required"
 MISSING = "missing"
 FAILED = "failed"
-LAST_KNOWN_GOOD = "last_known_good"
-FALLBACK_STATIC = "fallback_static"
 UNAVAILABLE = "unavailable"
-CALCULATION_SOURCES = {FRESH, STALE, LAST_KNOWN_GOOD, FALLBACK_STATIC, UNAVAILABLE}
-PRICING_FRESHNESS_VALUES = {FRESH, STALE, LAST_KNOWN_GOOD, UNAVAILABLE}
 
 
 def build_pricing_review_state_response(
     optimizer_statuses: dict[str, dict[str, Any]],
-    *,
-    saved_snapshots: dict[str, dict[str, Any] | None] | None = None,
-    saved_timestamps: dict[str, datetime | str | None] | None = None,
 ) -> PricingReviewStateResponse:
-    snapshots = saved_snapshots or {}
-    timestamps = saved_timestamps or {}
+    """Build review state exclusively from active immutable catalog metadata."""
+
     return PricingReviewStateResponse(
         providers={
             provider: build_provider_pricing_review_state(
                 provider,
                 optimizer_statuses.get(provider) or {},
-                saved_snapshot=snapshots.get(provider),
-                saved_timestamp=timestamps.get(provider),
             )
             for provider in PROVIDERS
         }
@@ -45,28 +42,15 @@ def build_pricing_review_state_response(
 def build_provider_pricing_review_state(
     provider: str,
     optimizer_status: dict[str, Any],
-    *,
-    saved_snapshot: dict[str, Any] | None = None,
-    saved_timestamp: datetime | str | None = None,
 ) -> ProviderPricingReviewState:
-    """Convert Optimizer status into the typed Management API review contract."""
-    if _is_publication_decision(optimizer_status):
-        return _from_publication_decision(
-            provider,
-            optimizer_status,
-            saved_snapshot=saved_snapshot,
-            saved_timestamp=saved_timestamp,
-        )
+    """Convert one provider-region catalog status into typed UI state."""
 
-    has_last_known_good = saved_snapshot is not None or saved_timestamp is not None
     raw_status = optimizer_status.get("status")
     missing_keys = _string_list(optimizer_status.get("missing_keys"))
     fallback_fields = _string_list(optimizer_status.get("fallback_fields"))
     unsupported_fields = _string_list(optimizer_status.get("unsupported_fields"))
-    optimizer_requires_review = bool(
-        optimizer_status.get("review_required") or fallback_fields or unsupported_fields
-    )
-    is_fresh = bool(optimizer_status.get("is_fresh", False))
+    is_fresh = optimizer_status.get("is_fresh") is True
+    reference, reference_error = _active_reference(optimizer_status)
 
     if optimizer_status.get("error") or raw_status == "error":
         state = FAILED
@@ -76,19 +60,22 @@ def build_provider_pricing_review_state(
                 str(optimizer_status.get("error") or "Optimizer pricing status failed."),
             )
         ]
-    elif raw_status == "missing":
+    elif reference_error:
+        state = FAILED
+        reasons = [_reason("failed", reference_error)]
+    elif raw_status == "missing" or reference is None:
         state = MISSING
-        reasons = [_reason("missing", "No cached pricing file is available.")]
+        reasons = [_reason("missing", "No published pricing catalog is available.")]
     elif raw_status == "incomplete":
         state = REVIEW_REQUIRED
         reasons = [
             _reason(
                 "incomplete",
-                "Cached pricing is missing required calculation keys.",
+                "Published pricing is missing required calculation keys.",
                 missing_keys=missing_keys,
             )
         ]
-    elif raw_status == "valid" and optimizer_requires_review:
+    elif raw_status == "valid" and (fallback_fields or unsupported_fields):
         state = REVIEW_REQUIRED
         reasons = _quality_reasons(
             fallback_fields=fallback_fields,
@@ -104,18 +91,23 @@ def build_provider_pricing_review_state(
         state = FAILED
         reasons = [_reason("failed", "Optimizer pricing status is unknown.")]
 
-    uses_reviewable_fallback = raw_status == "valid" and bool(fallback_fields)
     can_calculate = (
-        state in {FRESH, STALE}
-        or raw_status == "valid"
-        or has_last_known_good
+        reference is not None
+        and raw_status == "valid"
+        and is_fresh
     )
-    calculation_source = _calculation_source(
-        state,
-        has_last_known_good,
-        uses_reviewable_fallback=uses_reviewable_fallback,
+    calculation_source = (
+        reference.calculation_source
+        if can_calculate and reference is not None
+        else UNAVAILABLE
     )
-    pricing_freshness = _pricing_freshness(state, has_last_known_good)
+    pricing_freshness = (
+        FRESH
+        if can_calculate
+        else STALE
+        if reference is not None and not is_fresh
+        else UNAVAILABLE
+    )
 
     return ProviderPricingReviewState(
         provider=provider,
@@ -130,101 +122,24 @@ def build_provider_pricing_review_state(
         threshold_days=optimizer_status.get("threshold_days"),
         missing_keys=missing_keys,
         review_reasons=reasons,
-        actions=_actions(state, has_last_known_good),
-        last_known_good_updated_at=_iso_timestamp(saved_timestamp),
+        actions=["refresh"],
+        last_known_good_updated_at=(
+            reference.fetched_at.isoformat() if reference is not None else None
+        ),
         optimizer=_safe_optimizer_status(optimizer_status),
     )
 
 
-def _from_publication_decision(
-    provider: str,
-    decision: dict[str, Any],
-    *,
-    saved_snapshot: dict[str, Any] | None,
-    saved_timestamp: datetime | str | None,
-) -> ProviderPricingReviewState:
-    state = FRESH if not decision.get("review_required") else REVIEW_REQUIRED
-    has_last_known_good = (
-        saved_snapshot is not None
-        or saved_timestamp is not None
-        or decision.get("calculation_source") == LAST_KNOWN_GOOD
-    )
-    calculation_source = _allowed_value(
-        decision.get("calculation_source"),
-        CALCULATION_SOURCES,
-        _calculation_source(state, has_last_known_good),
-    )
-    pricing_freshness = _allowed_value(
-        decision.get("pricing_freshness"),
-        PRICING_FRESHNESS_VALUES,
-        _pricing_freshness(state, has_last_known_good),
-    )
-    review_reasons = [
-        PricingReviewReason(
-            status=str(reason.get("status") or REVIEW_REQUIRED),
-            intent_id=reason.get("intent_id"),
-            reason=str(reason.get("reason") or "Pricing review is required."),
-            errors=_string_list(reason.get("errors")),
-            missing_keys=_string_list(reason.get("missing_keys")),
-        )
-        for reason in decision.get("review_reasons", [])
-    ]
-
-    return ProviderPricingReviewState(
-        provider=provider,
-        state=state,
-        review_required=bool(decision.get("review_required", False)),
-        can_calculate=bool(decision.get("can_calculate", False)),
-        calculation_source=calculation_source,
-        pricing_freshness=pricing_freshness,
-        age=decision.get("age"),
-        status=decision.get("status"),
-        is_fresh=pricing_freshness == FRESH,
-        threshold_days=decision.get("threshold_days"),
-        missing_keys=_string_list(decision.get("missing_keys")),
-        review_reasons=review_reasons,
-        actions=_actions(state, has_last_known_good),
-        last_known_good_updated_at=_iso_timestamp(saved_timestamp),
-        optimizer=_safe_optimizer_status(decision),
-    )
-
-
-def _is_publication_decision(status: dict[str, Any]) -> bool:
-    return status.get("schema_version") == "pricing-publication-decision.v1"
-
-
-def _calculation_source(
-    state: str,
-    has_last_known_good: bool,
-    *,
-    uses_reviewable_fallback: bool = False,
-) -> str:
-    if state == FRESH:
-        return FRESH
-    if state == STALE:
-        return STALE
-    if has_last_known_good:
-        return LAST_KNOWN_GOOD
-    if uses_reviewable_fallback:
-        return FALLBACK_STATIC
-    return UNAVAILABLE
-
-
-def _pricing_freshness(state: str, has_last_known_good: bool) -> str:
-    if state == FRESH:
-        return FRESH
-    if state == STALE:
-        return STALE
-    if has_last_known_good:
-        return LAST_KNOWN_GOOD
-    return UNAVAILABLE
-
-
-def _actions(state: str, has_last_known_good: bool) -> list[str]:
-    actions = ["refresh"]
-    if state in {REVIEW_REQUIRED, MISSING, FAILED} and has_last_known_good:
-        actions.append("keep_last_known_good")
-    return actions
+def _active_reference(
+    status: dict[str, Any],
+) -> tuple[PricingCatalogReference | None, str | None]:
+    raw_reference = status.get("active_reference")
+    if raw_reference is None:
+        return None, None
+    try:
+        return PricingCatalogReference.model_validate(raw_reference), None
+    except ValidationError:
+        return None, "Optimizer returned an invalid active pricing reference."
 
 
 def _reason(
@@ -250,7 +165,7 @@ def _quality_reasons(
         reasons.append(
             _reason(
                 "fallback_static",
-                "Cached pricing contains emergency fallback values and must be reviewed.",
+                "Published pricing contains emergency fallback values.",
                 missing_keys=fallback_fields,
             )
         )
@@ -258,15 +173,13 @@ def _quality_reasons(
         reasons.append(
             _reason(
                 "unsupported",
-                "Cached pricing contains fields that could not be fetched or derived from the provider contract.",
+                "Published pricing contains unsupported calculation fields.",
                 missing_keys=unsupported_fields,
             )
         )
-    if not reasons:
-        reasons.append(
-            _reason("review_required", "Optimizer marked cached pricing for review.")
-        )
-    return reasons
+    return reasons or [
+        _reason("review_required", "Optimizer marked published pricing for review.")
+    ]
 
 
 def _string_list(value: Any) -> list[str]:
@@ -277,25 +190,9 @@ def _string_list(value: Any) -> list[str]:
     return [str(value)]
 
 
-def _allowed_value(value: Any, allowed: set[str], fallback: str) -> str:
-    if isinstance(value, str) and value in allowed:
-        return value
-    return fallback
-
-
 def _safe_optimizer_status(status: dict[str, Any]) -> dict[str, Any]:
     return {
         key: value
         for key, value in status.items()
         if key not in {"pricing", "raw_payload", "credentials"}
     }
-
-
-def _iso_timestamp(value: datetime | str | None) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc).isoformat()
-    return value.isoformat()

@@ -1,7 +1,8 @@
 # Pricing Review
 
 Pricing Review is a global workspace opened from the dashboard. It does not require a
-twin because refresh credentials and cached provider pricing are account-level state.
+twin because refresh credentials and immutable provider pricing catalogs are
+account-level state.
 
 ## Provider-By-Provider Refresh
 
@@ -18,6 +19,14 @@ region rather than an account credential.
 
 Provider cards distinguish fresh, stale, review-required, unavailable, and active
 refresh states. They show age/max age, selected account metadata, and latest run.
+Readiness is derived from the same exact owner-scoped catalog references used by a
+calculation. A legacy saved pricing payload or timestamp cannot make a provider ready.
+
+Each active reference identifies provider, pricing region, source, fetch time,
+contract/registry/mapping versions, content digest, and immutable snapshot ID.
+Full catalog values are not loaded into the default screen. An authenticated
+developer can inspect one explicit snapshot through the Management API diagnostic
+endpoint when detailed troubleshooting is necessary.
 
 ### AWS TwinMaker Account Plan
 

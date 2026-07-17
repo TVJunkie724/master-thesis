@@ -12,12 +12,19 @@ from unittest.mock import patch, AsyncMock
 from src.clients.optimizer_client import OptimizerProviderStatus
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from tests.conftest import create_test_twin
+from tests.pricing_catalog_test_data import catalog_reference
 
 
 def _optimizer_status(payload_by_provider=None, status_code=200):
     payload_by_provider = payload_by_provider or {}
 
-    async def _status(self, *, endpoint_prefix, provider):
+    async def _status(
+        self,
+        *,
+        endpoint_prefix,
+        provider,
+        pricing_region=None,
+    ):
         return OptimizerProviderStatus(
             provider=provider,
             status_code=status_code,
@@ -25,6 +32,19 @@ def _optimizer_status(payload_by_provider=None, status_code=200):
         )
 
     return _status
+
+
+def _pricing_context_status(payload=None, exc=None):
+    service = AsyncMock()
+    if exc is not None:
+        service.status_for_user.side_effect = exc
+    else:
+        service.status_for_user.return_value = payload or {
+            "aws": {},
+            "azure": {},
+            "gcp": {},
+        }
+    return service
 
 
 def _validation_files_from_call(call_args):
@@ -46,8 +66,10 @@ class TestOptimizerProxyErrorHandling:
         client, headers = authenticated_client
         
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
-            _optimizer_status({"aws": {"age": "1 day"}}),
+            "src.api.routes.optimizer._pricing_catalog_context_service",
+            return_value=_pricing_context_status(
+                {"aws": {"age": "1 day"}, "azure": {}, "gcp": {}}
+            ),
         ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
@@ -77,9 +99,10 @@ class TestOptimizerProxyErrorHandling:
         client, headers = authenticated_client
         
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
-            new_callable=AsyncMock,
-            side_effect=ExternalServiceUnavailable("Optimizer API timed out"),
+            "src.api.routes.optimizer._pricing_catalog_context_service",
+            return_value=_pricing_context_status(
+                exc=ExternalServiceUnavailable("Optimizer API timed out")
+            ),
         ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
@@ -112,8 +135,8 @@ class TestOptimizerProxyErrorHandling:
         client, headers = authenticated_client
         
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
-            _optimizer_status(),
+            "src.api.routes.optimizer._pricing_catalog_context_service",
+            return_value=_pricing_context_status(),
         ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
@@ -125,8 +148,8 @@ class TestOptimizerProxyErrorHandling:
         client, headers = authenticated_client
         
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
-            _optimizer_status({"aws": {}}),
+            "src.api.routes.optimizer._pricing_catalog_context_service",
+            return_value=_pricing_context_status(),
         ):
             
             # Make multiple requests
@@ -162,54 +185,74 @@ class TestOptimizerProxyErrorHandling:
         client, headers = authenticated_client
         
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.get_cache_status",
-            _optimizer_status({"aws": None, "azure": {"age": "1 day"}}),
+            "src.api.routes.optimizer._pricing_catalog_context_service",
+            return_value=_pricing_context_status(
+                {"aws": {}, "azure": {"age": "1 day"}, "gcp": {}}
+            ),
         ):
             
             response = client.get("/optimizer/pricing-status", headers=headers)
             
             assert response.status_code == 200
 
-    def test_pricing_export_returns_provider_snapshot(self, authenticated_client):
-        """Pricing export returns Optimizer snapshot payload for supported provider."""
+    def test_exact_catalog_returns_explicit_snapshot(self, authenticated_client):
+        """Exact catalog diagnostics return the requested immutable snapshot."""
         client, headers = authenticated_client
+        reference = catalog_reference("aws")
 
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.export_pricing_snapshot",
+            "src.clients.optimizer_client.OptimizerClient."
+            "get_exact_pricing_catalog_snapshot",
             new_callable=AsyncMock,
-            return_value={"provider": "aws", "prices": []},
+            return_value={
+                "reference": reference.to_http_dict(),
+                "pricing": {"iotCore": {}},
+            },
         ):
-
-            response = client.get("/optimizer/pricing/export/aws", headers=headers)
+            response = client.get(
+                "/optimizer/pricing/catalogs/aws/eu-central-1/snapshots/"
+                f"{reference.snapshot_id}",
+                headers=headers,
+            )
 
         assert response.status_code == 200
-        assert response.json() == {"provider": "aws", "prices": []}
+        assert response.json()["reference"] == reference.to_http_dict()
 
-    def test_pricing_export_rejects_invalid_provider(self, authenticated_client):
-        """Pricing export rejects unsupported providers before downstream call."""
+    def test_exact_catalog_rejects_invalid_provider(self, authenticated_client):
+        """Exact catalog diagnostics reject unsupported providers before I/O."""
         client, headers = authenticated_client
 
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.export_pricing_snapshot",
+            "src.clients.optimizer_client.OptimizerClient."
+            "get_exact_pricing_catalog_snapshot",
             new_callable=AsyncMock,
         ) as mock_client:
-            response = client.get("/optimizer/pricing/export/digitalocean", headers=headers)
+            response = client.get(
+                "/optimizer/pricing/catalogs/digitalocean/fra1/snapshots/"
+                f"pcs_{'a' * 64}",
+                headers=headers,
+            )
 
         assert response.status_code == 400
-        assert response.json()["detail"] == "Invalid provider: digitalocean"
+        assert response.json()["detail"] == "Invalid pricing catalog identity."
         mock_client.assert_not_called()
 
-    def test_pricing_export_timeout_returns_504(self, authenticated_client):
-        """Timeout to optimizer pricing export returns 504."""
+    def test_exact_catalog_timeout_returns_504(self, authenticated_client):
+        """Timeout to exact optimizer catalog diagnostics returns 504."""
         client, headers = authenticated_client
+        reference = catalog_reference("gcp")
 
         with patch(
-            "src.clients.optimizer_client.OptimizerClient.export_pricing_snapshot",
+            "src.clients.optimizer_client.OptimizerClient."
+            "get_exact_pricing_catalog_snapshot",
             new_callable=AsyncMock,
             side_effect=ExternalServiceUnavailable("Optimizer API timed out"),
         ):
-
-            response = client.get("/optimizer/pricing/export/gcp", headers=headers)
+            response = client.get(
+                "/optimizer/pricing/catalogs/gcp/europe-west1/snapshots/"
+                f"{reference.snapshot_id}",
+                headers=headers,
+            )
 
         assert response.status_code == 504
         assert "timed out" in response.json()["detail"].lower()

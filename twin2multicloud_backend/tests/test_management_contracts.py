@@ -145,7 +145,11 @@ def test_documented_raw_payload_exceptions_remain_unmodeled():
     """Streaming, downloads, and dynamic downstream payloads stay explicitly raw."""
     raw_json_paths = [
         ("/optimizer/calculate", "put"),
-        ("/optimizer/pricing/export/{provider}", "get"),
+        (
+            "/optimizer/pricing/catalogs/{provider}/{pricing_region}/"
+            "snapshots/{snapshot_id}",
+            "get",
+        ),
         ("/optimizer/pricing-status", "get"),
         ("/optimizer/regions-status", "get"),
         ("/optimizer/refresh-pricing/{provider}", "post"),
@@ -168,9 +172,12 @@ def test_downstream_client_contract_surface_is_explicit():
     """Optimizer/Deployer calls used by Management API are intentional contract methods."""
     assert _public_client_methods(OptimizerClient) == {
         "calculate",
-        "export_pricing_snapshot",
+        "get_exact_pricing_catalog_reference",
+        "get_exact_pricing_catalog_snapshot",
         "get_cache_status",
+        "get_pricing_catalog_baseline",
         "get_provider_capabilities",
+        "refresh_pricing",
         "refresh_azure_pricing",
         "refresh_pricing_with_credentials",
         "stream_pricing_refresh",

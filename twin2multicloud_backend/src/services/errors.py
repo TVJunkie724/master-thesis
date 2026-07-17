@@ -78,6 +78,19 @@ class OptimizerContractError(DomainError):
         self.errors = errors or []
 
 
+class PricingCatalogUnavailable(DomainError):
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str = "PRICING_CATALOG_UNAVAILABLE",
+    ):
+        super().__init__(message)
+        self.error_code = error_code
+
+
 class ProviderCapabilityContractInvalid(DomainError):
     status_code = 502
 

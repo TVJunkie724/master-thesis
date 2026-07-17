@@ -6,8 +6,11 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from pydantic import ValidationError
+
 from src.models.optimizer_config import OptimizerConfiguration
 from src.schemas.optimizer_config import CheapestPathResponse, OptimizerConfigResponse
+from src.schemas.pricing_catalog import PricingCatalogContext
 
 
 CHEAPEST_PATH_FIELDS = (
@@ -19,17 +22,6 @@ CHEAPEST_PATH_FIELDS = (
     "cheapest_l4",
     "cheapest_l5",
 )
-
-
-def parse_iso_safe(value: str | None) -> datetime | None:
-    """Parse API-supplied ISO timestamps without failing the whole save."""
-    if not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def safe_json_loads(value: str | None) -> dict[str, Any] | None:
@@ -52,19 +44,21 @@ def to_json(value: dict[str, Any] | None) -> str | None:
 
 def optimizer_config_to_response(config: OptimizerConfiguration) -> OptimizerConfigResponse:
     """Map an optimizer configuration model to the public API schema."""
+    pricing_catalog_context = None
+    raw_context = safe_json_loads(config.pricing_catalog_context_json)
+    if raw_context is not None:
+        try:
+            pricing_catalog_context = PricingCatalogContext.model_validate(raw_context)
+        except ValidationError:
+            pricing_catalog_context = None
     return OptimizerConfigResponse(
         id=config.id,
         twin_id=config.twin_id,
         params=safe_json_loads(config.params),
         result=safe_json_loads(config.result_json),
+        pricing_catalog_context=pricing_catalog_context,
         cheapest_path=_cheapest_path_response(config) if config.cheapest_l1 else None,
         calculated_at=config.calculated_at,
-        pricing_aws_snapshot=safe_json_loads(config.pricing_aws_snapshot),
-        pricing_azure_snapshot=safe_json_loads(config.pricing_azure_snapshot),
-        pricing_gcp_snapshot=safe_json_loads(config.pricing_gcp_snapshot),
-        pricing_aws_updated_at=config.pricing_aws_updated_at,
-        pricing_azure_updated_at=config.pricing_azure_updated_at,
-        pricing_gcp_updated_at=config.pricing_gcp_updated_at,
         updated_at=config.updated_at or datetime.now(timezone.utc),
     )
 

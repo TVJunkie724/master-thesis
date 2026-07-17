@@ -8,6 +8,7 @@ User input
   -> typed Management API request
   -> configuration/application service
   -> SQLite configuration + file version
+  -> owner-scoped exact AWS + Azure + GCP catalog context
   -> Optimizer calculation request
   -> active optimization profile
        metric provider: cost
@@ -15,8 +16,8 @@ User input
        calculation model: cost_model_v1
        formula set + provider contracts
        scoring strategy: minimum cost
-  -> typed result + trace metadata
-  -> persisted calculation run/items
+  -> typed result + trace metadata + identical catalog context
+  -> persisted calculation run/items/reference set
   -> Flutter review
 ```
 
@@ -34,12 +35,12 @@ User selects provider and confirms source scope
   -> provider API rows / official-static classifications
   -> raw evidence retained
   -> intent contract filters and normalizes candidates
-  -> deterministic candidate report
-  -> publishable match? ---- yes ---> atomic last-known-good replacement
+  -> immutable provider-region candidate
+  -> publishable match? ---- yes ---> atomic regional published pointer
               |
               no
               v
-       review-required candidates; last-known-good remains active
+       review-required candidate; published reference remains active
               |
        user records a decision in Management API DB
               |
@@ -48,7 +49,10 @@ User selects provider and confirms source scope
 
 An emergency fallback is diagnostic, never the target source. Review decisions may
 select a mapping but are forbidden from storing a replacement price. Evidence and
-normalization remain inspectable.
+normalization remain inspectable. Calculation resolves the newest usable owner
+refresh reference for each provider, otherwise the reviewed baseline. It verifies
+each exact identity before formula execution; Flutter never exports or authors
+pricing evidence.
 
 ## Credential Bootstrap And Use
 

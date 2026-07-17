@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime
 
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.pricing_catalog import PricingCatalogContext
 
 
 class OptimizerParamsUpdate(BaseModel):
@@ -13,14 +14,12 @@ class OptimizerParamsUpdate(BaseModel):
 
 
 class OptimizerResultUpdate(BaseModel):
-    """Save calculation result + pricing snapshots."""
+    """Save a calculation result already bound to trusted catalog references."""
     model_config = ConfigDict(extra="forbid")
 
     params: OptimizerCalculationParams
     result: dict                          # Full CalcResult
     cheapest_path: dict                   # {"l1": "AWS", "l2": "AZURE", ...}
-    pricing_snapshots: dict               # {"aws": {...}, "azure": {...}, "gcp": {...}}
-    pricing_timestamps: dict              # {"aws": "ISO", "azure": "ISO", "gcp": "ISO"}
 
 
 class CheapestPathResponse(BaseModel):
@@ -41,14 +40,7 @@ class OptimizerConfigResponse(BaseModel):
     twin_id: str
     params: Optional[dict] = None
     result: Optional[dict] = None
+    pricing_catalog_context: Optional[PricingCatalogContext] = None
     cheapest_path: Optional[CheapestPathResponse] = None
     calculated_at: Optional[datetime] = None
-    # Pricing snapshots
-    pricing_aws_snapshot: Optional[dict] = None
-    pricing_azure_snapshot: Optional[dict] = None
-    pricing_gcp_snapshot: Optional[dict] = None
-    # Pricing timestamps
-    pricing_aws_updated_at: Optional[datetime] = None
-    pricing_azure_updated_at: Optional[datetime] = None
-    pricing_gcp_updated_at: Optional[datetime] = None
     updated_at: datetime

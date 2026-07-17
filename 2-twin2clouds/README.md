@@ -79,6 +79,7 @@ Canonical endpoints include:
 | `GET` | `/pricing/source_inventory` | Read pricing source governance |
 | `GET` | `/pricing/catalogs/baseline/{provider}` | Read the pinned reviewed baseline reference |
 | `GET` | `/pricing/catalogs/{provider}/{region}/published` | Read the active regional reference and freshness |
+| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{snapshot_id}/reference` | Verify one exact reference without loading pricing |
 | `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{snapshot_id}` | Inspect one explicitly identified immutable snapshot |
 | `POST` | `/permissions/verify/{provider}` | Validate pricing-access credentials |
 | `POST` | `/fetch_currency` | Refresh the USD/EUR conversion snapshot |

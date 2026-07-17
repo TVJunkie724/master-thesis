@@ -100,6 +100,9 @@ Every calculation receives exactly one published AWS, Azure, and GCP reference
 through `providerPricingCatalogs`. All three documents are resolved and
 integrity-checked before formulas execute. The result returns the same
 references, so a later refresh cannot change the evidence of an existing run.
+Internal consumers verify a selected snapshot through the reference-only exact
+read endpoint. The full exact-snapshot endpoint is reserved for authenticated,
+explicit diagnostics through the Management API.
 The former provider-wide `pricing_dynamic_*.json` files and unscoped export
 endpoint are not part of the runtime contract.
 

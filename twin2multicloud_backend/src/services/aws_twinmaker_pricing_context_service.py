@@ -5,7 +5,6 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-import hashlib
 import json
 import re
 from typing import Annotated, Any, Literal
@@ -20,13 +19,13 @@ from pydantic import (
 )
 from sqlalchemy.orm import Session
 
-from src.clients.optimizer_client import OptimizerClient
 from src.models.cloud_connection import CloudConnection
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.repositories.cloud_connection_repository import CloudConnectionRepository
+from src.schemas.pricing_catalog import PricingCatalogReference
 
 
-ACCOUNT_CONTEXT_KEY = "__account_pricing_context__"
+ACCOUNT_CONTEXT_KEY = "accountPricingContext"
 ACCOUNT_CONTEXT_SCHEMA_VERSION = "aws-twinmaker-account-pricing-context.v1"
 MANAGEMENT_BINDING_SCHEMA_VERSION = "aws-twinmaker-management-binding.v1"
 MAX_OBSERVATION_AGE = timedelta(days=7)
@@ -133,12 +132,10 @@ class AwsTwinMakerPricingContextService:
     def __init__(
         self,
         db: Session,
-        optimizer_client: OptimizerClient | None = None,
         *,
         now: datetime | None = None,
     ):
         self._db = db
-        self._optimizer_client = optimizer_client or OptimizerClient()
         self._connections = CloudConnectionRepository(db)
         self._now = _as_utc(now or datetime.now(timezone.utc))
 
@@ -153,6 +150,15 @@ class AwsTwinMakerPricingContextService:
             raise ValueError("AWS pricing CloudConnection is required.")
         raw_context = result.get(ACCOUNT_CONTEXT_KEY)
         observed = _ObservedAccountContext.model_validate(raw_context)
+        active_reference = PricingCatalogReference.model_validate(
+            result.get("activeCalculationReference")
+        )
+        if active_reference.provider != "aws":
+            raise ValueError(CATALOG_REGION_MISMATCH)
+        if observed.region != active_reference.pricing_region:
+            raise ValueError(CATALOG_REGION_MISMATCH)
+        if observed.catalog_snapshot_digest != active_reference.content_digest:
+            raise ValueError(CATALOG_DIGEST_MISMATCH)
         scope = _cloud_scope(connection)
         configured_account_id = _configured_account_id(scope)
         configured_region = _configured_region(scope)
@@ -186,6 +192,7 @@ class AwsTwinMakerPricingContextService:
     async def resolve(
         self,
         user_id: str,
+        aws_catalog_reference: PricingCatalogReference,
     ) -> ResolvedAwsTwinMakerPricingContext:
         """Resolve the latest trusted context for the user's current AWS default."""
 
@@ -260,11 +267,10 @@ class AwsTwinMakerPricingContextService:
         if observed_at > self._now or self._now - observed_at > MAX_OBSERVATION_AGE:
             return _unavailable(PLAN_STALE)
 
-        catalog = await self._optimizer_client.export_pricing_snapshot("aws")
-        try:
-            catalog_error = _catalog_mismatch_reason(catalog, context)
-        except (TypeError, ValueError):
-            catalog_error = CATALOG_DIGEST_MISMATCH
+        catalog_error = _catalog_mismatch_reason(
+            aws_catalog_reference,
+            context,
+        )
         if catalog_error:
             return _unavailable(catalog_error)
 
@@ -343,45 +349,16 @@ def _unavailable(reason_code: str) -> ResolvedAwsTwinMakerPricingContext:
 
 
 def _catalog_mismatch_reason(
-    export: Any,
+    reference: PricingCatalogReference,
     context: _PersistedAccountContext,
 ) -> str | None:
-    if not isinstance(export, dict) or export.get("provider") != "aws":
+    if reference.provider != "aws":
         return CATALOG_DIGEST_MISMATCH
-    pricing = export.get("pricing")
-    if not isinstance(pricing, dict):
-        return CATALOG_DIGEST_MISMATCH
-    schema = pricing.get("__schema__")
-    if not isinstance(schema, dict):
-        return CATALOG_DIGEST_MISMATCH
-    if schema.get("pricing_region") != context.region:
+    if reference.pricing_region != context.region:
         return CATALOG_REGION_MISMATCH
-    declared_digest = schema.get("snapshot_digest")
-    if (
-        not isinstance(declared_digest, str)
-        or not SHA256_PATTERN.fullmatch(declared_digest)
-        or declared_digest != _canonical_snapshot_digest(pricing)
-        or declared_digest != context.catalog_snapshot_digest
-    ):
+    if reference.content_digest != context.catalog_snapshot_digest:
         return CATALOG_DIGEST_MISMATCH
     return None
-
-
-def _canonical_snapshot_digest(pricing: dict[str, Any]) -> str:
-    canonical = deepcopy(pricing)
-    canonical.pop(ACCOUNT_CONTEXT_KEY, None)
-    schema = canonical.get("__schema__")
-    if isinstance(schema, dict):
-        schema.pop("generated_at", None)
-        schema.pop("snapshot_digest", None)
-    encoded = json.dumps(
-        canonical,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    ).encode("utf-8")
-    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _cloud_scope(connection: CloudConnection) -> dict[str, Any]:

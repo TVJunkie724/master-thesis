@@ -7,7 +7,10 @@ Tests optimizer configuration persistence including:
 - Error cases: invalid data, not found
 """
 
+from unittest.mock import AsyncMock, patch
+
 from tests.conftest import create_test_twin
+from tests.pricing_catalog_test_data import catalog_context
 
 
 class TestOptimizerConfigRoutes:
@@ -76,41 +79,41 @@ class TestOptimizerConfigRoutes:
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
 
-        response = client.put(
-            f"/twins/{twin_id}/optimizer-config/result",
-            json={
-                "params": sample_calc_params,
-                "result": {
-                    "calculationResult": {"L1": "GCP"},
-                    "providerCosts": {"aws": 1.2, "azure": 1.1, "gcp": 1.0},
+        with patch(
+            "src.services.pricing_catalog_context_service."
+            "PricingCatalogContextService.resolve_for_user",
+            new=AsyncMock(return_value=catalog_context()),
+        ):
+            response = client.put(
+                f"/twins/{twin_id}/optimizer-config/result",
+                json={
+                    "params": sample_calc_params,
+                    "result": {
+                        "calculationResult": {"L1": "GCP"},
+                        "providerCosts": {
+                            "aws": 1.2,
+                            "azure": 1.1,
+                            "gcp": 1.0,
+                        },
+                        "pricingCatalogs": catalog_context().to_http_dict(),
+                    },
+                    "cheapest_path": {
+                        "l1": "GCP",
+                        "l2": "AWS",
+                        "l3_hot": "AZURE",
+                        "l3_cool": "GCP",
+                        "l3_archive": "AWS",
+                        "l4": "AZURE",
+                        "l5": "GCP",
+                    },
                 },
-                "cheapest_path": {
-                    "l1": "GCP",
-                    "l2": "AWS",
-                    "l3_hot": "AZURE",
-                    "l3_cool": "GCP",
-                    "l3_archive": "AWS",
-                    "l4": "AZURE",
-                    "l5": "GCP",
-                },
-                "pricing_snapshots": {
-                    "aws": {"source": "aws"},
-                    "azure": {"source": "azure"},
-                    "gcp": {"source": "gcp"},
-                },
-                "pricing_timestamps": {
-                    "aws": "2026-06-21T08:15:00Z",
-                    "azure": "2026-06-21T08:16:00Z",
-                    "gcp": "2026-06-21T08:17:00Z",
-                },
-            },
-            headers=headers,
-        )
+                headers=headers,
+            )
 
         assert response.status_code == 200
         data = response.json()
         assert data["cheapest_path"]["l1"] == "gcp"
-        assert data["pricing_aws_snapshot"] == {"source": "aws"}
+        assert data["pricing_catalog_context"] == catalog_context().to_http_dict()
         assert data["calculated_at"] is not None
 
         path_response = client.get(

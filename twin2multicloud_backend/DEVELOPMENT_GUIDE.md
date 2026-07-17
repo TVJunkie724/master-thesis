@@ -24,6 +24,9 @@ Flutter
   filters or persistence policy in route modules.
 - `OptimizerClient` and `DeployerClient` are the only HTTP boundaries to the
   internal services.
+- `PricingCatalogContextService` is the sole resolver for calculation,
+  pricing-health, persisted evidence, and deployment-selection catalog
+  references. Do not infer readiness from legacy snapshot blobs or timestamps.
 - Reusable cloud credentials live only in encrypted, user-owned
   `CloudConnection` records.
 - Credential-bearing deployment packages are staged for one Deployer operation
@@ -92,6 +95,9 @@ runtime database under `/var/lib/twin2multicloud-management/data/`.
    file and must remain compatible with `requirements.lock`.
 8. Track new actionable work in GitHub Issues; do not add Markdown TODO or
    future-work trackers.
+9. Persist exact immutable pricing references in Management; full public
+   pricing catalogs remain in the Optimizer and require an explicit,
+   size-bounded diagnostic read.
 
 ## Upload And Runtime Safety
 

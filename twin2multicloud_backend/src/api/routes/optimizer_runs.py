@@ -15,12 +15,17 @@ from src.schemas.cost_calculation import (
     CostCalculationRunSummaryResponse,
     PricingEvidenceDetailResponse,
 )
-from src.services.cost_calculation_run_service import CostCalculationRunService, _json_loads
+from src.services.cost_calculation_run_service import (
+    CostCalculationRunService,
+    _json_loads,
+    safe_pricing_catalog_context,
+)
 from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
     ExternalServiceUnavailable,
     OptimizerContractError,
+    PricingCatalogUnavailable,
     TwinNotFound,
 )
 
@@ -62,8 +67,6 @@ async def create_optimizer_run(
             twin_id,
             current_user.id,
             request.params,
-            pricing_snapshots=request.pricing_snapshots,
-            pricing_timestamps=request.pricing_timestamps,
             pricing_evidence_version=request.pricing_evidence_version,
         )
         return _run_detail_response(run)
@@ -83,6 +86,11 @@ async def create_optimizer_run(
         raise HTTPException(
             status_code=502,
             detail=_error_detail("OPTIMIZER_CONTRACT_INVALID", exc.message, exc.errors),
+        )
+    except PricingCatalogUnavailable as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=_error_detail(exc.error_code, exc.message),
         )
 
 
@@ -165,6 +173,8 @@ async def get_optimizer_run_pricing_evidence(
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
         409: ERROR_RESPONSES[409],
+        502: {"description": "Pricing catalog verification failed"},
+        503: {"description": "Optimizer unavailable"},
     },
 )
 async def select_optimizer_run_for_deployment(
@@ -190,6 +200,31 @@ async def select_optimizer_run_for_deployment(
             status_code=409,
             detail=_error_detail(exc.error_code, exc.message),
         )
+    except ExternalServiceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail=_error_detail(
+                "OPTIMIZER_UNAVAILABLE",
+                "Optimizer service is unavailable.",
+            ),
+        )
+    except ExternalServiceError:
+        raise HTTPException(
+            status_code=502,
+            detail=_error_detail(
+                "OPTIMIZER_ERROR",
+                "Optimizer service returned an error.",
+            ),
+        )
+    except OptimizerContractError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=_error_detail(
+                "OPTIMIZER_CONTRACT_INVALID",
+                exc.message,
+                exc.errors,
+            ),
+        )
 
 
 def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryResponse:
@@ -209,6 +244,9 @@ def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryR
         pricing_registry_version=run.pricing_registry_version,
         pricing_evidence_version=run.pricing_evidence_version,
         pricing_run_reference=run.pricing_run_reference,
+        pricing_catalog_context=safe_pricing_catalog_context(
+            run.pricing_catalog_context_json
+        ),
         created_at=run.created_at,
         completed_at=run.completed_at,
         selected_for_deployment_at=run.selected_for_deployment_at,

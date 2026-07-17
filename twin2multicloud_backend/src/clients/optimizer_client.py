@@ -3,9 +3,13 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 from src.clients.base import ExternalServiceClient
 from src.config import settings
+
+
+MAX_PRICING_CATALOG_BYTES = 8 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -66,11 +70,18 @@ class OptimizerClient(ExternalServiceClient):
         *,
         endpoint_prefix: str,
         provider: str,
+        pricing_region: str | None = None,
     ) -> OptimizerProviderStatus:
         """Return one provider cache status while preserving non-200 detail."""
+        params = (
+            {"pricing_region": pricing_region}
+            if pricing_region is not None
+            else None
+        )
         response = await self._request(
             "GET",
             f"/{endpoint_prefix}/{provider}",
+            params=params,
             timeout=30.0,
         )
         payload = self._json_object(response) if response.status_code == 200 else {}
@@ -80,19 +91,71 @@ class OptimizerClient(ExternalServiceClient):
             payload=payload,
         )
 
-    async def export_pricing_snapshot(self, provider: str) -> dict[str, Any]:
+    async def get_pricing_catalog_baseline(
+        self,
+        provider: str,
+    ) -> dict[str, Any]:
         return await self._request_json(
             "GET",
-            f"/pricing/export/{provider}",
+            f"/pricing/catalogs/baseline/{quote(provider, safe='')}",
             timeout=30.0,
         )
 
-    async def refresh_azure_pricing(self) -> dict[str, Any]:
+    async def get_exact_pricing_catalog_reference(
+        self,
+        provider: str,
+        pricing_region: str,
+        snapshot_id: str,
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "GET",
+            (
+                f"/pricing/catalogs/{quote(provider, safe='')}/"
+                f"{quote(pricing_region, safe='')}/snapshots/"
+                f"{quote(snapshot_id, safe='')}/reference"
+            ),
+            timeout=30.0,
+        )
+
+    async def get_exact_pricing_catalog_snapshot(
+        self,
+        provider: str,
+        pricing_region: str,
+        snapshot_id: str,
+    ) -> dict[str, Any]:
+        response = await self._request_bounded_response(
+            "GET",
+            (
+                f"/pricing/catalogs/{quote(provider, safe='')}/"
+                f"{quote(pricing_region, safe='')}/snapshots/"
+                f"{quote(snapshot_id, safe='')}"
+            ),
+            max_bytes=MAX_PRICING_CATALOG_BYTES,
+            size_error_detail="Pricing catalog snapshot exceeds the diagnostic size limit.",
+            timeout=30.0,
+        )
+        return self._json_object(response)
+
+    async def refresh_pricing(
+        self,
+        provider: str,
+        *,
+        credentials: dict[str, Any] | None = None,
+        force_fetch: bool = True,
+    ) -> dict[str, Any]:
         return await self._request_json(
             "POST",
-            "/fetch_pricing/azure",
-            params={"force_fetch": True},
+            f"/fetch_pricing_with_credentials/{quote(provider, safe='')}",
+            params={"force_fetch": force_fetch},
+            json=credentials or {},
             timeout=300.0,
+        )
+
+    async def refresh_azure_pricing(self) -> dict[str, Any]:
+        return await self.refresh_pricing(
+            "azure",
+            credentials={},
+            force_fetch=True,
         )
 
     async def refresh_pricing_with_credentials(
@@ -100,11 +163,10 @@ class OptimizerClient(ExternalServiceClient):
         provider: str,
         credentials: dict[str, Any],
     ) -> dict[str, Any]:
-        return await self._request_json(
-            "POST",
-            f"/fetch_pricing_with_credentials/{provider}",
-            json=credentials,
-            timeout=300.0,
+        return await self.refresh_pricing(
+            provider,
+            credentials=credentials,
+            force_fetch=True,
         )
 
     def stream_pricing_refresh(

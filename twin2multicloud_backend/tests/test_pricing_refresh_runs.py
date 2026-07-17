@@ -10,13 +10,12 @@ from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.user import User
 from src.services.aws_twinmaker_pricing_context_service import ACCOUNT_CONTEXT_KEY
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from tests.pricing_catalog_test_data import catalog_reference
 
 
 class FakeOptimizerClient:
     def __init__(self, payload=None, exc=None):
-        self.payload = (
-            payload if payload is not None else {"status": "ok", "message": "done"}
-        )
+        self.payload = payload
         self.exc = exc
         self.calls = []
 
@@ -30,7 +29,16 @@ class FakeOptimizerClient:
         )
         if self.exc:
             raise self.exc
-        return self.payload
+        if self.payload is not None:
+            return self.payload
+        reference = catalog_reference(provider)
+        return {
+            "schemaVersion": "pricing-catalog-refresh-result.v1",
+            "status": "published",
+            "candidateReference": reference.to_http_dict(),
+            "activeCalculationReference": reference.to_http_dict(),
+            "publication": {"published": True},
+        }
 
 
 def _override_optimizer(payload=None):
@@ -76,15 +84,17 @@ def _gcp_request(display_name="GCP Pricing"):
 
 
 def _aws_refresh_payload():
+    reference = catalog_reference("aws")
     return {
         "status": "ok",
+        "activeCalculationReference": reference.to_http_dict(),
         ACCOUNT_CONTEXT_KEY: {
             "schema_version": "aws-twinmaker-account-pricing-context.v1",
             "provider": "aws",
             "service": "iot_twinmaker",
             "region": "eu-central-1",
             "verified_account_id": "123456789012",
-            "catalog_snapshot_digest": "sha256:" + ("a" * 64),
+            "catalog_snapshot_digest": reference.content_digest,
             "observed_at": datetime.now(timezone.utc).isoformat(),
             "current_plan": {
                 "mode": "STANDARD",
@@ -265,6 +275,7 @@ def test_account_context_is_not_truncated_from_large_refresh_summary(
     assert response.status_code == 200
     assert response.json()["status"] == "succeeded"
     assert ACCOUNT_CONTEXT_KEY in response.json()["result_summary"]
+    assert "activeCalculationReference" in response.json()["result_summary"]
     assert len(response.json()["result_summary"]) == 200
 
 

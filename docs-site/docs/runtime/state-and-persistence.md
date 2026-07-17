@@ -28,6 +28,13 @@ CloudConnections, calculation runs/results, pricing refresh/review records, depl
 preflight/history/logs, and credential security events. Startup creates missing tables
 and applies explicit idempotent migrations to existing databases.
 
+Calculation runs and optimizer projections persist only
+`provider-pricing-catalog-context.v1`: one exact immutable reference for AWS,
+Azure, and GCP. Full pricing payloads remain in the Optimizer catalog volume.
+Legacy provider snapshot/timestamp columns may remain after the non-destructive
+migration, but live readiness, calculation, evidence, and deployment selection
+never read them.
+
 Deleting the database deletes durable application history and encrypted credentials.
 Deleting the encryption key without first re-encrypting CloudConnections makes those
 records unreadable.
@@ -51,6 +58,6 @@ For a coherent local backup, stop mutating operations and preserve together:
 
 Credential audit retention and production backup policy are operator responsibilities.
 The Optimizer pricing volume is also part of a reproducible audit backup when
-calculations reference runtime catalogs newer than the committed baseline.
+calculation reference sets point to runtime catalogs newer than the committed baseline.
 Catalog documents contain public pricing evidence only; credentials and
 account-scoped observations are forbidden.

@@ -73,8 +73,6 @@ def test_omitted_adt_assumptions_remain_omitted_only_for_downstream_payload(
                 "params": params,
                 "result": {},
                 "cheapest_path": {},
-                "pricing_snapshots": {},
-                "pricing_timestamps": {},
             },
         ),
         (

@@ -14,6 +14,12 @@ from src.schemas.optimizer_config import (
     OptimizerResultUpdate,
 )
 from src.services.optimizer_configuration_service import OptimizerConfigurationService
+from src.services.errors import (
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+    OptimizerContractError,
+    PricingCatalogUnavailable,
+)
 from src.services.service_errors import EntityNotFoundError
 
 router = APIRouter(prefix="/twins/{twin_id}/optimizer-config", tags=["optimizer-config"])
@@ -39,7 +45,7 @@ def _raise_optimizer_config_error(exc: EntityNotFoundError) -> NoReturn:
         "- `params`: The canonical calculation parameters last used\n"
         "- `result`: Full calculation result JSON (costs per provider/layer)\n"
         "- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n"
-        "- `pricing_*_snapshot`: Pricing data used at calculation time\n"
+        "- `pricing_catalog_context`: Exact immutable pricing references used\n"
         "- `calculated_at`: Timestamp of last calculation\n\n"
         "**Note:** Creates empty config if none exists."
     ),
@@ -102,8 +108,7 @@ async def update_params(
         "- `params`: The parameters used for this calculation\n"
         "- `result`: Full calculation response (awsCosts, azureCosts, gcpCosts, combinationTables)\n"
         "- `cheapest_path`: Object with l1, l2, l3_hot, l3_cool, l3_archive, l4, l5 provider names\n"
-        "- `pricing_snapshots`: {aws: {...}, azure: {...}, gcp: {...}} pricing data used\n"
-        "- `pricing_timestamps`: {aws: ISO, azure: ISO, gcp: ISO} when pricing was fetched\n\n"
+        "- `result.pricingCatalogs`: Exact references returned by the Optimizer\n\n"
         "**Important:** This enables Step 3 (Deployer) by storing the cheapest_path used for deployment."
     ),
     responses={
@@ -118,11 +123,30 @@ async def save_result(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Save full calculation result with cheapest path and pricing snapshots."""
+    """Save a calculation result bound to exact immutable catalog references."""
     try:
-        return _get_service(db).save_result(twin_id, current_user.id, update)
+        return await _get_service(db).save_result(
+            twin_id,
+            current_user.id,
+            update,
+        )
     except EntityNotFoundError as exc:
         _raise_optimizer_config_error(exc)
+    except PricingCatalogUnavailable as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": exc.error_code,
+                "message": exc.message,
+            },
+        ) from exc
+    except (ExternalServiceError, ExternalServiceUnavailable) as exc:
+        raise HTTPException(
+            status_code=503 if isinstance(exc, ExternalServiceUnavailable) else 502,
+            detail="Optimizer pricing catalog verification failed.",
+        ) from exc
+    except OptimizerContractError as exc:
+        raise HTTPException(status_code=422, detail=exc.message) from exc
 
 
 @router.get(

@@ -18,6 +18,7 @@ from src.services.errors import (
     ExternalServiceUnavailable,
 )
 from tests.conftest import create_test_twin
+from tests.pricing_catalog_test_data import catalog_context, catalog_reference
 
 
 class FakeOptimizerClient:
@@ -25,12 +26,34 @@ class FakeOptimizerClient:
         self.payload = payload if payload is not None else _optimizer_payload()
         self.exc = exc
         self.calls = []
+        self.catalog_calls = []
 
     async def calculate(self, params):
         self.calls.append(params)
         if self.exc:
             raise self.exc
+        result = self.payload.get("result", self.payload)
+        if isinstance(result, dict):
+            result["pricingCatalogs"] = params["providerPricingCatalogs"]
         return self.payload
+
+    async def get_pricing_catalog_baseline(self, provider):
+        self.catalog_calls.append(("baseline", provider))
+        return catalog_reference(provider).to_http_dict()
+
+    async def get_exact_pricing_catalog_reference(
+        self,
+        provider,
+        pricing_region,
+        snapshot_id,
+    ):
+        self.catalog_calls.append(
+            ("exact", provider, pricing_region, snapshot_id)
+        )
+        reference = catalog_reference(provider)
+        assert pricing_region == reference.pricing_region
+        assert snapshot_id == reference.snapshot_id
+        return {"reference": reference.to_http_dict(), "isFresh": True}
 
 
 class FakeAwsTwinMakerContextService:
@@ -39,8 +62,8 @@ class FakeAwsTwinMakerContextService:
         self.source_refresh_run_id = source_refresh_run_id
         self.calls = []
 
-    async def resolve(self, user_id):
-        self.calls.append(user_id)
+    async def resolve(self, user_id, aws_catalog_reference):
+        self.calls.append((user_id, aws_catalog_reference))
         return ResolvedAwsTwinMakerPricingContext(
             payload=self.payload,
             source_refresh_run_id=self.source_refresh_run_id,
@@ -55,7 +78,7 @@ def _available_aws_context(source_refresh_run_id="aws-refresh-1"):
         "connectionFingerprint": "sha256:" + ("a" * 64),
         "providerAccountId": "123456789012",
         "pricingRegion": "eu-central-1",
-        "catalogSnapshotDigest": "sha256:" + ("b" * 64),
+        "catalogSnapshotDigest": catalog_reference("aws").content_digest,
         "observedAt": "2026-07-17T12:00:00Z",
         "currentPlan": {
             "mode": "STANDARD",
@@ -269,8 +292,6 @@ def test_create_run_persists_history_items_and_compatibility_state(
         f"/twins/{twin_id}/optimizer-runs/",
         json={
             "params": sample_calc_params,
-            "pricing_snapshots": {"aws": {"snapshot": "aws"}},
-            "pricing_timestamps": {"aws": "2026-06-08T12:00:00Z"},
             "pricing_evidence_version": "evidence.v1",
         },
         headers=headers,
@@ -302,9 +323,14 @@ def test_create_run_persists_history_items_and_compatibility_state(
         == sample_calc_params["numberOfDevices"]
     )
     assert json.loads(config.result_json)["totalCost"] == 14.75
+    assert data["pricing_catalog_context"] == catalog_context().to_http_dict()
+    assert json.loads(run.pricing_catalog_context_json) == (
+        catalog_context().to_http_dict()
+    )
     assert fake.calls == [
         {
             **sample_calc_params,
+            "providerPricingCatalogs": catalog_context().to_http_dict(),
             "providerPricingContexts": {
                 "awsTwinMaker": {
                     "status": "unavailable",
@@ -915,7 +941,10 @@ async def test_aws_l4_run_persists_server_context_and_revalidates_on_selection(
     assert run.pricing_run_reference == "aws-refresh-1"
     assert optimizer.calls[0]["providerPricingContexts"]["awsTwinMaker"] == context
     assert selected.selected_for_deployment_at is not None
-    assert context_service.calls == [user.id, user.id]
+    assert context_service.calls == [
+        (user.id, catalog_reference("aws")),
+        (user.id, catalog_reference("aws")),
+    ]
 
 
 @pytest.mark.asyncio
@@ -955,6 +984,55 @@ async def test_aws_l4_selection_rejects_context_changed_after_calculation(
         await service.select_for_deployment(twin.id, user.id, run.id)
 
     assert exc_info.value.error_code == "AWS_TWINMAKER_PLAN_CONNECTION_CHANGED"
+    db_session.refresh(run)
+    assert run.selected_for_deployment_at is None
+
+
+@pytest.mark.asyncio
+async def test_selection_rejects_result_with_tampered_catalog_context(
+    db_session,
+    sample_calc_params,
+):
+    user = User(email="catalog-tamper@example.test", name="Catalog Tamper")
+    db_session.add(user)
+    db_session.flush()
+    twin = DigitalTwin(
+        name="Catalog Tamper Twin",
+        user_id=user.id,
+        state=TwinState.DRAFT,
+    )
+    db_session.add(twin)
+    db_session.commit()
+    optimizer = FakeOptimizerClient()
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        aws_twinmaker_contexts=FakeAwsTwinMakerContextService(
+            _available_aws_context(),
+            "aws-refresh-1",
+        ),
+    )
+    run = await service.create_run(
+        twin.id,
+        user.id,
+        OptimizerCalculationParams(**sample_calc_params),
+    )
+    result = json.loads(run.result_summary_json)
+    tampered_context = catalog_context().to_http_dict()
+    tampered_context["catalogs"]["aws"] = catalog_reference(
+        "aws",
+        identity_hex="d",
+    ).to_http_dict()
+    result["pricingCatalogs"] = tampered_context
+    run.result_summary_json = json.dumps(result)
+    db_session.commit()
+    catalog_calls_before_selection = list(optimizer.catalog_calls)
+
+    with pytest.raises(CostCalculationRunSelectionError) as exc_info:
+        await service.select_for_deployment(twin.id, user.id, run.id)
+
+    assert exc_info.value.error_code == "PRICING_CATALOG_CONTEXT_MISMATCH"
+    assert optimizer.catalog_calls == catalog_calls_before_selection
     db_session.refresh(run)
     assert run.selected_for_deployment_at is None
 

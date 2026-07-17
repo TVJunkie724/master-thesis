@@ -54,6 +54,8 @@ FastAPI route
 | `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
 | `/optimizer/pricing-refresh` | provider refresh run lifecycle |
 | `/optimizer/pricing-review` | health, candidates, evidence, decisions |
+| `/optimizer/pricing-status`, `/optimizer/pricing-health` | owner-scoped status of the exact immutable catalogs used for calculation |
+| `/optimizer/pricing/catalogs/{provider}/{region}/snapshots/{id}` | authenticated, size-bounded inspection of one exact catalog |
 | `/credential-security-events` | owner-scoped credential audit history |
 | `/sse` | server-sent operation/log streams |
 
@@ -123,10 +125,43 @@ for the deploy/destroy operation. It does not write into Deployer templates dire
 Startup calls `Base.metadata.create_all()` for missing tables and then the explicit
 idempotent migration runner for existing SQLite databases. Migrations cover Cloud
 Connections, purpose/version fields, pricing reviews, calculation runs, deployment
-lifecycle/operation state, credential audit events, and legacy credential disablement.
+lifecycle/operation state, credential audit events, immutable pricing-catalog
+references, and legacy credential disablement. Migration `019` adds the compact
+three-provider context and backfills it only when a historical Optimizer result
+contains a complete, internally valid exact reference set.
 
 SQLite is the local single-node storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.
+
+## Pricing Catalog Trust Boundary
+
+The Management API resolves the catalog context before every calculation:
+
+```text
+owner-scoped successful refresh reference
+  -> exact reference verification in Optimizer
+  -> fallback to committed reviewed baseline when no owner reference is usable
+  -> strict AWS + Azure + GCP reference set
+  -> calculation request
+  -> result must return the identical set
+  -> compact references persisted with run and optimizer projection
+```
+
+`PricingCatalogReference` validates provider, canonical region, versions, UTC
+fetch time, digest, review/publication state, calculation source, and the derived
+snapshot identity. A run cannot be selected for deployment when any referenced
+catalog is missing, stale, malformed, or different from the Optimizer's exact
+read result.
+
+The Management database does not store full public pricing catalogs. Existing
+legacy snapshot/timestamp columns are outside the live contract and do not make
+pricing calculable. Full pricing remains in the Optimizer's immutable regional
+catalog store and is returned only through the explicit authenticated diagnostic
+route. The client enforces an 8 MiB response limit.
+
+For AWS TwinMaker, the user/account observation remains separate from the public
+catalog reference. Region and content digest must agree before calculation, and
+an AWS L4 result must return the exact Management-injected account context.
 
 ## Persisted Pricing Trace
 
@@ -136,6 +171,7 @@ pricing-evidence detail endpoint projects two trace levels from that snapshot:
 - `intent_trace` for the compact selected-path explanation;
 - `field_trace_records` plus `field_trace_schema_version` for provider-field audit
   details;
+- `pricing_catalog_context` for the exact AWS, Azure, and GCP catalog identities;
 - explicit availability flags and compatibility warnings for historical runs.
 
 The service applies recursive secret and local-path redaction before returning either
