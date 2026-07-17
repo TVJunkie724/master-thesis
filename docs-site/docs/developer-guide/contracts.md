@@ -28,6 +28,18 @@ public `platform-provider-capabilities.v1` aggregate. Flutter consumes only the 
 Management API contract. See
 [Provider Capabilities](../architecture/provider-capabilities.md).
 
+Pricing calculation traceability uses two additive result contracts:
+
+| Contract | Role | Compatibility rule |
+|---|---|---|
+| `intent-result-trace.v1` | compact selected path and publishability envelope | may exist without field trace on historical runs |
+| `intent-to-result-trace.v1` | provider-field calculation audit | new semantics are additive; missing fields use explicit legacy defaults |
+
+The Optimizer constructs both contracts, the Management API persists and redacts the
+immutable result, and Flutter only renders typed read models. A contribution amount is
+not additive unless its record explicitly proves that property. Alternative providers
+and rejected pricing rows are different concepts and must remain separate fields.
+
 ## Errors
 
 Public errors should provide stable code, safe message, actionable suggestion where

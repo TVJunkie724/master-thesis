@@ -208,6 +208,26 @@ docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 \
 
 Live provider refresh is not part of deterministic default verification.
 
+## Calculation Traceability
+
+Every current cost result contains two versioned, complementary trace structures:
+
+| Structure | Purpose | Authority |
+|---|---|---|
+| `intentTrace` (`intent-result-trace.v1`) | compact profile, workload, selected path, transfer segments, and publishability summary | selected optimization path |
+| `resultTrace` (`intent-to-result-trace.v1`) | provider-field contracts, source and pricing classifications, formulas, evidence references, verification, and result scope | field-level calculation audit |
+
+`resultTrace` derives `selected`, `alternative`, `unsupported`, and
+`not_applicable` states from the canonical calculation result. Provider alternatives
+are not described as rejected catalog evidence. A rejected evidence ID is emitted only
+when a real fetch/review row was rejected.
+
+Current calculators can prove component or layer totals, but generally not an exclusive
+amount per pricing field. Such records therefore carry a shared scope and
+`cost_contribution_is_additive: false`. Field records must never be summed. Exact
+runtime selected-row evidence is also distinguished from a registry contract
+reference; the trace does not claim that one is the other.
+
 ## Extension Points
 
 ### New provider pricing field

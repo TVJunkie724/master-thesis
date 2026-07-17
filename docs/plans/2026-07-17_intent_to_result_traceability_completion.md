@@ -11,7 +11,7 @@ version: "1.0"
 **Issue:** [#100 Expose intent-to-result pricing traceability](https://github.com/TVJunkie724/master-thesis/issues/100)
 **Base branch:** `master`
 **Feature branch:** `codex/pricing-traceability`
-**Status:** Approved for implementation
+**Status:** Implemented
 **Live-cloud E2E:** Explicitly deferred
 
 ## Objective
@@ -200,12 +200,32 @@ non-additive scope. The UI and docs must never invite summing them.
 
 ## Definition Of Done
 
-- [ ] Trace roles and ownership are explicit and non-conflicting.
-- [ ] Field records connect strategy, contracts, classifications, evidence, formulas,
+- [x] Trace roles and ownership are explicit and non-conflicting.
+- [x] Field records connect strategy, contracts, classifications, evidence, formulas,
   workload, verification, selection, and result scope.
-- [ ] No field trace implies false additive precision.
-- [ ] Management API exposes both trace levels for persisted runs.
-- [ ] Flutter offers compact-by-default, read-only drill-down.
-- [ ] Historical runs remain readable.
-- [ ] Documentation and roadmap reflect the implemented state.
-- [ ] All non-E2E verification gates pass.
+- [x] No field trace implies false additive precision.
+- [x] Management API exposes both trace levels for persisted runs.
+- [x] Flutter offers compact-by-default, read-only drill-down.
+- [x] Historical runs remain readable.
+- [x] Documentation and roadmap reflect the implemented state.
+- [x] All non-E2E verification gates pass.
+
+## Implementation Evidence
+
+- Optimizer derives field selection state and non-additive contribution scope from the
+  canonical calculation result and keeps alternatives separate from rejected evidence.
+- Management API exposes persisted compact and field traces with historical warnings,
+  malformed-record tolerance, and recursive secret/local-path redaction.
+- Flutter parses typed current and historical records and provides a nested,
+  compact-by-default audit view with constrained-width and dark-theme coverage.
+- Live-cloud E2E remained explicitly deferred; no credential-bearing or billable
+  provider operation was used for this slice.
+
+Verification completed on 2026-07-17:
+
+- Optimizer full non-E2E suite: `552 passed`;
+- Management API full non-E2E suite: `742 passed`;
+- Flutter full suite: `633 passed`; `flutter analyze` clean;
+- touched Python: Ruff and Bandit clean;
+- documentation: `mkdocs build --strict` clean;
+- repository whitespace gate: `git diff --check` clean.

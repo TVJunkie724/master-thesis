@@ -65,6 +65,14 @@ contract validation and cumulative calculation boundary tests. This evidence sup
 the selected West Europe intents; it is not a timeless guarantee for every region or
 future Azure catalog revision.
 
+Calculation traceability now connects the optimization profile and selected path to
+provider pricing contracts, source classifications, formula bindings, evidence
+references, verification gates, and bounded result scopes. This improves auditability;
+it is not billing reconciliation. Where the calculator exposes only a component or
+layer total, field-level records deliberately identify the value as shared and
+non-additive instead of inventing false per-field precision. Registry evidence
+references likewise do not claim to be exact runtime selected catalog rows.
+
 ### Provider Parity
 
 AWS, Azure, and GCP do not expose equivalent managed Digital Twin and visualization
