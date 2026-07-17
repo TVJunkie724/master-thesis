@@ -1,13 +1,15 @@
 import json
 from datetime import datetime, timezone
 
+import pytest
+
 from src.api.routes.pricing_refresh import get_optimizer_client
 from src.main import app
 from src.models.cloud_connection import CloudConnection
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.user import User
 from src.services.aws_twinmaker_pricing_context_service import ACCOUNT_CONTEXT_KEY
-from src.services.errors import ExternalServiceUnavailable
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 
 
 class FakeOptimizerClient:
@@ -373,6 +375,93 @@ def test_failed_optimizer_refresh_is_persisted(authenticated_client, db_session)
     )
     assert stored.status == "failed"
     assert stored.error_code == "OPTIMIZER_UNAVAILABLE"
+
+
+def test_aws_refresh_preserves_allowlisted_optimizer_error_without_raw_detail(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    leaked_detail = "TEST_SECRET_PROVIDER_DETAIL"
+    app.dependency_overrides[get_optimizer_client] = lambda: FakeOptimizerClient(
+        exc=ExternalServiceError(
+            "Optimizer API returned an error",
+            upstream_status_code=403,
+            public_detail=json.dumps(
+                {
+                    "detail": {
+                        "error_code": "AWS_TWINMAKER_PLAN_PERMISSION_DENIED",
+                        "message": leaked_detail,
+                        "recovery_hint": leaked_detail,
+                    }
+                }
+            ),
+        )
+    )
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    db_session.commit()
+
+    response = client.post(
+        "/optimizer/pricing-refresh/aws",
+        json={"pricing_connection_id": created["id"], "force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["error_code"] == "AWS_TWINMAKER_PLAN_PERMISSION_DENIED"
+    assert (
+        body["error_message"]
+        == "AWS pricing credentials cannot read the TwinMaker pricing plan."
+    )
+    assert leaked_detail not in response.text
+
+
+@pytest.mark.parametrize(
+    "public_detail",
+    [
+        "not-json",
+        json.dumps({"detail": "not-an-object"}),
+        json.dumps(
+            {
+                "detail": {
+                    "error_code": "UNKNOWN_PROVIDER_ERROR",
+                    "message": "TEST_SECRET_PROVIDER_DETAIL",
+                }
+            }
+        ),
+    ],
+)
+def test_pricing_refresh_falls_back_for_untrusted_optimizer_error_detail(
+    authenticated_client,
+    public_detail,
+):
+    client, headers = authenticated_client
+    app.dependency_overrides[get_optimizer_client] = lambda: FakeOptimizerClient(
+        exc=ExternalServiceError(
+            "Optimizer API returned an error",
+            upstream_status_code=502,
+            public_detail=public_detail,
+        )
+    )
+
+    response = client.post(
+        "/optimizer/pricing-refresh/azure",
+        json={"force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["error_code"] == "OPTIMIZER_ERROR"
+    assert body["error_message"] == "Optimizer service returned an error."
+    assert "TEST_SECRET_PROVIDER_DETAIL" not in response.text
 
 
 def test_pricing_refresh_run_is_user_scoped(authenticated_client, db_session):

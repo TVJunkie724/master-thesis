@@ -43,6 +43,26 @@ SENSITIVE_KEY_PARTS = (
 )
 MAX_RESULT_SUMMARY_ITEMS = 200
 MAX_RESULT_SUMMARY_TEXT_LENGTH = 500
+SAFE_OPTIMIZER_PRICING_ERRORS = {
+    "AWS_TWINMAKER_PLAN_AUTHENTICATION_FAILED": (
+        "AWS pricing credentials are invalid or expired."
+    ),
+    "AWS_TWINMAKER_PLAN_PERMISSION_DENIED": (
+        "AWS pricing credentials cannot read the TwinMaker pricing plan."
+    ),
+    "AWS_TWINMAKER_PLAN_ACCOUNT_MISMATCH": (
+        "AWS pricing credentials do not match the configured account."
+    ),
+    "AWS_TWINMAKER_PLAN_THROTTLED": (
+        "AWS throttled the TwinMaker pricing-plan request. Retry later."
+    ),
+    "AWS_TWINMAKER_PLAN_RESPONSE_INVALID": (
+        "AWS returned an unsupported TwinMaker pricing-plan response."
+    ),
+    "AWS_TWINMAKER_CATALOG_CONTRACT_INVALID": (
+        "AWS TwinMaker pricing catalog evidence is invalid."
+    ),
+}
 
 
 class PricingRefreshRunService:
@@ -124,10 +144,11 @@ class PricingRefreshRunService:
             run.status = "failed"
             run.error_code = "OPTIMIZER_UNAVAILABLE"
             run.error_message = "Optimizer service is unavailable."
-        except ExternalServiceError:
+        except ExternalServiceError as exc:
+            error_code, error_message = _safe_optimizer_pricing_error(exc)
             run.status = "failed"
-            run.error_code = "OPTIMIZER_ERROR"
-            run.error_message = "Optimizer service returned an error."
+            run.error_code = error_code
+            run.error_message = error_message
         except ValueError:
             run.status = "failed"
             run.error_code = "AWS_TWINMAKER_CONTEXT_INVALID"
@@ -326,3 +347,19 @@ def _string_or_none(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _safe_optimizer_pricing_error(
+    error: ExternalServiceError,
+) -> tuple[str, str]:
+    """Preserve allowlisted provider codes without trusting upstream messages."""
+
+    try:
+        payload = json.loads(error.public_detail)
+    except (TypeError, ValueError):
+        payload = None
+    detail = payload.get("detail") if isinstance(payload, dict) else None
+    error_code = detail.get("error_code") if isinstance(detail, dict) else None
+    if isinstance(error_code, str) and error_code in SAFE_OPTIMIZER_PRICING_ERRORS:
+        return error_code, SAFE_OPTIMIZER_PRICING_ERRORS[error_code]
+    return "OPTIMIZER_ERROR", "Optimizer service returned an error."
