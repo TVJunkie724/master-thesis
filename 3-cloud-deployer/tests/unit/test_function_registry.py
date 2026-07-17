@@ -3,6 +3,8 @@ Tests for the function registry.
 
 Tests the new function registry system that replaces hardcoded function lists.
 """
+import pytest
+
 from src.function_registry import (
     STATIC_FUNCTIONS, Layer, FunctionDefinition,
     get_by_layer, get_by_provider, get_l0_for_config, get_terraform_output_map
@@ -27,16 +29,62 @@ class TestRegistryStructure:
             for provider in f.providers:
                 assert provider in ["aws", "azure", "gcp"], f"Invalid provider: {provider}"
     
-    def test_l0_functions_have_boundaries(self):
-        """All L0 glue functions (except adt-pusher) should have boundary definitions."""
+    def test_l0_functions_have_exactly_one_activation_mode(self):
+        """Every L0 function must have one explicit and unambiguous activation."""
         l0_funcs = get_by_layer(Layer.L0_GLUE)
         for f in l0_funcs:
-            if f.name == "adt-pusher":
-                # adt-pusher intentionally has no boundary - always deploys when target=azure
-                assert f.boundary is None
-                continue
-            assert f.boundary is not None, f"L0 function {f.name} missing boundary"
-            assert len(f.boundary) == 2, "Boundary should be (source, target) tuple"
+            assert (f.boundary is None) != (f.target_provider_key is None)
+            if f.boundary is not None:
+                assert len(f.boundary) == 2
+
+    def test_adt_pusher_targets_azure_l4(self):
+        """ADT Pusher activation must follow L4 rather than any Azure usage."""
+        pusher = next(f for f in get_by_layer(Layer.L0_GLUE) if f.name == "adt-pusher")
+        assert pusher.providers == ["azure"]
+        assert pusher.boundary is None
+        assert pusher.target_provider_key == "layer_4_provider"
+
+    @pytest.mark.parametrize(
+        ("boundary", "target_provider_key"),
+        [
+            (None, None),
+            (("layer_1_provider", "layer_2_provider"), "layer_4_provider"),
+        ],
+    )
+    def test_l0_definition_rejects_ambiguous_activation(
+        self,
+        boundary,
+        target_provider_key,
+    ):
+        with pytest.raises(ValueError, match="exactly one activation mode"):
+            FunctionDefinition(
+                "invalid-l0",
+                Layer.L0_GLUE,
+                boundary=boundary,
+                target_provider_key=target_provider_key,
+            )
+
+    @pytest.mark.parametrize(
+        ("boundary", "target_provider_key", "message"),
+        [
+            (None, "", "must not be blank"),
+            (("layer_1_provider",), None, "two non-empty keys"),
+            (("layer_1_provider", ""), None, "two non-empty keys"),
+        ],
+    )
+    def test_l0_definition_rejects_invalid_activation_values(
+        self,
+        boundary,
+        target_provider_key,
+        message,
+    ):
+        with pytest.raises(ValueError, match=message):
+            FunctionDefinition(
+                "invalid-l0",
+                Layer.L0_GLUE,
+                boundary=boundary,
+                target_provider_key=target_provider_key,
+            )
     
     def test_safe_name_conversion(self):
         """safe_name should convert hyphens to underscores."""
@@ -89,8 +137,8 @@ class TestQueryFunctions:
 class TestL0GlueLogic:
     """Tests for L0 cross-cloud glue function logic."""
     
-    def test_l0_empty_for_single_cloud(self):
-        """Should return empty list when all providers are the same."""
+    def test_l0_contains_pusher_for_all_azure(self):
+        """All-Azure still requires the canonical L2-to-L4 Pusher path."""
         config = {
             "layer_1_provider": "azure",
             "layer_2_provider": "azure",
@@ -99,7 +147,28 @@ class TestL0GlueLogic:
             "layer_5_provider": "azure",
         }
         funcs = get_l0_for_config(config, "azure")
-        assert funcs == ["adt-pusher"]  # adt-pusher always included for azure (no boundary)
+        assert funcs == ["adt-pusher"]
+
+    @pytest.mark.parametrize("layer_2_provider", ["aws", "google"])
+    def test_l0_contains_pusher_for_cross_cloud_azure_l4(self, layer_2_provider):
+        config = {
+            "layer_1_provider": layer_2_provider,
+            "layer_2_provider": layer_2_provider,
+            "layer_3_hot_provider": layer_2_provider,
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure",
+        }
+        assert get_l0_for_config(config, "azure") == ["adt-pusher"]
+
+    def test_l0_excludes_pusher_when_only_l1_is_azure(self):
+        config = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws",
+            "layer_5_provider": "aws",
+        }
+        assert "adt-pusher" not in get_l0_for_config(config, "azure")
     
     def test_l0_ingestion_for_l1_l2_boundary(self):
         """Should include ingestion when L1 != L2 and L2 is target."""
@@ -137,8 +206,7 @@ class TestL0GlueLogic:
         funcs = get_l0_for_config(config, "azure")
         # L1->L2 boundary: ingestion on Azure
         assert "ingestion" in funcs
-        # L3->L4 boundary: adt-pusher on Azure (if exists)
-        # Note: depends on registry definition
+        assert "adt-pusher" in funcs
 
 
 class TestTerraformOutputMap:
@@ -187,7 +255,8 @@ class TestFunctionDefinition:
         func = FunctionDefinition(
             "l0-ingestion",
             Layer.L0_GLUE,
-            dir_name="ingestion"
+            dir_name="ingestion",
+            boundary=("layer_1_provider", "layer_2_provider"),
         )
         assert func.get_dir_name() == "ingestion"
     

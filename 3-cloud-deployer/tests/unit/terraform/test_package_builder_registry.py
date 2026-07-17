@@ -98,11 +98,40 @@ class TestRegistryFunctionLists:
     # =========================================================================
     
     def test_azure_includes_expected_functions(self, all_azure_config):
-        """Azure should include dispatcher, persister, and adt-updater."""
+        """Azure should include the canonical ADT Pusher and no dead updater."""
         functions = get_functions_for_provider_build("azure", all_azure_config)
         assert "dispatcher" in functions, "L1 dispatcher should be included"
         assert "persister" in functions, "L2 persister should be included"
-        assert "adt-updater" in functions, "L4 adt-updater should be included"
+        assert functions.count("adt-pusher") == 1
+        assert "adt-updater" not in functions
+
+    @pytest.mark.parametrize("layer_2_provider", ["aws", "google"])
+    def test_azure_includes_pusher_for_cross_cloud_l2_to_azure_l4(
+        self,
+        layer_2_provider,
+    ):
+        config = {
+            "layer_1_provider": layer_2_provider,
+            "layer_2_provider": layer_2_provider,
+            "layer_3_hot_provider": layer_2_provider,
+            "layer_3_cold_provider": layer_2_provider,
+            "layer_3_archive_provider": layer_2_provider,
+            "layer_4_provider": "azure",
+        }
+        functions = get_functions_for_provider_build("azure", config)
+        assert functions == ["adt-pusher"]
+
+    def test_azure_excludes_pusher_when_azure_is_not_l4(self):
+        config = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_3_cold_provider": "aws",
+            "layer_3_archive_provider": "aws",
+            "layer_4_provider": "aws",
+        }
+        functions = get_functions_for_provider_build("azure", config)
+        assert "adt-pusher" not in functions
     
     def test_azure_includes_l3_functions(self, all_azure_config):
         """Azure should include L3 storage functions."""
@@ -128,7 +157,8 @@ class TestRegistryFunctionLists:
     def test_gcp_excludes_azure_only_functions(self, all_gcp_config):
         """GCP should NOT include Azure-only functions."""
         functions = get_functions_for_provider_build("gcp", all_gcp_config)
-        assert "adt-updater" not in functions, "Azure-only adt-updater should NOT be in GCP"
+        assert "adt-pusher" not in functions
+        assert "adt-updater" not in functions
     
     def test_gcp_excludes_aws_only_functions(self, all_gcp_config):
         """GCP should NOT include AWS-only functions."""
@@ -338,4 +368,3 @@ class TestL0BoundaryEdgeCases:
         assert "hot-reader" in functions, (
             "hot-reader should be built for GCP (L3-hot) when L4(aws) ≠ L3-hot(google)"
         )
-

@@ -109,8 +109,8 @@ def {func_name.replace("-", "_")}(req: func.HttpRequest) -> func.HttpResponse:
         with pytest.raises(ValueError, match="Missing required provider config"):
             bundle_l0_functions(str(azure_functions_dir), {})
     
-    def test_no_glue_for_single_cloud(self, azure_functions_dir):
-        """Should return only adt-pusher when all providers are azure (no cross-cloud boundaries)."""
+    def test_bundles_pusher_for_all_azure(self, azure_functions_dir):
+        """All-Azure bundles the canonical L2-to-L4 Pusher."""
         providers = {
             "layer_1_provider": "azure",
             "layer_2_provider": "azure",
@@ -121,9 +121,30 @@ def {func_name.replace("-", "_")}(req: func.HttpRequest) -> func.HttpResponse:
         
         zip_bytes, funcs = bundle_l0_functions(str(azure_functions_dir), providers)
         
-        # adt-pusher always deploys for azure (no boundary), even in single-cloud
         assert zip_bytes is not None
         assert funcs == ["adt-pusher"]
+
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            content = zf.read("function_app.py").decode("utf-8")
+            assert "adt_pusher" in content
+            assert "adt_updater" not in content
+
+    def test_skips_pusher_when_azure_is_not_l4(self, azure_functions_dir):
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws",
+            "layer_5_provider": "aws",
+        }
+
+        zip_bytes, funcs = bundle_l0_functions(
+            str(azure_functions_dir),
+            providers,
+        )
+
+        assert zip_bytes is None
+        assert funcs == []
     
     def test_bundles_ingestion_for_l1_l2_boundary(self, azure_functions_dir):
         """Should include ingestion when L1 != L2 and L2 is azure."""

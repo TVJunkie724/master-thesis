@@ -7,9 +7,9 @@ Validates that package_builder creates Azure Function ZIPs with correct structur
 - requirements.txt exists
 - No syntax errors in Python files
 
-Covers ALL Azure function categories:
+Covers all active Azure function categories:
 - L0 Glue functions (multicloud boundary triggers)
-- L1-L4 Core functions (dispatcher, persister, hot-reader, etc.)
+- L1-L3 Core functions (dispatcher, persister, hot-reader, etc.)
 - User functions bundled package (processors, event_actions, event-feedback)
 """
 import pytest
@@ -168,19 +168,21 @@ class TestAzureCoreFunctions:
             assert "function_app.py" in files
     
     # =========================================================================
-    # L4: Management
+    # L0: Azure Digital Twins update adapter
     # =========================================================================
     
-    def test_adt_updater_zip_structure(self, azure_packages):
-        """ADT-updater ZIP should have correct structure."""
-        if "azure_adt-updater" not in azure_packages:
-            pytest.skip("adt-updater not built")
-        
-        zip_path = azure_packages["azure_adt-updater"]
-        
+    def test_adt_pusher_zip_structure(self, azure_packages):
+        """The canonical ADT Pusher package must contain its handler."""
+        zip_path = azure_packages["azure_adt-pusher"]
         with zipfile.ZipFile(zip_path, 'r') as zf:
             files = zf.namelist()
             assert "function_app.py" in files
+            source = zf.read("function_app.py").decode("utf-8")
+            assert "adt_pusher" in source
+            assert "adt_updater" not in source
+
+    def test_dead_adt_updater_package_is_absent(self, azure_packages):
+        assert "azure_adt-updater" not in azure_packages
     
     # =========================================================================
     # Syntax Validation (all core ZIPs)
