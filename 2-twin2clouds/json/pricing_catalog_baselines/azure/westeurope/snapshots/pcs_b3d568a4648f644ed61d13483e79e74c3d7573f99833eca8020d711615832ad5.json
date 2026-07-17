@@ -1,0 +1,3498 @@
+{
+  "pricing": {
+    "__evidence__": {
+      "fields": {
+        "azureDigitalTwins.pricePerMessage": {
+          "candidate_rows": [
+            {
+              "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2020-12-01T00:00:00Z",
+                "is_primary_meter_region": true
+              },
+              "meter_name": "Standard Message",
+              "price_type": "Consumption",
+              "product_name": "Digital Twins",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+                "product_id": "DZH318Z0BZ0T",
+                "service_id": "DZH316VXQ03G",
+                "sku_id": "DZH318Z0BZ0T/000C"
+              },
+              "provider_service": "Digital Twins",
+              "raw_price": 0.0013,
+              "region": "westeurope",
+              "service_name": "Digital Twins",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 0.0
+              },
+              "unit": "1K"
+            }
+          ],
+          "currency": "USD",
+          "errors": [],
+          "fetched_at": "2026-07-17T15:14:03.821292Z",
+          "field_path": "digital_twin.message",
+          "intent_id": "digital_twin.message",
+          "mapping_version": "2026.07.17",
+          "match_status": "matched",
+          "normalization": {
+            "description": "Convert Azure Digital Twins per-1K message-unit prices to one message unit.",
+            "multiplier": 0.001,
+            "source_units": [
+              "1K"
+            ],
+            "target_unit": "message_unit"
+          },
+          "normalization_rule": "per_1k_message_units",
+          "normalized_tiers": [],
+          "normalized_value": 1.3e-06,
+          "provider": "azure",
+          "registry_version": "2026.06.08",
+          "rejected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-12-01T00:00:00Z",
+              "meterId": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+              "meterName": "Standard Operations",
+              "productId": "DZH318Z0BZ0T",
+              "productName": "Digital Twins",
+              "reasons": [
+                "meter_name: expected 'Standard Message', got 'Standard Operations'"
+              ],
+              "retailPrice": 0.00325,
+              "serviceName": "Digital Twins",
+              "skuId": "DZH318Z0BZ0T/000C",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-12-01T00:00:00Z",
+              "meterId": "922d2f08-f5b6-5efe-a33b-0778db401639",
+              "meterName": "Standard Query Units",
+              "productId": "DZH318Z0BZ0T",
+              "productName": "Digital Twins",
+              "reasons": [
+                "meter_name: expected 'Standard Message', got 'Standard Query Units'"
+              ],
+              "retailPrice": 0.00065,
+              "serviceName": "Digital Twins",
+              "skuId": "DZH318Z0BZ0T/000C",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1K"
+            }
+          ],
+          "request_scope": {
+            "provider": "azure",
+            "region": "westeurope"
+          },
+          "retail_api_filter": {
+            "evidence": {
+              "is_primary_meter_region": true
+            },
+            "meter_name": "Standard Message",
+            "price_type": "Consumption",
+            "product_name": "Digital Twins",
+            "service_name": "Digital Twins",
+            "sku_name": "Standard",
+            "unit": "1K"
+          },
+          "review_required": false,
+          "review_status": "reviewed",
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": {
+            "armRegionName": "westeurope",
+            "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "currencyCode": "USD",
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+            "meterName": "Standard Message",
+            "productId": "DZH318Z0BZ0T",
+            "productName": "Digital Twins",
+            "retailPrice": 0.0013,
+            "serviceName": "Digital Twins",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "skuName": "Standard",
+            "tierMinimumUnits": 0.0,
+            "unitOfMeasure": "1K"
+          },
+          "selected_rows": [],
+          "source_api": "azure-retail-prices",
+          "source_type": "fetched",
+          "tier": {
+            "tier_minimum_units": 0.0
+          }
+        },
+        "azureDigitalTwins.pricePerOperation": {
+          "candidate_rows": [
+            {
+              "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2020-12-01T00:00:00Z",
+                "is_primary_meter_region": true
+              },
+              "meter_name": "Standard Operations",
+              "price_type": "Consumption",
+              "product_name": "Digital Twins",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+                "product_id": "DZH318Z0BZ0T",
+                "service_id": "DZH316VXQ03G",
+                "sku_id": "DZH318Z0BZ0T/000C"
+              },
+              "provider_service": "Digital Twins",
+              "raw_price": 0.00325,
+              "region": "westeurope",
+              "service_name": "Digital Twins",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 0.0
+              },
+              "unit": "1K"
+            }
+          ],
+          "currency": "USD",
+          "errors": [],
+          "fetched_at": "2026-07-17T15:14:04.328230Z",
+          "field_path": "digital_twin.operation",
+          "intent_id": "digital_twin.operation",
+          "mapping_version": "2026.07.17",
+          "match_status": "matched",
+          "normalization": {
+            "description": "Convert Azure Digital Twins per-1K operation prices to one operation.",
+            "multiplier": 0.001,
+            "source_units": [
+              "1K"
+            ],
+            "target_unit": "operation"
+          },
+          "normalization_rule": "per_1k_operations",
+          "normalized_tiers": [],
+          "normalized_value": 3.25e-06,
+          "provider": "azure",
+          "registry_version": "2026.06.08",
+          "rejected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-12-01T00:00:00Z",
+              "meterId": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+              "meterName": "Standard Message",
+              "productId": "DZH318Z0BZ0T",
+              "productName": "Digital Twins",
+              "reasons": [
+                "meter_name: expected 'Standard Operations', got 'Standard Message'"
+              ],
+              "retailPrice": 0.0013,
+              "serviceName": "Digital Twins",
+              "skuId": "DZH318Z0BZ0T/000C",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-12-01T00:00:00Z",
+              "meterId": "922d2f08-f5b6-5efe-a33b-0778db401639",
+              "meterName": "Standard Query Units",
+              "productId": "DZH318Z0BZ0T",
+              "productName": "Digital Twins",
+              "reasons": [
+                "meter_name: expected 'Standard Operations', got 'Standard Query Units'"
+              ],
+              "retailPrice": 0.00065,
+              "serviceName": "Digital Twins",
+              "skuId": "DZH318Z0BZ0T/000C",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1K"
+            }
+          ],
+          "request_scope": {
+            "provider": "azure",
+            "region": "westeurope"
+          },
+          "retail_api_filter": {
+            "evidence": {
+              "is_primary_meter_region": true
+            },
+            "meter_name": "Standard Operations",
+            "price_type": "Consumption",
+            "product_name": "Digital Twins",
+            "service_name": "Digital Twins",
+            "sku_name": "Standard",
+            "unit": "1K"
+          },
+          "review_required": false,
+          "review_status": "reviewed",
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": {
+            "armRegionName": "westeurope",
+            "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "currencyCode": "USD",
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+            "meterName": "Standard Operations",
+            "productId": "DZH318Z0BZ0T",
+            "productName": "Digital Twins",
+            "retailPrice": 0.00325,
+            "serviceName": "Digital Twins",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "skuName": "Standard",
+            "tierMinimumUnits": 0.0,
+            "unitOfMeasure": "1K"
+          },
+          "selected_rows": [],
+          "source_api": "azure-retail-prices",
+          "source_type": "fetched",
+          "tier": {
+            "tier_minimum_units": 0.0
+          }
+        },
+        "azureDigitalTwins.pricePerQueryUnit": {
+          "candidate_rows": [
+            {
+              "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2020-12-01T00:00:00Z",
+                "is_primary_meter_region": true
+              },
+              "meter_name": "Standard Query Units",
+              "price_type": "Consumption",
+              "product_name": "Digital Twins",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "922d2f08-f5b6-5efe-a33b-0778db401639",
+                "product_id": "DZH318Z0BZ0T",
+                "service_id": "DZH316VXQ03G",
+                "sku_id": "DZH318Z0BZ0T/000C"
+              },
+              "provider_service": "Digital Twins",
+              "raw_price": 0.00065,
+              "region": "westeurope",
+              "service_name": "Digital Twins",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 0.0
+              },
+              "unit": "1K"
+            }
+          ],
+          "currency": "USD",
+          "errors": [],
+          "fetched_at": "2026-07-17T15:14:04.814793Z",
+          "field_path": "digital_twin.query_unit",
+          "intent_id": "digital_twin.query_unit",
+          "mapping_version": "2026.07.17",
+          "match_status": "matched",
+          "normalization": {
+            "description": "Convert Azure Digital Twins per-1K query-unit prices to one query unit.",
+            "multiplier": 0.001,
+            "source_units": [
+              "1K"
+            ],
+            "target_unit": "query_unit"
+          },
+          "normalization_rule": "per_1k_query_units",
+          "normalized_tiers": [],
+          "normalized_value": 6.5e-07,
+          "provider": "azure",
+          "registry_version": "2026.06.08",
+          "rejected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-12-01T00:00:00Z",
+              "meterId": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+              "meterName": "Standard Operations",
+              "productId": "DZH318Z0BZ0T",
+              "productName": "Digital Twins",
+              "reasons": [
+                "meter_name: expected 'Standard Query Units', got 'Standard Operations'"
+              ],
+              "retailPrice": 0.00325,
+              "serviceName": "Digital Twins",
+              "skuId": "DZH318Z0BZ0T/000C",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-12-01T00:00:00Z",
+              "meterId": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+              "meterName": "Standard Message",
+              "productId": "DZH318Z0BZ0T",
+              "productName": "Digital Twins",
+              "reasons": [
+                "meter_name: expected 'Standard Query Units', got 'Standard Message'"
+              ],
+              "retailPrice": 0.0013,
+              "serviceName": "Digital Twins",
+              "skuId": "DZH318Z0BZ0T/000C",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1K"
+            }
+          ],
+          "request_scope": {
+            "provider": "azure",
+            "region": "westeurope"
+          },
+          "retail_api_filter": {
+            "evidence": {
+              "is_primary_meter_region": true
+            },
+            "meter_name": "Standard Query Units",
+            "price_type": "Consumption",
+            "product_name": "Digital Twins",
+            "service_name": "Digital Twins",
+            "sku_name": "Standard",
+            "unit": "1K"
+          },
+          "review_required": false,
+          "review_status": "reviewed",
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": {
+            "armRegionName": "westeurope",
+            "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "currencyCode": "USD",
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "922d2f08-f5b6-5efe-a33b-0778db401639",
+            "meterName": "Standard Query Units",
+            "productId": "DZH318Z0BZ0T",
+            "productName": "Digital Twins",
+            "retailPrice": 0.00065,
+            "serviceName": "Digital Twins",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "skuName": "Standard",
+            "tierMinimumUnits": 0.0,
+            "unitOfMeasure": "1K"
+          },
+          "selected_rows": [],
+          "source_api": "azure-retail-prices",
+          "source_type": "fetched",
+          "tier": {
+            "tier_minimum_units": 0.0
+          }
+        },
+        "blobStorageArchive.storagePrice": {
+          "candidate_rows": [
+            {
+              "candidate_id": "azure:7d07cbf5-5686-4123-9ebe-36ca3e461c43:DZH318Z0BNZJ:DZH318Z0BNZJ/0097:Consumption:0.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2019-06-01T00:00:00Z",
+                "is_primary_meter_region": true
+              },
+              "meter_name": "Archive LRS Data Stored",
+              "price_type": "Consumption",
+              "product_name": "Blob Storage",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "7d07cbf5-5686-4123-9ebe-36ca3e461c43",
+                "product_id": "DZH318Z0BNZJ",
+                "service_id": "DZH317F1HKN0",
+                "sku_id": "DZH318Z0BNZJ/0097"
+              },
+              "provider_service": "Storage",
+              "raw_price": 0.0018,
+              "region": "westeurope",
+              "service_name": "Storage",
+              "sku_name": "Archive LRS",
+              "tier": {
+                "tier_minimum_units": 0.0
+              },
+              "unit": "1 GB/Month"
+            }
+          ],
+          "currency": "USD",
+          "errors": [],
+          "fetched_at": "2026-07-17T15:14:01.602891Z",
+          "field_path": "storage.archive.storage_gb_month",
+          "intent_id": "storage.archive.storage_gb_month",
+          "mapping_version": "2026.07.16",
+          "match_status": "matched",
+          "normalization": {
+            "description": "Normalize capacity prices to one GB-month.",
+            "multiplier": 1,
+            "source_units": [
+              "GB/Month",
+              "GB-Mo",
+              "1 GB/Month",
+              "GiB-month"
+            ],
+            "target_unit": "gb_month"
+          },
+          "normalization_rule": "per_gb_month",
+          "normalized_tiers": [],
+          "normalized_value": 0.0018,
+          "provider": "azure",
+          "registry_version": "2026.06.08",
+          "rejected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00277b9f-c6f5-451f-9ac4-f6c388ebb27a:DZH318Z0C120:DZH318Z0C120/006M:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-03-01T00:00:00Z",
+              "meterId": "00277b9f-c6f5-451f-9ac4-f6c388ebb27a",
+              "meterName": "Cool GRS Write Operations",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Cool GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cool GRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '00277b9f-c6f5-451f-9ac4-f6c388ebb27a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0C120/006M'"
+              ],
+              "retailPrice": 0.26,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/006M",
+              "skuName": "Cool GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00277b9f-c6f5-451f-9ac4-f6c388ebb27a:DZH318Z0C120:DZH318Z0C120/00CD:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-03-01T00:00:00Z",
+              "meterId": "00277b9f-c6f5-451f-9ac4-f6c388ebb27a",
+              "meterName": "Cool RA-GRS Write Operations",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Cool RA-GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cool RA-GRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '00277b9f-c6f5-451f-9ac4-f6c388ebb27a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0C120/00CD'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.26,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/00CD",
+              "skuName": "Cool RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00c46717-1190-5596-b074-2fbfc058cf82:DZH318Z0BP88:DZH318Z0BP88/031T:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-09-01T00:00:00Z",
+              "meterId": "00c46717-1190-5596-b074-2fbfc058cf82",
+              "meterName": "Disk Transactions LRS Disk Operations",
+              "productId": "DZH318Z0BP88",
+              "productName": "Standard SSD Managed Disks",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Standard SSD Managed Disks'",
+                "sku_name: expected 'Archive LRS', got 'Disk Transactions LRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Disk Transactions LRS Disk Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '00c46717-1190-5596-b074-2fbfc058cf82'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BP88'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BP88/031T'"
+              ],
+              "retailPrice": 0.0026,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BP88/031T",
+              "skuName": "Disk Transactions LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00d9acee-878f-4cd2-ac8e-cd377f759b14:DZH318Z0BJRM:DZH318Z0BJRM/00CD:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "00d9acee-878f-4cd2-ac8e-cd377f759b14",
+              "meterName": "Hot ZRS Index",
+              "productId": "DZH318Z0BJRM",
+              "productName": "Azure Data Lake Storage Gen2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Hierarchical Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Hot ZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot ZRS Index'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '00d9acee-878f-4cd2-ac8e-cd377f759b14'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRM'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRM/00CD'"
+              ],
+              "retailPrice": 0.035,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRM/00CD",
+              "skuName": "Hot ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00fb9cef-16d8-5aa9-885f-de513b8ac36d:DZH318Z0BNWT:DZH318Z0BNWT/009G:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2025-11-01T00:00:00Z",
+              "meterId": "00fb9cef-16d8-5aa9-885f-de513b8ac36d",
+              "meterName": "Disk Data Stored",
+              "productId": "DZH318Z0BNWT",
+              "productName": "Standard Page Blob v2",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Standard Page Blob v2'",
+                "sku_name: expected 'Archive LRS', got 'Standard RA-GZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Disk Data Stored'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '00fb9cef-16d8-5aa9-885f-de513b8ac36d'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BNWT'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BNWT/009G'"
+              ],
+              "retailPrice": 0.379686,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BNWT/009G",
+              "skuName": "Standard RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:010844d1-2255-590b-863c-5e8eb8da263e:DZH318Z0BNZ5:DZH318Z0BNZ5/005B:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2016-04-11T00:00:00Z",
+              "meterId": "010844d1-2255-590b-863c-5e8eb8da263e",
+              "meterName": "List Operations",
+              "productId": "DZH318Z0BNZ5",
+              "productName": "Tables",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Tables'",
+                "sku_name: expected 'Archive LRS', got 'Standard ZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'List Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '010844d1-2255-590b-863c-5e8eb8da263e'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BNZ5'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BNZ5/005B'"
+              ],
+              "retailPrice": 0.00036,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BNZ5/005B",
+              "skuName": "Standard ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:010cdd05-d9f5-5590-b661-2759af8dbfc1:DZH318Z0BZ18:DZH318Z0BZ18/001B:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-12-01T00:00:00Z",
+              "meterId": "010cdd05-d9f5-5590-b661-2759af8dbfc1",
+              "meterName": "LRS Early Premium To Cool Tier Down",
+              "productId": "DZH318Z0BZ18",
+              "productName": "Premium Block Blob",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Premium Block Blob'",
+                "sku_name: expected 'Archive LRS', got 'Premium LRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'LRS Early Premium To Cool Tier Down'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '010cdd05-d9f5-5590-b661-2759af8dbfc1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BZ18'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BZ18/001B'"
+              ],
+              "retailPrice": 0.185,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BZ18/001B",
+              "skuName": "Premium LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00CZ:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Hot GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00CZ'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00CZ",
+              "skuName": "Hot GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00D2:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Hot LRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00D2'"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00D2",
+              "skuName": "Hot LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00D3:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Hot RA-GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00D3'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00D3",
+              "skuName": "Hot RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00D4:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Hot ZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00D4'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00D4",
+              "skuName": "Hot ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00MT:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Hot RA-GZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00MT'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MT",
+              "skuName": "Hot RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00MV:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Hot GZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00MV'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MV",
+              "skuName": "Hot GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0285c0e3-81fa-557f-8f40-cf73937122f1:DZH318Z0C120:DZH318Z0C120/02GN:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-05-01T00:00:00Z",
+              "meterId": "0285c0e3-81fa-557f-8f40-cf73937122f1",
+              "meterName": "Cold RA-GZRS Data Retrieval",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Cold RA-GZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cold RA-GZRS Data Retrieval'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '0285c0e3-81fa-557f-8f40-cf73937122f1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0C120/02GN'"
+              ],
+              "retailPrice": 0.03,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/02GN",
+              "skuName": "Cold RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:028b1f9d-98dd-5fb1-b847-432b3297a9ab:DZH318Z0BP88:DZH318Z0BP88/004R:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-07-01T00:00:00Z",
+              "meterId": "028b1f9d-98dd-5fb1-b847-432b3297a9ab",
+              "meterName": "E40 LRS Disk Mount",
+              "productId": "DZH318Z0BP88",
+              "productName": "Standard SSD Managed Disks",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Standard SSD Managed Disks'",
+                "sku_name: expected 'Archive LRS', got 'E40 LRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'E40 LRS Disk Mount'",
+                "unit: expected '1 GB/Month', got '1/Month'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '028b1f9d-98dd-5fb1-b847-432b3297a9ab'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BP88'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BP88/004R'"
+              ],
+              "retailPrice": 17.082,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BP88/004R",
+              "skuName": "E40 LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:02b3112d-43e5-5eeb-8f96-d4205c03601f:DZH318Z0CPS6:DZH318Z0CPS6/002Q:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-01-01T00:00:00Z",
+              "meterId": "02b3112d-43e5-5eeb-8f96-d4205c03601f",
+              "meterName": "Premium LRS Data Scanned for Query Acceleration",
+              "productId": "DZH318Z0CPS6",
+              "productName": "Premium ADLS Gen2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Premium ADLS Gen2 Hierarchical Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Premium LRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Premium LRS Data Scanned for Query Acceleration'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '02b3112d-43e5-5eeb-8f96-d4205c03601f'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0CPS6'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0CPS6/002Q'"
+              ],
+              "retailPrice": 0.001001,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0CPS6/002Q",
+              "skuName": "Premium LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:03bd8741-28f8-513c-9270-2a496e0728a4:DZH318Z0C120:DZH318Z0C120/006Q:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-10-01T00:00:00Z",
+              "meterId": "03bd8741-28f8-513c-9270-2a496e0728a4",
+              "meterName": "Cool ZRS Blob Inventory",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Cool ZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cool ZRS Blob Inventory'",
+                "unit: expected '1 GB/Month', got '1M'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '03bd8741-28f8-513c-9270-2a496e0728a4'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0C120/006Q'"
+              ],
+              "retailPrice": 0.00351,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/006Q",
+              "skuName": "Cool ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1M"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0483e873-a0c5-594c-ac69-54e924db795b:DZH318Z0C120:DZH318Z0C120/02GR:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-05-01T00:00:00Z",
+              "meterId": "0483e873-a0c5-594c-ac69-54e924db795b",
+              "meterName": "Cold GZRS Read Operations",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Cold GZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cold GZRS Read Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '0483e873-a0c5-594c-ac69-54e924db795b'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0C120/02GR'"
+              ],
+              "retailPrice": 0.13,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/02GR",
+              "skuName": "Cold GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:04cef93e-f866-4bd7-bb32-df0eb53219e1:DZH318Z0BJRN:DZH318Z0BJRN/00MW:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-04-15T00:00:00Z",
+              "meterId": "04cef93e-f866-4bd7-bb32-df0eb53219e1",
+              "meterName": "Cool GZRS Write Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Cool RA-GZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cool GZRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '04cef93e-f866-4bd7-bb32-df0eb53219e1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00MW'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.2,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MW",
+              "skuName": "Cool RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:04cef93e-f866-4bd7-bb32-df0eb53219e1:DZH318Z0BJRN:DZH318Z0BJRN/00MX:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-04-15T00:00:00Z",
+              "meterId": "04cef93e-f866-4bd7-bb32-df0eb53219e1",
+              "meterName": "Cool GZRS Write Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Archive LRS', got 'Cool GZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cool GZRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '04cef93e-f866-4bd7-bb32-df0eb53219e1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BJRN/00MX'"
+              ],
+              "retailPrice": 0.2,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MX",
+              "skuName": "Cool GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:053c9e8e-7617-5bfc-8eff-e6cfead41bd9:DZH318Z0BPH7:DZH318Z0BPH7/02MF:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-05-01T00:00:00Z",
+              "meterId": "053c9e8e-7617-5bfc-8eff-e6cfead41bd9",
+              "meterName": "Cold ZRS Data Retrieval",
+              "productId": "DZH318Z0BPH7",
+              "productName": "General Block Blob v2",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2'",
+                "sku_name: expected 'Archive LRS', got 'Cold ZRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Cold ZRS Data Retrieval'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '053c9e8e-7617-5bfc-8eff-e6cfead41bd9'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BPH7'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0BPH7/02MF'"
+              ],
+              "retailPrice": 0.03,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BPH7/02MF",
+              "skuName": "Cold ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:05b2bf03-fa6b-55c0-b6df-f58b83fcf5ef:DZH318Z0H96B:DZH318Z0H96B/00JT:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-08-01T00:00:00Z",
+              "meterId": "05b2bf03-fa6b-55c0-b6df-f58b83fcf5ef",
+              "meterName": "HDD GRS Provisioned IOPS",
+              "productId": "DZH318Z0H96B",
+              "productName": "Azure Files Provisioned v2",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Files Provisioned v2'",
+                "sku_name: expected 'Archive LRS', got 'HDD GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'HDD GRS Provisioned IOPS'",
+                "unit: expected '1 GB/Month', got '1/Hour'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '05b2bf03-fa6b-55c0-b6df-f58b83fcf5ef'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0H96B'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318Z0H96B/00JT'"
+              ],
+              "retailPrice": 0.000138,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0H96B/00JT",
+              "skuName": "HDD GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1/Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0623400b-f198-453e-b090-f09555b18e6a:DZH318XZM2XZ:DZH318XZM2XZ/00QD:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-04-01T00:00:00Z",
+              "meterId": "0623400b-f198-453e-b090-f09555b18e6a",
+              "meterName": "Hot - 100 TB RA-GRS Data Stored",
+              "productId": "DZH318XZM2XZ",
+              "productName": "Storage Reserved Capacity_v8",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Storage Reserved Capacity_v8'",
+                "sku_name: expected 'Archive LRS', got 'Hot - 100 TB RA-GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot - 100 TB RA-GRS Data Stored'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '0623400b-f198-453e-b090-f09555b18e6a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318XZM2XZ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318XZM2XZ/00QD'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 493680.0,
+              "serviceName": "Storage",
+              "skuId": "DZH318XZM2XZ/00QD",
+              "skuName": "Hot - 100 TB RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0623400b-f198-453e-b090-f09555b18e6a:DZH318XZM2XZ:DZH318XZM2XZ/01F1:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-04-01T00:00:00Z",
+              "meterId": "0623400b-f198-453e-b090-f09555b18e6a",
+              "meterName": "Hot - 10 PB RA-GRS Data Stored",
+              "productId": "DZH318XZM2XZ",
+              "productName": "Storage Reserved Capacity_v8",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Storage Reserved Capacity_v8'",
+                "sku_name: expected 'Archive LRS', got 'Hot - 10 PB RA-GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot - 10 PB RA-GRS Data Stored'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '0623400b-f198-453e-b090-f09555b18e6a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318XZM2XZ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318XZM2XZ/01F1'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 45625680.0,
+              "serviceName": "Storage",
+              "skuId": "DZH318XZM2XZ/01F1",
+              "skuName": "Hot - 10 PB RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0623400b-f198-453e-b090-f09555b18e6a:DZH318XZM2XZ:DZH318XZM2XZ/01K1:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-04-01T00:00:00Z",
+              "meterId": "0623400b-f198-453e-b090-f09555b18e6a",
+              "meterName": "Hot - 1 PB RA-GRS Data Stored",
+              "productId": "DZH318XZM2XZ",
+              "productName": "Storage Reserved Capacity_v8",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Storage Reserved Capacity_v8'",
+                "sku_name: expected 'Archive LRS', got 'Hot - 1 PB RA-GRS'",
+                "meter_name: expected 'Archive LRS Data Stored', got 'Hot - 1 PB RA-GRS Data Stored'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected '7d07cbf5-5686-4123-9ebe-36ca3e461c43', got '0623400b-f198-453e-b090-f09555b18e6a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318XZM2XZ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0097', got 'DZH318XZM2XZ/01K1'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 4809240.0,
+              "serviceName": "Storage",
+              "skuId": "DZH318XZM2XZ/01K1",
+              "skuName": "Hot - 1 PB RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            }
+          ],
+          "request_scope": {
+            "provider": "azure",
+            "region": "westeurope"
+          },
+          "retail_api_filter": {
+            "evidence": {
+              "is_primary_meter_region": true
+            },
+            "meter_name": "Archive LRS Data Stored",
+            "price_type": "Consumption",
+            "product_name": "Blob Storage",
+            "provider_identifiers": {
+              "meter_id": "7d07cbf5-5686-4123-9ebe-36ca3e461c43",
+              "product_id": "DZH318Z0BNZJ",
+              "sku_id": "DZH318Z0BNZJ/0097"
+            },
+            "service_name": "Storage",
+            "sku_name": "Archive LRS",
+            "unit": "1 GB/Month"
+          },
+          "review_required": false,
+          "review_status": "reviewed",
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": {
+            "armRegionName": "westeurope",
+            "candidate_id": "azure:7d07cbf5-5686-4123-9ebe-36ca3e461c43:DZH318Z0BNZJ:DZH318Z0BNZJ/0097:Consumption:0.0",
+            "currencyCode": "USD",
+            "effectiveStartDate": "2019-06-01T00:00:00Z",
+            "meterId": "7d07cbf5-5686-4123-9ebe-36ca3e461c43",
+            "meterName": "Archive LRS Data Stored",
+            "productId": "DZH318Z0BNZJ",
+            "productName": "Blob Storage",
+            "retailPrice": 0.0018,
+            "serviceName": "Storage",
+            "skuId": "DZH318Z0BNZJ/0097",
+            "skuName": "Archive LRS",
+            "tierMinimumUnits": 0.0,
+            "unitOfMeasure": "1 GB/Month"
+          },
+          "selected_rows": [],
+          "source_api": "azure-retail-prices",
+          "source_type": "fetched",
+          "tier": {
+            "tier_minimum_units": 0.0
+          }
+        },
+        "blobStorageCool.storagePrice": {
+          "candidate_rows": [
+            {
+              "candidate_id": "azure:8bf84600-37ce-42ab-a6d7-0c322aed8182:DZH318Z0BNZJ:DZH318Z0BNZJ/0096:Consumption:0.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2016-10-01T00:00:00Z",
+                "is_primary_meter_region": true
+              },
+              "meter_name": "Cool LRS Data Stored",
+              "price_type": "Consumption",
+              "product_name": "Blob Storage",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "8bf84600-37ce-42ab-a6d7-0c322aed8182",
+                "product_id": "DZH318Z0BNZJ",
+                "service_id": "DZH317F1HKN0",
+                "sku_id": "DZH318Z0BNZJ/0096"
+              },
+              "provider_service": "Storage",
+              "raw_price": 0.01,
+              "region": "westeurope",
+              "service_name": "Storage",
+              "sku_name": "Cool LRS",
+              "tier": {
+                "tier_minimum_units": 0.0
+              },
+              "unit": "1 GB/Month"
+            }
+          ],
+          "currency": "USD",
+          "errors": [],
+          "fetched_at": "2026-07-17T15:14:00.063719Z",
+          "field_path": "storage.cool.storage_gb_month",
+          "intent_id": "storage.cool.storage_gb_month",
+          "mapping_version": "2026.07.16",
+          "match_status": "matched",
+          "normalization": {
+            "description": "Normalize capacity prices to one GB-month.",
+            "multiplier": 1,
+            "source_units": [
+              "GB/Month",
+              "GB-Mo",
+              "1 GB/Month",
+              "GiB-month"
+            ],
+            "target_unit": "gb_month"
+          },
+          "normalization_rule": "per_gb_month",
+          "normalized_tiers": [],
+          "normalized_value": 0.01,
+          "provider": "azure",
+          "registry_version": "2026.06.08",
+          "rejected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00277b9f-c6f5-451f-9ac4-f6c388ebb27a:DZH318Z0C120:DZH318Z0C120/006M:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-03-01T00:00:00Z",
+              "meterId": "00277b9f-c6f5-451f-9ac4-f6c388ebb27a",
+              "meterName": "Cool GRS Write Operations",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Cool GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cool GRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '00277b9f-c6f5-451f-9ac4-f6c388ebb27a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0C120/006M'"
+              ],
+              "retailPrice": 0.26,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/006M",
+              "skuName": "Cool GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00277b9f-c6f5-451f-9ac4-f6c388ebb27a:DZH318Z0C120:DZH318Z0C120/00CD:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-03-01T00:00:00Z",
+              "meterId": "00277b9f-c6f5-451f-9ac4-f6c388ebb27a",
+              "meterName": "Cool RA-GRS Write Operations",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Cool RA-GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cool RA-GRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '00277b9f-c6f5-451f-9ac4-f6c388ebb27a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0C120/00CD'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.26,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/00CD",
+              "skuName": "Cool RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00c46717-1190-5596-b074-2fbfc058cf82:DZH318Z0BP88:DZH318Z0BP88/031T:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-09-01T00:00:00Z",
+              "meterId": "00c46717-1190-5596-b074-2fbfc058cf82",
+              "meterName": "Disk Transactions LRS Disk Operations",
+              "productId": "DZH318Z0BP88",
+              "productName": "Standard SSD Managed Disks",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Standard SSD Managed Disks'",
+                "sku_name: expected 'Cool LRS', got 'Disk Transactions LRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Disk Transactions LRS Disk Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '00c46717-1190-5596-b074-2fbfc058cf82'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BP88'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BP88/031T'"
+              ],
+              "retailPrice": 0.0026,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BP88/031T",
+              "skuName": "Disk Transactions LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00d9acee-878f-4cd2-ac8e-cd377f759b14:DZH318Z0BJRM:DZH318Z0BJRM/00CD:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "00d9acee-878f-4cd2-ac8e-cd377f759b14",
+              "meterName": "Hot ZRS Index",
+              "productId": "DZH318Z0BJRM",
+              "productName": "Azure Data Lake Storage Gen2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Hierarchical Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Hot ZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot ZRS Index'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '00d9acee-878f-4cd2-ac8e-cd377f759b14'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRM'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRM/00CD'"
+              ],
+              "retailPrice": 0.035,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRM/00CD",
+              "skuName": "Hot ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:00fb9cef-16d8-5aa9-885f-de513b8ac36d:DZH318Z0BNWT:DZH318Z0BNWT/009G:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2025-11-01T00:00:00Z",
+              "meterId": "00fb9cef-16d8-5aa9-885f-de513b8ac36d",
+              "meterName": "Disk Data Stored",
+              "productId": "DZH318Z0BNWT",
+              "productName": "Standard Page Blob v2",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Standard Page Blob v2'",
+                "sku_name: expected 'Cool LRS', got 'Standard RA-GZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Disk Data Stored'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '00fb9cef-16d8-5aa9-885f-de513b8ac36d'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BNWT'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BNWT/009G'"
+              ],
+              "retailPrice": 0.379686,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BNWT/009G",
+              "skuName": "Standard RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:010844d1-2255-590b-863c-5e8eb8da263e:DZH318Z0BNZ5:DZH318Z0BNZ5/005B:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2016-04-11T00:00:00Z",
+              "meterId": "010844d1-2255-590b-863c-5e8eb8da263e",
+              "meterName": "List Operations",
+              "productId": "DZH318Z0BNZ5",
+              "productName": "Tables",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Tables'",
+                "sku_name: expected 'Cool LRS', got 'Standard ZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'List Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '010844d1-2255-590b-863c-5e8eb8da263e'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BNZ5'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BNZ5/005B'"
+              ],
+              "retailPrice": 0.00036,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BNZ5/005B",
+              "skuName": "Standard ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:010cdd05-d9f5-5590-b661-2759af8dbfc1:DZH318Z0BZ18:DZH318Z0BZ18/001B:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-12-01T00:00:00Z",
+              "meterId": "010cdd05-d9f5-5590-b661-2759af8dbfc1",
+              "meterName": "LRS Early Premium To Cool Tier Down",
+              "productId": "DZH318Z0BZ18",
+              "productName": "Premium Block Blob",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Premium Block Blob'",
+                "sku_name: expected 'Cool LRS', got 'Premium LRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'LRS Early Premium To Cool Tier Down'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '010cdd05-d9f5-5590-b661-2759af8dbfc1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BZ18'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BZ18/001B'"
+              ],
+              "retailPrice": 0.185,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BZ18/001B",
+              "skuName": "Premium LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00CZ:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Hot GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00CZ'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00CZ",
+              "skuName": "Hot GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00D2:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Hot LRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00D2'"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00D2",
+              "skuName": "Hot LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00D3:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Hot RA-GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00D3'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00D3",
+              "skuName": "Hot RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00D4:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Hot ZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00D4'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00D4",
+              "skuName": "Hot ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00MT:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Hot RA-GZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00MT'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MT",
+              "skuName": "Hot RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:026aaf45-a2c9-4297-9d7c-a40fd86b3df6:DZH318Z0BJRN:DZH318Z0BJRN/00MV:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2019-04-01T00:00:00Z",
+              "meterId": "026aaf45-a2c9-4297-9d7c-a40fd86b3df6",
+              "meterName": "Hot Other Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Hot GZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot Other Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '026aaf45-a2c9-4297-9d7c-a40fd86b3df6'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00MV'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.0043,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MV",
+              "skuName": "Hot GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0285c0e3-81fa-557f-8f40-cf73937122f1:DZH318Z0C120:DZH318Z0C120/02GN:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-05-01T00:00:00Z",
+              "meterId": "0285c0e3-81fa-557f-8f40-cf73937122f1",
+              "meterName": "Cold RA-GZRS Data Retrieval",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Cold RA-GZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cold RA-GZRS Data Retrieval'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '0285c0e3-81fa-557f-8f40-cf73937122f1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0C120/02GN'"
+              ],
+              "retailPrice": 0.03,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/02GN",
+              "skuName": "Cold RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:028b1f9d-98dd-5fb1-b847-432b3297a9ab:DZH318Z0BP88:DZH318Z0BP88/004R:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-07-01T00:00:00Z",
+              "meterId": "028b1f9d-98dd-5fb1-b847-432b3297a9ab",
+              "meterName": "E40 LRS Disk Mount",
+              "productId": "DZH318Z0BP88",
+              "productName": "Standard SSD Managed Disks",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Standard SSD Managed Disks'",
+                "sku_name: expected 'Cool LRS', got 'E40 LRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'E40 LRS Disk Mount'",
+                "unit: expected '1 GB/Month', got '1/Month'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '028b1f9d-98dd-5fb1-b847-432b3297a9ab'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BP88'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BP88/004R'"
+              ],
+              "retailPrice": 17.082,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BP88/004R",
+              "skuName": "E40 LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:02b3112d-43e5-5eeb-8f96-d4205c03601f:DZH318Z0CPS6:DZH318Z0CPS6/002Q:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-01-01T00:00:00Z",
+              "meterId": "02b3112d-43e5-5eeb-8f96-d4205c03601f",
+              "meterName": "Premium LRS Data Scanned for Query Acceleration",
+              "productId": "DZH318Z0CPS6",
+              "productName": "Premium ADLS Gen2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Premium ADLS Gen2 Hierarchical Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Premium LRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Premium LRS Data Scanned for Query Acceleration'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '02b3112d-43e5-5eeb-8f96-d4205c03601f'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0CPS6'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0CPS6/002Q'"
+              ],
+              "retailPrice": 0.001001,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0CPS6/002Q",
+              "skuName": "Premium LRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:03bd8741-28f8-513c-9270-2a496e0728a4:DZH318Z0C120:DZH318Z0C120/006Q:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-10-01T00:00:00Z",
+              "meterId": "03bd8741-28f8-513c-9270-2a496e0728a4",
+              "meterName": "Cool ZRS Blob Inventory",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Cool ZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cool ZRS Blob Inventory'",
+                "unit: expected '1 GB/Month', got '1M'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '03bd8741-28f8-513c-9270-2a496e0728a4'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0C120/006Q'"
+              ],
+              "retailPrice": 0.00351,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/006Q",
+              "skuName": "Cool ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1M"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0483e873-a0c5-594c-ac69-54e924db795b:DZH318Z0C120:DZH318Z0C120/02GR:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-05-01T00:00:00Z",
+              "meterId": "0483e873-a0c5-594c-ac69-54e924db795b",
+              "meterName": "Cold GZRS Read Operations",
+              "productId": "DZH318Z0C120",
+              "productName": "General Block Blob v2 Hierarchical Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2 Hierarchical Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Cold GZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cold GZRS Read Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '0483e873-a0c5-594c-ac69-54e924db795b'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0C120'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0C120/02GR'"
+              ],
+              "retailPrice": 0.13,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0C120/02GR",
+              "skuName": "Cold GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:04cef93e-f866-4bd7-bb32-df0eb53219e1:DZH318Z0BJRN:DZH318Z0BJRN/00MW:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-04-15T00:00:00Z",
+              "meterId": "04cef93e-f866-4bd7-bb32-df0eb53219e1",
+              "meterName": "Cool GZRS Write Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Cool RA-GZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cool GZRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '04cef93e-f866-4bd7-bb32-df0eb53219e1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00MW'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 0.2,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MW",
+              "skuName": "Cool RA-GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:04cef93e-f866-4bd7-bb32-df0eb53219e1:DZH318Z0BJRN:DZH318Z0BJRN/00MX:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-04-15T00:00:00Z",
+              "meterId": "04cef93e-f866-4bd7-bb32-df0eb53219e1",
+              "meterName": "Cool GZRS Write Operations",
+              "productId": "DZH318Z0BJRN",
+              "productName": "Azure Data Lake Storage Gen2 Flat Namespace",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Data Lake Storage Gen2 Flat Namespace'",
+                "sku_name: expected 'Cool LRS', got 'Cool GZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cool GZRS Write Operations'",
+                "unit: expected '1 GB/Month', got '10K'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '04cef93e-f866-4bd7-bb32-df0eb53219e1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BJRN'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BJRN/00MX'"
+              ],
+              "retailPrice": 0.2,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BJRN/00MX",
+              "skuName": "Cool GZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "10K"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:053c9e8e-7617-5bfc-8eff-e6cfead41bd9:DZH318Z0BPH7:DZH318Z0BPH7/02MF:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-05-01T00:00:00Z",
+              "meterId": "053c9e8e-7617-5bfc-8eff-e6cfead41bd9",
+              "meterName": "Cold ZRS Data Retrieval",
+              "productId": "DZH318Z0BPH7",
+              "productName": "General Block Blob v2",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'General Block Blob v2'",
+                "sku_name: expected 'Cool LRS', got 'Cold ZRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Cold ZRS Data Retrieval'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '053c9e8e-7617-5bfc-8eff-e6cfead41bd9'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0BPH7'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0BPH7/02MF'"
+              ],
+              "retailPrice": 0.03,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0BPH7/02MF",
+              "skuName": "Cold ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:05b2bf03-fa6b-55c0-b6df-f58b83fcf5ef:DZH318Z0H96B:DZH318Z0H96B/00JT:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-08-01T00:00:00Z",
+              "meterId": "05b2bf03-fa6b-55c0-b6df-f58b83fcf5ef",
+              "meterName": "HDD GRS Provisioned IOPS",
+              "productId": "DZH318Z0H96B",
+              "productName": "Azure Files Provisioned v2",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Azure Files Provisioned v2'",
+                "sku_name: expected 'Cool LRS', got 'HDD GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'HDD GRS Provisioned IOPS'",
+                "unit: expected '1 GB/Month', got '1/Hour'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '05b2bf03-fa6b-55c0-b6df-f58b83fcf5ef'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318Z0H96B'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318Z0H96B/00JT'"
+              ],
+              "retailPrice": 0.000138,
+              "serviceName": "Storage",
+              "skuId": "DZH318Z0H96B/00JT",
+              "skuName": "HDD GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1/Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0623400b-f198-453e-b090-f09555b18e6a:DZH318XZM2XZ:DZH318XZM2XZ/00QD:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-04-01T00:00:00Z",
+              "meterId": "0623400b-f198-453e-b090-f09555b18e6a",
+              "meterName": "Hot - 100 TB RA-GRS Data Stored",
+              "productId": "DZH318XZM2XZ",
+              "productName": "Storage Reserved Capacity_v8",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Storage Reserved Capacity_v8'",
+                "sku_name: expected 'Cool LRS', got 'Hot - 100 TB RA-GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot - 100 TB RA-GRS Data Stored'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '0623400b-f198-453e-b090-f09555b18e6a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318XZM2XZ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318XZM2XZ/00QD'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 493680.0,
+              "serviceName": "Storage",
+              "skuId": "DZH318XZM2XZ/00QD",
+              "skuName": "Hot - 100 TB RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0623400b-f198-453e-b090-f09555b18e6a:DZH318XZM2XZ:DZH318XZM2XZ/01F1:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-04-01T00:00:00Z",
+              "meterId": "0623400b-f198-453e-b090-f09555b18e6a",
+              "meterName": "Hot - 10 PB RA-GRS Data Stored",
+              "productId": "DZH318XZM2XZ",
+              "productName": "Storage Reserved Capacity_v8",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Storage Reserved Capacity_v8'",
+                "sku_name: expected 'Cool LRS', got 'Hot - 10 PB RA-GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot - 10 PB RA-GRS Data Stored'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '0623400b-f198-453e-b090-f09555b18e6a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318XZM2XZ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318XZM2XZ/01F1'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 45625680.0,
+              "serviceName": "Storage",
+              "skuId": "DZH318XZM2XZ/01F1",
+              "skuName": "Hot - 10 PB RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0623400b-f198-453e-b090-f09555b18e6a:DZH318XZM2XZ:DZH318XZM2XZ/01K1:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-04-01T00:00:00Z",
+              "meterId": "0623400b-f198-453e-b090-f09555b18e6a",
+              "meterName": "Hot - 1 PB RA-GRS Data Stored",
+              "productId": "DZH318XZM2XZ",
+              "productName": "Storage Reserved Capacity_v8",
+              "reasons": [
+                "product_name: expected 'Blob Storage', got 'Storage Reserved Capacity_v8'",
+                "sku_name: expected 'Cool LRS', got 'Hot - 1 PB RA-GRS'",
+                "meter_name: expected 'Cool LRS Data Stored', got 'Hot - 1 PB RA-GRS Data Stored'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected '8bf84600-37ce-42ab-a6d7-0c322aed8182', got '0623400b-f198-453e-b090-f09555b18e6a'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNZJ', got 'DZH318XZM2XZ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNZJ/0096', got 'DZH318XZM2XZ/01K1'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 4809240.0,
+              "serviceName": "Storage",
+              "skuId": "DZH318XZM2XZ/01K1",
+              "skuName": "Hot - 1 PB RA-GRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            }
+          ],
+          "request_scope": {
+            "provider": "azure",
+            "region": "westeurope"
+          },
+          "retail_api_filter": {
+            "evidence": {
+              "is_primary_meter_region": true
+            },
+            "meter_name": "Cool LRS Data Stored",
+            "price_type": "Consumption",
+            "product_name": "Blob Storage",
+            "provider_identifiers": {
+              "meter_id": "8bf84600-37ce-42ab-a6d7-0c322aed8182",
+              "product_id": "DZH318Z0BNZJ",
+              "sku_id": "DZH318Z0BNZJ/0096"
+            },
+            "service_name": "Storage",
+            "sku_name": "Cool LRS",
+            "unit": "1 GB/Month"
+          },
+          "review_required": false,
+          "review_status": "reviewed",
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": {
+            "armRegionName": "westeurope",
+            "candidate_id": "azure:8bf84600-37ce-42ab-a6d7-0c322aed8182:DZH318Z0BNZJ:DZH318Z0BNZJ/0096:Consumption:0.0",
+            "currencyCode": "USD",
+            "effectiveStartDate": "2016-10-01T00:00:00Z",
+            "meterId": "8bf84600-37ce-42ab-a6d7-0c322aed8182",
+            "meterName": "Cool LRS Data Stored",
+            "productId": "DZH318Z0BNZJ",
+            "productName": "Blob Storage",
+            "retailPrice": 0.01,
+            "serviceName": "Storage",
+            "skuId": "DZH318Z0BNZJ/0096",
+            "skuName": "Cool LRS",
+            "tierMinimumUnits": 0.0,
+            "unitOfMeasure": "1 GB/Month"
+          },
+          "selected_rows": [],
+          "source_api": "azure-retail-prices",
+          "source_type": "fetched",
+          "tier": {
+            "tier_minimum_units": 0.0
+          }
+        },
+        "blobStorageCool.transferCostFromCosmosDB": {
+          "depends_on": "transfer.pricing_tiers",
+          "derivation": "first positive normalized transfer tier price",
+          "field_path": "blobStorageCool.transferCostFromCosmosDB",
+          "normalized_value": 0.087,
+          "schema_version": "pricing-derived-evidence.v1",
+          "source_type": "derived"
+        },
+        "cosmosDB.storagePrice": {
+          "candidate_rows": [
+            {
+              "candidate_id": "azure:aa57abaf-ec18-4387-9348-07b177eab8db:DZH318Z0BPJH:DZH318Z0BPJH/0028:Consumption:0.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2016-04-01T00:00:00Z",
+                "is_primary_meter_region": true
+              },
+              "meter_name": "Data Stored",
+              "price_type": "Consumption",
+              "product_name": "Azure Cosmos DB",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "aa57abaf-ec18-4387-9348-07b177eab8db",
+                "product_id": "DZH318Z0BPJH",
+                "service_id": "DZH317DL9CC7",
+                "sku_id": "DZH318Z0BPJH/0028"
+              },
+              "provider_service": "Azure Cosmos DB",
+              "raw_price": 0.25,
+              "region": "westeurope",
+              "service_name": "Azure Cosmos DB",
+              "sku_name": "RUs",
+              "tier": {
+                "tier_minimum_units": 0.0
+              },
+              "unit": "1 GB/Month"
+            }
+          ],
+          "currency": "USD",
+          "errors": [],
+          "fetched_at": "2026-07-17T15:14:02.907693Z",
+          "field_path": "storage.hot.storage_gb_month",
+          "intent_id": "storage.hot.storage_gb_month",
+          "mapping_version": "2026.07.16",
+          "match_status": "matched",
+          "normalization": {
+            "description": "Normalize capacity prices to one GB-month.",
+            "multiplier": 1,
+            "source_units": [
+              "GB/Month",
+              "GB-Mo",
+              "1 GB/Month",
+              "GiB-month"
+            ],
+            "target_unit": "gb_month"
+          },
+          "normalization_rule": "per_gb_month",
+          "normalized_tiers": [],
+          "normalized_value": 0.25,
+          "provider": "azure",
+          "registry_version": "2026.06.08",
+          "rejected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:01de9bd3-6a1e-58d6-b30b-5b658f198cf5:DZH318Z0BPJH:DZH318Z0BPJH/010T:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-07-01T00:00:00Z",
+              "meterId": "01de9bd3-6a1e-58d6-b30b-5b658f198cf5",
+              "meterName": "100 RU/s",
+              "productId": "DZH318Z0BPJH",
+              "productName": "Azure Cosmos DB",
+              "reasons": [
+                "sku_name: expected 'RUs', got 'Free Tier'",
+                "meter_name: expected 'Data Stored', got '100 RU/s'",
+                "unit: expected '1 GB/Month', got '1/Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '01de9bd3-6a1e-58d6-b30b-5b658f198cf5'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0BPJH/010T'"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0BPJH/010T",
+              "skuName": "Free Tier",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1/Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:025fc257-dd26-5f67-b319-db165c5726e1:DZH318XZQZBH:DZH318XZQZBH/001M:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-05-01T00:00:00Z",
+              "meterId": "025fc257-dd26-5f67-b319-db165c5726e1",
+              "meterName": "vCore",
+              "productId": "DZH318XZQZBH",
+              "productName": "Azure DocumentDB Reservations",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB Reservations'",
+                "sku_name: expected 'RUs', got 'Coordinator Node 1 vCore'",
+                "meter_name: expected 'Data Stored', got 'vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '025fc257-dd26-5f67-b319-db165c5726e1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318XZQZBH'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318XZQZBH/001M'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 936.0,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318XZQZBH/001M",
+              "skuName": "Coordinator Node 1 vCore",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:025fc257-dd26-5f67-b319-db165c5726e1:DZH318XZQZBH:DZH318XZQZBH/003M:Reservation:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-06-01T00:00:00Z",
+              "meterId": "025fc257-dd26-5f67-b319-db165c5726e1",
+              "meterName": "vCore",
+              "productId": "DZH318XZQZBH",
+              "productName": "Azure DocumentDB Reservations",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB Reservations'",
+                "sku_name: expected 'RUs', got 'Coordinator Node 1 vCore'",
+                "meter_name: expected 'Data Stored', got 'vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "price_type: expected 'Consumption', got 'Reservation'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '025fc257-dd26-5f67-b319-db165c5726e1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318XZQZBH'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318XZQZBH/003M'",
+                "evidence.is_primary_meter_region: expected True, got False"
+              ],
+              "retailPrice": 468.0,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318XZQZBH/003M",
+              "skuName": "Coordinator Node 1 vCore",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:025fc257-dd26-5f67-b319-db165c5726e1:DZH318Z0J95H:DZH318Z0J95H/00BD:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2025-12-01T00:00:00Z",
+              "meterId": "025fc257-dd26-5f67-b319-db165c5726e1",
+              "meterName": "vCore",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'Coordinator Node 1 vCore'",
+                "meter_name: expected 'Data Stored', got 'vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '025fc257-dd26-5f67-b319-db165c5726e1'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00BD'"
+              ],
+              "retailPrice": 0.089275,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00BD",
+              "skuName": "Coordinator Node 1 vCore",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:04765460-11e0-59c1-b5b5-0a4b0e879724:DZH318Z0CCGL:DZH318Z0CCGL/00BT:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-11-01T00:00:00Z",
+              "meterId": "04765460-11e0-59c1-b5b5-0a4b0e879724",
+              "meterName": "E2s",
+              "productId": "DZH318Z0CCGL",
+              "productName": "Azure Cosmos DB Dedicated Gateway - Memory Optimized",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Dedicated Gateway - Memory Optimized'",
+                "sku_name: expected 'RUs', got 'E2s'",
+                "meter_name: expected 'Data Stored', got 'E2s'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '04765460-11e0-59c1-b5b5-0a4b0e879724'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0CCGL'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0CCGL/00BT'"
+              ],
+              "retailPrice": 0.284709,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0CCGL/00BT",
+              "skuName": "E2s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:05d393ff-0902-5c34-a381-f89fb31b3fec:DZH318Z0B07D:DZH318Z0B07D/009H:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-04-01T00:00:00Z",
+              "meterId": "05d393ff-0902-5c34-a381-f89fb31b3fec",
+              "meterName": "D16s",
+              "productId": "DZH318Z0B07D",
+              "productName": "Graph API - General Purpose Compute",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Graph API - General Purpose Compute'",
+                "sku_name: expected 'RUs', got 'D16s'",
+                "meter_name: expected 'Data Stored', got 'D16s'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '05d393ff-0902-5c34-a381-f89fb31b3fec'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0B07D'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0B07D/009H'"
+              ],
+              "retailPrice": 7.306,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0B07D/009H",
+              "skuName": "D16s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:06a007fc-dd79-5ad1-a729-754223cb3e12:DZH318Z0J95H:DZH318Z0J95H/00BM:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-12-01T00:00:00Z",
+              "meterId": "06a007fc-dd79-5ad1-a729-754223cb3e12",
+              "meterName": "vCore",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'Coordinator Node 8 vCore'",
+                "meter_name: expected 'Data Stored', got 'vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '06a007fc-dd79-5ad1-a729-754223cb3e12'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00BM'"
+              ],
+              "retailPrice": 1.050296,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00BM",
+              "skuName": "Coordinator Node 8 vCore",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0bd3ae68-1bba-56b3-b1b9-e21d37c3ff10:DZH318Z0J95H:DZH318Z0J95H/00FD:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-12-01T00:00:00Z",
+              "meterId": "0bd3ae68-1bba-56b3-b1b9-e21d37c3ff10",
+              "meterName": "vCore",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'Worker Node 4 vCore'",
+                "meter_name: expected 'Data Stored', got 'vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '0bd3ae68-1bba-56b3-b1b9-e21d37c3ff10'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00FD'"
+              ],
+              "retailPrice": 0.690372,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00FD",
+              "skuName": "Worker Node 4 vCore",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:0f907dd1-41f6-5f3e-9efd-695c2a95e476:DZH318Z0TF33:DZH318Z0TF33/00BK:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-01-01T00:00:00Z",
+              "meterId": "0f907dd1-41f6-5f3e-9efd-695c2a95e476",
+              "meterName": "General Purpose v6 vCore",
+              "productId": "DZH318Z0TF33",
+              "productName": "Azure Cosmos DB Garnet Cache",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Garnet Cache'",
+                "sku_name: expected 'RUs', got 'General Purpose v6'",
+                "meter_name: expected 'Data Stored', got 'General Purpose v6 vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '0f907dd1-41f6-5f3e-9efd-695c2a95e476'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0TF33'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0TF33/00BK'"
+              ],
+              "retailPrice": 0.081848,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0TF33/00BK",
+              "skuName": "General Purpose v6",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:10c6e430-469d-545c-b57b-d0008be7fece:DZH318Z0J95H:DZH318Z0J95H/00CF:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-12-01T00:00:00Z",
+              "meterId": "10c6e430-469d-545c-b57b-d0008be7fece",
+              "meterName": "vCore",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'Worker Node 96 vCore'",
+                "meter_name: expected 'Data Stored', got 'vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '10c6e430-469d-545c-b57b-d0008be7fece'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00CF'"
+              ],
+              "retailPrice": 16.568928,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00CF",
+              "skuName": "Worker Node 96 vCore",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:13f8b323-0789-5d2a-8aeb-a7f7f38b3b79:DZH318Z0CCH1:DZH318Z0CCH1/007D:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-04-01T00:00:00Z",
+              "meterId": "13f8b323-0789-5d2a-8aeb-a7f7f38b3b79",
+              "meterName": "Periodic Backup - ZRS Data Stored",
+              "productId": "DZH318Z0CCH1",
+              "productName": "Azure Cosmos DB Snapshot",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Snapshot'",
+                "sku_name: expected 'RUs', got 'Periodic Backup - ZRS'",
+                "meter_name: expected 'Data Stored', got 'Periodic Backup - ZRS Data Stored'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '13f8b323-0789-5d2a-8aeb-a7f7f38b3b79'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0CCH1'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0CCH1/007D'"
+              ],
+              "retailPrice": 0.146,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0CCH1/007D",
+              "skuName": "Periodic Backup - ZRS",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:1448bae4-f059-414e-b3ee-f7ff011f8b77:DZH318Z0CCGL:DZH318Z0CCGL/0063:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-11-04T00:00:00Z",
+              "meterId": "1448bae4-f059-414e-b3ee-f7ff011f8b77",
+              "meterName": "E64s",
+              "productId": "DZH318Z0CCGL",
+              "productName": "Azure Cosmos DB Dedicated Gateway - Memory Optimized",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Dedicated Gateway - Memory Optimized'",
+                "sku_name: expected 'RUs', got 'E64s'",
+                "meter_name: expected 'Data Stored', got 'E64s'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '1448bae4-f059-414e-b3ee-f7ff011f8b77'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0CCGL'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0CCGL/0063'"
+              ],
+              "retailPrice": 8.38,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0CCGL/0063",
+              "skuName": "E64s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:15584a89-6175-5edd-bc71-dcc5236a7697:DZH318Z0J95H:DZH318Z0J95H/00CS:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-12-01T00:00:00Z",
+              "meterId": "15584a89-6175-5edd-bc71-dcc5236a7697",
+              "meterName": "Backup GRS Free Data Stored",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'Backup Globally Redundant Storage Free'",
+                "meter_name: expected 'Data Stored', got 'Backup GRS Free Data Stored'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '15584a89-6175-5edd-bc71-dcc5236a7697'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00CS'"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00CS",
+              "skuName": "Backup Globally Redundant Storage Free",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:17c9a7cf-f0e3-5c0f-aa28-46c6b9994ab7:DZH318Z0J95H:DZH318Z0J95H/00BV:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-12-01T00:00:00Z",
+              "meterId": "17c9a7cf-f0e3-5c0f-aa28-46c6b9994ab7",
+              "meterName": "vCore",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'Coordinator Node 16 vCore'",
+                "meter_name: expected 'Data Stored', got 'vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '17c9a7cf-f0e3-5c0f-aa28-46c6b9994ab7'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00BV'"
+              ],
+              "retailPrice": 2.100592,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00BV",
+              "skuName": "Coordinator Node 16 vCore",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:19816904-31ff-581d-ba37-75b6d2c8476d:DZH318Z0B07D:DZH318Z0B07D/009L:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-04-01T00:00:00Z",
+              "meterId": "19816904-31ff-581d-ba37-75b6d2c8476d",
+              "meterName": "D8s",
+              "productId": "DZH318Z0B07D",
+              "productName": "Graph API - General Purpose Compute",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Graph API - General Purpose Compute'",
+                "sku_name: expected 'RUs', got 'D8s'",
+                "meter_name: expected 'Data Stored', got 'D8s'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '19816904-31ff-581d-ba37-75b6d2c8476d'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0B07D'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0B07D/009L'"
+              ],
+              "retailPrice": 3.653,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0B07D/009L",
+              "skuName": "D8s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:1b16bfab-759d-525b-9860-2df1586bcfe4:DZH318Z0B07D:DZH318Z0B07D/0098:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-04-01T00:00:00Z",
+              "meterId": "1b16bfab-759d-525b-9860-2df1586bcfe4",
+              "meterName": "D64s",
+              "productId": "DZH318Z0B07D",
+              "productName": "Graph API - General Purpose Compute",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Graph API - General Purpose Compute'",
+                "sku_name: expected 'RUs', got 'D64s'",
+                "meter_name: expected 'Data Stored', got 'D64s'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '1b16bfab-759d-525b-9860-2df1586bcfe4'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0B07D'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0B07D/0098'"
+              ],
+              "retailPrice": 29.185,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0B07D/0098",
+              "skuName": "D64s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:1bf4ac6b-4d2d-517a-a542-4d3606586967:DZH318Z0TF33:DZH318Z0TF33/0039:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2026-01-01T00:00:00Z",
+              "meterId": "1bf4ac6b-4d2d-517a-a542-4d3606586967",
+              "meterName": "Memory Optimized vCore",
+              "productId": "DZH318Z0TF33",
+              "productName": "Azure Cosmos DB Garnet Cache",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Garnet Cache'",
+                "sku_name: expected 'RUs', got 'Memory Optimized'",
+                "meter_name: expected 'Data Stored', got 'Memory Optimized vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '1bf4ac6b-4d2d-517a-a542-4d3606586967'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0TF33'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0TF33/0039'"
+              ],
+              "retailPrice": 0.106834,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0TF33/0039",
+              "skuName": "Memory Optimized",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:1d7d1024-b536-47a5-8c51-381cb758e533:DZH318Z0CCGL:DZH318Z0CCGL/005Z:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-11-04T00:00:00Z",
+              "meterId": "1d7d1024-b536-47a5-8c51-381cb758e533",
+              "meterName": "E32s",
+              "productId": "DZH318Z0CCGL",
+              "productName": "Azure Cosmos DB Dedicated Gateway - Memory Optimized",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Dedicated Gateway - Memory Optimized'",
+                "sku_name: expected 'RUs', got 'E32s'",
+                "meter_name: expected 'Data Stored', got 'E32s'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '1d7d1024-b536-47a5-8c51-381cb758e533'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0CCGL'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0CCGL/005Z'"
+              ],
+              "retailPrice": 4.56,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0CCGL/005Z",
+              "skuName": "E32s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:1dda0f09-6005-5b4b-8cf4-19cace5299de:DZH318Z0J95H:DZH318Z0J95H/00DX:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-12-01T00:00:00Z",
+              "meterId": "1dda0f09-6005-5b4b-8cf4-19cace5299de",
+              "meterName": "General Purpose Storage Data Stored",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'General Purpose Storage'",
+                "meter_name: expected 'Data Stored', got 'General Purpose Storage Data Stored'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '1dda0f09-6005-5b4b-8cf4-19cace5299de'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00DX'"
+              ],
+              "retailPrice": 0.137,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00DX",
+              "skuName": "General Purpose Storage",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:22a3588d-6987-5d84-999a-120f79379b31:DZH318Z0DX1T:DZH318Z0DX1T/00FD:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-08-01T00:00:00Z",
+              "meterId": "22a3588d-6987-5d84-999a-120f79379b31",
+              "meterName": "MVBuilder D64s vCore",
+              "productId": "DZH318Z0DX1T",
+              "productName": "Azure Cosmos DB Materialized Views",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Materialized Views'",
+                "sku_name: expected 'RUs', got 'MVBuilder D64s'",
+                "meter_name: expected 'Data Stored', got 'MVBuilder D64s vCore'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '22a3588d-6987-5d84-999a-120f79379b31'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0DX1T'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0DX1T/00FD'"
+              ],
+              "retailPrice": 7.4176,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0DX1T/00FD",
+              "skuName": "MVBuilder D64s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:2537686e-ad77-411b-83af-55ff1d8052d0:DZH318Z0BX2J:DZH318Z0BX2J/000N:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-04-01T00:00:00Z",
+              "meterId": "2537686e-ad77-411b-83af-55ff1d8052d0",
+              "meterName": "Cont 30D Bckp Data Restore",
+              "productId": "DZH318Z0BX2J",
+              "productName": "Azure Cosmos DB - PITR",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB - PITR'",
+                "sku_name: expected 'RUs', got 'Backup'",
+                "meter_name: expected 'Data Stored', got 'Cont 30D Bckp Data Restore'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '2537686e-ad77-411b-83af-55ff1d8052d0'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0BX2J'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0BX2J/000N'"
+              ],
+              "retailPrice": 0.15,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0BX2J/000N",
+              "skuName": "Backup",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:2652108a-50f3-4b55-98b6-46acf5bc9d72:DZH318Z0CGSV:DZH318Z0CGSV/0058:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2023-04-01T00:00:00Z",
+              "meterId": "2652108a-50f3-4b55-98b6-46acf5bc9d72",
+              "meterName": "AP2 Entry Price",
+              "productId": "DZH318Z0CGSV",
+              "productName": "Azure Cosmos DB autoscale",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB autoscale'",
+                "sku_name: expected 'RUs', got 'AP2'",
+                "meter_name: expected 'Data Stored', got 'AP2 Entry Price'",
+                "unit: expected '1 GB/Month', got '1/Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '2652108a-50f3-4b55-98b6-46acf5bc9d72'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0CGSV'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0CGSV/0058'"
+              ],
+              "retailPrice": 0.16,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0CGSV/0058",
+              "skuName": "AP2",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1/Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:280da352-8a42-436c-9088-135e749daade:DZH318Z0CCGL:DZH318Z0CCGL/0061:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2020-11-04T00:00:00Z",
+              "meterId": "280da352-8a42-436c-9088-135e749daade",
+              "meterName": "E8s",
+              "productId": "DZH318Z0CCGL",
+              "productName": "Azure Cosmos DB Dedicated Gateway - Memory Optimized",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB Dedicated Gateway - Memory Optimized'",
+                "sku_name: expected 'RUs', got 'E8s'",
+                "meter_name: expected 'Data Stored', got 'E8s'",
+                "unit: expected '1 GB/Month', got '1 Hour'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '280da352-8a42-436c-9088-135e749daade'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0CCGL'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0CCGL/0061'"
+              ],
+              "retailPrice": 1.14,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0CCGL/0061",
+              "skuName": "E8s",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:2896bacb-633d-55a7-826d-a62a720fafb7:DZH318Z0J95H:DZH318Z0J95H/00DS:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2024-12-01T00:00:00Z",
+              "meterId": "2896bacb-633d-55a7-826d-a62a720fafb7",
+              "meterName": "Backup LRS Data Stored",
+              "productId": "DZH318Z0J95H",
+              "productName": "Azure DocumentDB",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure DocumentDB'",
+                "sku_name: expected 'RUs', got 'Backup Locally Redundant Storage'",
+                "meter_name: expected 'Data Stored', got 'Backup LRS Data Stored'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '2896bacb-633d-55a7-826d-a62a720fafb7'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0J95H'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0J95H/00DS'"
+              ],
+              "retailPrice": 0.103,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0J95H/00DS",
+              "skuName": "Backup Locally Redundant Storage",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB/Month"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:28bcacb2-7ebc-4500-8d17-ead2ad53d277:DZH318Z0BX2J:DZH318Z0BX2J/000N:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-06-01T00:00:00Z",
+              "meterId": "28bcacb2-7ebc-4500-8d17-ead2ad53d277",
+              "meterName": "Cont 30D Bckp On Demand Backup",
+              "productId": "DZH318Z0BX2J",
+              "productName": "Azure Cosmos DB - PITR",
+              "reasons": [
+                "product_name: expected 'Azure Cosmos DB', got 'Azure Cosmos DB - PITR'",
+                "sku_name: expected 'RUs', got 'Backup'",
+                "meter_name: expected 'Data Stored', got 'Cont 30D Bckp On Demand Backup'",
+                "unit: expected '1 GB/Month', got '1 GB'",
+                "provider_identifiers.meter_id: expected 'aa57abaf-ec18-4387-9348-07b177eab8db', got '28bcacb2-7ebc-4500-8d17-ead2ad53d277'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BPJH', got 'DZH318Z0BX2J'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BPJH/0028', got 'DZH318Z0BX2J/000N'"
+              ],
+              "retailPrice": 0.1,
+              "serviceName": "Azure Cosmos DB",
+              "skuId": "DZH318Z0BX2J/000N",
+              "skuName": "Backup",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            }
+          ],
+          "request_scope": {
+            "provider": "azure",
+            "region": "westeurope"
+          },
+          "retail_api_filter": {
+            "evidence": {
+              "is_primary_meter_region": true
+            },
+            "meter_name": "Data Stored",
+            "price_type": "Consumption",
+            "product_name": "Azure Cosmos DB",
+            "provider_identifiers": {
+              "meter_id": "aa57abaf-ec18-4387-9348-07b177eab8db",
+              "product_id": "DZH318Z0BPJH",
+              "sku_id": "DZH318Z0BPJH/0028"
+            },
+            "service_name": "Azure Cosmos DB",
+            "sku_name": "RUs",
+            "unit": "1 GB/Month"
+          },
+          "review_required": false,
+          "review_status": "reviewed",
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": {
+            "armRegionName": "westeurope",
+            "candidate_id": "azure:aa57abaf-ec18-4387-9348-07b177eab8db:DZH318Z0BPJH:DZH318Z0BPJH/0028:Consumption:0.0",
+            "currencyCode": "USD",
+            "effectiveStartDate": "2016-04-01T00:00:00Z",
+            "meterId": "aa57abaf-ec18-4387-9348-07b177eab8db",
+            "meterName": "Data Stored",
+            "productId": "DZH318Z0BPJH",
+            "productName": "Azure Cosmos DB",
+            "retailPrice": 0.25,
+            "serviceName": "Azure Cosmos DB",
+            "skuId": "DZH318Z0BPJH/0028",
+            "skuName": "RUs",
+            "tierMinimumUnits": 0.0,
+            "unitOfMeasure": "1 GB/Month"
+          },
+          "selected_rows": [],
+          "source_api": "azure-retail-prices",
+          "source_type": "fetched",
+          "tier": {
+            "tier_minimum_units": 0.0
+          }
+        },
+        "transfer.pricing_tiers": {
+          "candidate_rows": [
+            {
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2022-05-01T00:00:00Z",
+                "is_primary_meter_region": false
+              },
+              "meter_name": "Standard Data Transfer Out",
+              "price_type": "Consumption",
+              "product_name": "Rtn Preference: MGN",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+                "product_id": "DZH318Z0BNVX",
+                "service_id": "DZH318FHKQ5W",
+                "sku_id": "DZH318Z0BNVX/003F"
+              },
+              "provider_service": "Bandwidth",
+              "raw_price": 0.0,
+              "region": "westeurope",
+              "service_name": "Bandwidth",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 0.0
+              },
+              "unit": "1 GB"
+            },
+            {
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:100.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2022-05-01T00:00:00Z",
+                "is_primary_meter_region": false
+              },
+              "meter_name": "Standard Data Transfer Out",
+              "price_type": "Consumption",
+              "product_name": "Rtn Preference: MGN",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+                "product_id": "DZH318Z0BNVX",
+                "service_id": "DZH318FHKQ5W",
+                "sku_id": "DZH318Z0BNVX/003F"
+              },
+              "provider_service": "Bandwidth",
+              "raw_price": 0.087,
+              "region": "westeurope",
+              "service_name": "Bandwidth",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 100.0
+              },
+              "unit": "1 GB"
+            },
+            {
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:10335.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2022-05-01T00:00:00Z",
+                "is_primary_meter_region": false
+              },
+              "meter_name": "Standard Data Transfer Out",
+              "price_type": "Consumption",
+              "product_name": "Rtn Preference: MGN",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+                "product_id": "DZH318Z0BNVX",
+                "service_id": "DZH318FHKQ5W",
+                "sku_id": "DZH318Z0BNVX/003F"
+              },
+              "provider_service": "Bandwidth",
+              "raw_price": 0.083,
+              "region": "westeurope",
+              "service_name": "Bandwidth",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 10335.0
+              },
+              "unit": "1 GB"
+            },
+            {
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:51295.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2022-05-01T00:00:00Z",
+                "is_primary_meter_region": false
+              },
+              "meter_name": "Standard Data Transfer Out",
+              "price_type": "Consumption",
+              "product_name": "Rtn Preference: MGN",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+                "product_id": "DZH318Z0BNVX",
+                "service_id": "DZH318FHKQ5W",
+                "sku_id": "DZH318Z0BNVX/003F"
+              },
+              "provider_service": "Bandwidth",
+              "raw_price": 0.07,
+              "region": "westeurope",
+              "service_name": "Bandwidth",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 51295.0
+              },
+              "unit": "1 GB"
+            },
+            {
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:153695.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2022-05-01T00:00:00Z",
+                "is_primary_meter_region": false
+              },
+              "meter_name": "Standard Data Transfer Out",
+              "price_type": "Consumption",
+              "product_name": "Rtn Preference: MGN",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+                "product_id": "DZH318Z0BNVX",
+                "service_id": "DZH318FHKQ5W",
+                "sku_id": "DZH318Z0BNVX/003F"
+              },
+              "provider_service": "Bandwidth",
+              "raw_price": 0.05,
+              "region": "westeurope",
+              "service_name": "Bandwidth",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 153695.0
+              },
+              "unit": "1 GB"
+            },
+            {
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:512095.0",
+              "currency": "USD",
+              "evidence": {
+                "effective_start_date": "2022-05-01T00:00:00Z",
+                "is_primary_meter_region": false
+              },
+              "meter_name": "Standard Data Transfer Out",
+              "price_type": "Consumption",
+              "product_name": "Rtn Preference: MGN",
+              "provider_identifiers": {
+                "arm_sku_name": "",
+                "meter_id": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+                "product_id": "DZH318Z0BNVX",
+                "service_id": "DZH318FHKQ5W",
+                "sku_id": "DZH318Z0BNVX/003F"
+              },
+              "provider_service": "Bandwidth",
+              "raw_price": 0.05,
+              "region": "westeurope",
+              "service_name": "Bandwidth",
+              "sku_name": "Standard",
+              "tier": {
+                "tier_minimum_units": 512095.0
+              },
+              "unit": "1 GB"
+            }
+          ],
+          "currency": "USD",
+          "errors": [],
+          "fetched_at": "2026-07-17T15:14:07.241315Z",
+          "field_path": "transfer.egress_gb",
+          "intent_id": "transfer.egress_gb",
+          "mapping_version": "2026.07.16",
+          "match_status": "matched",
+          "normalization": {
+            "description": "Normalize storage or transfer units to one GB.",
+            "multiplier": 1,
+            "source_units": [
+              "GB",
+              "GiB",
+              "1 GB",
+              "1 GiB"
+            ],
+            "target_unit": "gb"
+          },
+          "normalization_rule": "per_gb",
+          "normalized_tiers": [
+            {
+              "limit": 100.0,
+              "lower_bound": 0.0,
+              "price": 0.0,
+              "unit": "1 GB"
+            },
+            {
+              "limit": 10335.0,
+              "lower_bound": 100.0,
+              "price": 0.087,
+              "unit": "1 GB"
+            },
+            {
+              "limit": 51295.0,
+              "lower_bound": 10335.0,
+              "price": 0.083,
+              "unit": "1 GB"
+            },
+            {
+              "limit": 153695.0,
+              "lower_bound": 51295.0,
+              "price": 0.07,
+              "unit": "1 GB"
+            },
+            {
+              "limit": 512095.0,
+              "lower_bound": 153695.0,
+              "price": 0.05,
+              "unit": "1 GB"
+            },
+            {
+              "limit": "Infinity",
+              "lower_bound": 512095.0,
+              "price": 0.05,
+              "unit": "1 GB"
+            }
+          ],
+          "normalized_value": null,
+          "provider": "azure",
+          "registry_version": "2026.06.08",
+          "rejected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:1dfdf9fc-aac0-586b-ae60-f70b2429d288:DZH318Z0BNVX:DZH318Z0BNVX/003C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2017-11-01T00:00:00Z",
+              "meterId": "1dfdf9fc-aac0-586b-ae60-f70b2429d288",
+              "meterName": "China Data Transfer - 1 to 5 Mbps",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "sku_name: expected 'Standard', got 'China'",
+                "meter_name: expected 'Standard Data Transfer Out', got 'China Data Transfer - 1 to 5 Mbps'",
+                "unit: expected '1 GB', got '1 Hour'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '1dfdf9fc-aac0-586b-ae60-f70b2429d288'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0BNVX/003C'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003C",
+              "skuName": "China",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:1f85415d-e4ae-5aea-9252-48e7a7a36160:DZH318Z0BNVX:DZH318Z0BNVX/003C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2017-11-01T00:00:00Z",
+              "meterId": "1f85415d-e4ae-5aea-9252-48e7a7a36160",
+              "meterName": "China Data Transfer - 1 Mbps",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "sku_name: expected 'Standard', got 'China'",
+                "meter_name: expected 'Standard Data Transfer Out', got 'China Data Transfer - 1 Mbps'",
+                "unit: expected '1 GB', got '1 Hour'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '1f85415d-e4ae-5aea-9252-48e7a7a36160'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0BNVX/003C'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003C",
+              "skuName": "China",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:32c3ebec-1646-49e3-8127-2cafbd3a04d8:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2015-07-01T00:00:00Z",
+              "meterId": "32c3ebec-1646-49e3-8127-2cafbd3a04d8",
+              "meterName": "Standard Data Transfer In",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "meter_name: expected 'Standard Data Transfer Out', got 'Standard Data Transfer In'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '32c3ebec-1646-49e3-8127-2cafbd3a04d8'"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:4f2f3cd2-24b7-4978-844b-422434c646d9:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-01-01T00:00:00Z",
+              "meterId": "4f2f3cd2-24b7-4978-844b-422434c646d9",
+              "meterName": "Standard Inter-Availability Zone Data Transfer Out",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "meter_name: expected 'Standard Data Transfer Out', got 'Standard Inter-Availability Zone Data Transfer Out'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '4f2f3cd2-24b7-4978-844b-422434c646d9'"
+              ],
+              "retailPrice": 0.01,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:507b35f5-9039-4367-9cd2-d3c731e46064:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2021-01-01T00:00:00Z",
+              "meterId": "507b35f5-9039-4367-9cd2-d3c731e46064",
+              "meterName": "Standard Inter-Availability Zone Data Transfer In",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "meter_name: expected 'Standard Data Transfer Out', got 'Standard Inter-Availability Zone Data Transfer In'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '507b35f5-9039-4367-9cd2-d3c731e46064'"
+              ],
+              "retailPrice": 0.01,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:65a6a769-f372-5b1e-b24e-6fbb2f6970d8:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2016-07-07T00:00:00Z",
+              "meterId": "65a6a769-f372-5b1e-b24e-6fbb2f6970d8",
+              "meterName": "Standard Data Transfer Out - to China",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "meter_name: expected 'Standard Data Transfer Out', got 'Standard Data Transfer Out - to China'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '65a6a769-f372-5b1e-b24e-6fbb2f6970d8'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:6b60f208-4c04-5b9f-93a6-c062acce0e19:DZH318Z0BNVX:DZH318Z0BNVX/003C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2017-11-01T00:00:00Z",
+              "meterId": "6b60f208-4c04-5b9f-93a6-c062acce0e19",
+              "meterName": "China Data Transfer - 4 Mbps",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "sku_name: expected 'Standard', got 'China'",
+                "meter_name: expected 'Standard Data Transfer Out', got 'China Data Transfer - 4 Mbps'",
+                "unit: expected '1 GB', got '1 Hour'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '6b60f208-4c04-5b9f-93a6-c062acce0e19'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0BNVX/003C'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003C",
+              "skuName": "China",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:6bd64e8e-5cb9-49d3-893d-800c9b28dca3:DZH318Z0C8ZQ:DZH318Z0C8ZQ/0012:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-03-01T00:00:00Z",
+              "meterId": "6bd64e8e-5cb9-49d3-893d-800c9b28dca3",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0C8ZQ",
+              "productName": "Bandwidth - Routing Preference: Internet",
+              "reasons": [
+                "product_name: expected 'Rtn Preference: MGN', got 'Bandwidth - Routing Preference: Internet'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '6bd64e8e-5cb9-49d3-893d-800c9b28dca3'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNVX', got 'DZH318Z0C8ZQ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0C8ZQ/0012'"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0C8ZQ/0012",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:6bd64e8e-5cb9-49d3-893d-800c9b28dca3:DZH318Z0C8ZQ:DZH318Z0C8ZQ/0012:Consumption:100.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-03-01T00:00:00Z",
+              "meterId": "6bd64e8e-5cb9-49d3-893d-800c9b28dca3",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0C8ZQ",
+              "productName": "Bandwidth - Routing Preference: Internet",
+              "reasons": [
+                "product_name: expected 'Rtn Preference: MGN', got 'Bandwidth - Routing Preference: Internet'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '6bd64e8e-5cb9-49d3-893d-800c9b28dca3'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNVX', got 'DZH318Z0C8ZQ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0C8ZQ/0012'"
+              ],
+              "retailPrice": 0.08,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0C8ZQ/0012",
+              "skuName": "Standard",
+              "tierMinimumUnits": 100.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:6bd64e8e-5cb9-49d3-893d-800c9b28dca3:DZH318Z0C8ZQ:DZH318Z0C8ZQ/0012:Consumption:10100.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-03-01T00:00:00Z",
+              "meterId": "6bd64e8e-5cb9-49d3-893d-800c9b28dca3",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0C8ZQ",
+              "productName": "Bandwidth - Routing Preference: Internet",
+              "reasons": [
+                "product_name: expected 'Rtn Preference: MGN', got 'Bandwidth - Routing Preference: Internet'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '6bd64e8e-5cb9-49d3-893d-800c9b28dca3'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNVX', got 'DZH318Z0C8ZQ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0C8ZQ/0012'"
+              ],
+              "retailPrice": 0.065,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0C8ZQ/0012",
+              "skuName": "Standard",
+              "tierMinimumUnits": 10100.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:6bd64e8e-5cb9-49d3-893d-800c9b28dca3:DZH318Z0C8ZQ:DZH318Z0C8ZQ/0012:Consumption:150100.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-03-01T00:00:00Z",
+              "meterId": "6bd64e8e-5cb9-49d3-893d-800c9b28dca3",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0C8ZQ",
+              "productName": "Bandwidth - Routing Preference: Internet",
+              "reasons": [
+                "product_name: expected 'Rtn Preference: MGN', got 'Bandwidth - Routing Preference: Internet'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '6bd64e8e-5cb9-49d3-893d-800c9b28dca3'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNVX', got 'DZH318Z0C8ZQ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0C8ZQ/0012'"
+              ],
+              "retailPrice": 0.04,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0C8ZQ/0012",
+              "skuName": "Standard",
+              "tierMinimumUnits": 150100.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:6bd64e8e-5cb9-49d3-893d-800c9b28dca3:DZH318Z0C8ZQ:DZH318Z0C8ZQ/0012:Consumption:50100.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-03-01T00:00:00Z",
+              "meterId": "6bd64e8e-5cb9-49d3-893d-800c9b28dca3",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0C8ZQ",
+              "productName": "Bandwidth - Routing Preference: Internet",
+              "reasons": [
+                "product_name: expected 'Rtn Preference: MGN', got 'Bandwidth - Routing Preference: Internet'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '6bd64e8e-5cb9-49d3-893d-800c9b28dca3'",
+                "provider_identifiers.product_id: expected 'DZH318Z0BNVX', got 'DZH318Z0C8ZQ'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0C8ZQ/0012'"
+              ],
+              "retailPrice": 0.06,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0C8ZQ/0012",
+              "skuName": "Standard",
+              "tierMinimumUnits": 50100.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:898e4425-cad3-52e8-91a0-0af94d16c527:DZH318Z0BNVX:DZH318Z0BNVX/003C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2017-11-01T00:00:00Z",
+              "meterId": "898e4425-cad3-52e8-91a0-0af94d16c527",
+              "meterName": "China Data Transfer - 6 to 200 Mbps",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "sku_name: expected 'Standard', got 'China'",
+                "meter_name: expected 'Standard Data Transfer Out', got 'China Data Transfer - 6 to 200 Mbps'",
+                "unit: expected '1 GB', got '1 Hour'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '898e4425-cad3-52e8-91a0-0af94d16c527'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0BNVX/003C'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003C",
+              "skuName": "China",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:91ad8957-870f-5d8f-9e87-d04eab8d7afd:DZH318Z0BNVX:DZH318Z0BNVX/003C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2017-11-01T00:00:00Z",
+              "meterId": "91ad8957-870f-5d8f-9e87-d04eab8d7afd",
+              "meterName": "China Data Transfer - 5 Mbps",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "sku_name: expected 'Standard', got 'China'",
+                "meter_name: expected 'Standard Data Transfer Out', got 'China Data Transfer - 5 Mbps'",
+                "unit: expected '1 GB', got '1 Hour'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got '91ad8957-870f-5d8f-9e87-d04eab8d7afd'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0BNVX/003C'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003C",
+              "skuName": "China",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:bdf8824b-e7e0-5599-be5e-43238a0319a2:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2016-07-07T00:00:00Z",
+              "meterId": "bdf8824b-e7e0-5599-be5e-43238a0319a2",
+              "meterName": "Standard Data Transfer In - from China",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "meter_name: expected 'Standard Data Transfer Out', got 'Standard Data Transfer In - from China'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got 'bdf8824b-e7e0-5599-be5e-43238a0319a2'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.09,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:c8f9673a-b853-5178-8a5c-cbb67feb49e8:DZH318Z0BNVX:DZH318Z0BNVX/003C:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2017-11-01T00:00:00Z",
+              "meterId": "c8f9673a-b853-5178-8a5c-cbb67feb49e8",
+              "meterName": "China Data Transfer - 2 Mbps",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "sku_name: expected 'Standard', got 'China'",
+                "meter_name: expected 'Standard Data Transfer Out', got 'China Data Transfer - 2 Mbps'",
+                "unit: expected '1 GB', got '1 Hour'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got 'c8f9673a-b853-5178-8a5c-cbb67feb49e8'",
+                "provider_identifiers.sku_id: expected 'DZH318Z0BNVX/003F', got 'DZH318Z0BNVX/003C'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003C",
+              "skuName": "China",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 Hour"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:fbf3fda7-3c77-5760-888c-abd984ffd63e:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2018-02-01T00:00:00Z",
+              "meterId": "fbf3fda7-3c77-5760-888c-abd984ffd63e",
+              "meterName": "Standard Inter-Region Data Transfer",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "reasons": [
+                "meter_name: expected 'Standard Data Transfer Out', got 'Standard Inter-Region Data Transfer'",
+                "provider_identifiers.meter_id: expected '9995d93a-7d35-4d3f-9c69-7a7fea447ef4', got 'fbf3fda7-3c77-5760-888c-abd984ffd63e'",
+                "evidence.is_primary_meter_region: expected False, got True"
+              ],
+              "retailPrice": 0.02,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            }
+          ],
+          "request_scope": {
+            "provider": "azure",
+            "region": "westeurope"
+          },
+          "retail_api_filter": {
+            "evidence": {
+              "is_primary_meter_region": false
+            },
+            "meter_name": "Standard Data Transfer Out",
+            "price_type": "Consumption",
+            "product_name": "Rtn Preference: MGN",
+            "provider_identifiers": {
+              "meter_id": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+              "product_id": "DZH318Z0BNVX",
+              "sku_id": "DZH318Z0BNVX/003F"
+            },
+            "service_name": "Bandwidth",
+            "sku_name": "Standard",
+            "unit": "1 GB"
+          },
+          "review_required": false,
+          "review_status": "reviewed",
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": null,
+          "selected_rows": [
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:0.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-05-01T00:00:00Z",
+              "meterId": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "retailPrice": 0.0,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 0.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:100.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-05-01T00:00:00Z",
+              "meterId": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "retailPrice": 0.087,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 100.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:10335.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-05-01T00:00:00Z",
+              "meterId": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "retailPrice": 0.083,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 10335.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:51295.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-05-01T00:00:00Z",
+              "meterId": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "retailPrice": 0.07,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 51295.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:153695.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-05-01T00:00:00Z",
+              "meterId": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "retailPrice": 0.05,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 153695.0,
+              "unitOfMeasure": "1 GB"
+            },
+            {
+              "armRegionName": "westeurope",
+              "candidate_id": "azure:9995d93a-7d35-4d3f-9c69-7a7fea447ef4:DZH318Z0BNVX:DZH318Z0BNVX/003F:Consumption:512095.0",
+              "currencyCode": "USD",
+              "effectiveStartDate": "2022-05-01T00:00:00Z",
+              "meterId": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+              "meterName": "Standard Data Transfer Out",
+              "productId": "DZH318Z0BNVX",
+              "productName": "Rtn Preference: MGN",
+              "retailPrice": 0.05,
+              "serviceName": "Bandwidth",
+              "skuId": "DZH318Z0BNVX/003F",
+              "skuName": "Standard",
+              "tierMinimumUnits": 512095.0,
+              "unitOfMeasure": "1 GB"
+            }
+          ],
+          "source_api": "azure-retail-prices",
+          "source_type": "fetched",
+          "tier": null
+        }
+      },
+      "provider": "azure",
+      "schema_version": "pricing-generated-evidence.v1"
+    },
+    "__quality__": {
+      "fallback_fields": [],
+      "field_sources": {
+        "apiManagement.pricePerMillionCalls": "fetched",
+        "azureDigitalTwins.pricePerMessage": "fetched",
+        "azureDigitalTwins.pricePerOperation": "fetched",
+        "azureDigitalTwins.pricePerQueryUnit": "fetched",
+        "azureManagedGrafana.hourlyPrice": "fetched",
+        "azureManagedGrafana.userPrice": "fetched",
+        "blobStorageArchive.dataRetrievalPrice": "fetched",
+        "blobStorageArchive.storagePrice": "fetched",
+        "blobStorageArchive.writePrice": "fetched",
+        "blobStorageCool.dataRetrievalPrice": "fetched",
+        "blobStorageCool.readPrice": "fetched",
+        "blobStorageCool.storagePrice": "fetched",
+        "blobStorageCool.transferCostFromCosmosDB": "derived",
+        "blobStorageCool.upfrontPrice": "curated",
+        "blobStorageCool.writePrice": "fetched",
+        "cosmosDB.RUsPerRead": "curated",
+        "cosmosDB.RUsPerWrite": "curated",
+        "cosmosDB.minimumRequestUnits": "curated",
+        "cosmosDB.requestPrice": "fetched",
+        "cosmosDB.storagePrice": "fetched",
+        "eventGrid.pricePerMillionEvents": "fetched",
+        "functions.durationPrice": "fetched",
+        "functions.freeComputeTime": "curated",
+        "functions.freeRequests": "curated",
+        "functions.requestPrice": "fetched",
+        "iotHub.pricing_tiers": "fetched",
+        "logicApps.pricePer1kStateTransitions": "fetched",
+        "logicApps.pricePerStateTransition": "derived",
+        "transfer.pricing_tiers": "fetched"
+      },
+      "quality_status": "publishable",
+      "review_required": false,
+      "unsupported_fields": []
+    },
+    "__schema__": {
+      "baseline_provenance": "provider_observation_migration",
+      "contract_version": "2026.07.17",
+      "generated_at": "2026-07-17T15:14:07.740875+00:00",
+      "pricing_region": "westeurope",
+      "provider": "azure",
+      "schema_version": "pricing-provider-schema.v1",
+      "snapshot_digest": "sha256:a03215496040154cded3a9dd689ca897f8ad4460bca87edc7ab156d7ba366e43"
+    },
+    "apiManagement": {
+      "pricePerMillionCalls": 3.5000000000000004
+    },
+    "azureDigitalTwins": {
+      "pricePerMessage": 1.3e-06,
+      "pricePerOperation": 3.25e-06,
+      "pricePerQueryUnit": 6.5e-07
+    },
+    "azureManagedGrafana": {
+      "hourlyPrice": 0.0445,
+      "userPrice": 6.0
+    },
+    "blobStorageArchive": {
+      "dataRetrievalPrice": 0.024,
+      "storagePrice": 0.0018,
+      "writePrice": 1.3e-05
+    },
+    "blobStorageCool": {
+      "dataRetrievalPrice": 0.01,
+      "readPrice": 1e-05,
+      "storagePrice": 0.01,
+      "transferCostFromCosmosDB": 0.087,
+      "upfrontPrice": 0.0001,
+      "writePrice": 1e-05
+    },
+    "cosmosDB": {
+      "RUsPerRead": 1,
+      "RUsPerWrite": 10,
+      "minimumRequestUnits": 400,
+      "requestPrice": 0.0584,
+      "storagePrice": 0.25
+    },
+    "eventGrid": {
+      "pricePerMillionEvents": 0.6
+    },
+    "functions": {
+      "durationPrice": 1.6e-05,
+      "freeComputeTime": 400000,
+      "freeRequests": 1000000,
+      "requestPrice": 2e-07
+    },
+    "iotHub": {
+      "pricing_tiers": {
+        "freeTier": {
+          "limit": 240000,
+          "price": 0,
+          "threshold": 0
+        },
+        "tier1": {
+          "limit": 120000000,
+          "price": 25.0,
+          "threshold": 12000000
+        },
+        "tier2": {
+          "limit": 1800000000,
+          "price": 250.0,
+          "threshold": 180000000
+        },
+        "tier3": {
+          "limit": "Infinity",
+          "price": 2500.0,
+          "threshold": 9000000000
+        }
+      }
+    },
+    "logicApps": {
+      "pricePer1kStateTransitions": 0.125,
+      "pricePerStateTransition": 0.000125
+    },
+    "transfer": {
+      "egressPrice": 0.087,
+      "pricing_tiers": {
+        "freeTier": {
+          "limit": 100.0,
+          "price": 0.0
+        },
+        "tier1": {
+          "limit": 10335.0,
+          "price": 0.087
+        },
+        "tier2": {
+          "limit": 51295.0,
+          "price": 0.083
+        },
+        "tier3": {
+          "limit": 153695.0,
+          "price": 0.07
+        },
+        "tier4": {
+          "limit": 512095.0,
+          "price": 0.05
+        },
+        "tier5": {
+          "limit": "Infinity",
+          "price": 0.05
+        }
+      }
+    }
+  },
+  "reference": {
+    "calculation_source": "reviewed_baseline",
+    "content_digest": "sha256:a03215496040154cded3a9dd689ca897f8ad4460bca87edc7ab156d7ba366e43",
+    "contract_version": "2026.07.17",
+    "fetched_at": "2026-07-17T15:14:07.740875Z",
+    "mapping_versions": [
+      "2026.06.08",
+      "2026.07.16",
+      "2026.07.17"
+    ],
+    "pricing_region": "westeurope",
+    "provider": "azure",
+    "provider_schema_version": "pricing-provider-schema.v1",
+    "publication_status": "published",
+    "registry_version": "2026.07.17",
+    "review_status": "reviewed",
+    "schema_version": "pricing-catalog-reference.v1",
+    "snapshot_id": "pcs_b3d568a4648f644ed61d13483e79e74c3d7573f99833eca8020d711615832ad5",
+    "source": "reviewed_baseline"
+  },
+  "schema_version": "pricing-catalog-snapshot.v2"
+}

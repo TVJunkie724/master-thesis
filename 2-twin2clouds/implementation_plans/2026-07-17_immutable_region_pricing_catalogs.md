@@ -356,19 +356,23 @@ Migration is deterministic and committed:
 
 1. convert the current evidence-backed AWS Frankfurt and Azure West Europe
    payloads into v2 baseline seed envelopes;
-2. regenerate the GCP Europe West 1 baseline through the bounded read-only
-   Billing Catalog path because the old file has no trustworthy fetch metadata;
-   if that cannot be completed, GCP remains explicitly unavailable rather than
-   receiving a fabricated timestamp;
-3. add missing provider-region metadata and content digests consistently;
-4. mark the repository-approved starting snapshots as
+2. attempt to regenerate the GCP Europe West 1 baseline through the bounded
+   read-only Billing Catalog path because the old file has no trustworthy fetch
+   metadata;
+3. if Google rejects every retained credential, preserve the legacy GCP
+   calculation payload only as an explicit curated emergency baseline: use the
+   human review timestamp rather than claiming an API fetch, retain
+   `fallback_static` quality state, add `curated_legacy_review` provenance, and
+   document that provider fetcher/mapping hardening must replace it;
+4. add missing provider-region metadata and content digests consistently;
+5. mark the repository-approved starting snapshots as
    `reviewed_baseline`, including explicit quality/evidence state;
-5. pin all three references in the committed `baseline.json`;
-6. initialize matching provider-region pointers only when a runtime volume is
+6. pin all three references in the committed `baseline.json`;
+7. initialize matching provider-region pointers only when a runtime volume is
    empty;
-7. verify every migrated payload produces the same cost outputs for the
+8. verify every migrated payload produces the same cost outputs for the
    committed Europe regression scenarios;
-8. delete the provider-wide production files and constants.
+9. delete the provider-wide production files and constants.
 
 Migration never derives `fetched_at` from filesystem mtime, Git commit time, or
 the migration clock for an older payload. Those timestamps do not prove a
@@ -380,6 +384,11 @@ Static or curated price sources are not hidden. A reviewed baseline may remain
 calculable while its quality metadata lists static sources. A newly fetched
 candidate with unresolved fields remains review-required and cannot silently
 replace that baseline.
+
+The 2026-07-17 GCP preflight result is `401 UNAUTHENTICATED` for every retained
+service-account file. The implementation therefore uses the explicit curated
+emergency-baseline branch above. It does not relabel the payload as fresh
+Billing Catalog evidence and does not close provider fetcher/mapping hardening.
 
 ## Optimizer Domain Boundary
 
@@ -940,6 +949,18 @@ Thesis evaluation conclusions remain outside the general developer/user docs.
 ## Mandatory Implementation Sequence
 
 Each step is implemented, tested, reviewed, and committed before the next one.
+
+### Implementation Status
+
+| Slice | Status | Local evidence |
+|---|---|---|
+| 1. Catalog Domain And Migration | Complete | 49 focused domain, migration, legacy-parity, schema, cache, restart, Ruff, Bandit, compile, dependency, Compose, readiness, and secret-scan checks passed |
+| 2. Refresh, Publication, And Optimizer API | In progress | Implementation follows after the Slice 1 commit |
+| 3. Management Ownership And Persistence | Planned | Blocked by Slice 2 contracts |
+| 4. Flutter Read Model And UX | Planned | Blocked by Slice 3 contracts |
+| 5. Documentation And Generated Contracts | Planned | Runs after all code boundaries |
+| 6. Review Pass 1 | Planned | Runs after Slice 5 |
+| 7. Review Pass 2 And Full Gates | Planned | Final local and platform gate |
 
 ### Slice 1: Catalog Domain And Migration
 
