@@ -5,6 +5,7 @@ import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../pricing/pricing_catalog_evidence.dart';
 import 'pricing_field_trace_details.dart';
+import 'transfer_route_evidence.dart';
 
 class CalculationTraceSummary extends StatelessWidget {
   final CalcResult result;
@@ -86,6 +87,12 @@ class CalculationTraceSummary extends StatelessWidget {
                       label: '${result.fieldTraceRecords.length} field records',
                       icon: Icons.account_tree_outlined,
                     ),
+                  if (result.transferPricingContext != null)
+                    _TraceChip(
+                      label:
+                          '${result.transferPricingContext!.routes.length} exact routes',
+                      icon: Icons.alt_route_outlined,
+                    ),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -121,6 +128,22 @@ class CalculationTraceSummary extends StatelessWidget {
                 ),
               ],
             ),
+            if (result.transferPricingContext != null &&
+                result.optimizationDiagnostics != null)
+              TransferRouteEvidencePanel(
+                context: result.transferPricingContext!,
+                diagnostics: result.optimizationDiagnostics!,
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: Text(
+                  'Exact transfer route evidence is unavailable for this historical result.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

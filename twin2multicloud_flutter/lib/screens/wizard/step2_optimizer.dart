@@ -33,9 +33,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     super.initState();
 
     final state = context.read<WizardBloc>().state;
-    if (!_isWorkloadTask(widget.taskId)) {
-      context.read<WizardBloc>().add(const WizardPricingHealthLoadRequested());
-    }
+    _loadPricingHealthIfNeeded();
     // Auto-scroll to results if they're already present (edit mode resume)
     if (state.calcResult != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -50,6 +48,26 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         });
       });
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant Step2Optimizer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.taskId != widget.taskId) {
+      _loadPricingHealthIfNeeded();
+    }
+  }
+
+  void _loadPricingHealthIfNeeded() {
+    if (_isWorkloadTask(widget.taskId)) return;
+    final bloc = context.read<WizardBloc>();
+    final state = bloc.state;
+    if (state.pricingHealth != null ||
+        state.isPricingHealthLoading ||
+        state.pricingHealthError != null) {
+      return;
+    }
+    bloc.add(const WizardPricingHealthLoadRequested());
   }
 
   void _onCalcParamsChanged(CalcParams params) {

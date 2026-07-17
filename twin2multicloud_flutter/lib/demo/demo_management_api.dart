@@ -692,6 +692,7 @@ class DemoManagementApi implements ManagementApi {
       'integrateErrorHandling': paramsJson['integrateErrorHandling'] == true,
       'needs3DModel': paramsJson['needs3DModel'] == true,
     };
+    result.addAll(_defaultTransferEvidence(result, params.currency));
     final optimization = OptimizationResultData.fromApiJson({'result': result});
     final now = store.clock().toUtc();
     final cheapestPath = CheapestPath.fromSegments(
@@ -1702,6 +1703,240 @@ class DemoManagementApi implements ManagementApi {
       'pricingCatalogs': _demoPricingCatalogContext(store.clock()),
       'transferCosts': {'L1_to_L2': 0.0, 'L2_to_L3': 0.0},
       'inputParamsUsed': {'needs3DModel': params['needs3DModel'] == true},
+    };
+  }
+
+  Map<String, dynamic> _defaultTransferEvidence(
+    Map<String, dynamic> result,
+    String currency,
+  ) {
+    final path = List<String>.from(result['cheapestPath'] as List);
+    String providerFor(String prefix) {
+      final segment = path.firstWhere((item) => item.startsWith(prefix));
+      final provider = segment.split('_').last.toLowerCase();
+      if (!const {'aws', 'azure', 'gcp'}.contains(provider)) {
+        throw const DemoApiException(
+          'DEMO_OPTIMIZER_PATH_INVALID',
+          'The demo optimizer path contains an unsupported provider.',
+        );
+      }
+      return provider;
+    }
+
+    final selected = <String, String>{
+      'L1': providerFor('L1_'),
+      'L2': providerFor('L2_'),
+      'L3_hot': providerFor('L3_hot_'),
+      'L3_cool': providerFor('L3_cool_'),
+      'L3_archive': providerFor('L3_archive_'),
+      'L4': providerFor('L4_'),
+      'L5': providerFor('L5_'),
+    };
+    const labels = {'aws': 'AWS', 'azure': 'Azure', 'gcp': 'GCP'};
+    result
+      ..['currency'] = currency
+      ..['calculationResult'] = {
+        'L1': labels[selected['L1']],
+        'L2': labels[selected['L2']],
+        'L3': {
+          'Hot': labels[selected['L3_hot']],
+          'Cool': labels[selected['L3_cool']],
+          'Archive': labels[selected['L3_archive']],
+        },
+        'L4': labels[selected['L4']],
+        'L5': labels[selected['L5']],
+      };
+
+    final catalogs =
+        (result['pricingCatalogs'] as Map)['catalogs'] as Map<dynamic, dynamic>;
+    final policies = <String, Map<String, dynamic>>{
+      'aws': {
+        'networkTier': 'provider_default',
+        'billingScope': 'account_aggregate_public_egress',
+        'billingUnit': 'gb',
+        'bytesPerBillingUnit': 1000000000,
+        'paidUnitPrice': 0.09,
+      },
+      'azure': {
+        'networkTier': 'microsoft_premium_global_network',
+        'billingScope': 'account_aggregate_public_egress',
+        'billingUnit': 'gb',
+        'bytesPerBillingUnit': 1000000000,
+        'paidUnitPrice': 0.087,
+      },
+      'gcp': {
+        'networkTier': 'premium',
+        'billingScope': 'sku_account_aggregate_public_egress',
+        'billingUnit': 'gib',
+        'bytesPerBillingUnit': 1073741824,
+        'paidUnitPrice': 0.12,
+      },
+    };
+    final edges = <(String, String, String, String, String)>[
+      ('L1_to_L2', 'L1', 'L2', 'L1_INGESTION', 'L2_PROCESSING'),
+      ('L2_to_L3_hot', 'L2', 'L3_hot', 'L2_PROCESSING', 'L3_HOT_STORAGE'),
+      (
+        'L3_hot_to_L3_cool',
+        'L3_hot',
+        'L3_cool',
+        'L3_HOT_STORAGE',
+        'L3_COOL_STORAGE',
+      ),
+      (
+        'L3_cool_to_L3_archive',
+        'L3_cool',
+        'L3_archive',
+        'L3_COOL_STORAGE',
+        'L3_ARCHIVE_STORAGE',
+      ),
+      ('L3_hot_to_L4', 'L3_hot', 'L4', 'L3_HOT_STORAGE', 'L4_TWIN_MANAGEMENT'),
+      ('L4_to_L5', 'L4', 'L5', 'L4_TWIN_MANAGEMENT', 'L5_VISUALIZATION'),
+    ];
+    final routes = <Map<String, dynamic>>[];
+    final routesByProvider = <String, List<Map<String, dynamic>>>{};
+    for (final edge in edges) {
+      final sourceProvider = selected[edge.$2]!;
+      final destinationProvider = selected[edge.$3]!;
+      final sameProvider = sourceProvider == destinationProvider;
+      final policy = policies[sourceProvider]!;
+      final sourceCatalog = catalogs[sourceProvider] as Map;
+      final destinationCatalog = catalogs[destinationProvider] as Map;
+      final billingQuantity = sameProvider ? 1 : 2;
+      final paidUnitPrice = (policy['paidUnitPrice'] as num).toDouble();
+      final egressCost = sameProvider ? 0.0 : paidUnitPrice;
+      final route = <String, dynamic>{
+        'segmentId': edge.$1,
+        'source': {
+          'layer': edge.$4,
+          'provider': sourceProvider,
+          'region': sourceCatalog['pricingRegion'],
+          'geography': 'europe',
+        },
+        'destination': {
+          'layer': edge.$5,
+          'provider': destinationProvider,
+          'region': destinationCatalog['pricingRegion'],
+          'geography': 'europe',
+        },
+        'routeClass': sameProvider
+            ? 'same_provider_same_region'
+            : 'cross_provider_public_internet',
+        'networkTier': sameProvider ? 'not_applicable' : policy['networkTier'],
+        'volumeBytes': (policy['bytesPerBillingUnit'] as int) * billingQuantity,
+        'poolId': sameProvider ? null : 'pool:$sourceProvider:demo',
+        'catalogSnapshotId': sameProvider ? null : sourceCatalog['snapshotId'],
+        'evidenceId': sameProvider ? null : 'transfer.$sourceProvider.demo.v1',
+        'tierContributions': sameProvider
+            ? <Map<String, dynamic>>[]
+            : [
+                {
+                  'tierId': 'demo_free_${edge.$1}',
+                  'fromQuantity': 0,
+                  'toQuantity': 1,
+                  'billableQuantity': 1,
+                  'unitPrice': 0,
+                  'cost': 0,
+                },
+                {
+                  'tierId': 'demo_paid_${edge.$1}',
+                  'fromQuantity': 1,
+                  'toQuantity': 2,
+                  'billableQuantity': 1,
+                  'unitPrice': paidUnitPrice,
+                  'cost': paidUnitPrice,
+                },
+              ],
+        'egressCost': egressCost,
+        'glueCost': 0,
+        'totalCost': egressCost,
+        'assumptions': [
+          'offline_demo_route=${edge.$1}',
+          if (!sameProvider) 'offline_demo_first_unit_free',
+        ],
+      };
+      routes.add(route);
+      if (!sameProvider) {
+        routesByProvider.putIfAbsent(sourceProvider, () => []).add(route);
+      }
+    }
+    final pools = [
+      for (final entry in routesByProvider.entries)
+        {
+          'poolId': 'pool:${entry.key}:demo',
+          'provider': entry.key,
+          'routeClass': 'cross_provider_public_internet',
+          'sourceGeography': 'europe',
+          'destinationGeography': 'europe',
+          'networkTier': policies[entry.key]!['networkTier'],
+          'billingScope': policies[entry.key]!['billingScope'],
+          'billingUnit': policies[entry.key]!['billingUnit'],
+          'bytesPerBillingUnit': policies[entry.key]!['bytesPerBillingUnit'],
+          'catalogSnapshotId': (catalogs[entry.key] as Map)['snapshotId'],
+          'evidenceId': 'transfer.${entry.key}.demo.v1',
+          'aggregateVolumeBytes': entry.value.fold<int>(
+            0,
+            (sum, route) => sum + route['volumeBytes'] as int,
+          ),
+          'aggregateEgressCost': entry.value.fold<double>(
+            0,
+            (sum, route) => sum + (route['egressCost'] as num).toDouble(),
+          ),
+        },
+    ];
+    final chargedRoutes = routes
+        .where(
+          (route) => route['routeClass'] == 'cross_provider_public_internet',
+        )
+        .toList(growable: false);
+    final winningTransferCost = chargedRoutes.fold<double>(
+      0,
+      (sum, route) => sum + (route['totalCost'] as num).toDouble(),
+    );
+    final previousDiagnostics = result['optimizationDiagnostics'];
+    final winningLayerCost =
+        previousDiagnostics is Map &&
+            previousDiagnostics['winningLayerCost'] is num
+        ? (previousDiagnostics['winningLayerCost'] as num).toDouble()
+        : (result['totalCost'] as num).toDouble();
+    final winningScore = winningLayerCost + winningTransferCost;
+    result['totalCost'] = winningScore;
+    return {
+      'transferCosts': {
+        for (final route in chargedRoutes)
+          route['segmentId'].toString(): route['totalCost'],
+      },
+      'transferPricingContext': {
+        'schemaVersion': 'complete-path-transfer-pricing.v1',
+        'currency': currency,
+        'assumptions': ['offline_demo_europe_baseline'],
+        'routes': routes,
+        'pools': pools,
+      },
+      'optimizationDiagnostics': {
+        'schemaVersion': 'complete-path-optimization.v1',
+        'enumeratedPathCount': 972,
+        'evaluatedPathCount': 972,
+        'rejectedPathCount': 0,
+        'rejectedByErrorCode': <String, int>{},
+        'winningCandidateId': [
+          for (final layer in const [
+            'L1',
+            'L2',
+            'L3_hot',
+            'L3_cool',
+            'L3_archive',
+            'L4',
+            'L5',
+          ])
+            selected[layer],
+        ].join('|'),
+        'winningScore': winningScore,
+        'winningLayerCost': winningLayerCost,
+        'winningTransferCost': winningTransferCost,
+        'tieBreakPolicy': 'canonical_provider_order',
+        'canonicalProviderOrder': ['aws', 'azure', 'gcp'],
+        'scoreUnit': '$currency/month',
+      },
     };
   }
 

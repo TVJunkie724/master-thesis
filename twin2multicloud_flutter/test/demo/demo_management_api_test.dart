@@ -233,11 +233,29 @@ void main() {
         final calculation = run.optimization;
         expect(run.twinId, 'demo-draft');
         expect(run.id, startsWith('demo-optimizer-run'));
-        expect(calculation.result.totalCost, 84.42);
+        expect(calculation.result.totalCost, closeTo(84.717, 0.000001));
         expect(calculation.result.pricingCatalogContext, isNotNull);
         expect(
           calculation.result.pricingCatalogContext!.catalogs,
           hasLength(3),
+        );
+        expect(calculation.result.transferPricingContext?.routes, hasLength(6));
+        expect(
+          calculation.result.transferPricingContext?.routes
+              .where((route) => route.isCrossProvider)
+              .every(
+                (route) =>
+                    route.totalCost > 0 && route.tierContributions.length == 2,
+              ),
+          isTrue,
+        );
+        expect(
+          calculation.result.optimizationDiagnostics?.winningTransferCost,
+          closeTo(0.297, 0.000001),
+        );
+        expect(
+          calculation.result.optimizationDiagnostics?.evaluatedPathCount,
+          972,
         );
         final persisted = await api.getOptimizerConfig('demo-draft');
         expect(persisted?.optimization?.payload, isNotEmpty);

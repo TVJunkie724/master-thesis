@@ -69,6 +69,17 @@ void main() {
       );
     });
 
+    test('rejects a new durable run without exact transfer evidence', () async {
+      final response = _optimizerRunJson('twin-1')
+        ..['result_summary'] = TestFixtures.calcResultJson['result'];
+      final api = ApiService(dio: _dio((_) => _json(response)));
+
+      await expectLater(
+        api.createOptimizerRun('twin-1', TestFixtures.defaultCalcParams),
+        throwsFormatException,
+      );
+    });
+
     test('rejects an optimizer run from a different request context', () async {
       final response = _optimizerRunJson('other-twin');
       final api = ApiService(dio: _dio((_) => _json(response)));
@@ -139,7 +150,7 @@ Map<String, dynamic> _optimizerRunJson(String twinId) => {
   'id': 'run-1',
   'twin_id': twinId,
   'status': 'succeeded',
-  'result_summary': TestFixtures.calcResultJson['result'],
+  'result_summary': TestFixtures.calcResultWithTransferEvidenceJson['result'],
   'total_monthly_cost': 55.67,
   'currency': 'USD',
   'created_at': '2026-07-18T10:00:00Z',

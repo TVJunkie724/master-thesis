@@ -34,6 +34,12 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(
+        find.text(
+          'Exact transfer route evidence is unavailable for this historical result.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('renders publishable trace summary and details', (
@@ -158,6 +164,63 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Evidence'), findsOneWidget);
     });
+
+    testWidgets('discloses exact routes and billing pools progressively', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildWidget(_resultWithTransferEvidence()));
+
+      expect(find.text('6 exact routes'), findsOneWidget);
+      expect(find.text('Transfer route evidence'), findsOneWidget);
+      expect(find.text('Evaluated paths'), findsNothing);
+      expect(find.text('L1 → L2'), findsNothing);
+
+      await tester.tap(find.text('Transfer route evidence'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Evaluated paths'), findsOneWidget);
+      expect(find.textContaining('L1 → L2'), findsOneWidget);
+      expect(find.textContaining('Same provider and region'), findsNWidgets(4));
+      expect(find.text('Exact volume'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('transfer-route-L1_to_L2')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Exact volume'), findsOneWidget);
+      expect(find.textContaining('Billing pool:'), findsOneWidget);
+      expect(find.textContaining('Catalog snapshot:'), findsOneWidget);
+
+      final pools = find.textContaining('Shared billing pools');
+      await tester.ensureVisible(pools);
+      await tester.tap(pools);
+      await tester.pumpAndSettle();
+      expect(find.text('Aggregate volume'), findsNWidgets(2));
+    });
+
+    testWidgets('keeps exact transfer evidence usable on compact desktop', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(420, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        buildWidget(_resultWithTransferEvidence(), themeMode: ThemeMode.dark),
+      );
+
+      await tester.tap(find.text('Transfer route evidence'));
+      await tester.pumpAndSettle();
+      final route = find.byKey(const Key('transfer-route-L3_hot_to_L4'));
+      await tester.ensureVisible(route);
+      await tester.tap(route);
+      await tester.pumpAndSettle();
+      final tiers = find.byKey(const Key('transfer-tiers-L3_hot_to_L4'));
+      await tester.ensureVisible(tiers);
+      await tester.tap(tiers);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Tier'), findsOneWidget);
+      expect(find.text('Contribution'), findsOneWidget);
+    });
   });
 }
 
@@ -210,6 +273,9 @@ CalcResult _resultWithTrace({
     inputParamsUsed: const InputParamsUsed(),
   );
 }
+
+CalcResult _resultWithTransferEvidence() =>
+    CalcResult.fromJson(TestFixtures.calcResultWithTransferEvidenceJson);
 
 const _selectedFieldRecord = PricingFieldTraceRecord(
   traceId: 'aws.iot.message_ingest.L1.v1',

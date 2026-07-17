@@ -68,6 +68,12 @@ class OptimizerRunData extends Equatable {
     final result = OptimizationResultData.fromPayload(
       JsonContract.requiredObject(json, 'result_summary'),
     );
+    if (result.result.transferPricingContext == null ||
+        result.result.optimizationDiagnostics == null) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run is missing exact transfer evidence.',
+      );
+    }
     final totalMonthlyCost = _requiredFiniteNonNegativeNumber(
       json,
       'total_monthly_cost',
