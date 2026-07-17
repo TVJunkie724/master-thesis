@@ -13,14 +13,14 @@ classifications:
     - provider_api
     expected_build_path: fetched_from_provider_api
     required_evidence_refs:
-    - aws.transfer.egress_gb.mapping:2026.06.08
+    - aws.transfer.egress_gb.mapping:2026.07.18
     normalization_rule_refs:
     - per_gb
     region_scope: regional_or_provider_defined
     currency: USD
-    effective_date: '2026-06-08'
-    retrieved_at: '2026-06-08T00:00:00+00:00'
-    reviewed_at: '2026-06-10'
+    effective_date: '2026-07-18'
+    retrieved_at: '2026-07-18T00:00:00+00:00'
+    reviewed_at: '2026-07-18'
     source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
     api_request_id: aws-pricing-api:transfer.egress_gb
     catalog_sku_id: selected-evidence-required
@@ -1015,17 +1015,17 @@ classifications:
     - provider_api
     expected_build_path: fetched_from_provider_api
     required_evidence_refs:
-    - gcp.transfer.egress_gb.mapping:2026.06.08
+    - gcp.transfer.egress_gb.mapping:2026.07.18
     normalization_rule_refs:
-    - per_gb
+    - per_gib_to_gb
     region_scope: regional_or_provider_defined
     currency: USD
-    effective_date: '2026-06-08'
-    retrieved_at: '2026-06-08T00:00:00+00:00'
-    reviewed_at: '2026-06-10'
-    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    effective_date: '2026-07-18'
+    retrieved_at: '2026-07-18T00:00:00+00:00'
+    reviewed_at: '2026-07-18'
+    source_url: https://cloud.google.com/skus/sku-groups/network-egress-gce
     api_request_id: gcp-pricing-api:transfer.egress_gb
-    catalog_sku_id: selected-evidence-required
+    catalog_sku_id: 5B70-B2D6-B4FC
     review_status: verified
     publishable: true
     verification_status: passed

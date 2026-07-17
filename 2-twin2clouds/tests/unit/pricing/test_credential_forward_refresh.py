@@ -11,6 +11,7 @@ from backend.fetch_data.calculate_up_to_date_pricing import (
     fetch_aws_data,
     fetch_google_data,
 )
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_fetch
 from backend.fetch_data.cloud_price_fetcher_google import GCPPricingCatalogAccessError
 from backend.fetch_data.cloud_price_fetcher_aws import (
     TwinMakerPricingContractError,
@@ -370,12 +371,19 @@ def test_fetch_aws_data_uses_explicit_client_credentials_without_local_fallback(
     mock_factory_create,
 ):
     fetcher = MagicMock()
-    fetcher.fetch_price.return_value = {}
+    fetcher.fetch_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch("aws")
+        if kwargs["service_name"] == "transfer"
+        else {}
+    )
     mock_factory_create.return_value = fetcher
 
     fetch_aws_data(
         {"aws_region": "eu-central-1"},
-        {"iot": {"aws": "IoTCore"}},
+        {
+            "iot": {"aws": "IoTCore"},
+            "transfer": {"aws": "AWSDataTransfer"},
+        },
         {"eu-central-1": "EU (Frankfurt)"},
         aws_client_credentials={
             "aws_access_key_id": "access-key",

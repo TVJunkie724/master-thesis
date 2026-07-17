@@ -185,7 +185,7 @@ def test_exact_storage_rows_override_broad_keyword_candidates(
 
 
 @patch("backend.fetch_data.cloud_price_fetcher_azure._retail_query_items")
-def test_transfer_rows_build_exact_absolute_tiers(mock_query):
+def test_transfer_rows_build_exact_canonical_decimal_gb_tiers(mock_query):
     mock_query.return_value = _transfer_rows() + [
         _transfer_rows()[1]
         | {
@@ -204,18 +204,29 @@ def test_transfer_rows_build_exact_absolute_tiers(mock_query):
         {"transfer": {"azure": "Bandwidth"}},
     )
 
-    assert result["egressPrice"] == 0.087
-    assert result["pricing_tiers"] == {
-        "freeTier": {"limit": 100, "price": 0.0},
-        "tier1": {"limit": 10335, "price": 0.087},
-        "tier2": {"limit": 51295, "price": 0.083},
-        "tier3": {"limit": 153695, "price": 0.07},
-        "tier4": {"limit": 512095, "price": 0.05},
-        "tier5": {"limit": "Infinity", "price": 0.05},
-    }
+    assert "egressPrice" not in result
+    assert result["billing_unit"] == "gb"
+    assert result["bytes_per_billing_unit"] == 1_000_000_000
+    assert result["network_tier"] == "microsoft_premium_global_network"
+    assert [
+        (
+            tier["start_quantity"],
+            tier["end_quantity"],
+            tier["unit_price"],
+        )
+        for tier in result["pricing_tiers"]
+    ] == [
+        (0, 100, 0),
+        (100, 10335, 0.087),
+        (10335, 51295, 0.083),
+        (51295, 153695, 0.07),
+        (153695, 512095, 0.05),
+        (512095, None, 0.05),
+    ]
     evidence = result["__evidence__"]["pricing_tiers"]
     assert len(evidence["selected_rows"]) == 6
     assert evidence["rejected_rows"][0]["productName"] == "Bandwidth - Routing Preference: Internet"
+    assert result["__transfer_evidence__"]["evidence_id"] == result["evidence_id"]
 
 
 @pytest.mark.parametrize(
@@ -383,11 +394,17 @@ def test_generated_metadata_exposes_bounded_evidence_and_derived_transfer_value(
     )
     payload = attach_pricing_metadata(
         "azure",
-        {"transfer": {"pricing_tiers": transfer["pricing_tiers"]}},
+        {
+            "transfer": {
+                key: value
+                for key, value in transfer.items()
+                if not key.startswith("__")
+            }
+        },
         {"transfer": transfer},
     )
 
     fields = payload["__evidence__"]["fields"]
     assert fields["transfer.pricing_tiers"]["selected_rows"]
-    assert fields["blobStorageCool.transferCostFromCosmosDB"]["normalized_value"] == 0.087
+    assert fields["transfer.catalog"]["evidence_id"] == transfer["evidence_id"]
     assert "__evidence__" not in validate_pricing_payload("azure", payload)["missing_keys"]

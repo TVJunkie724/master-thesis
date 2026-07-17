@@ -46,6 +46,22 @@ public-catalog context; `providerPricingContexts` carries optional owner-scoped 
 observations. Flutter supplies neither. The Management API resolves and injects them,
 and the live integration gate compares every remaining workload field exactly.
 
+### Transfer Pricing Catalog
+
+Every provider-region pricing snapshot contains one
+`transfer-pricing-catalog.v1` object. The calculation contract requires its
+route class, source region/geography, destination geographies, network tier,
+billing scope, native billing unit, byte divisor, currency, evidence ID,
+aggregation semantics, and contiguous explicit tier ranges. Unknown,
+missing, gapped, overlapping, unit-inconsistent, or non-terminal data fails
+before a transfer value can enter scoring.
+
+AWS and Azure use decimal GB; GCP uses GiB. The common comparison quantity is
+bytes. No API adapter, Management service, or Flutter model may reconstruct a
+scalar transfer rate or substitute a default when the catalog is unavailable.
+Aggregate pool allocation and complete-path selection remain owned by the
+route-aware optimizer work, not by clients.
+
 ## Errors
 
 Public errors should provide stable code, safe message, actionable suggestion where

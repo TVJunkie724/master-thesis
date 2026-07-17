@@ -6,6 +6,10 @@ import requests
 from backend.logger import logger
 from backend.azure_pricing_evidence import build_azure_intent_evidence
 from backend.pricing_intent_registry import MATCHED
+from backend.transfer_catalog import (
+    build_transfer_catalog,
+    build_transfer_evidence,
+)
 from backend.fetch_data.fetch_evidence import (
     FieldMatchEvidence,
     MatchStatus,
@@ -32,7 +36,6 @@ REGION_FALLBACK = {
 }
 
 STATIC_DEFAULTS_AZURE = {
-    "transfer": {"egressPrice": 0.08},
     "iot": {
         "pricing_tiers": {
             "freeTier": {"limit": 240_000, "threshold": 0, "price": 0},
@@ -111,12 +114,6 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
         "meters": {
             "pricePerMillionCalls": {"meter_keywords": ["Consumption Calls"], "unit_keywords": ["10K"]}
         },
-    },
-    "transfer": {
-        "meters": {
-            "egressPrice": {"meter_keywords": ["Data Transfer Out"], "unit_keywords": ["GB"]}
-        },
-        "include": ["Bandwidth"],
     },
 }
 
@@ -493,23 +490,43 @@ def _fetch_registry_backed_fields(
                 evidence["review_required"] = True
                 evidence["errors"] = ["Azure transfer intent returned no normalized tiers"]
                 continue
-            result["pricing_tiers"] = {
-                "freeTier" if index == 0 else f"tier{index}": {
-                    "limit": tier["limit"],
-                    "price": tier["price"],
-                }
-                for index, tier in enumerate(normalized_tiers)
-            }
-            first_paid = next(
-                (tier["price"] for tier in normalized_tiers if tier["price"] > 0),
-                None,
-            )
-            if first_paid is None:
+            selected_rows = evidence.get("selected_rows") or []
+            if not selected_rows:
                 evidence["review_required"] = True
-                evidence["errors"] = ["Azure transfer intent has no paid tier"]
-                result.pop("pricing_tiers", None)
+                evidence["errors"] = [
+                    "Azure transfer intent has no selected tier evidence"
+                ]
                 continue
-            result["egressPrice"] = first_paid
+            transfer_evidence = build_transfer_evidence(
+                provider="azure",
+                pricing_region=region,
+                source_type="provider_api",
+                source_api="azure-retail-prices",
+                source_url="https://azure.microsoft.com/en-us/pricing/details/bandwidth/",
+                mapping_version=evidence["mapping_version"],
+                selected_rows=selected_rows,
+                fetched_at=evidence["fetched_at"],
+            )
+            catalog = build_transfer_catalog(
+                provider="azure",
+                pricing_region=region,
+                tier_thresholds=[
+                    {
+                        "tier_id": (
+                            "azure-free"
+                            if tier["price"] == 0
+                            else f"azure-paid-{index}"
+                        ),
+                        "start_quantity": tier["lower_bound"],
+                        "unit_price": tier["price"],
+                    }
+                    for index, tier in enumerate(normalized_tiers)
+                ],
+                evidence_id=transfer_evidence["evidence_id"],
+                currency=evidence["currency"],
+            )
+            result.update(catalog)
+            result["__transfer_evidence__"] = transfer_evidence
             continue
 
         normalized_value = evidence.get("normalized_value")

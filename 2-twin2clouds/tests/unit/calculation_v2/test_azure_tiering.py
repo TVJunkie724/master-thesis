@@ -11,6 +11,7 @@ from backend.calculation_v2.components.azure import (
     AzureLogicAppsCalculator,
 )
 from backend.calculation_v2.engine import _calculate_egress_cost
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
 
 def _azure_pricing(**overrides):
@@ -42,16 +43,7 @@ def _azure_pricing(**overrides):
         },
         "logicApps": {"pricePer1kStateTransitions": 0.125},
         "eventGrid": {"pricePerMillionEvents": 0.60},
-        "transfer": {
-            "pricing_tiers": {
-                "freeTier": {"limit": 100, "price": 0},
-                "tier1": {"limit": 10_335, "price": 0.087},
-                "tier2": {"limit": 51_295, "price": 0.083},
-                "tier3": {"limit": 153_695, "price": 0.07},
-                "tier4": {"limit": 512_095, "price": 0.05},
-                "tier5": {"limit": "Infinity", "price": 0.05},
-            }
-        },
+        "transfer": canonical_transfer_catalog("azure"),
     }
     base.update(overrides)
     return {"azure": base}

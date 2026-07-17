@@ -111,7 +111,7 @@ class PricingCatalogRepository:
         self._thread_locks_guard = threading.Lock()
 
     def initialize_from_baseline(self) -> PricingCatalogBaselineManifest:
-        """Seed an empty runtime store without replacing runtime state."""
+        """Seed or migrate runtime state from an explicitly tracked baseline."""
 
         self._assert_safe_root(self.baseline_root, must_exist=True)
         self.runtime_root.mkdir(parents=True, exist_ok=True)
@@ -124,6 +124,31 @@ class PricingCatalogRepository:
             not_found_message="Pricing catalog baseline manifest is missing",
         )
         manifest = self._parse_manifest(baseline_payload)
+        runtime_manifest_path = self.runtime_root / "baseline.json"
+        previous_manifest: PricingCatalogBaselineManifest | None = None
+        if runtime_manifest_path.exists():
+            runtime_payload = self._read_json(
+                runtime_manifest_path,
+                not_found_message="Runtime pricing catalog baseline is missing",
+            )
+            if canonical_json_bytes(runtime_payload) != canonical_json_bytes(
+                baseline_payload
+            ):
+                if not self._is_tracked_predecessor(runtime_payload):
+                    raise PricingCatalogTamperedError(
+                        "Runtime pricing catalog baseline is not a tracked predecessor"
+                    )
+                previous_manifest = self._parse_manifest(runtime_payload)
+                for old_reference in previous_manifest.catalogs.values():
+                    self.resolve_exact(old_reference, require_fresh=False)
+                    replacement = manifest.catalogs[old_reference.provider]
+                    if (
+                        old_reference.pricing_region
+                        != replacement.pricing_region
+                    ):
+                        raise PricingCatalogTamperedError(
+                            "Tracked baseline migration cannot change pricing regions"
+                        )
 
         for reference in manifest.catalogs.values():
             source = self._snapshot_path(self.baseline_root, reference)
@@ -141,13 +166,51 @@ class PricingCatalogRepository:
             )
             if not pointer.exists():
                 self._write_json_atomically(pointer, reference.to_storage_dict())
+            elif previous_manifest is not None:
+                current_pointer = self._parse_reference(
+                    self._read_json(
+                        pointer,
+                        not_found_message=(
+                            "Published pricing catalog pointer is missing"
+                        ),
+                    )
+                )
+                old_reference = previous_manifest.catalogs[
+                    reference.provider
+                ]
+                if current_pointer == old_reference:
+                    self._write_json_atomically(
+                        pointer,
+                        reference.to_storage_dict(),
+                    )
 
-        self._write_immutable(
-            self.runtime_root / "baseline.json",
-            manifest.to_storage_dict(),
-        )
+        if previous_manifest is None:
+            self._write_immutable(
+                runtime_manifest_path,
+                manifest.to_storage_dict(),
+            )
+        else:
+            self._write_json_atomically(
+                runtime_manifest_path,
+                manifest.to_storage_dict(),
+            )
         self.verify_readiness()
         return manifest
+
+    def _is_tracked_predecessor(self, runtime_payload: dict[str, Any]) -> bool:
+        history_root = self.baseline_root / "history"
+        if not history_root.exists() or history_root.is_symlink():
+            return False
+        for path in sorted(history_root.glob("baseline-*.json")):
+            history_payload = self._read_json(
+                path,
+                not_found_message="Tracked pricing baseline predecessor is missing",
+            )
+            if canonical_json_bytes(history_payload) == canonical_json_bytes(
+                runtime_payload
+            ):
+                return True
+        return False
 
     def verify_readiness(self) -> None:
         """Fail closed when baseline or runtime catalog state is inconsistent."""

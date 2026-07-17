@@ -15,6 +15,7 @@ from backend.pricing_schema import (
     canonical_pricing_snapshot_digest,
     validate_pricing_payload,
 )
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_fetch
 
 
 SERVICE_MAPPING = {
@@ -35,7 +36,7 @@ SERVICE_MAPPING = {
 
 FETCHED_BY_PROVIDER = {
     "aws": {
-        "transfer": {"egressPrice": 0.09},
+        "transfer": canonical_transfer_fetch("aws"),
         "iot": {
             "pricePerDeviceAndMonth": 0.0035,
             "priceRulesTriggered": 0.00000015,
@@ -87,10 +88,7 @@ FETCHED_BY_PROVIDER = {
         "scheduler": {"jobPrice": 0.000001},
     },
     "azure": {
-        "transfer": {
-            "pricing_tiers": {"tier1": {"limit": "Infinity", "price": 0.087}},
-            "egressPrice": 0.087,
-        },
+        "transfer": canonical_transfer_fetch("azure"),
         "iot": {"pricing_tiers": {"tier1": {"limit": "Infinity", "price": 25}}},
         "functions": {
             "requestPrice": 0.0000002,
@@ -128,7 +126,7 @@ FETCHED_BY_PROVIDER = {
         "data_access": {"pricePerMillionCalls": 3.5},
     },
     "gcp": {
-        "transfer": {"egressPrice": 0.12},
+        "transfer": canonical_transfer_fetch("gcp"),
         "iot": {"pricePerGiB": 0.0000004, "pricePerDeviceAndMonth": 0},
         "functions": {
             "requestPrice": 0.0000004,
@@ -295,7 +293,7 @@ def test_incomplete_payload_is_review_required_even_without_fallback_metadata():
     assert validation["status"] == "incomplete"
     assert validation["quality_status"] == "review_required"
     assert validation["review_required"] is True
-    assert "transfer.egressPrice" in validation["missing_keys"]
+    assert "transfer.billing_unit" in validation["missing_keys"]
 
 
 def test_fetched_provider_payloads_are_schema_valid_and_publishable():

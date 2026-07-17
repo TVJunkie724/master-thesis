@@ -609,7 +609,7 @@ the next slice.
 | Slice | Status | Verification |
 |---|---|---|
 | 1. Registry And Domain | Complete | 53 focused tests; full Optimizer suite `707 passed`; Ruff, Bandit, compileall, and pip check passed |
-| 2. Provider Evidence And Baselines | Pending | Not started |
+| 2. Provider Evidence And Baselines | Complete | 346 pricing tests and the full 746-test Optimizer suite passed; Ruff, Bandit, compileall, pip check, Compose, MkDocs strict, baseline upgrade, and fresh-runtime verification passed |
 | 3. Complete-Path Optimizer | Pending | Not started |
 | 4. Trace And Management Persistence | Pending | Not started |
 | 5. Flutter Read Model And UX | Pending | Not started |
@@ -673,6 +673,39 @@ feat(pricing): publish exact transfer route evidence
 
 Refs #116
 ```
+
+Implementation evidence:
+
+- AWS uses exact Frankfurt-to-External `AWS Outbound` identifiers and retains
+  every paid range before adding the reviewed aggregate allowance;
+- Azure consumes the exact Microsoft Global Network meter tier series;
+- GCP binds Compute Engine service `6F81-5844-456A`, Premium EMEA-to-EMEA SKU
+  `5B70-B2D6-B4FC`, and all native GiB `tieredRates`;
+- `transfer-pricing-catalog.v1` is strict, evidence-bound, contiguous, and
+  explicit about routing policy, billing scope, native unit, and byte divisor;
+- `pricing-provider-schema.v2` removes every transfer scalar alias and runtime
+  formula fallback;
+- the cost strategy consumes the complete catalog and converts the common
+  decimal-GB workload boundary to bytes before provider-native tiering;
+- the tracked v1 manifest and snapshots remain available while the v2 baseline
+  points to new immutable snapshot identities;
+- runtime startup migrates only the exact verified predecessor, preserves newer
+  pointers, and was exercised against the OrbStack catalog volume;
+- GCP's remaining non-transfer curated fields stay visibly
+  `review_required`; transfer itself no longer uses static fallback fields;
+- review pass 1 made tier-series currency and unit mandatory, removed implicit
+  GCP USD substitution, bound the GCP base-unit divisor and account/month
+  aggregation semantics, and rejects unknown legacy transfer fields before
+  catalog validation;
+- review pass 2 corrected reviewed-baseline field provenance from `fetched` to
+  `curated`, regenerated immutable identities, and added a direct,
+  non-destructive upgrade-tool regression test;
+- 72 provider/orchestration drift tests, 61 final focused catalog/upgrade
+  tests, all 346 pricing tests, and the full `746 passed` Optimizer suite
+  verified the final artifacts;
+- Ruff, Bandit, `compileall`, `pip check`, Compose validation, MkDocs strict,
+  fresh OrbStack startup, and exact runtime snapshot-ID checks passed;
+- no live provider mutation, deployment, or paid workload was executed.
 
 ### Slice 3: Complete-Path Optimizer
 

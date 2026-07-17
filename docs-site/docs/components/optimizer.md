@@ -59,12 +59,15 @@ with distinct, validated divisors. Same-provider/inter-region transfer is
 recognized but fails closed because the current profile supports one region per
 provider.
 
-The contract and exact tier arithmetic are present. Migration of the legacy
-greedy path selection, provider transfer evidence, persisted route trace, and
-Flutter evidence view remains in progress under
+The contract, provider evidence adapters, strict catalog documents, and exact
+unit arithmetic are present. The runtime formula rejects missing or malformed
+catalogs and has no scalar egress fallback. Migration of the legacy greedy path
+selection, aggregate billing pools, persisted route trace, and Flutter evidence
+view remains in progress under
 [GitHub issue #116](https://github.com/TVJunkie724/master-thesis/issues/116).
-Until that issue is complete, `calculation_v2/engine.py` is still the runtime
-owner of the historical transfer calculation.
+Until the complete-path slice is finished, `calculation_v2/engine.py` still
+evaluates transfer segments after layer selection and therefore does not yet
+apply account-level allowances across the whole candidate path.
 
 ## Evidence And Candidate Flow
 
@@ -142,7 +145,6 @@ evidence:
 - Blob Storage Cool and Archive select the exact LRS data-stored meters;
 - Bandwidth selects `Rtn Preference: MGN` / `Standard Data Transfer Out` as an
   ordered tier series;
-- Cosmos-to-Blob transfer cost derives from the first paid fetched egress tier.
 - Azure Digital Twins selects the exact Standard Operations, Standard Message, and
   Standard Query Units meters and normalizes each `1K` price to one billable unit.
 
@@ -151,6 +153,28 @@ USD per GB-month. Transfer thresholds are read from `tierMinimumUnits`; the gene
 absolute limits are `100`, `10335`, `51295`, `153695`, `512095`, and `Infinity` GB.
 Stable meter/product/SKU identifiers act as drift markers alongside semantic fields;
 they are not a cheapest-row heuristic.
+
+### Transfer Catalog Evidence
+
+Transfer pricing is a complete catalog object, not a single `egressPrice`.
+Provider fetchers select exact reviewed rows and retain all provider tier
+boundaries:
+
+| Provider | Reviewed route | Native unit | Runtime policy |
+|---|---|---|---|
+| AWS | Frankfurt to `External`, `AWS Outbound` | decimal GB | provider-default public egress and one reviewed aggregate allowance |
+| Azure | West Europe, `Rtn Preference: MGN`, Standard Data Transfer Out | decimal GB | Microsoft Premium Global Network |
+| GCP | Compute Engine Premium EMEA-to-EMEA SKU `5B70-B2D6-B4FC` | GiB | Premium Tier; Standard Tier is not eligible for the baseline |
+
+The shared workload is converted to bytes first. Each provider catalog then
+converts bytes to its native billing quantity before cumulative tier
+arithmetic. `per_gib_to_gb` exists only as registry normalization metadata for
+cross-provider field contracts; the transfer calculator itself preserves GCP
+GiB thresholds and never relabels them as decimal GB.
+
+The committed v2 seeds preserve the v1 manifest and snapshots for audit. The
+runtime repository verifies that exact predecessor before a one-time
+idempotent upgrade and preserves any newer published pointer.
 
 ### Azure Digital Twins Quantities
 

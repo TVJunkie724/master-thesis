@@ -4,6 +4,7 @@ import json
 
 from backend.calculation_v2.engine import calculate_cheapest_costs
 from backend.calculation_v2.traceability import TRACE_SCHEMA_VERSION
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
 
 def _sample_params():
@@ -64,7 +65,7 @@ def _sample_pricing():
                 },
             },
             "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-            "egress": {"pricePerGB": 0.09},
+            "transfer": canonical_transfer_catalog("aws"),
         },
         "azure": {
             "iotHub": {
@@ -89,7 +90,7 @@ def _sample_pricing():
                 "pricePerMessage": 0.000001,
             },
             "azureManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-            "egress": {"pricePerGB": 0.087},
+            "transfer": canonical_transfer_catalog("azure"),
         },
         "gcp": {
             "iot": {"pricePerGiB": 0.04},
@@ -105,7 +106,7 @@ def _sample_pricing():
             "storage_archive": {"storagePrice": 0.004, "writePrice": 0.05},
             "twinmaker": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
             "grafana": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
-            "egress": {"pricePerGB": 0.12},
+            "transfer": canonical_transfer_catalog("gcp"),
         },
     }
 

@@ -15,6 +15,7 @@ from backend.calculation_v2.components.aws.twinmaker import (
     calculate_tiered_bundle_account_cost,
 )
 from backend.calculation_v2.engine import _calculate_egress_cost
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
 
 def _aws_pricing(**overrides):
@@ -91,14 +92,7 @@ def _aws_pricing(**overrides):
         },
         "stepFunctions": {"pricePer1kStateTransitions": 0.025},
         "eventBridge": {"pricePerEvent": 0.000001},
-        "transfer": {
-            "pricing_tiers": {
-                "freeTier": {"limit": 100, "price": 0},
-                "tier1": {"limit": 10_240, "price": 0.09},
-                "tier2": {"limit": 51_200, "price": 0.085},
-                "tier3": {"limit": "Infinity", "price": 0.07},
-            }
-        },
+        "transfer": canonical_transfer_catalog("aws"),
     }
     base.update(overrides)
     return {"aws": base}

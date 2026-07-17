@@ -14,9 +14,17 @@ import json
 import re
 from typing import Any
 
+from backend.calculation_v2.transfer_pricing import (
+    TransferPricingContractError,
+)
+from backend.transfer_catalog import (
+    TRANSFER_CATALOG_FIELDS,
+    validate_transfer_catalog,
+)
 
-PRICING_SCHEMA_VERSION = "pricing-provider-schema.v1"
-PRICING_CONTRACT_VERSION = "2026.07.17"
+
+PRICING_SCHEMA_VERSION = "pricing-provider-schema.v2"
+PRICING_CONTRACT_VERSION = "2026.07.18"
 SHA256_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 AWS_REGION_PATTERN = re.compile(r"^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\d+$")
 
@@ -41,7 +49,7 @@ REVIEW_REQUIRED = "review_required"
 
 EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
     "aws": {
-        "transfer": ["pricing_tiers", "egressPrice"],
+        "transfer": list(TRANSFER_CATALOG_FIELDS),
         "iotCore": ["pricePerDeviceAndMonth", "priceRulesTriggered", "pricing_tiers"],
         "lambda": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
         "dynamoDB": ["writePrice", "readPrice", "storagePrice", "freeStorage"],
@@ -50,8 +58,6 @@ EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
             "upfrontPrice",
             "requestPrice",
             "dataRetrievalPrice",
-            "transferCostFromDynamoDB",
-            "transferCostFromCosmosDB",
         ],
         "s3GlacierDeepArchive": [
             "storagePrice",
@@ -65,11 +71,11 @@ EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
         "awsManagedGrafana": ["editorPrice", "viewerPrice"],
         "stepFunctions": ["pricePer1kStateTransitions", "pricePerStateTransition"],
         "eventBridge": ["pricePerMillionEvents"],
-        "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"],
+        "apiGateway": ["pricePerMillionCalls"],
         "scheduler": ["jobPrice"],
     },
     "azure": {
-        "transfer": ["pricing_tiers"],
+        "transfer": list(TRANSFER_CATALOG_FIELDS),
         "iotHub": ["pricing_tiers"],
         "functions": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
         "cosmosDB": [
@@ -85,7 +91,6 @@ EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
             "writePrice",
             "readPrice",
             "dataRetrievalPrice",
-            "transferCostFromCosmosDB",
         ],
         "blobStorageArchive": ["storagePrice", "writePrice", "dataRetrievalPrice"],
         "azureDigitalTwins": [
@@ -99,7 +104,7 @@ EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
         "apiManagement": ["pricePerMillionCalls"],
     },
     "gcp": {
-        "transfer": ["pricing_tiers", "egressPrice"],
+        "transfer": list(TRANSFER_CATALOG_FIELDS),
         "iot": ["pricePerGiB", "pricePerDeviceAndMonth"],
         "functions": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
         "storage_hot": ["writePrice", "readPrice", "storagePrice", "freeStorage"],
@@ -116,7 +121,7 @@ EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
         ],
         "twinmaker": ["e2MediumPrice", "storagePrice"],
         "grafana": ["e2MediumPrice", "storagePrice"],
-        "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"],
+        "apiGateway": ["pricePerMillionCalls"],
         "cloudWorkflows": ["stepPrice"],
         "cloudScheduler": ["jobPrice"],
     },
@@ -169,19 +174,14 @@ PROVIDER_SERVICE_TO_NEUTRAL = {
 
 DERIVED_FIELDS = {
     "aws": {
-        "s3InfrequentAccess.transferCostFromDynamoDB",
-        "s3InfrequentAccess.transferCostFromCosmosDB",
         "stepFunctions.pricePerStateTransition",
-        "apiGateway.dataTransferOutPrice",
     },
     "azure": {
-        "blobStorageCool.transferCostFromCosmosDB",
         "logicApps.pricePerStateTransition",
     },
     "gcp": {
         "twinmaker.e2MediumPrice",
         "grafana.e2MediumPrice",
-        "apiGateway.dataTransferOutPrice",
         "apiGateway.pricePerMillionCalls",
     },
 }
@@ -189,16 +189,12 @@ DERIVED_FIELDS = {
 
 DERIVED_FIELD_DEPENDENCIES = {
     "aws": {
-        "s3InfrequentAccess.transferCostFromDynamoDB": ("transfer", "egressPrice"),
-        "s3InfrequentAccess.transferCostFromCosmosDB": ("transfer", "egressPrice"),
         "stepFunctions.pricePerStateTransition": (
             "orchestration",
             "pricePer1kStateTransitions",
         ),
-        "apiGateway.dataTransferOutPrice": ("transfer", "egressPrice"),
     },
     "azure": {
-        "blobStorageCool.transferCostFromCosmosDB": ("transfer", "egressPrice"),
         "logicApps.pricePerStateTransition": (
             "orchestration",
             "pricePer1kStateTransitions",
@@ -213,7 +209,6 @@ DERIVED_FIELD_DEPENDENCIES = {
             "grafana",
             ("e2CorePrice", "e2RamPrice"),
         ),
-        "apiGateway.dataTransferOutPrice": ("transfer", "egressPrice"),
         "apiGateway.pricePerMillionCalls": ("data_access", "pricePerMillionCalls"),
     },
 }
@@ -225,7 +220,6 @@ CURATED_FIELDS = {
         "lambda.freeComputeTime",
         "dynamoDB.freeStorage",
         "s3InfrequentAccess.upfrontPrice",
-        "transfer.pricing_tiers",
     },
     "azure": {
         "blobStorageCool.upfrontPrice",
@@ -235,9 +229,7 @@ CURATED_FIELDS = {
         "functions.freeRequests",
         "functions.freeComputeTime",
     },
-    "gcp": {
-        "transfer.pricing_tiers",
-    },
+    "gcp": set(),
 }
 
 
@@ -262,6 +254,29 @@ def validate_pricing_payload(provider: str, data: dict[str, Any]) -> dict[str, A
         for key in keys:
             if key not in service_data:
                 missing_keys.append(f"{service}.{key}")
+
+    schema = data.get("__schema__")
+    pricing_region = (
+        schema.get("pricing_region") if isinstance(schema, dict) else None
+    )
+    transfer_payload = payload.get("transfer")
+    if (
+        not isinstance(pricing_region, str)
+        and isinstance(transfer_payload, dict)
+        and isinstance(transfer_payload.get("source_region"), str)
+    ):
+        pricing_region = transfer_payload["source_region"]
+    if isinstance(pricing_region, str) and isinstance(transfer_payload, dict):
+        try:
+            validate_transfer_catalog(
+                provider,
+                pricing_region,
+                transfer_payload,
+            )
+        except TransferPricingContractError as exc:
+            missing_keys.append(f"transfer (invalid contract: {exc.code})")
+    elif payload.get("transfer") is not None:
+        missing_keys.append("transfer (missing pricing region)")
 
     if provider == "aws":
         missing_keys.extend(_validate_aws_twinmaker_contract(payload))
@@ -345,15 +360,34 @@ def _build_generated_evidence(
     provider: str,
     fetched: dict[str, dict[str, Any]],
 ) -> dict[str, Any] | None:
+    transfer_evidence = (fetched.get("transfer") or {}).get(
+        "__transfer_evidence__"
+    ) or (fetched.get("transfer") or {}).get("__evidence__")
     if provider == "aws":
         twinmaker_evidence = (fetched.get("twinmaker") or {}).get("__evidence__")
-        if not twinmaker_evidence:
+        if not twinmaker_evidence and not transfer_evidence:
+            return None
+        result = {
+            "schema_version": "pricing-generated-evidence.v1",
+            "provider": provider,
+        }
+        if twinmaker_evidence:
+            result["services"] = {
+                "iotTwinMaker": deepcopy(twinmaker_evidence),
+            }
+        if transfer_evidence:
+            result["fields"] = {
+                "transfer.catalog": deepcopy(transfer_evidence),
+            }
+        return result
+    if provider == "gcp":
+        if not transfer_evidence:
             return None
         return {
             "schema_version": "pricing-generated-evidence.v1",
             "provider": provider,
-            "services": {
-                "iotTwinMaker": deepcopy(twinmaker_evidence),
+            "fields": {
+                "transfer.catalog": deepcopy(transfer_evidence),
             },
         }
     if provider != "azure":
@@ -371,24 +405,8 @@ def _build_generated_evidence(
         for field_key, record in field_evidence.items():
             fields[f"{provider_service}.{field_key}"] = record
 
-    transfer_record = fields.get("transfer.pricing_tiers")
-    if transfer_record:
-        fields["blobStorageCool.transferCostFromCosmosDB"] = {
-            "schema_version": "pricing-derived-evidence.v1",
-            "source_type": DERIVED,
-            "field_path": "blobStorageCool.transferCostFromCosmosDB",
-            "depends_on": "transfer.pricing_tiers",
-            "derivation": "first positive normalized transfer tier price",
-            "normalized_value": next(
-                (
-                    tier.get("price")
-                    for tier in transfer_record.get("normalized_tiers", [])
-                    if isinstance(tier.get("price"), (int, float))
-                    and tier["price"] > 0
-                ),
-                None,
-            ),
-        }
+    if transfer_evidence:
+        fields["transfer.catalog"] = deepcopy(transfer_evidence)
     if not fields:
         return None
     return {

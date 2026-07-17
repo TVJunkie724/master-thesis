@@ -105,6 +105,49 @@ def complete_twinmaker_price_list():
         )
     return rows
 
+
+def create_transfer_price_item(
+    begin_range,
+    end_range,
+    price,
+    *,
+    unit="GB",
+    transfer_type="AWS Outbound",
+):
+    return json.dumps(
+        {
+            "product": {
+                "sku": f"transfer-{begin_range}",
+                "productFamily": "Data Transfer",
+                "attributes": {
+                    "servicecode": "AWSDataTransfer",
+                    "servicename": "AWS Data Transfer",
+                    "fromLocation": "EU (Frankfurt)",
+                    "toLocation": "External",
+                    "transferType": transfer_type,
+                    "location": "EU (Frankfurt)",
+                },
+            },
+            "terms": {
+                "OnDemand": {
+                    "term": {
+                        "priceDimensions": {
+                            f"dimension-{begin_range}": {
+                                "description": (
+                                    "Data transfer out from EU (Frankfurt)"
+                                ),
+                                "beginRange": str(begin_range),
+                                "endRange": str(end_range),
+                                "unit": unit,
+                                "pricePerUnit": {"USD": str(price)},
+                            }
+                        }
+                    }
+                }
+            },
+        }
+    )
+
 def test_extract_prices_from_api_response_basic():
     """Test basic price extraction"""
     price_list = [
@@ -218,6 +261,95 @@ def test_fetch_aws_price_lambda(mock_fetch_products, mock_get_client):
     assert result is not None
     assert "requestPrice" in result
     assert "freeRequests" not in result
+
+
+@patch("backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client")
+@patch("backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products")
+def test_fetch_aws_transfer_builds_exact_canonical_decimal_gb_catalog(
+    mock_fetch_products,
+    mock_get_client,
+):
+    mock_get_client.return_value = MagicMock()
+    mock_fetch_products.return_value = [
+        create_transfer_price_item(0, 10240, 0.09),
+        create_transfer_price_item(10240, 51200, 0.085),
+        create_transfer_price_item(51200, 153600, 0.07),
+        create_transfer_price_item(153600, "Inf", 0.05),
+    ]
+
+    result = fetch_aws_price(
+        "transfer",
+        "AWSDataTransfer",
+        "eu-central-1",
+        {"eu-central-1": "EU (Frankfurt)"},
+    )
+
+    assert "egressPrice" not in result
+    assert result["billing_unit"] == "gb"
+    assert result["bytes_per_billing_unit"] == 1_000_000_000
+    assert [
+        (
+            tier["start_quantity"],
+            tier["end_quantity"],
+            tier["unit_price"],
+        )
+        for tier in result["pricing_tiers"]
+    ] == [
+        (0, 100, 0),
+        (100, 10240, 0.09),
+        (10240, 51200, 0.085),
+        (51200, 153600, 0.07),
+        (153600, None, 0.05),
+    ]
+    assert result["__evidence__"]["evidence_id"] == result["evidence_id"]
+    assert len(result["__intent_evidence__"]["selected_rows"]) == 4
+
+
+@pytest.mark.parametrize(
+    "rows, expected",
+    [
+        (
+            [
+                create_transfer_price_item(0, 10240, 0.09),
+                create_transfer_price_item(51200, "Inf", 0.05),
+            ],
+            "gapped or overlapping",
+        ),
+        (
+            [create_transfer_price_item(0, "Inf", 0.09, unit="GiB")],
+            "incomplete or requires review",
+        ),
+        (
+            [
+                create_transfer_price_item(
+                    0,
+                    "Inf",
+                    0.09,
+                    transfer_type="AWS Inbound",
+                )
+            ],
+            "incomplete or requires review",
+        ),
+    ],
+)
+@patch("backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client")
+@patch("backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products")
+def test_fetch_aws_transfer_fails_closed_for_contract_drift(
+    mock_fetch_products,
+    mock_get_client,
+    rows,
+    expected,
+):
+    mock_get_client.return_value = MagicMock()
+    mock_fetch_products.return_value = rows
+
+    with pytest.raises(ValueError, match=expected):
+        fetch_aws_price(
+            "transfer",
+            "AWSDataTransfer",
+            "eu-central-1",
+            {"eu-central-1": "EU (Frankfurt)"},
+        )
 
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 def test_fetch_aws_price_client_error(mock_get_client):

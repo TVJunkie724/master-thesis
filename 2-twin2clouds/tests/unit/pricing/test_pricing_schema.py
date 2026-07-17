@@ -8,24 +8,53 @@ wrappers delegate to these underlying functions.
 """
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from backend.fetch_data.calculate_up_to_date_pricing import fetch_aws_data, fetch_azure_data
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_fetch
 
 # Load template once for all tests
 TEMPLATE_PATH = Path("/app/json/pricing.json")  # Docker path
 with open(TEMPLATE_PATH) as f:
     TEMPLATE = json.load(f)
 
-@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
-def test_aws_iot_core_schema(mock_fetch):
+
+def _configure_fetcher(
+    mock_factory,
+    provider,
+    service_name,
+    service_payload,
+):
+    fetcher = MagicMock()
+    fetcher.fetch_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch(provider)
+        if kwargs["service_name"] == "transfer"
+        else service_payload
+        if kwargs["service_name"] == service_name
+        else {}
+    )
+    mock_factory.return_value = fetcher
+
+
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_aws_iot_core_schema(mock_factory):
     """Validate AWS IoT Core output matches template structure"""
     
-    mock_fetch.return_value = {"pricePerMessage": 0.000001}
+    _configure_fetcher(
+        mock_factory,
+        "aws",
+        "iot",
+        {"pricePerMessage": 0.000001},
+    )
     
     result = fetch_aws_data(
-        {"access_key": "test", "aws_region": "us-east-1"},
-        {"iot": "iotCore"},
-        {"iot": {"region": "us-east-1"}},
+        {"access_key": "test", "aws_region": "eu-central-1"},
+        {
+            "iot": {"aws": "iotCore"},
+            "transfer": {"aws": "AWSDataTransfer"},
+        },
+        {"eu-central-1": "EU (Frankfurt)"},
         additional_debug=False
     )
     
@@ -41,21 +70,31 @@ def test_aws_iot_core_schema(mock_fetch):
     # Check for expected structure (keys may vary but should have pricing fields)
     assert len(result_iot) > 0
 
-@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
-def test_aws_lambda_schema(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_aws_lambda_schema(mock_factory):
     """Validate AWS Lambda output matches template structure"""
     
-    mock_fetch.return_value = {
-        "requestPrice": 0.0000002,
-        "durationPrice": 0.0000166667,
-        "freeRequests": 1000000,
-        "freeComputeTime": 400000
-    }
+    _configure_fetcher(
+        mock_factory,
+        "aws",
+        "functions",
+        {
+            "requestPrice": 0.0000002,
+            "durationPrice": 0.0000166667,
+            "freeRequests": 1000000,
+            "freeComputeTime": 400000,
+        },
+    )
     
     result = fetch_aws_data(
-        {"access_key": "test", "aws_region": "us-east-1"},
-        {"functions": "lambda"},
-        {"functions": {"region": "us-east-1"}},
+        {"access_key": "test", "aws_region": "eu-central-1"},
+        {
+            "functions": {"aws": "lambda"},
+            "transfer": {"aws": "AWSDataTransfer"},
+        },
+        {"eu-central-1": "EU (Frankfurt)"},
         additional_debug=False
     )
     
@@ -71,21 +110,31 @@ def test_aws_lambda_schema(mock_fetch):
     assert isinstance(result_lambda.get("freeRequests"), (int, float))
     assert isinstance(result_lambda.get("freeComputeTime"), (int, float))
 
-@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
-def test_aws_dynamodb_schema(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_aws_dynamodb_schema(mock_factory):
     """Validate AWS DynamoDB output matches template structure"""
     
-    mock_fetch.return_value = {
-        "writePrice": 0.000000625,
-        "readPrice": 0.000000125,
-        "storagePrice": 0.25,
-        "freeStorage": 25
-    }
+    _configure_fetcher(
+        mock_factory,
+        "aws",
+        "storage_hot",
+        {
+            "writePrice": 0.000000625,
+            "readPrice": 0.000000125,
+            "storagePrice": 0.25,
+            "freeStorage": 25,
+        },
+    )
     
     result = fetch_aws_data(
-        {"access_key": "test", "aws_region": "us-east-1"},
-        {"storage_hot": "dynamoDB"},
-        {"storage_hot": {"region": "us-east-1"}},
+        {"access_key": "test", "aws_region": "eu-central-1"},
+        {
+            "storage_hot": {"aws": "dynamoDB"},
+            "transfer": {"aws": "AWSDataTransfer"},
+        },
+        {"eu-central-1": "EU (Frankfurt)"},
         additional_debug=False
     )
     
@@ -96,20 +145,30 @@ def test_aws_dynamodb_schema(mock_fetch):
     # Should have pricing fields
     assert any(key in result_ddb for key in ["writePrice", "readPrice", "storagePrice"])
 
-@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
-def test_aws_s3_schema(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_aws_s3_schema(mock_factory):
     """Validate AWS S3 output matches template structure"""
     
-    mock_fetch.return_value = {
-        "storagePrice": 0.0125,
-        "requestPrice": 0.00001,
-        "dataRetrievalPrice": 0.01
-    }
+    _configure_fetcher(
+        mock_factory,
+        "aws",
+        "storage_cool",
+        {
+            "storagePrice": 0.0125,
+            "requestPrice": 0.00001,
+            "dataRetrievalPrice": 0.01,
+        },
+    )
     
     result = fetch_aws_data(
-        {"access_key": "test", "aws_region": "us-east-1"},
-        {"storage_cool": "s3InfrequentAccess"},
-        {"storage_cool": {"region": "us-east-1"}},
+        {"access_key": "test", "aws_region": "eu-central-1"},
+        {
+            "storage_cool": {"aws": "s3InfrequentAccess"},
+            "transfer": {"aws": "AWSDataTransfer"},
+        },
+        {"eu-central-1": "EU (Frankfurt)"},
         additional_debug=False
     )
     
@@ -119,20 +178,34 @@ def test_aws_s3_schema(mock_fetch):
     assert isinstance(result_s3, dict)
     assert any(key in result_s3 for key in ["storagePrice", "requestPrice"])
 
-@patch('backend.fetch_data.cloud_price_fetcher_azure.fetch_azure_price')
-def test_azure_iot_hub_schema(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_azure_iot_hub_schema(mock_factory):
     """Validate Azure IoT Hub output matches template structure"""
     
-    mock_fetch.return_value = {
-        "pricing_tiers": {
-            "tier1": {"limit": 120000000, "threshold": 12000000, "price": 25}
-        }
-    }
+    _configure_fetcher(
+        mock_factory,
+        "azure",
+        "iot",
+        {
+            "pricing_tiers": {
+                "tier1": {
+                    "limit": 120000000,
+                    "threshold": 12000000,
+                    "price": 25,
+                }
+            }
+        },
+    )
     
     result = fetch_azure_data(
         {},
-        {"iot": "iotHub"},
-        {"iot": {"region": "westeurope"}},
+        {
+            "iot": {"azure": "iotHub"},
+            "transfer": {"azure": "Bandwidth"},
+        },
+        {"westeurope": "West Europe"},
         additional_debug=False
     )
     
@@ -150,21 +223,31 @@ def test_azure_iot_hub_schema(mock_fetch):
                 # Tiers should have numeric values
                 assert any(isinstance(v, (int, float)) for v in tier_data.values())
 
-@patch('backend.fetch_data.cloud_price_fetcher_azure.fetch_azure_price')
-def test_azure_functions_schema(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_azure_functions_schema(mock_factory):
     """Validate Azure Functions output matches template structure"""
     
-    mock_fetch.return_value = {
-        "requestPrice": 0.0000002,
-        "durationPrice": 0.0000166667,
-        "freeRequests": 1000000,
-        "freeComputeTime": 400000
-    }
+    _configure_fetcher(
+        mock_factory,
+        "azure",
+        "functions",
+        {
+            "requestPrice": 0.0000002,
+            "durationPrice": 0.0000166667,
+            "freeRequests": 1000000,
+            "freeComputeTime": 400000,
+        },
+    )
     
     result = fetch_azure_data(
         {},
-        {"functions": "functions"},
-        {"functions": {"region": "westeurope"}},
+        {
+            "functions": {"azure": "functions"},
+            "transfer": {"azure": "Bandwidth"},
+        },
+        {"westeurope": "West Europe"},
         additional_debug=False
     )
     
@@ -175,20 +258,30 @@ def test_azure_functions_schema(mock_fetch):
     assert "freeRequests" in result_func
     assert "freeComputeTime" in result_func
 
-@patch('backend.fetch_data.cloud_price_fetcher_azure.fetch_azure_price')
-def test_azure_cosmos_db_schema(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_azure_cosmos_db_schema(mock_factory):
     """Validate Azure Cosmos DB output matches template structure"""
     
-    mock_fetch.return_value = {
-        "storagePrice": 0.25,
-        "requestPrice": 0.0584,
-        "minimumRequestUnits": 400
-    }
+    _configure_fetcher(
+        mock_factory,
+        "azure",
+        "storage_hot",
+        {
+            "storagePrice": 0.25,
+            "requestPrice": 0.0584,
+            "minimumRequestUnits": 400,
+        },
+    )
     
     result = fetch_azure_data(
         {},
-        {"storage_hot": "cosmosDB"},
-        {"storage_hot": {"region": "westeurope"}},
+        {
+            "storage_hot": {"azure": "cosmosDB"},
+            "transfer": {"azure": "Bandwidth"},
+        },
+        {"westeurope": "West Europe"},
         additional_debug=False
     )
     
@@ -198,21 +291,31 @@ def test_azure_cosmos_db_schema(mock_fetch):
     assert isinstance(result_cosmos, dict)
     assert any(key in result_cosmos for key in ["storagePrice", "requestPrice"])
 
-@patch('backend.fetch_data.cloud_price_fetcher_azure.fetch_azure_price')
-def test_azure_blob_storage_schema(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_azure_blob_storage_schema(mock_factory):
     """Validate Azure Blob Storage output matches template structure"""
     
-    mock_fetch.return_value = {
-        "storagePrice": 0.015,
-        "writePrice": 0.00001,
-        "readPrice": 0.000001,
-        "dataRetrievalPrice": 0.01
-    }
+    _configure_fetcher(
+        mock_factory,
+        "azure",
+        "storage_cool",
+        {
+            "storagePrice": 0.015,
+            "writePrice": 0.00001,
+            "readPrice": 0.000001,
+            "dataRetrievalPrice": 0.01,
+        },
+    )
     
     result = fetch_azure_data(
         {},
-        {"storage_cool": "blobStorageCool"},
-        {"storage_cool": {"region": "westeurope"}},
+        {
+            "storage_cool": {"azure": "blobStorageCool"},
+            "transfer": {"azure": "Bandwidth"},
+        },
+        {"westeurope": "West Europe"},
         additional_debug=False
     )
     

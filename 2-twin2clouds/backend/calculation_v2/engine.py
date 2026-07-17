@@ -14,6 +14,7 @@ But internally uses the new layer calculators from calculation_v2.
 """
 
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
 from math import isfinite
 from typing import Any, Dict
 
@@ -28,8 +29,6 @@ from backend.calculation_v2.layers import (
 from backend.calculation_v2.currency import apply_result_currency
 from backend.calculation_v2.formulas import (
     billable_1kb_units,
-    required_first_unit_price,
-    tiered_unit_cost,
 )
 from backend.calculation_v2.strategy_context import (
     CalculationStrategyExecutionContext,
@@ -43,10 +42,12 @@ from backend.calculation_v2.traceability import (
     TRACE_SCHEMA_VERSION,
     build_intent_result_trace,
 )
+from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
 from backend.pricing_registry_service import PricingRegistryService
+from backend.transfer_catalog import validate_transfer_catalog
 
 
 # =============================================================================
@@ -492,54 +493,50 @@ def _calculate_egress_cost(
     source_provider: str,
     execution_context: CalculationStrategyExecutionContext | None = None,
 ) -> float:
-    """
-    Calculate egress cost for data leaving a provider.
-    
-    AWS/Azure preserve their historical fallback rates for compatibility.
-    GCP requires explicit egress pricing or tier data after Phase 11 hardening.
-    """
+    """Calculate egress from the validated provider transfer catalog."""
     if execution_context is not None:
         execution_context.ensure_formula_ref(
             "transfer_tier_cost",
             provider=source_provider,
             field="transfer.egress_gb",
         )
-    if source_provider == "AWS":
-        aws_transfer = pricing.get("aws", {}).get("transfer", {})
-        pricing_tiers = aws_transfer.get("pricing_tiers")
-        if pricing_tiers:
-            return tiered_unit_cost(data_gb, pricing_tiers)
-        price = pricing.get("aws", {}).get("egress", {}).get(
-            "pricePerGB",
-            aws_transfer.get("egressPrice", 0.09),
+    if not isinstance(source_provider, str):
+        raise ValueError("source_provider must be a supported provider name")
+    provider_key = source_provider.lower()
+    if provider_key not in {"aws", "azure", "gcp"}:
+        raise ValueError(f"Unsupported transfer source provider: {source_provider!r}")
+
+    provider_pricing = pricing.get(provider_key)
+    transfer = (
+        provider_pricing.get("transfer")
+        if isinstance(provider_pricing, Mapping)
+        else None
+    )
+    if not isinstance(transfer, Mapping):
+        raise ValueError(
+            f"Missing required pricing field for {provider_key}.transfer.catalog"
         )
-    elif source_provider == "Azure":
-        azure_transfer = pricing.get("azure", {}).get("transfer", {})
-        pricing_tiers = azure_transfer.get("pricing_tiers")
-        if pricing_tiers:
-            return tiered_unit_cost(data_gb, pricing_tiers)
-        price = pricing.get("azure", {}).get("egress", {}).get(
-            "pricePerGB",
-            azure_transfer.get("egressPrice", 0.087),
+
+    try:
+        decimal_gb = Decimal(str(data_gb))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("data_gb must be a finite non-negative number") from exc
+    if not decimal_gb.is_finite() or decimal_gb < 0:
+        raise ValueError("data_gb must be a finite non-negative number")
+
+    try:
+        table = validate_transfer_catalog(
+            provider_key,
+            transfer.get("source_region"),
+            transfer,
         )
-    elif source_provider == "GCP":
-        gcp_transfer = pricing.get("gcp", {}).get("transfer", {})
-        pricing_tiers = gcp_transfer.get("pricing_tiers")
-        if pricing_tiers:
-            return tiered_unit_cost(data_gb, pricing_tiers)
-        price = required_first_unit_price(
-            pricing.get("gcp", {}).get("egress", {}) or gcp_transfer,
-            (
-                ("pricePerGB", 1),
-                ("pricePerGiB", 1),
-                ("egressPrice", 1),
-            ),
-            label="gcp.transfer.egress",
-        )
-    else:
-        price = 0.10  # Default
-    
-    return data_gb * price
+    except TransferPricingContractError as exc:
+        raise ValueError(
+            f"Invalid required pricing field for {provider_key}.transfer.catalog: "
+            f"{exc.code}"
+        ) from exc
+    volume_bytes = decimal_gb * Decimal(1_000_000_000)
+    return float(table.cost_for_bytes(volume_bytes))
 
 
 def _calculate_glue_cost(messages: float, pricing: Dict[str, Any], provider: str) -> float:

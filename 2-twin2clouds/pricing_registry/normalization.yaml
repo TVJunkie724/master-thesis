@@ -2,10 +2,15 @@ schema_version: pricing-registry-normalization.v1
 registry_version: "2026.07.17"
 rules:
   per_gb:
-    source_units: ["GB", "GiB", "1 GB", "1 GiB"]
+    source_units: ["GB", "1 GB"]
     target_unit: gb
     multiplier: 1
-    description: Normalize storage or transfer units to one GB.
+    description: Normalize decimal-gigabyte prices to one GB.
+  per_gib_to_gb:
+    source_units: ["GiB", "1 GiB", "gibibyte"]
+    target_unit: gb
+    multiplier: 0.9313225746154785
+    description: Convert a price per binary GiB to an equivalent price per decimal GB.
   per_gb_month:
     source_units: ["GB/Month", "GB-Mo", "1 GB/Month", "GiB-month"]
     target_unit: gb_month

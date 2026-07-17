@@ -58,8 +58,6 @@ class TestPricingKeyFallbacks:
                     "upfrontPrice": 0.0001,
                     "requestPrice": 1e-06,  # NOT writePrice
                     "dataRetrievalPrice": 0.012,
-                    "transferCostFromDynamoDB": 0.099,
-                    "transferCostFromCosmosDB": 0.0495,
                 },
             }
         }

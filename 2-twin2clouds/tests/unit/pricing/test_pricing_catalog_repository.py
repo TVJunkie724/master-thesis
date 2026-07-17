@@ -108,6 +108,51 @@ def _write_baselines(root: Path) -> PricingCatalogBaselineManifest:
     return manifest
 
 
+def _upgrade_baselines(
+    root: Path,
+    predecessor: PricingCatalogBaselineManifest,
+) -> PricingCatalogBaselineManifest:
+    history = root / "history"
+    history.mkdir()
+    (history / "baseline-2026.07.17.json").write_bytes(
+        canonical_json_bytes(predecessor.to_storage_dict())
+    )
+    references = {}
+    for provider in ("aws", "azure", "gcp"):
+        pricing = _pricing(provider, 0.5)
+        reference = build_pricing_catalog_reference(
+            provider=provider,
+            pricing_region=REGIONS[provider],
+            pricing=pricing,
+            provider_schema_version="pricing-provider-schema.v2",
+            contract_version="2026.07.18",
+            registry_version="2026.07.17",
+            mapping_versions=("2026.07.17", "2026.07.18"),
+            fetched_at=FETCHED_AT,
+            source="reviewed_baseline",
+            review_status="reviewed",
+            calculation_source="reviewed_baseline",
+        )
+        references[provider] = reference
+        snapshot = PricingCatalogSnapshot(
+            reference=reference,
+            pricing=pricing,
+        )
+        target = (
+            root
+            / provider
+            / reference.pricing_region
+            / "snapshots"
+            / f"{reference.snapshot_id}.json"
+        )
+        target.write_bytes(canonical_json_bytes(snapshot.to_storage_dict()))
+    manifest = PricingCatalogBaselineManifest(catalogs=references)
+    (root / "baseline.json").write_bytes(
+        canonical_json_bytes(manifest.to_storage_dict())
+    )
+    return manifest
+
+
 @pytest.fixture
 def repository(tmp_path):
     baseline_root = tmp_path / "baseline"
@@ -221,6 +266,92 @@ def test_initialization_preserves_newer_runtime_pointer(repository):
     )
     assert active.reference == newer.reference
     assert active.reference != manifest.catalogs["azure"]
+
+
+def test_initialization_migrates_only_tracked_baseline_and_old_pointers(
+    repository,
+):
+    predecessor = repository.initialize_from_baseline()
+    replacement = _upgrade_baselines(
+        repository.baseline_root,
+        predecessor,
+    )
+
+    migrated = repository.initialize_from_baseline()
+
+    assert migrated == replacement
+    for provider, reference in replacement.catalogs.items():
+        assert repository.resolve_baseline(
+            provider,
+            require_fresh=False,
+        ).reference == reference
+        assert repository.resolve_published(
+            provider,
+            reference.pricing_region,
+            require_fresh=False,
+        ).reference == reference
+
+
+def test_baseline_migration_preserves_newer_published_pointer(repository):
+    predecessor = repository.initialize_from_baseline()
+    newer = repository.store_candidate(
+        provider="azure",
+        pricing_region="westeurope",
+        pricing=_pricing("azure", 0.75),
+        provider_schema_version="pricing-provider-schema.v1",
+        contract_version="2026.07.17",
+        registry_version="2026.07.17",
+        mapping_versions=("2026.07.17",),
+        fetched_at=FETCHED_AT + timedelta(hours=1),
+        source="provider_api",
+        review_status="reviewed",
+        calculation_source="fresh",
+    )
+    repository.publish(newer.reference)
+    _upgrade_baselines(repository.baseline_root, predecessor)
+
+    repository.initialize_from_baseline()
+
+    assert repository.resolve_published(
+        "azure",
+        "westeurope",
+        require_fresh=False,
+    ).reference == newer.reference
+
+
+def test_baseline_migration_rejects_untracked_runtime_manifest(repository):
+    predecessor = repository.initialize_from_baseline()
+    replacement = _upgrade_baselines(
+        repository.baseline_root,
+        predecessor,
+    )
+    history = repository.baseline_root / "history" / "baseline-2026.07.17.json"
+    history.unlink()
+
+    with pytest.raises(PricingCatalogTamperedError, match="tracked predecessor"):
+        repository.initialize_from_baseline()
+
+    assert (
+        repository.runtime_root / "baseline.json"
+    ).read_bytes() == canonical_json_bytes(predecessor.to_storage_dict())
+    assert replacement != predecessor
+
+
+def test_baseline_migration_rejects_tampered_predecessor_snapshot(repository):
+    predecessor = repository.initialize_from_baseline()
+    _upgrade_baselines(repository.baseline_root, predecessor)
+    reference = predecessor.catalogs["aws"]
+    runtime_snapshot = (
+        repository.runtime_root
+        / "aws"
+        / reference.pricing_region
+        / "snapshots"
+        / f"{reference.snapshot_id}.json"
+    )
+    runtime_snapshot.write_text('{"tampered": true}', encoding="utf-8")
+
+    with pytest.raises(PricingCatalogTamperedError, match="invalid"):
+        repository.initialize_from_baseline()
 
 
 def test_immutable_collision_with_different_bytes_fails(repository):

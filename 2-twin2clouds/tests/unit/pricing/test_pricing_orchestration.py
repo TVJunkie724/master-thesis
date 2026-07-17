@@ -1,12 +1,16 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from backend.fetch_data.calculate_up_to_date_pricing import (
     calculate_up_to_date_pricing,
     fetch_aws_data,
     fetch_azure_data,
     fetch_google_data,
+    _require_transfer_catalog,
     _get_or_warn
 )
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_fetch
 
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_credentials_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
@@ -53,7 +57,14 @@ def test_calculate_up_to_date_pricing_integration(
     # Mock load_json_file
     def load_json_side_effect(path):
         if "service_mapping" in str(path):
-            return {"iot": {"aws": "iotCore", "azure": "iotHub", "gcp": "iot"}}
+            return {
+                "iot": {"aws": "iotCore", "azure": "iotHub", "gcp": "iot"},
+                "transfer": {
+                    "aws": "AWSDataTransfer",
+                    "azure": "Bandwidth",
+                    "gcp": "ComputeEngine",
+                },
+            }
         elif "regions" in str(path):
             return {
                 "eu-central-1": "EU (Frankfurt)",
@@ -69,9 +80,21 @@ def test_calculate_up_to_date_pricing_integration(
     mock_load_json.side_effect = load_json_side_effect
 
     # Mock price fetcher responses
-    mock_aws_price.return_value = {"pricePerMessage": 0.001}
-    mock_azure_price.return_value = {"pricePerMessage": 0.0009}
-    mock_gcp_price.return_value = {"pricePerMessage": 0.0011}
+    mock_aws_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch("aws")
+        if kwargs["service_name"] == "transfer"
+        else {"pricePerMessage": 0.001}
+    )
+    mock_azure_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch("azure")
+        if kwargs["service_name"] == "transfer"
+        else {"pricePerMessage": 0.0009}
+    )
+    mock_gcp_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch("gcp")
+        if kwargs["service_name"] == "transfer"
+        else {"pricePerMessage": 0.0011}
+    )
     mock_load_gcp_credentials.return_value = object()
     mock_cloud_catalog_client.return_value = object()
     mock_persist_refresh.side_effect = (
@@ -168,21 +191,42 @@ def test_get_or_warn_with_static_value():
     # Should return static value (same as default in this case)
     assert result == 0.002
 
-@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
-def test_fetch_aws_data_structure(mock_fetch):
+
+def test_require_transfer_catalog_rejects_unknown_provider_fields():
+    transfer = canonical_transfer_fetch("aws")
+    transfer["egressPrice"] = 0.09
+
+    with pytest.raises(ValueError, match="unsupported fields: egressPrice"):
+        _require_transfer_catalog(
+            "aws",
+            "eu-central-1",
+            {"transfer": transfer},
+        )
+
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_fetch_aws_data_structure(mock_factory):
     """Test that fetch_aws_data returns correct structure"""
 
-    mock_fetch.return_value = {"pricePerMessage": 0.001}
+    fetcher = MagicMock()
+    fetcher.fetch_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch("aws")
+        if kwargs["service_name"] == "transfer"
+        else {"pricePerMessage": 0.001}
+    )
+    mock_factory.return_value = fetcher
 
     aws_creds = {
         "aws_access_key_id": "test-access-key",
         "aws_secret_access_key": "test-secret-key",
-        "aws_region": "us-east-1",
+        "aws_region": "eu-central-1",
     }
-    service_mapping = {"iot": {"aws": "iotCore"}}
-    aws_services = {
-        "iot": {"region": "us-east-1"}
+    service_mapping = {
+        "iot": {"aws": "iotCore"},
+        "transfer": {"aws": "AWSDataTransfer"},
     }
+    aws_services = {"eu-central-1": "EU (Frankfurt)"}
 
     result = fetch_aws_data(aws_creds, service_mapping, aws_services, additional_debug=False)
 
@@ -190,32 +234,52 @@ def test_fetch_aws_data_structure(mock_fetch):
     assert "iotCore" in result or "iot" in result
     assert isinstance(result, dict)
 
-@patch('backend.fetch_data.cloud_price_fetcher_azure.fetch_azure_price')
-def test_fetch_azure_data_structure(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_fetch_azure_data_structure(mock_factory):
     """Test that fetch_azure_data returns correct structure"""
 
-    mock_fetch.return_value = {"pricePerMessage": 0.001}
+    fetcher = MagicMock()
+    fetcher.fetch_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch("azure")
+        if kwargs["service_name"] == "transfer"
+        else {"pricePerMessage": 0.001}
+    )
+    mock_factory.return_value = fetcher
 
     azure_creds = {}
-    service_mapping = {"iot": "iotHub"}
-    azure_services = {
-        "iot": {"region": "westeurope"}
+    service_mapping = {
+        "iot": {"azure": "iotHub"},
+        "transfer": {"azure": "Bandwidth"},
     }
+    azure_services = {"westeurope": "West Europe"}
 
     result = fetch_azure_data(azure_creds, service_mapping, azure_services, additional_debug=False)
 
     assert "iotHub" in result or "iot" in result
     assert isinstance(result, dict)
 
-@patch('backend.fetch_data.cloud_price_fetcher_google.fetch_gcp_price')
-def test_fetch_google_data_structure(mock_fetch):
+@patch(
+    "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create"
+)
+def test_fetch_google_data_structure(mock_factory):
     """Test that fetch_google_data returns correct structure"""
 
-    mock_fetch.return_value = {"pricePerMessage": 0.001}
+    fetcher = MagicMock()
+    fetcher.fetch_price.side_effect = lambda **kwargs: (
+        canonical_transfer_fetch("gcp")
+        if kwargs["service_name"] == "transfer"
+        else {"pricePerMessage": 0.001}
+    )
+    mock_factory.return_value = fetcher
 
     gcp_creds = {}
-    service_mapping = {"iot": {"gcp": "iot"}}
-    gcp_services = {"us-central1": "us-central1"}
+    service_mapping = {
+        "iot": {"gcp": "iot"},
+        "transfer": {"gcp": "ComputeEngine"},
+    }
+    gcp_services = {"europe-west1": "Belgium"}
 
     result = fetch_google_data(
         gcp_creds,
@@ -259,7 +323,10 @@ def test_calculate_up_to_date_pricing_handles_errors(
 
     def load_json_side_effect(path):
         if "service_mapping" in str(path):
-            return {"iot": {"aws": "iotCore", "azure": "iotHub", "gcp": "iot"}}
+            return {
+                "iot": {"aws": "iotCore", "azure": "iotHub", "gcp": "iot"},
+                "transfer": {"aws": "AWSDataTransfer"},
+            }
         elif "regions" in str(path):
             return {
                 "eu-central-1": "EU (Frankfurt)",
@@ -273,7 +340,7 @@ def test_calculate_up_to_date_pricing_handles_errors(
     # Simulate fetcher error
     mock_aws_price.side_effect = Exception("API Error")
 
-    # Should not crash, should fall back to static defaults
+    # A required transfer catalog may not silently fall back after an API error.
     with (
         patch(
             "backend.fetch_data.calculate_up_to_date_pricing.build_aws_session",
@@ -285,12 +352,11 @@ def test_calculate_up_to_date_pricing_handles_errors(
             return_value={"schema_version": "test-context.v1"},
         ),
     ):
-        result = calculate_up_to_date_pricing(
-            "aws",
-            additional_debug=False,
-        )
+        with pytest.raises(ValueError, match="transfer pricing catalog"):
+            calculate_up_to_date_pricing(
+                "aws",
+                additional_debug=False,
+            )
 
-    assert result == {"provider": "aws", "status": "review_required"}
-    pricing = mock_persist_refresh.call_args.kwargs["pricing"]
-    assert "iotCore" in pricing
+    mock_persist_refresh.assert_not_called()
     mock_repository.return_value.refresh_guard.assert_called_once()

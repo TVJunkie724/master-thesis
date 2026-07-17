@@ -6,7 +6,14 @@ from backend.fetch_data.fetch_evidence import (
     MatchStatus,
     RejectedCandidate,
 )
-from backend.gcp_pricing_evidence import redact_gcp_error
+from backend.gcp_pricing_evidence import (
+    build_gcp_intent_evidence,
+    redact_gcp_error,
+)
+from backend.transfer_catalog import (
+    build_transfer_catalog,
+    build_transfer_evidence,
+)
 # from backend.config_loader import load_service_mapping # Not used
 # from backend.fetch_data import initial_fetch_google # No longer needed
 
@@ -18,7 +25,6 @@ from backend.gcp_pricing_evidence import redact_gcp_error
 # GCP_REGION_NAMES = ...
 
 STATIC_DEFAULTS_GCP = {
-    "transfer": {"egressPrice": 0.12},
     "iot": {"pricePerGiB": 0.0000004, "pricePerDeviceAndMonth": 0},
     "functions": {
         "freeRequests": 2_000_000,
@@ -44,7 +50,6 @@ STATIC_DEFAULTS_GCP = {
     },
     "data_access": {
         "pricePerMillionCalls": 3.00,
-        "dataTransferOutPrice": 0.12
     },
     "computeEngine": {
         "e2MediumPrice": 0.0335,
@@ -93,9 +98,7 @@ GCP_SERVICE_KEYWORDS = {
     },
     "transfer": {
         "service_display_name": "Compute Engine",
-        "meters": {
-            "egressPrice": {"desc_keywords": ["Internet Egress", "Premium"], "unit_keywords": ["gibibyte"]},
-        }
+        "meters": {}
     },
     "scheduler": {
         "service_display_name": "Cloud Scheduler",
@@ -121,15 +124,6 @@ GCP_SERVICE_KEYWORDS = {
             "pricePerMillionCalls": {
                 "desc_keywords": ["Operations"],
                 "unit_keywords": ["count"]
-            }
-        }
-    },
-    "apiGateway_egress": {
-        "service_display_name": "API Gateway",
-        "meters": {
-            "dataTransferOutPrice": {
-                "desc_keywords": ["Internet Egress", "Intercontinental"],
-                "unit_keywords": ["gibibyte"]
             }
         }
     },
@@ -245,6 +239,177 @@ def _sku_price(sku: Any) -> float:
             return price_currency
     return 0.0
 
+
+def _money_payload(value: Any) -> dict[str, Any]:
+    currency_code = getattr(value, "currency_code", None)
+    if not isinstance(currency_code, str) or not currency_code.strip():
+        raise ValueError("GCP unit price currencyCode is missing")
+    units = int(getattr(value, "units", 0))
+    nanos = int(getattr(value, "nanos", 0))
+    if abs(nanos) >= 1_000_000_000:
+        raise ValueError("GCP unit price nanos is outside the supported range")
+    return {
+        "currencyCode": currency_code,
+        "units": units,
+        "nanos": nanos,
+    }
+
+
+def _gcp_enum_name(
+    value: Any,
+    *,
+    names: dict[int, str],
+    field_name: str,
+) -> str:
+    name = getattr(value, "name", None)
+    if isinstance(name, str) and name:
+        return name
+    if isinstance(value, str) and value:
+        return value
+    try:
+        numeric_value = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"GCP {field_name} is invalid") from exc
+    try:
+        return names[numeric_value]
+    except KeyError as exc:
+        raise ValueError(f"GCP {field_name} is unsupported") from exc
+
+
+def _aggregation_payload(expression: Any) -> dict[str, Any]:
+    aggregation = getattr(expression, "aggregation_info", None)
+    if aggregation is None:
+        raise ValueError("GCP pricing aggregationInfo is missing")
+    return {
+        "level": _gcp_enum_name(
+            getattr(aggregation, "aggregation_level", None),
+            names={0: "AGGREGATION_LEVEL_UNSPECIFIED", 1: "ACCOUNT", 2: "PROJECT"},
+            field_name="aggregation level",
+        ),
+        "interval": _gcp_enum_name(
+            getattr(aggregation, "aggregation_interval", None),
+            names={
+                0: "AGGREGATION_INTERVAL_UNSPECIFIED",
+                1: "DAILY",
+                2: "MONTHLY",
+            },
+            field_name="aggregation interval",
+        ),
+        "count": int(getattr(aggregation, "aggregation_count", 0)),
+    }
+
+
+def _gcp_sku_catalog_row(
+    sku: Any,
+    *,
+    service_id: str,
+    service_display_name: str,
+) -> dict[str, Any]:
+    category = sku.category
+    pricing_info = []
+    for info in sku.pricing_info:
+        expression = info.pricing_expression
+        pricing_info.append(
+            {
+                "pricingExpression": {
+                    "usageUnit": expression.usage_unit,
+                    "usageUnitDescription": expression.usage_unit_description,
+                    "baseUnit": expression.base_unit,
+                    "baseUnitDescription": expression.base_unit_description,
+                    "baseUnitConversionFactor": (
+                        expression.base_unit_conversion_factor
+                    ),
+                    "displayQuantity": expression.display_quantity,
+                    "aggregationInfo": _aggregation_payload(expression),
+                    "tieredRates": [
+                        {
+                            "startUsageAmount": rate.start_usage_amount,
+                            "unitPrice": _money_payload(rate.unit_price),
+                        }
+                        for rate in expression.tiered_rates
+                    ],
+                }
+            }
+        )
+    return {
+        "serviceId": service_id,
+        "serviceDisplayName": service_display_name,
+        "skuId": sku.sku_id,
+        "description": sku.description,
+        "category": {
+            "resourceFamily": category.resource_family,
+            "resourceGroup": category.resource_group,
+            "usageType": category.usage_type,
+        },
+        "serviceRegions": list(sku.service_regions),
+        "pricingInfo": pricing_info,
+    }
+
+
+def _fetch_gcp_transfer_catalog(
+    sku_list: List[Any],
+    *,
+    service_id: str,
+    service_display_name: str,
+    region_code: str,
+) -> Dict[str, Any]:
+    raw_skus = [
+        _gcp_sku_catalog_row(
+            sku,
+            service_id=service_id,
+            service_display_name=service_display_name,
+        )
+        for sku in sku_list
+    ]
+    evidence = build_gcp_intent_evidence(
+        raw_skus,
+        intent_id="transfer.egress_gb",
+        region=region_code,
+    )
+    if evidence["review_required"] or not evidence["selected_rows"]:
+        raise ValueError(
+            "GCP transfer pricing evidence is incomplete or requires review"
+        )
+    if evidence["currency"] != "USD":
+        raise ValueError("GCP transfer pricing must use USD")
+    tiers = evidence["normalized_tiers"]
+    if not tiers or any(tier.get("unit") != "gibibyte" for tier in tiers):
+        raise ValueError("GCP transfer pricing must use gibibyte tiers")
+
+    transfer_evidence = build_transfer_evidence(
+        provider="gcp",
+        pricing_region=region_code,
+        source_type="provider_api",
+        source_api="gcp-cloud-billing-catalog",
+        source_url=(
+            "https://cloud.google.com/skus/sku-groups/"
+            "network-premium-gce-internet-egress"
+        ),
+        mapping_version=evidence["mapping_version"],
+        selected_rows=evidence["selected_rows"],
+        fetched_at=evidence["fetched_at"],
+    )
+    catalog = build_transfer_catalog(
+        provider="gcp",
+        pricing_region=region_code,
+        tier_thresholds=[
+            {
+                "tier_id": f"gcp-paid-{index + 1}",
+                "start_quantity": tier["lower_bound"],
+                "unit_price": tier["price"],
+            }
+            for index, tier in enumerate(tiers)
+        ],
+        free_allowance_quantity=1,
+        evidence_id=transfer_evidence["evidence_id"],
+        currency=evidence["currency"],
+    )
+    return {
+        **catalog,
+        "__evidence__": transfer_evidence,
+        "__intent_evidence__": evidence,
+    }
+
 def _select_gcp_sku_with_evidence(
     sku_list: List[Any],
     meter_conf: Dict[str, Any],
@@ -351,6 +516,7 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
 
     # 3. Find Service ID
     service_id = None
+    service_display_name = None
     try:
         # List all services (cached ideally, but for now we fetch)
         # Note: This list is large, in production we might want to cache this map.
@@ -358,6 +524,7 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
         for service in client.list_services(request=request):
             if service.display_name == config["service_display_name"]:
                 service_id = service.service_id
+                service_display_name = service.display_name
                 break
     except Exception as e:
         message = redact_gcp_error(e)
@@ -373,14 +540,28 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
         return {}
 
     # 4. List SKUs for Service
-    fetched = {}
     try:
         request = billing_v1.ListSkusRequest(parent=f"services/{service_id}")
-        skus = client.list_skus(request=request)
-        
-        # Convert to list for multiple passes
-        sku_list = list(skus)
-        
+        sku_list = list(client.list_skus(request=request))
+    except Exception as e:
+        message = redact_gcp_error(e)
+        logger.error(f"Error listing SKUs for {service_name}: {message}")
+        raise GCPPricingCatalogAccessError(
+            f"GCP Cloud Billing Catalog SKU listing failed for {service_name}. "
+            "Verify service account credentials, token validity, and "
+            "cloudbilling.skus.list permission."
+        ) from e
+
+    if service_name == "transfer":
+        return _fetch_gcp_transfer_catalog(
+            sku_list,
+            service_id=service_id,
+            service_display_name=service_display_name,
+            region_code=region_code,
+        )
+
+    fetched = {}
+    try:
         if debug:
             logger.debug(f"-- Available SKUs for {service_name} ({len(sku_list)}) --")
             # Show first 5 for context
@@ -406,13 +587,10 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
                 if debug:
                     logger.debug(f"   ❌ {service_name}.{key}: {evidence.reason}")
 
-    except Exception as e:
-        message = redact_gcp_error(e)
-        logger.error(f"Error listing SKUs for {service_name}: {message}")
-        raise GCPPricingCatalogAccessError(
-            f"GCP Cloud Billing Catalog SKU listing failed for {service_name}. "
-            "Verify service account credentials, token validity, and "
-            "cloudbilling.skus.list permission."
+    except (AttributeError, TypeError, ValueError) as e:
+        logger.error("Invalid GCP pricing catalog contract for %s", service_name)
+        raise ValueError(
+            f"GCP pricing catalog contract is invalid for {service_name}"
         ) from e
 
     logger.info(f"✅ Final GCP {service_name} pricing: {fetched}")

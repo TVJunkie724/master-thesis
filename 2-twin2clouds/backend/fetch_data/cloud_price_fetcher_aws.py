@@ -4,11 +4,16 @@ from typing import Dict, Any, Optional, List, Callable
 
 from backend.logger import logger
 import backend.config_loader as config_loader
+from backend.aws_pricing_evidence import build_aws_intent_evidence
 from backend.fetch_data.fetch_evidence import (
     FieldMatchEvidence,
     MatchStatus,
     RejectedCandidate,
     distinct_prices,
+)
+from backend.transfer_catalog import (
+    build_transfer_catalog,
+    build_transfer_evidence,
 )
 # from backend.fetch_data import initial_fetch_aws # No longer needed for global load
 
@@ -119,12 +124,6 @@ AWS_SERVICE_KEYWORDS = {
             "dataRetrievalPrice": ["retrieval fee", "per gb retrieved", "flat fee"],
         },
     },
-    "transfer": {
-        "include": ["data transfer", "transfer out", "egress", "internet"],
-        "fields": {
-            "egressPrice": ["data transfer", "transfer out", "data transferred out", "egress", "internet", "out to", "external datatransfer"]
-        }
-    },
     "grafana": {
         "include": ["grafana", "workspace", "user"],
         "exclude": ["enterprise", "support"],
@@ -146,10 +145,9 @@ AWS_SERVICE_KEYWORDS = {
         }
     },
     "data_access": {
-        "include": ["requests", "api gateway", "data transfer"],
+        "include": ["requests", "api gateway"],
         "fields": {
             "pricePerMillionCalls": ["api gateway http api (first 300 million)"],
-            "dataTransferOutPrice": ["data transfer"],
         }
     },
 }
@@ -344,13 +342,16 @@ def _extract_prices_from_api_response(price_list: List[str], field_map: Dict[str
 # Specialized Fetchers
 # -------------------------------------------------------------------
 
-def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, Any]:
+def _fetch_transfer_prices(
+    region_code: str,
+    region_human: str,
+    pricing_client: Any,
+    debug: bool = False,
+) -> Dict[str, Any]:
     """
     Specialized fetcher for Data Transfer.
     Fetches prices from AWSDataTransfer using fromLocation (Region) -> toLocation (External).
     """
-    egress_prices = []
-    
     # We specifically want:
     # Service: AWSDataTransfer
     # fromLocation: <Current Region>
@@ -372,40 +373,73 @@ def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool =
         extra_filters=extra_filters
     )
     
-    # Parse tiers specifically for transfer
-    for prod_json in price_list:
-        prod = json.loads(prod_json)
-        for term in prod.get("terms", {}).get("OnDemand", {}).values():
-            for dim in term.get("priceDimensions", {}).values():
-                desc = dim.get("description", "").lower()
-                price = float(dim.get("pricePerUnit", {}).get("USD", 0))
-                if price == 0:
-                    continue
-                
-                # We trust the filters, but double check description just in case
-                if "data transfer" in desc or "out" in desc:
-                    egress_prices.append({
-                        "desc": desc,
-                        "price": price,
-                        "begin": float(dim.get("beginRange", "0")),
-                        "end": float(dim.get("endRange", "inf")),
-                    })
-                    if debug:
-                        logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
+    evidence = build_aws_intent_evidence(
+        price_list,
+        intent_id="transfer.egress_gb",
+        region=region_code,
+    )
+    if evidence["review_required"] or not evidence["selected_rows"]:
+        raise ValueError(
+            "AWS transfer pricing evidence is incomplete or requires review"
+        )
+    if evidence.get("currency") != "USD":
+        raise ValueError("AWS transfer pricing must use USD")
+    normalized_tiers = evidence["normalized_tiers"]
+    _validate_aws_transfer_ranges(normalized_tiers)
+    selected_rows = evidence["selected_rows"]
+    transfer_evidence = build_transfer_evidence(
+        provider="aws",
+        pricing_region=region_code,
+        source_type="provider_api",
+        source_api="aws-price-list",
+        source_url="https://aws.amazon.com/ec2/pricing/on-demand/#Data_Transfer",
+        mapping_version=evidence["mapping_version"],
+        selected_rows=selected_rows,
+        fetched_at=evidence["fetched_at"],
+    )
+    catalog = build_transfer_catalog(
+        provider="aws",
+        pricing_region=region_code,
+        tier_thresholds=[
+            {
+                "tier_id": f"aws-paid-{index + 1}",
+                "start_quantity": tier["lower_bound"],
+                "unit_price": tier["price"],
+            }
+            for index, tier in enumerate(normalized_tiers)
+        ],
+        free_allowance_quantity=100,
+        evidence_id=transfer_evidence["evidence_id"],
+        currency=evidence["currency"],
+    )
+    if debug:
+        logger.debug(
+            "Matched %s exact AWS transfer tiers for %s",
+            len(normalized_tiers),
+            region_human,
+        )
+    return {
+        **catalog,
+        "__evidence__": transfer_evidence,
+        "__intent_evidence__": evidence,
+    }
 
-    if not egress_prices:
-        logger.warning(f"⚠️ No egress prices found for {region_human}.")
-        _warn_static("transfer", "egressPrice", debug)
-        return {}
 
-    # Sort and build tier structure
-    egress_prices.sort(key=lambda x: x["begin"])
-    pricing_tiers = {"freeTier": {"limit": 100, "price": 0}}
-    for i, tier in enumerate(egress_prices, start=1):
-        limit = tier["end"] if tier["end"] != float("inf") else "Infinity"
-        pricing_tiers[f"tier{i}"] = {"limit": limit, "price": tier["price"]}
-        
-    return {"pricing_tiers": pricing_tiers, "egressPrice": egress_prices[0]["price"]}
+def _validate_aws_transfer_ranges(tiers: List[Dict[str, Any]]) -> None:
+    if not tiers:
+        raise ValueError("AWS transfer pricing returned no paid tiers")
+    for index, tier in enumerate(tiers):
+        if tier.get("unit") != "GB":
+            raise ValueError("AWS transfer pricing must use GB")
+        if tier.get("price", 0) <= 0:
+            raise ValueError("AWS transfer paid tiers must have positive prices")
+        expected_end = (
+            tiers[index + 1]["lower_bound"]
+            if index + 1 < len(tiers)
+            else "Infinity"
+        )
+        if tier.get("limit") != expected_end:
+            raise ValueError("AWS transfer tiers are gapped or overlapping")
 
 def _fetch_twinmaker_prices(
     region_human: str,
@@ -794,6 +828,13 @@ def fetch_aws_price(service_name: str, service_code: str, region_code: str, regi
         if neutral_service_name == "iot":
             prices = SPECIALIZED_FETCHERS[neutral_service_name](
                 service_code,
+                region_human,
+                pricing_client,
+                debug,
+            )
+        elif neutral_service_name == "transfer":
+            prices = SPECIALIZED_FETCHERS[neutral_service_name](
+                region_code,
                 region_human,
                 pricing_client,
                 debug,

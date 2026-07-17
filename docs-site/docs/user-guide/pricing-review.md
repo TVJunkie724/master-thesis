@@ -72,9 +72,13 @@ Collapsed details expose the full decision path without overwhelming the default
 - contract and publication status;
 - latest refresh run and errors.
 
-Azure tier-series evidence includes every selected `tierMinimumUnits` row and the
-normalized absolute-limit table. Rejected routing preferences, reservation products,
-storage products, SKUs, and meters are bounded and remain available with reasons.
+Transfer evidence is a tier series for every provider. AWS retains every
+reviewed outbound range, Azure retains every selected `tierMinimumUnits` row,
+and GCP retains every native `tieredRates` boundary for the reviewed Premium
+EMEA-to-EMEA SKU. Details show whether quantities are billed in decimal GB or
+GiB, the exact byte divisor, route/network policy, and evidence identity.
+Rejected routing preferences, reservation products, storage products, SKUs,
+and meters are bounded and remain available with reasons.
 
 ## Review Decision
 

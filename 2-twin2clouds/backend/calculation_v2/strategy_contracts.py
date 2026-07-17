@@ -589,8 +589,14 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "transfer",
             "AWS cross-cloud egress pricing.",
             (
-                _field("egress", ("aws", "transfer", "egressPrice"), "usd/gb", "usd/gb", "egress_gb"),
-                _field("egress_tiers", ("aws", "transfer", "pricing_tiers"), "usd/gb", "tier_table", "egress_gb", normalizer="transfer_tier_table"),
+                _field(
+                    "catalog",
+                    ("aws", "transfer"),
+                    "transfer_catalog",
+                    "transfer_catalog",
+                    "egress_bytes",
+                    normalizer="canonical_transfer_catalog",
+                ),
             ),
         ),
         _intent(
@@ -601,7 +607,14 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "transfer",
             "Azure cross-cloud egress pricing.",
             (
-                _field("egress_tiers", ("azure", "transfer", "pricing_tiers"), "usd/gb", "tier_table", "egress_gb", normalizer="transfer_tier_table"),
+                _field(
+                    "catalog",
+                    ("azure", "transfer"),
+                    "transfer_catalog",
+                    "transfer_catalog",
+                    "egress_bytes",
+                    normalizer="canonical_transfer_catalog",
+                ),
             ),
         ),
         _intent(
@@ -612,8 +625,14 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "transfer",
             "GCP cross-cloud egress pricing.",
             (
-                _field("egress", ("gcp", "transfer", "egressPrice"), "usd/gb", "usd/gb", "egress_gb"),
-                _field("egress_tiers", ("gcp", "transfer", "pricing_tiers"), "usd/gb", "tier_table", "egress_gb", normalizer="transfer_tier_table"),
+                _field(
+                    "catalog",
+                    ("gcp", "transfer"),
+                    "transfer_catalog",
+                    "transfer_catalog",
+                    "egress_bytes",
+                    normalizer="canonical_transfer_catalog",
+                ),
             ),
         ),
     )
@@ -647,7 +666,7 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
         _binding("cost.aws.l5.grafana", FormulaType.CU, ("aws.l5.grafana",), "AWSGrafanaCalculator.calculate_cost", "L5.grafana", ("num_editors", "num_viewers")),
         _binding("cost.azure.l5.grafana", FormulaType.CU, ("azure.l5.grafana",), "AzureGrafanaCalculator.calculate_cost", "L5.grafana", ("num_editors", "num_viewers", "hours_per_month")),
         _binding("cost.gcp.l5.self_hosted_grafana", FormulaType.CU, ("gcp.l5.self_hosted_grafana",), "GCPComputeEngineCalculator.calculate_grafana_cost", "L5.self_hosted_grafana", ("hours_per_month", "disk_gb")),
-        _binding("cost.transfer.egress", FormulaType.CTRANSFER, ("aws.transfer.egress", "azure.transfer.egress", "gcp.transfer.egress"), "calculation_v2.engine._calculate_egress_cost", "transfer.egress", ("data_gb", "source_provider"), normalizer="transfer_tier_table"),
+        _binding("cost.transfer.egress", FormulaType.CTRANSFER, ("aws.transfer.egress", "azure.transfer.egress", "gcp.transfer.egress"), "calculation_v2.engine._calculate_egress_cost", "transfer.egress", ("data_gb", "source_provider"), normalizer="canonical_transfer_catalog"),
     )
 
     return OptimizationStrategyContract(

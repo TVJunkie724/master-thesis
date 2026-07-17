@@ -23,6 +23,13 @@ from backend.pricing_catalog_repository import (
     get_pricing_catalog_repository,
 )
 from backend.pricing_schema import attach_pricing_metadata
+from backend.calculation_v2.transfer_pricing import (
+    TransferPricingContractError,
+)
+from backend.transfer_catalog import (
+    TRANSFER_CATALOG_FIELDS,
+    validate_transfer_catalog,
+)
 
 # Factory Pattern: Centralized creation of price fetcher instances
 # All provider-specific fetching is done through the Factory
@@ -317,6 +324,44 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
         logger.warning(f"   ⚠️ Using fallback for {provider_name}.{provider_service}.{key} (not returned by API)")
     return default_value
 
+
+def _require_transfer_catalog(
+    provider: str,
+    pricing_region: str,
+    fetched: dict,
+) -> dict:
+    transfer = fetched.get("transfer")
+    if not isinstance(transfer, dict):
+        raise ValueError(
+            f"{provider.upper()} transfer pricing catalog is missing"
+        )
+    metadata_fields = {
+        "__evidence__",
+        "__intent_evidence__",
+        "__transfer_evidence__",
+    }
+    unsupported_fields = sorted(
+        set(transfer) - set(TRANSFER_CATALOG_FIELDS) - metadata_fields
+    )
+    if unsupported_fields:
+        fields = ", ".join(unsupported_fields)
+        raise ValueError(
+            f"{provider.upper()} transfer pricing catalog has unsupported fields: "
+            f"{fields}"
+        )
+    catalog = {
+        key: transfer[key]
+        for key in TRANSFER_CATALOG_FIELDS
+        if key in transfer
+    }
+    try:
+        validate_transfer_catalog(provider, pricing_region, catalog)
+    except TransferPricingContractError as exc:
+        raise ValueError(
+            f"{provider.upper()} transfer pricing catalog is invalid"
+        ) from exc
+    return catalog
+
 # ============================================================
 # AWS FETCHING AND SCHEMA BUILD
 # ============================================================
@@ -382,18 +427,7 @@ def fetch_aws_data(
     logger.info("🧩 Building AWS pricing schema...")
     aws = {}
 
-    neutral_service, provider_service = "transfer", "transfer"
-    transfer = fetched.get(neutral_service, {})
-    aws[provider_service] = {
-        "pricing_tiers": transfer.get("pricing_tiers", {
-            "freeTier": {"limit": 100, "price": 0},
-            "tier1": {"limit": 10240, "price": 0.09},
-            "tier2": {"limit": 51200, "price": 0.085},
-            "tier3": {"limit": 102400, "price": 0.07},
-            "tier4": {"limit": "Infinity", "price": 0.05},
-        }),
-        "egressPrice": _get_or_warn("AWS", neutral_service, provider_service, "egressPrice", transfer, 0.09, STATIC_DEFAULTS)
-    }
+    aws["transfer"] = _require_transfer_catalog("aws", region, fetched)
 
     neutral_service, provider_service = "iot", "iotCore"
     iot = fetched.get(neutral_service, {})
@@ -429,14 +463,11 @@ def fetch_aws_data(
 
     neutral_service, provider_service = "storage_cool", "s3InfrequentAccess"
     s3ia = fetched.get(neutral_service, {})
-    egress_price = aws["transfer"]["egressPrice"]
     aws[provider_service] = {
         "storagePrice": _get_or_warn("AWS", neutral_service, provider_service, "storagePrice", s3ia, 0.0125, STATIC_DEFAULTS),
         "upfrontPrice": _get_or_warn("AWS", neutral_service, provider_service, "upfrontPrice", s3ia, 0.0001, STATIC_DEFAULTS),
         "requestPrice": _get_or_warn("AWS", neutral_service, provider_service, "requestPrice", s3ia, 0.00001, STATIC_DEFAULTS),
         "dataRetrievalPrice": _get_or_warn("AWS", neutral_service, provider_service, "dataRetrievalPrice", s3ia, 0.01, STATIC_DEFAULTS),
-        "transferCostFromDynamoDB": round(egress_price * 1.1, 8),
-        "transferCostFromCosmosDB": round(egress_price * 0.55, 8),
     }
 
     neutral_service, provider_service = "storage_archive", "s3GlacierDeepArchive"
@@ -500,7 +531,6 @@ def fetch_aws_data(
     ag = fetched.get(neutral_service, {})
     aws[provider_service] = {
         "pricePerMillionCalls": _get_or_warn("AWS", neutral_service, provider_service, "pricePerMillionCalls", ag, 3.50, STATIC_DEFAULTS),
-        "dataTransferOutPrice": aws["transfer"]["egressPrice"],
     }
 
     neutral_service, provider_service = "scheduler", "scheduler"
@@ -564,20 +594,7 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
     
     azure = {}
 
-    # Transfer
-    neutral_service, provider_service = "transfer", "transfer"
-    transfer = fetched.get(neutral_service, {})
-    azure[provider_service] = {
-        "pricing_tiers": transfer.get("pricing_tiers", {
-            "freeTier": {"limit": 100, "price": 0},
-            "tier1": {"limit": 10240, "price": 0.087}, 
-            "tier2": {"limit": 51200, "price": 0.083},
-            "tier3": {"limit": 102400, "price": 0.07},
-            "tier4": {"limit": "Infinity", "price": 0.05},
-        })
-    }
-    if transfer.get("egressPrice") is not None:
-        azure[provider_service]["egressPrice"] = transfer["egressPrice"]
+    azure["transfer"] = _require_transfer_catalog("azure", region, fetched)
 
     # IoT Hub
     neutral_service, provider_service = "iot", "iotHub"
@@ -612,14 +629,12 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
     # Blob Storage Cool (storage_cool)
     neutral_service, provider_service = "storage_cool", "blobStorageCool"
     sc = fetched.get(neutral_service, {})
-    transfer_egress_price = azure["transfer"].get("egressPrice", 0.087)
     azure[provider_service] = {
         "storagePrice": _get_or_warn("Azure", neutral_service, provider_service, "storagePrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
         "upfrontPrice": _get_or_warn("Azure", neutral_service, provider_service, "upfrontPrice", sc, 0.0001, STATIC_DEFAULTS_AZURE),
         "writePrice": _get_or_warn("Azure", neutral_service, provider_service, "writePrice", sc, 0.02, STATIC_DEFAULTS_AZURE),
         "readPrice": _get_or_warn("Azure", neutral_service, provider_service, "readPrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
         "dataRetrievalPrice": _get_or_warn("Azure", neutral_service, provider_service, "dataRetrievalPrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
-        "transferCostFromCosmosDB": transfer_egress_price,
     }
 
     # Blob Storage Archive (storage_archive)
@@ -741,16 +756,7 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
 
     gcp = {}
     
-    neutral_service, provider_service = "transfer", "transfer"
-    transfer = fetched.get(neutral_service, {})
-    gcp[provider_service] = {
-        "pricing_tiers": {
-            "freeTier": {"limit": 100, "price": 0},
-            "tier1": {"limit": 10240, "price": 0.12},
-            "tier2": {"limit": "Infinity", "price": 0.08},
-        },
-        "egressPrice": _get_or_warn("GCP", neutral_service, provider_service, "egressPrice", transfer, 0.12, STATIC_DEFAULTS_GCP)
-    }
+    gcp["transfer"] = _require_transfer_catalog("gcp", region, fetched)
 
     neutral_service, provider_service = "iot", "iot"
     iot = fetched.get(neutral_service, {})
@@ -834,9 +840,6 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
     
     neutral_service, provider_service = "data_access", "apiGateway"
     da = fetched.get(neutral_service, {})
-    # For dataTransferOutPrice, we reuse the transfer service's egress price which is standard internet egress
-    egress_price = gcp.get("transfer", {}).get("egressPrice", 0.12)
-    
     # Scale pricePerMillionCalls by 1M because the fetcher normalizes to per-call, but the key implies per-million
     normalized_default = STATIC_DEFAULTS_GCP["data_access"]["pricePerMillionCalls"] / 1_000_000
     price_per_call_val = _get_or_warn("GCP", neutral_service, provider_service, "pricePerMillionCalls", da, normalized_default, STATIC_DEFAULTS_GCP)
@@ -846,7 +849,6 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
 
     gcp[provider_service] = {
         "pricePerMillionCalls": final_price_per_million,
-        "dataTransferOutPrice": egress_price
     }
     
     neutral_service, provider_service = "orchestration", "cloudWorkflows"

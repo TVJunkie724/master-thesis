@@ -69,6 +69,14 @@ contract validation and cumulative calculation boundary tests. This evidence sup
 the selected West Europe intents; it is not a timeless guarantee for every region or
 future Azure catalog revision.
 
+AWS, Azure, and GCP transfer catalogs now use exact reviewed tier series,
+provider-native GB/GiB units, explicit routing policy, and fail-closed runtime
+validation. Complete-path scoring and account-level allowance aggregation are
+still being implemented under issue #116. Until that slice lands, the current
+engine can validate each segment's catalog but must not be interpreted as a
+provider invoice reconciliation or as proof that greedy layer selection found
+the global minimum including transfer.
+
 Calculation traceability now connects the optimization profile and selected path to
 provider pricing contracts, source classifications, formula bindings, evidence
 references, verification gates, and bounded result scopes. This improves auditability;

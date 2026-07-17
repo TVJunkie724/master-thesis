@@ -220,7 +220,10 @@ class PricingContractValidationService:
             )
 
         for field in contract.get("required_evidence_fields") or []:
-            if field == "selected_row" and evidence_record.get("source_type") != FETCHED:
+            if (
+                field in {"selected_row", "selected_rows"}
+                and evidence_record.get("source_type") != FETCHED
+            ):
                 continue
             if (
                 evidence_record.get("source_type") == NOT_APPLICABLE

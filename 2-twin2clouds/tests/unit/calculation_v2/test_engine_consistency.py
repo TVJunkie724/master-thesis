@@ -11,6 +11,8 @@ Since the old engine is now deprecated, we test that the new engine:
 3. Handles all input parameters correctly
 """
 
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
+
 # Standard test parameters matching typical use cases
 STANDARD_PARAMS = {
     "numberOfDevices": 100,
@@ -72,7 +74,7 @@ REALISTIC_PRICING = {
             },
         },
         "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-        "egress": {"pricePerGB": 0.09},
+        "transfer": canonical_transfer_catalog("aws"),
     },
     "azure": {
         "iotHub": {
@@ -102,7 +104,7 @@ REALISTIC_PRICING = {
             "messagePrice": 0.001,
         },
         "azureManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-        "egress": {"pricePerGB": 0.087},
+        "transfer": canonical_transfer_catalog("azure"),
     },
     "gcp": {
         "iot": {"pricePerGiB": 0.04},
@@ -122,7 +124,7 @@ REALISTIC_PRICING = {
         "storage_archive": {"storagePrice": 0.004, "writePrice": 0.05},
         "twinmaker": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
         "grafana": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
-        "egress": {"pricePerGB": 0.12},
+        "transfer": canonical_transfer_catalog("gcp"),
     },
 }
 

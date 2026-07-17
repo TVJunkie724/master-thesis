@@ -234,18 +234,25 @@ def _candidate_sort_key(candidate: dict[str, Any]) -> str:
 
 
 def _tier_threshold(candidate: dict[str, Any]) -> float:
-    return float((candidate.get("tier") or {}).get("tier_minimum_units"))
+    threshold = _tier_threshold_value(candidate)
+    if threshold is None:
+        return float("inf")
+    return threshold
 
 
 def _validate_tier_series(candidates: list[dict[str, Any]]) -> list[str]:
     errors: list[str] = []
     thresholds: dict[float, float] = {}
+    currencies: set[str] = set()
+    units: set[str] = set()
+    threshold_labels: set[str] = set()
     for candidate in candidates:
         candidate_id = candidate.get("candidate_id")
-        threshold = (candidate.get("tier") or {}).get("tier_minimum_units")
+        threshold, threshold_label = _validated_tier_threshold(candidate)
+        threshold_labels.add(threshold_label)
         price = candidate.get("raw_price")
         if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
-            errors.append(f"{candidate_id}: tierMinimumUnits must be numeric")
+            errors.append(f"{candidate_id}: {threshold_label} must be numeric")
             continue
         if float(threshold) < 0:
             errors.append(f"{candidate_id}: tierMinimumUnits must be non-negative")
@@ -263,10 +270,54 @@ def _validate_tier_series(candidates: list[dict[str, Any]]) -> list[str]:
                 f"{candidate_id}: {qualifier} tierMinimumUnits {normalized_threshold:g}"
             )
         thresholds[normalized_threshold] = normalized_price
+        currency = candidate.get("currency")
+        unit = candidate.get("unit")
+        if isinstance(currency, str) and currency:
+            currencies.add(currency)
+        if isinstance(unit, str) and unit:
+            units.add(unit)
 
     if thresholds and 0.0 not in thresholds:
-        errors.append("tier series must contain tierMinimumUnits 0")
+        label = (
+            next(iter(threshold_labels))
+            if len(threshold_labels) == 1
+            else "tier threshold"
+        )
+        errors.append(f"tier series must contain {label} 0")
+    if len(currencies) != 1:
+        errors.append("tier series must declare exactly one currency")
+    if len(units) != 1:
+        errors.append("tier series must declare exactly one billing unit")
     return errors
+
+
+def _tier_threshold_value(candidate: dict[str, Any]) -> float | None:
+    threshold, _ = _validated_tier_threshold(candidate)
+    if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
+        return None
+    return float(threshold)
+
+
+def _validated_tier_threshold(
+    candidate: dict[str, Any],
+) -> tuple[float | Any, str]:
+    tier = candidate.get("tier") or {}
+    labels = {
+        "tier_minimum_units": "tierMinimumUnits",
+        "begin_range": "beginRange",
+        "start_usage_amount": "startUsageAmount",
+    }
+    for key, label in labels.items():
+        raw = tier.get(key)
+        if raw is None:
+            continue
+        if key == "tier_minimum_units":
+            return raw, label
+        try:
+            return float(raw), label
+        except (TypeError, ValueError):
+            return raw, label
+    return None, "tier threshold"
 
 
 def _result(

@@ -71,8 +71,20 @@ def _record(provider, intent_id, *, unit, normalization_rule, source_type=FETCHE
         "tier": {"minimum": 0},
         "errors": [],
     }
+    if intent_id == "transfer.egress_gb":
+        record["selected_rows"] = [deepcopy(record["selected_row"])]
+        record["normalized_tiers"] = [
+            {
+                "tier_id": "tier-1",
+                "start_quantity": 0,
+                "end_quantity": None,
+                "unit_price": 0.01,
+                "unit": unit,
+            }
+        ]
     if source_type == OFFICIAL_CLOUD_EVIDENCE:
         record["selected_row"] = None
+        record.pop("selected_rows", None)
         record["source_reference"] = {
             "url": "https://example.invalid/provider-pricing",
             "retrieved_at": "2026-06-08T13:00:00Z",
@@ -167,7 +179,7 @@ def test_representative_aws_azure_gcp_paths_pass_all_required_gates():
     cases = [
         ("aws", "iot.message_ingest", "message", "per_1m_messages"),
         ("azure", "iot.message_ingest", "message", "per_1m_messages"),
-        ("gcp", "transfer.egress_gb", "gb", "per_gb"),
+        ("gcp", "transfer.egress_gb", "gb", "per_gib_to_gb"),
     ]
 
     for provider, field, unit, normalization_rule in cases:
@@ -254,6 +266,7 @@ def test_missing_tier_metadata_fails_contract_compatibility_gate():
     record = _record("aws", "transfer.egress_gb", unit="gb", normalization_rule="per_gb")
     record.pop("tier")
     record["selected_row"].pop("tier")
+    record.pop("normalized_tiers")
 
     report = _validate(record=record)
 

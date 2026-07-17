@@ -13,9 +13,9 @@ classifications:
     included_usage_semantics: provider_evidence_or_official_static
     region_scope: regional_or_provider_defined
     currency: USD
-    effective_date: '2026-06-08'
+    effective_date: '2026-07-18'
     evidence_source_refs:
-    - aws.transfer.egress_gb.mapping:2026.06.08
+    - aws.transfer.egress_gb.mapping:2026.07.18
     review_status: verified
     publishable: true
   aws.iot_message_ingest.model.v1:
@@ -637,14 +637,14 @@ classifications:
     service: Compute Engine
     field: transfer.egress_gb
     pricing_model_type: tiered_egress_volume
-    billing_unit_semantics: egress_gb
+    billing_unit_semantics: provider_native_gib_tiers_with_exact_byte_conversion
     tier_semantics: provider_defined_tiers
     included_usage_semantics: provider_evidence_or_official_static
     region_scope: regional_or_provider_defined
     currency: USD
-    effective_date: '2026-06-08'
+    effective_date: '2026-07-18'
     evidence_source_refs:
-    - gcp.transfer.egress_gb.mapping:2026.06.08
+    - gcp.transfer.egress_gb.mapping:2026.07.18
     review_status: verified
     publishable: true
   gcp.iot_message_ingest.model.v1:

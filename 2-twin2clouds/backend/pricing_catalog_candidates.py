@@ -119,6 +119,9 @@ def _extract_aws_candidates(
                             "service_code": attributes.get("servicecode"),
                             "usage_type": attributes.get("usagetype"),
                             "operation": attributes.get("operation"),
+                            "from_location": attributes.get("fromLocation"),
+                            "to_location": attributes.get("toLocation"),
+                            "transfer_type": attributes.get("transferType"),
                         },
                         provider_service=attributes.get("servicecode"),
                         service_name=attributes.get("servicename"),
@@ -217,6 +220,11 @@ def _extract_gcp_candidates(
 
         for pricing_index, info in enumerate(pricing_info):
             expression = info.get("pricingExpression") or info.get("pricing_expression") or {}
+            aggregation_info = (
+                expression.get("aggregationInfo")
+                or expression.get("aggregation_info")
+                or {}
+            )
             tiered_rates = expression.get("tieredRates") or expression.get("tiered_rates") or []
             for tier_index, tier_rate in enumerate(tiered_rates):
                 unit_price = tier_rate.get("unitPrice") or tier_rate.get("unit_price") or {}
@@ -252,12 +260,34 @@ def _extract_gcp_candidates(
                             "base_unit": expression.get("baseUnit") or expression.get("base_unit"),
                             "base_unit_description": expression.get("baseUnitDescription")
                             or expression.get("base_unit_description"),
+                            "base_unit_conversion_factor": _first_present(
+                                expression,
+                                "baseUnitConversionFactor",
+                                "base_unit_conversion_factor",
+                            ),
+                            "display_quantity": _first_present(
+                                expression,
+                                "displayQuantity",
+                                "display_quantity",
+                            ),
+                            "usage_unit": expression.get("usageUnit")
+                            or expression.get("usage_unit"),
                         },
                         evidence={
                             "resource_group": category.get("resourceGroup"),
                             "resource_family": category.get("resourceFamily"),
-                            "aggregation_info": item.get("aggregationInfo")
-                            or item.get("aggregation_info"),
+                            "aggregation_level": aggregation_info.get("level")
+                            or aggregation_info.get("aggregationLevel")
+                            or aggregation_info.get("aggregation_level"),
+                            "aggregation_interval": aggregation_info.get("interval")
+                            or aggregation_info.get("aggregationInterval")
+                            or aggregation_info.get("aggregation_interval"),
+                            "aggregation_count": _first_present(
+                                aggregation_info,
+                                "count",
+                                "aggregationCount",
+                                "aggregation_count",
+                            ),
                         },
                         raw_payload_ref={
                             "sku": item,

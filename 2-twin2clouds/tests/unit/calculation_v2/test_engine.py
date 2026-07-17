@@ -11,6 +11,8 @@ from types import SimpleNamespace
 import json
 import pytest
 
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
+
 
 DIGEST = "sha256:" + ("a" * 64)
 FINGERPRINT = "sha256:" + ("b" * 64)
@@ -105,7 +107,7 @@ class TestEngineIntegration:
                     },
                 },
                 "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-                "egress": {"pricePerGB": 0.09},
+                "transfer": canonical_transfer_catalog("aws"),
             },
             "__aws_schema__": {
                 "pricing_region": "eu-central-1",
@@ -137,7 +139,7 @@ class TestEngineIntegration:
                     "messagePrice": 0.001,
                 },
                 "azureManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-                "egress": {"pricePerGB": 0.087},
+                "transfer": canonical_transfer_catalog("azure"),
             },
             "gcp": {
                 "iot": {"pricePerGiB": 0.04},
@@ -157,7 +159,7 @@ class TestEngineIntegration:
                 "storage_archive": {"storagePrice": 0.004, "writePrice": 0.05},
                 "twinmaker": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
                 "grafana": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
-                "egress": {"pricePerGB": 0.12},
+                "transfer": canonical_transfer_catalog("gcp"),
             },
         }
     
