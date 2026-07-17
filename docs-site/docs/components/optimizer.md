@@ -37,10 +37,34 @@ The editable registry is YAML, not generated JSON and not the Management API DB:
 | `formula_sets.yaml` | formula ownership by bundle |
 | `workload_contracts.yaml` | required usage inputs and units |
 | `provider_pricing_contracts.yaml` | provider-specific required fields/build paths |
+| `transfer_routes.yaml` | price-free region, geography, route-class, network-tier, billing-scope, and immutable-catalog path policy |
 
 The loader rejects duplicate keys, schema/version mismatches, missing coverage,
 invalid references, non-publishable source types, and incoherent strategy bundles.
 Reviewed decisions may select mappings but may not store price overrides.
+
+### Transfer Route Contract
+
+The route-aware transfer foundation is implemented as a closed-world contract
+for the current Europe baseline. `transfer_routes.yaml` declares only routing
+and billing semantics; it cannot contain rates or tier boundaries. Exact
+transfer prices remain owned by immutable provider-region pricing catalogs.
+
+The typed domain under
+`backend/calculation_v2/transfer_pricing.py` represents both endpoints,
+provider regions and geographies, the route class, source network tier,
+canonical byte volume, aggregate billing pool, exact catalog and evidence IDs,
+and cumulative tier contributions. Decimal GB and GiB are converted from bytes
+with distinct, validated divisors. Same-provider/inter-region transfer is
+recognized but fails closed because the current profile supports one region per
+provider.
+
+The contract and exact tier arithmetic are present. Migration of the legacy
+greedy path selection, provider transfer evidence, persisted route trace, and
+Flutter evidence view remains in progress under
+[GitHub issue #116](https://github.com/TVJunkie724/master-thesis/issues/116).
+Until that issue is complete, `calculation_v2/engine.py` is still the runtime
+owner of the historical transfer calculation.
 
 ## Evidence And Candidate Flow
 

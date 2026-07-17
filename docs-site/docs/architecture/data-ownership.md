@@ -9,6 +9,7 @@
 | reusable cloud credentials | encrypted Management API `cloud_connections` | validation, pricing, deployment |
 | wizard/configuration state | Management API configuration tables and file versions | Flutter, Optimizer, Deployer |
 | pricing intent and mappings | Optimizer `pricing_registry/*.yaml` | fetch, review, calculation |
+| price-free transfer route policy | Optimizer `pricing_registry/transfer_routes.yaml` | route classification and exact immutable-catalog resolution |
 | immutable public pricing catalogs | Optimizer regional catalog store | Management API exact-reference verification, calculations, authenticated diagnostics |
 | pricing refresh/review history | Management API database | Flutter pricing workspace |
 | cost calculation history and exact catalog reference sets | Management API database | Flutter twin/configuration views, deployment selection |

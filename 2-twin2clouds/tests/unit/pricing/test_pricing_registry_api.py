@@ -51,6 +51,7 @@ def test_pricing_registry_service_reloads_registry_version(tmp_path):
         "formula_sets.yaml",
         "workload_contracts.yaml",
         "provider_pricing_contracts.yaml",
+        "transfer_routes.yaml",
     ):
         path = root / name
         path.write_text(path.read_text().replace("2026.07.17", "2026.07.18"))

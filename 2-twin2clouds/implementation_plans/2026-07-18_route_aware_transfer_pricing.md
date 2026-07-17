@@ -606,6 +606,16 @@ No evaluation result or thesis conclusion belongs in the developer handbook.
 Each slice is implemented, reviewed, tested, documented, and committed before
 the next slice.
 
+| Slice | Status | Verification |
+|---|---|---|
+| 1. Registry And Domain | Complete | 53 focused tests; full Optimizer suite `707 passed`; Ruff, Bandit, compileall, and pip check passed |
+| 2. Provider Evidence And Baselines | Pending | Not started |
+| 3. Complete-Path Optimizer | Pending | Not started |
+| 4. Trace And Management Persistence | Pending | Not started |
+| 5. Flutter Read Model And UX | Pending | Not started |
+| 6. Documentation And Contracts | Pending | Not started |
+| 7. Independent Reviews And Full Gates | Pending | Not started |
+
 ### Slice 1: Registry And Domain
 
 - add strict transfer registry schema and loader validation;
@@ -620,6 +630,34 @@ feat(pricing): define route-aware transfer contracts
 
 Refs #116
 ```
+
+Implementation evidence:
+
+- `pricing_registry/transfer_routes.yaml` is a strict, price-free SSOT for the
+  approved provider regions, geographies, route classes, source network tiers,
+  billing scopes, and exact immutable-catalog tier paths;
+- `TransferRouteRegistry` rejects duplicate YAML keys through the common
+  loader and rejects unknown fields, providers, regions, geographies, route
+  classes, source tiers, catalog paths, pricing values, and registry-version
+  drift;
+- frozen route, endpoint, tier, pool, contribution, and segment-charge
+  contracts use canonical bytes and exact `Decimal` arithmetic;
+- decimal GB and GiB conversions are explicit and tied to their exact byte
+  divisors;
+- cumulative tier validation rejects gaps, overlap, unsorted ranges,
+  non-terminal tables, duplicate IDs, negative values, and non-finite values;
+- marginal allocation applies one pool allowance across all ordered segments
+  and proves allocated egress equals aggregate pool cost;
+- review pass 1 hardened direct domain construction to fail with stable
+  contract errors instead of incidental Python exceptions;
+- review pass 2 hardened string-enum equality, immutable nested collections,
+  malformed mappings, and sequence boundaries;
+- the first full-suite run found one incomplete registry-version test fixture;
+  after adding `transfer_routes.yaml` to the fixture, the full suite passed
+  with `707 passed`;
+- Ruff, Bandit, `compileall`, `pip check`, and the 53-test focused regression
+  group passed;
+- no provider API mutation, deployment, or paid cloud workload was executed.
 
 ### Slice 2: Provider Evidence And Baselines
 
