@@ -203,8 +203,8 @@ first-class.
 | 16 | `2026-06-21_intent_to_result_traceability.md` | implemented (#100) | Expose bounded, secret-free calculation trace metadata from intent to selected result |
 | 17 | `2026-07-17_azure_digital_twins_billable_quantity_contract.md` | implemented (#114) | Replace fabricated Azure query tiers with explicit billable-quantity inputs, 1 KB increments, and traceability |
 | 18 | `2026-07-17_aws_twinmaker_pricing_plan_contract.md` | implemented locally (#115); platform CI pending | Align AWS TwinMaker estimates with functional and account-scoped pricing-plan semantics |
-| 18.1 | `2026-07-17_immutable_region_pricing_catalogs.md` | implementation in progress (#119) | Replace mutable provider-wide pricing files with immutable provider-and-region keyed catalog snapshots and deterministic calculation bindings |
-| 19 | Plan created after Phase 18.1 completion | planned (#116) | Resolve transfer cost through explicit route, region, transfer-class, and network-tier contracts |
+| 18.1 | `2026-07-17_immutable_region_pricing_catalogs.md` | local implementation and gates complete; platform CI pending (#119) | Replace mutable provider-wide pricing files with immutable provider-and-region keyed catalog snapshots and deterministic calculation bindings |
+| 19 | `2026-07-18_route_aware_transfer_pricing.md` | implementation in progress (#116) | Resolve transfer cost through exact route, region, transfer-class, network-tier, billing-pool, and provider-unit contracts; score complete paths instead of greedy layers |
 | 20 | Plan created after Phase 19 completion | planned (#118) | Bind deployable service selections from the selected optimization run to the DeploymentManifest and Terraform |
 
 ## Phase Boundaries
@@ -401,6 +401,16 @@ contract. Source/destination provider and region, transfer class, and
 provider-specific network tier must select exact evidence. Unsupported routes
 must fail closed. This phase prices the current five-layer edges only; the
 future Eventing Layer bridge remains Phase 8 architecture work in issue #112.
+
+The implementation also applies provider allowances and cumulative tiers once
+per billing pool, converts one canonical byte quantity into each provider's
+documented billing unit, and replaces independent per-layer selection with
+complete-path scoring. This is necessary because adding transfer cost after a
+greedy layer choice cannot prove that the final architecture is the lowest-cost
+supported path.
+
+The reviewed implementation plan is
+`2-twin2clouds/implementation_plans/2026-07-18_route_aware_transfer_pricing.md`.
 
 ### Phase 20
 

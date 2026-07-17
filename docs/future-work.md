@@ -249,25 +249,29 @@ Built-in default processors at `src/providers/*/default-processor/` contain full
 
 ## Tiered Pricing for Additional Services
 
-**Status:** Not Implemented
+**Status:** In Progress — [GitHub #116](https://github.com/TVJunkie724/master-thesis/issues/116)
 
-The cost engine currently applies tiered pricing only to AWS IoT Core (`tiered_message_cost`). Several other services that offer volume-based tiered pricing in practice are modeled with flat single-tier rates:
+Provider-specific service tiering has been hardened incrementally. The
+remaining blocker in this section is the transfer model:
 
 | Service | Current Formula | Issue |
 |---------|----------------|-------|
-| AWS IoT TwinMaker | `action_based_cost` (flat) | First-tier rate applied to entire volume |
 | Cross-cloud egress | Source-provider tier tables | Destination, region, route class, and network tier are not yet part of the selection key |
 
-**Impact:** TwinMaker account pricing cannot yet be allocated safely to one
-twin, and source-only egress pricing can select the wrong route-specific rate.
+**Impact:** Source-only egress pricing can select the wrong route-specific rate.
+It also repeats provider free allowances per segment and is added only after
+greedy per-layer selection, which can select a non-optimal complete path.
 
 Azure Digital Twins is no longer part of this item. Its official operation,
 routed-message, and query-unit meters are normalized from 1K billing blocks to
 per-unit prices; query units are workload consumption, not a pricing tier.
+AWS IoT TwinMaker public rates and account pricing-plan semantics are handled
+by the completed #115 implementation.
 
-**Fix:** Complete provider-specific AWS TwinMaker pricing-mode handling and
-route-aware egress pricing. Do not infer tier breakpoints for services whose
-official model is a flat usage meter.
+**Fix:** Implement the reviewed Phase 19
+[`Route-Aware Transfer Pricing`](../2-twin2clouds/implementation_plans/2026-07-18_route_aware_transfer_pricing.md)
+plan. Do not infer tier breakpoints for services whose official model is a flat
+usage meter.
 
 **Files:** `components/aws/twinmaker.py`, transfer route contracts,
 `engine.py`, `formulas/core_formulas.py`
