@@ -6,6 +6,10 @@ import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 const _providers = {'aws', 'azure', 'gcp'};
+const _serverOwnedOptimizerFields = {
+  'providerPricingCatalogs',
+  'providerPricingContexts',
+};
 const _forbiddenPayloadKeys = {
   'access_key_id',
   'secret_access_key',
@@ -106,10 +110,11 @@ void main() {
       if (optimizer != null) {
         expect(optimizer.twinId, listed.id);
         expect(optimizer.id, isNotEmpty);
-        expect(
-          optimizer.pricingSnapshots.keys.toSet(),
-          CloudProvider.values.toSet(),
-        );
+        final context = optimizer.pricingCatalogContext;
+        expect(optimizer.optimization?.result.pricingCatalogContext, context);
+        if (context != null) {
+          expect(context.catalogs.keys.toSet(), CloudProvider.values.toSet());
+        }
       }
 
       final deployer = await _readOrFail(
@@ -210,17 +215,51 @@ void main() {
 
       expect(managementContract['additionalProperties'], isFalse);
       expect(optimizerContract['additionalProperties'], isFalse);
+      final managementProperties = managementContract['properties'] as Map;
+      final optimizerProperties = optimizerContract['properties'] as Map;
+      expect(
+        optimizerProperties.keys
+            .map((key) => key.toString())
+            .toSet()
+            .difference(
+              managementProperties.keys.map((key) => key.toString()).toSet(),
+            ),
+        _serverOwnedOptimizerFields,
+        reason: 'Only documented server-owned pricing fields may differ.',
+      );
+      for (final field in _serverOwnedOptimizerFields) {
+        expect(
+          managementProperties,
+          isNot(contains(field)),
+          reason: 'Clients must not supply trusted $field evidence.',
+        );
+        expect(
+          optimizerProperties,
+          contains(field),
+          reason: 'Management must own and inject $field downstream.',
+        );
+      }
+      expect(
+        optimizerContract['required'],
+        contains('providerPricingCatalogs'),
+      );
+      expect(
+        optimizerContract['required'],
+        isNot(contains('providerPricingContexts')),
+      );
       expect(
         _contractProjection(managementContract),
-        _contractProjection(optimizerContract),
+        _contractProjection(
+          optimizerContract,
+          excludedProperties: _serverOwnedOptimizerFields,
+        ),
       );
 
-      final properties = managementContract['properties'] as Map;
       for (final field in [
         'averageDigitalTwinQueryUnitsPerQuery',
         'averageDigitalTwinQueryResponseSizeInKb',
       ]) {
-        final contract = properties[field] as Map?;
+        final contract = managementProperties[field] as Map?;
         expect(contract, isNotNull, reason: 'Missing $field');
         expect(contract!['exclusiveMinimum'], 0);
         expect(contract['default'], 1.0);
@@ -349,7 +388,10 @@ Map _openApiSchema(Object? openApi, String schemaName) {
   return contract!;
 }
 
-Map<String, Object?> _contractProjection(Map contract) {
+Map<String, Object?> _contractProjection(
+  Map contract, {
+  Set<String> excludedProperties = const {},
+}) {
   const contractKeywords = {
     'type',
     'default',
@@ -363,14 +405,16 @@ Map<String, Object?> _contractProjection(Map contract) {
   return {
     'required': ((contract['required'] as List?) ?? const [])
         .map((value) => value.toString())
+        .where((value) => !excludedProperties.contains(value))
         .toSet(),
     'properties': {
       for (final entry in properties.entries)
-        entry.key.toString(): {
-          for (final keyword in contractKeywords)
-            if ((entry.value as Map).containsKey(keyword))
-              keyword: entry.value[keyword],
-        },
+        if (!excludedProperties.contains(entry.key.toString()))
+          entry.key.toString(): {
+            for (final keyword in contractKeywords)
+              if ((entry.value as Map).containsKey(keyword))
+                keyword: entry.value[keyword],
+          },
     },
   };
 }

@@ -1,3 +1,5 @@
+import 'pricing_catalog.dart';
+
 /// Calculation result from Optimizer API.
 ///
 /// Contains cost breakdown for all providers, cheapest path,
@@ -41,6 +43,7 @@ class CalcResult {
   final IntentResultTrace? intentTrace;
   final String? fieldTraceSchemaVersion;
   final List<PricingFieldTraceRecord> fieldTraceRecords;
+  final PricingCatalogContext? pricingCatalogContext;
 
   /// Input params used for the calculation (for invalidation detection)
   final InputParamsUsed inputParamsUsed;
@@ -67,6 +70,7 @@ class CalcResult {
     this.intentTrace,
     this.fieldTraceSchemaVersion,
     this.fieldTraceRecords = const [],
+    this.pricingCatalogContext,
     required this.inputParamsUsed,
   });
 
@@ -159,6 +163,11 @@ class CalcResult {
         result['resultTrace'],
         PricingFieldTraceRecord.fromJson,
       ),
+      pricingCatalogContext: result['pricingCatalogs'] is Map
+          ? PricingCatalogContext.fromJson(
+              Map<String, dynamic>.from(result['pricingCatalogs'] as Map),
+            )
+          : null,
       inputParamsUsed: InputParamsUsed.fromJson(
         result['inputParamsUsed'] as Map<String, dynamic>? ?? {},
       ),

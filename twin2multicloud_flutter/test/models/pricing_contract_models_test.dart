@@ -4,6 +4,8 @@ import 'package:twin2multicloud_flutter/models/pricing_candidate_review.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 
+import '../fixtures/test_fixtures.dart';
+
 void main() {
   group('CloudAccessInventory', () {
     test('parses account identity and refresh capability', () {
@@ -146,7 +148,12 @@ void main() {
           },
           'force': true,
           'sse_url': '/optimizer/pricing-refresh/runs/run-1/stream',
-          'result_summary': {'status': 'ok'},
+          'result_summary': {
+            'status': 'ok',
+            'activeCalculationReference':
+                (TestFixtures.pricingCatalogContextJson['catalogs']
+                    as Map)['aws'],
+          },
           'created_at': '2026-07-11T10:00:00Z',
           'completed_at': '2026-07-11T10:03:00Z',
         });
@@ -154,9 +161,49 @@ void main() {
         expect(run.succeeded, isTrue);
         expect(run.credentialSummary.providerAccountId, '123456789012');
         expect(run.completedAt, DateTime.parse('2026-07-11T10:03:00Z'));
-        expect(run.resultSummary, {'status': 'ok'});
+        expect(run.resultSummary?['status'], 'ok');
+        expect(run.activeCalculationReference?.provider.apiValue, 'aws');
+        expect(run.activeCalculationReference?.pricingRegion, 'eu-central-1');
       },
     );
+
+    test('ignores malformed optional catalog diagnostics safely', () {
+      final run = PricingRefreshRun.fromJson({
+        'refresh_run_id': 'run-optional-diagnostics',
+        'provider': 'aws',
+        'status': 'succeeded',
+        'credential_summary': {'identity_label': 'AWS', 'scope': 'user'},
+        'result_summary': {
+          'activeCalculationReference': {
+            'schemaVersion': 'pricing-catalog-reference.v1',
+            'contentDigest': 'secret-shaped-but-invalid',
+          },
+        },
+        'created_at': '2026-07-17T08:00:00Z',
+      });
+
+      expect(run.succeeded, isTrue);
+      expect(run.activeCalculationReference, isNull);
+      expect(run.resultSummary, isNotNull);
+    });
+
+    test('does not show a catalog reference from another provider run', () {
+      final run = PricingRefreshRun.fromJson({
+        'refresh_run_id': 'run-provider-switch',
+        'provider': 'aws',
+        'status': 'succeeded',
+        'credential_summary': {'identity_label': 'AWS', 'scope': 'user'},
+        'result_summary': {
+          'activeCalculationReference':
+              (TestFixtures.pricingCatalogContextJson['catalogs']
+                  as Map)['gcp'],
+        },
+        'created_at': '2026-07-17T08:00:00Z',
+      });
+
+      expect(run.activeCalculationReference, isNull);
+      expect(run.succeeded, isTrue);
+    });
 
     test('parses immutable AWS TwinMaker account pricing context', () {
       final run = PricingRefreshRun.fromJson(
@@ -255,7 +302,7 @@ void main() {
       for (final malformed in malformedContexts) {
         final json = _awsRefreshRunJson();
         (json['result_summary']
-                as Map<String, dynamic>)['__account_pricing_context__'] =
+                as Map<String, dynamic>)['accountPricingContext'] =
             malformed;
         final run = PricingRefreshRun.fromJson(json);
 
@@ -438,7 +485,7 @@ Map<String, dynamic> _awsRefreshRunJson({
     'sse_url': '/optimizer/pricing-refresh/runs/run-aws/stream',
     'result_summary': {
       'status': 'ok',
-      '__account_pricing_context__': _awsAccountContext(
+      'accountPricingContext': _awsAccountContext(
         currentPlan: currentPlan,
         pendingPlan: pendingPlan,
       ),

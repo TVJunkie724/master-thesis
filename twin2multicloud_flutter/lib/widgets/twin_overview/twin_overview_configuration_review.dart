@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../bloc/twin_overview/twin_overview_state.dart';
+import '../../models/pricing_catalog.dart';
 import '../../models/twin_configuration_view.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../pricing/pricing_catalog_evidence.dart';
 import '../results/cheapest_path_visualization.dart';
 import 'twin_overview_code_artifact.dart';
 
@@ -40,10 +42,8 @@ class TwinOverviewConfigurationReview extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         _OptimizationSummarySection(optimization: view.optimization),
         const SizedBox(height: AppSpacing.md),
-        _PricingDataSection(
-          snapshots: view.pricingSnapshots,
-          onViewArtifact: onViewArtifact,
-          onDownloadArtifact: onDownloadArtifact,
+        _PricingEvidenceSection(
+          references: view.pricingCatalogContext?.catalogs.values ?? const [],
         ),
         const SizedBox(height: AppSpacing.md),
         _ConfigurationFilesSection(
@@ -181,40 +181,24 @@ class _OptimizationSummarySection extends StatelessWidget {
   }
 }
 
-class _PricingDataSection extends StatelessWidget {
-  final List<ProviderPricingSnapshotView> snapshots;
-  final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
-  final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
+class _PricingEvidenceSection extends StatelessWidget {
+  final Iterable<PricingCatalogReference> references;
 
-  const _PricingDataSection({
-    required this.snapshots,
-    required this.onViewArtifact,
-    required this.onDownloadArtifact,
-  });
+  const _PricingEvidenceSection({required this.references});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ExpansionTile(
         leading: const Icon(Icons.attach_money),
-        title: const Text('Pricing Data'),
+        title: const Text(PricingCatalogEvidenceStrings.title),
         initiallyExpanded: false,
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              children: [
-                for (var index = 0; index < snapshots.length; index++) ...[
-                  _PricingRow(
-                    snapshot: snapshots[index],
-                    color: _providerColor(snapshots[index].provider),
-                    onViewArtifact: onViewArtifact,
-                    onDownloadArtifact: onDownloadArtifact,
-                  ),
-                  if (index < snapshots.length - 1)
-                    const SizedBox(height: AppSpacing.sm),
-                ],
-              ],
+            child: PricingCatalogEvidence(
+              references: references,
+              showMissingProviders: true,
             ),
           ),
         ],
@@ -301,89 +285,6 @@ class _UserFunctionsSection extends StatelessWidget {
                         .toList(),
                   ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PricingRow extends StatelessWidget {
-  final ProviderPricingSnapshotView snapshot;
-  final Color color;
-  final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
-  final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
-
-  const _PricingRow({
-    required this.snapshot,
-    required this.color,
-    required this.onViewArtifact,
-    required this.onDownloadArtifact,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final artifact = !snapshot.hasData
-        ? null
-        : TwinOverviewCodeArtifact(
-            title: snapshot.title,
-            filename: snapshot.filename,
-            content: snapshot.artifactContent!,
-          );
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(AppSpacing.borderRadiusSm),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: AppSpacing.providerAccentWidth,
-            height: AppSpacing.providerAccentHeight,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(AppSpacing.xxs),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  snapshot.title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  snapshot.updatedAt != null
-                      ? 'Fetched: ${_formatTimestamp(snapshot.updatedAt!)}'
-                      : 'No pricing data',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (snapshot.updatedAt != null) ...[
-            IconButton(
-              onPressed: artifact == null
-                  ? null
-                  : () => onViewArtifact(artifact),
-              icon: const Icon(Icons.visibility_outlined),
-              tooltip: 'View',
-            ),
-            IconButton(
-              onPressed: artifact == null
-                  ? null
-                  : () => onDownloadArtifact(artifact),
-              icon: const Icon(Icons.download_outlined),
-              tooltip: 'Download',
-            ),
-          ],
         ],
       ),
     );
@@ -541,10 +442,6 @@ String _formatTimestamp(String timestamp) {
   } catch (_) {
     return timestamp;
   }
-}
-
-Color _providerColor(String provider) {
-  return AppColors.getProviderColor(provider);
 }
 
 TwinOverviewCodeArtifact _toCodeArtifact(ConfigurationArtifactView artifact) {

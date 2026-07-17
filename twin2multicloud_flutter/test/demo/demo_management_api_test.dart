@@ -10,8 +10,6 @@ import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 
-import '../fixtures/typed_api_fixtures.dart';
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -210,46 +208,73 @@ void main() {
       );
     });
 
-    test('supports health, exports, calculation, and persistence', () async {
-      expect((await api.getPricingHealth()).providers, hasLength(3));
-      expect((await api.getPricingStatusResult()).isSuccess, isTrue);
-      expect((await api.getRegionsStatus())['providers'], hasLength(3));
-      expect((await api.exportPricing('aws')).payload, isNotEmpty);
+    test(
+      'supports health, catalog-bound calculation, and persistence',
+      () async {
+        expect((await api.getPricingHealth()).providers, hasLength(3));
+        expect((await api.getPricingStatusResult()).isSuccess, isTrue);
+        expect((await api.getRegionsStatus())['providers'], hasLength(3));
+        final seeded = await api.getOptimizerConfig('demo-configured');
+        expect(
+          seeded?.pricingCatalogContext
+              ?.reference(CloudProvider.aws)
+              .pricingRegion,
+          'eu-central-1',
+        );
 
-      final calculationParams = CalcParams.fromJson({
-        ...CalcParams.defaultParams().toJson(),
-        'needs3DModel': true,
-        'useEventChecking': true,
-      });
-      final calculation = await api.calculateCosts(calculationParams);
-      expect(calculation.result.totalCost, 84.42);
-      expect(
-        (await api.calculateCostsResult(calculationParams)).isSuccess,
-        isTrue,
-      );
+        final calculationParams = CalcParams.fromJson({
+          ...CalcParams.defaultParams().toJson(),
+          'needs3DModel': true,
+          'useEventChecking': true,
+        });
+        final calculation = await api.calculateCosts(calculationParams);
+        expect(calculation.result.totalCost, 84.42);
+        expect(calculation.result.pricingCatalogContext, isNotNull);
+        expect(
+          calculation.result.pricingCatalogContext!.catalogs,
+          hasLength(3),
+        );
+        expect(
+          (await api.calculateCostsResult(calculationParams)).isSuccess,
+          isTrue,
+        );
 
-      final savedParams = CalcParams.fromJson({
-        ...CalcParams.defaultParams().toJson(),
-        'numberOfDevices': 12,
-      });
-      await api.saveOptimizerParams('demo-draft', savedParams);
-      await api.saveOptimizerResult(
-        'demo-draft',
-        params: savedParams,
-        optimization: calculation,
-        cheapestPath: CheapestPath.fromSegments(
-          calculation.result.cheapestPath,
-        ),
-        pricingSnapshots: {
-          for (final provider in CloudProvider.values)
-            provider: TypedApiFixtures.pricingExport(provider),
-        },
-      );
-      expect(
-        (await api.getOptimizerConfig('demo-draft'))?.optimization?.payload,
-        isNotEmpty,
-      );
-    });
+        final savedParams = CalcParams.fromJson({
+          ...CalcParams.defaultParams().toJson(),
+          'numberOfDevices': 12,
+        });
+        await api.saveOptimizerParams('demo-draft', savedParams);
+        await api.saveOptimizerResult(
+          'demo-draft',
+          params: savedParams,
+          optimization: calculation,
+          cheapestPath: CheapestPath.fromSegments(
+            calculation.result.cheapestPath,
+          ),
+        );
+        final persisted = await api.getOptimizerConfig('demo-draft');
+        expect(persisted?.optimization?.payload, isNotEmpty);
+        expect(
+          persisted?.pricingCatalogContext,
+          calculation.result.pricingCatalogContext,
+        );
+      },
+    );
+
+    test(
+      'does not invent catalog evidence for a legacy saved result',
+      () async {
+        final legacy = store.optimizerConfig('demo-configured')!;
+        legacy.remove('pricing_catalog_context');
+        (legacy['result'] as Map).remove('pricingCatalogs');
+        store.setOptimizerConfig('demo-configured', legacy);
+
+        final loaded = await api.getOptimizerConfig('demo-configured');
+
+        expect(loaded?.pricingCatalogContext, isNull);
+        expect(loaded?.optimization?.result.pricingCatalogContext, isNull);
+      },
+    );
   });
 
   group('deployer configuration and lifecycle', () {

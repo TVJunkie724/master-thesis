@@ -1,4 +1,5 @@
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
+import 'package:twin2multicloud_flutter/models/pricing_catalog.dart';
 
 /// Test fixtures for consistent testing across test files.
 abstract class TestFixtures {
@@ -100,6 +101,27 @@ abstract class TestFixtures {
   // CalcResult Fixtures
   // ============================================================
 
+  static Map<String, dynamic> get pricingCatalogContextJson => {
+    'schemaVersion': 'provider-pricing-catalog-context.v1',
+    'catalogs': {
+      'aws': _pricingCatalogReference(
+        provider: 'aws',
+        region: 'eu-central-1',
+        marker: 'a',
+      ),
+      'azure': _pricingCatalogReference(
+        provider: 'azure',
+        region: 'westeurope',
+        marker: 'b',
+      ),
+      'gcp': _pricingCatalogReference(
+        provider: 'gcp',
+        region: 'europe-west1',
+        marker: 'c',
+      ),
+    },
+  };
+
   static Map<String, dynamic> get calcResultJson => <String, dynamic>{
     'result': <String, dynamic>{
       'awsCosts': <String, dynamic>{
@@ -197,6 +219,7 @@ abstract class TestFixtures {
         'L5_AWS',
       ],
       'transferCosts': <String, dynamic>{'L1_to_L2': 0.05, 'L2_to_L3': 0.02},
+      'pricingCatalogs': pricingCatalogContextJson,
       'trace_schema_version': 'intent-result-trace.v1',
       'optimizationProfile': <String, dynamic>{
         'profile_id': 'cost_minimization_v1',
@@ -328,5 +351,47 @@ abstract class TestFixtures {
     'project_id': 'my-project',
     'billing_account': 'billing-12345',
     'region': 'europe-west1',
+  };
+}
+
+Map<String, dynamic> _pricingCatalogReference({
+  required String provider,
+  required String region,
+  required String marker,
+}) {
+  final identity = List.filled(64, marker).join();
+  final fetchedAt = DateTime.utc(2026, 7, 17, 10);
+  const providerSchemaVersion = 'pricing-provider-schema.v1';
+  const contractVersion = '2026.07.17';
+  const registryVersion = '2026.07.17';
+  const mappingVersions = ['2026.07.17'];
+  final contentDigest = 'sha256:$identity';
+  final snapshotId = buildPricingCatalogSnapshotId(
+    provider: provider,
+    pricingRegion: region,
+    providerSchemaVersion: providerSchemaVersion,
+    contractVersion: contractVersion,
+    registryVersion: registryVersion,
+    mappingVersions: mappingVersions,
+    fetchedAt: fetchedAt,
+    contentDigest: contentDigest,
+    source: 'reviewed_baseline',
+    reviewStatus: 'reviewed',
+  );
+  return {
+    'schemaVersion': 'pricing-catalog-reference.v1',
+    'snapshotId': snapshotId,
+    'provider': provider,
+    'pricingRegion': region,
+    'providerSchemaVersion': providerSchemaVersion,
+    'contractVersion': contractVersion,
+    'registryVersion': registryVersion,
+    'mappingVersions': mappingVersions,
+    'fetchedAt': fetchedAt.toIso8601String(),
+    'contentDigest': contentDigest,
+    'source': 'reviewed_baseline',
+    'reviewStatus': 'reviewed',
+    'publicationStatus': 'published',
+    'calculationSource': 'reviewed_baseline',
   };
 }

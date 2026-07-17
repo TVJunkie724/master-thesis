@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/calc_result.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../pricing/pricing_catalog_evidence.dart';
 import 'pricing_field_trace_details.dart';
 
 class CalculationTraceSummary extends StatelessWidget {
@@ -108,6 +109,18 @@ class CalculationTraceSummary extends StatelessWidget {
                 ],
               ),
             ],
+            const SizedBox(height: AppSpacing.sm),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text(PricingCatalogEvidenceStrings.title),
+              children: [
+                PricingCatalogEvidence(
+                  references:
+                      result.pricingCatalogContext?.catalogs.values ?? const [],
+                ),
+              ],
+            ),
           ],
         ),
       ),

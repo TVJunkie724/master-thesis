@@ -4,7 +4,7 @@ import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployer_config.dart';
 import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
-import 'package:twin2multicloud_flutter/models/pricing_export_snapshot.dart';
+import 'package:twin2multicloud_flutter/models/pricing_catalog.dart';
 import 'package:twin2multicloud_flutter/models/twin.dart';
 import 'package:twin2multicloud_flutter/models/twin_config.dart';
 
@@ -90,10 +90,13 @@ abstract final class TypedApiFixtures {
     CalcParams? params,
     OptimizationResultData? optimization,
     CheapestPath? cheapestPath,
-    Map<CloudProvider, ProviderPricingSnapshot>? pricingSnapshots,
+    PricingCatalogContext? pricingCatalogContext,
   }) {
     final resolvedOptimization =
         optimization ?? TypedApiFixtures.optimization();
+    final resolvedPricingContext =
+        pricingCatalogContext ??
+        resolvedOptimization.result.pricingCatalogContext;
     return OptimizerConfigData(
       id: 'optimizer-$twinId',
       twinId: twinId,
@@ -103,27 +106,13 @@ abstract final class TypedApiFixtures {
           cheapestPath ??
           CheapestPath.fromSegments(resolvedOptimization.result.cheapestPath),
       calculatedAt: timestamp,
-      pricingSnapshots: Map.unmodifiable(
-        pricingSnapshots ??
-            {
-              for (final provider in CloudProvider.values)
-                provider: ProviderPricingSnapshot(
-                  provider: provider,
-                  payload: {'messages': provider.index + 0.1},
-                  updatedAt: timestamp,
-                ),
-            },
-      ),
+      pricingCatalogContext: resolvedPricingContext,
       updatedAt: timestamp,
     );
   }
 
-  static PricingExportSnapshot pricingExport(CloudProvider provider) =>
-      PricingExportSnapshot(
-        provider: provider,
-        payload: {'messages': provider.index + 0.1},
-        updatedAt: timestamp,
-      );
+  static PricingCatalogContext pricingCatalogContext() =>
+      PricingCatalogContext.fromJson(TestFixtures.pricingCatalogContextJson);
 
   static const DeployerConfigData deployerConfig = DeployerConfigData(
     deployerDigitalTwinName: 'Test Twin',

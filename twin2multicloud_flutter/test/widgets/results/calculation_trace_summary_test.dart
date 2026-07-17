@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
+import 'package:twin2multicloud_flutter/models/pricing_catalog.dart';
 import 'package:twin2multicloud_flutter/widgets/results/calculation_trace_summary.dart';
+
+import '../../fixtures/test_fixtures.dart';
 
 void main() {
   Widget buildWidget(
@@ -80,6 +83,26 @@ void main() {
 
       expect(find.text('Review needed'), findsOneWidget);
       expect(find.text('2 review required'), findsOneWidget);
+    });
+
+    testWidgets('discloses immutable pricing evidence progressively', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildWidget(_resultWithTrace()));
+
+      expect(find.text('eu-central-1'), findsNothing);
+      await tester.tap(find.text('Pricing catalog evidence'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('eu-central-1'), findsOneWidget);
+      expect(find.text('westeurope'), findsOneWidget);
+      expect(find.text('europe-west1'), findsOneWidget);
+      expect(find.textContaining('sha256:aaaaaaaaaaaa...'), findsOneWidget);
+      expect(find.textContaining('Snapshot ID:'), findsNothing);
+
+      await tester.tap(find.text('Technical details').first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Snapshot ID: pcs_'), findsOneWidget);
     });
 
     testWidgets('distinguishes alternative unsupported and review states', (
@@ -181,6 +204,9 @@ CalcResult _resultWithTrace({
     ),
     fieldTraceSchemaVersion: 'intent-to-result-trace.v1',
     fieldTraceRecords: fieldTraceRecords,
+    pricingCatalogContext: PricingCatalogContext.fromJson(
+      TestFixtures.pricingCatalogContextJson,
+    ),
     inputParamsUsed: const InputParamsUsed(),
   );
 }

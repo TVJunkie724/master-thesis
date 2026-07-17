@@ -13,9 +13,9 @@ import '../models/deployment_readiness.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
+import '../models/pricing_catalog.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
-import '../models/pricing_export_snapshot.dart';
 import '../models/provider_capability.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
@@ -495,6 +495,7 @@ class DemoManagementApi implements ManagementApi {
     }
     final now = store.clock();
     final runId = store.nextId('demo-run-$normalized');
+    final activeReference = _demoPricingCatalogReference(normalized, now);
     final hasReview = store
         .pricingReports(normalized)
         .any((report) => report['review_state'] == 'review_required');
@@ -536,10 +537,11 @@ class DemoManagementApi implements ManagementApi {
       'force': force,
       'sse_url': '/demo/pricing/$normalized/$runId',
       'result_summary': {
-        'status': 'ok',
-        'report_count': store.pricingReports(normalized).length,
+        'schemaVersion': 'pricing-catalog-refresh-result.v2',
+        'status': 'published',
+        'activeCalculationReference': activeReference,
         if (normalized == 'aws')
-          '__account_pricing_context__': {
+          'accountPricingContext': {
             'schema_version': 'aws-twinmaker-account-pricing-context.v1',
             'provider': 'aws',
             'service': 'iot_twinmaker',
@@ -548,8 +550,7 @@ class DemoManagementApi implements ManagementApi {
                 'eu-central-1',
             'verified_account_id':
                 (connection?['payload_summary'] as Map?)?['account_id'],
-            'catalog_snapshot_digest':
-                'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+            'catalog_snapshot_digest': activeReference['contentDigest'],
             'observed_at': now.toIso8601String(),
             'current_plan': {
               'mode': 'STANDARD',
@@ -679,6 +680,7 @@ class DemoManagementApi implements ManagementApi {
     final result = configured?['result'] is Map
         ? _copyMap(configured!['result'] as Map)
         : _defaultCalculationResult(paramsJson);
+    result['pricingCatalogs'] = _demoPricingCatalogContext(store.clock());
     result['inputParamsUsed'] = {
       'useEventChecking': paramsJson['useEventChecking'] == true,
       'triggerNotificationWorkflow':
@@ -716,44 +718,27 @@ class DemoManagementApi implements ManagementApi {
     required CalcParams params,
     required OptimizationResultData optimization,
     required CheapestPath cheapestPath,
-    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
   }) async {
     await _pause();
     final now = store.clock().toIso8601String();
+    final pricingCatalogContext =
+        optimization.result.pricingCatalogContext ??
+        (throw const DemoApiException(
+          'DEMO_PRICING_CATALOG_CONTEXT_MISSING',
+          'Calculation result is missing immutable pricing evidence.',
+        ));
     store.setOptimizerConfig(twinId, {
       'params': _copyMap(params.toJson()),
       'result': _copyMap(optimization.payload),
       'cheapest_path': cheapestPath.toJson(),
+      'pricing_catalog_context': pricingCatalogContext.toJson(),
       'calculated_at': now,
-      for (final provider in CloudProvider.values) ...{
-        'pricing_${provider.apiValue}_snapshot':
-            pricingSnapshots[provider]?.payload,
-        'pricing_${provider.apiValue}_updated_at': pricingSnapshots[provider]
-            ?.updatedAt
-            .toIso8601String(),
-      },
     });
     final twinConfig = store.twinConfig(twinId) ?? <String, dynamic>{};
     twinConfig
       ..['optimizer_params'] = _copyMap(params.toJson())
       ..['optimizer_result'] = _copyMap(optimization.payload);
     store.setTwinConfig(twinId, twinConfig);
-  }
-
-  @override
-  Future<PricingExportSnapshot> exportPricing(String provider) async {
-    await _pause();
-    final normalized = _provider(provider);
-    return PricingExportSnapshot.fromJson({
-      'provider': normalized,
-      'pricing': switch (normalized) {
-        'aws' => {'iot_core_per_million_messages': 1.0},
-        'azure' => {'functions_per_million_executions': 0.2},
-        'gcp' => {'storage_gb_month': 0.02},
-        _ => <String, dynamic>{},
-      },
-      'updated_at': store.clock().toIso8601String(),
-    });
   }
 
   @override
@@ -1560,19 +1545,16 @@ class DemoManagementApi implements ManagementApi {
   Map<String, dynamic> _optimizerConfigResponse(String twinId) {
     final twin = store.twin(twinId);
     final raw = store.optimizerConfig(twinId) ?? <String, dynamic>{};
+    final result = raw['result'] is Map ? _copyMap(raw['result'] as Map) : null;
+    final context = raw['pricing_catalog_context'];
     return {
       'id': 'optimizer-$twinId',
       'twin_id': twinId,
       'params': raw['params'],
-      'result': raw['result'],
+      'result': result,
       'cheapest_path': raw['cheapest_path'],
       'calculated_at': raw['calculated_at'],
-      for (final provider in CloudProvider.values) ...{
-        'pricing_${provider.apiValue}_snapshot':
-            raw['pricing_${provider.apiValue}_snapshot'],
-        'pricing_${provider.apiValue}_updated_at':
-            raw['pricing_${provider.apiValue}_updated_at'],
-      },
+      'pricing_catalog_context': context,
       'updated_at': raw['calculated_at'] ?? twin['updated_at'],
     };
   }
@@ -1736,6 +1718,7 @@ class DemoManagementApi implements ManagementApi {
         'L4_AWS',
         'L5_AWS',
       ],
+      'pricingCatalogs': _demoPricingCatalogContext(store.clock()),
       'transferCosts': {'L1_to_L2': 0.0, 'L2_to_L3': 0.0},
       'inputParamsUsed': {'needs3DModel': params['needs3DModel'] == true},
     };
@@ -1856,6 +1839,75 @@ class DemoManagementApi implements ManagementApi {
             ],
           },
       ],
+    };
+  }
+
+  Map<String, dynamic> _demoPricingCatalogContext(DateTime fetchedAt) {
+    return {
+      'schemaVersion': 'provider-pricing-catalog-context.v1',
+      'catalogs': {
+        for (final provider in const ['aws', 'azure', 'gcp'])
+          provider: _demoPricingCatalogReference(provider, fetchedAt),
+      },
+    };
+  }
+
+  Map<String, dynamic> _demoPricingCatalogReference(
+    String provider,
+    DateTime fetchedAt,
+  ) {
+    final marker = switch (provider) {
+      'aws' => 'a',
+      'azure' => 'b',
+      'gcp' => 'c',
+      _ => throw const DemoApiException(
+        'DEMO_PROVIDER_INVALID',
+        'Unsupported demo pricing provider.',
+      ),
+    };
+    final region = switch (provider) {
+      'aws' => 'eu-central-1',
+      'azure' => 'westeurope',
+      'gcp' => 'europe-west1',
+      _ => throw const DemoApiException(
+        'DEMO_PROVIDER_INVALID',
+        'Unsupported demo pricing provider.',
+      ),
+    };
+    final identity = List.filled(64, marker).join();
+    final fetchedAtUtc = fetchedAt.toUtc();
+    const providerSchemaVersion = 'pricing-provider-schema.v1';
+    const contractVersion = 'demo-contract.v1';
+    const registryVersion = 'demo-registry.v1';
+    const mappingVersions = ['demo-mapping.v1'];
+    final contentDigest = 'sha256:$identity';
+    final snapshotId = buildPricingCatalogSnapshotId(
+      provider: provider,
+      pricingRegion: region,
+      providerSchemaVersion: providerSchemaVersion,
+      contractVersion: contractVersion,
+      registryVersion: registryVersion,
+      mappingVersions: mappingVersions,
+      fetchedAt: fetchedAtUtc,
+      contentDigest: contentDigest,
+      source: 'provider_api',
+      reviewStatus: 'reviewed',
+    );
+    return {
+      'schemaVersion': 'pricing-catalog-reference.v1',
+      'snapshotId': snapshotId,
+      'provider': provider,
+      'pricingRegion': region,
+      'providerSchemaVersion': providerSchemaVersion,
+      'contractVersion': contractVersion,
+      'registryVersion': registryVersion,
+      'mappingVersions': mappingVersions,
+      'fetchedAt': fetchedAtUtc.toIso8601String(),
+      'contentDigest': contentDigest,
+      'source': 'provider_api',
+      'reviewStatus': 'reviewed',
+      'publicationStatus': 'published',
+      'calculationSource': 'fresh',
     };
   }
 

@@ -15,7 +15,6 @@ import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
-import '../models/pricing_export_snapshot.dart';
 import '../models/provider_capability.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
@@ -454,14 +453,13 @@ class ApiService implements ManagementApi {
     );
   }
 
-  /// Save full result with pricing snapshots (after calculation)
+  /// Save a result whose immutable catalog references were verified server-side.
   @override
   Future<void> saveOptimizerResult(
     String twinId, {
     required CalcParams params,
     required OptimizationResultData optimization,
     required CheapestPath cheapestPath,
-    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
   }) async {
     await _dio.put(
       '/twins/$twinId/optimizer-config/result',
@@ -469,24 +467,7 @@ class ApiService implements ManagementApi {
         'params': params.toJson(),
         'result': optimization.payload,
         'cheapest_path': cheapestPath.toJson(),
-        'pricing_snapshots': {
-          for (final entry in pricingSnapshots.entries)
-            entry.key.apiValue: entry.value.payload,
-        },
-        'pricing_timestamps': {
-          for (final entry in pricingSnapshots.entries)
-            entry.key.apiValue: entry.value.updatedAt.toIso8601String(),
-        },
       },
-    );
-  }
-
-  /// Export pricing data from Optimizer (for snapshotting)
-  @override
-  Future<PricingExportSnapshot> exportPricing(String provider) async {
-    final response = await _dio.get('/optimizer/pricing/export/$provider');
-    return PricingExportSnapshot.fromJson(
-      _contractMap(response.data, 'pricing_export'),
     );
   }
 

@@ -4,6 +4,7 @@ import 'calc_params.dart';
 import 'calc_result.dart';
 import 'cloud_connection.dart';
 import 'json_contract.dart';
+import 'pricing_catalog.dart';
 
 class OptimizationResultData extends Equatable {
   final CalcResult result;
@@ -15,7 +16,13 @@ class OptimizationResultData extends Equatable {
     final payload = json['result'] == null
         ? JsonContract.immutableObject(json, 'calculation')
         : JsonContract.requiredObject(json, 'result');
-    return OptimizationResultData.fromPayload(payload);
+    final data = OptimizationResultData.fromPayload(payload);
+    if (data.result.pricingCatalogContext == null) {
+      throw const FormatException(
+        'Invalid API contract: calculation result is missing pricingCatalogs.',
+      );
+    }
+    return data;
   }
 
   factory OptimizationResultData.fromPayload(Map<String, dynamic> payload) {
@@ -118,23 +125,6 @@ class CheapestPath extends Equatable {
   List<Object?> get props => [l1, l2, l3Hot, l3Cool, l3Archive, l4, l5];
 }
 
-class ProviderPricingSnapshot extends Equatable {
-  final CloudProvider provider;
-  final Map<String, dynamic>? payload;
-  final DateTime? updatedAt;
-
-  const ProviderPricingSnapshot({
-    required this.provider,
-    this.payload,
-    this.updatedAt,
-  });
-
-  bool get hasData => payload != null && payload!.isNotEmpty;
-
-  @override
-  List<Object?> get props => [provider, payload, updatedAt];
-}
-
 class OptimizerConfigData extends Equatable {
   final String id;
   final String twinId;
@@ -142,7 +132,7 @@ class OptimizerConfigData extends Equatable {
   final OptimizationResultData? optimization;
   final CheapestPath? cheapestPath;
   final DateTime? calculatedAt;
-  final Map<CloudProvider, ProviderPricingSnapshot> pricingSnapshots;
+  final PricingCatalogContext? pricingCatalogContext;
   final DateTime updatedAt;
 
   const OptimizerConfigData({
@@ -152,7 +142,7 @@ class OptimizerConfigData extends Equatable {
     this.optimization,
     this.cheapestPath,
     this.calculatedAt,
-    required this.pricingSnapshots,
+    this.pricingCatalogContext,
     required this.updatedAt,
   });
 
@@ -160,36 +150,38 @@ class OptimizerConfigData extends Equatable {
     final paramsJson = JsonContract.optionalObject(json, 'params');
     final resultJson = JsonContract.optionalObject(json, 'result');
     final pathJson = JsonContract.optionalObject(json, 'cheapest_path');
-    final snapshots = <CloudProvider, ProviderPricingSnapshot>{};
-    for (final provider in CloudProvider.values) {
-      snapshots[provider] = ProviderPricingSnapshot(
-        provider: provider,
-        payload: JsonContract.optionalObject(
-          json,
-          'pricing_${provider.apiValue}_snapshot',
-        ),
-        updatedAt: JsonContract.optionalDate(
-          json,
-          'pricing_${provider.apiValue}_updated_at',
-        ),
+    final pricingContextJson = JsonContract.optionalObject(
+      json,
+      'pricing_catalog_context',
+    );
+    final pricingCatalogContext = pricingContextJson == null
+        ? null
+        : PricingCatalogContext.fromJson(pricingContextJson);
+    final optimization = resultJson == null
+        ? null
+        : OptimizationResultData.fromPayload(resultJson);
+    final resultContext = optimization?.result.pricingCatalogContext;
+    if ((pricingCatalogContext == null) != (resultContext == null) ||
+        (pricingCatalogContext != null &&
+            pricingCatalogContext != resultContext)) {
+      throw const FormatException(
+        'Invalid API contract: optimizer pricing catalog evidence is inconsistent.',
       );
     }
     return OptimizerConfigData(
       id: JsonContract.requiredString(json, 'id'),
       twinId: JsonContract.requiredString(json, 'twin_id'),
       params: paramsJson == null ? null : CalcParams.fromJson(paramsJson),
-      optimization: resultJson == null
-          ? null
-          : OptimizationResultData.fromPayload(resultJson),
+      optimization: optimization,
       cheapestPath: pathJson == null ? null : CheapestPath.fromJson(pathJson),
       calculatedAt: JsonContract.optionalDate(json, 'calculated_at'),
-      pricingSnapshots: Map.unmodifiable(snapshots),
+      pricingCatalogContext: pricingCatalogContext,
       updatedAt: JsonContract.requiredDate(json, 'updated_at'),
     );
   }
 
-  ProviderPricingSnapshot snapshot(CloudProvider provider) =>
-      pricingSnapshots[provider] ?? ProviderPricingSnapshot(provider: provider);
+  PricingCatalogReference? catalog(CloudProvider provider) =>
+      pricingCatalogContext?.catalogs[provider];
 
   CloudProvider? get l1Provider => cheapestPath?.l1;
 
@@ -201,7 +193,7 @@ class OptimizerConfigData extends Equatable {
     optimization,
     cheapestPath,
     calculatedAt,
-    pricingSnapshots,
+    pricingCatalogContext,
     updatedAt,
   ];
 }

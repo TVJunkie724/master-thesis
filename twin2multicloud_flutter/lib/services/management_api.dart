@@ -15,7 +15,6 @@ import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
-import '../models/pricing_export_snapshot.dart';
 import '../models/provider_capability.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
@@ -125,8 +124,6 @@ abstract interface class PricingApi {
 
   Future<Map<String, dynamic>> getRegionsStatus();
 
-  Future<PricingExportSnapshot> exportPricing(String provider);
-
   Future<Result<Map<String, dynamic>>> getPricingStatusResult();
 }
 
@@ -148,7 +145,6 @@ abstract interface class OptimizationApi {
     required CalcParams params,
     required OptimizationResultData optimization,
     required CheapestPath cheapestPath,
-    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
   });
 }
 

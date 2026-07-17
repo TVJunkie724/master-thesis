@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/pricing_refresh_run.dart';
 import '../../theme/spacing.dart';
+import 'pricing_catalog_evidence.dart';
 import 'pricing_review_strings.dart';
 
 class PricingRefreshRunSummary extends StatelessWidget {
@@ -20,13 +21,18 @@ class PricingRefreshRunSummary extends StatelessWidget {
         '${PricingReviewStrings.runAccessLabel(run.credentialSummary)}',
       ),
       children: [
+        PricingCatalogEvidence(
+          references: [
+            if (run.activeCalculationReference case final reference?) reference,
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
         if (run.awsTwinMakerContext case final context?)
           _AwsTwinMakerPlanSummary(
             context: context,
             refreshRunId: run.refreshRunId,
-          )
-        else
-          _RunDiagnostics(run: run),
+          ),
+        _RunDiagnostics(run: run),
       ],
     );
   }

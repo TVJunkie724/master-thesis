@@ -274,14 +274,10 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           newTwinState != state.twinState &&
           newTwinState == 'draft';
 
-      // Save optimizer result with pricing snapshots (if calc result exists)
+      // Persist the result. Management owns and re-verifies catalog evidence.
       if (state.calcParams != null &&
           state.optimizationResultData != null &&
           state.calcResult != null) {
-        final pricingSnapshots = {
-          for (final provider in CloudProvider.values)
-            provider: await _api.exportPricing(provider.apiValue),
-        };
         await _api.saveOptimizerResult(
           twinId,
           params: state.calcParams!,
@@ -289,7 +285,6 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           cheapestPath: CheapestPath.fromSegments(
             state.calcResult!.cheapestPath,
           ),
-          pricingSnapshots: pricingSnapshots,
         );
       }
 

@@ -10,6 +10,8 @@ import 'package:twin2multicloud_flutter/providers/twins_provider.dart';
 import 'package:twin2multicloud_flutter/screens/pricing_review/pricing_review_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
+import '../fixtures/test_fixtures.dart';
+
 class MockApiService extends Mock implements ApiService {}
 
 void main() {
@@ -177,7 +179,9 @@ PricingRefreshRun _successfulAwsRun() => PricingRefreshRun.fromJson({
     'provider_account_id': '123456789012',
   },
   'result_summary': {
-    '__account_pricing_context__': {
+    'activeCalculationReference':
+        (TestFixtures.pricingCatalogContextJson['catalogs'] as Map)['aws'],
+    'accountPricingContext': {
       'schema_version': 'aws-twinmaker-account-pricing-context.v1',
       'provider': 'aws',
       'service': 'iot_twinmaker',

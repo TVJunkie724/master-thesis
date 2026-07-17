@@ -9,6 +9,8 @@ import 'package:twin2multicloud_flutter/widgets/pricing/pricing_provider_selecto
 import 'package:twin2multicloud_flutter/widgets/pricing/pricing_provider_workspace.dart';
 import 'package:twin2multicloud_flutter/widgets/pricing/pricing_refresh_run_summary.dart';
 
+import '../../fixtures/test_fixtures.dart';
+
 void main() {
   testWidgets('wide provider selector shows status and changes provider', (
     tester,
@@ -200,13 +202,16 @@ void main() {
 
     await tester.tap(find.text('Latest refresh'));
     await tester.pumpAndSettle();
+    expect(find.text('eu-central-1'), findsOneWidget);
+    expect(find.text('Reviewed baseline'), findsOneWidget);
+    expect(find.textContaining('sha256:aaaaaaaaaaaa...'), findsOneWidget);
     expect(find.text('AWS TwinMaker plan'), findsOneWidget);
     expect(find.textContaining('Current: Standard'), findsOneWidget);
     expect(find.textContaining('Account: 123456789012'), findsOneWidget);
     expect(find.textContaining('Pending: None'), findsOneWidget);
     expect(find.textContaining('Region: eu-central-1'), findsNothing);
 
-    await tester.tap(find.text('Technical details'));
+    await tester.tap(find.text('Technical details').last);
     await tester.pumpAndSettle();
     expect(find.textContaining('Region: eu-central-1'), findsOneWidget);
     expect(find.textContaining('Billable entities: 42'), findsOneWidget);
@@ -227,7 +232,12 @@ void main() {
     );
     await tester.tap(find.text('Latest refresh'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Technical details'));
+    await tester.tap(find.text('Technical details').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Snapshot ID: pcs_'), findsOneWidget);
+    await tester.ensureVisible(find.text('Technical details').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Technical details').last);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Pricing connection: aws-1'), findsOneWidget);
@@ -318,7 +328,7 @@ void main() {
       find.textContaining('requires an explicit account-cost allocation'),
       findsOneWidget,
     );
-    await tester.tap(find.text('Technical details'));
+    await tester.tap(find.text('Technical details').last);
     await tester.pumpAndSettle();
     expect(
       find.textContaining('Bundle: Tier 2 · Factory, Warehouse'),
@@ -415,7 +425,9 @@ PricingRefreshRun _awsRefreshRun({
     'provider_account_id': '123456789012',
   },
   'result_summary': {
-    '__account_pricing_context__': {
+    'activeCalculationReference':
+        (TestFixtures.pricingCatalogContextJson['catalogs'] as Map)['aws'],
+    'accountPricingContext': {
       'schema_version': 'aws-twinmaker-account-pricing-context.v1',
       'provider': 'aws',
       'service': 'iot_twinmaker',

@@ -3,11 +3,12 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 import '../fixtures/test_fixtures.dart';
 import '../fixtures/provider_capability_fixture.dart';
+import '../fixtures/typed_api_fixtures.dart';
 
 void main() {
   group('ApiService typed contracts', () {
@@ -25,31 +26,55 @@ void main() {
       },
     );
 
+    test('decodes calculation with immutable catalog evidence', () async {
+      final api = ApiService(
+        dio: _dio((request) {
+          return switch (request.path) {
+            '/optimizer/calculate' => _json(TestFixtures.calcResultJson),
+            _ => _json({}, statusCode: 404),
+          };
+        }),
+      );
+
+      final calculation = await api.calculateCosts(
+        TestFixtures.defaultCalcParams,
+      );
+
+      expect(calculation.result.cheapestPath, isNotEmpty);
+      expect(calculation.result.pricingCatalogContext, isNotNull);
+      expect(
+        calculation.result.pricingCatalogContext!.catalogs.keys,
+        hasLength(3),
+      );
+    });
+
     test(
-      'decodes calculation and provider pricing at the adapter edge',
+      'persists only result data and lets Management verify evidence',
       () async {
+        RequestOptions? captured;
         final api = ApiService(
           dio: _dio((request) {
-            return switch (request.path) {
-              '/optimizer/calculate' => _json(TestFixtures.calcResultJson),
-              '/optimizer/pricing/export/aws' => _json({
-                'provider': 'aws',
-                'pricing': {'messages': 0.1},
-                'updated_at': '2026-07-15T10:00:00Z',
-              }),
-              _ => _json({}, statusCode: 404),
-            };
+            captured = request;
+            return _json({});
           }),
         );
+        final optimization = TypedApiFixtures.optimization();
 
-        final calculation = await api.calculateCosts(
-          TestFixtures.defaultCalcParams,
+        await api.saveOptimizerResult(
+          'twin-1',
+          params: TestFixtures.defaultCalcParams,
+          optimization: optimization,
+          cheapestPath: CheapestPath.fromSegments(
+            optimization.result.cheapestPath,
+          ),
         );
-        final pricing = await api.exportPricing('aws');
 
-        expect(calculation.result.cheapestPath, isNotEmpty);
-        expect(pricing.provider, CloudProvider.aws);
-        expect(pricing.payload['messages'], 0.1);
+        expect(captured?.path, '/twins/twin-1/optimizer-config/result');
+        final payload = Map<String, dynamic>.from(captured?.data as Map);
+        expect(payload.keys.toSet(), {'params', 'result', 'cheapest_path'});
+        expect(payload, isNot(contains('pricing_snapshots')));
+        expect(payload, isNot(contains('pricing_timestamps')));
+        expect((payload['result'] as Map)['pricingCatalogs'], isNotNull);
       },
     );
 

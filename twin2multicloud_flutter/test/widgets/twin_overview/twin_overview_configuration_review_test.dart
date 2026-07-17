@@ -42,7 +42,9 @@ void main() {
       expect(find.text('12'), findsOneWidget);
     });
 
-    testWidgets('surfaces pricing artifacts through callbacks', (tester) async {
+    testWidgets('shows compact pricing evidence without artifact actions', (
+      tester,
+    ) async {
       TwinOverviewCodeArtifact? viewed;
       TwinOverviewCodeArtifact? downloaded;
 
@@ -54,14 +56,16 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Pricing Data'));
+      expect(find.text('eu-central-1'), findsNothing);
+      await tester.tap(find.text('Pricing catalog evidence'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('View').first);
-      await tester.tap(find.byTooltip('Download').first);
 
-      expect(viewed?.filename, 'aws_pricing.json');
-      expect(viewed?.content, contains('"messages"'));
-      expect(downloaded?.filename, 'aws_pricing.json');
+      expect(find.text('eu-central-1'), findsOneWidget);
+      expect(find.text('westeurope'), findsOneWidget);
+      expect(find.text('europe-west1'), findsOneWidget);
+      expect(find.text('Reviewed baseline'), findsNWidgets(3));
+      expect(viewed, isNull);
+      expect(downloaded, isNull);
     });
 
     testWidgets('uses provider-specific deployment artifact names', (
@@ -96,6 +100,25 @@ void main() {
       expect(viewed?.filename, 'config_events.json');
     });
 
+    testWidgets('shows explicit unavailable evidence for legacy results', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildWidget(state: _state(includePricingCatalogContext: false)),
+      );
+
+      await tester.tap(find.text('Pricing catalog evidence'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Pricing catalog evidence is unavailable.'),
+        findsNWidgets(3),
+      );
+      expect(find.text('AWS'), findsWidgets);
+      expect(find.text('Azure'), findsWidgets);
+      expect(find.text('GCP'), findsWidgets);
+    });
+
     testWidgets('renders user function provider filename convention', (
       tester,
     ) async {
@@ -122,6 +145,7 @@ TwinOverviewLoaded _state({
     l2: CloudProvider.aws,
     l4: CloudProvider.aws,
   ),
+  bool includePricingCatalogContext = true,
 }) {
   final params = CalcParams.fromJson({
     ...CalcParams.defaultParams().toJson(),
@@ -135,6 +159,12 @@ TwinOverviewLoaded _state({
     totalCost: 42.5,
     cheapestPath: const ['L1_AWS', 'L2_Azure', 'L4_GCP'],
   );
+  final persistedOptimization = includePricingCatalogContext
+      ? optimization
+      : OptimizationResultData.fromPayload(
+          Map<String, dynamic>.from(optimization.payload)
+            ..remove('pricingCatalogs'),
+        );
   final calculatedAt = DateTime.parse('2026-06-21T10:00:00Z');
   return TwinOverviewLoaded(
     twinId: 'twin-1',
@@ -149,17 +179,12 @@ TwinOverviewLoaded _state({
       id: 'optimizer-twin-1',
       twinId: 'twin-1',
       params: params,
-      optimization: optimization,
+      optimization: persistedOptimization,
       cheapestPath: cheapestPath,
       calculatedAt: calculatedAt,
-      pricingSnapshots: {
-        for (final provider in CloudProvider.values)
-          provider: ProviderPricingSnapshot(
-            provider: provider,
-            payload: {'messages': provider.index + 0.1},
-            updatedAt: calculatedAt,
-          ),
-      },
+      pricingCatalogContext: includePricingCatalogContext
+          ? persistedOptimization.result.pricingCatalogContext
+          : null,
       updatedAt: calculatedAt,
     ),
     deployerConfig: TypedApiFixtures.deployerConfig,

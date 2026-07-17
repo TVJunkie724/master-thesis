@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'pricing_catalog.dart';
+
 class PricingRefreshRun extends Equatable {
   final String schemaVersion;
   final String refreshRunId;
@@ -9,6 +11,7 @@ class PricingRefreshRun extends Equatable {
   final bool force;
   final String sseUrl;
   final Map<String, dynamic>? resultSummary;
+  final PricingCatalogReference? activeCalculationReference;
   final AwsTwinMakerPricingContext? awsTwinMakerContext;
   final String? errorCode;
   final String? errorMessage;
@@ -25,6 +28,7 @@ class PricingRefreshRun extends Equatable {
     required this.force,
     required this.sseUrl,
     this.resultSummary,
+    this.activeCalculationReference,
     this.awsTwinMakerContext,
     this.errorCode,
     this.errorMessage,
@@ -50,9 +54,13 @@ class PricingRefreshRun extends Equatable {
       force: json['force'] as bool? ?? true,
       sseUrl: json['sse_url']?.toString() ?? '',
       resultSummary: resultSummary,
+      activeCalculationReference: _optionalCatalogReference(
+        resultSummary?['activeCalculationReference'],
+        provider,
+      ),
       awsTwinMakerContext: provider.toLowerCase() == 'aws'
           ? AwsTwinMakerPricingContext.tryFromJson(
-              resultSummary?['__account_pricing_context__'],
+              resultSummary?['accountPricingContext'],
               credentialConnectionId: credentialSummary.connectionId,
               credentialAccountId: credentialSummary.providerAccountId,
             )
@@ -78,6 +86,7 @@ class PricingRefreshRun extends Equatable {
     force,
     sseUrl,
     resultSummary,
+    activeCalculationReference,
     awsTwinMakerContext,
     errorCode,
     errorMessage,
@@ -85,6 +94,25 @@ class PricingRefreshRun extends Equatable {
     startedAt,
     completedAt,
   ];
+}
+
+PricingCatalogReference? _optionalCatalogReference(
+  dynamic value,
+  String expectedProvider,
+) {
+  if (value is! Map) return null;
+  try {
+    final reference = PricingCatalogReference.fromJson(
+      Map<String, dynamic>.from(value),
+    );
+    return reference.provider.apiValue == expectedProvider.toLowerCase()
+        ? reference
+        : null;
+  } on FormatException {
+    return null;
+  } on TypeError {
+    return null;
+  }
 }
 
 class PricingRefreshCredentialSummary extends Equatable {
