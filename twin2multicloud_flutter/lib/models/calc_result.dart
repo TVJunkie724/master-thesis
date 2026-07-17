@@ -39,6 +39,8 @@ class CalcResult {
   final OptimizationProfileTrace? optimizationProfile;
   final Map<String, dynamic>? evidenceReferences;
   final IntentResultTrace? intentTrace;
+  final String? fieldTraceSchemaVersion;
+  final List<PricingFieldTraceRecord> fieldTraceRecords;
 
   /// Input params used for the calculation (for invalidation detection)
   final InputParamsUsed inputParamsUsed;
@@ -63,6 +65,8 @@ class CalcResult {
     this.optimizationProfile,
     this.evidenceReferences,
     this.intentTrace,
+    this.fieldTraceSchemaVersion,
+    this.fieldTraceRecords = const [],
     required this.inputParamsUsed,
   });
 
@@ -150,11 +154,97 @@ class CalcResult {
               Map<String, dynamic>.from(result['intentTrace'] as Map),
             )
           : null,
+      fieldTraceSchemaVersion: result['resultTraceSchemaVersion']?.toString(),
+      fieldTraceRecords: _mapList(
+        result['resultTrace'],
+        PricingFieldTraceRecord.fromJson,
+      ),
       inputParamsUsed: InputParamsUsed.fromJson(
         result['inputParamsUsed'] as Map<String, dynamic>? ?? {},
       ),
     );
   }
+}
+
+class PricingFieldTraceRecord {
+  static const selectionStates = {
+    'selected',
+    'alternative',
+    'unsupported',
+    'not_applicable',
+  };
+
+  final String traceId;
+  final String provider;
+  final String layer;
+  final String service;
+  final String intentId;
+  final String formulaRef;
+  final String sourceType;
+  final String? selectedEvidenceId;
+  final String selectionStatus;
+  final double? costContribution;
+  final String costContributionScope;
+  final bool costContributionIsAdditive;
+  final String? resultComponentKey;
+  final String? outputMetricUnit;
+  final String verificationStatus;
+  final List<String> alternativeRecordIds;
+  final List<String> rejectedEvidenceIds;
+
+  const PricingFieldTraceRecord({
+    required this.traceId,
+    required this.provider,
+    required this.layer,
+    required this.service,
+    required this.intentId,
+    required this.formulaRef,
+    required this.sourceType,
+    required this.selectedEvidenceId,
+    required this.selectionStatus,
+    required this.costContribution,
+    required this.costContributionScope,
+    required this.costContributionIsAdditive,
+    required this.resultComponentKey,
+    required this.outputMetricUnit,
+    required this.verificationStatus,
+    required this.alternativeRecordIds,
+    required this.rejectedEvidenceIds,
+  });
+
+  factory PricingFieldTraceRecord.fromJson(Map<String, dynamic> json) {
+    final selectionStatus =
+        json['selection_status']?.toString() ?? 'not_applicable';
+    if (!selectionStates.contains(selectionStatus)) {
+      throw FormatException(
+        'Unsupported pricing trace selection status: $selectionStatus',
+      );
+    }
+    return PricingFieldTraceRecord(
+      traceId: _traceString(json, 'trace_id'),
+      provider: _traceString(json, 'provider'),
+      layer: _traceString(json, 'layer'),
+      service: _traceString(json, 'service'),
+      intentId: _traceString(json, 'intent_id'),
+      formulaRef: _traceString(json, 'formula_ref'),
+      sourceType: _traceString(json, 'source_type'),
+      selectedEvidenceId: json['selected_evidence_id']?.toString(),
+      selectionStatus: selectionStatus,
+      costContribution: _doubleOrNull(json['cost_contribution']),
+      costContributionScope:
+          json['cost_contribution_scope']?.toString() ?? 'legacy_unspecified',
+      costContributionIsAdditive:
+          json['cost_contribution_is_additive'] as bool? ?? false,
+      resultComponentKey: json['result_component_key']?.toString(),
+      outputMetricUnit: json['output_metric_unit']?.toString(),
+      verificationStatus: _traceString(json, 'verification_status'),
+      alternativeRecordIds: _stringList(json['alternative_record_ids']),
+      rejectedEvidenceIds: _stringList(json['rejected_evidence_ids']),
+    );
+  }
+
+  bool get isSelected => selectionStatus == 'selected';
+  bool get isUnsupported => selectionStatus == 'unsupported';
 }
 
 class OptimizationProfileTrace {
@@ -627,6 +717,14 @@ double? _doubleOrNull(dynamic value) {
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value);
   return null;
+}
+
+String _traceString(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is! String || value.trim().isEmpty) {
+    throw FormatException('Pricing field trace requires $key.');
+  }
+  return value;
 }
 
 int _intValue(dynamic value) {
