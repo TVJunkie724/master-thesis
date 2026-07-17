@@ -201,6 +201,10 @@ first-class.
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
 | 16 | `2026-06-21_intent_to_result_traceability.md` | implemented (#100) | Expose bounded, secret-free calculation trace metadata from intent to selected result |
+| 17 | `2026-07-17_azure_digital_twins_billable_quantity_contract.md` | planned (#114) | Replace fabricated Azure query tiers with explicit billable-quantity inputs, 1 KB increments, and traceability |
+| 18 | Plan created after Phase 17 completion | planned (#115) | Align AWS TwinMaker estimates with functional and account-scoped pricing-plan semantics |
+| 19 | Plan created after Phase 18 completion | planned (#116) | Resolve transfer cost through explicit route, region, transfer-class, and network-tier contracts |
+| 20 | Plan created after Phase 19 completion | planned (#118) | Bind deployable service selections from the selected optimization run to the DeploymentManifest and Terraform |
 
 ## Phase Boundaries
 
@@ -333,6 +337,48 @@ selection/alternative/unsupported state, distinguishes provider alternatives fro
 rejected catalog evidence, labels shared contribution amounts non-additive, exposes
 both traces through persisted Management API runs, and adds compact-by-default Flutter
 drill-down. Historical runs remain readable.
+
+### Phase 17
+
+Removes the fabricated Azure Digital Twins `queryUnitTiers` field and replaces
+it with an explicit workload contract for average query units and query response
+size. The engine derives operation, routed-message, and query-unit billable
+quantities, including Azure's 1 KB increments, before the calculator multiplies
+them by normalized prices. Optimizer, Management API, persisted JSON, Flutter,
+trace output, tests, and documentation must agree on the additive contract.
+
+### Phase 18
+
+Must distinguish AWS IoT TwinMaker Basic, Standard, and Tiered Bundle pricing
+modes. Basic is not functionally equivalent to the semantic L4 baseline.
+Tiered Bundle is account-scoped and must not be allocated to one twin without
+explicit aggregate context and an allocation policy. The application must
+observe and model pricing mode but must never switch it automatically.
+
+### Phase 19
+
+Must replace source-provider-only egress pricing with an immutable route
+contract. Source/destination provider and region, transfer class, and
+provider-specific network tier must select exact evidence. Unsupported routes
+must fail closed. This phase prices the current five-layer edges only; the
+future Eventing Layer bridge remains Phase 8 architecture work in issue #112.
+
+### Phase 20
+
+Must introduce a versioned `ResolvedDeploymentSpecification` that distinguishes
+deployable resource choices from cumulative usage tiers, account-scoped plans,
+and calculation-only assumptions. The selected calculation run must freeze the
+supported SKU, capacity, memory, storage-class, billing-mode, and related
+resource settings that materially affect the calculated cost. The Management
+API must persist and digest the specification; the DeploymentManifest must
+carry it without secrets; the Deployer must validate it against allowlisted
+component contracts; and Terraform must consume typed values instead of making
+independent business decisions. Provider-specific implementation is split only
+after a complete optimizer-to-Terraform matrix has been approved. Phase 8
+architecture profiles consume this boundary rather than defining a second
+deployment-selection contract. This is pre-Phase-8 hardening, despite its
+sequence number inside this pricing mini-roadmap, and it is blocked by the
+canonical Five-Layer deployment-path cleanup in issue #117.
 
 ## Explicit Future Metrics
 

@@ -141,7 +141,12 @@ when work becomes actionable, then reference the issue here.
 | [#69](https://github.com/TVJunkie724/master-thesis/issues/69) | Open | Explicit pricing failures and schema versions |
 | [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Done | Explicit 3 x 7 provider-layer capability matrix and unsupported-path enforcement |
 | [#100](https://github.com/TVJunkie724/master-thesis/issues/100) | Done | Honest intent-to-result trace with typed persisted field audit and non-additive contribution semantics |
-| [#31](https://github.com/TVJunkie724/master-thesis/issues/31) | Open | Tiered pricing for additional optimizer services |
+| [#31](https://github.com/TVJunkie724/master-thesis/issues/31) | Open epic | Provider billing-model finalization, split into Azure quantities (#114), AWS account pricing plans (#115), and route-aware transfer (#116) |
+| [#114](https://github.com/TVJunkie724/master-thesis/issues/114) | Planned | Replace fabricated Azure Digital Twins query tiers with explicit workload quantities and 1 KB billing increments |
+| [#115](https://github.com/TVJunkie724/master-thesis/issues/115) | Planned | Model AWS TwinMaker pricing modes without confusing account bundles with per-twin rates |
+| [#116](https://github.com/TVJunkie724/master-thesis/issues/116) | Planned | Resolve cross-cloud transfer pricing from route, region, transfer class, and network tier |
+| [#118](https://github.com/TVJunkie724/master-thesis/issues/118) | Planned pre-Phase-8 blocker | Propagate a versioned resolved service deployment specification from the selected cost model through the Management API and DeploymentManifest into Terraform after the canonical Five-Layer path is fixed |
+| [#117](https://github.com/TVJunkie724/master-thesis/issues/117) | Planned | Remove the unreachable Azure ADT Updater path and make the canonical Persister-to-ADT-Pusher topology explicit |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |
 | [#110](https://github.com/TVJunkie724/master-thesis/issues/110) | Done | Azure Cosmos/Blob storage and bandwidth tier sources now use exact reviewed catalog evidence, collision-safe candidate identity, fail-closed publication, and a publishable live baseline |
 | [#33](https://github.com/TVJunkie724/master-thesis/issues/33) | Open | Pricing and region freshness in UI |
