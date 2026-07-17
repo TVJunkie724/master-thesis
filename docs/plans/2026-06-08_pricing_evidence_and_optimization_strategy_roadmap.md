@@ -203,7 +203,7 @@ first-class.
 | 16 | `2026-06-21_intent_to_result_traceability.md` | implemented (#100) | Expose bounded, secret-free calculation trace metadata from intent to selected result |
 | 17 | `2026-07-17_azure_digital_twins_billable_quantity_contract.md` | implemented (#114) | Replace fabricated Azure query tiers with explicit billable-quantity inputs, 1 KB increments, and traceability |
 | 18 | `2026-07-17_aws_twinmaker_pricing_plan_contract.md` | implemented locally (#115); platform CI pending | Align AWS TwinMaker estimates with functional and account-scoped pricing-plan semantics |
-| 18.1 | Plan created after Phase 18 completion | planned (#119) | Replace mutable provider-wide pricing files with immutable provider-and-region keyed catalog snapshots and deterministic calculation bindings |
+| 18.1 | `2026-07-17_immutable_region_pricing_catalogs.md` | implementation in progress (#119) | Replace mutable provider-wide pricing files with immutable provider-and-region keyed catalog snapshots and deterministic calculation bindings |
 | 19 | Plan created after Phase 18.1 completion | planned (#116) | Resolve transfer cost through explicit route, region, transfer-class, and network-tier contracts |
 | 20 | Plan created after Phase 19 completion | planned (#118) | Bind deployable service selections from the selected optimization run to the DeploymentManifest and Terraform |
 
@@ -386,6 +386,13 @@ snapshot IDs and digests. Last-known-good and review state are isolated per
 provider/region. This is tracked by
 [#119](https://github.com/TVJunkie724/master-thesis/issues/119); Phase 19 is
 blocked until this ownership boundary is complete.
+
+The reviewed implementation plan is
+`2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md`.
+It separates committed read-only baseline seeds from the durable runtime
+catalog volume, removes client-authored full pricing snapshots, and migrates
+Pricing Health, Pricing Review, calculation history, and Twin Overview to one
+exact three-provider reference contract.
 
 ### Phase 19
 

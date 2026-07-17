@@ -2,8 +2,8 @@
 title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
-lastUpdated: "2026-07-15"
-version: "1.5"
+lastUpdated: "2026-07-17"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -110,6 +110,7 @@ Flutter App
 | 7 | Done | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
 | 8 | Done | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [implementation plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) | Twin Overview | Typed deployment, readiness, preflight, log/output, simulator, and trace contracts |
 | 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
+| 9.1 | In Progress | [Immutable Region-Scoped Pricing Catalogs](../../../2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md) | Pricing Review, calculation evidence, Twin Overview | Exact immutable catalog references resolved and persisted by Management API |
 
 ## Execution Order
 
@@ -129,14 +130,18 @@ The order is intentional:
 8. Harden Twin Overview deployment operations after credential/preflight state
    is visible.
 9. Run cross-cutting quality and thesis-evidence gates.
+10. Replace client-authored full pricing artifacts with compact, immutable,
+    Management-owned catalog references after the backend catalog boundary is
+    implemented.
 
 ## Current Boundary
 
 The planned frontend delta is implemented and release-gated for the supported
-Web and macOS thesis workflow. Stable twin, configuration, optimizer,
-pricing-export, and deployer response boundaries are typed under #72; dynamic
-payloads remain only in the documented open-payload containers. Remaining
-cross-cutting work includes real production authentication (#10) and final
-deployment lifecycle integration (#39). The explicit dev-auth runtime boundary
-from #71 is complete. New product work still requires a dedicated
+Web and macOS thesis workflow. Stable twin, configuration, optimizer, and
+deployer response boundaries are typed under #72; dynamic payloads remain only
+in the documented open-payload containers. The remaining pricing delta replaces
+the legacy full pricing-export contract with immutable catalog references under
+#119. Real production authentication (#10) and final deployment lifecycle
+integration (#39) remain separately tracked. The explicit dev-auth runtime
+boundary from #71 is complete. New product work still requires a dedicated
 implementation plan before Flutter code changes.
