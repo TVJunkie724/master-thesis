@@ -1,9 +1,9 @@
 schema_version: pricing-registry-formula-sets.v1
-registry_version: 2026.06.08
+registry_version: 2026.07.17
 formula_sets:
   cost_formula_set_v1:
     id: cost_formula_set_v1
-    version: 2026.06.10
+    version: 2026.07.17
     status: ready
     description: Formula declarations allowed by the cost calculation strategy.
     formulas:
@@ -37,6 +37,21 @@ formula_sets:
         component: query_units
         expression: query_units * normalized_query_unit_price
         description: Digital twin query usage charge.
+      entity_month_cost:
+        id: entity_month_cost
+        component: entity_months
+        expression: entity_months * normalized_entity_month_price
+        description: Digital twin entity charge for an average monthly entity count.
+      api_call_cost:
+        id: api_call_cost
+        component: api_calls
+        expression: api_calls * normalized_api_call_price
+        description: Digital twin unified-data API usage charge.
+      account_bundle_cost:
+        id: account_bundle_cost
+        component: account_bundle
+        expression: monthly_base_price + max(0, account_queries - included_queries) * query_overage_price + max(0, account_api_calls - included_api_calls) * api_call_overage_price
+        description: Full account TwinMaker bundle cost for an evidence-backed entity tier and explicit account allocation policy.
       message_unit_cost:
         id: message_unit_cost
         component: message_units

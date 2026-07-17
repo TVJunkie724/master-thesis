@@ -51,7 +51,7 @@ class AWSCredentialsRequest(BaseModel):
     """Request body for AWS credential validation."""
     aws_access_key_id: str
     aws_secret_access_key: str
-    aws_region: str = "eu-central-1"
+    aws_region: str
     aws_session_token: Optional[str] = None
 
     model_config = ConfigDict(json_schema_extra={

@@ -1,5 +1,5 @@
 schema_version: pricing-registry-service-models.v1
-registry_version: "2026.06.08"
+registry_version: "2026.07.17"
 service_models:
   cost_model_v1:
     metric: cost
@@ -21,7 +21,10 @@ service_models:
       - event_bus.event_million
       - digital_twin.operation
       - digital_twin.message
+      - digital_twin.entity_month
+      - digital_twin.api_call
       - digital_twin.query_unit
+      - digital_twin.account_bundle_month
       - grafana.editor_user_month
       - grafana.viewer_user_month
     notes:
@@ -42,17 +45,19 @@ service_models:
         - Verify Blob Storage operation and retrieval meters per replication/region/SKU before final cross-provider validation.
         - API Management is represented in the pricing registry, but not yet part of the executable layer model.
     aws_calculation_model:
-      status: reviewed_for_phase_8
-      issue: 92
+      status: reviewed_for_phase_18
+      issue: 115
       assumptions:
         - IoT Core message pricing is cumulative tier pricing over billable messages. Message size uses AWS 5KB billing increments before tier calculation.
         - IoT Core tier prices must be normalized to one billable message. Tiers may provide explicit `pricePerMessage`, normalized `price`, or `pricePerMillionMessages`.
         - S3 Infrequent Access and Glacier request/lifecycle prices are normalized before multiplication; per-1K and per-10K request keys are supported.
-        - IoT TwinMaker entities, unified data access API calls, and queries are calculated as separate dimensions with explicit per-unit or per-block keys.
+        - IoT TwinMaker Standard entities, unified data access API calls, and queries are calculated as separate provider-API dimensions.
+        - IoT TwinMaker Tiered Bundle is an account-wide composite schedule and is never inferred as a per-twin price.
+        - A fresh account-scoped GetPricingPlan observation gates whether Basic, Standard, or Tiered Bundle semantics are applicable.
         - Step Functions and EventBridge action/event prices are normalized from explicit per-unit or true per-million/per-1K fields.
         - AWS transfer/egress uses cumulative pricing tiers when tier data is available.
       open_research:
-        - Verify IoT TwinMaker pricing-plan and query/API units against service-specific evidence before final cross-provider validation.
+        - Finalize account-wide Tiered Bundle allocation only when explicit aggregate account usage and an approved allocation policy are available.
         - Verify Managed Grafana editor/viewer user pricing against current AWS evidence; missing evidence remains review-required.
         - API Gateway and Scheduler are represented in the pricing registry, but not yet part of the executable layer model.
     gcp_pricing_evidence_model:

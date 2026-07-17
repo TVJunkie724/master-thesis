@@ -6,10 +6,9 @@ Note: With Factory Pattern integration, fetch functions are mocked at
 the source module level (cloud_price_fetcher_*) since the Factory
 wrappers delegate to these underlying functions.
 """
-import pytest
 import json
 from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 from backend.fetch_data.calculate_up_to_date_pricing import fetch_aws_data, fetch_azure_data
 
 # Load template once for all tests
@@ -24,7 +23,7 @@ def test_aws_iot_core_schema(mock_fetch):
     mock_fetch.return_value = {"pricePerMessage": 0.000001}
     
     result = fetch_aws_data(
-        {"access_key": "test"},
+        {"access_key": "test", "aws_region": "us-east-1"},
         {"iot": "iotCore"},
         {"iot": {"region": "us-east-1"}},
         additional_debug=False
@@ -34,7 +33,6 @@ def test_aws_iot_core_schema(mock_fetch):
     assert "iotCore" in result
     
     # Validate against template structure
-    template_iot = TEMPLATE["aws"]["iotCore"]
     result_iot = result["iotCore"]
     
     # Should be a dict
@@ -55,14 +53,13 @@ def test_aws_lambda_schema(mock_fetch):
     }
     
     result = fetch_aws_data(
-        {"access_key": "test"},
+        {"access_key": "test", "aws_region": "us-east-1"},
         {"functions": "lambda"},
         {"functions": {"region": "us-east-1"}},
         additional_debug=False
     )
     
     assert "lambda" in result
-    template_lambda = TEMPLATE["aws"]["lambda"]
     result_lambda = result["lambda"]
     
     # Validate structure
@@ -86,7 +83,7 @@ def test_aws_dynamodb_schema(mock_fetch):
     }
     
     result = fetch_aws_data(
-        {"access_key": "test"},
+        {"access_key": "test", "aws_region": "us-east-1"},
         {"storage_hot": "dynamoDB"},
         {"storage_hot": {"region": "us-east-1"}},
         additional_debug=False
@@ -110,7 +107,7 @@ def test_aws_s3_schema(mock_fetch):
     }
     
     result = fetch_aws_data(
-        {"access_key": "test"},
+        {"access_key": "test", "aws_region": "us-east-1"},
         {"storage_cool": "s3InfrequentAccess"},
         {"storage_cool": {"region": "us-east-1"}},
         additional_debug=False

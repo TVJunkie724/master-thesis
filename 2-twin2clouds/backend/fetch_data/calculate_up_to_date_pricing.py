@@ -1,8 +1,13 @@
 import json
 import traceback
+from copy import deepcopy
 from pathlib import Path
 import backend.config_loader as config_loader
 import backend.constants as CONSTANTS
+from backend.aws_twinmaker_pricing_plan import (
+    build_aws_session,
+    observe_aws_twinmaker_pricing_plan,
+)
 from backend.logger import logger
 from backend.fetch_data.cloud_price_fetcher_aws import STATIC_DEFAULTS
 from backend.fetch_data.cloud_price_fetcher_azure import STATIC_DEFAULTS_AZURE
@@ -12,7 +17,10 @@ from backend.fetch_data.cloud_price_fetcher_google import (
 )
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
-from backend.pricing_schema import attach_pricing_metadata
+from backend.pricing_schema import (
+    attach_pricing_metadata,
+    canonical_pricing_snapshot_digest,
+)
 from backend.pricing_cache import serialized_provider_refresh, write_json_atomically
 from backend.pricing_intent_registry import FAILED
 from backend.pricing_publication_state import (
@@ -66,6 +74,7 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
     
     output_data = {}
     target_file_path = None
+    account_pricing_context = None
 
     if target_provider == "aws":
         credentials = config_loader.load_credentials_file()
@@ -76,7 +85,23 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             region_map = _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
 
             aws_credentials = credentials.get("aws", {})
-            output_data = fetch_aws_data(aws_credentials, service_mapping, region_map, additional_debug)
+            aws_region = _require_aws_target_region(aws_credentials)
+            session = build_aws_session(aws_credentials, aws_region)
+            account_pricing_context = observe_aws_twinmaker_pricing_plan(
+                aws_credentials,
+                aws_region,
+                configured_account_id=aws_credentials.get("aws_account_id"),
+                session=session,
+            )
+            output_data = fetch_aws_data(
+                {"aws_region": aws_region},
+                service_mapping,
+                region_map,
+                additional_debug,
+                aws_client_credentials=build_aws_pricing_client_credentials(
+                    aws_credentials
+                ),
+            )
             target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
         else:
             logger.warning("AWS credentials missing, skipping fetch.")
@@ -131,9 +156,17 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
                     "Azure pricing refresh completed in review state; no file was replaced"
                 )
         else:
+            if target_provider == "aws":
+                _assert_aws_snapshot_region_compatible(
+                    Path(target_file_path),
+                    output_data["__schema__"]["pricing_region"],
+                )
             write_json_atomically(Path(target_file_path), output_data)
             logger.info(f"✅ Wrote {target_file_path.name} successfully!")
-        return output_data
+        return _with_account_pricing_context(
+            output_data,
+            account_pricing_context,
+        )
     else:
         logger.warning(f"⚠️ No data fetched for {target_provider} or credentials missing.")
         return {}
@@ -161,6 +194,7 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
     service_mapping = config_loader.load_service_mapping()
     output_data = {}
     target_file_path = None
+    account_pricing_context = None
 
     if target_provider == "aws":
         _log_provider_fetch_start("AWS", credential_mode="provided credentials")
@@ -169,9 +203,15 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
         region_map = _load_region_map("AWS", CONSTANTS.AWS_REGIONS_FILE_PATH)
 
         # Keep target pricing region separate from Pricing API client credentials.
-        aws_credentials = {
-            "aws_region": credentials.get("aws_region", "eu-central-1")
-        }
+        aws_region = _require_aws_target_region(credentials)
+        aws_credentials = {"aws_region": aws_region}
+        session = build_aws_session(credentials, aws_region)
+        account_pricing_context = observe_aws_twinmaker_pricing_plan(
+            credentials,
+            aws_region,
+            configured_account_id=credentials.get("aws_configured_account_id"),
+            session=session,
+        )
         client_credentials = build_aws_pricing_client_credentials(credentials)
         
         output_data = fetch_aws_data(
@@ -230,9 +270,17 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
                 validation.get("unsupported_fields", []),
             )
             
+        if target_provider == "aws":
+            _assert_aws_snapshot_region_compatible(
+                Path(target_file_path),
+                output_data["__schema__"]["pricing_region"],
+            )
         write_json_atomically(Path(target_file_path), output_data)
         logger.info(f"✅ Wrote {target_file_path.name} successfully!")
-        return output_data
+        return _with_account_pricing_context(
+            output_data,
+            account_pricing_context,
+        )
     else:
         logger.warning(f"⚠️ No data fetched for {target_provider}")
     return {}
@@ -355,6 +403,51 @@ def build_aws_pricing_client_credentials(credentials: dict) -> dict:
         client_credentials["aws_session_token"] = session_token
     return client_credentials
 
+
+def _require_aws_target_region(credentials: dict) -> str:
+    region = credentials.get("aws_region")
+    if not isinstance(region, str) or not region.strip():
+        raise ValueError("Missing AWS credential field: aws_region")
+    return region.strip()
+
+
+def _assert_aws_snapshot_region_compatible(
+    target_path: Path,
+    requested_region: str,
+) -> None:
+    """Prevent the temporary global cache from silently changing regions."""
+
+    if not target_path.exists():
+        return
+    try:
+        current = json.loads(target_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            "Existing AWS pricing snapshot cannot be validated for region migration."
+        ) from exc
+    current_region = (current.get("__schema__") or {}).get("pricing_region")
+    if current_region != requested_region:
+        raise ValueError(
+            "AWS pricing snapshot region migration is required before refreshing "
+            f"{requested_region}; current snapshot region is "
+            f"{current_region or 'unknown'}."
+        )
+
+
+def _with_account_pricing_context(
+    public_snapshot: dict,
+    context: dict | None,
+) -> dict:
+    if context is None:
+        return public_snapshot
+    response = deepcopy(public_snapshot)
+    response_context = deepcopy(context)
+    response_context["catalog_snapshot_digest"] = (
+        canonical_pricing_snapshot_digest(public_snapshot)
+    )
+    response["__account_pricing_context__"] = response_context
+    return response
+
 # ============================================================
 # HELPER FUNCTION
 # ============================================================
@@ -396,7 +489,9 @@ def fetch_aws_data(
     and builds the canonical AWS pricing.json structure.
     Prints warnings for all fallback/default values or static defaults.
     """
-    region = aws_credentials.get("aws_region", "eu-central-1")
+    region = aws_credentials.get("aws_region")
+    if not region:
+        raise ValueError("Missing AWS credential field: aws_region")
     logger.info(f"🚀 Fetching AWS pricing for region: {region}")
 
     if aws_client_credentials is None:
@@ -511,11 +606,22 @@ def fetch_aws_data(
 
     neutral_service, provider_service = "twinmaker", "iotTwinMaker"
     tm = fetched.get(neutral_service, {})
-    aws[provider_service] = {
-        "unifiedDataAccessAPICallsPrice": _get_or_warn("AWS", neutral_service, provider_service, "unifiedDataAccessAPICallsPrice", tm, 0.0000015, STATIC_DEFAULTS),
-        "entityPrice": _get_or_warn("AWS", neutral_service, provider_service, "entityPrice", tm, 0.05, STATIC_DEFAULTS),
-        "queryPrice": _get_or_warn("AWS", neutral_service, provider_service, "queryPrice", tm, 0.00005, STATIC_DEFAULTS),
-    }
+    twinmaker_requested = "twinmaker" in service_mapping
+    if twinmaker_requested and (
+        not isinstance(tm.get("usageRates"), dict)
+        or not isinstance(tm.get("tieredBundle"), dict)
+    ):
+        raise ValueError(
+            "AWS TwinMaker pricing contract is incomplete; refusing static fallback."
+        )
+    aws[provider_service] = (
+        {
+            "usageRates": tm["usageRates"],
+            "tieredBundle": tm["tieredBundle"],
+        }
+        if twinmaker_requested
+        else {}
+    )
 
     neutral_service, provider_service = "grafana", "awsManagedGrafana"
     gf = fetched.get(neutral_service, {})
@@ -561,7 +667,12 @@ def fetch_aws_data(
     }
 
     logger.info("✅ AWS pricing schema built successfully.")
-    return attach_pricing_metadata("aws", aws, fetched)
+    return attach_pricing_metadata(
+        "aws",
+        aws,
+        fetched,
+        pricing_region=region,
+    )
 
 
 

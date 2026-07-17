@@ -29,6 +29,41 @@ STATIC_DEFAULTS = {
     "scheduler": {"jobPrice": 0.000001}, # Fallback if fetch fails
 }
 
+TWINMAKER_STANDARD_SUFFIXES = {
+    "IoTTwinMaker-Entities": "entityPricePerMonth",
+    "IoTTwinMaker-Queries": "queryPrice",
+    "IoTTwinMaker-UnifiedDataAccess": "unifiedDataAccessApiCallPrice",
+}
+TWINMAKER_BUNDLE_ENTITY_RANGES = {
+    "TIER_1": (1, 1_000),
+    "TIER_2": (1_001, 5_000),
+    "TIER_3": (5_001, 10_000),
+    "TIER_4": (10_001, 20_000),
+}
+TWINMAKER_EVIDENCE_SCHEMA_VERSION = "aws-twinmaker-price-list-evidence.v1"
+
+
+class TwinMakerPricingCatalogError(RuntimeError):
+    """Stable base error for TwinMaker Price List failures."""
+
+    code = "AWS_TWINMAKER_CATALOG_FAILED"
+    public_message = "AWS TwinMaker catalog pricing could not be refreshed."
+
+
+class TwinMakerPricingContractError(TwinMakerPricingCatalogError):
+    """The AWS Price List response cannot satisfy the TwinMaker contract."""
+
+    code = "AWS_TWINMAKER_CATALOG_CONTRACT_INVALID"
+    public_message = "AWS returned an incomplete TwinMaker pricing contract."
+
+
+class TwinMakerPricingFetchError(TwinMakerPricingCatalogError):
+    """The AWS Price List API request failed before contract validation."""
+
+    code = "AWS_TWINMAKER_CATALOG_FETCH_FAILED"
+    public_message = "AWS TwinMaker catalog pricing is temporarily unavailable."
+
+
 AWS_SERVICE_KEYWORDS = {
     "iot": {
         "include": ["iot", "message", "rule", "device shadow", "registry"],
@@ -82,14 +117,6 @@ AWS_SERVICE_KEYWORDS = {
             "storagePrice": ["gb-month", "storage used", "amazon glacier"],
             "lifecycleAndWritePrice": ["lifecycle", "put request", "upload", "write"],
             "dataRetrievalPrice": ["retrieval fee", "per gb retrieved", "flat fee"],
-        },
-    },
-    "twinmaker": {
-        "include": ["iottwinmaker", "iot twinmaker", "twinmaker"],
-        "fields": {
-            "entityPrice": ["per entity per month", "iottwinmaker-entities"],
-            "unifiedDataAccessAPICallsPrice": ["per million api calls", "unifieddataaccess"],
-            "queryPrice": ["per 10k queries", "queries executed"],
         },
     },
     "transfer": {
@@ -154,7 +181,16 @@ def _get_pricing_client(aws_credentials: Optional[Dict[str, Any]] = None) -> Any
         logger.error(f"Failed to create boto3 client: {e}")
         return None
 
-def _fetch_api_products(pricing_client, service_code: str, region_human: str, usagetype: Optional[str] = None, with_location: bool = True, extra_filters: Optional[List[Dict[str, str]]] = None) -> List[str]:
+def _fetch_api_products(
+    pricing_client,
+    service_code: str,
+    region_human: str,
+    usagetype: Optional[str] = None,
+    with_location: bool = True,
+    extra_filters: Optional[List[Dict[str, str]]] = None,
+    *,
+    fail_closed: bool = False,
+) -> List[str]:
     """
     Fetch product list from AWS Pricing API.
     Handles filters for region, usage type, and arbitrary extra filters.
@@ -182,6 +218,14 @@ def _fetch_api_products(pricing_client, service_code: str, region_human: str, us
             
         return all_products
     except Exception as e:
+        if fail_closed:
+            logger.warning(
+                "AWS Price List request failed for required service %s.",
+                service_code,
+            )
+            raise TwinMakerPricingFetchError(
+                "AWS Price List API request failed for TwinMaker."
+            ) from e
         logger.debug(f"⚠️ Query failed for {service_code} ({'with' if with_location else 'without'} location): {e}")
         return []
 
@@ -363,20 +407,206 @@ def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool =
         
     return {"pricing_tiers": pricing_tiers, "egressPrice": egress_prices[0]["price"]}
 
-def _fetch_twinmaker_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, float]:
-    """
-    Specialized fetcher for TwinMaker.
-    Checks multiple service codes (IOTTwinMaker, IOTTwinMakerQueries).
-    """
-    field_map = AWS_SERVICE_KEYWORDS["twinmaker"]["fields"]
-    prices = {}
-    
-    for service_code in ["IOTTwinMaker", "IOTTwinMakerQueries"]:
-        price_list = _fetch_api_products(pricing_client, service_code, region_human)
-        fetched = _extract_prices_from_api_response(price_list, field_map, debug=debug)
-        prices.update(fetched)
+def _fetch_twinmaker_prices(
+    region_human: str,
+    pricing_client: Any,
+    debug: bool = False,
+) -> Dict[str, Any]:
+    """Fetch and validate the complete regional TwinMaker pricing contract."""
 
-    return prices
+    price_list = _fetch_api_products(
+        pricing_client,
+        "IOTTwinMaker",
+        region_human,
+        fail_closed=True,
+    )
+    return _extract_twinmaker_pricing(price_list, region_human, debug=debug)
+
+
+def _extract_twinmaker_pricing(
+    price_list: List[str],
+    region_human: str,
+    *,
+    debug: bool = False,
+) -> Dict[str, Any]:
+    """Select TwinMaker rows by exact usage-type suffix and location."""
+
+    expected_suffixes = set(TWINMAKER_STANDARD_SUFFIXES)
+    for tier_number in range(1, 5):
+        expected_suffixes.update(
+            {
+                f"IoTTwinMaker-BaseTier{tier_number}-Entities",
+                f"IoTTwinMaker-BaseTier{tier_number}-Queries",
+                f"IoTTwinMaker-BaseTier{tier_number}-UnifiedDataAccess",
+            }
+        )
+
+    selected: Dict[str, Dict[str, Any]] = {}
+    for raw_product in price_list:
+        try:
+            product = json.loads(raw_product)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise TwinMakerPricingContractError(
+                "AWS TwinMaker Price List contains malformed JSON."
+            ) from exc
+
+        attributes = product.get("product", {}).get("attributes", {})
+        usage_type = attributes.get("usagetype")
+        if not isinstance(usage_type, str):
+            continue
+        suffix = next(
+            (
+                candidate
+                for candidate in expected_suffixes
+                if usage_type.endswith(candidate)
+            ),
+            None,
+        )
+        if suffix is None:
+            continue
+
+        location = attributes.get("location")
+        if location != region_human:
+            raise TwinMakerPricingContractError(
+                "AWS TwinMaker Price List contains a matching usage type "
+                "for a different location."
+            )
+
+        dimensions = []
+        for term in product.get("terms", {}).get("OnDemand", {}).values():
+            dimensions.extend(term.get("priceDimensions", {}).values())
+        positive_dimensions = [
+            dimension
+            for dimension in dimensions
+            if _positive_usd_price(dimension) is not None
+        ]
+        if len(positive_dimensions) != 1:
+            raise TwinMakerPricingContractError(
+                f"AWS TwinMaker pricing dimension {suffix} must have exactly "
+                "one positive USD price."
+            )
+        if suffix in selected:
+            raise TwinMakerPricingContractError(
+                f"AWS TwinMaker pricing dimension {suffix} is duplicated."
+            )
+
+        dimension = positive_dimensions[0]
+        row = {
+            "usageType": usage_type,
+            "location": location,
+            "sku": product.get("product", {}).get("sku"),
+            "description": str(dimension.get("description") or "")[:500],
+            "unit": dimension.get("unit"),
+            "beginRange": dimension.get("beginRange"),
+            "endRange": dimension.get("endRange"),
+            "priceUsd": _positive_usd_price(dimension),
+        }
+        selected[suffix] = row
+        if debug:
+            logger.debug(
+                "   Matched exact TwinMaker dimension %s at %s",
+                suffix,
+                region_human,
+            )
+
+    missing = sorted(expected_suffixes.difference(selected))
+    if missing:
+        raise TwinMakerPricingContractError(
+            "AWS TwinMaker Price List contract is incomplete. Missing: "
+            + ", ".join(missing)
+        )
+
+    usage_rates = {
+        field: selected[suffix]["priceUsd"]
+        for suffix, field in TWINMAKER_STANDARD_SUFFIXES.items()
+    }
+    tiers = []
+    query_overage_prices = set()
+    api_overage_prices = set()
+    included_queries: list[int] = []
+    included_api_calls: list[int] = []
+    for tier_number, tier_id in enumerate(TWINMAKER_BUNDLE_ENTITY_RANGES, start=1):
+        entity_row = selected[
+            f"IoTTwinMaker-BaseTier{tier_number}-Entities"
+        ]
+        query_row = selected[
+            f"IoTTwinMaker-BaseTier{tier_number}-Queries"
+        ]
+        api_row = selected[
+            f"IoTTwinMaker-BaseTier{tier_number}-UnifiedDataAccess"
+        ]
+        query_limit = _nonnegative_integer_range(
+            query_row["beginRange"],
+            f"{tier_id} included queries",
+        )
+        api_limit = _nonnegative_integer_range(
+            api_row["beginRange"],
+            f"{tier_id} included API calls",
+        )
+        included_queries.append(query_limit)
+        included_api_calls.append(api_limit)
+        query_overage_prices.add(query_row["priceUsd"])
+        api_overage_prices.add(api_row["priceUsd"])
+        minimum_entities, maximum_entities = TWINMAKER_BUNDLE_ENTITY_RANGES[tier_id]
+        tiers.append(
+            {
+                "tierId": tier_id,
+                "minimumEntities": minimum_entities,
+                "maximumEntities": maximum_entities,
+                "monthlyBasePrice": entity_row["priceUsd"],
+                "includedQueries": query_limit,
+                "includedApiCalls": api_limit,
+                "queryOveragePrice": query_row["priceUsd"],
+                "apiCallOveragePrice": api_row["priceUsd"],
+            }
+        )
+
+    if len(query_overage_prices) != 1 or len(api_overage_prices) != 1:
+        raise TwinMakerPricingContractError(
+            "AWS TwinMaker bundle overage rates are inconsistent within the region."
+        )
+    if included_queries != sorted(set(included_queries)):
+        raise TwinMakerPricingContractError(
+            "AWS TwinMaker included query limits must be unique and increasing."
+        )
+    if included_api_calls != sorted(set(included_api_calls)):
+        raise TwinMakerPricingContractError(
+            "AWS TwinMaker included API-call limits must be unique and increasing."
+        )
+
+    return {
+        "usageRates": usage_rates,
+        "tieredBundle": {"tiers": tiers},
+        "__evidence__": {
+            "schema_version": TWINMAKER_EVIDENCE_SCHEMA_VERSION,
+            "location": region_human,
+            "selected_dimensions": [
+                selected[suffix] for suffix in sorted(selected)
+            ],
+        },
+    }
+
+
+def _positive_usd_price(dimension: Dict[str, Any]) -> float | None:
+    try:
+        price = float(dimension.get("pricePerUnit", {}).get("USD"))
+    except (TypeError, ValueError):
+        return None
+    return price if price > 0 else None
+
+
+def _nonnegative_integer_range(value: Any, label: str) -> int:
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise TwinMakerPricingContractError(
+            f"AWS TwinMaker {label} is not numeric."
+        ) from exc
+    if not number.is_integer() or number < 0:
+        raise TwinMakerPricingContractError(
+            f"AWS TwinMaker {label} must be a non-negative integer."
+        )
+    return int(number)
 
 
 def _extract_iot_message_tiers(price_list: List[str], debug: bool = False) -> Dict[str, float]:

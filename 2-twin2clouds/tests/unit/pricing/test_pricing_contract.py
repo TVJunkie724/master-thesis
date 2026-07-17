@@ -13,6 +13,7 @@ from backend.pricing_schema import (
     PRICING_CONTRACT_VERSION,
     PRICING_SCHEMA_VERSION,
     attach_pricing_metadata,
+    canonical_pricing_snapshot_digest,
     strip_pricing_metadata,
     validate_pricing_payload,
 )
@@ -70,9 +71,16 @@ FETCHED_BY_PROVIDER = {
             "dataRetrievalPrice": 0.0025,
         },
         "twinmaker": {
-            "unifiedDataAccessAPICallsPrice": 0.0000015,
-            "entityPrice": 0.05,
-            "queryPrice": 0.00005,
+            "usageRates": {
+                "entityPricePerMonth": 0.0525,
+                "queryPrice": 0.0000525,
+                "unifiedDataAccessApiCallPrice": 0.00000165,
+            },
+            "tieredBundle": {
+                "tiers": json.loads(
+                    Path("json/pricing.json").read_text()
+                )["aws"]["iotTwinMaker"]["tieredBundle"]["tiers"]
+            },
         },
         "grafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
         "orchestration": {"pricePer1kStateTransitions": 0.025},
@@ -205,7 +213,12 @@ def test_legacy_payload_without_quality_metadata_requires_review():
 
 def test_attach_pricing_metadata_marks_fallback_as_review_required():
     template = json.loads(Path("json/pricing.json").read_text())
-    payload = attach_pricing_metadata("aws", template["aws"], fetched={})
+    payload = attach_pricing_metadata(
+        "aws",
+        template["aws"],
+        fetched={},
+        pricing_region="eu-central-1",
+    )
 
     validation = validate_pricing_payload("aws", payload)
 
@@ -214,6 +227,39 @@ def test_attach_pricing_metadata_marks_fallback_as_review_required():
     assert validation["review_required"] is True
     assert "lambda.requestPrice" in validation["fallback_fields"]
     assert payload["__quality__"]["field_sources"]["lambda.requestPrice"] == "fallback_static"
+
+
+def test_aws_snapshot_digest_is_stable_across_generated_timestamp_changes():
+    template = json.loads(Path("json/pricing.json").read_text())
+    first = attach_pricing_metadata(
+        "aws",
+        template["aws"],
+        fetched={},
+        pricing_region="eu-central-1",
+    )
+    second = json.loads(json.dumps(first))
+    second["__schema__"]["generated_at"] = "2099-01-01T00:00:00+00:00"
+
+    assert canonical_pricing_snapshot_digest(first) == (
+        canonical_pricing_snapshot_digest(second)
+    )
+    assert validate_pricing_payload("aws", second)["status"] == "valid"
+
+
+def test_aws_snapshot_validation_rejects_tampered_pricing():
+    template = json.loads(Path("json/pricing.json").read_text())
+    payload = attach_pricing_metadata(
+        "aws",
+        template["aws"],
+        fetched={},
+        pricing_region="eu-central-1",
+    )
+    payload["iotTwinMaker"]["usageRates"]["queryPrice"] *= 2
+
+    validation = validate_pricing_payload("aws", payload)
+
+    assert validation["status"] == "incomplete"
+    assert "__schema__.snapshot_digest (mismatch)" in validation["missing_keys"]
 
 
 def test_attach_pricing_metadata_marks_model_constants_as_curated():
@@ -228,7 +274,12 @@ def test_attach_pricing_metadata_marks_model_constants_as_curated():
         "blobStorageCool": {"upfrontPrice": 0.0001},
     }
 
-    aws = attach_pricing_metadata("aws", aws_payload, fetched={})
+    aws = attach_pricing_metadata(
+        "aws",
+        aws_payload,
+        fetched={},
+        pricing_region="eu-central-1",
+    )
     azure = attach_pricing_metadata("azure", azure_payload, fetched={})
 
     assert aws["__quality__"]["field_sources"]["lambda.freeRequests"] == "curated"
@@ -291,6 +342,7 @@ def test_combined_pricing_strips_reserved_metadata_before_calculation():
         "aws",
         json.loads(Path("json/pricing.json").read_text())["aws"],
         fetched={},
+        pricing_region="eu-central-1",
     )
 
     with patch.object(
@@ -305,3 +357,4 @@ def test_combined_pricing_strips_reserved_metadata_before_calculation():
     assert "__schema__" not in combined["azure"]
     assert "__quality__" not in combined["gcp"]
     assert combined["aws"] == strip_pricing_metadata(aws)
+    assert combined["__aws_schema__"] == aws["__schema__"]

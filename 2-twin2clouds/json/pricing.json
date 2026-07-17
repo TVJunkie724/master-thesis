@@ -45,9 +45,55 @@
       "dataRetrievalPrice": 0.0025
     },
     "iotTwinMaker": {
-      "unifiedDataAccessAPICallsPrice": 0.0000015,
-      "entityPrice": 0.05,
-      "queryPrice": 0.00005
+      "usageRates": {
+        "entityPricePerMonth": 0.0525,
+        "queryPrice": 0.0000525,
+        "unifiedDataAccessApiCallPrice": 0.00000165
+      },
+      "tieredBundle": {
+        "tiers": [
+          {
+            "tierId": "TIER_1",
+            "minimumEntities": 1,
+            "maximumEntities": 1000,
+            "monthlyBasePrice": 231.0,
+            "includedQueries": 3800000,
+            "includedApiCalls": 25000000,
+            "queryOveragePrice": 0.0000525,
+            "apiCallOveragePrice": 0.00000165
+          },
+          {
+            "tierId": "TIER_2",
+            "minimumEntities": 1001,
+            "maximumEntities": 5000,
+            "monthlyBasePrice": 682.5,
+            "includedQueries": 9000000,
+            "includedApiCalls": 60000000,
+            "queryOveragePrice": 0.0000525,
+            "apiCallOveragePrice": 0.00000165
+          },
+          {
+            "tierId": "TIER_3",
+            "minimumEntities": 5001,
+            "maximumEntities": 10000,
+            "monthlyBasePrice": 1155.0,
+            "includedQueries": 14300000,
+            "includedApiCalls": 95000000,
+            "queryOveragePrice": 0.0000525,
+            "apiCallOveragePrice": 0.00000165
+          },
+          {
+            "tierId": "TIER_4",
+            "minimumEntities": 10001,
+            "maximumEntities": 20000,
+            "monthlyBasePrice": 2047.5,
+            "includedQueries": 24000000,
+            "includedApiCalls": 160000000,
+            "queryOveragePrice": 0.0000525,
+            "apiCallOveragePrice": 0.00000165
+          }
+        ]
+      }
     },
     "awsManagedGrafana": {
       "editorPrice": 9.0,

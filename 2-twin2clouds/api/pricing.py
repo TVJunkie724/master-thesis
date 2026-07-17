@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.requests import Request
 
 from backend.logger import logger
@@ -25,6 +25,10 @@ from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date
 from backend.calculation_v2.pricing_source_inventory import pricing_source_inventory
 from backend.secret_redaction import credential_strings, redact_secret_like_text
 from backend.pricing_cache import PricingRefreshInProgressError
+from backend.aws_twinmaker_pricing_plan import AwsTwinMakerPricingPlanError
+from backend.fetch_data.cloud_price_fetcher_aws import (
+    TwinMakerPricingCatalogError,
+)
 from backend.sse_utils import (
     PricingOperationFilter,
     ThreadSafeSseHandler,
@@ -441,12 +445,30 @@ class CredentialRequest(BaseModel):
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
-    aws_region: Optional[str] = "eu-central-1"
+    aws_region: Optional[str] = None
+    aws_configured_account_id: Optional[str] = Field(
+        default=None,
+        pattern=r"^\d{12}$",
+    )
     # GCP
     gcp_service_account_json: Optional[str] = None
     gcp_project_id: Optional[str] = None
     gcp_billing_account: Optional[str] = None
     gcp_region: Optional[str] = "europe-west1"
+
+    @model_validator(mode="after")
+    def require_aws_target_region(self):
+        aws_fields_present = any(
+            (
+                self.aws_access_key_id,
+                self.aws_secret_access_key,
+                self.aws_session_token,
+                self.aws_configured_account_id,
+            )
+        )
+        if aws_fields_present and not self.aws_region:
+            raise ValueError("aws_region is required for AWS pricing credentials")
+        return self
 
 
 def _pricing_stream_failure_message(provider: str) -> str:
@@ -528,6 +550,41 @@ def fetch_pricing_with_credentials(
         creds_dict = credentials.model_dump()
         return calculate_up_to_date_pricing_with_credentials(provider, creds_dict)
 
+    except AwsTwinMakerPricingPlanError as e:
+        status = {
+            "AWS_TWINMAKER_PLAN_AUTHENTICATION_FAILED": 401,
+            "AWS_TWINMAKER_PLAN_PERMISSION_DENIED": 403,
+            "AWS_TWINMAKER_PLAN_ACCOUNT_MISMATCH": 409,
+            "AWS_TWINMAKER_PLAN_THROTTLED": 429,
+            "AWS_TWINMAKER_PLAN_RESPONSE_INVALID": 502,
+        }.get(e.code, 502)
+        logger.warning("AWS TwinMaker plan observation failed: %s", e.code)
+        raise HTTPException(
+            status_code=status,
+            detail=_pricing_error_detail(
+                e.code,
+                e.public_message,
+                (
+                    "Validate the AWS pricing connection, account scope, target "
+                    "region, and iottwinmaker:GetPricingPlan permission."
+                ),
+                status,
+            ),
+        )
+    except TwinMakerPricingCatalogError as e:
+        logger.warning("AWS TwinMaker catalog refresh failed: %s", e.code)
+        raise HTTPException(
+            status_code=502,
+            detail=_pricing_error_detail(
+                e.code,
+                e.public_message,
+                (
+                    "Retry after verifying AWS Price List API availability and "
+                    "the regional TwinMaker catalog contract."
+                ),
+                502,
+            ),
+        )
     except ValueError as e:
         redacted_message = _redact_credential_values(str(e), credentials)
         logger.warning("Invalid %s pricing credential request: %s", provider, redacted_message)

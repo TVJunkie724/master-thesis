@@ -53,11 +53,11 @@ def test_pricing_registry_service_reloads_registry_version(tmp_path):
         "provider_pricing_contracts.yaml",
     ):
         path = root / name
-        path.write_text(path.read_text().replace("2026.06.08", "2026.06.09"))
+        path.write_text(path.read_text().replace("2026.07.17", "2026.07.18"))
 
     service = PricingRegistryService(root)
 
-    assert service.get_registry_version() == "2026.06.09"
+    assert service.get_registry_version() == "2026.07.18"
 
 
 def test_pricing_registry_service_rejects_unknown_provider():
@@ -78,9 +78,9 @@ def test_get_pricing_registry_status_endpoint():
     assert response.status_code == 200
     body = response.json()
     assert body == expected
-    assert body["provider_mapping_counts"]["azure"] == (
-        body["provider_mapping_counts"]["aws"] + 2
-    )
+    assert body["provider_mapping_counts"]["aws"] == 19
+    assert body["provider_mapping_counts"]["azure"] == 18
+    assert body["provider_mapping_counts"]["gcp"] == 16
 
 
 def test_list_pricing_registry_intents_endpoint_supports_metric_filter():
@@ -88,7 +88,7 @@ def test_list_pricing_registry_intents_endpoint_supports_metric_filter():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["registry_version"] == "2026.06.08"
+    assert body["registry_version"] == "2026.07.17"
     assert "api.request_million" in body["items"]
     assert all(intent["group"] == "cost" for intent in body["items"].values())
 
@@ -98,7 +98,7 @@ def test_get_pricing_registry_intent_endpoint_returns_stable_shape():
 
     assert response.status_code == 200
     assert response.json() == {
-        "registry_version": "2026.06.08",
+        "registry_version": "2026.07.17",
         "item": {
             "group": "cost",
             "description": "API calls normalized per one million requests.",
@@ -145,9 +145,15 @@ def test_list_pricing_model_classifications_endpoint_supports_provider_filter():
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["items"]) == 16
+    assert len(body["items"]) == 19
     assert body["items"]["aws.iot_message_ingest.model.v1"]["pricing_model_type"] == (
         "tiered_message_unit"
+    )
+    assert (
+        body["items"]["aws.digital_twin_account_bundle_month.model.v1"][
+            "pricing_model_type"
+        ]
+        == "account_wide_tiered_bundle"
     )
     assert all(item["provider"] == "aws" for item in body["items"].values())
 

@@ -53,6 +53,30 @@ def test_field_verification_matrix_covers_every_active_pricing_field():
     assert all(row["selected_source_type"] in row["allowed_source_types"] for row in rows)
 
 
+def test_twinmaker_bundle_contract_is_account_scoped_and_composite():
+    registry = load_pricing_registry()
+    contract = registry.provider_pricing_contracts[
+        "aws.digital_twin_account_bundle_month.pricing_contract.v1"
+    ]
+    source = registry.price_source_classifications[
+        "aws.digital_twin_account_bundle_month.source.v1"
+    ]
+
+    assert contract["curated_model_constants"] == {
+        "allocation_policy": "DEDICATED_ACCOUNT_FULL_COST"
+    }
+    assert contract["consumed_workload_fields"] == [
+        "account_digital_twin_entity_count",
+        "account_monthly_digital_twin_queries",
+        "account_monthly_digital_twin_api_calls",
+    ]
+    assert source["source_type"] == "derived_from_provider_api"
+    assert source["derived_from"] == [
+        "AWS Price List API exact regional TwinMaker tier rows",
+        "AWS IoT TwinMaker pricing documentation entity boundaries",
+    ]
+
+
 def test_fallback_static_source_cannot_be_publishable(tmp_path):
     root = _copy_registry(tmp_path)
     path = root / "price_source_classifications.yaml"

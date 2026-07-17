@@ -7,18 +7,25 @@ provider evidence.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timezone
+import hashlib
+import json
+import re
 from typing import Any
 
 
 PRICING_SCHEMA_VERSION = "pricing-provider-schema.v1"
-PRICING_CONTRACT_VERSION = "2026.06.08"
+PRICING_CONTRACT_VERSION = "2026.07.17"
+SHA256_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
+AWS_REGION_PATTERN = re.compile(r"^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\d+$")
 
 RESERVED_PRICING_KEYS = {
     "__schema__",
     "__quality__",
     "__evidence__",
     "__publication__",
+    "__account_pricing_context__",
 }
 
 FETCHED = "fetched"
@@ -52,9 +59,8 @@ EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
             "dataRetrievalPrice",
         ],
         "iotTwinMaker": [
-            "unifiedDataAccessAPICallsPrice",
-            "entityPrice",
-            "queryPrice",
+            "usageRates",
+            "tieredBundle",
         ],
         "awsManagedGrafana": ["editorPrice", "viewerPrice"],
         "stepFunctions": ["pricePer1kStateTransitions", "pricePerStateTransition"],
@@ -257,6 +263,11 @@ def validate_pricing_payload(provider: str, data: dict[str, Any]) -> dict[str, A
             if key not in service_data:
                 missing_keys.append(f"{service}.{key}")
 
+    if provider == "aws":
+        missing_keys.extend(_validate_aws_twinmaker_contract(payload))
+        missing_keys.extend(_validate_aws_snapshot_metadata(data))
+
+    missing_keys = sorted(set(missing_keys))
     status = "incomplete" if missing_keys else "valid"
     quality = data.get("__quality__")
     fallback_fields = list((quality or {}).get("fallback_fields", []))
@@ -280,8 +291,10 @@ def attach_pricing_metadata(
     provider: str,
     pricing: dict[str, Any],
     fetched: dict[str, dict[str, Any]] | None = None,
+    *,
+    pricing_region: str | None = None,
 ) -> dict[str, Any]:
-    payload = dict(pricing)
+    payload = deepcopy(pricing)
     field_sources = build_field_sources(provider, payload, fetched or {})
     fallback_fields = sorted(
         path
@@ -291,12 +304,22 @@ def attach_pricing_metadata(
     unsupported_fields = sorted(
         path for path, source in field_sources.items() if source == UNSUPPORTED
     )
-    payload["__schema__"] = {
+    schema = {
         "schema_version": PRICING_SCHEMA_VERSION,
         "contract_version": PRICING_CONTRACT_VERSION,
         "provider": provider,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    if provider == "aws":
+        if (
+            not isinstance(pricing_region, str)
+            or not AWS_REGION_PATTERN.fullmatch(pricing_region)
+        ):
+            raise ValueError(
+                "A valid pricing_region is required for AWS pricing snapshots."
+            )
+        schema["pricing_region"] = pricing_region
+    payload["__schema__"] = schema
     payload["__quality__"] = {
         "quality_status": (
             REVIEW_REQUIRED if fallback_fields or unsupported_fields else PUBLISHABLE
@@ -309,6 +332,10 @@ def attach_pricing_metadata(
     evidence = _build_generated_evidence(provider, fetched or {})
     if evidence:
         payload["__evidence__"] = evidence
+    if provider == "aws":
+        payload["__schema__"]["snapshot_digest"] = (
+            canonical_pricing_snapshot_digest(payload)
+        )
     return payload
 
 
@@ -316,6 +343,17 @@ def _build_generated_evidence(
     provider: str,
     fetched: dict[str, dict[str, Any]],
 ) -> dict[str, Any] | None:
+    if provider == "aws":
+        twinmaker_evidence = (fetched.get("twinmaker") or {}).get("__evidence__")
+        if not twinmaker_evidence:
+            return None
+        return {
+            "schema_version": "pricing-generated-evidence.v1",
+            "provider": provider,
+            "services": {
+                "iotTwinMaker": deepcopy(twinmaker_evidence),
+            },
+        }
     if provider != "azure":
         return None
     neutral_to_service = {
@@ -391,6 +429,140 @@ def build_field_sources(
 
 def strip_pricing_metadata(data: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in data.items() if key not in RESERVED_PRICING_KEYS}
+
+
+def canonical_pricing_snapshot_digest(data: dict[str, Any]) -> str:
+    """Return a stable digest for public pricing data and stable metadata."""
+
+    canonical = deepcopy(data)
+    canonical.pop("__account_pricing_context__", None)
+    schema = canonical.get("__schema__")
+    if isinstance(schema, dict):
+        schema.pop("generated_at", None)
+        schema.pop("snapshot_digest", None)
+    encoded = json.dumps(
+        canonical,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _validate_aws_snapshot_metadata(data: dict[str, Any]) -> list[str]:
+    schema = data.get("__schema__")
+    if schema is None:
+        return []
+    if not isinstance(schema, dict):
+        return ["__schema__ (invalid object)"]
+
+    missing: list[str] = []
+    region = schema.get("pricing_region")
+    if not isinstance(region, str) or not AWS_REGION_PATTERN.fullmatch(region):
+        missing.append("__schema__.pricing_region")
+
+    digest = schema.get("snapshot_digest")
+    if not isinstance(digest, str) or not SHA256_DIGEST_PATTERN.fullmatch(digest):
+        missing.append("__schema__.snapshot_digest")
+    elif digest != canonical_pricing_snapshot_digest(data):
+        missing.append("__schema__.snapshot_digest (mismatch)")
+    return missing
+
+
+def _validate_aws_twinmaker_contract(payload: dict[str, Any]) -> list[str]:
+    twinmaker = payload.get("iotTwinMaker")
+    if not isinstance(twinmaker, dict):
+        return []
+
+    missing: list[str] = []
+    usage_rates = twinmaker.get("usageRates")
+    required_rates = (
+        "entityPricePerMonth",
+        "queryPrice",
+        "unifiedDataAccessApiCallPrice",
+    )
+    if not isinstance(usage_rates, dict):
+        missing.append("iotTwinMaker.usageRates (invalid object)")
+    else:
+        for key in required_rates:
+            if not _is_positive_number(usage_rates.get(key)):
+                missing.append(f"iotTwinMaker.usageRates.{key}")
+
+    tiered_bundle = twinmaker.get("tieredBundle")
+    tiers = (
+        tiered_bundle.get("tiers")
+        if isinstance(tiered_bundle, dict)
+        else None
+    )
+    if not isinstance(tiers, list) or len(tiers) != 4:
+        return missing + ["iotTwinMaker.tieredBundle.tiers"]
+
+    expected_ranges = (
+        ("TIER_1", 1, 1_000),
+        ("TIER_2", 1_001, 5_000),
+        ("TIER_3", 5_001, 10_000),
+        ("TIER_4", 10_001, 20_000),
+    )
+    previous_queries = -1
+    previous_api_calls = -1
+    query_overages = set()
+    api_overages = set()
+    for index, (tier, expected) in enumerate(zip(tiers, expected_ranges)):
+        prefix = f"iotTwinMaker.tieredBundle.tiers[{index}]"
+        if not isinstance(tier, dict):
+            missing.append(f"{prefix} (invalid object)")
+            continue
+        tier_id, minimum, maximum = expected
+        if tier.get("tierId") != tier_id:
+            missing.append(f"{prefix}.tierId")
+        if tier.get("minimumEntities") != minimum:
+            missing.append(f"{prefix}.minimumEntities")
+        if tier.get("maximumEntities") != maximum:
+            missing.append(f"{prefix}.maximumEntities")
+        for key in (
+            "monthlyBasePrice",
+            "queryOveragePrice",
+            "apiCallOveragePrice",
+        ):
+            if not _is_positive_number(tier.get(key)):
+                missing.append(f"{prefix}.{key}")
+        included_queries = tier.get("includedQueries")
+        included_api_calls = tier.get("includedApiCalls")
+        if (
+            isinstance(included_queries, bool)
+            or not isinstance(included_queries, int)
+            or included_queries <= previous_queries
+        ):
+            missing.append(f"{prefix}.includedQueries")
+        else:
+            previous_queries = included_queries
+        if (
+            isinstance(included_api_calls, bool)
+            or not isinstance(included_api_calls, int)
+            or included_api_calls <= previous_api_calls
+        ):
+            missing.append(f"{prefix}.includedApiCalls")
+        else:
+            previous_api_calls = included_api_calls
+        if _is_positive_number(tier.get("queryOveragePrice")):
+            query_overages.add(float(tier["queryOveragePrice"]))
+        if _is_positive_number(tier.get("apiCallOveragePrice")):
+            api_overages.add(float(tier["apiCallOveragePrice"]))
+
+    if len(query_overages) != 1:
+        missing.append("iotTwinMaker.tieredBundle.queryOveragePrice (inconsistent)")
+    if len(api_overages) != 1:
+        missing.append("iotTwinMaker.tieredBundle.apiCallOveragePrice (inconsistent)")
+    return missing
+
+
+def _is_positive_number(value: Any) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and value > 0
+    )
 
 
 def _source_field_is_fetched(

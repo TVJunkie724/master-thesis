@@ -1,5 +1,5 @@
 schema_version: pricing-registry-pricing-model-classifications.v1
-registry_version: 2026.06.08
+registry_version: 2026.07.17
 classifications:
   aws.transfer_egress_gb.model.v1:
     id: aws.transfer_egress_gb.model.v1
@@ -222,21 +222,72 @@ classifications:
     - aws.event_bus.event_million.mapping:2026.06.08
     review_status: verified
     publishable: true
-  aws.digital_twin_query_unit.model.v1:
-    id: aws.digital_twin_query_unit.model.v1
+  aws.digital_twin_entity_month.model.v1:
+    id: aws.digital_twin_entity_month.model.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.entity_month
+    pricing_model_type: entity_month_unit
+    billing_unit_semantics: entity_month
+    tier_semantics: none
+    included_usage_semantics: none
+    region_scope: regional
+    currency: USD
+    effective_date: '2026-07-17'
+    evidence_source_refs:
+    - aws.digital_twin.entity_month.mapping:2026.07.17
+    review_status: verified
+    publishable: true
+  aws.digital_twin_api_call.model.v1:
+    id: aws.digital_twin_api_call.model.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.api_call
+    pricing_model_type: request_or_event_unit
+    billing_unit_semantics: api_call
+    tier_semantics: none
+    included_usage_semantics: none
+    region_scope: regional
+    currency: USD
+    effective_date: '2026-07-17'
+    evidence_source_refs:
+    - aws.digital_twin.api_call.mapping:2026.07.17
+    review_status: verified
+    publishable: true
+  aws.digital_twin_query_unit.model.v2:
+    id: aws.digital_twin_query_unit.model.v2
     provider: aws
     layer: digital_twin
     service: AWSIoTTwinMaker
     field: digital_twin.query_unit
     pricing_model_type: query_unit
     billing_unit_semantics: query_unit
-    tier_semantics: single_or_provider_defined_tiers
-    included_usage_semantics: provider_evidence_or_official_static
-    region_scope: regional_or_provider_defined
+    tier_semantics: none
+    included_usage_semantics: none
+    region_scope: regional
     currency: USD
-    effective_date: '2026-06-08'
+    effective_date: '2026-07-17'
     evidence_source_refs:
-    - aws.digital_twin.query_unit.mapping:2026.06.08
+    - aws.digital_twin.query_unit.mapping:2026.07.17
+    review_status: verified
+    publishable: true
+  aws.digital_twin_account_bundle_month.model.v1:
+    id: aws.digital_twin_account_bundle_month.model.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.account_bundle_month
+    pricing_model_type: account_wide_tiered_bundle
+    billing_unit_semantics: account_bundle_month
+    tier_semantics: four_entity_count_tiers
+    included_usage_semantics: included_queries_and_api_calls_with_overage
+    region_scope: regional
+    currency: USD
+    effective_date: '2026-07-17'
+    evidence_source_refs:
+    - aws.digital_twin.account_bundle_month.mapping:2026.07.17
     review_status: verified
     publishable: true
   aws.grafana_editor_user_month.model.v1:

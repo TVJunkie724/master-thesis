@@ -1,5 +1,5 @@
 schema_version: pricing-registry-provider-pricing-contracts.v1
-registry_version: 2026.06.08
+registry_version: 2026.07.17
 provider_pricing_contracts:
   aws.api_request_million.pricing_contract.v1:
     id: aws.api_request_million.pricing_contract.v1
@@ -34,16 +34,82 @@ provider_pricing_contracts:
     output_metric_unit: USD/month
     status: ready
     reviewed_at: '2026-06-10'
-  aws.digital_twin_query_unit.pricing_contract.v1:
-    id: aws.digital_twin_query_unit.pricing_contract.v1
+  aws.digital_twin_entity_month.pricing_contract.v1:
+    id: aws.digital_twin_entity_month.pricing_contract.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.entity_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.digital_twin_entity_month.model.v1
+    price_source_classification_id: aws.digital_twin_entity_month.source.v1
+    allowed_price_source_types_by_field:
+      digital_twin.entity_month:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_entity_month
+    allowed_formula_refs:
+    - entity_month_cost
+    calculation_component: digital_twin_entities
+    consumed_workload_fields:
+    - digital_twin_entity_months
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-07-17'
+  aws.digital_twin_api_call.pricing_contract.v1:
+    id: aws.digital_twin_api_call.pricing_contract.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.api_call
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.digital_twin_api_call.model.v1
+    price_source_classification_id: aws.digital_twin_api_call.source.v1
+    allowed_price_source_types_by_field:
+      digital_twin.api_call:
+      - provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_row
+    curated_model_constants: {}
+    normalization_rules:
+    - per_api_call
+    allowed_formula_refs:
+    - api_call_cost
+    calculation_component: digital_twin_api_calls
+    consumed_workload_fields:
+    - monthly_digital_twin_api_calls
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-07-17'
+  aws.digital_twin_query_unit.pricing_contract.v2:
+    id: aws.digital_twin_query_unit.pricing_contract.v2
     provider: aws
     layer: digital_twin
     service: AWSIoTTwinMaker
     field: digital_twin.query_unit
     formula_set_id: cost_formula_set_v1
     workload_contract_id: digital_twin_workload_v1
-    pricing_model_classification_id: aws.digital_twin_query_unit.model.v1
-    price_source_classification_id: aws.digital_twin_query_unit.source.v1
+    pricing_model_classification_id: aws.digital_twin_query_unit.model.v2
+    price_source_classification_id: aws.digital_twin_query_unit.source.v2
     allowed_price_source_types_by_field:
       digital_twin.query_unit:
       - provider_api
@@ -66,7 +132,43 @@ provider_pricing_contracts:
     - monthly_digital_twin_query_units
     output_metric_unit: USD/month
     status: ready
-    reviewed_at: '2026-06-10'
+    reviewed_at: '2026-07-17'
+  aws.digital_twin_account_bundle_month.pricing_contract.v1:
+    id: aws.digital_twin_account_bundle_month.pricing_contract.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.account_bundle_month
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_id: aws.digital_twin_account_bundle_month.model.v1
+    price_source_classification_id: aws.digital_twin_account_bundle_month.source.v1
+    allowed_price_source_types_by_field:
+      digital_twin.account_bundle_month:
+      - derived_from_provider_api
+    required_evidence_fields:
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
+    - currency
+    - selected_rows
+    curated_model_constants:
+      allocation_policy: DEDICATED_ACCOUNT_FULL_COST
+    normalization_rules:
+    - per_account_bundle_month
+    allowed_formula_refs:
+    - account_bundle_cost
+    calculation_component: digital_twin_account_bundle
+    consumed_workload_fields:
+    - account_digital_twin_entity_count
+    - account_monthly_digital_twin_queries
+    - account_monthly_digital_twin_api_calls
+    output_metric_unit: USD/month
+    status: ready
+    reviewed_at: '2026-07-17'
   aws.event_bus_event_million.pricing_contract.v1:
     id: aws.event_bus_event_million.pricing_contract.v1
     provider: aws
