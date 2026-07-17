@@ -16,7 +16,6 @@ class CostCalculationRunCreate(BaseModel):
     pricing_snapshots: dict = Field(default_factory=dict)
     pricing_timestamps: dict = Field(default_factory=dict)
     pricing_evidence_version: Optional[str] = None
-    pricing_run_reference: Optional[str] = None
 
 
 class CostCalculationResultItemResponse(BaseModel):

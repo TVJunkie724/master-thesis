@@ -103,7 +103,73 @@ def test_update_cloud_connection_metadata(authenticated_client):
     assert response.status_code == 200
     data = response.json()
     assert data["display_name"] == "AWS Production"
-    assert data["cloud_scope"] == {"account_id": "123456789012"}
+    assert data["cloud_scope"] == {
+        "account_id": "123456789012",
+        "region": "eu-central-1",
+    }
+
+
+def test_create_aws_connection_normalizes_safe_region_metadata(
+    authenticated_client,
+):
+    client, headers = authenticated_client
+    payload = _aws_request()
+    payload["cloud_scope"] = {"account_id": "123456789012"}
+
+    response = client.post("/cloud-connections/", json=payload, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["cloud_scope"] == {
+        "account_id": "123456789012",
+        "region": "eu-central-1",
+    }
+
+
+@pytest.mark.parametrize(
+    "cloud_scope",
+    [
+        {"account_id": "not-an-account", "region": "eu-central-1"},
+        {"account_id": "123456789012", "region": "us-east-1"},
+    ],
+)
+def test_create_aws_connection_rejects_invalid_safe_scope_metadata(
+    authenticated_client,
+    cloud_scope,
+):
+    client, headers = authenticated_client
+    payload = _aws_request()
+    payload["cloud_scope"] = cloud_scope
+
+    response = client.post("/cloud-connections/", json=payload, headers=headers)
+
+    assert response.status_code == 422
+
+
+def test_update_cloud_scope_invalidates_previous_credential_validation(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    created = client.post(
+        "/cloud-connections/",
+        json=_aws_request(),
+        headers=headers,
+    ).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    connection.validation_message = "Previous validation"
+    db_session.commit()
+
+    response = client.patch(
+        f"/cloud-connections/{created['id']}",
+        json={"cloud_scope": {"account_id": "999999999999"}},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["validation_status"] == "untested"
+    assert response.json()["validation_message"] is None
+    assert response.json()["cloud_scope"]["region"] == "eu-central-1"
 
 
 def test_cloud_connection_payload_is_user_scoped(authenticated_client, db_session):

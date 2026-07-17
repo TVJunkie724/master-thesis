@@ -12,6 +12,12 @@ from src.models.cost_calculation import CostCalculationResultItem, CostCalculati
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.services.aws_twinmaker_pricing_context_service import (
+    OPTIMIZER_CONTEXT_COMPARABLE_FIELDS,
+    AwsTwinMakerPricingContextService,
+    ResolvedAwsTwinMakerPricingContext,
+    optimizer_aws_l4_selection_matches_context,
+)
 from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
@@ -32,10 +38,22 @@ SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
 class CostCalculationRunService:
     """Owns Management API persistence for optimizer calculation runs."""
 
-    def __init__(self, db: Session, optimizer_client: OptimizerClient | None = None):
+    def __init__(
+        self,
+        db: Session,
+        optimizer_client: OptimizerClient | None = None,
+        aws_twinmaker_contexts: AwsTwinMakerPricingContextService | None = None,
+    ):
         self.db = db
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.twin_repository = TwinRepository(db)
+        self.aws_twinmaker_contexts = (
+            aws_twinmaker_contexts
+            or AwsTwinMakerPricingContextService(
+                db,
+                optimizer_client=self.optimizer_client,
+            )
+        )
 
     async def create_run(
         self,
@@ -46,7 +64,6 @@ class CostCalculationRunService:
         pricing_snapshots: dict[str, Any] | None = None,
         pricing_timestamps: dict[str, Any] | None = None,
         pricing_evidence_version: str | None = None,
-        pricing_run_reference: str | None = None,
     ) -> CostCalculationRun:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
         if not twin:
@@ -54,6 +71,10 @@ class CostCalculationRunService:
 
         optimizer_params = params.to_optimizer_payload()
         persisted_params = params.to_persisted_payload()
+        aws_context = await self.aws_twinmaker_contexts.resolve(user_id)
+        optimizer_params["providerPricingContexts"] = {
+            "awsTwinMaker": aws_context.payload
+        }
 
         try:
             optimizer_payload = await self.optimizer_client.calculate(optimizer_params)
@@ -62,6 +83,7 @@ class CostCalculationRunService:
 
         result = self._extract_optimizer_result(optimizer_payload)
         contract = self._validate_optimizer_result(result)
+        _validate_optimizer_aws_selection_context(result, aws_context)
         cheapest_path = self._extract_cheapest_path(result)
         result_items = self._build_result_items(
             result, cheapest_path, contract["currency"]
@@ -89,7 +111,7 @@ class CostCalculationRunService:
                 calculation_model_version=contract["calculation_model_version"],
                 pricing_registry_version=contract["pricing_registry_version"],
                 pricing_evidence_version=pricing_evidence_version,
-                pricing_run_reference=pricing_run_reference,
+                pricing_run_reference=aws_context.source_refresh_run_id,
                 created_at=now,
                 completed_at=now,
             )
@@ -199,7 +221,7 @@ class CostCalculationRunService:
             }
         )
 
-    def select_for_deployment(
+    async def select_for_deployment(
         self,
         twin_id: str,
         user_id: str,
@@ -208,8 +230,13 @@ class CostCalculationRunService:
         run = self.get_run(twin_id, user_id, run_id)
         if run.status not in SELECTABLE_STATUSES:
             raise CostCalculationRunSelectionError(
-                f"Cost calculation run {run_id} is not selectable"
+                f"Cost calculation run {run_id} is not selectable",
+                error_code="COST_CALCULATION_RUN_NOT_SELECTABLE",
             )
+        result = _json_loads(run.result_summary_json) or {}
+        if _selected_l4_provider(result) == "aws":
+            current_context = await self.aws_twinmaker_contexts.resolve(user_id)
+            _validate_selected_aws_context(run, result, current_context)
         now = datetime.now(timezone.utc)
         (
             self.db.query(CostCalculationRun)
@@ -469,6 +496,74 @@ class CostCalculationRunService:
 
     def _before_commit(self) -> None:
         """Test hook for rollback verification."""
+
+
+def _selected_l4_provider(result: dict[str, Any]) -> str | None:
+    calculation_result = result.get("calculationResult")
+    if not isinstance(calculation_result, dict):
+        return None
+    provider = calculation_result.get("L4")
+    if not isinstance(provider, str):
+        return None
+    return provider.strip().lower() or None
+
+
+def _validate_selected_aws_context(
+    run: CostCalculationRun,
+    result: dict[str, Any],
+    current: ResolvedAwsTwinMakerPricingContext,
+) -> None:
+    if not current.available:
+        reason = str(
+            current.payload.get("reasonCode")
+            or "AWS_TWINMAKER_PLAN_UNOBSERVED"
+        )
+        raise CostCalculationRunSelectionError(
+            "AWS TwinMaker pricing context is no longer deployable; "
+            "refresh pricing and run the optimizer again.",
+            error_code=reason,
+        )
+
+    provider_contexts = result.get("providerPricingContexts")
+    stored = (
+        provider_contexts.get("awsTwinMaker")
+        if isinstance(provider_contexts, dict)
+        else None
+    )
+    expected = current.payload
+    if (
+        not isinstance(stored, dict)
+        or stored.get("status") != "compatible"
+        or run.pricing_run_reference != current.source_refresh_run_id
+        or any(
+            stored.get(field) != expected.get(field)
+            for field in OPTIMIZER_CONTEXT_COMPARABLE_FIELDS
+        )
+    ):
+        raise CostCalculationRunSelectionError(
+            "AWS TwinMaker pricing context changed after this calculation; "
+            "run the optimizer again before deployment.",
+            error_code="AWS_TWINMAKER_PLAN_CONNECTION_CHANGED",
+        )
+
+
+def _validate_optimizer_aws_selection_context(
+    result: dict[str, Any],
+    expected: ResolvedAwsTwinMakerPricingContext,
+) -> None:
+    if _selected_l4_provider(result) != "aws":
+        return
+    if not optimizer_aws_l4_selection_matches_context(result, expected):
+        raise OptimizerContractError(
+            "Optimizer selected AWS TwinMaker without the trusted account "
+            "pricing context supplied by Management.",
+            [
+                {
+                    "field": "providerPricingContexts.awsTwinMaker",
+                    "message": "AWS L4 selection is not bound to trusted context",
+                }
+            ],
+        )
 
 
 def _json_dumps(value: Any) -> str:

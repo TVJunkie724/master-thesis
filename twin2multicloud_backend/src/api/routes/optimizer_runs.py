@@ -65,7 +65,6 @@ async def create_optimizer_run(
             pricing_snapshots=request.pricing_snapshots,
             pricing_timestamps=request.pricing_timestamps,
             pricing_evidence_version=request.pricing_evidence_version,
-            pricing_run_reference=request.pricing_run_reference,
         )
         return _run_detail_response(run)
     except TwinNotFound as exc:
@@ -175,7 +174,11 @@ async def select_optimizer_run_for_deployment(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        run = service.select_for_deployment(twin_id, current_user.id, run_id)
+        run = await service.select_for_deployment(
+            twin_id,
+            current_user.id,
+            run_id,
+        )
         return CostCalculationRunSelectResponse(
             run=_run_summary_response(run),
             selected_for_deployment_at=run.selected_for_deployment_at,
@@ -183,7 +186,10 @@ async def select_optimizer_run_for_deployment(
     except TwinNotFound as exc:
         raise HTTPException(status_code=404, detail=exc.message)
     except CostCalculationRunSelectionError as exc:
-        raise HTTPException(status_code=409, detail=exc.message)
+        raise HTTPException(
+            status_code=409,
+            detail=_error_detail(exc.error_code, exc.message),
+        )
 
 
 def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryResponse:

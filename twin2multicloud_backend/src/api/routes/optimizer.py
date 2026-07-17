@@ -17,12 +17,16 @@ from typing import Optional
 from src.models.database import get_db
 from src.models.user import User
 from src.api.dependencies import get_current_user
+from src.clients.optimizer_client import OptimizerClient
 from src.services.twin_helpers import get_user_twin
 from src.services.pricing_review_state_service import build_pricing_review_state_response
 from src.schemas.pricing_review import PricingReviewStateResponse
 from src.schemas.pricing_health import PricingHealthResponse
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.repositories.twin_repository import TwinRepository
+from src.services.aws_twinmaker_pricing_context_service import (
+    AwsTwinMakerPricingContextService,
+)
 from src.services.optimizer_calculation_service import OptimizerCalculationService
 from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
 from src.services.optimizer_pricing_refresh_service import OptimizerPricingRefreshService
@@ -40,9 +44,16 @@ def _optimizer_status_service() -> OptimizerStatusService:
     return OptimizerStatusService()
 
 
-def _optimizer_calculation_service() -> OptimizerCalculationService:
+def _optimizer_calculation_service(db: Session) -> OptimizerCalculationService:
     """Build the optimizer calculation service for this request."""
-    return OptimizerCalculationService()
+    optimizer_client = OptimizerClient()
+    return OptimizerCalculationService(
+        optimizer_client=optimizer_client,
+        aws_twinmaker_contexts=AwsTwinMakerPricingContextService(
+            db,
+            optimizer_client=optimizer_client,
+        ),
+    )
 
 
 def _optimizer_pricing_export_service() -> OptimizerPricingExportService:
@@ -408,7 +419,8 @@ async def stream_refresh_pricing(
 )
 async def calculate(
     params: OptimizerCalculationParams,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Proxy calculation request to Optimizer.
@@ -422,8 +434,9 @@ async def calculate(
     - Transfer costs
     """
     try:
-        return await _optimizer_calculation_service().calculate(
-            params.to_optimizer_payload()
+        return await _optimizer_calculation_service(db).calculate(
+            params.to_optimizer_payload(),
+            current_user.id,
         )
     except DownstreamServiceError as exc:
         _raise_downstream_http_error(exc)

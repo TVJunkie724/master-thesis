@@ -85,6 +85,15 @@ class ProviderCapabilityContractInvalid(DomainError):
 class CostCalculationRunSelectionError(DomainError):
     status_code = 409
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str = "COST_CALCULATION_RUN_SELECTION_CONFLICT",
+    ):
+        super().__init__(message)
+        self.error_code = error_code
+
 
 class PricingRefreshRequestError(DomainError):
     status_code = 400
