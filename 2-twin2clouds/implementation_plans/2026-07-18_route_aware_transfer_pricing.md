@@ -754,10 +754,39 @@ Refs #116
 
 ### Slice 4: Trace And Management Persistence
 
-- make Optimizer traces consume priced route objects directly;
-- preserve exact source intent/evidence/tier contributions;
-- validate trusted route context in Management;
-- persist exact transfer result items and evidence detail.
+Status: completed locally on 2026-07-18.
+
+- strict, bounded Management read models validate all route, endpoint, tier,
+  pool, and complete-path diagnostic fields without coercing booleans or
+  numeric strings;
+- one shared trust-boundary service verifies the six-edge topology, selected
+  provider path, provider regions, network/billing policy, source catalog
+  snapshots, evidence/pool identity, continuous marginal tier coverage,
+  aggregate byte/unit arithmetic, currency, transfer totals, and deterministic
+  winner;
+- both the direct calculate proxy and durable calculation-run workflow reject
+  invalid route evidence before it reaches Flutter or persistence;
+- the wizard compatibility write also validates the same transfer contract and
+  rejects any client path that differs from the canonical provider path derived
+  from `calculationResult`;
+- the immutable Optimizer response is retained unchanged, while one exact
+  queryable transfer result item per edge stores source provider, monthly byte
+  quantity, cost, evidence identity, and bounded route notes;
+- the pricing-evidence endpoint returns validated route context and solver
+  diagnostics with recursive secret redaction;
+- historical runs without the additive contract remain readable and do not
+  receive fabricated evidence; malformed persisted evidence is omitted with a
+  compatibility warning;
+- validation rejects booleans and numeric strings, bounds diagnostic payloads,
+  and never reflects unknown field names or values in public errors;
+- no schema migration was needed because the existing immutable JSON and
+  result-item fields represent the complete bounded contract;
+- 67 focused tests and the full Management suite (`837 passed`) are green;
+  Ruff, Bandit, compileall, dependency checks, Compose validation, diff checks,
+  and strict MkDocs also pass;
+- a real local Optimizer-to-Management HTTP contract check passed with six
+  routes, three pools, and 486 executable paths when AWS L4 was correctly
+  unavailable.
 
 Commit:
 
@@ -769,6 +798,14 @@ Refs #116
 
 ### Slice 5: Flutter Read Model And UX
 
+- migrate calculation to the durable
+  `POST /twins/{id}/optimizer-runs` workflow so the Optimizer response never
+  round-trips through a client-authored persistence request;
+- create the draft twin before its first calculation when the wizard is in
+  create mode, then keep that identity for later configuration/deployment;
+- remove the obsolete Flutter `saveOptimizerResult` path and retire the
+  Management `PUT /twins/{id}/optimizer-config/result` compatibility write
+  after all callers are migrated;
 - add typed version-aware route parsing;
 - add collapsed transfer-route evidence;
 - update demo and fixtures without synthesizing missing historical data;

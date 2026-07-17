@@ -32,6 +32,11 @@ from src.services.pricing_catalog_context_service import (
     parse_pricing_catalog_context,
     pricing_catalog_contexts_match,
 )
+from src.services.optimizer_transfer_pricing_contract import (
+    EXPECTED_EDGES,
+    ValidatedOptimizerTransferPricing,
+    validate_optimizer_transfer_pricing_result,
+)
 from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
 
 
@@ -103,10 +108,17 @@ class CostCalculationRunService:
         result = self._extract_optimizer_result(optimizer_payload)
         contract = self._validate_optimizer_result(result)
         _validate_optimizer_pricing_catalog_context(result, catalog_context)
+        transfer_pricing = validate_optimizer_transfer_pricing_result(
+            result,
+            catalog_context,
+        )
         _validate_optimizer_aws_selection_context(result, aws_context)
         cheapest_path = self._extract_cheapest_path(result)
         result_items = self._build_result_items(
-            result, cheapest_path, contract["currency"]
+            result,
+            cheapest_path,
+            contract["currency"],
+            transfer_pricing,
         )
 
         now = datetime.now(timezone.utc)
@@ -215,6 +227,30 @@ class CostCalculationRunService:
             field_trace
         ):
             warnings.append("Malformed optimizer field trace records were omitted.")
+        transfer_pricing = None
+        raw_transfer_pricing = (
+            result.get("transferPricingContext")
+            if isinstance(result, dict)
+            else None
+        )
+        transfer_pricing_field_present = (
+            isinstance(result, dict)
+            and "transferPricingContext" in result
+        )
+        if isinstance(raw_transfer_pricing, dict):
+            try:
+                transfer_pricing = validate_optimizer_transfer_pricing_result(
+                    result,
+                    _run_pricing_catalog_context(run),
+                )
+            except (OptimizerContractError, CostCalculationRunSelectionError):
+                warnings.append(
+                    "Malformed optimizer transfer pricing evidence was omitted."
+                )
+        elif transfer_pricing_field_present:
+            warnings.append(
+                "Malformed optimizer transfer pricing evidence was omitted."
+            )
 
         return _redact_payload(
             {
@@ -236,6 +272,17 @@ class CostCalculationRunService:
                 ),
                 "field_trace_available": field_trace_available,
                 "field_trace_records": field_trace_records,
+                "transfer_pricing_context_available": (
+                    transfer_pricing is not None
+                ),
+                "transfer_pricing_context": (
+                    raw_transfer_pricing if transfer_pricing is not None else {}
+                ),
+                "optimization_diagnostics": (
+                    _dict_or_empty(result.get("optimizationDiagnostics"))
+                    if transfer_pricing is not None
+                    else {}
+                ),
                 "pricing_catalog_context": (
                     safe_pricing_catalog_context(
                         run.pricing_catalog_context_json
@@ -416,6 +463,7 @@ class CostCalculationRunService:
         result: dict[str, Any],
         cheapest_path: dict[str, Any],
         currency: str,
+        transfer_pricing: ValidatedOptimizerTransferPricing,
     ) -> list[dict[str, Any]]:
         provider_costs = {
             "AWS": result.get("awsCosts") or {},
@@ -424,56 +472,78 @@ class CostCalculationRunService:
         }
         explicit_items = result.get("resultItems") or result.get("costItems")
         if isinstance(explicit_items, list) and explicit_items:
-            return [
+            items = [
                 self._normalize_result_item(item, currency)
                 for item in explicit_items
-                if isinstance(item, dict)
+                if (
+                    isinstance(item, dict)
+                    and str(item.get("component") or "").lower() != "transfer"
+                    and item.get("layer") not in EXPECTED_EDGES
+                )
             ]
+        else:
+            layer_mapping = {
+                "l1": "L1",
+                "l2": "L2",
+                "l3_hot": "L3_hot",
+                "l3_cool": "L3_cool",
+                "l3_archive": "L3_archive",
+                "l4": "L4",
+                "l5": "L5",
+            }
+            items = []
+            for path_key, layer_key in layer_mapping.items():
+                provider = cheapest_path.get(path_key)
+                cost_payload = provider_costs.get(provider, {}).get(layer_key) or {}
+                items.append(
+                    {
+                        "layer": layer_key,
+                        "component": "layer_total",
+                        "provider": provider,
+                        "cost_amount": _float_or_none(cost_payload.get("cost")),
+                        "currency": currency,
+                        "unit": "month",
+                        "calculation_notes_json": _json_dumps(
+                            {
+                                "source": "optimizer_layer_total",
+                                "path_key": path_key,
+                            }
+                        ),
+                        "review_status": "pending_evidence",
+                    }
+                )
 
-        layer_mapping = {
-            "l1": "L1",
-            "l2": "L2",
-            "l3_hot": "L3_hot",
-            "l3_cool": "L3_cool",
-            "l3_archive": "L3_archive",
-            "l4": "L4",
-            "l5": "L5",
-        }
-        items: list[dict[str, Any]] = []
-        for path_key, layer_key in layer_mapping.items():
-            provider = cheapest_path.get(path_key)
-            cost_payload = provider_costs.get(provider, {}).get(layer_key) or {}
+        for route in transfer_pricing.context.routes:
             items.append(
                 {
-                    "layer": layer_key,
-                    "component": "layer_total",
-                    "provider": provider,
-                    "cost_amount": _float_or_none(cost_payload.get("cost")),
+                    "layer": route.segment_id,
+                    "component": "transfer",
+                    "provider": route.source.provider,
+                    "service_intent_id": (
+                        f"{route.source.provider}.transfer.egress"
+                        if route.route_class
+                        == "cross_provider_public_internet"
+                        else None
+                    ),
+                    "cost_amount": float(route.total_cost),
                     "currency": currency,
-                    "unit": "month",
+                    "unit": "bytes/month",
+                    "quantity": float(route.volume_bytes),
+                    "unit_price": None,
+                    "evidence_id": route.evidence_id,
                     "calculation_notes_json": _json_dumps(
                         {
-                            "source": "optimizer_layer_total",
-                            "path_key": path_key,
+                            "source": "optimizer_transfer_pricing_context",
+                            "schemaVersion": (
+                                transfer_pricing.context.schema_version
+                            ),
+                            "route": route.model_dump(
+                                mode="json",
+                                by_alias=True,
+                            ),
                         }
                     ),
-                    "review_status": "pending_evidence",
-                }
-            )
-
-        for transfer_key, transfer_cost in (result.get("transferCosts") or {}).items():
-            items.append(
-                {
-                    "layer": transfer_key,
-                    "component": "transfer",
-                    "provider": None,
-                    "cost_amount": _float_or_none(transfer_cost),
-                    "currency": currency,
-                    "unit": "month",
-                    "calculation_notes_json": _json_dumps(
-                        {"source": "optimizer_transfer_cost"}
-                    ),
-                    "review_status": "pending_evidence",
+                    "review_status": "ready",
                 }
             )
         return items

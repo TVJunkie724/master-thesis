@@ -10,6 +10,7 @@ Tests optimizer configuration persistence including:
 from unittest.mock import AsyncMock, patch
 
 from tests.conftest import create_test_twin
+from tests.optimizer_transfer_pricing_test_data import optimizer_transfer_result
 from tests.pricing_catalog_test_data import catalog_context
 
 
@@ -78,6 +79,17 @@ class TestOptimizerConfigRoutes:
         """PUT optimizer-config/result saves calculation output and deployment path."""
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
+        calculation_result = {
+            "L1": "GCP",
+            "L2": "AWS",
+            "L3": {
+                "Hot": "Azure",
+                "Cool": "GCP",
+                "Archive": "AWS",
+            },
+            "L4": "Azure",
+            "L5": "GCP",
+        }
 
         with patch(
             "src.services.pricing_catalog_context_service."
@@ -89,7 +101,9 @@ class TestOptimizerConfigRoutes:
                 json={
                     "params": sample_calc_params,
                     "result": {
-                        "calculationResult": {"L1": "GCP"},
+                        **optimizer_transfer_result(
+                            calculation_result=calculation_result
+                        ),
                         "providerCosts": {
                             "aws": 1.2,
                             "azure": 1.1,
@@ -129,6 +143,71 @@ class TestOptimizerConfigRoutes:
             "l3_archive": "aws",
             "l4": "azure",
             "l5": "gcp",
+        }
+
+    def test_save_result_rejects_mismatched_client_path(
+        self,
+        authenticated_client,
+        sample_calc_params,
+    ):
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        calculation_result = {
+            "L1": "GCP",
+            "L2": "AWS",
+            "L3": {
+                "Hot": "Azure",
+                "Cool": "GCP",
+                "Archive": "AWS",
+            },
+            "L4": "Azure",
+            "L5": "GCP",
+        }
+
+        with patch(
+            "src.services.pricing_catalog_context_service."
+            "PricingCatalogContextService.resolve_for_user",
+            new=AsyncMock(return_value=catalog_context()),
+        ):
+            response = client.put(
+                f"/twins/{twin_id}/optimizer-config/result",
+                json={
+                    "params": sample_calc_params,
+                    "result": {
+                        **optimizer_transfer_result(
+                            calculation_result=calculation_result
+                        ),
+                        "pricingCatalogs": catalog_context().to_http_dict(),
+                    },
+                    "cheapest_path": {
+                        "l1": "AWS",
+                        "l2": "AWS",
+                        "l3_hot": "AZURE",
+                        "l3_cool": "GCP",
+                        "l3_archive": "AWS",
+                        "l4": "AZURE",
+                        "l5": "GCP",
+                    },
+                },
+                headers=headers,
+            )
+
+        assert response.status_code == 422
+        assert response.json()["detail"] == {
+            "error_code": "OPTIMIZER_RESULT_CONTRACT_INVALID",
+            "message": (
+                "Client deployment path does not match the validated "
+                "Optimizer result."
+            ),
+            "errors": [
+                {
+                    "field": "cheapest_path",
+                    "message": (
+                        "The deployment path must match "
+                        "result.calculationResult"
+                    ),
+                }
+            ],
         }
 
     # ============================================================

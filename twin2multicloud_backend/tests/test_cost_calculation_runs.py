@@ -18,6 +18,9 @@ from src.services.errors import (
     ExternalServiceUnavailable,
 )
 from tests.conftest import create_test_twin
+from tests.optimizer_transfer_pricing_test_data import (
+    transfer_pricing_result_fields,
+)
 from tests.pricing_catalog_test_data import catalog_context, catalog_reference
 
 
@@ -105,6 +108,7 @@ def _optimizer_payload_with_compatible_aws_context(context):
             "status": "compatible",
         }
     }
+    _sync_transfer_pricing(payload["result"])
     return payload
 
 
@@ -161,7 +165,6 @@ def _optimizer_payload(overrides=None):
             "L4": {"cost": 9.0},
             "L5": {"cost": 9.0},
         },
-        "transferCosts": {"L1_to_L2": 0.5},
         "cheapestPath": [
             "L1_AWS",
             "L2_Azure",
@@ -180,7 +183,18 @@ def _optimizer_payload(overrides=None):
     }
     if overrides:
         result.update(overrides)
+    _sync_transfer_pricing(result)
     return {"result": result}
+
+
+def _sync_transfer_pricing(result):
+    result.update(
+        transfer_pricing_result_fields(
+            result["calculationResult"],
+            total_cost=result["totalCost"],
+            currency=result["currency"],
+        )
+    )
 
 
 def _intent_trace(overrides=None):
@@ -309,7 +323,7 @@ def test_create_run_persists_history_items_and_compatibility_state(
     assert data["pricing_run_reference"] is None
     assert data["total_monthly_cost"] == 14.75
     assert data["cheapest_path"]["l1"] == "AWS"
-    assert len(data["result_items"]) == 8
+    assert len(data["result_items"]) == 13
 
     run = db_session.query(CostCalculationRun).filter_by(id=data["id"]).one()
     config = db_session.query(OptimizerConfiguration).filter_by(twin_id=twin_id).one()
@@ -374,6 +388,7 @@ def test_create_run_rejects_aws_l4_selected_without_trusted_context(
         "L4_AWS" if item == "L4_Azure" else item
         for item in payload["result"]["cheapestPath"]
     ]
+    _sync_transfer_pricing(payload["result"])
     _override_optimizer(client, FakeOptimizerClient(payload=payload))
 
     response = client.post(
@@ -459,6 +474,15 @@ def test_detail_returns_explicit_evidence_references(
                     "service_model_id": "iot_ingestion_v1",
                     "calculation_notes": {"selected_row": "sku-1"},
                     "review_status": "reviewed",
+                },
+                {
+                    "layer": "L1_to_L2",
+                    "component": "TRANSFER",
+                    "provider": "gcp",
+                    "cost_amount": 999999,
+                    "currency": "USD",
+                    "evidence_id": "client-authored-transfer",
+                    "review_status": "reviewed",
                 }
             ]
         }
@@ -476,6 +500,16 @@ def test_detail_returns_explicit_evidence_references(
     assert item["evidence_id"] == "aws-iot-evidence-1"
     assert item["service_intent_id"] == "iot.message_ingest"
     assert item["calculation_notes"] == {"selected_row": "sku-1"}
+    transfer_items = [
+        result_item
+        for result_item in response.json()["result_items"]
+        if result_item["component"] == "transfer"
+    ]
+    assert len(transfer_items) == 6
+    assert all(
+        result_item["evidence_id"] != "client-authored-transfer"
+        for result_item in transfer_items
+    )
 
 
 def test_create_run_persists_optimizer_evidence_reference_metadata(
@@ -509,6 +543,74 @@ def test_create_run_persists_optimizer_evidence_reference_metadata(
         "pricing-evidence.v1"
     )
     assert result_summary["intentTrace"]["schema_version"] == "intent-result-trace.v1"
+
+
+def test_create_run_persists_exact_transfer_result_items(
+    authenticated_client,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    _override_optimizer(client, FakeOptimizerClient())
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    transfer_items = [
+        item
+        for item in response.json()["result_items"]
+        if item["component"] == "transfer"
+    ]
+    assert len(transfer_items) == 6
+    assert {item["review_status"] for item in transfer_items} == {"ready"}
+    assert {item["unit"] for item in transfer_items} == {"bytes/month"}
+    charged = next(
+        item for item in transfer_items if item["layer"] == "L1_to_L2"
+    )
+    assert charged["provider"] == "aws"
+    assert charged["service_intent_id"] == "aws.transfer.egress"
+    assert charged["evidence_id"] == "transfer.aws.test.v1"
+    assert charged["quantity"] == 1_000_000_000
+    assert charged["calculation_notes"]["source"] == (
+        "optimizer_transfer_pricing_context"
+    )
+    assert charged["calculation_notes"]["route"]["catalogSnapshotId"] == (
+        catalog_reference("aws").snapshot_id
+    )
+
+
+def test_create_run_rejects_tampered_transfer_evidence_without_persistence(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload()
+    payload["result"]["transferPricingContext"]["routes"][0]["source"][
+        "region"
+    ] = "eu-west-1"
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["error_code"] == (
+        "OPTIMIZER_CONTRACT_INVALID"
+    )
+    assert any(
+        error["field"].endswith("source.region")
+        for error in response.json()["detail"]["field_errors"]
+    )
+    assert db_session.query(CostCalculationRun).count() == 0
 
 
 def test_pricing_evidence_detail_returns_trace_and_result_items(
@@ -568,6 +670,14 @@ def test_pricing_evidence_detail_returns_trace_and_result_items(
     assert data["field_trace_schema_version"] == "intent-to-result-trace.v1"
     assert data["field_trace_records"][0]["selection_status"] == "selected"
     assert data["field_trace_records"][0]["cost_contribution_is_additive"] is False
+    assert data["transfer_pricing_context_available"] is True
+    assert data["transfer_pricing_context"]["schemaVersion"] == (
+        "complete-path-transfer-pricing.v1"
+    )
+    assert len(data["transfer_pricing_context"]["routes"]) == 6
+    assert data["optimization_diagnostics"]["winningCandidateId"] == (
+        "aws|azure|gcp|aws|azure|azure|azure"
+    )
     assert data["result_metadata"]["evidenceReferences"]["pricing_registry"] == (
         "pricing_registry:2026.06.08"
     )
@@ -632,6 +742,108 @@ def test_pricing_evidence_detail_handles_historical_run_without_field_trace(
     assert data["field_trace_available"] is False
     assert data["field_trace_records"] == []
     assert data["warnings"] == ["Optimizer field trace is not available for this run."]
+
+
+def test_pricing_evidence_detail_preserves_historical_run_without_transfer_contract(
+    db_session,
+):
+    run = CostCalculationRun(
+        id="historical-run",
+        twin_id="historical-twin",
+        user_id="historical-user",
+        status="succeeded",
+        params_json="{}",
+        result_summary_json=json.dumps(
+            {
+                "result_schema_version": "cost-result.v1",
+                "currency": "USD",
+                "totalCost": 1.0,
+            }
+        ),
+        optimization_profile_id="cost_minimization_v1",
+        scoring_strategy_id="min_total_cost_v1",
+        currency="USD",
+    )
+
+    detail = CostCalculationRunService(
+        db_session
+    ).build_pricing_evidence_detail(run)
+
+    assert detail["transfer_pricing_context_available"] is False
+    assert detail["transfer_pricing_context"] == {}
+    assert detail["optimization_diagnostics"] == {}
+    assert not any("transfer pricing" in warning for warning in detail["warnings"])
+
+
+def test_pricing_evidence_detail_warns_for_present_non_object_transfer_contract(
+    db_session,
+):
+    run = CostCalculationRun(
+        id="malformed-transfer-run",
+        twin_id="malformed-transfer-twin",
+        user_id="malformed-transfer-user",
+        status="succeeded",
+        params_json="{}",
+        result_summary_json=json.dumps(
+            {
+                "result_schema_version": "cost-result.v1",
+                "currency": "USD",
+                "totalCost": 1.0,
+                "transferPricingContext": [],
+            }
+        ),
+        optimization_profile_id="cost_minimization_v1",
+        scoring_strategy_id="min_total_cost_v1",
+        currency="USD",
+    )
+
+    detail = CostCalculationRunService(
+        db_session
+    ).build_pricing_evidence_detail(run)
+
+    assert detail["transfer_pricing_context_available"] is False
+    assert detail["transfer_pricing_context"] == {}
+    assert detail["optimization_diagnostics"] == {}
+    assert "Malformed optimizer transfer pricing evidence was omitted." in (
+        detail["warnings"]
+    )
+
+
+def test_pricing_evidence_detail_omits_tampered_persisted_transfer_contract(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    _override_optimizer(client, FakeOptimizerClient())
+    create_response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run = db_session.query(CostCalculationRun).filter_by(
+        id=create_response.json()["id"]
+    ).one()
+    result = json.loads(run.result_summary_json)
+    result["transferPricingContext"]["pools"][0][
+        "catalogSnapshotId"
+    ] = catalog_reference("aws", identity_hex="d").snapshot_id
+    run.result_summary_json = json.dumps(result)
+    db_session.commit()
+
+    response = client.get(
+        f"/twins/{twin_id}/optimizer-runs/{run.id}/pricing-evidence",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["transfer_pricing_context_available"] is False
+    assert response.json()["transfer_pricing_context"] == {}
+    assert response.json()["optimization_diagnostics"] == {}
+    assert "Malformed optimizer transfer pricing evidence was omitted." in (
+        response.json()["warnings"]
+    )
 
 
 def test_pricing_evidence_detail_omits_malformed_field_trace_records(
@@ -885,6 +1097,7 @@ def test_select_for_deployment_marks_run_and_preserves_compatibility(
         "L4_Azure" if item == "L4_AWS" else item
         for item in payload["result"]["cheapestPath"]
     ]
+    _sync_transfer_pricing(payload["result"])
     _override_optimizer(client, FakeOptimizerClient(payload=payload))
     create_response = client.post(
         f"/twins/{twin_id}/optimizer-runs/",

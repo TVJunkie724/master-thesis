@@ -10,6 +10,7 @@ from src.services.aws_twinmaker_pricing_context_service import (
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.optimizer_calculation_service import OptimizerCalculationService
 from src.services.service_errors import DownstreamServiceError
+from tests.optimizer_transfer_pricing_test_data import optimizer_transfer_result
 from tests.pricing_catalog_test_data import catalog_context
 
 
@@ -75,14 +76,15 @@ def _service(fake):
 @pytest.mark.asyncio
 async def test_calculate_forwards_params_and_returns_optimizer_payload():
     params = {"numberOfDevices": 10, "currency": "USD"}
-    fake = FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
+    fake = FakeOptimizerClient(optimizer_transfer_result())
 
     result = await _service(fake).calculate(params, "user-1")
 
-    assert result == {
-        "cheapestPath": ["L1_AWS"],
-        "pricingCatalogs": catalog_context().to_http_dict(),
-    }
+    assert result == fake.payload
+    assert result["pricingCatalogs"] == catalog_context().to_http_dict()
+    assert result["optimizationDiagnostics"]["winningCandidateId"] == (
+        "aws|azure|gcp|aws|azure|azure|azure"
+    )
     assert fake.calls == [
         {
             **params,
@@ -132,7 +134,19 @@ async def test_calculate_rejects_aws_l4_without_trusted_result_context():
     fake = FakeOptimizerClient(
         {
             "result": {
-                "calculationResult": {"L4": "AWS"},
+                **optimizer_transfer_result(
+                    calculation_result={
+                        "L1": "AWS",
+                        "L2": "Azure",
+                        "L3": {
+                            "Hot": "GCP",
+                            "Cool": "AWS",
+                            "Archive": "Azure",
+                        },
+                        "L4": "AWS",
+                        "L5": "Azure",
+                    }
+                ),
                 "providerPricingContexts": {
                     "awsTwinMaker": {"status": "compatible"}
                 },
@@ -147,9 +161,28 @@ async def test_calculate_rejects_aws_l4_without_trusted_result_context():
     assert "trusted pricing context" in exc_info.value.public_detail
 
 
+@pytest.mark.asyncio
+async def test_calculate_rejects_invalid_transfer_pricing_evidence():
+    payload = optimizer_transfer_result()
+    payload["transferPricingContext"]["routes"][0]["catalogSnapshotId"] = (
+        "pcs_" + ("d" * 64)
+    )
+
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await _service(FakeOptimizerClient(payload)).calculate(
+            {"numberOfDevices": 10},
+            "user-1",
+        )
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.public_detail == (
+        "Optimizer response contains invalid transfer pricing evidence."
+    )
+
+
 def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_calc_params):
     client, headers = authenticated_client
-    fake = FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
+    fake = FakeOptimizerClient(optimizer_transfer_result())
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(
@@ -159,10 +192,10 @@ def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_
         response = client.put("/optimizer/calculate", json=_valid_route_params(sample_calc_params), headers=headers)
 
     assert response.status_code == 200
-    assert response.json() == {
-        "cheapestPath": ["L1_AWS"],
-        "pricingCatalogs": catalog_context().to_http_dict(),
-    }
+    assert response.json()["pricingCatalogs"] == (
+        catalog_context().to_http_dict()
+    )
+    assert len(response.json()["transferPricingContext"]["routes"]) == 6
     assert fake.calls[0] == {
         **_valid_route_params(sample_calc_params),
         "providerPricingCatalogs": catalog_context().to_http_dict(),
@@ -180,7 +213,7 @@ def test_calculate_route_preserves_omitted_adt_assumption_provenance(
     sample_calc_params,
 ):
     client, headers = authenticated_client
-    fake = FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
+    fake = FakeOptimizerClient(optimizer_transfer_result())
     params = _valid_route_params(sample_calc_params)
     params.pop("averageDigitalTwinQueryUnitsPerQuery")
     params.pop("averageDigitalTwinQueryResponseSizeInKb")

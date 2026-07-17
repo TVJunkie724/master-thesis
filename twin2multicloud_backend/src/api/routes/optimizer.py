@@ -385,13 +385,17 @@ async def stream_refresh_pricing(
     operation_id="calculateOptimalDistribution",
     summary="Proxy calculation request to Optimizer",
     description=(
-        "**Purpose:** Calculate optimal cross-cloud distribution for a Digital Twin based on 26 parameters.\n\n"
-        "**Prerequisites:** Call `getPricingStatus` first - if `is_fresh: false`, call `refreshPricing`.\n\n"
+        "**Purpose:** Calculate the globally cheapest executable complete path "
+        "for the closed Five-Layer Digital Twin baseline.\n\n"
+        "**Prerequisites:** Call `getPricingStatus` first. If pricing is stale, "
+        "refresh the affected provider before calculating.\n\n"
         "**Response includes:**\n"
         "- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n"
-        "- `cheapestPath`: Optimal provider selection per layer (L1-L5)\n"
-        "- `combinationTables`: Detailed cost analysis matrices\n"
-        "- `transferCosts`: Cross-cloud data transfer estimates"
+        "- `cheapestPath`: Selected provider assignment across all seven slots\n"
+        "- `transferPricingContext`: Exact six-route, tier, pool, and catalog evidence\n"
+        "- `optimizationDiagnostics`: Bounded complete-path solver diagnostics\n\n"
+        "Management injects trusted catalog context and rejects route evidence "
+        "that does not match that context or the selected complete path."
     ),
     responses={
         401: ERROR_RESPONSES[401],
@@ -411,9 +415,8 @@ async def calculate(
     Returns the full optimization result including:
     - awsCosts, azureCosts, gcpCosts
     - cheapestPath
-    - Optimization overrides (l1, l2, l3, l4)
-    - Combination tables
-    - Transfer costs
+    - transferPricingContext
+    - optimizationDiagnostics
     """
     try:
         return await _optimizer_calculation_service(db).calculate(

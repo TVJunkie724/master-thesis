@@ -9,11 +9,18 @@ from src.services.aws_twinmaker_pricing_context_service import (
     AwsTwinMakerPricingContextService,
     optimizer_aws_l4_selection_matches_context,
 )
-from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.errors import (
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+    OptimizerContractError,
+)
 from src.services.external_service_mapping import map_optimizer_client_error
 from src.services.pricing_catalog_context_service import (
     PricingCatalogContextService,
     pricing_catalog_contexts_match,
+)
+from src.services.optimizer_transfer_pricing_contract import (
+    validate_optimizer_transfer_pricing_result,
 )
 from src.services.service_errors import DownstreamServiceError
 
@@ -70,6 +77,16 @@ class OptimizerCalculationService:
                     502,
                     "Optimizer response is not bound to the trusted pricing context.",
                 )
+            try:
+                validate_optimizer_transfer_pricing_result(
+                    optimizer_result,
+                    catalog_context,
+                )
+            except OptimizerContractError as exc:
+                raise DownstreamServiceError(
+                    502,
+                    "Optimizer response contains invalid transfer pricing evidence.",
+                ) from exc
             return result
         except (ExternalServiceError, ExternalServiceUnavailable) as exc:
             raise map_optimizer_client_error(exc) from exc

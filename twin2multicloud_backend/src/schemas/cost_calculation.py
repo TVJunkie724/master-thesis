@@ -89,6 +89,9 @@ class PricingEvidenceDetailResponse(BaseModel):
     field_trace_schema_version: Optional[str] = None
     field_trace_available: bool
     field_trace_records: list[dict] = Field(default_factory=list)
+    transfer_pricing_context_available: bool = False
+    transfer_pricing_context: dict = Field(default_factory=dict)
+    optimization_diagnostics: dict = Field(default_factory=dict)
     pricing_catalog_context: Optional[PricingCatalogContext] = None
     result_metadata: dict = Field(default_factory=dict)
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)

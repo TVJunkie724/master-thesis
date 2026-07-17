@@ -106,10 +106,10 @@ async def update_params(
         "**When to call:** Immediately after receiving successful response from `calculateOptimalDistribution`.\n\n"
         "**Request body:**\n"
         "- `params`: The parameters used for this calculation\n"
-        "- `result`: Full calculation response (awsCosts, azureCosts, gcpCosts, combinationTables)\n"
-        "- `cheapest_path`: Object with l1, l2, l3_hot, l3_cool, l3_archive, l4, l5 provider names\n"
+        "- `result`: Full validated calculation response, including exact transfer-route evidence and solver diagnostics\n"
+        "- `cheapest_path`: Redundant client projection of l1, l2, l3_hot, l3_cool, l3_archive, l4, and l5; it must match `result.calculationResult`\n"
         "- `result.pricingCatalogs`: Exact references returned by the Optimizer\n\n"
-        "**Important:** This enables Step 3 (Deployer) by storing the cheapest_path used for deployment."
+        "**Important:** Management derives the authoritative deployment path from the validated result. Client values cannot override it."
     ),
     responses={
         401: ERROR_RESPONSES[401],
@@ -146,7 +146,14 @@ async def save_result(
             detail="Optimizer pricing catalog verification failed.",
         ) from exc
     except OptimizerContractError as exc:
-        raise HTTPException(status_code=422, detail=exc.message) from exc
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error_code": "OPTIMIZER_RESULT_CONTRACT_INVALID",
+                "message": exc.message,
+                "errors": exc.errors,
+            },
+        ) from exc
 
 
 @router.get(

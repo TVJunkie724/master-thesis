@@ -11,6 +11,7 @@ from src.schemas.optimizer_config import OptimizerParamsUpdate, OptimizerResultU
 from src.services.optimizer_configuration_service import OptimizerConfigurationService
 from src.services.errors import OptimizerContractError
 from src.services.service_errors import EntityNotFoundError
+from tests.optimizer_transfer_pricing_test_data import optimizer_transfer_result
 from tests.pricing_catalog_test_data import catalog_context
 
 
@@ -43,6 +44,13 @@ def _service(db, *, with_catalogs=False) -> OptimizerConfigurationService:
             FakePricingCatalogContextService() if with_catalogs else None
         ),
     )
+
+
+def _result(calculation_result: dict) -> dict:
+    return {
+        **optimizer_transfer_result(calculation_result=calculation_result),
+        "pricingCatalogs": catalog_context().to_http_dict(),
+    }
 
 
 def test_get_config_creates_default_optimizer_config(db_session):
@@ -109,25 +117,34 @@ async def test_save_result_persists_catalog_context_and_explicit_cheapest_path(
         user.id,
         OptimizerResultUpdate(
             params=sample_calc_params,
-            result={
-                "calculationResult": {"L1": "GCP"},
-                "pricingCatalogs": catalog_context().to_http_dict(),
-            },
+            result=_result(
+                {
+                    "L1": "GCP",
+                    "L2": "AWS",
+                    "L3": {
+                        "Hot": "Azure",
+                        "Cool": "GCP",
+                        "Archive": "AWS",
+                    },
+                    "L4": "Azure",
+                    "L5": "GCP",
+                }
+            ),
             cheapest_path={
-                "l1": "AWS",
-                "l2": "AZURE",
-                "l3_hot": "GCP",
-                "l3_cool": "AWS",
-                "l3_archive": "AZURE",
-                "l4": "GCP",
-                "l5": "AWS",
+                "l1": "GCP",
+                "l2": "AWS",
+                "l3_hot": "AZURE",
+                "l3_cool": "GCP",
+                "l3_archive": "AWS",
+                "l4": "AZURE",
+                "l5": "GCP",
             },
         ),
     )
 
     assert response.cheapest_path is not None
-    assert response.cheapest_path.l1 == "aws"
-    assert response.cheapest_path.l2 == "azure"
+    assert response.cheapest_path.l1 == "gcp"
+    assert response.cheapest_path.l2 == "aws"
     assert response.pricing_catalog_context == catalog_context()
     assert response.calculated_at is not None
 
@@ -145,16 +162,15 @@ async def test_save_result_derives_missing_cheapest_path_from_calculation_result
         user.id,
         OptimizerResultUpdate(
             params=sample_calc_params,
-            result={
-                "calculationResult": {
+            result=_result(
+                {
                     "L1": "GCP",
                     "L2": "AWS",
-                    "L3": {"Hot": "AZURE", "Cool": "GCP", "Archive": "AWS"},
-                    "L4": "AZURE",
+                    "L3": {"Hot": "Azure", "Cool": "GCP", "Archive": "AWS"},
+                    "L4": "Azure",
                     "L5": "GCP",
-                },
-                "pricingCatalogs": catalog_context().to_http_dict(),
-            },
+                }
+            ),
             cheapest_path={},
         ),
     )
@@ -184,7 +200,19 @@ async def test_save_result_rejects_client_result_with_different_catalogs(
             OptimizerResultUpdate(
                 params=sample_calc_params,
                 result={
-                    "calculationResult": {"L1": "GCP"},
+                    **_result(
+                        {
+                            "L1": "GCP",
+                            "L2": "AWS",
+                            "L3": {
+                                "Hot": "Azure",
+                                "Cool": "GCP",
+                                "Archive": "AWS",
+                            },
+                            "L4": "Azure",
+                            "L5": "GCP",
+                        }
+                    ),
                     "pricingCatalogs": {
                         **catalog_context().to_http_dict(),
                         "schemaVersion": "tampered",
@@ -193,6 +221,50 @@ async def test_save_result_rejects_client_result_with_different_catalogs(
                 cheapest_path={"l1": "GCP"},
             ),
         )
+
+
+@pytest.mark.asyncio
+async def test_save_result_rejects_client_path_that_disagrees_with_result(
+    db_session,
+    sample_calc_params,
+):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    result = _result(
+        {
+            "L1": "GCP",
+            "L2": "AWS",
+            "L3": {"Hot": "Azure", "Cool": "GCP", "Archive": "AWS"},
+            "L4": "Azure",
+            "L5": "GCP",
+        }
+    )
+
+    with pytest.raises(OptimizerContractError) as error:
+        await _service(db_session, with_catalogs=True).save_result(
+            twin.id,
+            user.id,
+            OptimizerResultUpdate(
+                params=sample_calc_params,
+                result=result,
+                cheapest_path={
+                    "l1": "AWS",
+                    "l2": "AWS",
+                    "l3_hot": "AZURE",
+                    "l3_cool": "GCP",
+                    "l3_archive": "AWS",
+                    "l4": "AZURE",
+                    "l5": "GCP",
+                },
+            ),
+        )
+
+    assert error.value.errors == [
+        {
+            "field": "cheapest_path",
+            "message": "The deployment path must match result.calculationResult",
+        }
+    ]
 
 
 def test_get_cheapest_path_rejects_missing_result(db_session):

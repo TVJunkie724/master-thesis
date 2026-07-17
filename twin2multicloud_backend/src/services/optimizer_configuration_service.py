@@ -10,6 +10,7 @@ from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_config import OptimizerConfigResponse, OptimizerParamsUpdate, OptimizerResultUpdate
 from src.services.optimizer_config_projection import (
     cheapest_path_dict,
+    derive_cheapest_path,
     optimizer_config_to_response,
     set_cheapest_columns_from_payload,
     to_json,
@@ -20,6 +21,20 @@ from src.services.pricing_catalog_context_service import (
 )
 from src.services.service_errors import EntityNotFoundError
 from src.services.errors import OptimizerContractError
+from src.services.optimizer_transfer_pricing_contract import (
+    validate_optimizer_transfer_pricing_result,
+)
+
+
+CHEAPEST_PATH_KEYS = (
+    "l1",
+    "l2",
+    "l3_hot",
+    "l3_cool",
+    "l3_archive",
+    "l4",
+    "l5",
+)
 
 
 class OptimizerConfigurationService:
@@ -80,6 +95,44 @@ class OptimizerConfigurationService:
                 "Calculation result pricing catalogs do not match the current "
                 "trusted Management context."
             )
+        validate_optimizer_transfer_pricing_result(
+            update.result,
+            catalog_context,
+        )
+        canonical_cheapest_path = derive_cheapest_path(update.result)
+        if (
+            set(canonical_cheapest_path) != set(CHEAPEST_PATH_KEYS)
+            or any(
+                canonical_cheapest_path.get(key) is None
+                for key in CHEAPEST_PATH_KEYS
+            )
+        ):
+            raise OptimizerContractError(
+                "Calculation result does not define a complete deployment path.",
+                errors=[
+                    {
+                        "field": "result.calculationResult",
+                        "message": (
+                            "A provider is required for every baseline layer slot"
+                        ),
+                    }
+                ],
+            )
+        if update.cheapest_path and not _paths_match(
+            update.cheapest_path,
+            canonical_cheapest_path,
+        ):
+            raise OptimizerContractError(
+                "Client deployment path does not match the validated Optimizer result.",
+                errors=[
+                    {
+                        "field": "cheapest_path",
+                        "message": (
+                            "The deployment path must match result.calculationResult"
+                        ),
+                    }
+                ],
+            )
 
         config = self._ensure_config(twin_id, twin, commit=False)
         config.params = to_json(update.params.to_persisted_payload())
@@ -87,7 +140,7 @@ class OptimizerConfigurationService:
         config.pricing_catalog_context_json = catalog_context.canonical_json()
         set_cheapest_columns_from_payload(
             config,
-            cheapest_path=update.cheapest_path,
+            cheapest_path=canonical_cheapest_path,
             optimizer_result=update.result,
         )
 
@@ -123,3 +176,16 @@ class OptimizerConfigurationService:
             self.db.commit()
             self.db.refresh(config)
         return config
+
+
+def _paths_match(
+    client_path: dict,
+    canonical_path: dict[str, str | None],
+) -> bool:
+    if set(client_path) != set(CHEAPEST_PATH_KEYS):
+        return False
+    return all(
+        isinstance(client_path.get(key), str)
+        and client_path[key].strip().lower() == canonical_path[key]
+        for key in CHEAPEST_PATH_KEYS
+    )

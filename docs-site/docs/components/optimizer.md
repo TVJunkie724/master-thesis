@@ -71,9 +71,10 @@ route, same-provider zero routes, regions, geographies, network tier, byte
 volume, exact catalog/evidence identities, cumulative tier contributions,
 egress/glue totals, and model assumptions. Bounded
 `complete-path-optimization.v1` diagnostics expose enumerated, evaluated, and
-rejected path counts plus the deterministic winner. Persistence of these exact
-objects in Management and their collapsed Flutter evidence view remain in
-progress under
+rejected path counts plus the deterministic winner. The Management API now
+validates these objects against its trusted catalog context, persists the
+immutable result, and creates one exact transfer result item per baseline edge.
+The collapsed Flutter evidence view remains in progress under
 [GitHub issue #116](https://github.com/TVJunkie724/master-thesis/issues/116).
 
 ## Evidence And Candidate Flow

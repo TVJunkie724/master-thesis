@@ -84,7 +84,7 @@ def set_cheapest_columns_from_payload(
 ) -> None:
     """Populate cheapest_l* columns from explicit path data and optimizer result fallbacks."""
     explicit = cheapest_path or {}
-    derived = _derive_cheapest_path(optimizer_result)
+    derived = derive_cheapest_path(optimizer_result)
 
     config.cheapest_l1 = _normalize_provider(explicit.get("l1")) or derived.get("l1")
     config.cheapest_l2 = _normalize_provider(explicit.get("l2")) or derived.get("l2")
@@ -99,7 +99,10 @@ def _cheapest_path_response(config: OptimizerConfiguration) -> CheapestPathRespo
     return CheapestPathResponse(**cheapest_path_dict(config))
 
 
-def _derive_cheapest_path(optimizer_result: dict[str, Any] | None) -> dict[str, str | None]:
+def derive_cheapest_path(
+    optimizer_result: dict[str, Any] | None,
+) -> dict[str, str | None]:
+    """Derive the canonical deployment path from an Optimizer result."""
     if not optimizer_result or not isinstance(optimizer_result, dict):
         return {}
 

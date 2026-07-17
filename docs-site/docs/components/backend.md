@@ -46,7 +46,7 @@ FastAPI route
 | `/twins/{id}/config` | configuration workspace persistence and validation |
 | `/twins/{id}/optimizer-config` | typed optimization inputs and projections |
 | `/twins/{id}/optimizer-runs` | durable calculation execution/results |
-| `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact and field-level calculation trace |
+| `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
 | `/cloud-bootstrap` | transient admin credential bootstrap/validate workflows |
@@ -153,6 +153,18 @@ snapshot identity. A run cannot be selected for deployment when any referenced
 catalog is missing, stale, malformed, or different from the Optimizer's exact
 read result.
 
+For route-aware results, Management additionally validates
+`complete-path-transfer-pricing.v1` and `complete-path-optimization.v1` before
+returning or persisting a calculation. The gate requires exactly the six
+baseline segments and checks their endpoints, selected providers, regions,
+route classes, provider network tiers, pool identities, source snapshot IDs,
+tier arithmetic and continuous marginal quantity coverage, aggregate
+bytes/cost, currency, and winning candidate against the server-resolved catalog
+context. The legacy calculate proxy, wizard compatibility persistence, and
+durable run workflow share this one validation service. The compatibility write
+cannot override the deployment path: Management derives it from the validated
+`calculationResult` and rejects a disagreeing client projection.
+
 The Management database does not store full public pricing catalogs. Existing
 legacy snapshot/timestamp columns are outside the live contract and do not make
 pricing calculable. Full pricing remains in the Optimizer's immutable regional
@@ -166,18 +178,32 @@ an AWS L4 result must return the exact Management-injected account context.
 ## Persisted Pricing Trace
 
 Cost-calculation result JSON is an immutable snapshot of the Optimizer response. The
-pricing-evidence detail endpoint projects two trace levels from that snapshot:
+pricing-evidence detail endpoint projects three calculation-evidence levels plus
+the immutable catalog context from that snapshot:
 
 - `intent_trace` for the compact selected-path explanation;
 - `field_trace_records` plus `field_trace_schema_version` for provider-field audit
   details;
+- `transfer_pricing_context` plus `optimization_diagnostics` for all exact
+  baseline routes, provider billing pools, tier contributions, assumptions,
+  and bounded path-selection diagnostics;
 - `pricing_catalog_context` for the exact AWS, Azure, and GCP catalog identities;
 - explicit availability flags and compatibility warnings for historical runs.
 
+Management creates one queryable transfer result item per baseline edge from
+the validated route contract. Each item stores source provider, monthly byte
+quantity, cost, evidence ID, and the bounded route detail. It never trusts or
+persists a competing downstream transfer item when the exact route contract is
+present.
+
 The service applies recursive secret and local-path redaction before returning either
-trace. Malformed field entries are omitted with a warning instead of making an entire
-historical run unreadable. No separate trace table or migration is required because
-the durable run result already owns the immutable payload.
+trace. Malformed field or transfer evidence is omitted with a warning instead
+of making an entire historical run unreadable. A historical run without the
+new transfer contract remains readable with
+`transfer_pricing_context_available=false`; Management does not reconstruct or
+invent missing evidence. No separate trace table or migration is required
+because the durable run result and existing result-item columns already
+represent the bounded metadata.
 
 ## Security And Errors
 

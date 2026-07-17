@@ -67,6 +67,17 @@ display `complete-path-transfer-pricing.v1` and
 `complete-path-optimization.v1`; they must not recalculate pools, infer missing
 routes, or replace exact catalog references.
 
+The Management API is the trust boundary for these two result contracts. Its
+shared transfer-pricing validator compares route endpoints and regions with the
+server-owned catalog context, checks provider policy and pool/tier arithmetic,
+requires marginal tier intervals to cover the provider pool's normalized byte
+quantity without gaps, and binds the diagnostic winner to
+`calculationResult`. Numeric strings and booleans are not coerced. Only
+validated route objects become persisted transfer result items, and
+client-supplied transfer result items are ignored. Historical results without
+these additive contracts remain readable but are explicitly unavailable for
+route evidence.
+
 ## Errors
 
 Public errors should provide stable code, safe message, actionable suggestion where
