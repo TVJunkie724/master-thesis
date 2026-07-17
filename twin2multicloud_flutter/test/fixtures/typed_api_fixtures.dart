@@ -85,6 +85,24 @@ abstract final class TypedApiFixtures {
     return OptimizationResultData.fromPayload(payload);
   }
 
+  static OptimizerRunData optimizerRun({
+    String id = 'run-123',
+    String twinId = 'twin-123',
+    OptimizationResultData? optimization,
+  }) {
+    final resolvedOptimization =
+        optimization ?? TypedApiFixtures.optimization();
+    return OptimizerRunData(
+      id: id,
+      twinId: twinId,
+      optimization: resolvedOptimization,
+      totalMonthlyCost: resolvedOptimization.result.totalCost,
+      currency: 'USD',
+      createdAt: timestamp,
+      completedAt: timestamp.add(const Duration(seconds: 1)),
+    );
+  }
+
   static OptimizerConfigData optimizerConfig({
     String twinId = 'twin-123',
     CalcParams? params,

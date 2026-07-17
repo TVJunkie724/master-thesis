@@ -6,7 +6,6 @@ import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
-import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 
@@ -227,33 +226,22 @@ void main() {
           'needs3DModel': true,
           'useEventChecking': true,
         });
-        final calculation = await api.calculateCosts(calculationParams);
+        final run = await api.createOptimizerRun(
+          'demo-draft',
+          calculationParams,
+        );
+        final calculation = run.optimization;
+        expect(run.twinId, 'demo-draft');
+        expect(run.id, startsWith('demo-optimizer-run'));
         expect(calculation.result.totalCost, 84.42);
         expect(calculation.result.pricingCatalogContext, isNotNull);
         expect(
           calculation.result.pricingCatalogContext!.catalogs,
           hasLength(3),
         );
-        expect(
-          (await api.calculateCostsResult(calculationParams)).isSuccess,
-          isTrue,
-        );
-
-        final savedParams = CalcParams.fromJson({
-          ...CalcParams.defaultParams().toJson(),
-          'numberOfDevices': 12,
-        });
-        await api.saveOptimizerParams('demo-draft', savedParams);
-        await api.saveOptimizerResult(
-          'demo-draft',
-          params: savedParams,
-          optimization: calculation,
-          cheapestPath: CheapestPath.fromSegments(
-            calculation.result.cheapestPath,
-          ),
-        );
         final persisted = await api.getOptimizerConfig('demo-draft');
         expect(persisted?.optimization?.payload, isNotEmpty);
+        expect(persisted?.params?.toJson(), calculationParams.toJson());
         expect(
           persisted?.pricingCatalogContext,
           calculation.result.pricingCatalogContext,

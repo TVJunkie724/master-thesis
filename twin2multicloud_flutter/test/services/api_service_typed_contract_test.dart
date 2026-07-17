@@ -3,12 +3,10 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 import '../fixtures/test_fixtures.dart';
 import '../fixtures/provider_capability_fixture.dart';
-import '../fixtures/typed_api_fixtures.dart';
 
 void main() {
   group('ApiService typed contracts', () {
@@ -26,20 +24,32 @@ void main() {
       },
     );
 
-    test('decodes calculation with immutable catalog evidence', () async {
+    test('creates a durable optimizer run with immutable evidence', () async {
+      RequestOptions? captured;
       final api = ApiService(
         dio: _dio((request) {
+          captured = request;
           return switch (request.path) {
-            '/optimizer/calculate' => _json(TestFixtures.calcResultJson),
+            '/twins/twin-1/optimizer-runs/' => _json(
+              _optimizerRunJson('twin-1'),
+            ),
             _ => _json({}, statusCode: 404),
           };
         }),
       );
 
-      final calculation = await api.calculateCosts(
+      final run = await api.createOptimizerRun(
+        'twin-1',
         TestFixtures.defaultCalcParams,
       );
 
+      final calculation = run.optimization;
+      expect(captured?.method, 'POST');
+      expect(captured?.data, {
+        'params': TestFixtures.defaultCalcParams.toJson(),
+      });
+      expect(run.id, 'run-1');
+      expect(run.twinId, 'twin-1');
       expect(calculation.result.cheapestPath, isNotEmpty);
       expect(calculation.result.pricingCatalogContext, isNotNull);
       expect(
@@ -48,35 +58,37 @@ void main() {
       );
     });
 
-    test(
-      'persists only result data and lets Management verify evidence',
-      () async {
-        RequestOptions? captured;
-        final api = ApiService(
-          dio: _dio((request) {
-            captured = request;
-            return _json({});
-          }),
-        );
-        final optimization = TypedApiFixtures.optimization();
+    test('rejects an inconsistent durable run total', () async {
+      final response = _optimizerRunJson('twin-1')
+        ..['total_monthly_cost'] = 999;
+      final api = ApiService(dio: _dio((_) => _json(response)));
 
-        await api.saveOptimizerResult(
-          'twin-1',
-          params: TestFixtures.defaultCalcParams,
-          optimization: optimization,
-          cheapestPath: CheapestPath.fromSegments(
-            optimization.result.cheapestPath,
-          ),
-        );
+      await expectLater(
+        api.createOptimizerRun('twin-1', TestFixtures.defaultCalcParams),
+        throwsFormatException,
+      );
+    });
 
-        expect(captured?.path, '/twins/twin-1/optimizer-config/result');
-        final payload = Map<String, dynamic>.from(captured?.data as Map);
-        expect(payload.keys.toSet(), {'params', 'result', 'cheapest_path'});
-        expect(payload, isNot(contains('pricing_snapshots')));
-        expect(payload, isNot(contains('pricing_timestamps')));
-        expect((payload['result'] as Map)['pricingCatalogs'], isNotNull);
-      },
-    );
+    test('rejects an optimizer run from a different request context', () async {
+      final response = _optimizerRunJson('other-twin');
+      final api = ApiService(dio: _dio((_) => _json(response)));
+
+      await expectLater(
+        api.createOptimizerRun('twin-1', TestFixtures.defaultCalcParams),
+        throwsFormatException,
+      );
+    });
+
+    test('rejects inconsistent optimizer run timestamps', () async {
+      final response = _optimizerRunJson('twin-1')
+        ..['completed_at'] = '2026-07-18T09:59:59Z';
+      final api = ApiService(dio: _dio((_) => _json(response)));
+
+      await expectLater(
+        api.createOptimizerRun('twin-1', TestFixtures.defaultCalcParams),
+        throwsFormatException,
+      );
+    });
 
     test('maps only optional configuration 404 responses to null', () async {
       final api = ApiService(dio: _dio((_) => _json({}, statusCode: 404)));
@@ -122,6 +134,17 @@ void main() {
     });
   });
 }
+
+Map<String, dynamic> _optimizerRunJson(String twinId) => {
+  'id': 'run-1',
+  'twin_id': twinId,
+  'status': 'succeeded',
+  'result_summary': TestFixtures.calcResultJson['result'],
+  'total_monthly_cost': 55.67,
+  'currency': 'USD',
+  'created_at': '2026-07-18T10:00:00Z',
+  'completed_at': '2026-07-18T10:00:01Z',
+};
 
 Map<String, dynamic> _twinJson() => {
   'id': 'twin-1',

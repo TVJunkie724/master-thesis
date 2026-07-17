@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import '../core/result.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
-import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
@@ -413,17 +412,25 @@ class ApiService implements ManagementApi {
     return response.data;
   }
 
-  /// Calculate costs using Optimizer
-  /// Returns full result including costs, cheapest path, and overrides
+  /// Run, validate, and persist one optimizer calculation through Management.
   @override
-  Future<OptimizationResultData> calculateCosts(CalcParams params) async {
-    final response = await _dio.put(
-      '/optimizer/calculate',
-      data: params.toJson(),
+  Future<OptimizerRunData> createOptimizerRun(
+    String twinId,
+    CalcParams params,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/optimizer-runs/',
+      data: {'params': params.toJson()},
     );
-    return OptimizationResultData.fromApiJson(
-      _contractMap(response.data, 'calculation'),
+    final run = OptimizerRunData.fromJson(
+      _contractMap(response.data, 'optimizer run'),
     );
+    if (run.twinId != twinId || run.currency != params.currency) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run request context is inconsistent.',
+      );
+    }
+    return run;
   }
 
   // ============================================================
@@ -442,33 +449,6 @@ class ApiService implements ManagementApi {
       if (error.response?.statusCode == 404) return null;
       rethrow;
     }
-  }
-
-  /// Save params only (before calculation)
-  @override
-  Future<void> saveOptimizerParams(String twinId, CalcParams params) async {
-    await _dio.put(
-      '/twins/$twinId/optimizer-config/params',
-      data: {'params': params.toJson()},
-    );
-  }
-
-  /// Save a result whose immutable catalog references were verified server-side.
-  @override
-  Future<void> saveOptimizerResult(
-    String twinId, {
-    required CalcParams params,
-    required OptimizationResultData optimization,
-    required CheapestPath cheapestPath,
-  }) async {
-    await _dio.put(
-      '/twins/$twinId/optimizer-config/result',
-      data: {
-        'params': params.toJson(),
-        'result': optimization.payload,
-        'cheapest_path': cheapestPath.toJson(),
-      },
-    );
   }
 
   // ============================================================
@@ -624,26 +604,6 @@ class ApiService implements ManagementApi {
   // ============================================================
   // Result-Returning Methods (Type-Safe Error Handling)
   // ============================================================
-
-  /// Calculate costs with structured error handling.
-  ///
-  /// Returns [Success] with [CalcResult] on success,
-  /// or [Failure] with [AppException] on error.
-  @override
-  Future<Result<CalcResult>> calculateCostsResult(CalcParams params) async {
-    try {
-      final response = await calculateCosts(params);
-      return Success(response.result);
-    } on DioException catch (e) {
-      return Failure(AppException.fromDioError(e));
-    } catch (e) {
-      return Failure(
-        AppException(
-          'Calculation failed: ${ApiErrorHandler.extractMessage(e)}',
-        ),
-      );
-    }
-  }
 
   /// Get pricing status with structured error handling.
   @override

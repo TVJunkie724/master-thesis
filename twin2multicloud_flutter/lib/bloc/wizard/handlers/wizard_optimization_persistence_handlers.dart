@@ -161,7 +161,25 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     emit(state.copyWith(isCalculating: true, clearError: true));
 
     try {
-      final response = await _api.calculateCosts(state.calcParams!);
+      String? twinId = state.twinId;
+      if (twinId == null) {
+        final name = state.twinName?.trim() ?? '';
+        if (name.isEmpty) {
+          emit(
+            state.copyWith(
+              isCalculating: false,
+              errorMessage: 'Twin name is required',
+            ),
+          );
+          return;
+        }
+        final twin = await _api.createTwin(name);
+        twinId = twin.id;
+        emit(state.copyWith(twinId: twinId));
+      }
+
+      final run = await _api.createOptimizerRun(twinId, state.calcParams!);
+      final response = run.optimization;
       final result = response.result;
 
       // Check for unconfigured providers in optimal path
@@ -273,20 +291,6 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           newTwinState != null &&
           newTwinState != state.twinState &&
           newTwinState == 'draft';
-
-      // Persist the result. Management owns and re-verifies catalog evidence.
-      if (state.calcParams != null &&
-          state.optimizationResultData != null &&
-          state.calcResult != null) {
-        await _api.saveOptimizerResult(
-          twinId,
-          params: state.calcParams!,
-          optimization: state.optimizationResultData!,
-          cheapestPath: CheapestPath.fromSegments(
-            state.calcResult!.cheapestPath,
-          ),
-        );
-      }
 
       // Save all Step 3 data once the user reached the deployer step.
       if (_shouldPersistDeployerConfig()) {

@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import '../core/result.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
-import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
@@ -673,8 +672,12 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<OptimizationResultData> calculateCosts(CalcParams params) async {
+  Future<OptimizerRunData> createOptimizerRun(
+    String twinId,
+    CalcParams params,
+  ) async {
     await _pause();
+    store.twin(twinId);
     final paramsJson = params.toJson();
     final configured = store.optimizerConfig('demo-configured');
     final result = configured?['result'] is Map
@@ -689,7 +692,35 @@ class DemoManagementApi implements ManagementApi {
       'integrateErrorHandling': paramsJson['integrateErrorHandling'] == true,
       'needs3DModel': paramsJson['needs3DModel'] == true,
     };
-    return OptimizationResultData.fromApiJson({'result': result});
+    final optimization = OptimizationResultData.fromApiJson({'result': result});
+    final now = store.clock().toUtc();
+    final cheapestPath = CheapestPath.fromSegments(
+      List<String>.from(result['cheapestPath'] as List),
+    );
+    final pricingCatalogContext = optimization.result.pricingCatalogContext!;
+    store.setOptimizerConfig(twinId, {
+      'params': _copyMap(paramsJson),
+      'result': _copyMap(optimization.payload),
+      'cheapest_path': cheapestPath.toJson(),
+      'pricing_catalog_context': pricingCatalogContext.toJson(),
+      'calculated_at': now.toIso8601String(),
+    });
+    final twinConfig = store.twinConfig(twinId) ?? <String, dynamic>{};
+    twinConfig
+      ..['optimizer_params'] = _copyMap(paramsJson)
+      ..['optimizer_result'] = _copyMap(optimization.payload);
+    store.setTwinConfig(twinId, twinConfig);
+
+    return OptimizerRunData.fromJson({
+      'id': store.nextId('demo-optimizer-run'),
+      'twin_id': twinId,
+      'status': 'succeeded',
+      'result_summary': optimization.payload,
+      'total_monthly_cost': optimization.result.totalCost,
+      'currency': params.currency,
+      'created_at': now.toIso8601String(),
+      'completed_at': now.toIso8601String(),
+    });
   }
 
   @override
@@ -698,47 +729,6 @@ class DemoManagementApi implements ManagementApi {
     store.twin(twinId);
     if (store.optimizerConfig(twinId) == null) return null;
     return OptimizerConfigData.fromJson(_optimizerConfigResponse(twinId));
-  }
-
-  @override
-  Future<void> saveOptimizerParams(String twinId, CalcParams params) async {
-    await _pause();
-    final paramsJson = params.toJson();
-    final config = store.optimizerConfig(twinId) ?? <String, dynamic>{};
-    config['params'] = _copyMap(paramsJson);
-    store.setOptimizerConfig(twinId, config);
-    final twinConfig = store.twinConfig(twinId) ?? <String, dynamic>{};
-    twinConfig['optimizer_params'] = _copyMap(paramsJson);
-    store.setTwinConfig(twinId, twinConfig);
-  }
-
-  @override
-  Future<void> saveOptimizerResult(
-    String twinId, {
-    required CalcParams params,
-    required OptimizationResultData optimization,
-    required CheapestPath cheapestPath,
-  }) async {
-    await _pause();
-    final now = store.clock().toIso8601String();
-    final pricingCatalogContext =
-        optimization.result.pricingCatalogContext ??
-        (throw const DemoApiException(
-          'DEMO_PRICING_CATALOG_CONTEXT_MISSING',
-          'Calculation result is missing immutable pricing evidence.',
-        ));
-    store.setOptimizerConfig(twinId, {
-      'params': _copyMap(params.toJson()),
-      'result': _copyMap(optimization.payload),
-      'cheapest_path': cheapestPath.toJson(),
-      'pricing_catalog_context': pricingCatalogContext.toJson(),
-      'calculated_at': now,
-    });
-    final twinConfig = store.twinConfig(twinId) ?? <String, dynamic>{};
-    twinConfig
-      ..['optimizer_params'] = _copyMap(params.toJson())
-      ..['optimizer_result'] = _copyMap(optimization.payload);
-    store.setTwinConfig(twinId, twinConfig);
   }
 
   @override
@@ -905,15 +895,6 @@ class DemoManagementApi implements ManagementApi {
         'scene_glb': {'exists': false, 'saved': false},
       },
     };
-  }
-
-  @override
-  Future<Result<CalcResult>> calculateCostsResult(CalcParams params) async {
-    try {
-      return Success((await calculateCosts(params)).result);
-    } on DemoApiException catch (error) {
-      return Failure(AppException(error.message, code: error.code));
-    }
   }
 
   @override

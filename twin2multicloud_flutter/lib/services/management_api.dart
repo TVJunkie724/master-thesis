@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import '../core/result.dart';
-import '../models/calc_result.dart';
 import '../models/authentication.dart';
 import '../models/user.dart';
 import '../models/calc_params.dart';
@@ -132,20 +131,9 @@ abstract interface class PlatformCapabilityApi {
 }
 
 abstract interface class OptimizationApi {
-  Future<OptimizationResultData> calculateCosts(CalcParams params);
-
-  Future<Result<CalcResult>> calculateCostsResult(CalcParams params);
+  Future<OptimizerRunData> createOptimizerRun(String twinId, CalcParams params);
 
   Future<OptimizerConfigData?> getOptimizerConfig(String twinId);
-
-  Future<void> saveOptimizerParams(String twinId, CalcParams params);
-
-  Future<void> saveOptimizerResult(
-    String twinId, {
-    required CalcParams params,
-    required OptimizationResultData optimization,
-    required CheapestPath cheapestPath,
-  });
 }
 
 abstract interface class DeploymentConfigurationApi {

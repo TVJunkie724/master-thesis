@@ -39,6 +39,80 @@ class OptimizationResultData extends Equatable {
   List<Object?> get props => [result, payload];
 }
 
+class OptimizerRunData extends Equatable {
+  final String id;
+  final String twinId;
+  final OptimizationResultData optimization;
+  final double totalMonthlyCost;
+  final String currency;
+  final DateTime createdAt;
+  final DateTime completedAt;
+
+  const OptimizerRunData({
+    required this.id,
+    required this.twinId,
+    required this.optimization,
+    required this.totalMonthlyCost,
+    required this.currency,
+    required this.createdAt,
+    required this.completedAt,
+  });
+
+  factory OptimizerRunData.fromJson(Map<String, dynamic> json) {
+    final status = JsonContract.requiredString(json, 'status');
+    if (status != 'succeeded') {
+      throw const FormatException(
+        'Invalid API contract: optimizer run status must be succeeded.',
+      );
+    }
+    final result = OptimizationResultData.fromPayload(
+      JsonContract.requiredObject(json, 'result_summary'),
+    );
+    final totalMonthlyCost = _requiredFiniteNonNegativeNumber(
+      json,
+      'total_monthly_cost',
+    );
+    if ((totalMonthlyCost - result.result.totalCost).abs() > 0.000000001) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run total is inconsistent.',
+      );
+    }
+    final currency = JsonContract.requiredString(json, 'currency');
+    if (currency != 'USD' && currency != 'EUR') {
+      throw const FormatException(
+        'Invalid API contract: optimizer run currency is unsupported.',
+      );
+    }
+    final createdAt = JsonContract.requiredDate(json, 'created_at');
+    final completedAt = JsonContract.requiredDate(json, 'completed_at');
+    if (completedAt.isBefore(createdAt)) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run timestamps are inconsistent.',
+      );
+    }
+    return OptimizerRunData(
+      id: JsonContract.requiredString(json, 'id'),
+      twinId: JsonContract.requiredString(json, 'twin_id'),
+      optimization: result,
+      totalMonthlyCost: totalMonthlyCost,
+      currency: currency,
+      createdAt: createdAt,
+      completedAt: completedAt,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    id,
+    twinId,
+    optimization,
+    totalMonthlyCost,
+    currency,
+    createdAt,
+    completedAt,
+  ];
+}
+
 class CheapestPath extends Equatable {
   final CloudProvider? l1;
   final CloudProvider? l2;
@@ -208,4 +282,17 @@ CloudProvider? _optionalProvider(Map<String, dynamic> json, String field) {
       'Invalid API contract: cheapest_path.$field contains an unknown provider.',
     );
   }
+}
+
+double _requiredFiniteNonNegativeNumber(
+  Map<String, dynamic> json,
+  String field,
+) {
+  final value = json[field];
+  if (value is! num || !value.isFinite || value < 0) {
+    throw FormatException(
+      'Invalid API contract: $field must be a finite non-negative number.',
+    );
+  }
+  return value.toDouble();
 }

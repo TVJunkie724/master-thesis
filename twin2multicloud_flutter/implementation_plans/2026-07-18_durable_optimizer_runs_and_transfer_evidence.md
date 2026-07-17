@@ -202,7 +202,7 @@ WizardCalculateRequested
            +-- success
            |     -> parse strict run/result/evidence
            |     -> calculate Step 3 invalidation
-           |     -> update result + run_id + warnings
+           |     -> update result + warnings
            |
            `-- failure
                  -> retain existing/new twin_id

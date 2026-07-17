@@ -17,7 +17,6 @@ class WizardConfigRequestBuilder {
       clearAzure: state.azure.source == CredentialSource.cleared,
       clearGcp: state.gcp.source == CredentialSource.cleared,
       optimizerParams: state.calcParams?.toJson(),
-      optimizerResult: state.optimizationResultData?.payload,
       highestStepReached: state.highestStepReached,
     );
   }
