@@ -61,8 +61,7 @@ class CostCalculationRunService:
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.twin_repository = TwinRepository(db)
         self.aws_twinmaker_contexts = (
-            aws_twinmaker_contexts
-            or AwsTwinMakerPricingContextService(db)
+            aws_twinmaker_contexts or AwsTwinMakerPricingContextService(db)
         )
         self.pricing_catalog_contexts = (
             pricing_catalog_contexts
@@ -86,12 +85,8 @@ class CostCalculationRunService:
 
         optimizer_params = params.to_optimizer_payload()
         persisted_params = params.to_persisted_payload()
-        catalog_context = await self.pricing_catalog_contexts.resolve_for_user(
-            user_id
-        )
-        optimizer_params["providerPricingCatalogs"] = (
-            catalog_context.to_http_dict()
-        )
+        catalog_context = await self.pricing_catalog_contexts.resolve_for_user(user_id)
+        optimizer_params["providerPricingCatalogs"] = catalog_context.to_http_dict()
         aws_context = await self.aws_twinmaker_contexts.resolve(
             user_id,
             catalog_context.catalogs["aws"],
@@ -154,7 +149,7 @@ class CostCalculationRunService:
             for item in result_items:
                 self.db.add(CostCalculationResultItem(run_id=run.id, **item))
 
-            self._update_optimizer_config_compatibility(
+            self._update_optimizer_config_projection(
                 config,
                 params=persisted_params,
                 result=result,
@@ -229,13 +224,10 @@ class CostCalculationRunService:
             warnings.append("Malformed optimizer field trace records were omitted.")
         transfer_pricing = None
         raw_transfer_pricing = (
-            result.get("transferPricingContext")
-            if isinstance(result, dict)
-            else None
+            result.get("transferPricingContext") if isinstance(result, dict) else None
         )
         transfer_pricing_field_present = (
-            isinstance(result, dict)
-            and "transferPricingContext" in result
+            isinstance(result, dict) and "transferPricingContext" in result
         )
         if isinstance(raw_transfer_pricing, dict):
             try:
@@ -272,9 +264,7 @@ class CostCalculationRunService:
                 ),
                 "field_trace_available": field_trace_available,
                 "field_trace_records": field_trace_records,
-                "transfer_pricing_context_available": (
-                    transfer_pricing is not None
-                ),
+                "transfer_pricing_context_available": (transfer_pricing is not None),
                 "transfer_pricing_context": (
                     raw_transfer_pricing if transfer_pricing is not None else {}
                 ),
@@ -284,9 +274,7 @@ class CostCalculationRunService:
                     else {}
                 ),
                 "pricing_catalog_context": (
-                    safe_pricing_catalog_context(
-                        run.pricing_catalog_context_json
-                    )
+                    safe_pricing_catalog_context(run.pricing_catalog_context_json)
                 ),
                 "result_metadata": _result_metadata(result),
                 "warnings": warnings,
@@ -521,8 +509,7 @@ class CostCalculationRunService:
                     "provider": route.source.provider,
                     "service_intent_id": (
                         f"{route.source.provider}.transfer.egress"
-                        if route.route_class
-                        == "cross_provider_public_internet"
+                        if route.route_class == "cross_provider_public_internet"
                         else None
                     ),
                     "cost_amount": float(route.total_cost),
@@ -534,9 +521,7 @@ class CostCalculationRunService:
                     "calculation_notes_json": _json_dumps(
                         {
                             "source": "optimizer_transfer_pricing_context",
-                            "schemaVersion": (
-                                transfer_pricing.context.schema_version
-                            ),
+                            "schemaVersion": (transfer_pricing.context.schema_version),
                             "route": route.model_dump(
                                 mode="json",
                                 by_alias=True,
@@ -574,7 +559,7 @@ class CostCalculationRunService:
             "review_status": item.get("review_status"),
         }
 
-    def _update_optimizer_config_compatibility(
+    def _update_optimizer_config_projection(
         self,
         config: OptimizerConfiguration,
         *,
@@ -586,9 +571,7 @@ class CostCalculationRunService:
     ) -> None:
         config.params = _json_dumps(params)
         config.result_json = _json_dumps(result)
-        config.pricing_catalog_context_json = (
-            pricing_catalog_context.canonical_json()
-        )
+        config.pricing_catalog_context_json = pricing_catalog_context.canonical_json()
         self._apply_cheapest_path(config, cheapest_path)
         config.calculated_at = calculated_at
         self.db.add(config)
@@ -627,8 +610,7 @@ def _validate_selected_aws_context(
 ) -> None:
     if not current.available:
         reason = str(
-            current.payload.get("reasonCode")
-            or "AWS_TWINMAKER_PLAN_UNOBSERVED"
+            current.payload.get("reasonCode") or "AWS_TWINMAKER_PLAN_UNOBSERVED"
         )
         raise CostCalculationRunSelectionError(
             "AWS TwinMaker pricing context is no longer deployable; "

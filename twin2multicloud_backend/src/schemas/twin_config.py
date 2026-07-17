@@ -16,8 +16,12 @@ class AWSCredentials(BaseModel):
     access_key_id: str = Field(..., min_length=16, max_length=128)
     secret_access_key: str = Field(..., min_length=16)
     region: str = Field(default="eu-central-1")
-    sso_region: Optional[str] = None  # If SSO is in different region than main resources
-    session_token: Optional[str] = None  # OPTIONAL - for temporary credentials (STS/SSO)
+    sso_region: Optional[str] = (
+        None  # If SSO is in different region than main resources
+    )
+    session_token: Optional[str] = (
+        None  # OPTIONAL - for temporary credentials (STS/SSO)
+    )
 
 
 class AzureCredentials(BaseModel):
@@ -41,11 +45,13 @@ class GCPCredentials(BaseModel):
     billing_account: Optional[str] = None  # NEW - for auto-create project
     service_account_json: Optional[str] = None  # Service account JSON content
     region: str = Field(default="europe-west1")  # NEW
-    
-    @model_validator(mode='after')
+
+    @model_validator(mode="after")
     def check_project_or_billing(self):
         if not self.project_id and not self.billing_account:
-            raise ValueError('At least one of project_id or billing_account is required')
+            raise ValueError(
+                "At least one of project_id or billing_account is required"
+            )
         return self
 
 
@@ -57,16 +63,19 @@ class TwinConfigCreate(BaseModel):
 
 
 class TwinCloudConnectionRefs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     aws: Optional[str] = None
     azure: Optional[str] = None
     gcp: Optional[str] = None
 
 
 class TwinConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     debug_mode: Optional[bool] = None
     highest_step_reached: Optional[int] = None
     optimizer_params: Optional[OptimizerCalculationParams] = None
-    optimizer_result: Optional[Any] = None  # CalcResult JSON
     cloud_connections: Optional[TwinCloudConnectionRefs] = None
     aws: Optional[AWSCredentials] = None
     azure: Optional[AzureCredentials] = None
@@ -75,8 +84,9 @@ class TwinConfigUpdate(BaseModel):
 
 class TwinConfigResponse(BaseModel):
     """Response model - NEVER returns actual credentials, only status."""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     twin_id: str
     twin_state: Optional[str] = None
@@ -102,19 +112,33 @@ class TwinConfigResponse(BaseModel):
     gcp_billing_account_configured: bool = False  # NEW - never expose actual value
     gcp_region: Optional[str] = None  # NEW
     configured_providers: list[str] = Field(default_factory=list)
-    credential_sources: dict[str, Optional[CredentialSource]] = Field(default_factory=dict)
-    cloud_connections: dict[str, Optional["BoundCloudConnectionSummary"]] = Field(default_factory=dict)
+    credential_sources: dict[str, Optional[CredentialSource]] = Field(
+        default_factory=dict
+    )
+    cloud_connections: dict[str, Optional["BoundCloudConnectionSummary"]] = Field(
+        default_factory=dict
+    )
     highest_step_reached: int = 0
-    optimizer_params: Optional[Any] = None  # CalcParams JSON from OptimizerConfiguration
-    optimizer_result: Optional[Any] = None  # CalcResult JSON from OptimizerConfiguration
+    optimizer_params: Optional[Any] = (
+        None  # CalcParams JSON from OptimizerConfiguration
+    )
+    optimizer_result: Optional[Any] = (
+        None  # CalcResult JSON from OptimizerConfiguration
+    )
     updated_at: datetime
-    
+
     @classmethod
     def from_db(cls, config, optimizer_config=None, twin_state: Optional[str] = None):
         """Convert DB model to response (no secrets exposed)."""
-        aws_source = _credential_source(cloud_connection=getattr(config, "aws_cloud_connection", None))
-        azure_source = _credential_source(cloud_connection=getattr(config, "azure_cloud_connection", None))
-        gcp_source = _credential_source(cloud_connection=getattr(config, "gcp_cloud_connection", None))
+        aws_source = _credential_source(
+            cloud_connection=getattr(config, "aws_cloud_connection", None)
+        )
+        azure_source = _credential_source(
+            cloud_connection=getattr(config, "azure_cloud_connection", None)
+        )
+        gcp_source = _credential_source(
+            cloud_connection=getattr(config, "gcp_cloud_connection", None)
+        )
         configured_providers = [
             provider
             for provider, source in {
@@ -133,23 +157,27 @@ class TwinConfigResponse(BaseModel):
             aws_configured=aws_source is not None,
             aws_validated=bool(config.aws_validated),
             aws_credential_source=aws_source,
-            aws_cloud_connection_id=getattr(config, 'aws_cloud_connection_id', None),
+            aws_cloud_connection_id=getattr(config, "aws_cloud_connection_id", None),
             aws_region=config.aws_region,
-            aws_sso_region=getattr(config, 'aws_sso_region', None),
+            aws_sso_region=getattr(config, "aws_sso_region", None),
             azure_configured=azure_source is not None,
             azure_validated=bool(config.azure_validated),
             azure_credential_source=azure_source,
-            azure_cloud_connection_id=getattr(config, 'azure_cloud_connection_id', None),
-            azure_region=getattr(config, 'azure_region', None),
-            azure_region_iothub=getattr(config, 'azure_region_iothub', None),
-            azure_region_digital_twin=getattr(config, 'azure_region_digital_twin', None),
+            azure_cloud_connection_id=getattr(
+                config, "azure_cloud_connection_id", None
+            ),
+            azure_region=getattr(config, "azure_region", None),
+            azure_region_iothub=getattr(config, "azure_region_iothub", None),
+            azure_region_digital_twin=getattr(
+                config, "azure_region_digital_twin", None
+            ),
             gcp_configured=gcp_source is not None,
             gcp_validated=bool(config.gcp_validated),
             gcp_credential_source=gcp_source,
-            gcp_cloud_connection_id=getattr(config, 'gcp_cloud_connection_id', None),
+            gcp_cloud_connection_id=getattr(config, "gcp_cloud_connection_id", None),
             gcp_project_id=config.gcp_project_id,
             gcp_billing_account_configured=False,
-            gcp_region=getattr(config, 'gcp_region', None),  # NEW
+            gcp_region=getattr(config, "gcp_region", None),  # NEW
             configured_providers=configured_providers,
             credential_sources={
                 "aws": aws_source,
@@ -157,14 +185,24 @@ class TwinConfigResponse(BaseModel):
                 "gcp": gcp_source,
             },
             cloud_connections={
-                "aws": BoundCloudConnectionSummary.from_db(getattr(config, "aws_cloud_connection", None)),
-                "azure": BoundCloudConnectionSummary.from_db(getattr(config, "azure_cloud_connection", None)),
-                "gcp": BoundCloudConnectionSummary.from_db(getattr(config, "gcp_cloud_connection", None)),
+                "aws": BoundCloudConnectionSummary.from_db(
+                    getattr(config, "aws_cloud_connection", None)
+                ),
+                "azure": BoundCloudConnectionSummary.from_db(
+                    getattr(config, "azure_cloud_connection", None)
+                ),
+                "gcp": BoundCloudConnectionSummary.from_db(
+                    getattr(config, "gcp_cloud_connection", None)
+                ),
             },
             highest_step_reached=config.highest_step_reached or 0,
-            optimizer_params=_safe_json_loads(optimizer_config.params) if optimizer_config and optimizer_config.params else None,
-            optimizer_result=_safe_json_loads(optimizer_config.result_json) if optimizer_config and optimizer_config.result_json else None,
-            updated_at=config.updated_at
+            optimizer_params=_safe_json_loads(optimizer_config.params)
+            if optimizer_config and optimizer_config.params
+            else None,
+            optimizer_result=_safe_json_loads(optimizer_config.result_json)
+            if optimizer_config and optimizer_config.result_json
+            else None,
+            updated_at=config.updated_at,
         )
 
 
@@ -217,6 +255,7 @@ class CredentialValidationResult(BaseModel):
 
 class InlineValidationRequest(BaseModel):
     """Request for validating credentials without storing."""
+
     provider: str  # "aws", "azure", "gcp"
     aws: Optional[AWSCredentials] = None
     azure: Optional[AzureCredentials] = None

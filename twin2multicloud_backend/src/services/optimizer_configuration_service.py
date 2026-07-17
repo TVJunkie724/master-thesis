@@ -2,39 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.optimizer_config import OptimizerConfigResponse, OptimizerParamsUpdate, OptimizerResultUpdate
+from src.schemas.optimizer_config import OptimizerConfigResponse, OptimizerParamsUpdate
 from src.services.optimizer_config_projection import (
     cheapest_path_dict,
-    derive_cheapest_path,
     optimizer_config_to_response,
-    set_cheapest_columns_from_payload,
     to_json,
 )
-from src.services.pricing_catalog_context_service import (
-    PricingCatalogContextService,
-    pricing_catalog_contexts_match,
-)
 from src.services.service_errors import EntityNotFoundError
-from src.services.errors import OptimizerContractError
-from src.services.optimizer_transfer_pricing_contract import (
-    validate_optimizer_transfer_pricing_result,
-)
-
-
-CHEAPEST_PATH_KEYS = (
-    "l1",
-    "l2",
-    "l3_hot",
-    "l3_cool",
-    "l3_archive",
-    "l4",
-    "l5",
-)
 
 
 class OptimizerConfigurationService:
@@ -44,13 +22,9 @@ class OptimizerConfigurationService:
         self,
         db: Session,
         twin_repository: TwinRepository,
-        pricing_catalog_contexts: PricingCatalogContextService | None = None,
     ):
         self.db = db
         self.twin_repository = twin_repository
-        self.pricing_catalog_contexts = (
-            pricing_catalog_contexts or PricingCatalogContextService(db)
-        )
 
     def get_config(self, twin_id: str, user_id: str) -> OptimizerConfigResponse:
         """Return the persisted optimizer config, creating an empty one when missing."""
@@ -76,87 +50,14 @@ class OptimizerConfigurationService:
         self.db.refresh(config)
         return optimizer_config_to_response(config)
 
-    async def save_result(
-        self,
-        twin_id: str,
-        user_id: str,
-        update: OptimizerResultUpdate,
-    ) -> OptimizerConfigResponse:
-        """Persist a result only when its catalogs match server-owned context."""
-        twin = self._require_twin(twin_id, user_id)
-        catalog_context = await self.pricing_catalog_contexts.resolve_for_user(
-            user_id
-        )
-        if not pricing_catalog_contexts_match(
-            catalog_context,
-            update.result.get("pricingCatalogs"),
-        ):
-            raise OptimizerContractError(
-                "Calculation result pricing catalogs do not match the current "
-                "trusted Management context."
-            )
-        validate_optimizer_transfer_pricing_result(
-            update.result,
-            catalog_context,
-        )
-        canonical_cheapest_path = derive_cheapest_path(update.result)
-        if (
-            set(canonical_cheapest_path) != set(CHEAPEST_PATH_KEYS)
-            or any(
-                canonical_cheapest_path.get(key) is None
-                for key in CHEAPEST_PATH_KEYS
-            )
-        ):
-            raise OptimizerContractError(
-                "Calculation result does not define a complete deployment path.",
-                errors=[
-                    {
-                        "field": "result.calculationResult",
-                        "message": (
-                            "A provider is required for every baseline layer slot"
-                        ),
-                    }
-                ],
-            )
-        if update.cheapest_path and not _paths_match(
-            update.cheapest_path,
-            canonical_cheapest_path,
-        ):
-            raise OptimizerContractError(
-                "Client deployment path does not match the validated Optimizer result.",
-                errors=[
-                    {
-                        "field": "cheapest_path",
-                        "message": (
-                            "The deployment path must match result.calculationResult"
-                        ),
-                    }
-                ],
-            )
-
-        config = self._ensure_config(twin_id, twin, commit=False)
-        config.params = to_json(update.params.to_persisted_payload())
-        config.result_json = to_json(update.result)
-        config.pricing_catalog_context_json = catalog_context.canonical_json()
-        set_cheapest_columns_from_payload(
-            config,
-            cheapest_path=canonical_cheapest_path,
-            optimizer_result=update.result,
-        )
-
-        config.calculated_at = datetime.now(timezone.utc)
-
-        self.db.add(config)
-        self.db.commit()
-        self.db.refresh(config)
-        return optimizer_config_to_response(config)
-
     def get_cheapest_path(self, twin_id: str, user_id: str) -> dict[str, str | None]:
         """Return cheapest provider selection for deployment logic."""
         twin = self._require_twin(twin_id, user_id)
         config = twin.optimizer_config
         if not config or not config.cheapest_l1:
-            raise EntityNotFoundError("No optimizer result found. Run calculation first.")
+            raise EntityNotFoundError(
+                "No optimizer result found. Run calculation first."
+            )
         return cheapest_path_dict(config)
 
     def _require_twin(self, twin_id: str, user_id: str):
@@ -165,7 +66,9 @@ class OptimizerConfigurationService:
             raise EntityNotFoundError("Twin not found")
         return twin
 
-    def _ensure_config(self, twin_id: str, twin, *, commit: bool = True) -> OptimizerConfiguration:
+    def _ensure_config(
+        self, twin_id: str, twin, *, commit: bool = True
+    ) -> OptimizerConfiguration:
         if twin.optimizer_config:
             return twin.optimizer_config
 
@@ -176,16 +79,3 @@ class OptimizerConfigurationService:
             self.db.commit()
             self.db.refresh(config)
         return config
-
-
-def _paths_match(
-    client_path: dict,
-    canonical_path: dict[str, str | None],
-) -> bool:
-    if set(client_path) != set(CHEAPEST_PATH_KEYS):
-        return False
-    return all(
-        isinstance(client_path.get(key), str)
-        and client_path[key].strip().lower() == canonical_path[key]
-        for key in CHEAPEST_PATH_KEYS
-    )

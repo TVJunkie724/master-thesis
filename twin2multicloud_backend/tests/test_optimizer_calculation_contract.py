@@ -46,15 +46,10 @@ def test_omitted_adt_assumptions_remain_omitted_only_for_downstream_payload(
 
     assert "averageDigitalTwinQueryUnitsPerQuery" not in params.to_optimizer_payload()
     assert (
-        "averageDigitalTwinQueryResponseSizeInKb"
-        not in params.to_optimizer_payload()
+        "averageDigitalTwinQueryResponseSizeInKb" not in params.to_optimizer_payload()
     )
-    assert params.to_persisted_payload()[
-        "averageDigitalTwinQueryUnitsPerQuery"
-    ] == 1
-    assert params.to_persisted_payload()[
-        "averageDigitalTwinQueryResponseSizeInKb"
-    ] == 1
+    assert params.to_persisted_payload()["averageDigitalTwinQueryUnitsPerQuery"] == 1
+    assert params.to_persisted_payload()["averageDigitalTwinQueryResponseSizeInKb"] == 1
 
 
 @pytest.mark.parametrize(
@@ -65,15 +60,6 @@ def test_omitted_adt_assumptions_remain_omitted_only_for_downstream_payload(
             "put",
             "/twins/unused/optimizer-config/params",
             lambda params: {"params": params},
-        ),
-        (
-            "put",
-            "/twins/unused/optimizer-config/result",
-            lambda params: {
-                "params": params,
-                "result": {},
-                "cheapest_path": {},
-            },
         ),
         (
             "post",
@@ -129,7 +115,6 @@ def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
     paths = (
         "/optimizer/calculate",
         "/twins/{twin_id}/optimizer-config/params",
-        "/twins/{twin_id}/optimizer-config/result",
         "/twins/{twin_id}/optimizer-runs/",
         "/twins/{twin_id}/config/",
     )
@@ -142,9 +127,33 @@ def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
 
     component = schema["components"]["schemas"]["OptimizerCalculationParams"]
     assert component["additionalProperties"] is False
-    assert component["properties"]["averageDigitalTwinQueryUnitsPerQuery"][
-        "exclusiveMinimum"
-    ] == 0
-    assert component["properties"][
-        "averageDigitalTwinQueryResponseSizeInKb"
-    ]["exclusiveMinimum"] == 0
+    assert (
+        component["properties"]["averageDigitalTwinQueryUnitsPerQuery"][
+            "exclusiveMinimum"
+        ]
+        == 0
+    )
+    assert (
+        component["properties"]["averageDigitalTwinQueryResponseSizeInKb"][
+            "exclusiveMinimum"
+        ]
+        == 0
+    )
+
+
+def test_openapi_exposes_only_server_owned_optimizer_result_writes(
+    authenticated_client,
+):
+    client, headers = authenticated_client
+
+    schema = client.get("/openapi.json", headers=headers).json()
+
+    assert "/twins/{twin_id}/optimizer-config/result" not in schema["paths"]
+    assert "/twins/{twin_id}/optimizer-runs/" in schema["paths"]
+    assert (
+        schema["paths"]["/twins/{twin_id}/optimizer-runs/"]["post"]["operationId"]
+        == "createOptimizerRun"
+    )
+    twin_update = schema["components"]["schemas"]["TwinConfigUpdate"]
+    assert twin_update["additionalProperties"] is False
+    assert "optimizer_result" not in twin_update["properties"]

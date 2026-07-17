@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
@@ -13,7 +14,11 @@ from src.services.twin_configuration_service import TwinConfigurationService
 
 
 def _create_user(db) -> User:
-    user = User(email="twin-config-service@example.test", name="Twin Config", auth_provider="google")
+    user = User(
+        email="twin-config-service@example.test",
+        name="Twin Config",
+        auth_provider="google",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -61,7 +66,9 @@ def test_update_config_regresses_configured_twin_to_draft(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
 
-    result = _service(db_session).update_config(twin.id, user.id, TwinConfigUpdate(debug_mode=True))
+    result = _service(db_session).update_config(
+        twin.id, user.id, TwinConfigUpdate(debug_mode=True)
+    )
 
     db_session.refresh(twin)
     assert twin.state == TwinState.DRAFT
@@ -73,44 +80,21 @@ def test_update_config_blocks_deployed_twin(db_session):
     twin = _create_twin(db_session, user, TwinState.DEPLOYED)
 
     with pytest.raises(ValidationError):
-        _service(db_session).update_config(twin.id, user.id, TwinConfigUpdate(debug_mode=True))
+        _service(db_session).update_config(
+            twin.id, user.id, TwinConfigUpdate(debug_mode=True)
+        )
 
 
-def test_update_config_populates_optimizer_cheapest_columns(
-    db_session,
-    sample_calc_params,
-):
-    user = _create_user(db_session)
-    twin = _create_twin(db_session, user)
-    optimizer_result = {
-        "cheapestPath": [
-            "L1_GCP",
-            "L2_AWS",
-            "L3_hot_AZURE",
-            "L3_cool_GCP",
-            "L3_archive_AWS",
-            "L4_AZURE",
-            "L5_GCP",
-        ]
-    }
-
-    _service(db_session).update_config(
-        twin.id,
-        user.id,
-        TwinConfigUpdate(
-            optimizer_params=sample_calc_params,
-            optimizer_result=optimizer_result,
-        ),
-    )
-
-    db_session.refresh(twin)
-    assert twin.optimizer_config.cheapest_l1 == "gcp"
-    assert twin.optimizer_config.cheapest_l2 == "aws"
-    assert twin.optimizer_config.cheapest_l3_hot == "azure"
-    assert twin.optimizer_config.cheapest_l3_cool == "gcp"
-    assert twin.optimizer_config.cheapest_l3_archive == "aws"
-    assert twin.optimizer_config.cheapest_l4 == "azure"
-    assert twin.optimizer_config.cheapest_l5 == "gcp"
+def test_update_schema_rejects_optimizer_result_write():
+    with pytest.raises(PydanticValidationError):
+        TwinConfigUpdate.model_validate(
+            {
+                "optimizer_result": {
+                    "totalCost": 1,
+                    "cheapestPath": ["L1_AWS"],
+                }
+            }
+        )
 
 
 def test_get_config_rejects_missing_twin(db_session):
@@ -129,4 +113,6 @@ def test_config_rejects_inactive_twin(db_session, operation):
         if operation == "get":
             _service(db_session).get_config(twin.id, user.id)
         else:
-            _service(db_session).update_config(twin.id, user.id, TwinConfigUpdate(debug_mode=True))
+            _service(db_session).update_config(
+                twin.id, user.id, TwinConfigUpdate(debug_mode=True)
+            )

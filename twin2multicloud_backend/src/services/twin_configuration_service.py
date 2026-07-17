@@ -20,7 +20,7 @@ REGRESS_CONFIG_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTRO
 
 
 class TwinConfigurationService:
-    """Owns Step-1 configuration persistence and response shaping."""
+    """Owns user-authored twin configuration persistence and response shaping."""
 
     def __init__(self, db: Session, twin_repository: TwinRepository):
         self.db = db
@@ -30,10 +30,14 @@ class TwinConfigurationService:
         """Return an existing config or create a default one."""
         twin = self._require_twin(twin_id, user_id)
         config = self._ensure_config(twin_id, twin)
-        return TwinConfigResponse.from_db(config, twin.optimizer_config, twin_state=twin.state.value)
+        return TwinConfigResponse.from_db(
+            config, twin.optimizer_config, twin_state=twin.state.value
+        )
 
-    def update_config(self, twin_id: str, user_id: str, update: TwinConfigUpdate) -> dict[str, Any]:
-        """Persist config changes, encrypting credentials and regressing state when required."""
+    def update_config(
+        self, twin_id: str, user_id: str, update: TwinConfigUpdate
+    ) -> dict[str, Any]:
+        """Persist non-secret config changes and regress lifecycle state when required."""
         twin = self._require_twin(twin_id, user_id)
         try:
             config = WizardConfigurationService(self.db).apply_twin_config_update(
@@ -58,7 +62,9 @@ class TwinConfigurationService:
             raise EntityNotFoundError("Twin not found")
         return twin
 
-    def _ensure_config(self, twin_id: str, twin, *, commit: bool = True) -> TwinConfiguration:
+    def _ensure_config(
+        self, twin_id: str, twin, *, commit: bool = True
+    ) -> TwinConfiguration:
         if twin.configuration:
             return twin.configuration
 

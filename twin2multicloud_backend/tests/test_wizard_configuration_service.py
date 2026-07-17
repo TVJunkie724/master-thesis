@@ -4,6 +4,7 @@ import json
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError as PydanticValidationError
 
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
@@ -92,7 +93,7 @@ def test_wizard_updates_regress_configured_twin_to_draft(db_session):
     assert twin.state == TwinState.DRAFT
 
 
-def test_optimizer_update_distinguishes_omitted_and_explicit_null(
+def test_optimizer_update_is_parameter_only(
     db_session,
     sample_calc_params,
 ):
@@ -104,10 +105,6 @@ def test_optimizer_update_distinguishes_omitted_and_explicit_null(
         TwinConfigUpdate.model_validate(
             {
                 "optimizer_params": sample_calc_params,
-                "optimizer_result": {
-                    "cheapestPath": ["L1_AWS", "L2_AZURE", "L4_GCP"],
-                    "calculationResult": {},
-                },
             }
         ),
         user.id,
@@ -115,9 +112,8 @@ def test_optimizer_update_distinguishes_omitted_and_explicit_null(
 
     optimizer_config = twin.optimizer_config
     assert json.loads(optimizer_config.params) == sample_calc_params
-    assert optimizer_config.cheapest_l1 == "aws"
-    assert optimizer_config.cheapest_l2 == "azure"
-    assert optimizer_config.cheapest_l4 == "gcp"
+    assert optimizer_config.result_json is None
+    assert optimizer_config.cheapest_l1 is None
 
     service.apply_twin_config_update(
         twin,
@@ -125,21 +121,25 @@ def test_optimizer_update_distinguishes_omitted_and_explicit_null(
         user.id,
     )
     assert json.loads(optimizer_config.params) == sample_calc_params
-    assert optimizer_config.result_json is not None
-    assert optimizer_config.cheapest_l1 == "aws"
+    assert optimizer_config.result_json is None
 
     service.apply_twin_config_update(
         twin,
-        TwinConfigUpdate.model_validate(
-            {
-                "optimizer_params": None,
-                "optimizer_result": None,
-            }
-        ),
+        TwinConfigUpdate.model_validate({"optimizer_params": None}),
         user.id,
     )
     assert optimizer_config.params is None
     assert optimizer_config.result_json is None
     assert optimizer_config.cheapest_l1 is None
-    assert optimizer_config.cheapest_l2 is None
-    assert optimizer_config.cheapest_l4 is None
+
+
+def test_twin_update_schema_rejects_client_authored_optimizer_result():
+    with pytest.raises(PydanticValidationError):
+        TwinConfigUpdate.model_validate(
+            {
+                "optimizer_result": {
+                    "totalCost": 1,
+                    "cheapestPath": ["L1_AWS"],
+                }
+            }
+        )
