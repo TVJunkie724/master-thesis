@@ -54,7 +54,7 @@ This means:
 | Provider | Dynamic API examples | Static official examples | Derived examples | Review-required examples |
 |---|---|---|---|---|
 | AWS | IoT Core messages/rules, Lambda request/duration, DynamoDB read/write/storage, S3 storage/retrieval, TwinMaker queries, transfer egress | Lambda free tier, DynamoDB free storage, Grafana seat assumptions | None in current contract | IoT device-month fallback, S3 request fallback, Grafana static values |
-| Azure | Functions request/duration, Blob storage, Event Grid, Digital Twins operation/message/query, transfer tiers | Functions free tier, Digital Twins query-unit tiers, Grafana workspace/user assumptions | Cosmos DB RU-per-read and RU-per-write workload weights | IoT Hub tier table fallback, Digital Twins tier table review |
+| Azure | Functions request/duration, Blob storage, Event Grid, Digital Twins operation/message/query-unit meters, transfer tiers | Functions free tier, Grafana workspace/user assumptions | Cosmos DB RU-per-read and RU-per-write workload weights; Digital Twins billable quantities | IoT Hub tier table fallback |
 | GCP | Pub/Sub GiB pricing, Cloud Functions request/duration, Firestore read/write/storage, Cloud Storage tiers, Compute Engine self-hosted VM/storage, transfer egress | Pub/Sub device-month zero value, Cloud Functions free tier | None in current contract | Self-hosted VM-hour fallback, GiB/GB normalization review |
 
 ## Tests Added

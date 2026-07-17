@@ -57,6 +57,10 @@ class ServiceBreakdown extends StatelessWidget {
     // L4
     'twinmaker': 'AWS TwinMaker',
     'digital_twins': 'Azure Digital Twins',
+    'digital_twins_operations': 'ADT Operations',
+    'digital_twins_query_units': 'ADT Query Units',
+    'digital_twins_routed_messages': 'ADT Routed Messages',
+    'adt_pusher_function': 'ADT Telemetry Pusher',
     'twinMaker': 'AWS TwinMaker',
     'digitalTwins': 'Azure Digital Twins',
 

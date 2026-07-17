@@ -61,6 +61,20 @@ class CalcParams(BaseModel):
     eventsPerMessage: int = Field(default=1, ge=1)
     apiCallsPerDashboardRefresh: int = Field(default=1, ge=1)
     average3DModelSizeInMB: float = Field(default=100.0, gt=0)
+    averageDigitalTwinQueryUnitsPerQuery: float = Field(
+        default=1.0,
+        gt=0,
+        strict=True,
+        allow_inf_nan=False,
+        description="Estimated average Azure Digital Twins query units per logical query",
+    )
+    averageDigitalTwinQueryResponseSizeInKb: float = Field(
+        default=1.0,
+        gt=0,
+        strict=True,
+        allow_inf_nan=False,
+        description="Estimated average Azure Digital Twins query response size in KB",
+    )
     
     # New parameters for enhanced cost calculation
     numberOfDeviceTypes: int = Field(default=1, ge=1, description="Number of distinct device types (each requires a processor)")
@@ -99,7 +113,7 @@ class CalcParams(BaseModel):
             )
         return self
 
-    model_config = ConfigDict(json_schema_extra={
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, json_schema_extra={
         "example": {
             "numberOfDevices": 100,
             "deviceSendingIntervalInMinutes": 2,
@@ -121,6 +135,8 @@ class CalcParams(BaseModel):
             "orchestrationActionsPerMessage": 3,
             "eventsPerMessage": 1,
             "apiCallsPerDashboardRefresh": 1,
+            "averageDigitalTwinQueryUnitsPerQuery": 1.0,
+            "averageDigitalTwinQueryResponseSizeInKb": 1.0,
             "optimizationProfileId": "cost_minimization_v1",
             "allowGcpSelfHostedL4": False,
             "allowGcpSelfHostedL5": False
@@ -216,6 +232,8 @@ def calc(params: CalcParams = Body(
         "orchestrationActionsPerMessage": 3,
         "eventsPerMessage": 1,
         "apiCallsPerDashboardRefresh": 1,
+        "averageDigitalTwinQueryUnitsPerQuery": 1.0,
+        "averageDigitalTwinQueryResponseSizeInKb": 1.0,
         "optimizationProfileId": "cost_minimization_v1"
     }]
 )):
@@ -229,6 +247,17 @@ def calc(params: CalcParams = Body(
         # Convert Pydantic model to dict
         params_dict = params.model_dump()
         optimization_profile_id = params_dict.pop("optimizationProfileId")
+        params_dict["_assumption_sources"] = {
+            field: (
+                "explicit_input"
+                if field in params.model_fields_set
+                else "compatibility_default"
+            )
+            for field in (
+                "averageDigitalTwinQueryUnitsPerQuery",
+                "averageDigitalTwinQueryResponseSizeInKb",
+            )
+        }
         
         # Load combined pricing from separate files
         pricing_data = load_combined_pricing()

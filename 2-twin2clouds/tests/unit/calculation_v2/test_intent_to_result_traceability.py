@@ -82,10 +82,9 @@ def _sample_pricing():
             "blobStorageCool": {"storagePrice": 0.01, "writePrice": 0.00001},
             "blobStorageArchive": {"storagePrice": 0.002, "writePrice": 0.00002},
             "azureDigitalTwins": {
-                "operationPrice": 0.0025,
-                "queryPrice": 0.0005,
-                "messagePrice": 0.001,
-                "queryUnitTiers": [{"minimum": 0, "unitWeight": 1}],
+                "pricePerOperation": 0.0000025,
+                "pricePerQueryUnit": 0.0000005,
+                "pricePerMessage": 0.000001,
             },
             "azureManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
             "egress": {"pricePerGB": 0.087},

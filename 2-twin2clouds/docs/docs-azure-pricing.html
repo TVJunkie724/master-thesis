@@ -85,10 +85,9 @@
       "pricePerMillionEvents": ...
     },
     "azureDigitalTwins": {
-      "messagePrice": ...,
-      "operationPrice": ...,
-      "queryPrice": ...,
-      "queryUnitTiers": [...]
+      "pricePerMessage": ...,
+      "pricePerOperation": ...,
+      "pricePerQueryUnit": ...
     },
     "azureManagedGrafana": {
       "userPrice": ...,
@@ -432,27 +431,25 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">messagePrice</td>
+                                <td class="mono">pricePerMessage</td>
                                 <td><span class="badge text-bg-success">Fetched</span></td>
-                                <td>Per 1,000 messages.</td>
+                                <td>Standard Message meter, normalized from the 1K API price to one routed message.</td>
                             </tr>
                             <tr>
-                                <td class="mono">operationPrice</td>
+                                <td class="mono">pricePerOperation</td>
                                 <td><span class="badge text-bg-success">Fetched</span></td>
-                                <td>Per 1,000 operations.</td>
+                                <td>Standard Operations meter, normalized from the 1K API price to one operation.</td>
                             </tr>
                             <tr>
-                                <td class="mono">queryPrice</td>
+                                <td class="mono">pricePerQueryUnit</td>
                                 <td><span class="badge text-bg-success">Fetched</span></td>
-                                <td>Per 1,000 query units (QU).</td>
-                            </tr>
-                            <tr>
-                                <td class="mono">queryUnitTiers</td>
-                                <td><span class="badge text-bg-warning">Static</span></td>
-                                <td>Base QUs based on device count.</td>
+                                <td>Standard Query Units meter, normalized from the 1K API price to one query unit.</td>
                             </tr>
                         </tbody>
                     </table>
+                    <p class="small text-muted">Billable query units are derived from logical queries and the
+                        configured average query-unit assumption. Query response payloads add operations in one-KB
+                        increments. There is no device-count query-unit tier table.</p>
 
                     <!-- Grafana -->
                     <h3 class="mt-4 mb-2 text-primary">Managed Grafana (Layer 5)</h3>

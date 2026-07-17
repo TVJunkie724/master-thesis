@@ -38,7 +38,9 @@ def test_default_bundle_resolves_complete_contract_graph():
     assert strategy["formula_set_id"] == "cost_formula_set_v1"
     assert set(contract["allowed_formula_refs"]) <= set(formula_set["formulas"])
     assert set(contract["consumed_workload_fields"]) <= set(workload_contract["fields"])
-    assert len(bundle["provider_pricing_contract_ids"]) == 48
+    assert len(bundle["provider_pricing_contract_ids"]) == (
+        service.get_status()["provider_pricing_contract_count"]
+    )
 
 
 def test_unknown_formula_ref_fails_validation(tmp_path):

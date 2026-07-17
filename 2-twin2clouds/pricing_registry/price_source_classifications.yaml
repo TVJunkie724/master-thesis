@@ -784,6 +784,60 @@ classifications:
     publishable: true
     verification_status: passed
     failure_reason: ''
+  azure.digital_twin_operation.source.v1:
+    id: azure.digital_twin_operation.source.v1
+    provider: azure
+    layer: digital_twin
+    service: Digital Twins
+    field: digital_twin.operation
+    pricing_model_classification_id: azure.digital_twin_operation.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.digital_twin.operation.mapping:2026.07.17
+    normalization_rule_refs:
+    - per_1k_operations
+    region_scope: regional
+    currency: USD
+    effective_date: '2026-07-17'
+    retrieved_at: '2026-07-17T00:00:00+00:00'
+    reviewed_at: '2026-07-17'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:digital_twin.operation
+    catalog_sku_id: region-specific-selected-evidence
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.digital_twin_message.source.v1:
+    id: azure.digital_twin_message.source.v1
+    provider: azure
+    layer: digital_twin
+    service: Digital Twins
+    field: digital_twin.message
+    pricing_model_classification_id: azure.digital_twin_message.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.digital_twin.message.mapping:2026.07.17
+    normalization_rule_refs:
+    - per_1k_message_units
+    region_scope: regional
+    currency: USD
+    effective_date: '2026-07-17'
+    retrieved_at: '2026-07-17T00:00:00+00:00'
+    reviewed_at: '2026-07-17'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:digital_twin.message
+    catalog_sku_id: region-specific-selected-evidence
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
   azure.digital_twin_query_unit.source.v1:
     id: azure.digital_twin_query_unit.source.v1
     provider: azure
@@ -796,17 +850,17 @@ classifications:
     - provider_api
     expected_build_path: fetched_from_provider_api
     required_evidence_refs:
-    - azure.digital_twin.query_unit.mapping:2026.06.08
+    - azure.digital_twin.query_unit.mapping:2026.07.17
     normalization_rule_refs:
-    - per_query_unit
-    region_scope: regional_or_provider_defined
+    - per_1k_query_units
+    region_scope: regional
     currency: USD
-    effective_date: '2026-06-08'
-    retrieved_at: '2026-06-08T00:00:00+00:00'
-    reviewed_at: '2026-06-10'
+    effective_date: '2026-07-17'
+    retrieved_at: '2026-07-17T00:00:00+00:00'
+    reviewed_at: '2026-07-17'
     source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
     api_request_id: azure-pricing-api:digital_twin.query_unit
-    catalog_sku_id: selected-evidence-required
+    catalog_sku_id: region-specific-selected-evidence
     review_status: verified
     publishable: true
     verification_status: passed

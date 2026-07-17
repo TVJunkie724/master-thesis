@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from typing import Any
 
 
@@ -54,6 +55,22 @@ def required_first_unit_price(
             return unit_price(pricing[key], source_quantity)
     keys = ", ".join(key for key, _ in candidate_list)
     raise ValueError(f"Missing required pricing field for {label}: one of {keys}")
+
+
+def billable_1kb_units(item_count: float, average_size_kb: float) -> float:
+    """Return billable one-KB units using a ceiling increment per item."""
+    count = _finite_non_negative("item_count", item_count)
+    if count == 0:
+        return 0.0
+
+    size = _finite_positive("average_size_kb", average_size_kb)
+    try:
+        increment = int(
+            Decimal(str(size)).to_integral_value(rounding=ROUND_CEILING)
+        )
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("average_size_kb must be a finite positive number") from exc
+    return count * max(1, increment)
 
 
 def capacity_tier_cost(
@@ -184,3 +201,22 @@ def _first_present(source: Mapping[str, Any], *keys: str) -> Any:
         if key in source and source[key] is not None:
             return source[key]
     return None
+
+
+def _finite_non_negative(name: str, value: Any) -> float:
+    if isinstance(value, (bool, str, bytes)) or value is None:
+        raise ValueError(f"{name} must be a finite non-negative number")
+    try:
+        normalized = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite non-negative number") from exc
+    if not math.isfinite(normalized) or normalized < 0:
+        raise ValueError(f"{name} must be a finite non-negative number")
+    return normalized
+
+
+def _finite_positive(name: str, value: Any) -> float:
+    normalized = _finite_non_negative(name, value)
+    if normalized <= 0:
+        raise ValueError(f"{name} must be greater than zero")
+    return normalized

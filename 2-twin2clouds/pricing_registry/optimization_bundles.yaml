@@ -31,6 +31,8 @@ bundles:
     - aws.storage_hot_write_request.pricing_contract.v1
     - aws.transfer_egress_gb.pricing_contract.v1
     - azure.api_request_million.pricing_contract.v1
+    - azure.digital_twin_message.pricing_contract.v1
+    - azure.digital_twin_operation.pricing_contract.v1
     - azure.digital_twin_query_unit.pricing_contract.v1
     - azure.event_bus_event_million.pricing_contract.v1
     - azure.functions_compute_gb_second.pricing_contract.v1

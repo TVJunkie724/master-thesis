@@ -22,6 +22,13 @@ final _apiUri =
 final _authToken =
     _runtime.initialAuthToken ??
     (throw StateError('Integration tests require the development profile.'));
+const _optimizerApiBaseUrl = String.fromEnvironment(
+  'TEST_OPTIMIZER_API_BASE_URL',
+);
+final _optimizerApiUri = _validatedTestOrigin(
+  _optimizerApiBaseUrl,
+  'TEST_OPTIMIZER_API_BASE_URL',
+);
 final _api = ApiService(baseUri: _apiUri, initialAuthToken: _authToken);
 
 void main() {
@@ -185,6 +192,41 @@ void main() {
       }
     });
 
+    testWidgets('publishes one canonical optimizer workload contract', (
+      tester,
+    ) async {
+      final managementOpenApi = await _authenticatedJsonRequest(
+        '/openapi.json',
+      );
+      final optimizerOpenApi = await _publicJsonRequest(
+        _optimizerApiUri,
+        '/openapi.json',
+      );
+      final managementContract = _openApiSchema(
+        managementOpenApi,
+        'OptimizerCalculationParams',
+      );
+      final optimizerContract = _openApiSchema(optimizerOpenApi, 'CalcParams');
+
+      expect(managementContract['additionalProperties'], isFalse);
+      expect(optimizerContract['additionalProperties'], isFalse);
+      expect(
+        _contractProjection(managementContract),
+        _contractProjection(optimizerContract),
+      );
+
+      final properties = managementContract['properties'] as Map;
+      for (final field in [
+        'averageDigitalTwinQueryUnitsPerQuery',
+        'averageDigitalTwinQueryResponseSizeInKb',
+      ]) {
+        final contract = properties[field] as Map?;
+        expect(contract, isNotNull, reason: 'Missing $field');
+        expect(contract!['exclusiveMinimum'], 0);
+        expect(contract['default'], 1.0);
+      }
+    });
+
     testWidgets('decodes all provider pricing health states', (tester) async {
       final health = await _readOrFail(
         '/optimizer/pricing-health',
@@ -280,11 +322,87 @@ Future<Object?> _authenticatedJsonRequest(String endpoint) async {
   }
 }
 
+Future<Object?> _publicJsonRequest(Uri baseUri, String endpoint) async {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: baseUri.toString(),
+      validateStatus: (status) => status != null && status < 400,
+    ),
+  );
+  try {
+    final response = await dio.get<Object?>(endpoint);
+    return response.data;
+  } on DioException catch (error) {
+    fail(_safeDioFailureForBase(endpoint, error, baseUri: baseUri));
+  } finally {
+    dio.close(force: true);
+  }
+}
+
+Map _openApiSchema(Object? openApi, String schemaName) {
+  expect(openApi, isA<Map>());
+  final components =
+      (openApi as Map)['components'] as Map? ?? const <Object?, Object?>{};
+  final schemas = components['schemas'] as Map? ?? const <Object?, Object?>{};
+  final contract = schemas[schemaName] as Map?;
+  expect(contract, isNotNull, reason: 'Missing OpenAPI schema $schemaName');
+  return contract!;
+}
+
+Map<String, Object?> _contractProjection(Map contract) {
+  const contractKeywords = {
+    'type',
+    'default',
+    'minimum',
+    'maximum',
+    'exclusiveMinimum',
+    'exclusiveMaximum',
+    'enum',
+  };
+  final properties = contract['properties'] as Map;
+  return {
+    'required': ((contract['required'] as List?) ?? const [])
+        .map((value) => value.toString())
+        .toSet(),
+    'properties': {
+      for (final entry in properties.entries)
+        entry.key.toString(): {
+          for (final keyword in contractKeywords)
+            if ((entry.value as Map).containsKey(keyword))
+              keyword: entry.value[keyword],
+        },
+    },
+  };
+}
+
 String _safeDioFailure(String endpoint, DioException error) {
+  return _safeDioFailureForBase(endpoint, error, baseUri: _apiUri);
+}
+
+String _safeDioFailureForBase(
+  String endpoint,
+  DioException error, {
+  required Uri baseUri,
+}) {
   final status = error.response?.statusCode?.toString() ?? 'none';
-  return 'Management API request failed at $_apiUri$endpoint; '
+  return 'Read-only API request failed at $baseUri$endpoint; '
       'type=${error.type.name}; status=$status. '
       'Response content and headers were suppressed.';
+}
+
+Uri _validatedTestOrigin(String value, String variable) {
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      !uri.isAbsolute ||
+      uri.host.isEmpty ||
+      !{'http', 'https'}.contains(uri.scheme) ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment ||
+      (uri.path.isNotEmpty && uri.path != '/')) {
+    throw StateError('$variable must be an absolute HTTP(S) origin.');
+  }
+  return uri.replace(path: '');
 }
 
 bool _containsForbiddenKey(Object? value) {

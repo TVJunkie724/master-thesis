@@ -519,6 +519,8 @@ run_frontend_integration_tests() {
 
   info "Starting credential-free services for read-only Flutter integration tests."
   compose_cmd up -d 2twin2clouds 3cloud-deployer management-api
+  info "Restarting services so bind-mounted API contracts match the current source."
+  compose_cmd restart 2twin2clouds 3cloud-deployer management-api
   write_flutter_config
   smoke_app
 
@@ -528,7 +530,8 @@ run_frontend_integration_tests() {
   (cd "$FLUTTER_DIR" && flutter test \
     integration_test/management_api_readiness_test.dart \
     -d "$host_device" \
-    --dart-define-from-file=config/dev.json)
+    --dart-define-from-file=config/dev.json \
+    --dart-define="TEST_OPTIMIZER_API_BASE_URL=http://localhost:${THESIS_OPTIMIZER_PORT}")
 }
 
 latex_command() {

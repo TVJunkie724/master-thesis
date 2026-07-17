@@ -6,6 +6,24 @@ from rest_api import app
 
 client = TestClient(app)
 
+
+def _valid_payload():
+    return {
+        "numberOfDevices": 100,
+        "deviceSendingIntervalInMinutes": 2.0,
+        "averageSizeOfMessageInKb": 0.25,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "needs3DModel": False,
+        "entityCount": 0,
+        "amountOfActiveEditors": 0,
+        "amountOfActiveViewers": 0,
+        "dashboardRefreshesPerHour": 0,
+        "dashboardActiveHoursPerDay": 0,
+    }
+
+
 # -----------------------------------------------------------------------------
 # 1. Input Validation Edge Cases
 # -----------------------------------------------------------------------------
@@ -81,6 +99,35 @@ def test_calculate_storage_duration_logic_ordering():
     # Pydantic returns details in JSON
     # Msg: "Value error, Hot storage duration (4) must be <= Cool storage duration (3)"
     assert "Hot storage duration" in response.text
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("averageDigitalTwinQueryUnitsPerQuery", 0),
+        ("averageDigitalTwinQueryResponseSizeInKb", 0),
+        ("averageDigitalTwinQueryUnitsPerQuery", "invalid"),
+        ("averageDigitalTwinQueryResponseSizeInKb", "invalid"),
+        ("averageDigitalTwinQueryUnitsPerQuery", "1.0"),
+        ("averageDigitalTwinQueryResponseSizeInKb", "1.0"),
+    ],
+)
+def test_calculate_rejects_invalid_adt_assumptions(field, value):
+    payload = _valid_payload()
+    payload[field] = value
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_calculate_rejects_unknown_fields():
+    response = client.put(
+        "/calculate",
+        json={**_valid_payload(), "legacyOptimizerFlag": True},
+    )
+
+    assert response.status_code == 422
 
 # -----------------------------------------------------------------------------
 # 2. Engine Robustness / Error Handling
@@ -213,6 +260,40 @@ def test_calculate_response_exposes_additive_trace_metadata(mock_load_pricing):
     assert result["trace_schema_version"] == "intent-result-trace.v1"
     assert result["intentTrace"]["summary"]["record_count"] > 0
     assert result["intentTrace"]["profile"]["profile_id"] == "cost_minimization_v1"
+    assert result["intentTrace"]["workload"]["assumption_sources"] == {
+        "averageDigitalTwinQueryUnitsPerQuery": "compatibility_default",
+        "averageDigitalTwinQueryResponseSizeInKb": "compatibility_default",
+    }
+
+
+@patch("api.calculation.load_combined_pricing")
+def test_calculate_preserves_explicit_adt_assumptions_in_trace(mock_load_pricing):
+    from tests.unit.calculation_v2.test_intent_to_result_traceability import (
+        _sample_pricing,
+    )
+
+    mock_load_pricing.return_value = _sample_pricing()
+    payload = {
+        **_valid_payload(),
+        "dashboardRefreshesPerHour": 2,
+        "dashboardActiveHoursPerDay": 1,
+        "averageDigitalTwinQueryUnitsPerQuery": 2.5,
+        "averageDigitalTwinQueryResponseSizeInKb": 1.1,
+    }
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 200
+    workload = response.json()["result"]["intentTrace"]["workload"]
+    assert workload["inputs"]["averageDigitalTwinQueryUnitsPerQuery"] == 2.5
+    assert workload["inputs"]["averageDigitalTwinQueryResponseSizeInKb"] == 1.1
+    assert workload["assumption_sources"] == {
+        "averageDigitalTwinQueryUnitsPerQuery": "explicit_input",
+        "averageDigitalTwinQueryResponseSizeInKb": "explicit_input",
+    }
+    assert workload["derived"]["queries_per_month"] == 60
+    assert workload["derived"]["digital_twin_query_response_operations"] == 120
+    assert workload["derived"]["monthly_digital_twin_query_units"] == 150
 
 
 def test_calculate_rejects_unimplemented_gcp_self_hosted_paths():

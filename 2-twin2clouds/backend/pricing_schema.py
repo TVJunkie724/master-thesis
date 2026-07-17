@@ -83,10 +83,9 @@ EXPECTED_PRICING_SCHEMA: dict[str, dict[str, list[str]]] = {
         ],
         "blobStorageArchive": ["storagePrice", "writePrice", "dataRetrievalPrice"],
         "azureDigitalTwins": [
-            "messagePrice",
-            "operationPrice",
-            "queryPrice",
-            "queryUnitTiers",
+            "pricePerMessage",
+            "pricePerOperation",
+            "pricePerQueryUnit",
         ],
         "azureManagedGrafana": ["userPrice", "hourlyPrice"],
         "logicApps": ["pricePer1kStateTransitions", "pricePerStateTransition"],
@@ -223,7 +222,6 @@ CURATED_FIELDS = {
         "transfer.pricing_tiers",
     },
     "azure": {
-        "azureDigitalTwins.queryUnitTiers",
         "blobStorageCool.upfrontPrice",
         "cosmosDB.minimumRequestUnits",
         "cosmosDB.RUsPerRead",

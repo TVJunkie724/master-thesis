@@ -88,21 +88,52 @@ of the baseline: `publishable` means every required field passed its source gate
 `review_required` keeps usable last-known-good values visible without presenting them
 as newly verified pricing.
 
-The Azure baseline generated on 2026-07-16 is reproducible against the public Azure
-Retail Prices API and is `publishable`. Four former static fallback paths now have
-reviewed, versioned catalog evidence:
+The Azure baseline generated from the public Azure Retail Prices API is
+`publishable`. Former static fallback paths now have reviewed, versioned catalog
+evidence:
 
 - Cosmos DB `Data Stored` is selected as `RUs`, `1 GB/Month`, Consumption;
 - Blob Storage Cool and Archive select the exact LRS data-stored meters;
 - Bandwidth selects `Rtn Preference: MGN` / `Standard Data Transfer Out` as an
   ordered tier series;
 - Cosmos-to-Blob transfer cost derives from the first paid fetched egress tier.
+- Azure Digital Twins selects the exact Standard Operations, Standard Message, and
+  Standard Query Units meters and normalizes each `1K` price to one billable unit.
 
 The live West Europe evidence produced storage values `0.25`, `0.01`, and `0.0018`
 USD per GB-month. Transfer thresholds are read from `tierMinimumUnits`; the generated
 absolute limits are `100`, `10335`, `51295`, `153695`, `512095`, and `Infinity` GB.
 Stable meter/product/SKU identifiers act as drift markers alongside semantic fields;
 they are not a cheapest-row heuristic.
+
+### Azure Digital Twins Quantities
+
+Azure Digital Twins does not use a device-count tier table. The Optimizer derives
+three separate billable quantities from the workload and the active
+`five-layer-baseline@1` topology:
+
+```text
+telemetry updates
+  + logical dashboard queries * ceil(response size in KB)
+  = billable ADT operations
+
+logical dashboard queries * average query units per query
+  = billable ADT query units
+
+routed ADT messages
+  = 0 for five-layer-baseline@1
+```
+
+The query-unit and response-size assumptions default to `1.0` for old saved
+configurations. Calculation traces mark whether each value was explicitly supplied or
+came from that compatibility default. The operation, query-unit, and routed-message
+contributions remain separate in the L4 component breakdown. A routed-message price is
+still fetched and evidence-backed, even though the baseline currently produces zero
+routed messages.
+
+The Optimizer and Management API share the same validated request shape. Management
+persists the complete canonical representation; direct downstream forwarding preserves
+omitted additive assumptions so their provenance is not lost.
 
 [#110 Resolve Azure pricing fallback sources with catalog evidence](https://github.com/TVJunkie724/master-thesis/issues/110)
 records this hardening. The broader multi-service fetcher work remains tracked by
@@ -249,7 +280,8 @@ mixed fetched and fallback values, and coupled formulas to loosely structured JS
 The current registry/evidence/bundle architecture makes selection and calculation
 traceable and fail-closed.
 
-Final provider-wide live refresh evidence, historical pricing analytics, additional
-service tiering, and non-cost objectives remain explicit future/evaluation work.
+Final provider-wide live refresh evidence, historical pricing analytics, remaining
+provider charging-model hardening, and non-cost objectives remain explicit
+future/evaluation work.
 Generated JSON snapshots are evidence artifacts, not proof that a future provider API
 will continue returning the same rows.

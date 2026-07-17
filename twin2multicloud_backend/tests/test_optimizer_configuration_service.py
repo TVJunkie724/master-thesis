@@ -44,22 +44,49 @@ def test_get_config_creates_default_optimizer_config(db_session):
     assert response.cheapest_path is None
 
 
-def test_update_params_persists_without_calculation(db_session):
+def test_update_params_persists_without_calculation(db_session, sample_calc_params):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
     response = _service(db_session).update_params(
         twin.id,
         user.id,
-        OptimizerParamsUpdate(params={"numberOfDevices": 250, "currency": "USD"}),
+        OptimizerParamsUpdate(
+            params={**sample_calc_params, "numberOfDevices": 250}
+        ),
     )
 
-    assert response.params == {"numberOfDevices": 250, "currency": "USD"}
+    assert response.params == {**sample_calc_params, "numberOfDevices": 250}
     assert response.result is None
     assert response.cheapest_path is None
 
 
-def test_save_result_persists_pricing_evidence_and_explicit_cheapest_path(db_session):
+def test_update_params_persists_compatibility_defaults(
+    db_session,
+    sample_calc_params,
+):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    params = {
+        key: value
+        for key, value in sample_calc_params.items()
+        if not key.startswith("averageDigitalTwinQuery")
+    }
+
+    response = _service(db_session).update_params(
+        twin.id,
+        user.id,
+        OptimizerParamsUpdate(params=params),
+    )
+
+    assert response.params["averageDigitalTwinQueryUnitsPerQuery"] == 1
+    assert response.params["averageDigitalTwinQueryResponseSizeInKb"] == 1
+
+
+def test_save_result_persists_pricing_evidence_and_explicit_cheapest_path(
+    db_session,
+    sample_calc_params,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
@@ -67,7 +94,7 @@ def test_save_result_persists_pricing_evidence_and_explicit_cheapest_path(db_ses
         twin.id,
         user.id,
         OptimizerResultUpdate(
-            params={"numberOfDevices": 100},
+            params=sample_calc_params,
             result={"calculationResult": {"L1": "GCP"}},
             cheapest_path={
                 "l1": "AWS",
@@ -103,7 +130,10 @@ def test_save_result_persists_pricing_evidence_and_explicit_cheapest_path(db_ses
     assert response.calculated_at is not None
 
 
-def test_save_result_derives_missing_cheapest_path_from_calculation_result(db_session):
+def test_save_result_derives_missing_cheapest_path_from_calculation_result(
+    db_session,
+    sample_calc_params,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
@@ -111,7 +141,7 @@ def test_save_result_derives_missing_cheapest_path_from_calculation_result(db_se
         twin.id,
         user.id,
         OptimizerResultUpdate(
-            params={"numberOfDevices": 100},
+            params=sample_calc_params,
             result={
                 "calculationResult": {
                     "L1": "GCP",

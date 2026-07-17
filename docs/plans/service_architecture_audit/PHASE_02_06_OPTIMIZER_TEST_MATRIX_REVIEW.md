@@ -43,7 +43,7 @@ region handling.
 | Strategy/objective drift | `test_strategy_contracts.py` | Only cost is enabled; future objectives are disabled; formula bindings reference declared intents. |
 | Source classification | `test_pricing_source_inventory.py` | Dynamic, static official, derived, review-required, and emergency fallback states are represented. |
 | Provider candidate ambiguity | `test_price_fetcher_aws.py`, `test_price_fetcher_azure.py`, `test_price_fetcher_gcp.py` | Distinct paid candidate matches become ambiguous/review-required instead of automatic success. |
-| Azure tier/unit correctness | `test_azure_tiered_calculations.py` | IoT Hub tier table and Digital Twins per-1K/query-unit calculations are covered. |
+| Azure tier/unit correctness | `test_azure_tiered_calculations.py`, `test_digital_twin_billable_quantities.py` | IoT Hub capacity tiers and Digital Twins normalized prices, 1 KB billable quantities, zero routed-message topology, and exact L4 components are covered. |
 | Formula and engine stability | `test_core_formulas.py`, `test_engine.py`, `test_engine_consistency.py`, `test_pricing_keys.py` | Calculation structure, positive costs, and pricing-key compatibility are covered. |
 | Pricing orchestration/schema | `test_calculate_pricing_refactored.py`, `test_pricing_orchestration.py`, `test_pricing_schema.py`, `test_pricing_validation.py` | Fetch orchestration and pricing schema validation remain covered. |
 | API contract | `test_pricing_source_inventory_api.py`, `test_rest_api_endpoints.py`, `test_rest_api_calculation_edge_cases.py` | New source inventory endpoint and existing REST contracts are covered. |

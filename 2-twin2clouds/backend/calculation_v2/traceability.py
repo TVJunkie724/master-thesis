@@ -279,7 +279,16 @@ def _workload_trace(params: Mapping[str, Any], derived: Mapping[str, Any]) -> di
             "amountOfActiveViewers": params.get("amountOfActiveViewers"),
             "dashboardRefreshesPerHour": params.get("dashboardRefreshesPerHour"),
             "dashboardActiveHoursPerDay": params.get("dashboardActiveHoursPerDay"),
+            "averageDigitalTwinQueryUnitsPerQuery": params.get(
+                "averageDigitalTwinQueryUnitsPerQuery", 1.0
+            ),
+            "averageDigitalTwinQueryResponseSizeInKb": params.get(
+                "averageDigitalTwinQueryResponseSizeInKb", 1.0
+            ),
         },
+        "assumption_sources": dict(
+            derived.get("digital_twin_assumption_sources") or {}
+        ),
         "derived": {
             "total_messages_per_month": _rounded(derived.get("total_messages_per_month")),
             "data_size_per_month_gb": _rounded(derived.get("data_size_per_month_gb")),
@@ -287,6 +296,24 @@ def _workload_trace(params: Mapping[str, Any], derived: Mapping[str, Any]) -> di
             "cool_storage_gb": _rounded(derived.get("cool_storage_gb")),
             "archive_storage_gb": _rounded(derived.get("archive_storage_gb")),
             "queries_per_month": _rounded(derived.get("queries_per_month")),
+            "monthly_digital_twin_billable_operations": _rounded(
+                derived.get("monthly_digital_twin_billable_operations")
+            ),
+            "monthly_digital_twin_routed_messages": _rounded(
+                derived.get("monthly_digital_twin_routed_messages")
+            ),
+            "monthly_digital_twin_query_units": _rounded(
+                derived.get("monthly_digital_twin_query_units")
+            ),
+            "digital_twin_query_response_operations": _rounded(
+                derived.get("digital_twin_query_response_operations")
+            ),
+        },
+        "billing": {"digital_twin_increment_kb": 1},
+        "topology": {
+            "profile": "five-layer-baseline@1",
+            "telemetry_update_operation_per_message": 1,
+            "digital_twin_event_route_deployed": False,
         },
     }
 

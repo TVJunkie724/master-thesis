@@ -40,6 +40,19 @@ manually normalize AWS/Azure/GCP catalog units. The Optimizer's provider contrac
 formulas perform provider-specific billing calculations and return comparable monthly
 cost results with trace metadata.
 
+The Twin capabilities task keeps two provider-specific Azure Digital Twins assumptions
+under a collapsed advanced section:
+
+- average Query Units consumed by one logical query;
+- average response payload size in KB.
+
+Both default to `1.0`. Change them only when measurements or an explicit scenario
+assumption justify a different value. Azure bills response operations in one-KB
+increments, so a response slightly larger than one KB consumes two operation units.
+The calculation evidence view records the supplied values, their source, the derived
+operation/query-unit quantities, and the three separate Azure Digital Twins cost
+components.
+
 ## Artifacts
 
 Data contracts, user functions, IoT payloads, hierarchy/state-machine files, and scene

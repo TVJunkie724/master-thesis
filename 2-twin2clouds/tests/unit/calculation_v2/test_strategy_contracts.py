@@ -138,7 +138,6 @@ def test_future_objectives_are_not_runtime_selectable_with_formula_bindings():
     "field_id",
     [
         "azure.l1.iot_hub.message_tiers",
-        "azure.l4.digital_twins.query_unit_tiers",
         "gcp.l1.pubsub.data_volume",
         "gcp.l3.firestore.write",
     ],
@@ -150,3 +149,46 @@ def test_unit_normalizer_hotspots_are_explicit(field_id):
     field = next(item for item in intent.fields if item.field_id == field_name)
 
     assert field.normalizer is not None
+
+
+@pytest.mark.parametrize(
+    ("intent_id", "field_id", "canonical_key"),
+    [
+        (
+            "azure.l4.digital_twins_operations",
+            "operation",
+            "pricePerOperation",
+        ),
+        (
+            "azure.l4.digital_twins_messages",
+            "message",
+            "pricePerMessage",
+        ),
+        (
+            "azure.l4.digital_twins_query_units",
+            "query",
+            "pricePerQueryUnit",
+        ),
+    ],
+)
+def test_adt_contract_exposes_only_normalized_evidence_fields(
+    intent_id,
+    field_id,
+    canonical_key,
+):
+    field = next(
+        item
+        for item in cost_strategy_contract().intent_map()[intent_id].fields
+        if item.field_id == field_id
+    )
+
+    assert field.key_path == ("azure", "azureDigitalTwins", canonical_key)
+    assert field.aliases == ()
+    assert field.source_type == PricingSourceType.DYNAMIC_PROVIDER_API
+
+    binding = next(
+        item
+        for item in cost_strategy_contract().formula_bindings
+        if item.intent_ids == (intent_id,)
+    )
+    assert binding.normalizer is None

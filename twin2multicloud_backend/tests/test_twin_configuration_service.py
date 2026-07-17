@@ -76,7 +76,10 @@ def test_update_config_blocks_deployed_twin(db_session):
         _service(db_session).update_config(twin.id, user.id, TwinConfigUpdate(debug_mode=True))
 
 
-def test_update_config_populates_optimizer_cheapest_columns(db_session):
+def test_update_config_populates_optimizer_cheapest_columns(
+    db_session,
+    sample_calc_params,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     optimizer_result = {
@@ -94,7 +97,10 @@ def test_update_config_populates_optimizer_cheapest_columns(db_session):
     _service(db_session).update_config(
         twin.id,
         user.id,
-        TwinConfigUpdate(optimizer_params={"numberOfDevices": 10}, optimizer_result=optimizer_result),
+        TwinConfigUpdate(
+            optimizer_params=sample_calc_params,
+            optimizer_result=optimizer_result,
+        ),
     )
 
     db_session.refresh(twin)

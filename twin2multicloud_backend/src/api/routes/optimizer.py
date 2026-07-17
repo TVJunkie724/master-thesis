@@ -11,7 +11,6 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -22,6 +21,7 @@ from src.services.twin_helpers import get_user_twin
 from src.services.pricing_review_state_service import build_pricing_review_state_response
 from src.schemas.pricing_review import PricingReviewStateResponse
 from src.schemas.pricing_health import PricingHealthResponse
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.repositories.twin_repository import TwinRepository
 from src.services.optimizer_calculation_service import OptimizerCalculationService
 from src.services.optimizer_pricing_export_service import OptimizerPricingExportService
@@ -387,53 +387,6 @@ async def stream_refresh_pricing(
 # Calculation Endpoint
 # ============================================================================
 
-class CalcParams(BaseModel):
-    """All 26 calculation parameters matching Optimizer API."""
-    # Core IoT (required)
-    numberOfDevices: int = Field(..., gt=0, description="Number of IoT devices")
-    deviceSendingIntervalInMinutes: float = Field(..., gt=0, description="Sending interval in minutes")
-    averageSizeOfMessageInKb: float = Field(..., gt=0, description="Average message size in KB")
-    
-    # Storage durations (required)
-    hotStorageDurationInMonths: int = Field(..., ge=1, description="Hot storage duration (months)")
-    coolStorageDurationInMonths: int = Field(..., ge=1, description="Cool storage duration (months)")
-    archiveStorageDurationInMonths: int = Field(..., ge=6, description="Archive storage duration (months)")
-    
-    # 3D model settings
-    needs3DModel: bool = Field(..., description="Whether 3D model is needed")
-    entityCount: int = Field(0, ge=0, description="Number of 3D entities")
-    average3DModelSizeInMB: float = Field(100.0, gt=0, description="Average 3D model size in MB")
-    
-    # Dashboard settings
-    amountOfActiveEditors: int = Field(0, ge=0, description="Monthly active editors")
-    amountOfActiveViewers: int = Field(0, ge=0, description="Monthly active viewers")
-    dashboardRefreshesPerHour: int = Field(0, ge=0, description="Dashboard refresh rate")
-    dashboardActiveHoursPerDay: int = Field(0, ge=0, le=24, description="Active hours per day")
-    
-    # Supporter services
-    useEventChecking: bool = False
-    triggerNotificationWorkflow: bool = False
-    returnFeedbackToDevice: bool = False
-    integrateErrorHandling: bool = False
-    
-    # Numeric parameters
-    orchestrationActionsPerMessage: int = Field(3, ge=1)
-    eventsPerMessage: int = Field(1, ge=1)
-    apiCallsPerDashboardRefresh: int = Field(1, ge=1)
-    
-    # Enhanced calculation
-    numberOfDeviceTypes: int = Field(1, ge=1, description="Number of device types")
-    numberOfEventActions: int = Field(0, ge=0, description="Number of event actions")
-    eventTriggerRate: float = Field(0.1, ge=0.0, le=1.0, description="Event trigger rate (0-1)")
-    
-    # GCP self-hosted (always False - not implemented)
-    allowGcpSelfHostedL4: bool = False
-    allowGcpSelfHostedL5: bool = False
-    
-    # Currency
-    currency: str = Field("USD", description="Currency code (USD or EUR)")
-
-
 @router.put(
     "/calculate",
     operation_id="calculateOptimalDistribution",
@@ -454,7 +407,7 @@ class CalcParams(BaseModel):
     }
 )
 async def calculate(
-    params: CalcParams,
+    params: OptimizerCalculationParams,
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -469,6 +422,8 @@ async def calculate(
     - Transfer costs
     """
     try:
-        return await _optimizer_calculation_service().calculate(params.model_dump())
+        return await _optimizer_calculation_service().calculate(
+            params.to_optimizer_payload()
+        )
     except DownstreamServiceError as exc:
         _raise_downstream_http_error(exc)

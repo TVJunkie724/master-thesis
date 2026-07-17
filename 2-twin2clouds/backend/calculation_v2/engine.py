@@ -26,7 +26,11 @@ from backend.calculation_v2.layers import (
     SUPPORTED_PROVIDER_KEYS,
 )
 from backend.calculation_v2.currency import apply_result_currency
-from backend.calculation_v2.formulas import required_first_unit_price, tiered_unit_cost
+from backend.calculation_v2.formulas import (
+    billable_1kb_units,
+    required_first_unit_price,
+    tiered_unit_cost,
+)
 from backend.calculation_v2.strategy_context import (
     CalculationStrategyExecutionContext,
     resolve_calculation_strategy_execution_context,
@@ -166,6 +170,22 @@ def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
     
     queries_per_day = dashboard_hours * dashboard_refreshes * api_calls_per_refresh
     queries_per_month = queries_per_day * 30
+
+    query_units_per_query = float(
+        params.get("averageDigitalTwinQueryUnitsPerQuery", 1.0)
+    )
+    query_response_size_kb = float(
+        params.get("averageDigitalTwinQueryResponseSizeInKb", 1.0)
+    )
+    query_response_operations = billable_1kb_units(
+        queries_per_month,
+        query_response_size_kb,
+    )
+    billable_operations = total_messages_per_month + query_response_operations
+    billable_query_units = queries_per_month * query_units_per_query
+    assumption_sources = params.get("_assumption_sources")
+    if not isinstance(assumption_sources, Mapping):
+        assumption_sources = {}
     
     return {
         "total_messages_per_month": total_messages_per_month,
@@ -174,6 +194,26 @@ def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
         "cool_storage_gb": cool_storage_gb,
         "archive_storage_gb": archive_storage_gb,
         "queries_per_month": queries_per_month,
+        "monthly_digital_twin_billable_operations": billable_operations,
+        "monthly_digital_twin_routed_messages": 0.0,
+        "monthly_digital_twin_query_units": billable_query_units,
+        "digital_twin_query_response_operations": query_response_operations,
+        "average_digital_twin_query_units_per_query": query_units_per_query,
+        "average_digital_twin_query_response_size_kb": query_response_size_kb,
+        "digital_twin_assumption_sources": {
+            "averageDigitalTwinQueryUnitsPerQuery": assumption_sources.get(
+                "averageDigitalTwinQueryUnitsPerQuery",
+                "explicit_input"
+                if "averageDigitalTwinQueryUnitsPerQuery" in params
+                else "compatibility_default",
+            ),
+            "averageDigitalTwinQueryResponseSizeInKb": assumption_sources.get(
+                "averageDigitalTwinQueryResponseSizeInKb",
+                "explicit_input"
+                if "averageDigitalTwinQueryResponseSizeInKb" in params
+                else "compatibility_default",
+            ),
+        },
         "num_devices": num_devices,
         "msg_size_kb": msg_size_kb,
         "hot_duration": hot_duration,
@@ -334,9 +374,10 @@ def calculate_azure_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Di
     
     # L4: Twin Management
     l4 = _azure_calc.calculate_l4_cost(
-        operations_per_month=derived["total_messages_per_month"],
-        queries_per_month=derived["queries_per_month"],
-        messages_per_month=derived["total_messages_per_month"],
+        billable_operations=derived["monthly_digital_twin_billable_operations"],
+        billable_query_units=derived["monthly_digital_twin_query_units"],
+        billable_messages=derived["monthly_digital_twin_routed_messages"],
+        telemetry_updates_per_month=derived["total_messages_per_month"],
         pricing=pricing
     )
     

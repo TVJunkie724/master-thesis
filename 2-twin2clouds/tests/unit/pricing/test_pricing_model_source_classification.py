@@ -22,9 +22,12 @@ def _write_yaml(path, data):
 
 def test_default_classifications_load_and_cover_every_provider_mapping():
     registry = load_pricing_registry()
+    mapping_count = sum(
+        len(mappings) for mappings in registry.provider_mappings.values()
+    )
 
-    assert len(registry.pricing_model_classifications) == 48
-    assert len(registry.price_source_classifications) == 48
+    assert len(registry.pricing_model_classifications) == mapping_count
+    assert len(registry.price_source_classifications) == mapping_count
 
     for provider, mappings in registry.provider_mappings.items():
         for intent_id in mappings:
@@ -42,8 +45,9 @@ def test_field_verification_matrix_covers_every_active_pricing_field():
     service = PricingRegistryService()
 
     rows = service.build_field_verification_matrix()
+    mapping_count = sum(service.get_status()["provider_mapping_counts"].values())
 
-    assert len(rows) == 48
+    assert len(rows) == mapping_count
     assert all(row["verification_status"] == "passed" for row in rows)
     assert all(row["publishable"] is True for row in rows)
     assert all(row["selected_source_type"] in row["allowed_source_types"] for row in rows)

@@ -30,6 +30,12 @@ unit/widget/demo tests, and Web plus current-host desktop build checks. Native C
 additionally builds macOS, Windows, and Linux releases. UI tests should cover long
 text, loading/empty/error states, disabled controls, and representative screen sizes.
 
+The frontend integration command restarts the bind-mounted local services before
+executing its read-only checks, so cached OpenAPI documents cannot hide source/runtime
+drift. It also compares the Management API optimizer-input contract with the live
+Optimizer contract field by field; Flutter still communicates only with the Management
+API in application runtime.
+
 A build on one desktop operating system is not evidence for another. The
 repository workflow is the authoritative cross-platform compilation gate; see
 [Supported Platforms](../getting-started/supported-platforms.md).

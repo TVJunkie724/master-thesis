@@ -1,0 +1,152 @@
+"""Cross-route contract tests for canonical optimizer calculation parameters."""
+
+from copy import deepcopy
+
+import pytest
+
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+
+
+def _references_component(schema: dict, node: object, component_name: str) -> bool:
+    pending = [node]
+    visited_refs: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if isinstance(current, dict):
+            ref = current.get("$ref")
+            if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+                referenced_name = ref.rsplit("/", 1)[-1]
+                if referenced_name == component_name:
+                    return True
+                if ref not in visited_refs:
+                    visited_refs.add(ref)
+                    pending.append(
+                        schema["components"]["schemas"].get(referenced_name, {})
+                    )
+            pending.extend(current.values())
+        elif isinstance(current, list):
+            pending.extend(current)
+    return False
+
+
+def test_omitted_adt_assumptions_remain_omitted_only_for_downstream_payload(
+    sample_calc_params,
+):
+    source = {
+        key: value
+        for key, value in sample_calc_params.items()
+        if key
+        not in {
+            "averageDigitalTwinQueryUnitsPerQuery",
+            "averageDigitalTwinQueryResponseSizeInKb",
+        }
+    }
+
+    params = OptimizerCalculationParams.model_validate(source)
+
+    assert "averageDigitalTwinQueryUnitsPerQuery" not in params.to_optimizer_payload()
+    assert (
+        "averageDigitalTwinQueryResponseSizeInKb"
+        not in params.to_optimizer_payload()
+    )
+    assert params.to_persisted_payload()[
+        "averageDigitalTwinQueryUnitsPerQuery"
+    ] == 1
+    assert params.to_persisted_payload()[
+        "averageDigitalTwinQueryResponseSizeInKb"
+    ] == 1
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body_factory"),
+    [
+        ("put", "/optimizer/calculate", lambda params: params),
+        (
+            "put",
+            "/twins/unused/optimizer-config/params",
+            lambda params: {"params": params},
+        ),
+        (
+            "put",
+            "/twins/unused/optimizer-config/result",
+            lambda params: {
+                "params": params,
+                "result": {},
+                "cheapest_path": {},
+                "pricing_snapshots": {},
+                "pricing_timestamps": {},
+            },
+        ),
+        (
+            "post",
+            "/twins/unused/optimizer-runs",
+            lambda params: {"params": params},
+        ),
+        (
+            "put",
+            "/twins/unused/config",
+            lambda params: {"optimizer_params": params},
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("averageDigitalTwinQueryUnitsPerQuery", 0),
+        ("averageDigitalTwinQueryResponseSizeInKb", 0),
+        ("averageDigitalTwinQueryUnitsPerQuery", "not-a-number"),
+        ("averageDigitalTwinQueryResponseSizeInKb", "not-a-number"),
+        ("averageDigitalTwinQueryUnitsPerQuery", "1.0"),
+        ("averageDigitalTwinQueryResponseSizeInKb", "1.0"),
+    ],
+)
+def test_every_management_write_path_rejects_invalid_adt_assumptions(
+    authenticated_client,
+    sample_calc_params,
+    method,
+    path,
+    body_factory,
+    field,
+    invalid_value,
+):
+    client, headers = authenticated_client
+    params = deepcopy(sample_calc_params)
+    params[field] = invalid_value
+
+    response = getattr(client, method)(
+        path,
+        json=body_factory(params),
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
+    authenticated_client,
+):
+    client, headers = authenticated_client
+
+    schema = client.get("/openapi.json", headers=headers).json()
+    paths = (
+        "/optimizer/calculate",
+        "/twins/{twin_id}/optimizer-config/params",
+        "/twins/{twin_id}/optimizer-config/result",
+        "/twins/{twin_id}/optimizer-runs/",
+        "/twins/{twin_id}/config/",
+    )
+    for path in paths:
+        assert _references_component(
+            schema,
+            schema["paths"][path],
+            "OptimizerCalculationParams",
+        ), path
+
+    component = schema["components"]["schemas"]["OptimizerCalculationParams"]
+    assert component["additionalProperties"] is False
+    assert component["properties"]["averageDigitalTwinQueryUnitsPerQuery"][
+        "exclusiveMinimum"
+    ] == 0
+    assert component["properties"][
+        "averageDigitalTwinQueryResponseSizeInKb"
+    ]["exclusiveMinimum"] == 0

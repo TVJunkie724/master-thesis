@@ -74,18 +74,43 @@ async def test_calculate_maps_timeout():
 
 def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_calc_params):
     client, headers = authenticated_client
+    fake = FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(
             "src.api.routes.optimizer._optimizer_calculation_service",
-            lambda: OptimizerCalculationService(
-                optimizer_client=FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
-            ),
+            lambda: OptimizerCalculationService(optimizer_client=fake),
         )
         response = client.put("/optimizer/calculate", json=_valid_route_params(sample_calc_params), headers=headers)
 
     assert response.status_code == 200
     assert response.json() == {"cheapestPath": ["L1_AWS"]}
+    assert fake.calls == [_valid_route_params(sample_calc_params)]
+
+
+def test_calculate_route_preserves_omitted_adt_assumption_provenance(
+    authenticated_client,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    fake = FakeOptimizerClient({"cheapestPath": ["L1_AWS"]})
+    params = _valid_route_params(sample_calc_params)
+    params.pop("averageDigitalTwinQueryUnitsPerQuery")
+    params.pop("averageDigitalTwinQueryResponseSizeInKb")
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "src.api.routes.optimizer._optimizer_calculation_service",
+            lambda: OptimizerCalculationService(optimizer_client=fake),
+        )
+        response = client.put(
+            "/optimizer/calculate",
+            json=params,
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    assert fake.calls == [params]
 
 
 def test_calculate_route_maps_optimizer_timeout(authenticated_client, sample_calc_params):

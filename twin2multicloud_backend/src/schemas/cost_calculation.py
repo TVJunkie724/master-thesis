@@ -3,9 +3,16 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+
 
 class CostCalculationRunCreate(BaseModel):
-    params: dict = Field(..., description="Optimizer calculation parameters")
+    model_config = ConfigDict(extra="forbid")
+
+    params: OptimizerCalculationParams = Field(
+        ...,
+        description="Optimizer calculation parameters",
+    )
     pricing_snapshots: dict = Field(default_factory=dict)
     pricing_timestamps: dict = Field(default_factory=dict)
     pricing_evidence_version: Optional[str] = None

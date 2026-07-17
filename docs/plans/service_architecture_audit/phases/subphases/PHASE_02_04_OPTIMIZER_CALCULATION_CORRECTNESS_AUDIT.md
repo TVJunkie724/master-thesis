@@ -34,9 +34,11 @@ provider, and layer semantics.
   [Phase 2.4 Review](../../PHASE_02_04_OPTIMIZER_CALCULATION_CORRECTNESS_REVIEW.md).
 - Complete. Azure Digital Twins unit compatibility was corrected in the
   strategy contract and calculator.
-- Complete. Azure IoT Hub and Azure Digital Twins tiering gaps were fixed with
-  focused regression tests; remaining storage/transfer refinements are assigned
-  to later provider-model work.
+- Complete. Azure IoT Hub capacity-tier gaps were fixed. Azure Digital Twins
+  was subsequently corrected in Phase 17 to use normalized flat usage meters
+  plus explicit operation, routed-message, and query-unit workload quantities;
+  remaining storage/transfer refinements are assigned to later provider-model
+  work.
 - Complete. Required regression tests are implemented in
   `tests/unit/calculation_v2/test_azure_tiered_calculations.py`.
 

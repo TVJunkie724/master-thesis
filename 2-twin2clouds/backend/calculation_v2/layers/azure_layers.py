@@ -327,46 +327,32 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
     
     def calculate_l4_cost(
         self,
-        operations_per_month: float,
-        queries_per_month: float,
-        messages_per_month: float,
+        billable_operations: float,
+        billable_query_units: float,
+        billable_messages: float,
+        telemetry_updates_per_month: float,
         pricing: Dict[str, Any]
     ) -> LayerResult:
-        """
-        Calculate L4 Twin Management layer cost.
-        
-        Components:
-            - Azure Digital Twins (operations, queries, messages)
-            - ADT Updater Function (updates twins from storage)
-            - Event Grid Subscription (triggers ADT Updater)
-        """
+        """Calculate the canonical Azure L4 ADT and pusher components."""
         components = {}
-        
-        # Azure Digital Twins cost
-        adt_cost = self.digital_twins.calculate_cost(
-            operations_per_month=operations_per_month,
-            queries_per_month=queries_per_month,
-            messages_per_month=messages_per_month,
-            pricing=pricing
+
+        adt = self.digital_twins.calculate_breakdown(
+            billable_operations=billable_operations,
+            billable_query_units=billable_query_units,
+            billable_messages=billable_messages,
+            pricing=pricing,
         )
-        components["digital_twins"] = adt_cost
-        
-        # ADT Updater Function - runs for each data update
-        adt_updater_cost = self.functions.calculate_cost(
-            executions=messages_per_month,
-            pricing=pricing
+        components["digital_twins_operations"] = adt.operation_cost
+        components["digital_twins_query_units"] = adt.query_unit_cost
+        components["digital_twins_routed_messages"] = adt.routed_message_cost
+
+        components["adt_pusher_function"] = self.functions.calculate_cost(
+            executions=telemetry_updates_per_month,
+            pricing=pricing,
         )
-        components["adt_updater_function"] = adt_updater_cost
-        
-        # Event Grid Subscription (connects L3 to L4)
-        eg_cost = self.event_grid.calculate_cost(
-            events=messages_per_month,
-            pricing=pricing
-        )
-        components["event_grid_subscription"] = eg_cost
-        
+
         total = sum(components.values())
-        
+
         return self._result(
             layer="L4",
             total_cost=total,

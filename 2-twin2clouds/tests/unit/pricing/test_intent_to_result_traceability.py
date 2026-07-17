@@ -27,9 +27,12 @@ def _find(trace, provider, intent_id):
 
 def test_calculation_result_exposes_bounded_trace_metadata():
     result, trace = _trace()
+    expected_records = PricingRegistryService().get_status()[
+        "provider_pricing_contract_count"
+    ]
 
     assert result["resultTraceSchemaVersion"] == TRACE_SCHEMA_VERSION
-    assert len(trace) == 48
+    assert len(trace) == expected_records
     assert len(json.dumps(trace)) < 250_000
     assert trace[0]["trace_id"] == "aws.api.request_million.L4.v1"
 
@@ -68,6 +71,44 @@ def test_azure_iot_hub_trace_includes_model_and_source_classifications():
     assert item["source_build_path"] == "fetched_from_provider_api"
     assert item["selected_evidence_id"].startswith("azure.iot.message_ingest")
     assert item["publishability_status"] == "publishable"
+
+
+def test_azure_digital_twins_trace_uses_exact_quantities_and_components():
+    _, trace = _trace()
+    expectations = {
+        "digital_twin.operation": (
+            "monthly_digital_twin_billable_operations",
+            "digital_twins_operations",
+            "request_unit_cost",
+        ),
+        "digital_twin.message": (
+            "monthly_digital_twin_routed_messages",
+            "digital_twins_routed_messages",
+            "message_unit_cost",
+        ),
+        "digital_twin.query_unit": (
+            "monthly_digital_twin_query_units",
+            "digital_twins_query_units",
+            "query_unit_cost",
+        ),
+    }
+
+    for intent_id, (
+        workload_field,
+        component_key,
+        formula_ref,
+    ) in expectations.items():
+        item = _find(trace, "azure", intent_id)
+        assert item["result_component_key"] == component_key
+        assert item["formula_ref"] == formula_ref
+        assert item["workload_inputs"][workload_field] is not None
+        assert item["selection_status"] in {"selected", "alternative"}
+
+    routed_message = _find(trace, "azure", "digital_twin.message")
+    assert routed_message["workload_inputs"][
+        "monthly_digital_twin_routed_messages"
+    ] == 0
+    assert routed_message["cost_contribution"] == 0
 
 
 def test_gcp_pubsub_trace_includes_workload_inputs_and_formula_ref():

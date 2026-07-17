@@ -84,6 +84,18 @@ intents:
     normalized_unit: 1m_events
     required_by: [cost_model_v1]
     expected_providers: [aws, azure, gcp]
+  digital_twin.operation:
+    group: cost
+    description: Azure Digital Twins billable operations normalized per operation.
+    normalized_unit: operation
+    required_by: [cost_model_v1]
+    expected_providers: [azure]
+  digital_twin.message:
+    group: cost
+    description: Azure Digital Twins routed messages normalized per 1 KB message unit.
+    normalized_unit: message_unit
+    required_by: [cost_model_v1]
+    expected_providers: [azure]
   digital_twin.query_unit:
     group: cost
     description: Digital twin query units normalized per query unit.

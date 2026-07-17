@@ -72,6 +72,63 @@ def _transfer_rows():
     ]
 
 
+def _adt_row(
+    *,
+    meter_name,
+    price,
+    meter_id,
+    sku_id="DZH318Z0BZ0T/000C",
+    region=REGION,
+):
+    return _azure_row(
+        serviceName="Digital Twins",
+        productName="Digital Twins",
+        skuName="Standard",
+        meterName=meter_name,
+        meterId=meter_id,
+        skuId=sku_id,
+        productId="DZH318Z0BZ0T",
+        unitOfMeasure="1K",
+        armRegionName=region,
+        retailPrice=price,
+        unitPrice=price,
+        isPrimaryMeterRegion=True,
+    )
+
+
+def _adt_rows(*, region=REGION):
+    suffix = "weu" if region == REGION else "eus"
+    prices = (
+        (0.00325, 0.00130, 0.00065)
+        if region == REGION
+        else (0.00250, 0.00100, 0.00050)
+    )
+    sku_id = "DZH318Z0BZ0T/000C" if region == REGION else "DZH318Z0BZ0T/0005"
+    return [
+        _adt_row(
+            meter_name="Standard Operations",
+            price=prices[0],
+            meter_id=f"operation-{suffix}",
+            sku_id=sku_id,
+            region=region,
+        ),
+        _adt_row(
+            meter_name="Standard Message",
+            price=prices[1],
+            meter_id=f"message-{suffix}",
+            sku_id=sku_id,
+            region=region,
+        ),
+        _adt_row(
+            meter_name="Standard Query Units",
+            price=prices[2],
+            meter_id=f"query-{suffix}",
+            sku_id=sku_id,
+            region=region,
+        ),
+    ]
+
+
 @pytest.mark.parametrize(
     ("neutral_service", "row", "expected"),
     [
@@ -162,6 +219,78 @@ def test_transfer_rows_build_exact_absolute_tiers(mock_query):
     evidence = result["__evidence__"]["pricing_tiers"]
     assert len(evidence["selected_rows"]) == 6
     assert evidence["rejected_rows"][0]["productName"] == "Bandwidth - Routing Preference: Internet"
+
+
+@pytest.mark.parametrize(
+    ("region", "expected", "expected_sku"),
+    [
+        (
+            "westeurope",
+            {
+                "pricePerOperation": 0.00000325,
+                "pricePerMessage": 0.00000130,
+                "pricePerQueryUnit": 0.00000065,
+            },
+            "DZH318Z0BZ0T/000C",
+        ),
+        (
+            "eastus",
+            {
+                "pricePerOperation": 0.00000250,
+                "pricePerMessage": 0.00000100,
+                "pricePerQueryUnit": 0.00000050,
+            },
+            "DZH318Z0BZ0T/0005",
+        ),
+    ],
+)
+@patch("backend.fetch_data.cloud_price_fetcher_azure._retail_query_items")
+def test_adt_meters_are_selected_semantically_and_normalized_per_unit(
+    mock_query,
+    region,
+    expected,
+    expected_sku,
+):
+    mock_query.return_value = _adt_rows(region=region)
+
+    result = fetch_azure_price(
+        "twinmaker",
+        region,
+        {region: region},
+        {"twinmaker": {"azure": "Digital Twins"}},
+    )
+
+    for field, value in expected.items():
+        assert result[field] == pytest.approx(value)
+        evidence = result["__evidence__"][field]
+        assert evidence["match_status"] == "matched"
+        assert evidence["review_required"] is False
+        assert evidence["selected_row"]["armRegionName"] == region
+        assert evidence["selected_row"]["skuId"] == expected_sku
+        assert evidence["selected_row"]["meterId"]
+
+
+def test_adt_duplicate_semantic_candidate_fails_closed_as_ambiguous():
+    duplicate = _adt_rows()
+    duplicate.append(
+        _adt_row(
+            meter_name="Standard Query Units",
+            price=0.00070,
+            meter_id="query-weu-v2",
+        )
+    )
+
+    evidence = build_azure_intent_evidence(
+        duplicate,
+        intent_id="digital_twin.query_unit",
+        region=REGION,
+    )
+
+    assert evidence["match_status"] == "ambiguous"
+    assert evidence["review_required"] is True
+    assert evidence["normalized_value"] is None
+    assert evidence["selected_row"] is None
+    assert len(evidence["candidate_rows"]) == 2
 
 
 def test_changed_stable_identity_fails_closed():

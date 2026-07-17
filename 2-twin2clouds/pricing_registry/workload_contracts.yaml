@@ -72,6 +72,16 @@ workload_contracts:
         unit: event
         value_type: integer
         description: Monthly event bus events.
+      monthly_digital_twin_billable_operations:
+        id: monthly_digital_twin_billable_operations
+        unit: operation
+        value_type: number
+        description: Monthly Azure Digital Twins billable operations derived from telemetry updates and query responses.
+      monthly_digital_twin_routed_messages:
+        id: monthly_digital_twin_routed_messages
+        unit: message_unit
+        value_type: number
+        description: Monthly Azure Digital Twins routed 1 KB message units; zero for five-layer-baseline@1.
       monthly_digital_twin_query_units:
         id: monthly_digital_twin_query_units
         unit: query_unit

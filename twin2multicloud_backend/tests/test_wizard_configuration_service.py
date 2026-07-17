@@ -92,7 +92,10 @@ def test_wizard_updates_regress_configured_twin_to_draft(db_session):
     assert twin.state == TwinState.DRAFT
 
 
-def test_optimizer_update_distinguishes_omitted_and_explicit_null(db_session):
+def test_optimizer_update_distinguishes_omitted_and_explicit_null(
+    db_session,
+    sample_calc_params,
+):
     user, twin = _create_twin(db_session)
     service = WizardConfigurationService(db_session)
 
@@ -100,7 +103,7 @@ def test_optimizer_update_distinguishes_omitted_and_explicit_null(db_session):
         twin,
         TwinConfigUpdate.model_validate(
             {
-                "optimizer_params": {"numberOfDevices": 10},
+                "optimizer_params": sample_calc_params,
                 "optimizer_result": {
                     "cheapestPath": ["L1_AWS", "L2_AZURE", "L4_GCP"],
                     "calculationResult": {},
@@ -111,7 +114,7 @@ def test_optimizer_update_distinguishes_omitted_and_explicit_null(db_session):
     )
 
     optimizer_config = twin.optimizer_config
-    assert json.loads(optimizer_config.params) == {"numberOfDevices": 10}
+    assert json.loads(optimizer_config.params) == sample_calc_params
     assert optimizer_config.cheapest_l1 == "aws"
     assert optimizer_config.cheapest_l2 == "azure"
     assert optimizer_config.cheapest_l4 == "gcp"
@@ -121,7 +124,7 @@ def test_optimizer_update_distinguishes_omitted_and_explicit_null(db_session):
         TwinConfigUpdate.model_validate({"debug_mode": True}),
         user.id,
     )
-    assert json.loads(optimizer_config.params) == {"numberOfDevices": 10}
+    assert json.loads(optimizer_config.params) == sample_calc_params
     assert optimizer_config.result_json is not None
     assert optimizer_config.cheapest_l1 == "aws"
 

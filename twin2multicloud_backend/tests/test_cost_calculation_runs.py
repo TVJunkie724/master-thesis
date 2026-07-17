@@ -7,6 +7,7 @@ from src.models.cost_calculation import CostCalculationRun
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.services.cost_calculation_run_service import CostCalculationRunService
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from tests.conftest import create_test_twin
@@ -798,7 +799,11 @@ async def test_create_run_rolls_back_run_items_and_compatibility_on_db_failure(
     service = FailingService(db_session, optimizer_client=FakeOptimizerClient())
 
     with pytest.raises(RuntimeError):
-        await service.create_run(twin.id, user.id, sample_calc_params)
+        await service.create_run(
+            twin.id,
+            user.id,
+            OptimizerCalculationParams.model_validate(sample_calc_params),
+        )
 
     assert db_session.query(CostCalculationRun).count() == 0
     assert (

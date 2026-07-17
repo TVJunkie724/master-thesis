@@ -24,9 +24,9 @@ def _azure_pricing(**overrides):
             }
         },
         "azureDigitalTwins": {
-            "messagePrice": 1.30,
-            "operationPrice": 3.25,
-            "queryPrice": 0.65,
+            "pricePerMessage": 0.00130,
+            "pricePerOperation": 0.00325,
+            "pricePerQueryUnit": 0.00065,
         },
         "blobStorageCool": {
             "storagePrice": 0.01,
@@ -84,15 +84,15 @@ class TestAzureIoTHubTiering:
 
 
 class TestAzureDigitalTwinsUnitNormalization:
-    def test_messages_operations_and_query_units_are_normalized_from_1k_blocks(self):
+    def test_canonical_unit_prices_are_applied_to_billable_quantities(self):
         result = AzureDigitalTwinsCalculator().calculate_cost(
-            operations_per_month=2_000,
-            queries_per_month=3_000,
-            messages_per_month=4_000,
+            billable_operations=2_000,
+            billable_query_units=3_000,
+            billable_messages=4_000,
             pricing=_azure_pricing(),
         )
 
-        expected = (2_000 * 0.00325) + (3_000 * 0.00065) + (4_000 * 0.0013)
+        expected = (2_000 * 0.00325) + (3_000 * 0.00065) + (4_000 * 0.00130)
         assert result == pytest.approx(expected)
 
     def test_explicit_per_unit_keys_take_precedence_over_legacy_block_keys(self):
@@ -108,13 +108,72 @@ class TestAzureDigitalTwinsUnitNormalization:
         )
 
         result = AzureDigitalTwinsCalculator().calculate_cost(
-            operations_per_month=10,
-            queries_per_month=10,
-            messages_per_month=10,
+            billable_operations=10,
+            billable_query_units=10,
+            billable_messages=10,
             pricing=pricing,
         )
 
         assert result == pytest.approx(0.6)
+
+    def test_breakdown_keeps_each_meter_contribution_inspectable(self):
+        result = AzureDigitalTwinsCalculator().calculate_breakdown(
+            billable_operations=2,
+            billable_query_units=3,
+            billable_messages=4,
+            pricing=_azure_pricing(),
+        )
+
+        assert result.operation_cost == pytest.approx(0.0065)
+        assert result.query_unit_cost == pytest.approx(0.00195)
+        assert result.routed_message_cost == pytest.approx(0.0052)
+        assert result.total_cost == pytest.approx(0.01365)
+
+    def test_zero_routed_messages_do_not_require_message_pricing(self):
+        pricing = _azure_pricing(
+            azureDigitalTwins={
+                "pricePerOperation": 0.00325,
+                "pricePerQueryUnit": 0.00065,
+            }
+        )
+
+        result = AzureDigitalTwinsCalculator().calculate_cost(
+            billable_operations=1,
+            billable_query_units=1,
+            billable_messages=0,
+            pricing=pricing,
+        )
+
+        assert result == pytest.approx(0.0039)
+
+    @pytest.mark.parametrize(
+        "missing_key",
+        ["pricePerOperation", "pricePerQueryUnit"],
+    )
+    def test_required_adt_prices_fail_closed(self, missing_key):
+        prices = dict(_azure_pricing()["azure"]["azureDigitalTwins"])
+        prices.pop(missing_key)
+
+        with pytest.raises(ValueError, match="Missing required pricing field"):
+            AzureDigitalTwinsCalculator().calculate_cost(
+                billable_operations=1,
+                billable_query_units=1,
+                billable_messages=0,
+                pricing={"azure": {"azureDigitalTwins": prices}},
+            )
+
+    @pytest.mark.parametrize(
+        "quantity",
+        [-1, float("inf"), float("nan"), True, "1"],
+    )
+    def test_invalid_billable_quantities_fail_closed(self, quantity):
+        with pytest.raises(ValueError, match="finite non-negative"):
+            AzureDigitalTwinsCalculator().calculate_cost(
+                billable_operations=quantity,
+                billable_query_units=1,
+                billable_messages=0,
+                pricing=_azure_pricing(),
+            )
 
 
 class TestAzureStorageOperationUnits:

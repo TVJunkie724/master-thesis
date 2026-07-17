@@ -112,14 +112,9 @@
       "dataRetrievalPrice": 0.02
     },
     "azureDigitalTwins": {
-      "messagePrice": 0.000001,
-      "operationPrice": 0.0000025,
-      "queryPrice": 0.0000005,
-      "queryUnitTiers": [
-        { "lower": 1, "upper": 99, "value": 15 },
-        { "lower": 100, "upper": 9999, "value": 1500 },
-        { "lower": 10000, "value": 4000 }
-      ]
+      "pricePerMessage": 0.000001,
+      "pricePerOperation": 0.0000025,
+      "pricePerQueryUnit": 0.0000005
     },
     "azureManagedGrafana": {
       "userPrice": 6.0,

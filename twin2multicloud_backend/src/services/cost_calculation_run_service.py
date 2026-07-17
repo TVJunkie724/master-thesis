@@ -11,6 +11,7 @@ from src.clients.optimizer_client import OptimizerClient
 from src.models.cost_calculation import CostCalculationResultItem, CostCalculationRun
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
@@ -40,7 +41,7 @@ class CostCalculationRunService:
         self,
         twin_id: str,
         user_id: str,
-        params: dict[str, Any],
+        params: OptimizerCalculationParams,
         *,
         pricing_snapshots: dict[str, Any] | None = None,
         pricing_timestamps: dict[str, Any] | None = None,
@@ -51,8 +52,11 @@ class CostCalculationRunService:
         if not twin:
             raise TwinNotFound("Twin not found")
 
+        optimizer_params = params.to_optimizer_payload()
+        persisted_params = params.to_persisted_payload()
+
         try:
-            optimizer_payload = await self.optimizer_client.calculate(params)
+            optimizer_payload = await self.optimizer_client.calculate(optimizer_params)
         except (ExternalServiceUnavailable, ExternalServiceError):
             raise
 
@@ -74,7 +78,7 @@ class CostCalculationRunService:
                 user_id=user_id,
                 optimizer_config_id=config.id,
                 status=SUCCESS,
-                params_json=_json_dumps(params),
+                params_json=_json_dumps(persisted_params),
                 result_summary_json=_json_dumps(result),
                 cheapest_path_json=_json_dumps(cheapest_path),
                 total_monthly_cost=contract["total_monthly_cost"],
@@ -97,7 +101,7 @@ class CostCalculationRunService:
 
             self._update_optimizer_config_compatibility(
                 config,
-                params=params,
+                params=persisted_params,
                 result=result,
                 cheapest_path=cheapest_path,
                 pricing_snapshots=pricing_snapshots or {},

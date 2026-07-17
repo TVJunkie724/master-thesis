@@ -4,6 +4,8 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from datetime import datetime
 
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+
 
 CredentialSource = Literal["cloud_connection"]
 
@@ -63,7 +65,7 @@ class TwinCloudConnectionRefs(BaseModel):
 class TwinConfigUpdate(BaseModel):
     debug_mode: Optional[bool] = None
     highest_step_reached: Optional[int] = None
-    optimizer_params: Optional[Any] = None  # CalcParams JSON
+    optimizer_params: Optional[OptimizerCalculationParams] = None
     optimizer_result: Optional[Any] = None  # CalcResult JSON
     cloud_connections: Optional[TwinCloudConnectionRefs] = None
     aws: Optional[AWSCredentials] = None

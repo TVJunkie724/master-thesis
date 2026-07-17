@@ -33,6 +33,8 @@ CANONICAL_PRICING_INTENTS = (
     "api.request_million",
     "orchestration.state_transition",
     "event_bus.event_million",
+    "digital_twin.operation",
+    "digital_twin.message",
     "digital_twin.query_unit",
     "grafana.editor_user_month",
     "grafana.viewer_user_month",

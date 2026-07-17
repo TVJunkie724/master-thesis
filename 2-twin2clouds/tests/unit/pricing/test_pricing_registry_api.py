@@ -73,20 +73,14 @@ def test_pricing_registry_service_rejects_unknown_provider():
 
 def test_get_pricing_registry_status_endpoint():
     response = client.get("/pricing-registry/status")
+    expected = PricingRegistryService().get_status()
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "valid"
-    assert body["registry_version"] == "2026.06.08"
-    assert body["intent_count"] == 16
-    assert body["pricing_model_classification_count"] == 48
-    assert body["price_source_classification_count"] == 48
-    assert body["optimization_bundle_count"] == 1
-    assert body["calculation_strategy_count"] == 1
-    assert body["formula_set_count"] == 1
-    assert body["workload_contract_count"] == 1
-    assert body["provider_pricing_contract_count"] == 48
-    assert body["provider_mapping_counts"] == {"aws": 16, "azure": 16, "gcp": 16}
+    assert body == expected
+    assert body["provider_mapping_counts"]["azure"] == (
+        body["provider_mapping_counts"]["aws"] + 2
+    )
 
 
 def test_list_pricing_registry_intents_endpoint_supports_metric_filter():
@@ -173,7 +167,10 @@ def test_field_verification_matrix_endpoint_covers_active_fields():
 
     assert response.status_code == 200
     rows = response.json()["items"]
-    assert len(rows) == 48
+    expected_count = sum(
+        PricingRegistryService().get_status()["provider_mapping_counts"].values()
+    )
+    assert len(rows) == expected_count
     assert {
         (row["provider"], row["field"], row["selected_source_type"])
         for row in rows
@@ -200,7 +197,9 @@ def test_list_optimization_bundles_endpoint_exposes_strategy_contract():
     assert bundle["calculation_strategy_id"] == "cost_calculation_v2"
     assert bundle["formula_set_id"] == "cost_formula_set_v1"
     assert bundle["workload_contract_id"] == "digital_twin_workload_v1"
-    assert len(bundle["provider_pricing_contract_ids"]) == 48
+    assert len(bundle["provider_pricing_contract_ids"]) == (
+        PricingRegistryService().get_status()["provider_pricing_contract_count"]
+    )
 
 
 def test_list_provider_pricing_contracts_endpoint_supports_provider_filter():
@@ -208,8 +207,15 @@ def test_list_provider_pricing_contracts_endpoint_supports_provider_filter():
 
     assert response.status_code == 200
     contracts = response.json()["items"]
-    assert len(contracts) == 16
+    assert len(contracts) == (
+        PricingRegistryService().get_status()["provider_mapping_counts"]["azure"]
+    )
     assert all(contract["provider"] == "azure" for contract in contracts.values())
+    assert {
+        "azure.digital_twin_operation.pricing_contract.v1",
+        "azure.digital_twin_message.pricing_contract.v1",
+        "azure.digital_twin_query_unit.pricing_contract.v1",
+    } <= set(contracts)
     assert contracts["azure.iot_message_ingest.pricing_contract.v1"][
         "allowed_formula_refs"
     ] == ["tiered_unit_cost"]

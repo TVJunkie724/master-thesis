@@ -34,6 +34,7 @@ from .pricing_units import (
     unit_price,
     first_unit_price,
     required_first_unit_price,
+    billable_1kb_units,
     capacity_tier_cost,
     tiered_unit_cost,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "unit_price",
     "first_unit_price",
     "required_first_unit_price",
+    "billable_1kb_units",
     "capacity_tier_cost",
     "tiered_unit_cost",
 ]

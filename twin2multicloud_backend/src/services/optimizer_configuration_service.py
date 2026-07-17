@@ -44,7 +44,7 @@ class OptimizerConfigurationService:
         config = self._ensure_config(twin_id, twin, commit=False)
 
         if update.params:
-            config.params = to_json(update.params)
+            config.params = to_json(update.params.to_persisted_payload())
 
         self.db.add(config)
         self.db.commit()
@@ -61,7 +61,7 @@ class OptimizerConfigurationService:
         twin = self._require_twin(twin_id, user_id)
         config = self._ensure_config(twin_id, twin, commit=False)
 
-        config.params = to_json(update.params)
+        config.params = to_json(update.params.to_persisted_payload())
         config.result_json = to_json(update.result)
         set_cheapest_columns_from_payload(
             config,

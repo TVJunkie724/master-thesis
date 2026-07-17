@@ -112,10 +112,9 @@ FETCHED_BY_PROVIDER = {
             "dataRetrievalPrice": 0.02,
         },
         "twinmaker": {
-            "messagePrice": 0.000001,
-            "operationPrice": 0.0000025,
-            "queryPrice": 0.0000005,
-            "queryUnitTiers": [{"lower": 1, "value": 15}],
+            "pricePerMessage": 0.000001,
+            "pricePerOperation": 0.0000025,
+            "pricePerQueryUnit": 0.0000005,
         },
         "grafana": {"userPrice": 6.0, "hourlyPrice": 0.069},
         "orchestration": {"pricePer1kStateTransitions": 0.025},
@@ -227,7 +226,6 @@ def test_attach_pricing_metadata_marks_model_constants_as_curated():
         "functions": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},
         "cosmosDB": {"minimumRequestUnits": 400, "RUsPerRead": 1, "RUsPerWrite": 10},
         "blobStorageCool": {"upfrontPrice": 0.0001},
-        "azureDigitalTwins": {"queryUnitTiers": [{"lower": 1, "value": 15}]},
     }
 
     aws = attach_pricing_metadata("aws", aws_payload, fetched={})
@@ -238,7 +236,6 @@ def test_attach_pricing_metadata_marks_model_constants_as_curated():
     assert aws["__quality__"]["field_sources"]["s3InfrequentAccess.upfrontPrice"] == "curated"
     assert azure["__quality__"]["field_sources"]["functions.freeComputeTime"] == "curated"
     assert azure["__quality__"]["field_sources"]["cosmosDB.RUsPerRead"] == "curated"
-    assert azure["__quality__"]["field_sources"]["azureDigitalTwins.queryUnitTiers"] == "curated"
     assert "lambda.freeRequests" not in aws["__quality__"]["fallback_fields"]
     assert "cosmosDB.RUsPerRead" not in azure["__quality__"]["fallback_fields"]
 

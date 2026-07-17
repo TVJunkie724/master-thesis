@@ -37,6 +37,11 @@ formula_sets:
         component: query_units
         expression: query_units * normalized_query_unit_price
         description: Digital twin query usage charge.
+      message_unit_cost:
+        id: message_unit_cost
+        component: message_units
+        expression: message_units * normalized_message_unit_price
+        description: Digital twin routed-message usage charge after billing-increment normalization.
       user_seat_cost:
         id: user_seat_cost
         component: user_seats

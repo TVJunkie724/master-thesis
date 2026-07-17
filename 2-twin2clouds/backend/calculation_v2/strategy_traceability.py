@@ -34,7 +34,22 @@ _FIELD_RESULT_MAP = {
     "api.request_million": ("L4", None),
     "orchestration.state_transition": ("L2", None),
     "event_bus.event_million": ("L2", None),
-    "digital_twin.query_unit": ("L4", None),
+    "digital_twin.operation": (
+        "L4",
+        {"azure": "digital_twins_operations"},
+    ),
+    "digital_twin.message": (
+        "L4",
+        {"azure": "digital_twins_routed_messages"},
+    ),
+    "digital_twin.query_unit": (
+        "L4",
+        {
+            "aws": "twinmaker",
+            "azure": "digital_twins_query_units",
+            "gcp": "self_hosted_twin",
+        },
+    ),
     "grafana.editor_user_month": (
         "L5",
         {"aws": "grafana", "azure": "grafana", "gcp": "grafana"},
@@ -59,7 +74,9 @@ _WORKLOAD_VALUE_MAP = {
     "monthly_api_requests": "queries_per_month",
     "monthly_state_transitions": "total_messages_per_month",
     "monthly_events": "total_messages_per_month",
-    "monthly_digital_twin_query_units": "queries_per_month",
+    "monthly_digital_twin_billable_operations": "monthly_digital_twin_billable_operations",
+    "monthly_digital_twin_routed_messages": "monthly_digital_twin_routed_messages",
+    "monthly_digital_twin_query_units": "monthly_digital_twin_query_units",
     "editor_user_months": "amountOfActiveEditors",
     "viewer_user_months": "amountOfActiveViewers",
 }

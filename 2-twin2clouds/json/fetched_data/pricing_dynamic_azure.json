@@ -79,25 +79,9 @@
     "dataRetrievalPrice": 0.024
   },
   "azureDigitalTwins": {
-    "messagePrice": 0.0013,
-    "operationPrice": 0.00325,
-    "queryPrice": 0.00065,
-    "queryUnitTiers": [
-      {
-        "lower": 1,
-        "upper": 99,
-        "value": 15
-      },
-      {
-        "lower": 100,
-        "upper": 9999,
-        "value": 1500
-      },
-      {
-        "lower": 10000,
-        "value": 4000
-      }
-    ]
+    "pricePerMessage": 1.3e-06,
+    "pricePerOperation": 3.25e-06,
+    "pricePerQueryUnit": 6.5e-07
   },
   "azureManagedGrafana": {
     "userPrice": 6.0,
@@ -117,17 +101,16 @@
     "schema_version": "pricing-provider-schema.v1",
     "contract_version": "2026.06.08",
     "provider": "azure",
-    "generated_at": "2026-07-16T20:13:34.485642+00:00"
+    "generated_at": "2026-07-17T15:14:07.740875+00:00"
   },
   "__quality__": {
     "quality_status": "publishable",
     "review_required": false,
     "field_sources": {
       "apiManagement.pricePerMillionCalls": "fetched",
-      "azureDigitalTwins.messagePrice": "fetched",
-      "azureDigitalTwins.operationPrice": "fetched",
-      "azureDigitalTwins.queryPrice": "fetched",
-      "azureDigitalTwins.queryUnitTiers": "curated",
+      "azureDigitalTwins.pricePerMessage": "fetched",
+      "azureDigitalTwins.pricePerOperation": "fetched",
+      "azureDigitalTwins.pricePerQueryUnit": "fetched",
       "azureManagedGrafana.hourlyPrice": "fetched",
       "azureManagedGrafana.userPrice": "fetched",
       "blobStorageArchive.dataRetrievalPrice": "fetched",
@@ -161,6 +144,399 @@
     "schema_version": "pricing-generated-evidence.v1",
     "provider": "azure",
     "fields": {
+      "azureDigitalTwins.pricePerMessage": {
+        "schema_version": "pricing-evidence.v1",
+        "provider": "azure",
+        "intent_id": "digital_twin.message",
+        "field_path": "digital_twin.message",
+        "source_type": "fetched",
+        "source_api": "azure-retail-prices",
+        "request_scope": {
+          "provider": "azure",
+          "region": "westeurope"
+        },
+        "retail_api_filter": {
+          "service_name": "Digital Twins",
+          "product_name": "Digital Twins",
+          "sku_name": "Standard",
+          "meter_name": "Standard Message",
+          "unit": "1K",
+          "price_type": "Consumption",
+          "evidence": {
+            "is_primary_meter_region": true
+          }
+        },
+        "normalization_rule": "per_1k_message_units",
+        "normalization": {
+          "source_units": [
+            "1K"
+          ],
+          "target_unit": "message_unit",
+          "multiplier": 0.001,
+          "description": "Convert Azure Digital Twins per-1K message-unit prices to one message unit."
+        },
+        "normalized_value": 1.3e-06,
+        "normalized_tiers": [],
+        "currency": "USD",
+        "mapping_version": "2026.07.17",
+        "registry_version": "2026.06.08",
+        "fetched_at": "2026-07-17T15:14:03.821292Z",
+        "review_required": false,
+        "match_status": "matched",
+        "selected_row": {
+          "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+          "serviceName": "Digital Twins",
+          "productName": "Digital Twins",
+          "skuName": "Standard",
+          "meterName": "Standard Message",
+          "unitOfMeasure": "1K",
+          "retailPrice": 0.0013,
+          "currencyCode": "USD",
+          "armRegionName": "westeurope",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2020-12-01T00:00:00Z",
+          "meterId": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+          "skuId": "DZH318Z0BZ0T/000C",
+          "productId": "DZH318Z0BZ0T"
+        },
+        "selected_rows": [],
+        "tier": {
+          "tier_minimum_units": 0.0
+        },
+        "candidate_rows": [
+          {
+            "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "provider_identifiers": {
+              "meter_id": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+              "sku_id": "DZH318Z0BZ0T/000C",
+              "product_id": "DZH318Z0BZ0T",
+              "arm_sku_name": "",
+              "service_id": "DZH316VXQ03G"
+            },
+            "provider_service": "Digital Twins",
+            "service_name": "Digital Twins",
+            "product_name": "Digital Twins",
+            "sku_name": "Standard",
+            "meter_name": "Standard Message",
+            "region": "westeurope",
+            "unit": "1K",
+            "price_type": "Consumption",
+            "currency": "USD",
+            "raw_price": 0.0013,
+            "tier": {
+              "tier_minimum_units": 0.0
+            },
+            "evidence": {
+              "is_primary_meter_region": true,
+              "effective_start_date": "2020-12-01T00:00:00Z"
+            }
+          }
+        ],
+        "rejected_rows": [
+          {
+            "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "serviceName": "Digital Twins",
+            "productName": "Digital Twins",
+            "skuName": "Standard",
+            "meterName": "Standard Operations",
+            "unitOfMeasure": "1K",
+            "retailPrice": 0.00325,
+            "currencyCode": "USD",
+            "armRegionName": "westeurope",
+            "tierMinimumUnits": 0.0,
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "productId": "DZH318Z0BZ0T",
+            "reasons": [
+              "meter_name: expected 'Standard Message', got 'Standard Operations'"
+            ]
+          },
+          {
+            "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "serviceName": "Digital Twins",
+            "productName": "Digital Twins",
+            "skuName": "Standard",
+            "meterName": "Standard Query Units",
+            "unitOfMeasure": "1K",
+            "retailPrice": 0.00065,
+            "currencyCode": "USD",
+            "armRegionName": "westeurope",
+            "tierMinimumUnits": 0.0,
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "922d2f08-f5b6-5efe-a33b-0778db401639",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "productId": "DZH318Z0BZ0T",
+            "reasons": [
+              "meter_name: expected 'Standard Message', got 'Standard Query Units'"
+            ]
+          }
+        ],
+        "errors": [],
+        "review_status": "reviewed"
+      },
+      "azureDigitalTwins.pricePerOperation": {
+        "schema_version": "pricing-evidence.v1",
+        "provider": "azure",
+        "intent_id": "digital_twin.operation",
+        "field_path": "digital_twin.operation",
+        "source_type": "fetched",
+        "source_api": "azure-retail-prices",
+        "request_scope": {
+          "provider": "azure",
+          "region": "westeurope"
+        },
+        "retail_api_filter": {
+          "service_name": "Digital Twins",
+          "product_name": "Digital Twins",
+          "sku_name": "Standard",
+          "meter_name": "Standard Operations",
+          "unit": "1K",
+          "price_type": "Consumption",
+          "evidence": {
+            "is_primary_meter_region": true
+          }
+        },
+        "normalization_rule": "per_1k_operations",
+        "normalization": {
+          "source_units": [
+            "1K"
+          ],
+          "target_unit": "operation",
+          "multiplier": 0.001,
+          "description": "Convert Azure Digital Twins per-1K operation prices to one operation."
+        },
+        "normalized_value": 3.25e-06,
+        "normalized_tiers": [],
+        "currency": "USD",
+        "mapping_version": "2026.07.17",
+        "registry_version": "2026.06.08",
+        "fetched_at": "2026-07-17T15:14:04.328230Z",
+        "review_required": false,
+        "match_status": "matched",
+        "selected_row": {
+          "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+          "serviceName": "Digital Twins",
+          "productName": "Digital Twins",
+          "skuName": "Standard",
+          "meterName": "Standard Operations",
+          "unitOfMeasure": "1K",
+          "retailPrice": 0.00325,
+          "currencyCode": "USD",
+          "armRegionName": "westeurope",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2020-12-01T00:00:00Z",
+          "meterId": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+          "skuId": "DZH318Z0BZ0T/000C",
+          "productId": "DZH318Z0BZ0T"
+        },
+        "selected_rows": [],
+        "tier": {
+          "tier_minimum_units": 0.0
+        },
+        "candidate_rows": [
+          {
+            "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "provider_identifiers": {
+              "meter_id": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+              "sku_id": "DZH318Z0BZ0T/000C",
+              "product_id": "DZH318Z0BZ0T",
+              "arm_sku_name": "",
+              "service_id": "DZH316VXQ03G"
+            },
+            "provider_service": "Digital Twins",
+            "service_name": "Digital Twins",
+            "product_name": "Digital Twins",
+            "sku_name": "Standard",
+            "meter_name": "Standard Operations",
+            "region": "westeurope",
+            "unit": "1K",
+            "price_type": "Consumption",
+            "currency": "USD",
+            "raw_price": 0.00325,
+            "tier": {
+              "tier_minimum_units": 0.0
+            },
+            "evidence": {
+              "is_primary_meter_region": true,
+              "effective_start_date": "2020-12-01T00:00:00Z"
+            }
+          }
+        ],
+        "rejected_rows": [
+          {
+            "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "serviceName": "Digital Twins",
+            "productName": "Digital Twins",
+            "skuName": "Standard",
+            "meterName": "Standard Message",
+            "unitOfMeasure": "1K",
+            "retailPrice": 0.0013,
+            "currencyCode": "USD",
+            "armRegionName": "westeurope",
+            "tierMinimumUnits": 0.0,
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "productId": "DZH318Z0BZ0T",
+            "reasons": [
+              "meter_name: expected 'Standard Operations', got 'Standard Message'"
+            ]
+          },
+          {
+            "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "serviceName": "Digital Twins",
+            "productName": "Digital Twins",
+            "skuName": "Standard",
+            "meterName": "Standard Query Units",
+            "unitOfMeasure": "1K",
+            "retailPrice": 0.00065,
+            "currencyCode": "USD",
+            "armRegionName": "westeurope",
+            "tierMinimumUnits": 0.0,
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "922d2f08-f5b6-5efe-a33b-0778db401639",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "productId": "DZH318Z0BZ0T",
+            "reasons": [
+              "meter_name: expected 'Standard Operations', got 'Standard Query Units'"
+            ]
+          }
+        ],
+        "errors": [],
+        "review_status": "reviewed"
+      },
+      "azureDigitalTwins.pricePerQueryUnit": {
+        "schema_version": "pricing-evidence.v1",
+        "provider": "azure",
+        "intent_id": "digital_twin.query_unit",
+        "field_path": "digital_twin.query_unit",
+        "source_type": "fetched",
+        "source_api": "azure-retail-prices",
+        "request_scope": {
+          "provider": "azure",
+          "region": "westeurope"
+        },
+        "retail_api_filter": {
+          "service_name": "Digital Twins",
+          "product_name": "Digital Twins",
+          "sku_name": "Standard",
+          "meter_name": "Standard Query Units",
+          "unit": "1K",
+          "price_type": "Consumption",
+          "evidence": {
+            "is_primary_meter_region": true
+          }
+        },
+        "normalization_rule": "per_1k_query_units",
+        "normalization": {
+          "source_units": [
+            "1K"
+          ],
+          "target_unit": "query_unit",
+          "multiplier": 0.001,
+          "description": "Convert Azure Digital Twins per-1K query-unit prices to one query unit."
+        },
+        "normalized_value": 6.5e-07,
+        "normalized_tiers": [],
+        "currency": "USD",
+        "mapping_version": "2026.07.17",
+        "registry_version": "2026.06.08",
+        "fetched_at": "2026-07-17T15:14:04.814793Z",
+        "review_required": false,
+        "match_status": "matched",
+        "selected_row": {
+          "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+          "serviceName": "Digital Twins",
+          "productName": "Digital Twins",
+          "skuName": "Standard",
+          "meterName": "Standard Query Units",
+          "unitOfMeasure": "1K",
+          "retailPrice": 0.00065,
+          "currencyCode": "USD",
+          "armRegionName": "westeurope",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2020-12-01T00:00:00Z",
+          "meterId": "922d2f08-f5b6-5efe-a33b-0778db401639",
+          "skuId": "DZH318Z0BZ0T/000C",
+          "productId": "DZH318Z0BZ0T"
+        },
+        "selected_rows": [],
+        "tier": {
+          "tier_minimum_units": 0.0
+        },
+        "candidate_rows": [
+          {
+            "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "provider_identifiers": {
+              "meter_id": "922d2f08-f5b6-5efe-a33b-0778db401639",
+              "sku_id": "DZH318Z0BZ0T/000C",
+              "product_id": "DZH318Z0BZ0T",
+              "arm_sku_name": "",
+              "service_id": "DZH316VXQ03G"
+            },
+            "provider_service": "Digital Twins",
+            "service_name": "Digital Twins",
+            "product_name": "Digital Twins",
+            "sku_name": "Standard",
+            "meter_name": "Standard Query Units",
+            "region": "westeurope",
+            "unit": "1K",
+            "price_type": "Consumption",
+            "currency": "USD",
+            "raw_price": 0.00065,
+            "tier": {
+              "tier_minimum_units": 0.0
+            },
+            "evidence": {
+              "is_primary_meter_region": true,
+              "effective_start_date": "2020-12-01T00:00:00Z"
+            }
+          }
+        ],
+        "rejected_rows": [
+          {
+            "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "serviceName": "Digital Twins",
+            "productName": "Digital Twins",
+            "skuName": "Standard",
+            "meterName": "Standard Operations",
+            "unitOfMeasure": "1K",
+            "retailPrice": 0.00325,
+            "currencyCode": "USD",
+            "armRegionName": "westeurope",
+            "tierMinimumUnits": 0.0,
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "productId": "DZH318Z0BZ0T",
+            "reasons": [
+              "meter_name: expected 'Standard Query Units', got 'Standard Operations'"
+            ]
+          },
+          {
+            "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+            "serviceName": "Digital Twins",
+            "productName": "Digital Twins",
+            "skuName": "Standard",
+            "meterName": "Standard Message",
+            "unitOfMeasure": "1K",
+            "retailPrice": 0.0013,
+            "currencyCode": "USD",
+            "armRegionName": "westeurope",
+            "tierMinimumUnits": 0.0,
+            "effectiveStartDate": "2020-12-01T00:00:00Z",
+            "meterId": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+            "skuId": "DZH318Z0BZ0T/000C",
+            "productId": "DZH318Z0BZ0T",
+            "reasons": [
+              "meter_name: expected 'Standard Query Units', got 'Standard Message'"
+            ]
+          }
+        ],
+        "errors": [],
+        "review_status": "reviewed"
+      },
       "blobStorageArchive.storagePrice": {
         "schema_version": "pricing-evidence.v1",
         "provider": "azure",
@@ -205,7 +581,7 @@
         "currency": "USD",
         "mapping_version": "2026.07.16",
         "registry_version": "2026.06.08",
-        "fetched_at": "2026-07-16T20:13:30.410209Z",
+        "fetched_at": "2026-07-17T15:14:01.602891Z",
         "review_required": false,
         "match_status": "matched",
         "selected_row": {
@@ -939,7 +1315,7 @@
         "currency": "USD",
         "mapping_version": "2026.07.16",
         "registry_version": "2026.06.08",
-        "fetched_at": "2026-07-16T20:13:28.887051Z",
+        "fetched_at": "2026-07-17T15:14:00.063719Z",
         "review_required": false,
         "match_status": "matched",
         "selected_row": {
@@ -1681,7 +2057,7 @@
         "currency": "USD",
         "mapping_version": "2026.07.16",
         "registry_version": "2026.06.08",
-        "fetched_at": "2026-07-16T20:13:31.570996Z",
+        "fetched_at": "2026-07-17T15:14:02.907693Z",
         "review_required": false,
         "match_status": "matched",
         "selected_row": {
@@ -2442,7 +2818,7 @@
         "currency": "USD",
         "mapping_version": "2026.07.16",
         "registry_version": "2026.06.08",
-        "fetched_at": "2026-07-16T20:13:34.010581Z",
+        "fetched_at": "2026-07-17T15:14:07.241315Z",
         "review_required": false,
         "match_status": "matched",
         "selected_row": null,
@@ -3101,16 +3477,16 @@
     "pricing_freshness": "fresh",
     "can_calculate": true,
     "review_required": false,
-    "evaluated_at": "2026-07-16T20:22:36.714066+00:00",
+    "evaluated_at": "2026-07-17T15:14:07.742867+00:00",
     "published_snapshot": {
-      "snapshot_id": "azure:2026-07-16T20:13:34.485642+00:00",
+      "snapshot_id": "azure:2026-07-17T15:14:07.740875+00:00",
       "schema_version": "pricing-provider-schema.v1",
       "provider": "azure",
       "source_api": "azure-retail-prices",
-      "fetched_at": "2026-07-16T20:13:34.485642+00:00",
-      "published_at": "2026-07-16T20:13:34.485642+00:00",
-      "mapping_version": "2026.07.16",
-      "candidate_count": 9,
+      "fetched_at": "2026-07-17T15:14:07.740875+00:00",
+      "published_at": "2026-07-17T15:14:07.740875+00:00",
+      "mapping_version": "2026.07.16,2026.07.17",
+      "candidate_count": 12,
       "raw_item_count": null,
       "is_stale": false,
       "stale_reason": null
@@ -3129,11 +3505,14 @@
       "stale_reason": null
     },
     "match_summary": {
-      "total_intents": 4,
+      "total_intents": 7,
       "status_counts": {
-        "matched": 4
+        "matched": 7
       },
       "intent_statuses": {
+        "digital_twin.message": "matched",
+        "digital_twin.operation": "matched",
+        "digital_twin.query_unit": "matched",
         "storage.archive.storage_gb_month": "matched",
         "storage.cool.storage_gb_month": "matched",
         "storage.hot.storage_gb_month": "matched",
@@ -3142,6 +3521,78 @@
     },
     "review_reasons": [],
     "intent_results": [
+      {
+        "intent_id": "digital_twin.message",
+        "provider": "azure",
+        "mapping_version": "2026.07.17",
+        "status": "matched",
+        "selected_candidate": {
+          "candidate_id": "azure:25f20fec-df26-50c6-a1fc-7268b04bd8ad:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+          "serviceName": "Digital Twins",
+          "productName": "Digital Twins",
+          "skuName": "Standard",
+          "meterName": "Standard Message",
+          "unitOfMeasure": "1K",
+          "retailPrice": 0.0013,
+          "currencyCode": "USD",
+          "armRegionName": "westeurope",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2020-12-01T00:00:00Z",
+          "meterId": "25f20fec-df26-50c6-a1fc-7268b04bd8ad",
+          "skuId": "DZH318Z0BZ0T/000C",
+          "productId": "DZH318Z0BZ0T"
+        },
+        "candidate_count": 1,
+        "errors": []
+      },
+      {
+        "intent_id": "digital_twin.operation",
+        "provider": "azure",
+        "mapping_version": "2026.07.17",
+        "status": "matched",
+        "selected_candidate": {
+          "candidate_id": "azure:07468ba4-7fcc-5483-ac11-db92ef466bd0:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+          "serviceName": "Digital Twins",
+          "productName": "Digital Twins",
+          "skuName": "Standard",
+          "meterName": "Standard Operations",
+          "unitOfMeasure": "1K",
+          "retailPrice": 0.00325,
+          "currencyCode": "USD",
+          "armRegionName": "westeurope",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2020-12-01T00:00:00Z",
+          "meterId": "07468ba4-7fcc-5483-ac11-db92ef466bd0",
+          "skuId": "DZH318Z0BZ0T/000C",
+          "productId": "DZH318Z0BZ0T"
+        },
+        "candidate_count": 1,
+        "errors": []
+      },
+      {
+        "intent_id": "digital_twin.query_unit",
+        "provider": "azure",
+        "mapping_version": "2026.07.17",
+        "status": "matched",
+        "selected_candidate": {
+          "candidate_id": "azure:922d2f08-f5b6-5efe-a33b-0778db401639:DZH318Z0BZ0T:DZH318Z0BZ0T/000C:Consumption:0.0",
+          "serviceName": "Digital Twins",
+          "productName": "Digital Twins",
+          "skuName": "Standard",
+          "meterName": "Standard Query Units",
+          "unitOfMeasure": "1K",
+          "retailPrice": 0.00065,
+          "currencyCode": "USD",
+          "armRegionName": "westeurope",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2020-12-01T00:00:00Z",
+          "meterId": "922d2f08-f5b6-5efe-a33b-0778db401639",
+          "skuId": "DZH318Z0BZ0T/000C",
+          "productId": "DZH318Z0BZ0T"
+        },
+        "candidate_count": 1,
+        "errors": []
+      },
       {
         "intent_id": "storage.archive.storage_gb_month",
         "provider": "azure",

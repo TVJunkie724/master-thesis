@@ -36,7 +36,7 @@ def _raise_optimizer_config_error(exc: EntityNotFoundError) -> NoReturn:
         "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n"
         "**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n"
         "**Response fields:**\n"
-        "- `params`: The 26 calculation parameters last used\n"
+        "- `params`: The canonical calculation parameters last used\n"
         "- `result`: Full calculation result JSON (costs per provider/layer)\n"
         "- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n"
         "- `pricing_*_snapshot`: Pricing data used at calculation time\n"
@@ -66,10 +66,10 @@ async def get_optimizer_config(
     operation_id="updateOptimizerParams",
     summary="Save calculation params before Calculate is clicked",
     description=(
-        "**Purpose:** Persist the 26 optimizer parameters without triggering calculation.\n\n"
+        "**Purpose:** Persist the canonical optimizer parameters without triggering calculation.\n\n"
         "**When to call:** When user changes any parameter in Step 2 (auto-save on blur/change).\n\n"
         "**Request body:**\n"
-        "- `params`: Object containing all 26 calculation parameters (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n"
+        "- `params`: Complete validated calculation input (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n"
         "**Behavior:** Saves params but does NOT run calculation. Call `calculateOptimalDistribution` separately."
     ),
     responses={

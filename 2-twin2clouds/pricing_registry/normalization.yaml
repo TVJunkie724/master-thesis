@@ -66,6 +66,21 @@ rules:
     target_unit: query_unit
     multiplier: 1
     description: Normalize digital twin query unit prices.
+  per_1k_operations:
+    source_units: ["1K"]
+    target_unit: operation
+    multiplier: 0.001
+    description: Convert Azure Digital Twins per-1K operation prices to one operation.
+  per_1k_message_units:
+    source_units: ["1K"]
+    target_unit: message_unit
+    multiplier: 0.001
+    description: Convert Azure Digital Twins per-1K message-unit prices to one message unit.
+  per_1k_query_units:
+    source_units: ["1K"]
+    target_unit: query_unit
+    multiplier: 0.001
+    description: Convert Azure Digital Twins per-1K query-unit prices to one query unit.
   per_user_month:
     source_units: ["User/Month", "user/month", "User Month"]
     target_unit: user_month

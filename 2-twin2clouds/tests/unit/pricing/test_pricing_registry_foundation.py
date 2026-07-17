@@ -57,12 +57,19 @@ def test_default_registry_loads_and_covers_canonical_intents():
     assert set(registry.intents) == set(CANONICAL_PRICING_INTENTS)
     assert set(registry.provider_mappings) == {"aws", "azure", "gcp"}
 
-    for intent_id in CANONICAL_PRICING_INTENTS:
-        for provider in ("aws", "azure", "gcp"):
+    for intent_id, intent in registry.intents.items():
+        for provider in intent["expected_providers"]:
             mapping = registry.mapping_for(provider, intent_id)
             assert mapping["intent_id"] == intent_id
             assert mapping["provider"] == provider
             assert mapping["normalization_rule"] in registry.normalization_rules
+
+    assert registry.intents["digital_twin.operation"]["expected_providers"] == [
+        "azure"
+    ]
+    assert registry.intents["digital_twin.message"]["expected_providers"] == [
+        "azure"
+    ]
 
 
 def test_registry_validation_rejects_missing_provider_mapping(tmp_path):

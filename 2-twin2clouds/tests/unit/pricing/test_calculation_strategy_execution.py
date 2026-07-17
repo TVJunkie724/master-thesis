@@ -45,6 +45,9 @@ class DriftedPricingRegistryService(PricingRegistryService):
 
 def test_calculation_result_contains_strategy_context_metadata():
     result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+    expected_contracts = PricingRegistryService().get_status()[
+        "provider_pricing_contract_count"
+    ]
 
     assert result["calculation_strategy_id"] == "cost_calculation_v2"
     assert result["calculationStrategy"]["calculation_strategy_id"] == "cost_calculation_v2"
@@ -53,7 +56,10 @@ def test_calculation_result_contains_strategy_context_metadata():
     assert result["calculationStrategy"]["pricing_contract_group_id"] == (
         "cost_provider_pricing_contracts_v1"
     )
-    assert len(result["calculationStrategy"]["provider_pricing_contract_ids"]) == 48
+    assert (
+        len(result["calculationStrategy"]["provider_pricing_contract_ids"])
+        == expected_contracts
+    )
     assert result["evidenceReferences"]["calculation_strategy"] == (
         "calculation_strategy:cost_calculation_v2"
     )

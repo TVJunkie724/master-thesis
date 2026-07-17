@@ -681,10 +681,9 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
     neutral_service, provider_service = "twinmaker", "azureDigitalTwins"
     tm = fetched.get(neutral_service, {})
     azure[provider_service] = {
-        "messagePrice": _get_or_warn("Azure", neutral_service, provider_service, "messagePrice", tm, 0.000001, STATIC_DEFAULTS_AZURE),
-        "operationPrice": _get_or_warn("Azure", neutral_service, provider_service, "operationPrice", tm, 0.0000025, STATIC_DEFAULTS_AZURE),
-        "queryPrice": _get_or_warn("Azure", neutral_service, provider_service, "queryPrice", tm, 0.0000005, STATIC_DEFAULTS_AZURE),
-        "queryUnitTiers": tm.get("queryUnitTiers", STATIC_DEFAULTS_AZURE["twinmaker"]["queryUnitTiers"]),
+        key: tm[key]
+        for key in ("pricePerMessage", "pricePerOperation", "pricePerQueryUnit")
+        if key in tm
     }
 
     # Managed Grafana

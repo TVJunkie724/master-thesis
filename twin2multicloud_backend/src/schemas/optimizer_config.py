@@ -2,15 +2,21 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+
 
 class OptimizerParamsUpdate(BaseModel):
     """Update calculation params only."""
-    params: Optional[dict] = None
+    model_config = ConfigDict(extra="forbid")
+
+    params: Optional[OptimizerCalculationParams] = None
 
 
 class OptimizerResultUpdate(BaseModel):
     """Save calculation result + pricing snapshots."""
-    params: dict                          # CalcParams
+    model_config = ConfigDict(extra="forbid")
+
+    params: OptimizerCalculationParams
     result: dict                          # Full CalcResult
     cheapest_path: dict                   # {"l1": "AWS", "l2": "AZURE", ...}
     pricing_snapshots: dict               # {"aws": {...}, "azure": {...}, "gcp": {...}}

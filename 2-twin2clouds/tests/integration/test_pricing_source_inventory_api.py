@@ -24,13 +24,13 @@ def test_pricing_source_inventory_returns_typed_contract():
     record = next(
         item
         for item in payload["records"]
-        if item["record_id"] == "azure.l4.digital_twins.query_unit_tiers"
+        if item["record_id"] == "azure.l4.digital_twins_query_units.query"
     )
-    assert record["primary_source_type"] == "static_official_table"
-    assert record["refreshability"] == "static_non_fetchable"
-    assert record["failure_behavior"] == "require_review"
-    assert record["review_state"] == "review_required"
-    assert record["key_path"] == ["azure", "azureDigitalTwins", "queryUnitTiers"]
+    assert record["primary_source_type"] == "dynamic_provider_api"
+    assert record["refreshability"] == "refreshable"
+    assert record["failure_behavior"] == "reject_field"
+    assert record["review_state"] == "ready"
+    assert record["key_path"] == ["azure", "azureDigitalTwins", "pricePerQueryUnit"]
 
 
 def test_pricing_source_inventory_filters_by_provider():

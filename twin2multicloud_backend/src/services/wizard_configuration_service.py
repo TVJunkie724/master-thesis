@@ -171,7 +171,7 @@ class WizardConfigurationService:
 
         if has_params:
             opt_config.params = (
-                self._json_dumps(update.optimizer_params)
+                self._json_dumps(update.optimizer_params.to_persisted_payload())
                 if update.optimizer_params is not None
                 else None
             )
