@@ -78,6 +78,26 @@ client-supplied transfer result items are ignored. Historical results without
 these additive contracts remain readable but are explicitly unavailable for
 route evidence.
 
+### Calculation Result Ownership
+
+```text
+Flutter workload parameters
+  -> POST /twins/{id}/optimizer-runs
+  -> Management resolves exact catalog context
+  -> Optimizer calculates result and route evidence
+  -> Management validates all result contracts
+  -> one transaction persists run, items, result, and deployment path
+  -> Flutter receives a read-only typed result
+```
+
+The durable run command is the sole application writer for optimizer results.
+`TwinConfigUpdate` has no `optimizer_result` field, and
+`PUT /twins/{id}/optimizer-config/result` does not exist. The parameter-draft
+endpoint may store only typed workload inputs. The read-only optimizer config
+projection remains available to configuration validation and deployment
+consumers. A client must never derive or submit provider assignments, catalog
+identities, transfer totals, or cheapest-path columns.
+
 ## Errors
 
 Public errors should provide stable code, safe message, actionable suggestion where

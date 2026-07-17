@@ -1,6 +1,6 @@
 # Durable Optimizer Runs and Transfer Evidence
 
-**Status:** Approved for implementation  
+**Status:** Implemented and verified
 **Issue:** [#116 Introduce route-aware cross-cloud transfer pricing contracts](https://github.com/TVJunkie724/master-thesis/issues/116)  
 **Branch:** `codex/pricing-tier-finalization`  
 **Base:** `master`
@@ -19,10 +19,10 @@ missing evidence may be inferred or synthesized.
 
 Planned commits:
 
-1. `docs(flutter): plan durable optimizer runs`
-2. `feat(flutter): use durable optimizer runs`
-3. `feat(flutter): expose transfer route evidence`
-4. `refactor(management): remove client-authored optimizer results`
+1. `bbeeb75 docs(flutter): plan durable optimizer runs`
+2. `8192684 feat(flutter): use durable optimizer runs`
+3. `ee29973 feat(flutter): expose exact transfer route evidence`
+4. `b082076 refactor(management): remove client-authored optimizer results`
 5. `docs(pricing): finalize route evidence workflow`
 
 ## 1. Experience Summary
@@ -385,3 +385,17 @@ Review corrections included:
 - separating user-authored parameters from server-owned calculation results.
 
 No unresolved implementation ambiguity remains for this slice.
+
+## Implementation Verification
+
+- Flutter: 672 tests, static analysis, Web build, macOS release build, and
+  interactive Web demo inspection passed.
+- Management API: 829 tests, Ruff, Bandit, compileall, and dependency checks
+  passed.
+- Runtime contract smoke: removed result endpoint returned `404`, generic
+  result write returned `422`, no result was persisted, and the disposable
+  twin was removed.
+- OpenAPI exposes `createOptimizerRun`, omits the legacy result path, forbids
+  unknown `TwinConfigUpdate` fields, and contains no writable
+  `optimizer_result`.
+- No live cloud deployment or provider mutation was executed.

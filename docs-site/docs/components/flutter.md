@@ -92,6 +92,12 @@ nested `Field-level audit` groups typed records by provider and then by service.
 can inspect intent, formula, source, verification, result scope, evidence, alternatives,
 and rejected evidence counts without exposing raw provider catalog rows.
 
+The Optimization task creates a durable, server-owned calculation run through
+`POST /twins/{id}/optimizer-runs`. In create mode, Flutter creates and retains
+the draft twin before starting that run, so a retry cannot create a duplicate
+twin. Flutter never submits an optimizer result, cheapest path, transfer cost,
+or catalog reference. Save Draft persists only user-authored configuration.
+
 Historical records without the newer selection/scope fields remain readable and are
 labelled with compatibility defaults. Shared diagnostic amounts are explicitly marked
 non-additive. The detail layout stacks labels at constrained widths and is covered in
@@ -105,6 +111,13 @@ Management API resolves and verifies trusted references; Flutter shows compact r
 in Latest Refresh, Calculation Trace, and Twin Overview, with full IDs and versions
 behind nested technical details. Legacy saved results show explicit unavailable
 provider rows and expose no pricing JSON artifact action.
+
+Current route-aware results also expose the exact six baseline transfer edges
+under one collapsed `Transfer route evidence` section. Solver diagnostics,
+provider billing pools, native GB/GiB tier contributions, network tiers,
+regions, source snapshot IDs, costs, and assumptions remain read-only and
+collapsed until requested. Historical results without this additive contract
+remain readable and are labelled as lacking exact route evidence.
 
 Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
 opens a system browser, polls the one-time Management API exchange, retains the access

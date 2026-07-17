@@ -5,9 +5,9 @@
 ```text
 User input
   -> Flutter Configuration Workspace
-  -> typed Management API request
-  -> configuration/application service
-  -> SQLite configuration + file version
+  -> typed workload parameter draft
+  -> POST durable optimizer run
+  -> Management application service
   -> owner-scoped exact AWS + Azure + GCP catalog context
   -> Optimizer calculation request
   -> active optimization profile
@@ -17,13 +17,15 @@ User input
        formula set + provider contracts
        scoring strategy: minimum cost
   -> typed result + trace metadata + identical catalog context
-  -> persisted calculation run/items/reference set
-  -> Flutter review
+  -> Management contract validation
+  -> atomic calculation run/items/result/path persistence
+  -> read-only Flutter review
 ```
 
 The user expresses workload quantities. Provider pricing models are not forced into
 one raw unit; provider contracts and formulas normalize their own billable units into
-the common output metric `USD/month`.
+the common output metric `USD/month`. Flutter cannot author or overwrite calculation
+results, transfer evidence, catalog references, or the deployment path.
 
 ## Pricing Refresh And Review
 

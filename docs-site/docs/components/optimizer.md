@@ -74,8 +74,9 @@ egress/glue totals, and model assumptions. Bounded
 rejected path counts plus the deterministic winner. The Management API now
 validates these objects against its trusted catalog context, persists the
 immutable result, and creates one exact transfer result item per baseline edge.
-The collapsed Flutter evidence view remains in progress under
-[GitHub issue #116](https://github.com/TVJunkie724/master-thesis/issues/116).
+Flutter consumes the durable Management run contract and exposes the six routes,
+solver diagnostics, billing pools, and tier contributions as collapsed,
+read-only evidence. No client may author or recalculate this result.
 
 ## Evidence And Candidate Flow
 

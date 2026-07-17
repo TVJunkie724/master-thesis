@@ -160,10 +160,17 @@ baseline segments and checks their endpoints, selected providers, regions,
 route classes, provider network tiers, pool identities, source snapshot IDs,
 tier arithmetic and continuous marginal quantity coverage, aggregate
 bytes/cost, currency, and winning candidate against the server-resolved catalog
-context. The legacy calculate proxy, wizard compatibility persistence, and
-durable run workflow share this one validation service. The compatibility write
-cannot override the deployment path: Management derives it from the validated
-`calculationResult` and rejects a disagreeing client projection.
+context. The non-persisting diagnostic calculation proxy and the durable run
+workflow share this one validation service.
+
+`POST /twins/{id}/optimizer-runs` is the only application command that may
+persist an optimizer result and its deployment-path projection. Management
+resolves the trusted pricing context, invokes the Optimizer, validates the
+returned contracts, derives the path from `calculationResult`, and commits the
+run, result items, and `OptimizerConfiguration` projection atomically. Generic
+twin updates and optimizer-parameter drafts cannot carry a result or cheapest
+path. `GET /twins/{id}/optimizer-config` retains a read-only result projection
+for configuration, validation, and deployment compatibility.
 
 The Management database does not store full public pricing catalogs. Existing
 legacy snapshot/timestamp columns are outside the live contract and do not make
@@ -193,8 +200,8 @@ the immutable catalog context from that snapshot:
 Management creates one queryable transfer result item per baseline edge from
 the validated route contract. Each item stores source provider, monthly byte
 quantity, cost, evidence ID, and the bounded route detail. It never trusts or
-persists a competing downstream transfer item when the exact route contract is
-present.
+persists a competing downstream or client-authored transfer item when the exact
+route contract is present.
 
 The service applies recursive secret and local-path redaction before returning either
 trace. Malformed field or transfer evidence is omitted with a warning instead

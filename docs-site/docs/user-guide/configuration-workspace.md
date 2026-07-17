@@ -33,6 +33,20 @@ Users may revisit completed tasks. A material configuration edit can invalidate 
 calculation, readiness result, or `configured` state. The workspace shows the next
 recommended task rather than pretending downstream results remain current.
 
+## Calculation And Evidence
+
+Calculate creates a durable server-owned optimizer run for the current twin.
+For a new twin, the workspace creates the draft identity first and reuses it
+when a calculation is retried. Saving a draft does not save or alter a
+calculation result.
+
+The default result remains concise. Expand **Calculation trace** only when
+provenance is needed. Current results provide nested, read-only details for the
+pricing intent, immutable provider catalogs, exact six-edge transfer routes,
+provider billing pools, native tier contributions, and solver diagnostics.
+Historical results remain readable and state explicitly when exact route
+evidence was not yet recorded.
+
 ## Workload Versus Provider Pricing
 
 The workspace records workload quantities and intent. It does not ask the user to
