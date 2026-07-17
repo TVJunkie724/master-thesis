@@ -2,8 +2,8 @@
 
 The current documentation was reconstructed from the integrated codebase rather than
 copied from one predecessor site. This appendix records the source families used so the
-thesis evolution remains auditable without duplicating every current explanation in a
-migration table.
+platform evolution remains auditable without duplicating every current explanation in
+a migration table.
 
 ## Source Families
 
@@ -30,9 +30,10 @@ states the present behavior and records the transformation in
 ## Historical Material
 
 Historical files are not part of the user workflow and are not linked as current setup
-instructions. They remain in the repository for now because some contain unique thesis
-context, provider investigations, or implementation history. Their later removal needs
-a dedicated archive/cleanup check, especially around ignored credential material.
+instructions. They remain in the repository for now because some contain unique
+research context, provider investigations, or implementation history. Their later
+removal needs a dedicated archive/cleanup check, especially around ignored credential
+material.
 
 Active future work is tracked in GitHub Issues and the
 [Refactoring Roadmap](../architecture/refactoring-roadmap.md), not in legacy

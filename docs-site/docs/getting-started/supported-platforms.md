@@ -58,4 +58,4 @@ must provide an explicit Flutter device.
 Build support is not the same as distribution readiness. The current project
 does not claim signed Windows installers, notarized macOS packages, Linux
 distribution packages, store publication, or platform certification. These are
-release-engineering concerns outside the thesis application runtime.
+release-engineering concerns outside the current application runtime.

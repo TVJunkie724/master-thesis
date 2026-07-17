@@ -10,7 +10,7 @@ status, discussion, blockers, and commit references.
 |--------|----------------|
 | GitHub Milestones | Phase planning and operational roadmap |
 | GitHub Issues | Concrete implementation work, bugs, future work, dependencies, verification |
-| This page | Thesis/developer-readable overview with issue numbers and current phase order |
+| This page | Maintainer-readable overview with issue numbers and current phase order |
 | Historical TODO/Future Work files | Input material only; do not add new active work there |
 
 Do not duplicate detailed task lists in Markdown. Add or update a GitHub Issue
@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Later | Multi-Cloud Extensions & Thesis | Backlog | Non-blocking provider extensions, evaluation, and thesis polishing |
+| Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
 
@@ -165,7 +165,7 @@ when work becomes actionable, then reference the issue here.
 | [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109) | Done | One application contract and native build evidence for Web, macOS, Windows, and Linux |
 | [#111 Run final manual visual audit of the Flutter application](https://github.com/TVJunkie724/master-thesis/issues/111) | Planned | User-led visual and interaction audit after functional issue work, before final E2E |
 
-### Later: Multi-Cloud Extensions & Thesis
+### Later: Platform Extensions
 
 | Issue | Status | Notes |
 |-------|--------|-------|
@@ -177,7 +177,6 @@ when work becomes actionable, then reference the issue here.
 | [#29](https://github.com/TVJunkie724/master-thesis/issues/29) | Open | Deployer performance for multi-cloud deployments |
 | [#44](https://github.com/TVJunkie724/master-thesis/issues/44) | Open | User-adaptable IoT simulator export |
 | [#47](https://github.com/TVJunkie724/master-thesis/issues/47) | Open | Optional Swagger dark theme |
-| [#48](https://github.com/TVJunkie724/master-thesis/issues/48) | Open | Thesis structure and evaluation TODOs |
 | [#51](https://github.com/TVJunkie724/master-thesis/issues/51) | Blocked | Azure Functions Flex Consumption migration |
 | [#52](https://github.com/TVJunkie724/master-thesis/issues/52) | Open | Azure Functions `WEBSITE_RUN_FROM_PACKAGE` evaluation |
 | [#54](https://github.com/TVJunkie724/master-thesis/issues/54) | Open | GCP L4/L5 provider support |
@@ -186,7 +185,7 @@ when work becomes actionable, then reference the issue here.
 | [#59](https://github.com/TVJunkie724/master-thesis/issues/59) | Open | Azure/GCP inter-cloud glue functions |
 | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Open | Cross-cloud storage lifecycle mover functions |
 | [#62](https://github.com/TVJunkie724/master-thesis/issues/62) | Open | Closed-loop redeployment from cost pattern changes |
-| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Separate bachelor baseline, implemented thesis architecture, and evidence-based future target |
+| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Separate source-project baseline, current implementation, and evidence-based future target |
 
 ## Next Recommended Sequence
 
@@ -199,5 +198,5 @@ when work becomes actionable, then reference the issue here.
    [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
 4. Audit the five-layer Twin architecture against provider-native alternatives in
    [#112](https://github.com/TVJunkie724/master-thesis/issues/112), preserving the
-   bachelor baseline as provenance.
+   source-project baseline as provenance.
 5. Keep live-cloud E2E and finalization deferred until both audits are complete.

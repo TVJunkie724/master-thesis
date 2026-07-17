@@ -3,7 +3,7 @@
 Twin2MultiCloud did not begin as one application. The Optimizer (`2-twin2clouds`) and
 Deployer (`3-cloud-deployer`) originated as separate Bachelor-project codebases with
 standalone assumptions, file-oriented workflows, independent documentation, and
-direct operational entrypoints. The thesis integration introduced the Management API
+direct operational entrypoints. The integrated platform introduced the Management API
 and Flutter UI, then progressively replaced accidental coupling with explicit contracts.
 
 ## Material Transformations
@@ -17,7 +17,7 @@ and Flutter UI, then progressively replaced accidental coupling with explicit co
 | per-twin credential blobs | duplication and difficult account reuse | twin binds connection IDs; pricing uses user defaults | account-level reuse without exposing secrets |
 | pricing selected through fragile strings/keywords | provider catalog drift could silently choose wrong rows | editable intent/mapping registry, evidence, deterministic candidates, review decisions, publication gates | traceability and explicit ambiguity handling |
 | cost formulas loosely coupled to fetched keys | fetch, units, formulas, and optimization could drift | optimization bundle binds metric, intents, provider contracts, formula set, model, and scoring | executable consistency across the whole cost path |
-| only cost hard-coded into orchestration | difficult future research extension | enabled cost profile plus disabled typed extension declarations | thesis scope stays bounded while architecture remains extensible |
+| only cost hard-coded into orchestration | difficult future metric extension | enabled cost profile plus disabled typed extension declarations | current behavior stays bounded while architecture remains extensible |
 | route handlers owned DB queries and orchestration | large god routes and inconsistent errors | repositories, application services, typed clients, lifecycle/orchestrator services | testability and separation of concerns |
 | Flutter god screens and ad-hoc API access | long forms, duplicated state, fragile workflows | runtime adapters, Riverpod composition, workflow BLoCs, typed models, configuration workspace | clear state ownership and testable UX |
 | scattered HTML documentation | stale, duplicated, disconnected from integrated system | central MkDocs site with provenance register | one usable handbook while retaining research history |

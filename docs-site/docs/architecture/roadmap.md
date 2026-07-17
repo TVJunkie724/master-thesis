@@ -30,4 +30,6 @@ than inferred from one global "current phase" label.
 
 ## Backlog Rule
 
-TODO and future-work files are historical inputs. New active work should be represented as GitHub Issues assigned to a Milestone, then linked from the relevant documentation page only when the context matters for thesis or development work.
+TODO and future-work files are historical inputs. New active work should be represented
+as GitHub Issues assigned to a Milestone, then linked from the relevant documentation
+page only when the context matters for current users, operators, or developers.

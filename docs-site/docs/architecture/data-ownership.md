@@ -15,7 +15,9 @@
 | deployment package definition | Management API generated archive and manifest | Deployer operation-package store |
 | Terraform/runtime state | Deployer runtime project storage | destroy, status, simulator, verification |
 | deployment operation history and logs | Management API database | Flutter via REST/SSE |
-| documentation | `docs-site/docs` | users, developers, thesis readers |
+| user/developer documentation | `docs-site/docs` | users, operators, developers |
+| research notes | `docs/research` | research reasoning and later thesis synthesis |
+| final thesis | `twin2multicloud-latex` | submitted academic document |
 
 ## State Boundaries
 

@@ -35,7 +35,7 @@ Flutter. No UI provider-name condition is a capability source of truth.
 
 ## Canonical Matrix
 
-The implemented thesis path currently exposes all 21 provider-layer rows:
+The current platform exposes all 21 provider-layer rows:
 
 | Provider | L1 | L2 | L3 hot | L3 cool | L3 archive | L4 | L5 |
 |---|---|---|---|---|---|---|---|
@@ -92,18 +92,7 @@ retry. No hard-coded fallback matrix is activated.
    `live_verified`.
 
 Roadmap intent alone never makes a path selectable. GCP L4/L5 implementation remains
-tracked by [#54](https://github.com/TVJunkie724/master-thesis/issues/54).
-
-## Thesis Interpretation
-
-The original bachelor-project architecture aimed for a uniform five-layer comparison.
-The thesis implementation retains that model as the comparison baseline while making
-non-equivalence explicit. This is a deliberate correction: price comparison and
-deployment correctness require executable provider capabilities, not assumed
-one-to-one service symmetry.
-
-The broader suitability of the five-layer Digital Twin reference architecture is a
-separate planned audit in
-[#112](https://github.com/TVJunkie724/master-thesis/issues/112). That audit may change
-the future target architecture; it does not rewrite the implemented-state evidence on
-this page.
+tracked by [#54](https://github.com/TVJunkie724/master-thesis/issues/54). A separate
+architecture audit is tracked by
+[#112](https://github.com/TVJunkie724/master-thesis/issues/112); until an implemented
+contract changes, this page documents the current runtime matrix only.

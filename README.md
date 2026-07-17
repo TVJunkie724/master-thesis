@@ -5,7 +5,9 @@ A unified platform that bridges theoretical cost optimization and practical mult
 For the project vision, 5-layer architecture and component roles (Orchestrator → Brain → Muscle), see [integration_vision.md](integration_vision.md).
 For practical developer setup and daily workflows, see [HANDBOOK.md](HANDBOOK.md).
 For agent/contributor workflow rules, see [ONBOARDING.md](ONBOARDING.md).
-For the canonical published documentation site, see [`docs-site/`](docs-site/).
+For the canonical published user and developer documentation site, see
+[`docs-site/`](docs-site/). Research reasoning and material for later thesis synthesis
+live separately under [`docs/research/`](docs/research/).
 
 ---
 

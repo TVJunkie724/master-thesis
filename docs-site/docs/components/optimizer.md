@@ -164,7 +164,7 @@ by the Management API. See [Provider Capabilities](../architecture/provider-capa
 
 ## Optimization Strategy Bundle
 
-Cost is the only enabled thesis objective. The executable profile binds:
+Cost is the only currently enabled optimization objective. The executable profile binds:
 
 - metric provider (`cost`);
 - pricing intent group;

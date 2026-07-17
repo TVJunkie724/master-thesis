@@ -53,9 +53,9 @@ authentication.
 ## Known Operational Limits
 
 - `ENCRYPTION_KEY` rotation requires an explicit transactional re-encryption process;
-- SQLite is suitable for the thesis/local deployment but not a horizontal multi-replica database;
+- SQLite is suitable for the local single-node deployment but not a horizontal multi-replica database;
 - final provider least-privilege claims require supervised live-cloud evidence;
 - live-cloud E2E tests can create cost and are never part of the safe default suite.
 
 See [Cloud Setup](../cloud-setup/index.md) and
-[Limitations and Evidence](../thesis/limitations-and-evidence.md).
+[Known Limitations and Verification Status](../runtime/known-limitations.md).

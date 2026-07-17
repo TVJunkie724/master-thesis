@@ -1,6 +1,7 @@
 # References
 
-These PDFs and external records are intentionally preserved because the documentation and thesis work reference them.
+These PDFs and external records are intentionally preserved because the platform
+documentation, project history, and research notes reference them.
 
 - [Twin2Clouds: Cost-Aware Digital Twin Engineering and Deployment Across Federated Clouds](EDT_25__CloudDT_engineering.pdf)
   - [DOI](https://doi.org/10.1109/MODELS-C68889.2025.00045)

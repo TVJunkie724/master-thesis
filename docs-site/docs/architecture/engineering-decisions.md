@@ -1,7 +1,8 @@
 # Engineering Decisions
 
-This page captures decision reasoning suitable for later thesis synthesis. It describes
-the architecture outcome, not a chronological commit log.
+This page explains the major technical decisions that maintainers must understand when
+changing the current platform. It describes implemented architecture outcomes, not a
+chronological commit log or a research evaluation.
 
 ## Management API As Orchestrator
 
@@ -14,7 +15,7 @@ and authorization boundary while preserving Optimizer/Deployer specialization.
 
 ## Relational Application State
 
-**Decision:** use SQLAlchemy with SQLite for the thesis/local runtime.
+**Decision:** use SQLAlchemy with SQLite for the local single-node runtime.
 
 **Reason:** users, twins, configurations, credential references, calculations, and
 operations are relational and transactional. SQLite minimizes deployment complexity.
