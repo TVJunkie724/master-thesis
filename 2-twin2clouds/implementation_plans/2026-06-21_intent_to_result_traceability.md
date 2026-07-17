@@ -7,6 +7,12 @@
 - Status: Complete
 - Date: 2026-06-21
 
+This plan completed the compact `intentTrace` slice. The later cross-project completion
+contract at `docs/plans/2026-07-17_intent_to_result_traceability_completion.md` adds the
+field-level `resultTrace`, persisted Management API read contract, honest contribution
+semantics, and collapsed Flutter diagnostics. Both documents remain as implementation
+provenance; the completion contract describes the current final state.
+
 ## Goal
 
 Expose bounded, secret-free trace metadata alongside Optimizer calculation

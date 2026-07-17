@@ -326,6 +326,14 @@ verification state. Transfer costs are represented as segment-level
 provider pricing rows, credentials, and full pricing payloads remain out of the
 calculation response.
 
+The completion slice in
+`docs/plans/2026-07-17_intent_to_result_traceability_completion.md` additionally
+assigns the existing `resultTrace` an explicit field-audit role. It adds canonical
+selection/alternative/unsupported state, distinguishes provider alternatives from
+rejected catalog evidence, labels shared contribution amounts non-additive, exposes
+both traces through persisted Management API runs, and adds compact-by-default Flutter
+drill-down. Historical runs remain readable.
+
 ## Explicit Future Metrics
 
 The architecture should make these possible, but they remain disabled/TBD:

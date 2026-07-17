@@ -3,12 +3,16 @@
 ## Metadata
 
 - Phase: 16
-- Status: planned
+- Status: Superseded by completed cross-project contract
 - Parent roadmap: `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 - Depends on: Phase 12, Phase 13, Phase 14, Phase 15
 - Parent issues: #69, #32, #100
 - Scope owner: `2-twin2clouds`
 - No live cloud deployment E2E in this phase
+
+This early field-trace design is retained for provenance. Its final implemented
+semantics, cross-service ownership, compatibility rules, and verification gates are
+defined in `docs/plans/2026-07-17_intent_to_result_traceability_completion.md`.
 
 ## Goal
 

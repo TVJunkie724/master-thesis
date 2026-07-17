@@ -59,7 +59,9 @@ class CostCalculationRunService:
         result = self._extract_optimizer_result(optimizer_payload)
         contract = self._validate_optimizer_result(result)
         cheapest_path = self._extract_cheapest_path(result)
-        result_items = self._build_result_items(result, cheapest_path, contract["currency"])
+        result_items = self._build_result_items(
+            result, cheapest_path, contract["currency"]
+        )
 
         now = datetime.now(timezone.utc)
         try:
@@ -155,9 +157,18 @@ class CostCalculationRunService:
         trace = result.get("intentTrace") if isinstance(result, dict) else None
         trace_available = isinstance(trace, dict)
         trace_payload = trace if trace_available else {}
+        field_trace = result.get("resultTrace") if isinstance(result, dict) else None
+        field_trace_records = _list_of_dicts(field_trace)
+        field_trace_available = bool(field_trace_records)
         warnings = []
         if not trace_available:
             warnings.append("Optimizer intent trace is not available for this run.")
+        if not field_trace_available:
+            warnings.append("Optimizer field trace is not available for this run.")
+        if isinstance(field_trace, list) and len(field_trace_records) != len(
+            field_trace
+        ):
+            warnings.append("Malformed optimizer field trace records were omitted.")
 
         return _redact_payload(
             {
@@ -174,6 +185,11 @@ class CostCalculationRunService:
                 "records": _list_of_dicts(trace_payload.get("records")),
                 "transfer_trace": _list_of_dicts(trace_payload.get("transfer_trace")),
                 "summary": _dict_or_empty(trace_payload.get("summary")),
+                "field_trace_schema_version": _string_or_none(
+                    result.get("resultTraceSchemaVersion")
+                ),
+                "field_trace_available": field_trace_available,
+                "field_trace_records": field_trace_records,
                 "result_metadata": _result_metadata(result),
                 "warnings": warnings,
             }
@@ -240,20 +256,37 @@ class CostCalculationRunService:
             errors.append({"field": "optimizationProfile", "message": "Missing object"})
             profile = {}
         elif profile.get("enabled") is False:
-            errors.append({"field": "optimizationProfile.enabled", "message": "Profile is disabled"})
+            errors.append(
+                {
+                    "field": "optimizationProfile.enabled",
+                    "message": "Profile is disabled",
+                }
+            )
 
         total_cost = result.get("totalCost")
         if not isinstance(total_cost, (int, float)):
-            errors.append({"field": "totalCost", "message": "Missing numeric total cost"})
+            errors.append(
+                {"field": "totalCost", "message": "Missing numeric total cost"}
+            )
 
         if not isinstance(result.get("calculationResult"), dict):
             errors.append({"field": "calculationResult", "message": "Missing object"})
         if not isinstance(result.get("cheapestPath"), list):
             errors.append({"field": "cheapestPath", "message": "Missing list"})
         if not profile.get("scoring_strategy_id"):
-            errors.append({"field": "optimizationProfile.scoring_strategy_id", "message": "Missing"})
+            errors.append(
+                {
+                    "field": "optimizationProfile.scoring_strategy_id",
+                    "message": "Missing",
+                }
+            )
         if not profile.get("calculation_model_ids"):
-            errors.append({"field": "optimizationProfile.calculation_model_ids", "message": "Missing"})
+            errors.append(
+                {
+                    "field": "optimizationProfile.calculation_model_ids",
+                    "message": "Missing",
+                }
+            )
         evidence_references = result.get("evidenceReferences")
         if not isinstance(evidence_references, dict):
             errors.append({"field": "evidenceReferences", "message": "Missing object"})
@@ -266,10 +299,14 @@ class CostCalculationRunService:
             )
 
         if errors:
-            raise OptimizerContractError("Optimizer response contract is invalid", errors)
+            raise OptimizerContractError(
+                "Optimizer response contract is invalid", errors
+            )
 
         calculation_model_ids = profile.get("calculation_model_ids") or []
-        calculation_model_version = calculation_model_ids[0] if calculation_model_ids else None
+        calculation_model_version = (
+            calculation_model_ids[0] if calculation_model_ids else None
+        )
         return {
             "total_monthly_cost": float(total_cost),
             "currency": str(result.get("currency") or "USD"),
@@ -365,7 +402,9 @@ class CostCalculationRunService:
         item: dict[str, Any],
         default_currency: str,
     ) -> dict[str, Any]:
-        notes = item.get("calculation_notes") or item.get("calculation_notes_json") or {}
+        notes = (
+            item.get("calculation_notes") or item.get("calculation_notes_json") or {}
+        )
         return {
             "layer": str(item.get("layer") or "unknown"),
             "component": item.get("component"),
@@ -378,7 +417,9 @@ class CostCalculationRunService:
             "unit_price": _float_or_none(item.get("unit_price")),
             "evidence_id": item.get("evidence_id"),
             "service_model_id": item.get("service_model_id"),
-            "calculation_notes_json": _json_dumps(notes if isinstance(notes, dict) else {}),
+            "calculation_notes_json": _json_dumps(
+                notes if isinstance(notes, dict) else {}
+            ),
             "review_status": item.get("review_status"),
         }
 
@@ -397,10 +438,14 @@ class CostCalculationRunService:
         config.result_json = _json_dumps(result)
         self._apply_cheapest_path(config, cheapest_path)
         config.pricing_aws_snapshot = _json_dumps_or_none(pricing_snapshots.get("aws"))
-        config.pricing_azure_snapshot = _json_dumps_or_none(pricing_snapshots.get("azure"))
+        config.pricing_azure_snapshot = _json_dumps_or_none(
+            pricing_snapshots.get("azure")
+        )
         config.pricing_gcp_snapshot = _json_dumps_or_none(pricing_snapshots.get("gcp"))
         config.pricing_aws_updated_at = _parse_iso_safe(pricing_timestamps.get("aws"))
-        config.pricing_azure_updated_at = _parse_iso_safe(pricing_timestamps.get("azure"))
+        config.pricing_azure_updated_at = _parse_iso_safe(
+            pricing_timestamps.get("azure")
+        )
         config.pricing_gcp_updated_at = _parse_iso_safe(pricing_timestamps.get("gcp"))
         config.calculated_at = calculated_at
         self.db.add(config)

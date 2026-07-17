@@ -46,6 +46,7 @@ FastAPI route
 | `/twins/{id}/config` | configuration workspace persistence and validation |
 | `/twins/{id}/optimizer-config` | typed optimization inputs and projections |
 | `/twins/{id}/optimizer-runs` | durable calculation execution/results |
+| `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact and field-level calculation trace |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
 | `/cloud-bootstrap` | transient admin credential bootstrap/validate workflows |
@@ -126,6 +127,21 @@ lifecycle/operation state, credential audit events, and legacy credential disabl
 
 SQLite is the thesis/local storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.
+
+## Persisted Pricing Trace
+
+Cost-calculation result JSON is an immutable snapshot of the Optimizer response. The
+pricing-evidence detail endpoint projects two trace levels from that snapshot:
+
+- `intent_trace` for the compact selected-path explanation;
+- `field_trace_records` plus `field_trace_schema_version` for provider-field audit
+  details;
+- explicit availability flags and compatibility warnings for historical runs.
+
+The service applies recursive secret and local-path redaction before returning either
+trace. Malformed field entries are omitted with a warning instead of making an entire
+historical run unreadable. No separate trace table or migration is required because
+the durable run result already owns the immutable payload.
 
 ## Security And Errors
 

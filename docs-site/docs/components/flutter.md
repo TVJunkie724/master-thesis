@@ -86,6 +86,17 @@ Optimizer results also preserve each layer result's `supported` and
 unavailable with their reason; they never present an unsupported zero-cost result as a
 valid alternative.
 
+Calculation results keep trace diagnostics compact by default. The first level shows
+publishability and record counts. `Trace details` reveals the compact intent path; a
+nested `Field-level audit` groups typed records by provider and then by service. Users
+can inspect intent, formula, source, verification, result scope, evidence, alternatives,
+and rejected evidence counts without exposing raw provider catalog rows.
+
+Historical records without the newer selection/scope fields remain readable and are
+labelled with compatibility defaults. Shared diagnostic amounts are explicitly marked
+non-additive. The detail layout stacks labels at constrained widths and is covered in
+light and dark themes.
+
 Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
 opens a system browser, polls the one-time Management API exchange, retains the access
 token in memory, and clears identity/token state after logout or any authenticated

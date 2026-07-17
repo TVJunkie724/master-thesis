@@ -92,6 +92,8 @@ def _optimizer_payload(overrides=None):
         "currency": "USD",
         "trace_schema_version": "intent-result-trace.v1",
         "intentTrace": _intent_trace(),
+        "resultTraceSchemaVersion": "intent-to-result-trace.v1",
+        "resultTrace": _field_trace(),
     }
     if overrides:
         result.update(overrides)
@@ -157,6 +159,38 @@ def _intent_trace(overrides=None):
     return trace
 
 
+def _field_trace():
+    return [
+        {
+            "trace_id": "aws.iot.message_ingest.L1.v1",
+            "provider": "aws",
+            "layer": "iot",
+            "service": "AWSIoT",
+            "intent_id": "iot.message_ingest",
+            "provider_pricing_contract_id": (
+                "aws.iot_message_ingest.pricing_contract.v1"
+            ),
+            "pricing_model_classification_id": "aws.iot_message_ingest.model.v1",
+            "price_source_classification_ids": ["aws.iot_message_ingest.source.v1"],
+            "selected_evidence_id": "aws.iot.message_ingest.mapping:2026.06.08",
+            "alternative_record_ids": [
+                "azure.iot_message_ingest.pricing_contract.v1",
+                "gcp.iot_message_ingest.pricing_contract.v1",
+            ],
+            "rejected_evidence_ids": [],
+            "formula_ref": "tiered_unit_cost",
+            "result_field": "L1",
+            "cost_contribution": 1.0,
+            "cost_contribution_scope": "component_total",
+            "cost_contribution_is_additive": False,
+            "selection_status": "selected",
+            "selected_for_path": True,
+            "verification_status": "passed",
+            "source_type": "provider_api",
+        }
+    ]
+
+
 def _override_optimizer(client, fake):
     client.app.dependency_overrides[get_optimizer_client] = lambda: fake
 
@@ -204,7 +238,10 @@ def test_create_run_persists_history_items_and_compatibility_state(
     assert config.cheapest_l2 == "Azure"
     assert config.cheapest_l3_hot == "GCP"
     assert config.cheapest_l4 == "AWS"
-    assert json.loads(config.params)["numberOfDevices"] == sample_calc_params["numberOfDevices"]
+    assert (
+        json.loads(config.params)["numberOfDevices"]
+        == sample_calc_params["numberOfDevices"]
+    )
     assert json.loads(config.result_json)["totalCost"] == 14.75
     assert fake.calls == [sample_calc_params]
 
@@ -348,7 +385,9 @@ def test_pricing_evidence_detail_returns_trace_and_result_items(
                     "unit_price": 0.000001,
                     "evidence_id": "pricing_registry:aws.l1.iot_core.message_tiers",
                     "service_model_id": "iot_core_message_tiers",
-                    "calculation_notes": {"trace_id": "trace:aws.l1.iot_core.message_tiers"},
+                    "calculation_notes": {
+                        "trace_id": "trace:aws.l1.iot_core.message_tiers"
+                    },
                     "review_status": "ready",
                 }
             ]
@@ -378,6 +417,10 @@ def test_pricing_evidence_detail_returns_trace_and_result_items(
     assert data["selected_path"][0]["provider"] == "AWS"
     assert data["records"][0]["trace_id"] == "trace:aws.l1.iot_core.message_tiers"
     assert data["transfer_trace"][0]["source_intent_id"] == "aws.transfer.egress"
+    assert data["field_trace_available"] is True
+    assert data["field_trace_schema_version"] == "intent-to-result-trace.v1"
+    assert data["field_trace_records"][0]["selection_status"] == "selected"
+    assert data["field_trace_records"][0]["cost_contribution_is_additive"] is False
     assert data["result_metadata"]["evidenceReferences"]["pricing_registry"] == (
         "pricing_registry:2026.06.08"
     )
@@ -414,6 +457,63 @@ def test_pricing_evidence_detail_handles_missing_trace_gracefully(
     assert data["warnings"] == ["Optimizer intent trace is not available for this run."]
 
 
+def test_pricing_evidence_detail_handles_historical_run_without_field_trace(
+    authenticated_client,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload(
+        {"resultTrace": None, "resultTraceSchemaVersion": None}
+    )
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+    create_response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run_id = create_response.json()["id"]
+
+    response = client.get(
+        f"/twins/{twin_id}/optimizer-runs/{run_id}/pricing-evidence",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["trace_available"] is True
+    assert data["field_trace_available"] is False
+    assert data["field_trace_records"] == []
+    assert data["warnings"] == ["Optimizer field trace is not available for this run."]
+
+
+def test_pricing_evidence_detail_omits_malformed_field_trace_records(
+    authenticated_client,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload({"resultTrace": ["invalid", *_field_trace()]})
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+    create_response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run_id = create_response.json()["id"]
+
+    response = client.get(
+        f"/twins/{twin_id}/optimizer-runs/{run_id}/pricing-evidence",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["field_trace_available"] is True
+    assert len(data["field_trace_records"]) == 1
+    assert data["warnings"] == ["Malformed optimizer field trace records were omitted."]
+
+
 def test_pricing_evidence_detail_redacts_secret_like_values(
     authenticated_client,
     sample_calc_params,
@@ -435,6 +535,13 @@ def test_pricing_evidence_detail_redacts_secret_like_values(
     payload = _optimizer_payload(
         {
             "intentTrace": trace,
+            "resultTrace": [
+                {
+                    "trace_id": "field:secret",
+                    "client_secret": "SHOULD_NOT_LEAK",
+                    "source_url": "/Users/caroline/private_key.json",
+                }
+            ],
             "evidenceReferences": {
                 "pricing_registry": "pricing_registry:2026.06.08",
                 "api_key": "SHOULD_NOT_LEAK",
@@ -459,6 +566,8 @@ def test_pricing_evidence_detail_redacts_secret_like_values(
     assert "SHOULD_NOT_LEAK" not in serialized
     assert "Bearer abcdefghijklmnopqrstuvwxyz" not in serialized
     assert response.json()["records"][0]["private_key"] == "[REDACTED]"
+    assert response.json()["field_trace_records"][0]["client_secret"] == ("[REDACTED]")
+    assert "/Users/" not in serialized
 
 
 def test_pricing_evidence_detail_is_scoped_to_current_user(
@@ -526,7 +635,9 @@ def test_invalid_optimizer_contract_returns_structured_502_without_successful_ru
 ):
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers)
-    _override_optimizer(client, FakeOptimizerClient(payload={"result": {"totalCost": 1.0}}))
+    _override_optimizer(
+        client, FakeOptimizerClient(payload={"result": {"totalCost": 1.0}})
+    )
 
     response = client.post(
         f"/twins/{twin_id}/optimizer-runs/",
@@ -569,7 +680,9 @@ def test_optimizer_unavailable_returns_503_without_successful_run(
     twin_id = create_test_twin(client, headers)
     _override_optimizer(
         client,
-        FakeOptimizerClient(exc=ExternalServiceUnavailable("Optimizer API unavailable")),
+        FakeOptimizerClient(
+            exc=ExternalServiceUnavailable("Optimizer API unavailable")
+        ),
     )
 
     response = client.post(
@@ -688,4 +801,6 @@ async def test_create_run_rolls_back_run_items_and_compatibility_on_db_failure(
         await service.create_run(twin.id, user.id, sample_calc_params)
 
     assert db_session.query(CostCalculationRun).count() == 0
-    assert db_session.query(OptimizerConfiguration).filter_by(twin_id=twin.id).count() == 0
+    assert (
+        db_session.query(OptimizerConfiguration).filter_by(twin_id=twin.id).count() == 0
+    )

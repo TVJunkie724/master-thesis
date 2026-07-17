@@ -80,6 +80,9 @@ class PricingEvidenceDetailResponse(BaseModel):
     records: list[dict] = Field(default_factory=list)
     transfer_trace: list[dict] = Field(default_factory=list)
     summary: dict = Field(default_factory=dict)
+    field_trace_schema_version: Optional[str] = None
+    field_trace_available: bool
+    field_trace_records: list[dict] = Field(default_factory=list)
     result_metadata: dict = Field(default_factory=dict)
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

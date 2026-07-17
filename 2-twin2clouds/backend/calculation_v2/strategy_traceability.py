@@ -1,4 +1,5 @@
 """Intent-to-result trace metadata for calculation v2."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -18,7 +19,10 @@ _PROVIDER_COST_KEYS = {
 
 _FIELD_RESULT_MAP = {
     "transfer.egress_gb": ("transferCosts", None),
-    "iot.message_ingest": ("L1", {"aws": "iot_core", "azure": "iot_hub", "gcp": "pubsub"}),
+    "iot.message_ingest": (
+        "L1",
+        {"aws": "iot_core", "azure": "iot_hub", "gcp": "pubsub"},
+    ),
     "functions.request": ("L2", None),
     "functions.compute_gb_second": ("L2", None),
     "storage.hot.storage_gb_month": ("L3_hot", None),
@@ -31,8 +35,14 @@ _FIELD_RESULT_MAP = {
     "orchestration.state_transition": ("L2", None),
     "event_bus.event_million": ("L2", None),
     "digital_twin.query_unit": ("L4", None),
-    "grafana.editor_user_month": ("L5", {"aws": "grafana", "azure": "grafana", "gcp": "grafana"}),
-    "grafana.viewer_user_month": ("L5", {"aws": "grafana", "azure": "grafana", "gcp": "grafana"}),
+    "grafana.editor_user_month": (
+        "L5",
+        {"aws": "grafana", "azure": "grafana", "gcp": "grafana"},
+    ),
+    "grafana.viewer_user_month": (
+        "L5",
+        {"aws": "grafana", "azure": "grafana", "gcp": "grafana"},
+    ),
 }
 
 _WORKLOAD_VALUE_MAP = {
@@ -66,7 +76,9 @@ def build_intent_result_trace(
     """Build bounded, secret-free trace items for calculation results."""
     trace_items = []
     registry = pricing_registry_service.load()
-    for contract_id in execution_context.provider_pricing_contract_ids[:MAX_TRACE_ITEMS]:
+    for contract_id in execution_context.provider_pricing_contract_ids[
+        :MAX_TRACE_ITEMS
+    ]:
         contract = registry.provider_pricing_contracts[contract_id]
         model = registry.pricing_model_classifications[
             contract["pricing_model_classification_id"]
@@ -85,7 +97,7 @@ def build_intent_result_trace(
                 source=source,
             )
         )
-    return trace_items
+    return _with_provider_alternatives(trace_items)
 
 
 def _trace_item(
@@ -100,11 +112,18 @@ def _trace_item(
 ) -> dict[str, Any]:
     provider = contract["provider"]
     field = contract["field"]
-    result_field, component_keys = _FIELD_RESULT_MAP.get(field, (contract["layer"], None))
-    cost_contribution = _cost_contribution(
+    result_field, component_keys = _FIELD_RESULT_MAP.get(
+        field, (contract["layer"], None)
+    )
+    contribution = _cost_contribution(
         provider=provider,
         result_field=result_field,
         component_keys=component_keys,
+        result_payload=result_payload,
+    )
+    selection_status = _selection_status(
+        provider=provider,
+        result_field=result_field,
         result_payload=result_payload,
     )
     formula_ref = (contract.get("allowed_formula_refs") or ["unknown"])[0]
@@ -126,17 +145,24 @@ def _trace_item(
             "price_source_classification_ids": [source["id"]],
             "selected_evidence_id": _selected_evidence_id(source),
             "selected_evidence_summary": _selected_evidence_summary(source),
-            "rejected_alternative_ids": [],
+            "alternative_record_ids": [],
+            "rejected_evidence_ids": [],
             "normalization_steps": [
                 {"normalization_rule": rule}
                 for rule in contract.get("normalization_rules") or []
             ],
             "result_field": result_field,
-            "cost_contribution": cost_contribution,
+            "result_component_key": contribution["component_key"],
+            "cost_contribution": contribution["amount"],
+            "cost_contribution_scope": contribution["scope"],
+            "cost_contribution_is_additive": False,
+            "selection_status": selection_status,
+            "selected_for_path": selection_status == "selected",
             "currency": source.get("currency") or "USD",
             "output_metric_unit": contract.get("output_metric_unit"),
             "publishability_status": (
-                "publishable" if model.get("publishable") and source.get("publishable")
+                "publishable"
+                if model.get("publishable") and source.get("publishable")
                 else "not_publishable"
             ),
             "verification_gates": _verification_gates(model, source),
@@ -152,6 +178,8 @@ def _trace_item(
             else "Trace source or model is not publishable.",
             "source_build_path": source.get("expected_build_path"),
             "source_type": source.get("source_type"),
+            "runtime_selected_evidence_available": False,
+            "evidence_reference_kind": "registry_contract_reference",
         }
     )
 
@@ -179,17 +207,118 @@ def _cost_contribution(
     result_field: str,
     component_keys: dict[str, str] | None,
     result_payload: dict[str, Any],
-) -> float | None:
+) -> dict[str, Any]:
     if result_field == "transferCosts":
-        return round(sum((result_payload.get("transferCosts") or {}).values()), 6)
+        return {
+            "amount": round(
+                sum((result_payload.get("transferCosts") or {}).values()), 6
+            ),
+            "scope": "transfer_total_shared",
+            "component_key": None,
+        }
     provider_costs = result_payload.get(_PROVIDER_COST_KEYS[provider], {})
     payload = provider_costs.get(result_field) or {}
     if component_keys:
         component_key = component_keys.get(provider)
         components = payload.get("components") or {}
         if component_key in components:
-            return _round_or_none(components[component_key])
-    return _round_or_none(payload.get("cost"))
+            return {
+                "amount": _round_or_none(components[component_key]),
+                "scope": "component_total",
+                "component_key": component_key,
+            }
+    return {
+        "amount": _round_or_none(payload.get("cost")),
+        "scope": "layer_total_shared" if payload else "none",
+        "component_key": None,
+    }
+
+
+def _selection_status(
+    *,
+    provider: str,
+    result_field: str,
+    result_payload: dict[str, Any],
+) -> str:
+    if result_field == "transferCosts":
+        selected_sources = _selected_transfer_source_providers(result_payload)
+        return "selected" if provider in selected_sources else "alternative"
+
+    provider_costs = result_payload.get(_PROVIDER_COST_KEYS[provider], {})
+    layer_payload = provider_costs.get(result_field) or {}
+    if layer_payload.get("supported") is False:
+        return "unsupported"
+
+    selected_provider = _selected_provider_for_result_field(
+        result_field, result_payload
+    )
+    if selected_provider is None:
+        return "not_applicable"
+    return "selected" if selected_provider == provider else "alternative"
+
+
+def _selected_provider_for_result_field(
+    result_field: str,
+    result_payload: dict[str, Any],
+) -> str | None:
+    result = result_payload.get("calculationResult") or {}
+    selected = {
+        "L1": result.get("L1"),
+        "L2": result.get("L2"),
+        "L3_hot": (result.get("L3") or {}).get("Hot"),
+        "L3_cool": (result.get("L3") or {}).get("Cool"),
+        "L3_archive": (result.get("L3") or {}).get("Archive"),
+        "L4": result.get("L4"),
+        "L5": result.get("L5"),
+    }.get(result_field)
+    if not isinstance(selected, str):
+        return None
+    return selected.strip().lower()
+
+
+def _selected_transfer_source_providers(result_payload: dict[str, Any]) -> set[str]:
+    result = result_payload.get("calculationResult") or {}
+    path = {
+        "L1": result.get("L1"),
+        "L2": result.get("L2"),
+        "L3_hot": (result.get("L3") or {}).get("Hot"),
+        "L3_cool": (result.get("L3") or {}).get("Cool"),
+        "L3_archive": (result.get("L3") or {}).get("Archive"),
+        "L4": result.get("L4"),
+    }
+    segment_sources = {
+        "L1_to_L2": "L1",
+        "L2_to_L3_hot": "L2",
+        "L3_hot_to_L3_cool": "L3_hot",
+        "L3_cool_to_L3_archive": "L3_cool",
+        "L3_hot_to_L4": "L3_hot",
+    }
+    providers = set()
+    for segment in result_payload.get("transferCosts") or {}:
+        source = path.get(segment_sources.get(segment, ""))
+        if isinstance(source, str):
+            providers.add(source.strip().lower())
+    return providers
+
+
+def _with_provider_alternatives(
+    trace_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    records_by_intent: dict[str, list[dict[str, Any]]] = {}
+    for item in trace_items:
+        records_by_intent.setdefault(str(item["intent_id"]), []).append(item)
+
+    for records in records_by_intent.values():
+        record_ids = sorted(
+            str(item["provider_pricing_contract_id"]) for item in records
+        )
+        for item in records:
+            item["alternative_record_ids"] = [
+                record_id
+                for record_id in record_ids
+                if record_id != item["provider_pricing_contract_id"]
+            ]
+    return trace_items
 
 
 def _selected_evidence_id(source: dict[str, Any]) -> str:
@@ -215,7 +344,9 @@ def _selected_evidence_summary(source: dict[str, Any]) -> dict[str, Any]:
     return {key: source.get(key) for key in keys if source.get(key) not in (None, "")}
 
 
-def _verification_gates(model: dict[str, Any], source: dict[str, Any]) -> list[dict[str, Any]]:
+def _verification_gates(
+    model: dict[str, Any], source: dict[str, Any]
+) -> list[dict[str, Any]]:
     publishable = bool(model.get("publishable") and source.get("publishable"))
     return [
         {"gate": "G1_REGISTRY_COMPLETENESS", "status": "passed"},

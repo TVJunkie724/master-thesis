@@ -55,6 +55,7 @@ when work becomes actionable, then reference the issue here.
 | [#4](https://github.com/TVJunkie724/master-thesis/issues/4) | Done | Legacy service HTML content migrated into the canonical docs site with provenance |
 | [#30](https://github.com/TVJunkie724/master-thesis/issues/30) | Done | Multi-cloud walkthrough, troubleshooting, references, and project documentation completed |
 | [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Done | Federated Optimizer/Deployer provider capability contracts, fail-closed Management API aggregation, and Flutter enforcement completed |
+| [#100](https://github.com/TVJunkie724/master-thesis/issues/100) | Done | Compact and field-level intent-to-result pricing traceability across Optimizer, persisted Management API runs, and collapsed Flutter diagnostics |
 
 ## Active And Planned Refactoring Issues
 
@@ -138,6 +139,7 @@ when work becomes actionable, then reference the issue here.
 | [#68](https://github.com/TVJunkie724/master-thesis/issues/68) | Done | Canonical immutable `LayerResult`, shared calculator/capability contract, fail-closed selection, and 21-combination provider-layer matrix |
 | [#69](https://github.com/TVJunkie724/master-thesis/issues/69) | Open | Explicit pricing failures and schema versions |
 | [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Done | Explicit 3 x 7 provider-layer capability matrix and unsupported-path enforcement |
+| [#100](https://github.com/TVJunkie724/master-thesis/issues/100) | Done | Honest intent-to-result trace with typed persisted field audit and non-additive contribution semantics |
 | [#31](https://github.com/TVJunkie724/master-thesis/issues/31) | Open | Tiered pricing for additional optimizer services |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |
 | [#110](https://github.com/TVJunkie724/master-thesis/issues/110) | Done | Azure Cosmos/Blob storage and bandwidth tier sources now use exact reviewed catalog evidence, collision-safe candidate identity, fail-closed publication, and a publishable live baseline |
@@ -188,16 +190,14 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Complete [#100 Expose intent-to-result pricing traceability](https://github.com/TVJunkie724/master-thesis/issues/100)
-   without changing the deterministic scoring authority.
-2. Reconcile the remaining service/tier scope in
+1. Reconcile the remaining service/tier scope in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32).
-3. Build pricing freshness and manual override UX only after these Optimizer
+2. Build pricing freshness and manual override UX only after these Optimizer
    contracts are stable (#33 and #34).
-4. Complete the remaining functional issues, then run the user-led visual audit in
+3. Complete the remaining functional issues, then run the user-led visual audit in
    [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-5. Audit the five-layer Twin architecture against provider-native alternatives in
+4. Audit the five-layer Twin architecture against provider-native alternatives in
    [#112](https://github.com/TVJunkie724/master-thesis/issues/112), preserving the
    bachelor baseline as provenance.
-6. Keep live-cloud E2E and finalization deferred until both audits are complete.
+5. Keep live-cloud E2E and finalization deferred until both audits are complete.

@@ -11,12 +11,21 @@ SECRET_FIELD_NAMES = (
     "aws_secret_access_key|secret_access_key|client_secret|private_key|"
     "session_token|access_token|refresh_token|id_token|api_key|password"
 )  # nosec B105
-SECRET_JSON_FIELD_PATTERN = re.compile(rf'(?i)("({SECRET_FIELD_NAMES})"\s*:\s*")[^"]+(")')
-SECRET_ASSIGNMENT_PATTERN = re.compile(rf"(?i)\b({SECRET_FIELD_NAMES})\b(\s*[=:]\s*)([^\s,;&]+)")
-AUTHORIZATION_HEADER_PATTERN = re.compile(r"(?i)(authorization\s*:\s*)(bearer\s+)?[^\s,;&]+")
+SECRET_JSON_FIELD_PATTERN = re.compile(
+    rf'(?i)("({SECRET_FIELD_NAMES})"\s*:\s*")[^"]+(")'
+)
+SECRET_ASSIGNMENT_PATTERN = re.compile(
+    rf"(?i)\b({SECRET_FIELD_NAMES})\b(\s*[=:]\s*)([^\s,;&]+)"
+)
+AUTHORIZATION_HEADER_PATTERN = re.compile(
+    r"(?i)(authorization\s*:\s*)(bearer\s+)?[^\s,;&]+"
+)
 
 BEARER_PATTERN = re.compile(r"(?i)bearer\s+[a-z0-9._~+/=-]{10,}")
 GCP_PRIVATE_KEY_ID_PATTERN = re.compile(r"\"private_key_id\"\s*:\s*\"[^\"]+\"")
+LOCAL_HOME_PATH_PATTERN = re.compile(
+    r"(?i)(?:/(?:users|home)/[^/\s,;]+(?:/[^\s,;]*)?|[a-z]:\\users\\[^\\\s,;]+(?:\\[^\s,;]*)?)"
+)
 
 
 def redact_validation_message(message: str, credentials: dict[str, Any]) -> str:
@@ -28,7 +37,9 @@ def redact_validation_message(message: str, credentials: dict[str, Any]) -> str:
     return redact_secret_like_text(redacted)
 
 
-def redact_secret_like_text(message: str, extra_secrets: Iterable[str] | None = None) -> str:
+def redact_secret_like_text(
+    message: str, extra_secrets: Iterable[str] | None = None
+) -> str:
     """Redact common secret-looking fragments from arbitrary user-facing text."""
     redacted = message
     if extra_secrets:
@@ -48,9 +59,16 @@ def redact_secret_like_text(message: str, extra_secrets: Iterable[str] | None = 
         redacted,
     )
     redacted = BEARER_PATTERN.sub("Bearer [REDACTED]", redacted)
-    redacted = GCP_PRIVATE_KEY_ID_PATTERN.sub('"private_key_id": "[REDACTED]"', redacted)
-    redacted = SECRET_JSON_FIELD_PATTERN.sub(lambda match: f"{match.group(1)}[REDACTED]{match.group(3)}", redacted)
-    return SECRET_ASSIGNMENT_PATTERN.sub(lambda match: f"{match.group(1)}{match.group(2)}[REDACTED]", redacted)
+    redacted = GCP_PRIVATE_KEY_ID_PATTERN.sub(
+        '"private_key_id": "[REDACTED]"', redacted
+    )
+    redacted = LOCAL_HOME_PATH_PATTERN.sub("[REDACTED_PATH]", redacted)
+    redacted = SECRET_JSON_FIELD_PATTERN.sub(
+        lambda match: f"{match.group(1)}[REDACTED]{match.group(3)}", redacted
+    )
+    return SECRET_ASSIGNMENT_PATTERN.sub(
+        lambda match: f"{match.group(1)}{match.group(2)}[REDACTED]", redacted
+    )
 
 
 def redact_validation_payload(payload: Any, credentials: dict[str, Any]) -> Any:
@@ -60,7 +78,10 @@ def redact_validation_payload(payload: Any, credentials: dict[str, Any]) -> Any:
     if isinstance(payload, list):
         return [redact_validation_payload(item, credentials) for item in payload]
     if isinstance(payload, dict):
-        return {key: redact_validation_payload(value, credentials) for key, value in payload.items()}
+        return {
+            key: redact_validation_payload(value, credentials)
+            for key, value in payload.items()
+        }
     return payload
 
 

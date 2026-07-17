@@ -42,11 +42,20 @@ def test_aws_iot_core_trace_connects_intent_to_formula_contribution():
     assert item["service"] == "AWSIoT"
     assert item["formula_set_id"] == "cost_formula_set_v1"
     assert item["formula_ref"] == "tiered_unit_cost"
-    assert item["provider_pricing_contract_id"] == "aws.iot_message_ingest.pricing_contract.v1"
+    assert (
+        item["provider_pricing_contract_id"]
+        == "aws.iot_message_ingest.pricing_contract.v1"
+    )
     assert item["pricing_model_classification_id"] == "aws.iot_message_ingest.model.v1"
-    assert item["price_source_classification_ids"] == ["aws.iot_message_ingest.source.v1"]
+    assert item["price_source_classification_ids"] == [
+        "aws.iot_message_ingest.source.v1"
+    ]
     assert item["workload_inputs"]["monthly_iot_messages"] > 0
     assert item["cost_contribution"] > 0
+    assert item["cost_contribution_scope"] == "component_total"
+    assert item["cost_contribution_is_additive"] is False
+    assert item["result_component_key"] == "iot_core"
+    assert item["selection_status"] in {"selected", "alternative"}
 
 
 def test_azure_iot_hub_trace_includes_model_and_source_classifications():
@@ -104,6 +113,46 @@ def test_trace_includes_verification_gate_status_for_each_item():
     assert gates["G6_PUBLISHABILITY"] == "passed"
     assert gates["G7_CALCULATION_READINESS"] == "passed"
     assert item["verification_status"] == "passed"
+
+
+def test_trace_distinguishes_selection_provider_alternatives_and_unsupported_rows():
+    result, trace = _trace()
+    selected_path = {
+        entry.split("_", 1)[0]: entry.rsplit("_", 1)[-1].lower()
+        for entry in result["cheapestPath"]
+        if not entry.startswith("L3_")
+    }
+
+    l1_records = {
+        provider: _find(trace, provider, "iot.message_ingest")
+        for provider in ("aws", "azure", "gcp")
+    }
+    gcp_l4 = _find(trace, "gcp", "digital_twin.query_unit")
+
+    selected_l1 = l1_records[selected_path["L1"]]
+    alternative_l1 = next(
+        record
+        for provider, record in l1_records.items()
+        if provider != selected_path["L1"]
+    )
+    assert selected_l1["selection_status"] == "selected"
+    assert selected_l1["selected_for_path"] is True
+    assert alternative_l1["selection_status"] == "alternative"
+    assert alternative_l1["selected_for_path"] is False
+    assert gcp_l4["selection_status"] == "unsupported"
+
+
+def test_trace_separates_provider_alternatives_from_rejected_evidence():
+    _, trace = _trace()
+    item = _find(trace, "aws", "iot.message_ingest")
+
+    assert item["alternative_record_ids"] == [
+        "azure.iot_message_ingest.pricing_contract.v1",
+        "gcp.iot_message_ingest.pricing_contract.v1",
+    ]
+    assert item["rejected_evidence_ids"] == []
+    assert item["runtime_selected_evidence_available"] is False
+    assert item["evidence_reference_kind"] == "registry_contract_reference"
 
 
 def test_trace_ids_are_deterministic_for_snapshot_comparison():

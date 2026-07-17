@@ -32,6 +32,74 @@ void main() {
     );
   });
 
+  test('parses detailed pricing field trace records', () {
+    final result = CalcResult.fromJson({
+      'totalCost': 1,
+      'awsCosts': <String, dynamic>{},
+      'azureCosts': <String, dynamic>{},
+      'gcpCosts': <String, dynamic>{},
+      'cheapestPath': <String>[],
+      'inputParamsUsed': <String, dynamic>{},
+      'resultTraceSchemaVersion': 'intent-to-result-trace.v1',
+      'resultTrace': [
+        {
+          'trace_id': 'aws.iot.message_ingest.L1.v1',
+          'provider': 'aws',
+          'layer': 'iot',
+          'service': 'AWSIoT',
+          'intent_id': 'iot.message_ingest',
+          'formula_ref': 'tiered_unit_cost',
+          'source_type': 'provider_api',
+          'selected_evidence_id': 'aws.iot.mapping',
+          'selection_status': 'selected',
+          'cost_contribution': 1,
+          'cost_contribution_scope': 'component_total',
+          'cost_contribution_is_additive': false,
+          'result_component_key': 'iot_core',
+          'output_metric_unit': 'USD/month',
+          'verification_status': 'passed',
+          'alternative_record_ids': ['azure.iot'],
+          'rejected_evidence_ids': <String>[],
+        },
+      ],
+    });
+
+    expect(result.fieldTraceSchemaVersion, 'intent-to-result-trace.v1');
+    expect(result.fieldTraceRecords, hasLength(1));
+    expect(result.fieldTraceRecords.single.isSelected, isTrue);
+    expect(result.fieldTraceRecords.single.costContributionIsAdditive, isFalse);
+  });
+
+  test('keeps historical field trace records readable', () {
+    final result = CalcResult.fromJson({
+      'totalCost': 1,
+      'awsCosts': <String, dynamic>{},
+      'azureCosts': <String, dynamic>{},
+      'gcpCosts': <String, dynamic>{},
+      'cheapestPath': <String>[],
+      'inputParamsUsed': <String, dynamic>{},
+      'resultTraceSchemaVersion': 'intent-to-result-trace.v1',
+      'resultTrace': [
+        {
+          'trace_id': 'aws.iot.message_ingest.L1.v1',
+          'provider': 'aws',
+          'layer': 'iot',
+          'service': 'AWSIoT',
+          'intent_id': 'iot.message_ingest',
+          'formula_ref': 'tiered_unit_cost',
+          'source_type': 'provider_api',
+          'cost_contribution': 1,
+          'verification_status': 'passed',
+        },
+      ],
+    });
+
+    final record = result.fieldTraceRecords.single;
+    expect(record.selectionStatus, 'not_applicable');
+    expect(record.costContributionScope, 'legacy_unspecified');
+    expect(record.costContributionIsAdditive, isFalse);
+  });
+
   group('CalcResult', () {
     // ============================================================
     // Happy Path Tests

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/calc_result.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import 'pricing_field_trace_details.dart';
 
 class CalculationTraceSummary extends StatelessWidget {
   final CalcResult result;
@@ -79,6 +80,11 @@ class CalculationTraceSummary extends StatelessWidget {
                     label: '${trace.summary.transferSegmentCount} transfers',
                     icon: Icons.route_outlined,
                   ),
+                  if (result.fieldTraceRecords.isNotEmpty)
+                    _TraceChip(
+                      label: '${result.fieldTraceRecords.length} field records',
+                      icon: Icons.account_tree_outlined,
+                    ),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -94,6 +100,11 @@ class CalculationTraceSummary extends StatelessWidget {
                     evidenceReferenceCount:
                         result.evidenceReferences?.length ?? 0,
                   ),
+                  if (result.fieldTraceRecords.isNotEmpty)
+                    PricingFieldTraceDetails(
+                      schemaVersion: result.fieldTraceSchemaVersion,
+                      records: result.fieldTraceRecords,
+                    ),
                 ],
               ),
             ],
