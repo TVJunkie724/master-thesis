@@ -31,6 +31,7 @@
     "azure.iot_hub.capacity": "optimizer_selection",
     "azure.functions.plan_sku": "baseline_invariant",
     "azure.functions.memory_mb": "formula_input",
+    "azure.functions.duration_ms": "formula_input",
     "azure.event_grid.billing": "pricing_model",
     "azure.logic_apps.billing": "pricing_model",
     "azure.cosmos_db.capacity_mode": "baseline_invariant",
@@ -53,6 +54,7 @@
     "aws.lambda.duration_ms": "ms",
     "azure.iot_hub.capacity": "units",
     "azure.functions.memory_mb": "MB",
+    "azure.functions.duration_ms": "ms",
     "gcp.functions.memory_mb": "MB",
     "gcp.functions.min_instance_count": "instances",
     "gcp.functions.max_instance_count": "instances",
@@ -405,6 +407,13 @@
           ],
           "terraform_target": "aws_l3_reader_lambda_memory_mb",
           "required": true
+        },
+        "aws.lambda.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
         }
       }
     },
@@ -626,6 +635,13 @@
           "minimum": 128,
           "maximum": 1536,
           "required": true
+        },
+        "azure.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
         }
       }
     },
@@ -663,6 +679,13 @@
           "value_type": "integer",
           "minimum": 128,
           "maximum": 1536,
+          "required": true
+        },
+        "azure.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
           "required": true
         }
       }
@@ -726,6 +749,20 @@
           ],
           "terraform_target": "azure_l3_function_plan_sku",
           "required": true
+        },
+        "azure.functions.memory_mb": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 128,
+          "maximum": 1536,
+          "required": true
+        },
+        "azure.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
         }
       }
     },
@@ -775,6 +812,20 @@
             "Y1"
           ],
           "terraform_target": "azure_l3_cool_function_plan_sku",
+          "required": true
+        },
+        "azure.functions.memory_mb": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 128,
+          "maximum": 1536,
+          "required": true
+        },
+        "azure.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
           "required": true
         }
       }
@@ -826,6 +877,20 @@
           ],
           "terraform_target": "azure_l3_archive_function_plan_sku",
           "required": true
+        },
+        "azure.functions.memory_mb": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 128,
+          "maximum": 1536,
+          "required": true
+        },
+        "azure.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
+          "required": true
         }
       }
     },
@@ -856,6 +921,20 @@
             "Y1"
           ],
           "terraform_target": "azure_l4_function_plan_sku",
+          "required": true
+        },
+        "azure.functions.memory_mb": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 128,
+          "maximum": 1536,
+          "required": true
+        },
+        "azure.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
           "required": true
         }
       }
@@ -895,6 +974,13 @@
           "value_type": "integer",
           "minimum": 128,
           "maximum": 1536,
+          "required": true
+        },
+        "azure.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
           "required": true
         }
       }
@@ -1057,6 +1143,13 @@
             10
           ],
           "terraform_target": "gcp_l3_reader_function_max_instances",
+          "required": true
+        },
+        "gcp.functions.duration_ms": {
+          "classification": "non_deployable_assumption",
+          "value_type": "integer",
+          "minimum": 1,
+          "maximum": 900000,
           "required": true
         }
       }

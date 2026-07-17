@@ -127,7 +127,7 @@ No additional alias is allowed elsewhere.
 | --- | --- | --- | --- | --- |
 | L1 | IoT Core plus dispatcher Lambda | Standard Lambda memory | IoT message tiers, free allowances, duration | Calculator defaults to 128 MB; Terraform uses 256 MB |
 | L2 | Lambda processing bundle, optional Step Functions/EventBridge | Standard Lambda memory | requests, GB-seconds, transitions, events, duration | Calculator defaults to 128 MB; Terraform uses 256 MB |
-| L3 hot | DynamoDB plus reader Lambdas | `PAY_PER_REQUEST`, standard Lambda memory | request/storage usage tiers | Lambda memory mismatch |
+| L3 hot | DynamoDB plus reader Lambdas | `PAY_PER_REQUEST`, standard Lambda memory | request/storage usage tiers and Lambda duration | Lambda memory mismatch |
 | L3 cool | S3 IA plus mover Lambda | `STANDARD_IA`, mover Lambda memory | retrieval/request tiers, duration | Calculator memory differs from Terraform |
 | L3 archive | S3 archive plus mover Lambda | archive storage class, mover Lambda memory | retrieval/request tiers, duration | Calculator prices Deep Archive while Terraform uses `GLACIER` |
 | L4 | IoT TwinMaker plus connector Lambda | Connector Lambda memory only | TwinMaker account plan and bundle, entity/query/API usage | Account plan must remain account-scoped |
@@ -172,6 +172,12 @@ The dimension registry must:
    invariant consumed by both calculator and Deployer;
 6. reject account identifiers, credentials, endpoints, and raw catalog rows;
 7. preserve canonical component and dimension ordering.
+
+Every function bundle that contributes compute cost must register both the
+memory value used by its formula and its runtime-duration assumption. A runtime
+value remains `non_deployable_assumption` when the provider resource cannot
+enforce it, but omitting it is not allowed: doing so would make the selected
+cost irreproducible even if all Terraform-facing values matched.
 
 ## 7. Compatibility and Errors
 

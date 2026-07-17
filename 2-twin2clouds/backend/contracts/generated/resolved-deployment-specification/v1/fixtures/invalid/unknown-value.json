@@ -82,6 +82,14 @@
             "formula_reference": "formula_set:cost_formula_set_v1",
             "evidence_reference": "workload_contract:digital_twin_workload_v1",
             "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
           }
         ]
       },
@@ -123,6 +131,14 @@
             "formula_reference": "formula_set:cost_formula_set_v1",
             "evidence_reference": "workload_contract:digital_twin_workload_v1",
             "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
           }
         ]
       },
@@ -157,6 +173,22 @@
             "formula_reference": "formula_set:cost_formula_set_v1",
             "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
             "terraform_target": "azure_l3_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
           }
         ]
       },
@@ -207,6 +239,22 @@
             "formula_reference": "formula_set:cost_formula_set_v1",
             "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
             "terraform_target": "azure_l3_cool_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
           }
         ]
       },
@@ -257,6 +305,22 @@
             "formula_reference": "formula_set:cost_formula_set_v1",
             "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
             "terraform_target": "azure_l3_archive_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
           }
         ]
       },
@@ -290,6 +354,22 @@
             "formula_reference": "formula_set:cost_formula_set_v1",
             "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
             "terraform_target": "azure_l4_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
           }
         ]
       },
@@ -311,6 +391,6 @@
         ]
       }
     ],
-    "digest": "sha256:1382b6a1c0e2b5ba193223808cbf1a04020d02eeb870a4f2e593e435f7d24c9b"
+    "digest": "sha256:0d12c30304276e85a89000afa70384566bbafec853aefd7cf31f4f6f592d70ec"
   }
 }

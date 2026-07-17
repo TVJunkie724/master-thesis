@@ -89,6 +89,12 @@ Every dimension belongs to exactly one semantic class:
 | `account_scope` | provider-account state not owned by one twin | no |
 | `non_deployable_assumption` | formula input that the selected resource cannot enforce directly | no |
 
+Function bundles must disclose the memory and duration consumed by their cost
+formula. Enforceable memory settings are deployment selections; provider
+runtime or duration values that Terraform cannot guarantee remain explicit
+non-deployable assumptions. They are still mandatory evidence and may never be
+reconstructed from calculator defaults downstream.
+
 To extend the existing baseline, update the canonical registry and all affected
 formula/provider adapters, regenerate fixtures and copies, and pass the
 cross-service contract tests. A new architecture topology is not added to this

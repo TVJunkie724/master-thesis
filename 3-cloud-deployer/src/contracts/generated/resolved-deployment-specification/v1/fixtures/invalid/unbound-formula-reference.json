@@ -134,6 +134,14 @@
             "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
             "unit": "MB",
             "terraform_target": "aws_l3_reader_lambda_memory_mb"
+          },
+          {
+            "dimension_id": "aws.lambda.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
           }
         ]
       },
@@ -274,6 +282,6 @@
         ]
       }
     ],
-    "digest": "sha256:64b7bfb82155e3d432f3a6d49b4b24b3b92d8d66ee07b0005e4cdf888d0d2ab0"
+    "digest": "sha256:730f03596be8e9325edc0aaeb58dd2724cb95c4f94aec12519db22d3474eb9bd"
   }
 }
