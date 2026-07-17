@@ -146,7 +146,16 @@ when work becomes actionable, then reference the issue here.
 | [#115](https://github.com/TVJunkie724/master-thesis/issues/115) | Implemented locally; platform CI pending | Separate public TwinMaker Price List evidence from owner-scoped account plan observations; gate Basic, pending changes, and unallocated bundles before AWS L4 selection |
 | [#119](https://github.com/TVJunkie724/master-thesis/issues/119) | Local implementation and gates complete; platform CI pending | Immutable provider-region catalogs now drive exact owner-safe calculation, persistence, deployment selection, health, review, and reference-only Flutter diagnostics. Full pricing blobs and client-authored pricing evidence are outside the live contract. Reviewed plan: `2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md` |
 | [#116](https://github.com/TVJunkie724/master-thesis/issues/116) | Done | Exact routes, regions, network tiers, provider units, aggregate transfer pools, six baseline edges, global path scoring, trusted Management validation, atomic durable run persistence, server-owned deployment-path projection, and collapsed typed Flutter evidence are implemented. Plans: `2-twin2clouds/implementation_plans/2026-07-18_route_aware_transfer_pricing.md` and `twin2multicloud_flutter/implementation_plans/2026-07-18_durable_optimizer_runs_and_transfer_evidence.md` |
-| [#118](https://github.com/TVJunkie724/master-thesis/issues/118) | Planned pre-Phase-8 blocker | Propagate a versioned resolved service deployment specification from the selected cost model through the Management API and DeploymentManifest into Terraform after the canonical Five-Layer path is fixed |
+| [#118](https://github.com/TVJunkie724/master-thesis/issues/118) | Active pre-Phase-8 blocker | Propagate a versioned resolved service deployment specification from the selected cost model through the Management API and DeploymentManifest into Terraform. Mini-roadmap and reviewed plans: `docs/plans/resolved_deployment_specification/` |
+| [#127](https://github.com/TVJunkie724/master-thesis/issues/127) | Ready | Define the canonical v1 schema, deployment-dimension registry, full provider/slot matrix, and golden fixtures |
+| [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Blocked by #127 | Emit exact resolved deployment selections from the Optimizer winner |
+| [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Blocked by #127 and #129 | Validate, persist, freeze, and manifest the specification in the Management API |
+| [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Blocked by #127 and #130 | Fail-closed Deployer preflight and typed tfvars translation |
+| [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Blocked by #131 | Align AWS formula assumptions and Terraform resource values |
+| [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Blocked by #131 | Align Azure IoT Hub and other modeled Azure resource values |
+| [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Blocked by #131 | Align GCP runtime profiles and archive storage model |
+| [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Blocked by #130 | Add compact read-only Flutter deployment review |
+| [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Final gate | Prove Optimizer-to-Terraform continuity with credential-free drift tests |
 | [#117](https://github.com/TVJunkie724/master-thesis/issues/117) | Done | Removed the unreachable Azure ADT Updater path; Azure L4 now has one package-, Terraform-, runtime-, security-, and documentation-tested Persister-to-ADT-Pusher topology |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |
 | [#110](https://github.com/TVJunkie724/master-thesis/issues/110) | Done | Azure Cosmos/Blob storage and bandwidth tier sources now use exact reviewed catalog evidence, collision-safe candidate identity, fail-closed publication, and a publishable live baseline |
@@ -202,20 +211,25 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Reconcile the remaining service/tier scope in
+1. Complete the resolved-deployment-specification sequence
+   [#127](https://github.com/TVJunkie724/master-thesis/issues/127) through
+   [#128](https://github.com/TVJunkie724/master-thesis/issues/128), closing
+   [#118](https://github.com/TVJunkie724/master-thesis/issues/118) only after
+   its no-apply drift gate passes.
+2. Reconcile the remaining service/tier scope in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32).
-2. Build pricing freshness and manual override UX only after these Optimizer
+3. Build pricing freshness and manual override UX only after these Optimizer
    contracts are stable (#33 and #34).
-3. Complete the remaining functional issues, then run the user-led visual audit in
+4. Complete the remaining functional issues, then run the user-led visual audit in
    [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-4. Complete the current-system hardening prerequisites, including the
+5. Complete the current-system hardening prerequisites, including the
    user-function boundary in
    [#113](https://github.com/TVJunkie724/master-thesis/issues/113), without
    prematurely redesigning runtime topology.
-5. Execute Phase 8 through
+6. Execute Phase 8 through
    [#112](https://github.com/TVJunkie724/master-thesis/issues/112): reconstruct
    the current graph, freeze the hardened five-layer baseline, and only then
    design and evaluate the Eventing extension and its multi-cloud bridge.
-6. Keep live-cloud E2E and finalization deferred until both the manual UI audit
+7. Keep live-cloud E2E and finalization deferred until both the manual UI audit
    and architecture-profile work are complete.
