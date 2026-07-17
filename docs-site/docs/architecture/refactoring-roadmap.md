@@ -34,6 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
+| Phase 8 | Twin Architecture Profiles & Eventing | Planned | Freeze the hardened five-layer baseline, introduce closed-world architecture profiles, and evaluate one bounded Eventing extension |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -165,6 +166,13 @@ when work becomes actionable, then reference the issue here.
 | [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109) | Done | One application contract and native build evidence for Web, macOS, Windows, and Linux |
 | [#111 Run final manual visual audit of the Flutter application](https://github.com/TVJunkie724/master-thesis/issues/111) | Planned | User-led visual and interaction audit after functional issue work, before final E2E |
 
+### Phase 8: Twin Architecture Profiles & Eventing
+
+| Issue | Status | Notes |
+|-------|--------|-------|
+| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Reconstruct the implemented graph, freeze a hardened `five-layer-baseline@1`, define closed-world architecture-profile contracts, and evaluate `six-layer-eventing@1` separately |
+| [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Active prerequisite | Establish the platform-owned component and user-code boundary required before resolved architecture profiles can bind extension slots safely |
+
 ### Later: Platform Extensions
 
 | Issue | Status | Notes |
@@ -185,7 +193,6 @@ when work becomes actionable, then reference the issue here.
 | [#59](https://github.com/TVJunkie724/master-thesis/issues/59) | Open | Azure/GCP inter-cloud glue functions |
 | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Open | Cross-cloud storage lifecycle mover functions |
 | [#62](https://github.com/TVJunkie724/master-thesis/issues/62) | Open | Closed-loop redeployment from cost pattern changes |
-| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Separate source-project baseline, current implementation, and evidence-based future target |
 
 ## Next Recommended Sequence
 
@@ -196,7 +203,13 @@ when work becomes actionable, then reference the issue here.
    contracts are stable (#33 and #34).
 3. Complete the remaining functional issues, then run the user-led visual audit in
    [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-4. Audit the five-layer Twin architecture against provider-native alternatives in
-   [#112](https://github.com/TVJunkie724/master-thesis/issues/112), preserving the
-   source-project baseline as provenance.
-5. Keep live-cloud E2E and finalization deferred until both audits are complete.
+4. Complete the current-system hardening prerequisites, including the
+   user-function boundary in
+   [#113](https://github.com/TVJunkie724/master-thesis/issues/113), without
+   prematurely redesigning runtime topology.
+5. Execute Phase 8 through
+   [#112](https://github.com/TVJunkie724/master-thesis/issues/112): reconstruct
+   the current graph, freeze the hardened five-layer baseline, and only then
+   design and evaluate the Eventing extension and its multi-cloud bridge.
+6. Keep live-cloud E2E and finalization deferred until both the manual UI audit
+   and architecture-profile work are complete.

@@ -79,11 +79,13 @@ The research should therefore avoid two equally weak claims:
 - the current implementation is justified merely because it inherited the
   architecture from the bachelor project.
 
-The fair approach is to preserve the source topology as a reproducible baseline,
-identify its assumptions and limits, and evaluate a bounded alternative against
-the same workload and functional contract. Replacing a source-project
-anti-pattern is justified only when the new architecture has explicit evidence,
-complete cost ownership, and equivalent required behavior.
+The fair approach is to preserve the source topology as an auditable historical
+reference, identify its assumptions and limits, and derive a hardened
+five-layer implementation as the executable comparison baseline. A bounded
+alternative can then be evaluated against the same workload and functional
+contract. Replacing a source-project anti-pattern is justified only when the new
+baseline or alternative has explicit evidence, complete cost ownership, and
+equivalent required behavior.
 
 ## Important Provenance Finding
 
@@ -1095,12 +1097,33 @@ The direction is deliberately incremental.
   `LE`.
 - Preserve broad deterministic unit, integration, contract, security, and build
   gates.
-- Fix security-critical defects in the existing direct-call path, but do not
-  spend a separate phase making a topology that `LE` is expected to replace
-  appear permanently production-final.
+- Preserve the five functional and cost-accounting boundaries, not every
+  inherited function-to-function invocation as an architectural invariant.
+- Build a complete Function-and-Edge Matrix before changing the baseline
+  topology. Classify every edge as an in-component call, synchronous command or
+  query, asynchronous responsibility boundary, durable workflow, storage
+  transition, or cross-cloud boundary.
+- Decide and document the hardened implementation of each baseline edge from
+  its functional contract. Do not assume in advance that every direct call must
+  remain or that every edge must move to a broker.
+- Fix security-critical defects in retained direct-call paths and include every
+  required support resource in deployment and cost evidence.
 - Record the resulting five-layer implementation as the reproducible baseline.
 - Defer supervised cost-incurring live-cloud E2E until all planned architecture
   work and the manual UI audit are complete.
+
+The historical bachelor topology and the hardened five-layer baseline are
+different evidence objects. The former explains provenance. The latter is the
+executable comparison baseline. Hardening may merge implementation helpers that
+belong to one responsibility or replace an unsafe internal edge, provided that
+the five functional contracts, observable behavior, workload assumptions, and
+all resulting resource costs remain explicit.
+
+Any eventing infrastructure used only as a fixed internal support resource of
+the five-layer baseline is part of that provider implementation and is not an
+independently optimized layer. `six-layer-eventing@1` is a separate experiment
+because it makes Eventing and Messaging an explicit functional, deployable, and
+costed responsibility.
 
 ### Stage 1: Paper-Compatible Layer Cost Optimization
 
@@ -1118,6 +1141,9 @@ The direction is deliberately incremental.
 - Define the nonlinear `LE` functional contract and workload schema.
 - Build both research matrices.
 - Select one functionally comparable reference profile per provider.
+- Design the multi-cloud event bridge explicitly, including trust boundary,
+  authentication, delivery guarantees, retry and dead-letter behavior,
+  idempotency, ordering, observability, data transfer, and cost ownership.
 - Extend calculation, capability, deployment, and result contracts explicitly.
 - Compare the five-layer baseline with the `LE`-extended model as separate
   experiments.
@@ -1216,7 +1242,10 @@ No current implementation contract is changed by this review.
 The five-layer model remains necessary as the current paper-compatible baseline.
 A nonlinear `LE` Eventing and Messaging Layer is now a serious bounded research
 candidate, not an approved implementation contract. The existing system must be
-stabilized first. The capability matrix, scenario cost matrix, and architecture
-audit will determine the functional contract and one curated implementation
-profile per provider. General topology optimization remains a separate future
-research direction.
+stabilized first. Stabilization preserves the five functional and cost
+boundaries but does not pre-approve the inherited direct-call topology; that
+decision requires the Function-and-Edge Matrix and explicit baseline edge
+contracts. The capability matrix, scenario cost matrix, architecture audit, and
+multi-cloud bridge design will then determine the Eventing contract and one
+curated implementation profile per provider. General topology optimization
+remains a separate future research direction.
