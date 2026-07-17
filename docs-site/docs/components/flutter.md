@@ -97,6 +97,15 @@ labelled with compatibility defaults. Shared diagnostic amounts are explicitly m
 non-additive. The detail layout stacks labels at constrained widths and is covered in
 light and dark themes.
 
+Pricing evidence is also a typed read-only boundary. Flutter validates the exact
+three-provider catalog context, canonical provider/region metadata, UTC timestamp,
+review/publication state, content digest, and the derived cross-runtime snapshot ID.
+It does not export or persist full pricing payloads after a calculation. The
+Management API resolves and verifies trusted references; Flutter shows compact rows
+in Latest Refresh, Calculation Trace, and Twin Overview, with full IDs and versions
+behind nested technical details. Legacy saved results show explicit unavailable
+provider rows and expose no pricing JSON artifact action.
+
 Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
 opens a system browser, polls the one-time Management API exchange, retains the access
 token in memory, and clears identity/token state after logout or any authenticated

@@ -40,6 +40,12 @@ immutable result, and Flutter only renders typed read models. A contribution amo
 not additive unless its record explicitly proves that property. Alternative providers
 and rejected pricing rows are different concepts and must remain separate fields.
 
+The public Management calculation input and the internal Optimizer input intentionally
+differ by two server-owned fields. `providerPricingCatalogs` is the mandatory exact
+public-catalog context; `providerPricingContexts` carries optional owner-scoped account
+observations. Flutter supplies neither. The Management API resolves and injects them,
+and the live integration gate compares every remaining workload field exactly.
+
 ## Errors
 
 Public errors should provide stable code, safe message, actionable suggestion where

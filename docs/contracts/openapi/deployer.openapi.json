@@ -1619,7 +1619,7 @@
     },
     "/functions/update_function/{function_name}": {
       "post": {
-        "description": "**Purpose:** Deploy updated function code to cloud via SDK (boto3/Kudu/gcloud).\n\n**When to call:** After modifying function code locally.\n\n**Process:** Build provider artifact → Compare deployed evidence → Upload if changed → Record deployment evidence.",
+        "description": "**Purpose:** Deploy updated function code to cloud via SDK (boto3/Kudu/gcloud).\n\n**When to call:** After modifying function code locally.\n\n**Process:** Build provider artifact \u2192 Compare deployed evidence \u2192 Upload if changed \u2192 Record deployment evidence.",
         "operationId": "updateFunctionCode",
         "parameters": [
           {
@@ -3247,7 +3247,7 @@
     },
     "/projects/{project_name}/cleanup/aws-twinmaker": {
       "delete": {
-        "description": "**Purpose:** Force delete TwinMaker workspace when Terraform destroy fails.\n\n**When to call:** When `terraform destroy` fails due to existing entities.\n\n**Deletion order:** Entities → Component Types → Workspace",
+        "description": "**Purpose:** Force delete TwinMaker workspace when Terraform destroy fails.\n\n**When to call:** When `terraform destroy` fails due to existing entities.\n\n**Deletion order:** Entities \u2192 Component Types \u2192 Workspace",
         "operationId": "cleanupAwsTwinmaker",
         "parameters": [
           {
@@ -4332,7 +4332,7 @@
     },
     "/projects/{project_name}/validate": {
       "get": {
-        "description": "**Purpose:** Pre-deployment readiness check for existing projects.\n\n**Checks performed:**\n- Required files presence\n- Config content validity (schema validation)\n- Optimization flag dependencies\n- Cross-config consistency (payloads ↔ devices, credentials ↔ providers)",
+        "description": "**Purpose:** Pre-deployment readiness check for existing projects.\n\n**Checks performed:**\n- Required files presence\n- Config content validity (schema validation)\n- Optimization flag dependencies\n- Cross-config consistency (payloads \u2194 devices, credentials \u2194 providers)",
         "operationId": "validateProjectStructure",
         "parameters": [
           {

@@ -32,7 +32,7 @@ version: "1.0"
 - twin2multicloud_backend/src/services/pricing_review_state_service.py
 - twin2multicloud_backend/src/services/pricing_health_service.py
 - twin2multicloud_flutter/lib/services/api_service.dart
-- twin2multicloud_flutter/lib/models/pricing_export_snapshot.dart
+- twin2multicloud_flutter/lib/models/pricing_catalog.dart
 - twin2multicloud_flutter/lib/models/optimizer_config.dart
 - twin2multicloud_flutter/lib/models/twin_configuration_view.dart
 - twin2multicloud_flutter/lib/bloc/wizard/handlers/wizard_optimization_persistence_handlers.dart
@@ -955,12 +955,12 @@ Each step is implemented, tested, reviewed, and committed before the next one.
 | Slice | Status | Local evidence |
 |---|---|---|
 | 1. Catalog Domain And Migration | Complete | 49 focused domain, migration, legacy-parity, schema, cache, restart, Ruff, Bandit, compile, dependency, Compose, readiness, and secret-scan checks passed |
-| 2. Refresh, Publication, And Optimizer API | Complete | All provider-region publication, strict calculation resolution, exact read contracts, and 680 Optimizer tests passed |
+| 2. Refresh, Publication, And Optimizer API | Complete | All provider-region publication, strict calculation resolution, exact read contracts, and 681 Optimizer tests passed |
 | 3. Management Ownership And Persistence | Complete | Exact owner-safe resolution, migration 019, calculation/deployment persistence, reference-only diagnostics, and 816 Management API tests passed |
-| 4. Flutter Read Model And UX | Planned | Blocked by Slice 3 contracts |
-| 5. Documentation And Generated Contracts | In progress | Optimizer and Management API ownership, runtime, flow, and user docs follow each completed boundary |
-| 6. Review Pass 1 | Planned | Runs after Slice 5 |
-| 7. Review Pass 2 And Full Gates | Planned | Final local and platform gate |
+| 4. Flutter Read Model And UX | Complete | Strict enum/reference parsing, exact cross-runtime identity validation, compact three-surface evidence, honest legacy state, demo parity, and 655 Flutter tests passed |
+| 5. Documentation And Generated Contracts | Complete | Current user/developer docs, roadmaps, semantic OpenAPI snapshots, and strict MkDocs build are synchronized |
+| 6. Review Pass 1 | Complete | Global reads/client evidence removed; exact references traced; three Flutter/demo findings fixed |
+| 7. Review Pass 2 And Full Gates | Local complete | 681 Optimizer, 816 Management, 1,436 Deployer, 655 Flutter, 10 live local integration tests, static/security/build/docs gates green; Linux/Windows CI pending push |
 
 ### Slice 1: Catalog Domain And Migration
 
@@ -1145,13 +1145,7 @@ Concrete Flutter cases:
 The mandatory local integration sequence is:
 
 ```bash
-./thesis.sh up --no-flutter
-cd twin2multicloud_flutter
-flutter test integration_test/management_api_readiness_test.dart \
-  --dart-define=API_BASE_URL=http://localhost:5005 \
-  --dart-define=OPTIMIZER_API_BASE_URL=http://localhost:5003
-cd ..
-./thesis.sh down
+./thesis.sh test frontend-integration
 ```
 
 The integration test uses the real Management API for application behavior.
@@ -1165,12 +1159,12 @@ test invokes a deployment or provider mutation.
 | Slice | Status | Evidence |
 |---|---|---|
 | Slice 1: Catalog domain and migration | Done | immutable repository, reviewed seed package, durable Compose volume, startup readiness and migration tests |
-| Slice 2: Optimizer refresh and calculation integration | Done | provider-region refresh publication, exact calculation resolution, regional status/read APIs, removal of provider-wide pricing files; 680-test Optimizer suite green |
+| Slice 2: Optimizer refresh and calculation integration | Done | provider-region refresh publication, exact calculation resolution, regional status/read APIs, removal of provider-wide pricing files; 681-test Optimizer suite green |
 | Slice 3: Management ownership and persistence | Done | owner-safe reference resolution, exact calculation and deployment persistence, migration 019, reference-only diagnostics, all 816 Management API tests green |
-| Slice 4: Flutter read model and UX | Pending | depends on the final Management API contract |
-| Slice 5: Documentation and generated contracts | In progress | Optimizer/runtime docs updated with each completed boundary |
-| Slice 6: Review pass 1 | Pending | cross-project flow review after Slices 1-5 |
-| Slice 7: Review pass 2 and full gates | Pending | independent final non-E2E audit |
+| Slice 4: Flutter read model and UX | Done | strict immutable read model, compact refresh/calculation/overview evidence, explicit legacy state, no pricing artifacts or export |
+| Slice 5: Documentation and generated contracts | Done | current docs/roadmaps and all three semantic OpenAPI snapshots synchronized; strict MkDocs green |
+| Slice 6: Review pass 1 | Done | plan/data-flow review completed; demo provenance, source display, and typed enum findings fixed |
+| Slice 7: Review pass 2 and full gates | Local done; platform CI pending | all local non-E2E suites, security/static checks, Web/macOS builds, and real local read-only integration green |
 
 ### Slice 2 Verification Evidence
 
@@ -1188,7 +1182,7 @@ test invokes a deployment or provider mutation.
   8 MiB repository read limit rather than file mtime;
 - focused catalog, refresh, API, calculation, credential-forwarding, and
   repository suites passed after both review findings were fixed;
-- the complete Optimizer suite passed with `680 passed`;
+- the complete Optimizer suite passed with `681 passed`;
 - Ruff, Bandit, `compileall`, `pip check`, Compose validation, and strict
   MkDocs build passed.
 
@@ -1213,6 +1207,31 @@ test invokes a deployment or provider mutation.
   against the runtime SQLite database, strict MkDocs build, and a real
   Management-to-Optimizer local smoke check passed;
 - no deployment E2E, provider mutation, or cloud-resource creation was run.
+
+### Slice 4-7 Verification Evidence
+
+- Flutter validates the exact three-provider context, provider/region identity,
+  typed source/review/publication/calculation states, timezone-aware timestamps,
+  sorted mapping versions, digest syntax, and the cross-runtime snapshot hash;
+- Latest Refresh, Calculation Trace, and Twin Overview share one compact
+  read-only evidence widget with nested selectable technical identifiers;
+- legacy saved results show one explicit unavailable row per provider and the
+  demo never reconstructs evidence that was not persisted;
+- Flutter no longer calls an export endpoint, sends pricing payloads, or exposes
+  pricing JSON view/download actions;
+- the live OpenAPI gate proves that `providerPricingCatalogs` and
+  `providerPricingContexts` are server-owned Optimizer fields and are absent
+  from Flutter's Management API input contract;
+- review pass 1 fixed missing source provenance, a cross-provider optional
+  refresh reference, and incomplete legacy rows; review pass 2 fixed demo
+  evidence synthesis and the stale integration contract assumption;
+- full local gates passed: Optimizer `681 passed`, Management API `816 passed`,
+  Deployer `1436 passed, 1 skipped`, Flutter `655 passed`, and Flutter
+  Management API integration `10 passed`;
+- Ruff, Bandit, compile checks, dependency checks, Compose validation, scoped
+  added-line secret scan, semantic OpenAPI comparison, strict MkDocs, Web
+  release, and macOS builds passed;
+- no provider mutation, deployment E2E, or cloud-resource creation was run.
 
 ## Review Checklists
 
@@ -1243,31 +1262,31 @@ test invokes a deployment or provider mutation.
 
 ### Implementation Review Pass 1
 
-- [ ] Plan compliance review completed.
-- [ ] All global file reads and writes removed.
-- [ ] All client-authored pricing evidence removed.
-- [ ] All exact-reference data flows traced.
-- [ ] Focused tests pass after findings are fixed.
+- [x] Plan compliance review completed.
+- [x] All global file reads and writes removed.
+- [x] All client-authored pricing evidence removed.
+- [x] All exact-reference data flows traced.
+- [x] Focused tests pass after findings are fixed.
 
 ### Implementation Review Pass 2
 
-- [ ] Security, tamper, stale, concurrency, and owner-isolation review completed.
-- [ ] UX and documentation review completed.
-- [ ] Full local gates pass after findings are fixed.
+- [x] Security, tamper, stale, concurrency, and owner-isolation review completed.
+- [x] UX and documentation review completed.
+- [x] Full local gates pass after findings are fixed.
 
 ## Definition Of Done
 
-- [ ] Immutable provider-region snapshots are the only calculation pricing
+- [x] Immutable provider-region snapshots are the only calculation pricing
   SSOT.
-- [ ] Provider-wide mutable production files and lookup aliases are gone.
-- [ ] Every calculation resolves and returns exact reviewed references.
-- [ ] Existing runs remain immutable when pointers move.
-- [ ] Last-known-good and review-required state are independent by provider and
+- [x] Provider-wide mutable production files and lookup aliases are gone.
+- [x] Every calculation resolves and returns exact reviewed references.
+- [x] Existing runs remain immutable when pointers move.
+- [x] Last-known-good and review-required state are independent by provider and
   region.
-- [ ] Account observations remain owner-scoped and outside public snapshots.
-- [ ] Management, not Flutter, owns trusted context resolution and persistence.
-- [ ] Existing Europe baseline outputs remain deterministic.
-- [ ] Migration, concurrency, tamper, stale, contract, and UX tests pass.
-- [ ] All full local quality, security, build, OpenAPI, and docs gates pass.
+- [x] Account observations remain owner-scoped and outside public snapshots.
+- [x] Management, not Flutter, owns trusted context resolution and persistence.
+- [x] Existing Europe baseline outputs remain deterministic.
+- [x] Migration, concurrency, tamper, stale, contract, and UX tests pass.
+- [x] All full local quality, security, build, OpenAPI, and docs gates pass.
 - [ ] Linux and Windows Flutter CI pass after push.
-- [ ] No real cloud resource is created.
+- [x] No real cloud resource is created.

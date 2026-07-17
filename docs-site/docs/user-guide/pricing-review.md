@@ -28,6 +28,18 @@ Full catalog values are not loaded into the default screen. An authenticated
 developer can inspect one explicit snapshot through the Management API diagnostic
 endpoint when detailed troubleshooting is necessary.
 
+The same compact evidence appears in three places:
+
+- **Latest refresh** shows the one active reference produced for that provider;
+- **Calculation trace** shows the exact three-provider context used by the result;
+- **Twin Overview** preserves those references with the saved configuration.
+
+Provider, region, source, fetch time, and a shortened digest are visible after one
+expansion. Full identifiers and version metadata remain in nested technical details.
+Historical Twin Overview results without verifiable references show an explicit
+unavailable row for AWS, Azure, and GCP. They never reconstruct evidence from old
+pricing payloads.
+
 ### AWS TwinMaker Account Plan
 
 An AWS refresh observes both the public regional TwinMaker catalog and the pricing plan

@@ -1739,16 +1739,6 @@
               }
             ],
             "title": "Pricing Evidence Version"
-          },
-          "pricing_snapshots": {
-            "additionalProperties": true,
-            "title": "Pricing Snapshots",
-            "type": "object"
-          },
-          "pricing_timestamps": {
-            "additionalProperties": true,
-            "title": "Pricing Timestamps",
-            "type": "object"
           }
         },
         "required": [
@@ -1859,6 +1849,16 @@
             "additionalProperties": true,
             "title": "Params",
             "type": "object"
+          },
+          "pricing_catalog_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingCatalogContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "pricing_evidence_version": {
             "anyOf": [
@@ -2081,6 +2081,16 @@
               }
             ],
             "title": "Optimizer Config Id"
+          },
+          "pricing_catalog_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingCatalogContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "pricing_evidence_version": {
             "anyOf": [
@@ -4347,77 +4357,15 @@
             ],
             "title": "Params"
           },
-          "pricing_aws_snapshot": {
+          "pricing_catalog_context": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/PricingCatalogContext"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Pricing Aws Snapshot"
-          },
-          "pricing_aws_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Aws Updated At"
-          },
-          "pricing_azure_snapshot": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Azure Snapshot"
-          },
-          "pricing_azure_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Azure Updated At"
-          },
-          "pricing_gcp_snapshot": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Gcp Snapshot"
-          },
-          "pricing_gcp_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Gcp Updated At"
+            ]
           },
           "result": {
             "anyOf": [
@@ -4469,7 +4417,7 @@
       },
       "OptimizerResultUpdate": {
         "additionalProperties": false,
-        "description": "Save calculation result + pricing snapshots.",
+        "description": "Save a calculation result already bound to trusted catalog references.",
         "properties": {
           "cheapest_path": {
             "additionalProperties": true,
@@ -4478,16 +4426,6 @@
           },
           "params": {
             "$ref": "#/components/schemas/OptimizerCalculationParams"
-          },
-          "pricing_snapshots": {
-            "additionalProperties": true,
-            "title": "Pricing Snapshots",
-            "type": "object"
-          },
-          "pricing_timestamps": {
-            "additionalProperties": true,
-            "title": "Pricing Timestamps",
-            "type": "object"
           },
           "result": {
             "additionalProperties": true,
@@ -4498,9 +4436,7 @@
         "required": [
           "params",
           "result",
-          "cheapest_path",
-          "pricing_snapshots",
-          "pricing_timestamps"
+          "cheapest_path"
         ],
         "title": "OptimizerResultUpdate",
         "type": "object"
@@ -4871,6 +4807,144 @@
         "title": "PricingCandidateSelection",
         "type": "object"
       },
+      "PricingCatalogContext": {
+        "additionalProperties": false,
+        "description": "Exact reviewed AWS, Azure, and GCP references for one calculation.",
+        "properties": {
+          "catalogs": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Catalogs",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": "provider-pricing-catalog-context.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "catalogs"
+        ],
+        "title": "PricingCatalogContext",
+        "type": "object"
+      },
+      "PricingCatalogReference": {
+        "additionalProperties": false,
+        "description": "One immutable provider-region pricing identity.",
+        "properties": {
+          "calculationSource": {
+            "enum": [
+              "fresh",
+              "last_known_good",
+              "reviewed_baseline"
+            ],
+            "title": "Calculationsource",
+            "type": "string"
+          },
+          "contentDigest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contentdigest",
+            "type": "string"
+          },
+          "contractVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "title": "Fetchedat",
+            "type": "string"
+          },
+          "mappingVersions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mappingversions",
+            "type": "array"
+          },
+          "pricingRegion": {
+            "pattern": "^[a-z][a-z0-9-]{1,62}$",
+            "title": "Pricingregion",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "providerSchemaVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Providerschemaversion",
+            "type": "string"
+          },
+          "publicationStatus": {
+            "const": "published",
+            "title": "Publicationstatus",
+            "type": "string"
+          },
+          "registryVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Registryversion",
+            "type": "string"
+          },
+          "reviewStatus": {
+            "const": "reviewed",
+            "title": "Reviewstatus",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "pricing-catalog-reference.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "snapshotId": {
+            "pattern": "^pcs_[0-9a-f]{64}$",
+            "title": "Snapshotid",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "provider_api",
+              "official_static_documentation",
+              "official_calculator_reference",
+              "curated_model_constant",
+              "reviewed_baseline"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "snapshotId",
+          "provider",
+          "pricingRegion",
+          "providerSchemaVersion",
+          "contractVersion",
+          "registryVersion",
+          "mappingVersions",
+          "fetchedAt",
+          "contentDigest",
+          "source",
+          "reviewStatus",
+          "publicationStatus",
+          "calculationSource"
+        ],
+        "title": "PricingCatalogReference",
+        "type": "object"
+      },
       "PricingCredentialSummary": {
         "properties": {
           "connection_id": {
@@ -4982,6 +5056,16 @@
               }
             ],
             "title": "Field Trace Schema Version"
+          },
+          "pricing_catalog_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingCatalogContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "profile": {
             "additionalProperties": true,
@@ -6096,6 +6180,7 @@
               "fresh",
               "stale",
               "last_known_good",
+              "reviewed_baseline",
               "fallback_static",
               "unavailable"
             ],
@@ -6213,6 +6298,7 @@
               "fresh",
               "stale",
               "last_known_good",
+              "reviewed_baseline",
               "fallback_static",
               "unavailable"
             ],
@@ -8523,7 +8609,7 @@
     },
     "/config/validate-inline": {
       "post": {
-        "description": "**Purpose:** Validate credentials provided in request body without saving them to database.\n\n**When to call:** When user wants to test credentials before saving a new twin, or preview validation.\n\n**Request body:**\n- `provider`: 'aws', 'azure', or 'gcp'\n- `aws`/`azure`/`gcp`: Credential object matching the provider\n\n**Flow:**\n1. Takes plaintext credentials from request body\n2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n3. Returns result without storing anything\n\n**Use case:** Validate credentials → get result → if valid, decide to save via `updateTwinConfig`.",
+        "description": "**Purpose:** Validate credentials provided in request body without saving them to database.\n\n**When to call:** When user wants to test credentials before saving a new twin, or preview validation.\n\n**Request body:**\n- `provider`: 'aws', 'azure', or 'gcp'\n- `aws`/`azure`/`gcp`: Credential object matching the provider\n\n**Flow:**\n1. Takes plaintext credentials from request body\n2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n3. Returns result without storing anything\n\n**Use case:** Validate credentials \u2192 get result \u2192 if valid, decide to save via `updateTwinConfig`.",
         "operationId": "validateInlineCredentials",
         "parameters": [
           {
@@ -8867,22 +8953,6 @@
       "get": {
         "operationId": "getPricingHealth",
         "parameters": [
-          {
-            "in": "query",
-            "name": "twin_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Twin Id"
-            }
-          },
           {
             "in": "header",
             "name": "authorization",
@@ -9265,27 +9335,9 @@
     },
     "/optimizer/pricing-review-state": {
       "get": {
-        "description": "**Purpose:** Expose pricing quality/freshness as typed state for UI and calculation guards.\n\n**When to call:** Before calculation and after pricing refresh.\n\n**Response fields per provider:**\n- `state`: `fresh`, `stale`, `review_required`, `missing`, or `failed`\n- `review_required`: true when user-visible review/action is needed\n- `can_calculate`: true when fresh, stale, or last-known-good pricing can be used\n- `calculation_source`: source used by calculations (`fresh`, `stale`, `last_known_good`, `fallback_static`, `unavailable`)\n- `review_reasons`: structured reasons such as missing keys or failed Optimizer status",
+        "description": "**Purpose:** Expose pricing quality/freshness as typed state for UI and calculation guards.\n\n**When to call:** Before calculation and after pricing refresh.\n\n**Response fields per provider:**\n- `state`: `fresh`, `stale`, `review_required`, `missing`, or `failed`\n- `review_required`: true when user-visible review/action is needed\n- `can_calculate`: true only when an exact published catalog is fresh\n- `calculation_source`: immutable catalog source or `unavailable`\n- `review_reasons`: structured reasons such as missing keys or failed Optimizer status",
         "operationId": "getPricingReviewState",
         "parameters": [
-          {
-            "description": "Twin ID used to resolve last-known-good pricing snapshots",
-            "in": "query",
-            "name": "twin_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Twin ID used to resolve last-known-good pricing snapshots",
-              "title": "Twin Id"
-            }
-          },
           {
             "in": "header",
             "name": "authorization",
@@ -9330,22 +9382,6 @@
             },
             "description": "Unauthorized - Authentication credentials are missing or invalid"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
           "422": {
             "content": {
               "application/json": {
@@ -9356,8 +9392,14 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "description": "Optimizer contract or request failed"
+          },
           "503": {
             "description": "Cannot connect to Optimizer service"
+          },
+          "504": {
+            "description": "Optimizer service timed out"
           }
         },
         "summary": "Get typed pricing review state for all providers",
@@ -9869,7 +9911,7 @@
     },
     "/optimizer/pricing-status": {
       "get": {
-        "description": "**Purpose:** Check freshness of cached pricing data before calculations.\n\n**When to call:** Before `calculateOptimalDistribution` to decide if `refreshPricing` is needed.\n\n**Response fields per provider:**\n- `age`: Human-readable age (e.g., '3 days')\n- `is_fresh`: Boolean, true if cached data < 7 days old\n- `status`: 'valid', 'incomplete', 'missing', or 'error'",
+        "description": "**Purpose:** Check the exact immutable catalog selected for each provider before calculations.\n\n**When to call:** Before `calculateOptimalDistribution` to decide if `refreshPricing` is needed.\n\n**Response fields per provider:**\n- `age`: Human-readable age (e.g., '3 days')\n- `is_fresh`: Boolean, true only while the catalog is calculation-eligible\n- `active_reference`: Exact provider, region, version, timestamp, and digest identity",
         "operationId": "getPricingStatus",
         "parameters": [
           {
@@ -9924,20 +9966,26 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "description": "Optimizer contract or request failed"
+          },
           "503": {
             "description": "Cannot connect to Optimizer service"
+          },
+          "504": {
+            "description": "Optimizer service timed out"
           }
         },
-        "summary": "Get pricing cache status for all providers",
+        "summary": "Get active pricing catalog status for all providers",
         "tags": [
           "optimizer"
         ]
       }
     },
-    "/optimizer/pricing/export/{provider}": {
+    "/optimizer/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}": {
       "get": {
-        "description": "**Purpose:** Export full pricing data for a provider to store as snapshot with calculation results.\n\n**When to call:** After `calculateOptimalDistribution` to preserve the pricing data used.\n\n**Path parameter:** provider = 'aws', 'azure', or 'gcp'",
-        "operationId": "exportPricingSnapshot",
+        "description": "Returns one explicitly identified, size-bounded provider-region snapshot for authenticated diagnostics. Calculations and persistence use references only.",
+        "operationId": "getExactPricingCatalogSnapshot",
         "parameters": [
           {
             "in": "path",
@@ -9945,6 +9993,24 @@
             "required": true,
             "schema": {
               "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pricing_region",
+            "required": true,
+            "schema": {
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
               "type": "string"
             }
           },
@@ -10006,6 +10072,9 @@
             },
             "description": "Unauthorized - Authentication credentials are missing or invalid"
           },
+          "404": {
+            "description": "Exact pricing catalog does not exist"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -10016,11 +10085,17 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "description": "Optimizer contract or request failed"
+          },
           "503": {
             "description": "Cannot connect to Optimizer service"
+          },
+          "504": {
+            "description": "Optimizer service timed out"
           }
         },
-        "summary": "Export pricing data for snapshotting",
+        "summary": "Inspect one exact immutable pricing catalog snapshot",
         "tags": [
           "optimizer"
         ]
@@ -13252,7 +13327,7 @@
     },
     "/twins/{twin_id}/optimizer-config/": {
       "get": {
-        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n**Response fields:**\n- `params`: The canonical calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_*_snapshot`: Pricing data used at calculation time\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
+        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n**Response fields:**\n- `params`: The canonical calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_catalog_context`: Exact immutable pricing references used\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
         "operationId": "getOptimizerConfig",
         "parameters": [
           {
@@ -13535,7 +13610,7 @@
     },
     "/twins/{twin_id}/optimizer-config/result": {
       "put": {
-        "description": "**Purpose:** Persist the complete optimization result after `calculateOptimalDistribution` returns.\n\n**When to call:** Immediately after receiving successful response from `calculateOptimalDistribution`.\n\n**Request body:**\n- `params`: The parameters used for this calculation\n- `result`: Full calculation response (awsCosts, azureCosts, gcpCosts, combinationTables)\n- `cheapest_path`: Object with l1, l2, l3_hot, l3_cool, l3_archive, l4, l5 provider names\n- `pricing_snapshots`: {aws: {...}, azure: {...}, gcp: {...}} pricing data used\n- `pricing_timestamps`: {aws: ISO, azure: ISO, gcp: ISO} when pricing was fetched\n\n**Important:** This enables Step 3 (Deployer) by storing the cheapest_path used for deployment.",
+        "description": "**Purpose:** Persist the complete optimization result after `calculateOptimalDistribution` returns.\n\n**When to call:** Immediately after receiving successful response from `calculateOptimalDistribution`.\n\n**Request body:**\n- `params`: The parameters used for this calculation\n- `result`: Full calculation response (awsCosts, azureCosts, gcpCosts, combinationTables)\n- `cheapest_path`: Object with l1, l2, l3_hot, l3_cool, l3_archive, l4, l5 provider names\n- `result.pricingCatalogs`: Exact references returned by the Optimizer\n\n**Important:** This enables Step 3 (Deployer) by storing the cheapest_path used for deployment.",
         "operationId": "saveOptimizerResult",
         "parameters": [
           {
@@ -14150,6 +14225,12 @@
               }
             },
             "description": "Validation Error"
+          },
+          "502": {
+            "description": "Pricing catalog verification failed"
+          },
+          "503": {
+            "description": "Optimizer unavailable"
           }
         },
         "summary": "Select a successful optimizer run as deployment handoff source",
