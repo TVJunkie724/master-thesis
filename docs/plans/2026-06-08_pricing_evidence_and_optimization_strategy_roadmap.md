@@ -202,7 +202,7 @@ first-class.
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
 | 16 | `2026-06-21_intent_to_result_traceability.md` | implemented (#100) | Expose bounded, secret-free calculation trace metadata from intent to selected result |
 | 17 | `2026-07-17_azure_digital_twins_billable_quantity_contract.md` | implemented (#114) | Replace fabricated Azure query tiers with explicit billable-quantity inputs, 1 KB increments, and traceability |
-| 18 | `2026-07-17_aws_twinmaker_pricing_plan_contract.md` | planned (#115) | Align AWS TwinMaker estimates with functional and account-scoped pricing-plan semantics |
+| 18 | `2026-07-17_aws_twinmaker_pricing_plan_contract.md` | implemented locally (#115); platform CI pending | Align AWS TwinMaker estimates with functional and account-scoped pricing-plan semantics |
 | 18.1 | Plan created after Phase 18 completion | planned (#119) | Replace mutable provider-wide pricing files with immutable provider-and-region keyed catalog snapshots and deterministic calculation bindings |
 | 19 | Plan created after Phase 18.1 completion | planned (#116) | Resolve transfer cost through explicit route, region, transfer-class, and network-tier contracts |
 | 20 | Plan created after Phase 19 completion | planned (#118) | Bind deployable service selections from the selected optimization run to the DeploymentManifest and Terraform |

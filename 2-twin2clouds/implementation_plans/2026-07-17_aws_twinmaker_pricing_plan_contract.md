@@ -1075,38 +1075,55 @@ documents, not the general user/developer documentation.
 
 ### Implementation Review Pass 1
 
-- [ ] Compare implementation line-by-line with this contract.
-- [ ] Trace all AWS TwinMaker pricing keys and remove flat production aliases.
-- [ ] Trace every account-context write/read path for owner isolation.
-- [ ] Verify no mutating TwinMaker API exists.
-- [ ] Run targeted tests and fix all findings.
+- [x] Compare implementation line-by-line with this contract.
+- [x] Trace all AWS TwinMaker pricing keys and remove flat production aliases.
+- [x] Trace every account-context write/read path for owner isolation.
+- [x] Verify no mutating TwinMaker API exists.
+- [x] Run targeted tests and fix all findings.
 
 ### Implementation Review Pass 2
 
-- [ ] Review error handling, redaction, timestamps, concurrency, and stale data.
-- [ ] Review calculation comparability and candidate exclusion.
-- [ ] Review API/UI diagnostics for misleading plan-change affordances.
-- [ ] Run full project gates and fix all findings.
+- [x] Review error handling, redaction, timestamps, concurrency, and stale data.
+- [x] Review calculation comparability and candidate exclusion.
+- [x] Review API/UI diagnostics for misleading plan-change affordances.
+- [x] Run full local project gates and fix all findings.
 
 ## Definition Of Done
 
-- [ ] Public TwinMaker rates and account plan observations have separate SSOTs.
-- [ ] The full Standard and TIER_1-TIER_4 Price List contract is exact and
+- [x] Public TwinMaker rates and account plan observations have separate SSOTs.
+- [x] The full Standard and TIER_1-TIER_4 Price List contract is exact and
   evidence-backed.
-- [ ] `GetPricingPlan` is least-privilege, read-only, tested, and redacted.
-- [ ] Basic cannot participate in the semantic L4 comparison.
-- [ ] Standard calculation uses the observed account mode.
-- [ ] Tiered Bundle has a correct pure account calculator but remains
+- [x] `GetPricingPlan` is least-privilege, read-only, tested, and redacted.
+- [x] Basic cannot participate in the semantic L4 comparison.
+- [x] Standard calculation uses the observed account mode.
+- [x] Tiered Bundle has a correct pure account calculator but remains
   non-comparable without explicit aggregate allocation context.
-- [ ] Pending changes and stale/mismatched evidence fail closed.
-- [ ] AWS account observation, connection, and public catalog use the same
+- [x] Pending changes and stale/mismatched evidence fail closed.
+- [x] AWS account observation, connection, and public catalog use the same
   canonical region and verified digest.
-- [ ] Calculation traces and Flutter diagnostics expose the relevant plan state.
-- [ ] AWS L4 deployment selection cannot use a stale or different observed plan.
-- [ ] No plan is changed, no cloud resource is deployed, and no secret is
+- [x] Calculation traces and Flutter diagnostics expose the relevant plan state.
+- [x] AWS L4 deployment selection cannot use a stale or different observed plan.
+- [x] No plan is changed, no cloud resource is deployed, and no secret is
   persisted outside the existing encrypted CloudConnection store.
-- [ ] Optimizer, Management API, and Deployer non-E2E test suites pass.
-- [ ] Flutter analyze, tests, Web build, and local desktop build pass.
+- [x] Optimizer, Management API, and Deployer non-E2E test suites pass.
+- [x] Flutter analyze, tests, Web build, and local desktop build pass.
 - [ ] Linux and Windows Flutter CI gates pass after push.
-- [ ] Bandit, OpenAPI, MkDocs strict, link, and secret-scan gates pass.
-- [ ] The bounded read-only AWS smoke verifies plan and exact price extraction.
+- [x] Bandit, OpenAPI, MkDocs strict, link, and scoped secret-scan gates pass.
+- [x] The bounded read-only AWS smoke verifies plan and exact price extraction.
+
+## Implementation Evidence
+
+Local final gates on 2026-07-17:
+
+- Optimizer: 647 tests; production and test Ruff gates; production Bandit.
+- Management API: 803 tests; Ruff; production Bandit.
+- Deployer: 1,436 non-E2E tests with one skip; scoped Ruff; production Bandit.
+- Flutter: 645 tests; `flutter analyze`; Web release; macOS release; static
+  architecture gate.
+- Contracts and docs: all three live OpenAPI documents match their committed
+  deterministic snapshots; strict MkDocs build passes.
+- Provider verification: bounded read-only AWS Price List and
+  `GetPricingPlan` smoke; no mutating API and no deployment endpoint invoked.
+
+Linux and Windows Flutter builds remain an explicit post-push CI gate and are
+not claimed by this local implementation record.
