@@ -7,7 +7,24 @@ from backend.calculation_v2.currency import apply_result_currency
 
 def _result_payload() -> dict:
     return {
-        "awsCosts": {"L1": {"cost": 10.0, "components": {"iot": 4.0}}},
+        "awsCosts": {
+            "L1": {
+                "cost": 10.0,
+                "components": {"iot": 4.0},
+                "details": {
+                    "calculation": {
+                        "currency": "USD",
+                        "dimensions": [
+                            {
+                                "quantity": 2,
+                                "unitPrice": 2.0,
+                                "contribution": 4.0,
+                            }
+                        ],
+                    }
+                },
+            }
+        },
         "azureCosts": {"L1": {"cost": 8.0, "components": {"iot": 3.0}}},
         "gcpCosts": {"L1": {"cost": 9.0, "components": {"iot": 2.0}}},
         "transferCosts": {"L1_to_L2": 2.0},
@@ -41,6 +58,12 @@ def test_eur_conversion_updates_costs_and_trace_metadata(tmp_path):
     assert result["totalCost"] == 8.0
     assert result["awsCosts"]["L1"]["cost"] == 8.0
     assert result["awsCosts"]["L1"]["components"]["iot"] == 3.2
+    calculation = result["awsCosts"]["L1"]["details"]["calculation"]
+    assert calculation["dimensions"][0]["quantity"] == 2
+    assert calculation["dimensions"][0]["unitPrice"] == 1.6
+    assert calculation["dimensions"][0]["contribution"] == 3.2
+    assert calculation["sourceCurrency"] == "USD"
+    assert calculation["currency"] == "EUR"
     assert result["transferCosts"]["L1_to_L2"] == 1.6
     assert result["intentTrace"]["records"][0]["contribution"]["cost"] == 6.4
     assert result["resultTrace"][0]["cost_contribution"] == 6.4

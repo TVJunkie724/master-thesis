@@ -77,9 +77,9 @@ mappings:
     normalization_rule: per_api_call
     expected_cardinality: one_per_region
     match: {service_code: AWSIoTTwinMaker, usage_type_suffix: IoTTwinMaker-UnifiedDataAccess}
-  - intent_id: digital_twin.query_unit
+  - intent_id: digital_twin.query
     review_status: reviewed
-    normalization_rule: per_query_unit
+    normalization_rule: per_query
     expected_cardinality: one_per_region
     match: {service_code: AWSIoTTwinMaker, usage_type_suffix: IoTTwinMaker-Queries}
   - intent_id: digital_twin.account_bundle_month

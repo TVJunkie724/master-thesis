@@ -530,7 +530,7 @@ When Management has no trusted observation it sends:
 ```json
 {
   "status": "unavailable",
-  "reasonCode": "NO_SUCCESSFUL_ACCOUNT_PLAN_OBSERVATION"
+  "reasonCode": "AWS_TWINMAKER_PLAN_UNOBSERVED"
 }
 ```
 

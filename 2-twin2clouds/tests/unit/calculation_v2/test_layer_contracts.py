@@ -122,3 +122,21 @@ def test_layer_result_owns_an_immutable_component_snapshot():
     assert result.components == {"service": 1.0}
     with pytest.raises(TypeError):
         result.components["service"] = 3
+
+
+def test_layer_result_owns_a_deeply_immutable_detail_snapshot():
+    details = {"diagnostic": {"states": ["ready"]}}
+    result = LayerResult(
+        provider="AWS",
+        layer="L1",
+        total_cost=1,
+        details=details,
+    )
+
+    details["diagnostic"]["states"].append("changed")
+
+    assert result.details_as_dict() == {
+        "diagnostic": {"states": ["ready"]}
+    }
+    with pytest.raises(TypeError):
+        result.details["diagnostic"]["state"] = "changed"

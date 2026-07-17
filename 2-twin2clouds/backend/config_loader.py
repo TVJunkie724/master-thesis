@@ -50,6 +50,7 @@ def load_combined_pricing():
         "aws": strip_pricing_metadata(aws_pricing),
         "azure": strip_pricing_metadata(azure_pricing),
         "gcp": strip_pricing_metadata(gcp_pricing),
+        "__aws_schema__": dict(aws_pricing.get("__schema__") or {}),
     }
     
     return combined

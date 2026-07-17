@@ -77,6 +77,21 @@ def test_twinmaker_bundle_contract_is_account_scoped_and_composite():
     ]
 
 
+def test_aws_twinmaker_queries_are_not_modeled_as_query_units():
+    registry = load_pricing_registry()
+    contract = registry.provider_pricing_contracts[
+        "aws.digital_twin_query.pricing_contract.v1"
+    ]
+
+    assert contract["field"] == "digital_twin.query"
+    assert contract["calculation_component"] == "digital_twin_queries"
+    assert "query_unit" not in contract["calculation_component"]
+    assert contract["consumed_workload_fields"] == [
+        "monthly_digital_twin_queries"
+    ]
+    assert "digital_twin.query_unit" not in registry.provider_mappings["aws"]
+
+
 def test_fallback_static_source_cannot_be_publishable(tmp_path):
     root = _copy_registry(tmp_path)
     path = root / "price_source_classifications.yaml"

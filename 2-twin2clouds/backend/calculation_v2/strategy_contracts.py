@@ -493,9 +493,9 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "iotTwinMaker",
             "AWS IoT TwinMaker entity, query, and API pricing.",
             (
-                _field("entity", ("aws", "iotTwinMaker", "entityPrice"), "usd/entity_month", "usd/entity_month", "entities", aliases=(("aws", "iotTwinMaker", "pricePerEntity"),)),
-                _field("query", ("aws", "iotTwinMaker", "queryPrice"), "usd/query", "usd/query", "queries"),
-                _field("api_call", ("aws", "iotTwinMaker", "unifiedDataAccessAPICallsPrice"), "usd/action", "usd/action", "api_calls"),
+                _field("entity", ("aws", "iotTwinMaker", "usageRates", "entityPricePerMonth"), "usd/entity_month", "usd/entity_month", "entities"),
+                _field("query", ("aws", "iotTwinMaker", "usageRates", "queryPrice"), "usd/query", "usd/query", "queries"),
+                _field("api_call", ("aws", "iotTwinMaker", "usageRates", "unifiedDataAccessApiCallPrice"), "usd/action", "usd/action", "api_calls"),
             ),
         ),
         _intent(

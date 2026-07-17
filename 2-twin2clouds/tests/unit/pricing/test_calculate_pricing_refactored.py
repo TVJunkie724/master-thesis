@@ -1,6 +1,6 @@
 import pytest
-import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 import backend.constants as CONSTANTS
 
@@ -21,14 +21,20 @@ def test_calculate_pricing_aws_centralized_loading(
     and passes it to fetch_aws_data.
     """
     # Mock Credentials
-    mock_load_creds.return_value = {"aws": {"access_key": "test"}}
+    mock_load_creds.return_value = {
+        "aws": {
+            "aws_access_key_id": "test-access-key",
+            "aws_secret_access_key": "test-secret-key",
+            "aws_region": "eu-central-1",
+        }
+    }
     
     # Mock Service Mapping
     mock_load_mapping.return_value = {"iot": {"aws": "iotCore"}}
     
     # Mock Region Map Loading
     # We expect load_json_file to be called with AWS_REGIONS_FILE_PATH
-    expected_region_map = {"us-east-1": "US East (N. Virginia)"}
+    expected_region_map = {"eu-central-1": "EU (Frankfurt)"}
     
     def load_json_side_effect(path):
         if path == CONSTANTS.AWS_REGIONS_FILE_PATH:
@@ -38,10 +44,27 @@ def test_calculate_pricing_aws_centralized_loading(
     mock_load_json.side_effect = load_json_side_effect
     
     # Mock Fetcher
-    mock_fetch_aws.return_value = {"service": "data"}
+    mock_fetch_aws.return_value = {
+        "service": "data",
+        "__schema__": {
+            "pricing_region": "eu-central-1",
+            "snapshot_digest": "sha256:" + ("a" * 64),
+        },
+    }
     
     # Execute
-    calculate_up_to_date_pricing("aws")
+    with (
+        patch(
+            "backend.fetch_data.calculate_up_to_date_pricing.build_aws_session",
+            return_value=object(),
+        ),
+        patch(
+            "backend.fetch_data.calculate_up_to_date_pricing."
+            "observe_aws_twinmaker_pricing_plan",
+            return_value={"schema_version": "test-context.v1"},
+        ),
+    ):
+        calculate_up_to_date_pricing("aws")
     
     # Verify
     # 1. Check that region map was loaded

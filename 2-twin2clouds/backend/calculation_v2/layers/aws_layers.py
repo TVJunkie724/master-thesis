@@ -26,6 +26,7 @@ from ..components.aws import (
     AWSTwinMakerCalculator,
     AWSGrafanaCalculator,
 )
+from ..components.aws.twinmaker import evaluate_twinmaker_context
 
 class AWSLayerCalculators(BaseLayerCalculatorSet):
     """
@@ -376,14 +377,28 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         entity_count: int,
         queries_per_month: float,
         api_calls_per_month: float,
-        pricing: Dict[str, Any]
+        pricing: Dict[str, Any],
+        account_pricing_context: Dict[str, Any] | None = None,
     ) -> LayerResult:
         """
         Calculate L4 Twin Management layer cost.
         
         Components: IoT TwinMaker
         """
-        tm_cost = self.twinmaker.calculate_cost(
+        evaluation = evaluate_twinmaker_context(
+            account_pricing_context,
+            pricing,
+        )
+        if not evaluation.comparable:
+            return self._result(
+                layer="L4",
+                total_cost=0,
+                components={},
+                details={"pricingContext": dict(evaluation.diagnostic)},
+                unsupported_reason=evaluation.reason_code,
+            )
+
+        breakdown = self.twinmaker.calculate_standard_cost(
             entity_count=entity_count,
             queries_per_month=queries_per_month,
             api_calls_per_month=api_calls_per_month,
@@ -392,8 +407,44 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         
         return self._result(
             layer="L4",
-            total_cost=tm_cost,
-            components={"twinmaker": tm_cost}
+            total_cost=breakdown.total,
+            components={
+                "twinmaker": breakdown.total,
+                "twinmaker_entities": breakdown.entity_cost,
+                "twinmaker_queries": breakdown.query_cost,
+                "twinmaker_api_calls": breakdown.api_call_cost,
+            },
+            details={
+                "pricingContext": dict(evaluation.diagnostic),
+                "calculation": {
+                    "pricingMode": "STANDARD",
+                    "currency": "USD",
+                    "period": "month",
+                    "dimensions": [
+                        {
+                            "intentId": "digital_twin.entity_month",
+                            "quantity": breakdown.entity_count,
+                            "unit": "entity_month",
+                            "unitPrice": breakdown.entity_price_per_month,
+                            "contribution": breakdown.entity_cost,
+                        },
+                        {
+                            "intentId": "digital_twin.query",
+                            "quantity": breakdown.queries_per_month,
+                            "unit": "query",
+                            "unitPrice": breakdown.query_price,
+                            "contribution": breakdown.query_cost,
+                        },
+                        {
+                            "intentId": "digital_twin.api_call",
+                            "quantity": breakdown.api_calls_per_month,
+                            "unit": "api_call",
+                            "unitPrice": breakdown.api_call_price,
+                            "contribution": breakdown.api_call_cost,
+                        },
+                    ],
+                },
+            },
         )
     
     def calculate_l5_cost(

@@ -26,6 +26,32 @@ def _validate_non_negative_number(name: str, value: Any) -> float:
     return normalized
 
 
+def _freeze_detail_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        frozen: dict[str, Any] = {}
+        for key, nested in value.items():
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError(
+                    "Layer result detail names must be non-empty strings"
+                )
+            frozen[key] = _freeze_detail_value(nested)
+        return MappingProxyType(frozen)
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_detail_value(item) for item in value)
+    return value
+
+
+def _plain_detail_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _plain_detail_value(nested)
+            for key, nested in value.items()
+        }
+    if isinstance(value, tuple):
+        return [_plain_detail_value(item) for item in value]
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class LayerResult:
     """Canonical result returned by every provider layer calculator."""
@@ -36,6 +62,7 @@ class LayerResult:
     data_size_gb: float = 0.0
     messages: float = 0.0
     components: Mapping[str, float] = field(default_factory=dict)
+    details: Mapping[str, Any] = field(default_factory=dict)
     supported: bool = True
     unsupported_reason: str | None = None
 
@@ -64,6 +91,13 @@ class LayerResult:
             "components",
             MappingProxyType(normalized_components),
         )
+        if not isinstance(self.details, Mapping):
+            raise ValueError("Layer result details must be a mapping")
+        object.__setattr__(
+            self,
+            "details",
+            _freeze_detail_value(self.details),
+        )
 
         if not isinstance(self.supported, bool):
             raise ValueError("Layer result supported state must be boolean")
@@ -78,6 +112,11 @@ class LayerResult:
             raise ValueError("Supported layer results cannot declare an unsupported reason")
         if not self.supported and not normalized_reason:
             raise ValueError("Unsupported layer results require an explicit reason")
+
+    def details_as_dict(self) -> dict[str, Any]:
+        """Return a detached JSON-compatible details projection."""
+
+        return _plain_detail_value(self.details)
 
 
 class BaseLayerCalculatorSet:
@@ -113,6 +152,7 @@ class BaseLayerCalculatorSet:
         data_size_gb: float = 0.0,
         messages: float = 0.0,
         components: Mapping[str, float] | None = None,
+        details: Mapping[str, Any] | None = None,
         unsupported_reason: str | None = None,
     ) -> LayerResult:
         return LayerResult(
@@ -122,7 +162,8 @@ class BaseLayerCalculatorSet:
             data_size_gb=data_size_gb,
             messages=messages,
             components=components or {},
-            supported=self.supports(layer),
+            details=details or {},
+            supported=self.supports(layer) and unsupported_reason is None,
             unsupported_reason=unsupported_reason,
         )
 

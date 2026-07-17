@@ -74,6 +74,8 @@ def _layer_result_payload(
         payload["dataSizeInGB"] = data_size_gb
     if result.unsupported_reason is not None:
         payload["unsupportedReason"] = result.unsupported_reason
+    if result.details:
+        payload["details"] = result.details_as_dict()
     return payload
 
 
@@ -301,7 +303,12 @@ def calculate_aws_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
         entity_count=params.get("entityCount", 1),
         queries_per_month=derived["queries_per_month"],
         api_calls_per_month=derived["queries_per_month"],
-        pricing=pricing
+        pricing=pricing,
+        account_pricing_context=(
+            params.get("providerPricingContexts", {}).get("awsTwinMaker")
+            if isinstance(params.get("providerPricingContexts"), Mapping)
+            else None
+        ),
     )
     
     # L5: Visualization
@@ -323,6 +330,11 @@ def calculate_aws_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
         "L4": _layer_result_payload(l4),
         "L5": _layer_result_payload(l5),
         "totalMessagesPerMonth": derived["total_messages_per_month"],
+        "providerPricingContext": (
+            l4.details_as_dict().get("pricingContext")
+            if isinstance(l4.details, Mapping)
+            else None
+        ),
     }
 
 
@@ -791,6 +803,9 @@ def calculate_cheapest_costs(
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,
         "gcpCosts": gcp_costs,
+        "providerPricingContexts": {
+            "awsTwinMaker": aws_costs.get("providerPricingContext"),
+        },
         "transferCosts": transfer_costs,
         "cheapestPath": cheapest_path,
         "totalCost": round(total_cost, 2),

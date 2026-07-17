@@ -42,13 +42,28 @@ _FIELD_RESULT_MAP = {
         "L4",
         {"azure": "digital_twins_routed_messages"},
     ),
+    "digital_twin.entity_month": (
+        "L4",
+        {"aws": "twinmaker_entities"},
+    ),
+    "digital_twin.api_call": (
+        "L4",
+        {"aws": "twinmaker_api_calls"},
+    ),
+    "digital_twin.query": (
+        "L4",
+        {"aws": "twinmaker_queries"},
+    ),
     "digital_twin.query_unit": (
         "L4",
         {
-            "aws": "twinmaker",
             "azure": "digital_twins_query_units",
             "gcp": "self_hosted_twin",
         },
+    ),
+    "digital_twin.account_bundle_month": (
+        "L4",
+        {"aws": "twinmaker"},
     ),
     "grafana.editor_user_month": (
         "L5",
@@ -76,6 +91,9 @@ _WORKLOAD_VALUE_MAP = {
     "monthly_events": "total_messages_per_month",
     "monthly_digital_twin_billable_operations": "monthly_digital_twin_billable_operations",
     "monthly_digital_twin_routed_messages": "monthly_digital_twin_routed_messages",
+    "digital_twin_entity_months": "entityCount",
+    "monthly_digital_twin_api_calls": "queries_per_month",
+    "monthly_digital_twin_queries": "queries_per_month",
     "monthly_digital_twin_query_units": "monthly_digital_twin_query_units",
     "editor_user_months": "amountOfActiveEditors",
     "viewer_user_months": "amountOfActiveViewers",
@@ -132,73 +150,168 @@ def _trace_item(
     result_field, component_keys = _FIELD_RESULT_MAP.get(
         field, (contract["layer"], None)
     )
-    contribution = _cost_contribution(
-        provider=provider,
-        result_field=result_field,
-        component_keys=component_keys,
-        result_payload=result_payload,
-    )
-    selection_status = _selection_status(
-        provider=provider,
-        result_field=result_field,
-        result_payload=result_payload,
-    )
-    formula_ref = (contract.get("allowed_formula_refs") or ["unknown"])[0]
-    return _sanitize_value(
-        {
-            "trace_id": f"{provider}.{field}.{result_field}.v1",
-            "provider": provider,
-            "layer": contract["layer"],
-            "service": contract["service"],
-            "intent_id": field,
-            "workload_contract_id": execution_context.workload_contract_id,
-            "workload_inputs": _workload_inputs(contract, params, derived_params),
-            "optimization_profile_id": execution_context.optimization_profile_id,
-            "calculation_strategy_id": execution_context.calculation_strategy_id,
-            "formula_set_id": execution_context.formula_set_id,
-            "formula_ref": formula_ref,
-            "provider_pricing_contract_id": contract["id"],
-            "pricing_model_classification_id": model["id"],
-            "price_source_classification_ids": [source["id"]],
-            "selected_evidence_id": _selected_evidence_id(source),
-            "selected_evidence_summary": _selected_evidence_summary(source),
-            "alternative_record_ids": [],
-            "rejected_evidence_ids": [],
-            "normalization_steps": [
-                {"normalization_rule": rule}
-                for rule in contract.get("normalization_rules") or []
-            ],
-            "result_field": result_field,
-            "result_component_key": contribution["component_key"],
-            "cost_contribution": contribution["amount"],
-            "cost_contribution_scope": contribution["scope"],
-            "cost_contribution_is_additive": False,
-            "selection_status": selection_status,
-            "selected_for_path": selection_status == "selected",
-            "currency": source.get("currency") or "USD",
-            "output_metric_unit": contract.get("output_metric_unit"),
-            "publishability_status": (
-                "publishable"
-                if model.get("publishable") and source.get("publishable")
-                else "not_publishable"
-            ),
-            "verification_gates": _verification_gates(model, source),
-            "verification_gate": "G7_CALCULATION_READINESS",
-            "verification_status": "passed"
-            if model.get("publishable") and source.get("publishable")
-            else "failed",
-            "verification_error_code": None
-            if model.get("publishable") and source.get("publishable")
-            else "UNPUBLISHABLE_SOURCE_STATE",
-            "verification_error_message": None
-            if model.get("publishable") and source.get("publishable")
-            else "Trace source or model is not publishable.",
-            "source_build_path": source.get("expected_build_path"),
-            "source_type": source.get("source_type"),
-            "runtime_selected_evidence_available": False,
-            "evidence_reference_kind": "registry_contract_reference",
+    applicability = _runtime_applicability(contract, result_payload)
+    if applicability["applicable"]:
+        contribution = _cost_contribution(
+            provider=provider,
+            result_field=result_field,
+            component_keys=component_keys,
+            result_payload=result_payload,
+        )
+        selection_status = _selection_status(
+            provider=provider,
+            result_field=result_field,
+            result_payload=result_payload,
+        )
+    else:
+        contribution = {
+            "amount": 0.0,
+            "scope": "not_applicable",
+            "component_key": None,
         }
+        provider_status = _selection_status(
+            provider=provider,
+            result_field=result_field,
+            result_payload=result_payload,
+        )
+        selection_status = (
+            "unsupported"
+            if provider_status == "unsupported"
+            else "not_applicable"
+        )
+    formula_ref = (contract.get("allowed_formula_refs") or ["unknown"])[0]
+    payload = {
+        "trace_id": f"{provider}.{field}.{result_field}.v1",
+        "provider": provider,
+        "layer": contract["layer"],
+        "service": contract["service"],
+        "intent_id": field,
+        "workload_contract_id": execution_context.workload_contract_id,
+        "workload_inputs": _workload_inputs(contract, params, derived_params),
+        "optimization_profile_id": execution_context.optimization_profile_id,
+        "calculation_strategy_id": execution_context.calculation_strategy_id,
+        "formula_set_id": execution_context.formula_set_id,
+        "formula_ref": formula_ref,
+        "provider_pricing_contract_id": contract["id"],
+        "pricing_model_classification_id": model["id"],
+        "price_source_classification_ids": [source["id"]],
+        "selected_evidence_id": _selected_evidence_id(source),
+        "selected_evidence_summary": _selected_evidence_summary(source),
+        "alternative_record_ids": [],
+        "rejected_evidence_ids": [],
+        "normalization_steps": [
+            {"normalization_rule": rule}
+            for rule in contract.get("normalization_rules") or []
+        ],
+        "result_field": result_field,
+        "result_component_key": contribution["component_key"],
+        "cost_contribution": contribution["amount"],
+        "cost_contribution_scope": contribution["scope"],
+        "cost_contribution_is_additive": False,
+        "runtime_applicability": applicability["applicable"],
+        "runtime_applicability_reason": applicability["reason"],
+        "selection_status": selection_status,
+        "selected_for_path": selection_status == "selected",
+        "currency": source.get("currency") or "USD",
+        "output_metric_unit": contract.get("output_metric_unit"),
+        "publishability_status": (
+            "publishable"
+            if model.get("publishable") and source.get("publishable")
+            else "not_publishable"
+        ),
+        "verification_gates": _verification_gates(model, source),
+        "verification_gate": "G7_CALCULATION_READINESS",
+        "verification_status": "passed"
+        if model.get("publishable") and source.get("publishable")
+        else "failed",
+        "verification_error_code": None
+        if model.get("publishable") and source.get("publishable")
+        else "UNPUBLISHABLE_SOURCE_STATE",
+        "verification_error_message": None
+        if model.get("publishable") and source.get("publishable")
+        else "Trace source or model is not publishable.",
+        "source_build_path": source.get("expected_build_path"),
+        "source_type": source.get("source_type"),
+        "runtime_selected_evidence_available": False,
+        "evidence_reference_kind": "registry_contract_reference",
+    }
+    pricing_context = _provider_pricing_context(contract, result_payload)
+    if pricing_context is not None:
+        payload["provider_pricing_context"] = pricing_context
+    return _sanitize_value(payload)
+
+
+def _runtime_applicability(
+    contract: dict[str, Any],
+    result_payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Resolve mutually exclusive TwinMaker Standard and bundle contracts."""
+
+    if contract.get("provider") != "aws":
+        return {"applicable": True, "reason": None}
+
+    field = contract.get("field")
+    standard_fields = {
+        "digital_twin.entity_month",
+        "digital_twin.api_call",
+        "digital_twin.query",
+    }
+    bundle_field = "digital_twin.account_bundle_month"
+    if field not in standard_fields | {bundle_field}:
+        return {"applicable": True, "reason": None}
+
+    contexts = result_payload.get("providerPricingContexts")
+    context = (
+        contexts.get("awsTwinMaker")
+        if isinstance(contexts, dict)
+        else None
     )
+    mode = context.get("observedMode") if isinstance(context, dict) else None
+    context_status = context.get("status") if isinstance(context, dict) else None
+    if context_status != "compatible":
+        return {
+            "applicable": False,
+            "reason": (
+                context.get("reasonCode")
+                if isinstance(context, dict)
+                else "AWS_TWINMAKER_PRICING_CONTEXT_UNAVAILABLE"
+            )
+            or "AWS_TWINMAKER_PRICING_CONTEXT_UNAVAILABLE",
+        }
+    if mode == "STANDARD" and field == bundle_field:
+        return {
+            "applicable": False,
+            "reason": "AWS_TWINMAKER_STANDARD_MODE",
+        }
+    if mode == "TIERED_BUNDLE" and field in standard_fields:
+        return {
+            "applicable": False,
+            "reason": "AWS_TWINMAKER_TIERED_BUNDLE_MODE",
+        }
+    return {"applicable": True, "reason": None}
+
+
+def _provider_pricing_context(
+    contract: dict[str, Any],
+    result_payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    if contract.get("provider") != "aws":
+        return None
+    field = contract.get("field")
+    if field not in {
+        "digital_twin.entity_month",
+        "digital_twin.api_call",
+        "digital_twin.query",
+        "digital_twin.account_bundle_month",
+    }:
+        return None
+    contexts = result_payload.get("providerPricingContexts")
+    context = (
+        contexts.get("awsTwinMaker")
+        if isinstance(contexts, dict)
+        else None
+    )
+    return dict(context) if isinstance(context, dict) else None
 
 
 def _workload_inputs(

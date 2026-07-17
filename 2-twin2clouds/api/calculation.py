@@ -5,10 +5,17 @@ This module provides the core cost optimization endpoint for Digital Twin deploy
 It calculates the optimal cloud provider distribution across all 5 architectural layers
 based on current pricing data and user-defined scenario parameters.
 """
-from typing import Literal
+from datetime import datetime
+from typing import Annotated, Literal, Union
 
 from fastapi import APIRouter, Body, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 from backend.logger import logger
 from backend.utils import print_stack_trace
@@ -16,6 +23,101 @@ from backend.config_loader import load_combined_pricing
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Calculation"])
+
+
+AwsTwinMakerBundleName = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=128),
+]
+
+
+class AwsTwinMakerBundle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tier: Literal["TIER_1", "TIER_2", "TIER_3", "TIER_4"]
+    names: list[AwsTwinMakerBundleName] = Field(
+        default_factory=list,
+        max_length=20,
+    )
+
+
+class AwsTwinMakerPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["BASIC", "STANDARD", "TIERED_BUNDLE"]
+    billableEntityCount: int = Field(ge=0)
+    effectiveAt: datetime | None = None
+    updatedAt: datetime | None = None
+    updateReason: str | None = Field(default=None, max_length=500)
+    bundle: AwsTwinMakerBundle | None = None
+
+    @model_validator(mode="after")
+    def validate_bundle_contract(self):
+        if self.mode == "TIERED_BUNDLE" and self.bundle is None:
+            raise ValueError("Tiered Bundle plans require bundle metadata")
+        if self.mode != "TIERED_BUNDLE" and self.bundle is not None:
+            raise ValueError("Only Tiered Bundle plans may contain bundle metadata")
+        for field_name in ("effectiveAt", "updatedAt"):
+            value = getattr(self, field_name)
+            if value is not None and value.tzinfo is None:
+                raise ValueError(f"{field_name} must be timezone-aware")
+        return self
+
+
+class AwsTwinMakerPricingContextAvailable(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schemaVersion: Literal["aws-twinmaker-account-pricing-context.v1"]
+    status: Literal["available"]
+    sourceRefreshRunId: str = Field(min_length=1, max_length=128)
+    connectionFingerprint: str = Field(
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    providerAccountId: str = Field(pattern=r"^\d{12}$")
+    pricingRegion: str = Field(
+        pattern=r"^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\d+$",
+    )
+    catalogSnapshotDigest: str = Field(
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    observedAt: datetime
+    currentPlan: AwsTwinMakerPlan
+    pendingPlan: AwsTwinMakerPlan | None = None
+
+    @model_validator(mode="after")
+    def validate_observation_timestamp(self):
+        if self.observedAt.tzinfo is None:
+            raise ValueError("observedAt must be timezone-aware")
+        return self
+
+
+class AwsTwinMakerPricingContextUnavailable(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["unavailable"] = "unavailable"
+    reasonCode: str = Field(
+        default="AWS_TWINMAKER_PLAN_UNOBSERVED",
+        min_length=1,
+        max_length=120,
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+
+
+AwsTwinMakerPricingContext = Annotated[
+    Union[
+        AwsTwinMakerPricingContextAvailable,
+        AwsTwinMakerPricingContextUnavailable,
+    ],
+    Field(discriminator="status"),
+]
+
+
+class ProviderPricingContexts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    awsTwinMaker: AwsTwinMakerPricingContext = Field(
+        default_factory=AwsTwinMakerPricingContextUnavailable
+    )
 
 
 # --------------------------------------------------
@@ -91,6 +193,13 @@ class CalcParams(BaseModel):
     optimizationProfileId: str = Field(
         default="cost_minimization_v1",
         description="Executable optimization profile. Only cost_minimization_v1 is enabled.",
+    )
+    providerPricingContexts: ProviderPricingContexts = Field(
+        default_factory=ProviderPricingContexts,
+        description=(
+            "Management-injected provider account pricing observations. "
+            "Clients cannot infer an AWS TwinMaker plan."
+        ),
     )
 
     @model_validator(mode='after')

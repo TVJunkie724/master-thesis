@@ -1,7 +1,5 @@
-import pytest
-import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch
+
 from backend.fetch_data.calculate_up_to_date_pricing import (
     calculate_up_to_date_pricing,
     fetch_aws_data,
@@ -9,7 +7,6 @@ from backend.fetch_data.calculate_up_to_date_pricing import (
     fetch_google_data,
     _get_or_warn
 )
-from backend.logger import logger
 
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_credentials_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
@@ -36,7 +33,11 @@ def test_calculate_up_to_date_pricing_integration(
 
     # Mock configuration
     mock_load_creds.return_value = {
-        "aws": {"access_key": "test"},
+        "aws": {
+            "aws_access_key_id": "test-access-key",
+            "aws_secret_access_key": "test-secret-key",
+            "aws_region": "eu-central-1",
+        },
         "azure": {},
         "gcp": {}
     }
@@ -46,7 +47,10 @@ def test_calculate_up_to_date_pricing_integration(
         if "service_mapping" in str(path):
             return {"iot": {"aws": "iotCore", "azure": "iotHub", "gcp": "iot"}}
         elif "regions" in str(path):
-            return {"us-central1": "us-central1"}
+            return {
+                "eu-central-1": "EU (Frankfurt)",
+                "us-central1": "us-central1",
+            }
         else:
             return {
                 "aws": {"services": {"iot": {"region": "us-east-1"}}},
@@ -64,7 +68,21 @@ def test_calculate_up_to_date_pricing_integration(
     mock_cloud_catalog_client.return_value = object()
 
     # Execute for AWS
-    result_aws = calculate_up_to_date_pricing("aws", additional_debug=False)
+    with (
+        patch(
+            "backend.fetch_data.calculate_up_to_date_pricing.build_aws_session",
+            return_value=object(),
+        ),
+        patch(
+            "backend.fetch_data.calculate_up_to_date_pricing."
+            "observe_aws_twinmaker_pricing_plan",
+            return_value={"schema_version": "test-context.v1"},
+        ),
+    ):
+        result_aws = calculate_up_to_date_pricing(
+            "aws",
+            additional_debug=False,
+        )
 
     # Verify AWS
     assert result_aws is not None
@@ -146,8 +164,12 @@ def test_fetch_aws_data_structure(mock_fetch):
 
     mock_fetch.return_value = {"pricePerMessage": 0.001}
 
-    aws_creds = {"access_key": "test"}
-    service_mapping = {"iot": "iotCore"}
+    aws_creds = {
+        "aws_access_key_id": "test-access-key",
+        "aws_secret_access_key": "test-secret-key",
+        "aws_region": "us-east-1",
+    }
+    service_mapping = {"iot": {"aws": "iotCore"}}
     aws_services = {
         "iot": {"region": "us-east-1"}
     }
@@ -209,14 +231,21 @@ def test_calculate_up_to_date_pricing_handles_errors(
     """Test that orchestration handles fetcher errors gracefully"""
 
     mock_load_creds.return_value = {
-        "aws": {"access_key": "test"}
+        "aws": {
+            "aws_access_key_id": "test-access-key",
+            "aws_secret_access_key": "test-secret-key",
+            "aws_region": "eu-central-1",
+        }
     }
 
     def load_json_side_effect(path):
         if "service_mapping" in str(path):
             return {"iot": {"aws": "iotCore", "azure": "iotHub", "gcp": "iot"}}
         elif "regions" in str(path):
-            return {"us-central1": "us-central1"}
+            return {
+                "eu-central-1": "EU (Frankfurt)",
+                "us-central1": "us-central1",
+            }
         else:
             return {"aws": {"services": {"iot": {"region": "us-east-1"}}}}
 
@@ -226,7 +255,21 @@ def test_calculate_up_to_date_pricing_handles_errors(
     mock_aws_price.side_effect = Exception("API Error")
 
     # Should not crash, should fall back to static defaults
-    result = calculate_up_to_date_pricing("aws", additional_debug=False)
+    with (
+        patch(
+            "backend.fetch_data.calculate_up_to_date_pricing.build_aws_session",
+            return_value=object(),
+        ),
+        patch(
+            "backend.fetch_data.calculate_up_to_date_pricing."
+            "observe_aws_twinmaker_pricing_plan",
+            return_value={"schema_version": "test-context.v1"},
+        ),
+    ):
+        result = calculate_up_to_date_pricing(
+            "aws",
+            additional_debug=False,
+        )
 
     assert result is not None
     # assert "aws" in result

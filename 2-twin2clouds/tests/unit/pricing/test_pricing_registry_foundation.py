@@ -53,7 +53,7 @@ def _valid_evidence(**overrides):
 def test_default_registry_loads_and_covers_canonical_intents():
     registry = load_pricing_registry()
 
-    assert registry.registry_version == "2026.06.08"
+    assert registry.registry_version == "2026.07.17"
     assert set(registry.intents) == set(CANONICAL_PRICING_INTENTS)
     assert set(registry.provider_mappings) == {"aws", "azure", "gcp"}
 

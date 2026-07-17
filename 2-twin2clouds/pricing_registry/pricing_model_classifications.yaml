@@ -256,21 +256,21 @@ classifications:
     - aws.digital_twin.api_call.mapping:2026.07.17
     review_status: verified
     publishable: true
-  aws.digital_twin_query_unit.model.v2:
-    id: aws.digital_twin_query_unit.model.v2
+  aws.digital_twin_query.model.v1:
+    id: aws.digital_twin_query.model.v1
     provider: aws
     layer: digital_twin
     service: AWSIoTTwinMaker
-    field: digital_twin.query_unit
-    pricing_model_type: query_unit
-    billing_unit_semantics: query_unit
+    field: digital_twin.query
+    pricing_model_type: query
+    billing_unit_semantics: query
     tier_semantics: none
     included_usage_semantics: none
     region_scope: regional
     currency: USD
     effective_date: '2026-07-17'
     evidence_source_refs:
-    - aws.digital_twin.query_unit.mapping:2026.07.17
+    - aws.digital_twin.query.mapping:2026.07.17
     review_status: verified
     publishable: true
   aws.digital_twin_account_bundle_month.model.v1:

@@ -23,6 +23,7 @@ service_models:
       - digital_twin.message
       - digital_twin.entity_month
       - digital_twin.api_call
+      - digital_twin.query
       - digital_twin.query_unit
       - digital_twin.account_bundle_month
       - grafana.editor_user_month

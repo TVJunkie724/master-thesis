@@ -11,10 +11,6 @@ Since the old engine is now deprecated, we test that the new engine:
 3. Handles all input parameters correctly
 """
 
-import pytest
-from typing import Dict, Any
-
-
 # Standard test parameters matching typical use cases
 STANDARD_PARAMS = {
     "numberOfDevices": 100,
@@ -69,9 +65,11 @@ REALISTIC_PRICING = {
         "s3InfrequentAccess": {"storagePrice": 0.0125, "writePrice": 0.01},
         "s3GlacierDeepArchive": {"storagePrice": 0.00099, "writePrice": 0.05},
         "iotTwinMaker": {
-            "queryPrice": 0.001,
-            "entityPrice": 0.0,
-            "unifiedDataAccessAPICallsPrice": 0.000001,
+            "usageRates": {
+                "queryPrice": 0.001,
+                "entityPricePerMonth": 0.000001,
+                "unifiedDataAccessApiCallPrice": 0.000001,
+            },
         },
         "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
         "egress": {"pricePerGB": 0.09},
@@ -195,15 +193,27 @@ class TestEngineConsistency:
         
         result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
         
-        # Get the selected providers from cheapest path
-        path = result["cheapestPath"]
-        
-        # Parse selected providers
-        l1_provider = [p for p in path if "L1_" in p][0].split("_")[1].lower()
-        l2_provider = [p for p in path if "L2_" in p and "L3" not in p][0].split("_")[1].lower()
-        
-        # Total cost should be > 0
-        assert result["totalCost"] > 0
+        selected = {
+            "L1": result["calculationResult"]["L1"],
+            "L2": result["calculationResult"]["L2"],
+            "L3_hot": result["calculationResult"]["L3"]["Hot"],
+            "L3_cool": result["calculationResult"]["L3"]["Cool"],
+            "L3_archive": result["calculationResult"]["L3"]["Archive"],
+            "L4": result["calculationResult"]["L4"],
+            "L5": result["calculationResult"]["L5"],
+        }
+        provider_cost_keys = {
+            "AWS": "awsCosts",
+            "Azure": "azureCosts",
+            "GCP": "gcpCosts",
+        }
+        selected_cost = sum(
+            result[provider_cost_keys[provider]][layer]["cost"]
+            for layer, provider in selected.items()
+        )
+        expected_total = selected_cost + sum(result["transferCosts"].values())
+
+        assert result["totalCost"] == round(expected_total, 2)
     
     def test_gcp_exclusion_respected(self):
         """GCP should be excluded from L4/L5 when flags are False."""

@@ -92,6 +92,11 @@ workload_contracts:
         unit: api_call
         value_type: number
         description: Monthly AWS IoT TwinMaker unified-data access API calls.
+      monthly_digital_twin_queries:
+        id: monthly_digital_twin_queries
+        unit: query
+        value_type: number
+        description: Monthly AWS IoT TwinMaker queries.
       account_digital_twin_entity_count:
         id: account_digital_twin_entity_count
         unit: entity

@@ -57,9 +57,11 @@ def _sample_pricing():
             "s3InfrequentAccess": {"storagePrice": 0.0125, "requestPrice": 0.000001},
             "s3GlacierDeepArchive": {"storagePrice": 0.00099, "lifecycleAndWritePrice": 0.00005},
             "iotTwinMaker": {
-                "queryPrice": 0.001,
-                "entityPrice": 0.0,
-                "unifiedDataAccessAPICallsPrice": 0.000001,
+                "usageRates": {
+                    "queryPrice": 0.001,
+                    "entityPricePerMonth": 0.000001,
+                    "unifiedDataAccessApiCallPrice": 0.000001,
+                },
             },
             "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
             "egress": {"pricePerGB": 0.09},

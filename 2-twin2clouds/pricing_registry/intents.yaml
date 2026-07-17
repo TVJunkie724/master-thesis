@@ -108,12 +108,18 @@ intents:
     normalized_unit: api_call
     required_by: [cost_model_v1]
     expected_providers: [aws]
+  digital_twin.query:
+    group: cost
+    description: AWS IoT TwinMaker queries normalized per query.
+    normalized_unit: query
+    required_by: [cost_model_v1]
+    expected_providers: [aws]
   digital_twin.query_unit:
     group: cost
     description: Digital twin query units normalized per query unit.
     normalized_unit: query_unit
     required_by: [cost_model_v1]
-    expected_providers: [aws, azure, gcp]
+    expected_providers: [azure, gcp]
   digital_twin.account_bundle_month:
     group: cost
     description: AWS IoT TwinMaker account-wide tiered bundle schedule per month.

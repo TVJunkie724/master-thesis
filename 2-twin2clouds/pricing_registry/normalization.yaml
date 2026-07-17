@@ -66,6 +66,11 @@ rules:
     target_unit: query_unit
     multiplier: 1
     description: Normalize digital twin query unit prices.
+  per_query:
+    source_units: ["Query", "Queries"]
+    target_unit: query
+    multiplier: 1
+    description: Normalize AWS IoT TwinMaker pricing to one query.
   per_1k_operations:
     source_units: ["1K"]
     target_unit: operation

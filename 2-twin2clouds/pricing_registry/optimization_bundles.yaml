@@ -18,7 +18,7 @@ bundles:
     - aws.digital_twin_account_bundle_month.pricing_contract.v1
     - aws.digital_twin_api_call.pricing_contract.v1
     - aws.digital_twin_entity_month.pricing_contract.v1
-    - aws.digital_twin_query_unit.pricing_contract.v2
+    - aws.digital_twin_query.pricing_contract.v1
     - aws.event_bus_event_million.pricing_contract.v1
     - aws.functions_compute_gb_second.pricing_contract.v1
     - aws.functions_request.pricing_contract.v1

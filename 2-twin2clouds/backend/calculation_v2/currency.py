@@ -77,10 +77,26 @@ def _convert_provider_costs(result: dict[str, Any], rate: float) -> None:
             for component, value in components.items():
                 if isinstance(value, (int, float)):
                     components[component] = _money(value, rate)
+            _convert_calculation_details(layer.get("details"), rate)
 
     for segment, value in (result.get("transferCosts") or {}).items():
         if isinstance(value, (int, float)):
             result["transferCosts"][segment] = _money(value, rate)
+
+
+def _convert_calculation_details(details: Any, rate: float) -> None:
+    if not isinstance(details, dict):
+        return
+    calculation = details.get("calculation")
+    if not isinstance(calculation, dict) or calculation.get("currency") != "USD":
+        return
+    for dimension in calculation.get("dimensions") or []:
+        if not isinstance(dimension, dict):
+            continue
+        _convert_key(dimension, "unitPrice", rate)
+        _convert_key(dimension, "contribution", rate)
+    calculation["sourceCurrency"] = "USD"
+    calculation["currency"] = "EUR"
 
 
 def _convert_trace_costs(

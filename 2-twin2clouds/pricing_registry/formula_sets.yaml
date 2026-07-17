@@ -37,6 +37,11 @@ formula_sets:
         component: query_units
         expression: query_units * normalized_query_unit_price
         description: Digital twin query usage charge.
+      query_cost:
+        id: query_cost
+        component: queries
+        expression: queries * normalized_query_price
+        description: Digital twin query charge where the provider bills each query directly.
       entity_month_cost:
         id: entity_month_cost
         component: entity_months

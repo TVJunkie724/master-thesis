@@ -100,18 +100,18 @@ provider_pricing_contracts:
     output_metric_unit: USD/month
     status: ready
     reviewed_at: '2026-07-17'
-  aws.digital_twin_query_unit.pricing_contract.v2:
-    id: aws.digital_twin_query_unit.pricing_contract.v2
+  aws.digital_twin_query.pricing_contract.v1:
+    id: aws.digital_twin_query.pricing_contract.v1
     provider: aws
     layer: digital_twin
     service: AWSIoTTwinMaker
-    field: digital_twin.query_unit
+    field: digital_twin.query
     formula_set_id: cost_formula_set_v1
     workload_contract_id: digital_twin_workload_v1
-    pricing_model_classification_id: aws.digital_twin_query_unit.model.v2
-    price_source_classification_id: aws.digital_twin_query_unit.source.v2
+    pricing_model_classification_id: aws.digital_twin_query.model.v1
+    price_source_classification_id: aws.digital_twin_query.source.v1
     allowed_price_source_types_by_field:
-      digital_twin.query_unit:
+      digital_twin.query:
       - provider_api
     required_evidence_fields:
     - provider
@@ -124,12 +124,12 @@ provider_pricing_contracts:
     - selected_row
     curated_model_constants: {}
     normalization_rules:
-    - per_query_unit
+    - per_query
     allowed_formula_refs:
-    - query_unit_cost
-    calculation_component: digital_twin
-    consumed_workload_fields: &id002
-    - monthly_digital_twin_query_units
+    - query_cost
+    calculation_component: digital_twin_queries
+    consumed_workload_fields:
+    - monthly_digital_twin_queries
     output_metric_unit: USD/month
     status: ready
     reviewed_at: '2026-07-17'
@@ -1270,7 +1270,8 @@ provider_pricing_contracts:
     allowed_formula_refs:
     - query_unit_cost
     calculation_component: digital_twin
-    consumed_workload_fields: *id002
+    consumed_workload_fields:
+    - monthly_digital_twin_query_units
     output_metric_unit: USD/month
     status: ready
     reviewed_at: '2026-06-10'

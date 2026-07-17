@@ -5,9 +5,15 @@ Test Engine Integration
 Integration tests for the new calculation engine.
 """
 
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
 import json
 import pytest
-from types import SimpleNamespace
+
+
+DIGEST = "sha256:" + ("a" * 64)
+FINGERPRINT = "sha256:" + ("b" * 64)
 
 
 class TestEngineIntegration:
@@ -38,6 +44,27 @@ class TestEngineIntegration:
             "apiCallsPerDashboardRefresh": 1,
             "allowGcpSelfHostedL4": False,
             "allowGcpSelfHostedL5": False,
+            "providerPricingContexts": {
+                "awsTwinMaker": {
+                    "schemaVersion": "aws-twinmaker-account-pricing-context.v1",
+                    "status": "available",
+                    "sourceRefreshRunId": "refresh-run-1",
+                    "connectionFingerprint": FINGERPRINT,
+                    "providerAccountId": "123456789012",
+                    "pricingRegion": "eu-central-1",
+                    "catalogSnapshotDigest": DIGEST,
+                    "observedAt": datetime.now(timezone.utc).isoformat(),
+                    "currentPlan": {
+                        "mode": "STANDARD",
+                        "billableEntityCount": 1,
+                        "effectiveAt": None,
+                        "updatedAt": None,
+                        "updateReason": None,
+                        "bundle": None,
+                    },
+                    "pendingPlan": None,
+                }
+            },
         }
     
     @pytest.fixture
@@ -71,12 +98,18 @@ class TestEngineIntegration:
                 "s3InfrequentAccess": {"storagePrice": 0.0125, "requestPrice": 0.000001},
                 "s3GlacierDeepArchive": {"storagePrice": 0.00099, "lifecycleAndWritePrice": 0.00005},
                 "iotTwinMaker": {
-                    "queryPrice": 0.001,
-                    "entityPrice": 0.0,
-                    "unifiedDataAccessAPICallsPrice": 0.000001,
+                    "usageRates": {
+                        "queryPrice": 0.001,
+                        "entityPricePerMonth": 0.000001,
+                        "unifiedDataAccessApiCallPrice": 0.000001,
+                    },
                 },
                 "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
                 "egress": {"pricePerGB": 0.09},
+            },
+            "__aws_schema__": {
+                "pricing_region": "eu-central-1",
+                "snapshot_digest": DIGEST,
             },
             "azure": {
                 "iotHub": {
@@ -303,6 +336,29 @@ class TestEngineIntegration:
             assert result[layer]["supported"] is False
             assert result[layer]["cost"] == 0.0
             assert result[layer]["unsupportedReason"]
+
+    def test_missing_twinmaker_context_excludes_aws_l4_candidate(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import (
+            calculate_aws_costs,
+            calculate_cheapest_costs,
+        )
+
+        sample_params.pop("providerPricingContexts")
+
+        aws = calculate_aws_costs(sample_params, sample_pricing)
+        result = calculate_cheapest_costs(sample_params, sample_pricing)
+
+        assert aws["L4"]["supported"] is False
+        assert aws["L4"]["unsupportedReason"] == (
+            "AWS_TWINMAKER_PLAN_UNOBSERVED"
+        )
+        assert aws["providerPricingContext"]["status"] == "unavailable"
+        assert result["calculationResult"]["L4"] == "Azure"
+        assert all(item != "L4_AWS" for item in result["cheapestPath"])
     
     def test_calculate_cheapest_costs(self, sample_params, sample_pricing):
         """Test full calculation returns expected structure."""
