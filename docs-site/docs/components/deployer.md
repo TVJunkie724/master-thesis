@@ -304,6 +304,19 @@ Coverage includes API contracts, archive attacks/limits, storage, operation toke
 workspace cleanup/sync, validation aggregation, Terraform lifecycles, providers,
 permission checks, logging/redaction, simulator sessions, status, and verification.
 
+The cross-stack no-apply gate additionally validates all 50 allowlisted
+Terraform targets, all 27 hot/cool/archive provider triples, Azure IoT Hub
+F1/S1/S2/S3 capacity propagation, source-owned storage movers, receiver-owned
+cross-cloud glue, and three native Terraform mock plans:
+
+```bash
+./thesis.sh test deployment-contract --focused
+```
+
+It creates required function packages through the production package builders
+inside an operating-system temporary workspace. It writes no tracked tfvars,
+plans, state, or provider credentials and never runs `terraform apply`.
+
 ## Extension Points
 
 - implement/register a provider through the provider protocol and capability tests;

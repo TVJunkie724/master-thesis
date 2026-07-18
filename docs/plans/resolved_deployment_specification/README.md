@@ -3,7 +3,7 @@
 **Parent issue:** [#118](https://github.com/TVJunkie724/master-thesis/issues/118)  
 **Base branch:** `master`  
 **Implementation branch:** `codex/pricing-tier-finalization`  
-**Status:** Phases 1-8 complete; phase 9 is the final pre-architecture gate
+**Status:** Phases 1-9 complete locally; focused branch CI and issue closure pending
 
 ## Purpose
 
@@ -40,7 +40,7 @@ Optimizer winner
 | 7c | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Done: bounded Azure Function HTTP errors, correlation, redaction, and safe downstream retry logs | #74 |
 | 7d | [#137](https://github.com/TVJunkie724/master-thesis/issues/137) | Done: diagnostic-suppressed correlation for non-HTTP Azure baseline triggers | #136 |
 | 8 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Done: compact read-only Flutter review and fail-closed whole-run selection | #130 |
-| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134, #135, #136, #137 |
+| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Done locally: cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134, #135, #136, #137 |
 
 Provider phases 5-7 may be implemented after phase 4b in any order. Phase 9 is
 the only completion gate for parent issue #118.
@@ -72,3 +72,22 @@ Optimizer specification
 The comparison applies to every supported provider and baseline slot. Any
 invariant that remains hardcoded must be explicitly classified, documented, and
 covered by a source-contract test proving it matches the cost model.
+
+## Local Completion Evidence
+
+`./thesis.sh test deployment-contract` passed in 485.2 seconds without cloud
+credentials, provider mutation, or E2E collection. It included:
+
+- 39 focused Optimizer, 75 focused Management, and 44 focused
+  Deployer/Terraform drift tests;
+- 843 full Optimizer tests;
+- 934 full Management API tests;
+- 1,734 full Deployer tests with one explicit skip;
+- 706 Flutter tests, architecture/format/analyzer gates, Web release, and
+  macOS debug build;
+- Ruff, Bandit, compile/dependency checks, Terraform format/validate/mock
+  plans, strict MkDocs, Compose, and repository checks.
+
+The final focused rerun passed in 39.2 seconds and removed all isolated
+containers, volumes, and networks. Native Windows/Linux/macOS release evidence
+and the focused drift workflow are verified by branch CI after push.

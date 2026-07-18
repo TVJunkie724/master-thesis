@@ -4,6 +4,8 @@
 
 | Project | Default verification | Cloud mutation |
 |---|---|---:|
+| Cross-stack deployment contract | `./thesis.sh test deployment-contract` | no |
+| Focused deployment drift diagnosis | `./thesis.sh test deployment-contract --focused` | no |
 | Management API | `./thesis.sh test backend` | no |
 | Flutter | `./thesis.sh test frontend` | no |
 | Flutter integration | `./thesis.sh test frontend-integration` | no; read-only local stack |
@@ -15,6 +17,33 @@ Current suites contain route/contract, unit, integration, security, migration, w
 architecture, demo, and build coverage. File count is not a quality metric; important
 boundaries require success, rejection, ownership, malformed-input, and downstream-error
 cases.
+
+## Optimizer-To-Terraform Drift Gate
+
+The complete root gate proves that the exact cost-model winner is deployable
+without reconstructing SKU, capacity, storage class, schedule, memory, or
+scaling values downstream:
+
+```text
+Optimizer formula/deployment selection
+  -> ResolvedDeploymentSpecification v1 + digest
+  -> Management validation and immutable persistence
+  -> DeploymentManifest v2
+  -> Deployer allowlisted typed tfvars
+  -> Terraform variable validation and resource attributes
+```
+
+`--focused` runs synchronized contract checks plus the Optimizer, Management,
+Deployer, and native Terraform drift suites. The no-argument command then runs
+the full safe suites, Ruff, Bandit, dependency/compile checks, Flutter analysis,
+tests and host builds, strict MkDocs, Compose, and repository static checks.
+
+The command refuses `RUN_E2E_TESTS=1`, credential-overlay environment switches,
+and `compose.cloud.local.yaml`. Provider credential variables are removed from
+all child processes. Temporary Management runtime secrets and Compose resources
+live under isolated operating-system/Docker namespaces and are removed whether
+the gate succeeds or fails. Terraform tests use mock providers and never call
+`apply`.
 
 ## Python Security/Quality
 

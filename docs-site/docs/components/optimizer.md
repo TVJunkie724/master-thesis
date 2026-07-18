@@ -393,11 +393,14 @@ deployment selections and digest. No downstream service may reconstruct SKU,
 capacity, storage class, or runtime configuration from defaults.
 
 Management persistence, DeploymentManifest v2, Deployer preflight, and typed
-tfvar translation are implemented. AWS and Azure resource binding is complete.
-The remaining provider phase of
-[#118](https://github.com/TVJunkie724/master-thesis/issues/118) binds GCP
-variables to its Terraform resources before the final credential-free no-apply
-drift gate.
+tfvar translation are implemented. AWS, Azure, and GCP resource bindings are
+complete. The credential-free gate covers all 27 storage-provider triples and
+the Azure F1/S1/S2/S3 capacity cases from formula output to Terraform resource
+attributes:
+
+```bash
+./thesis.sh test deployment-contract
+```
 
 ## Optimization Strategy Bundle
 

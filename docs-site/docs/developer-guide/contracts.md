@@ -57,6 +57,8 @@ cost-model winner to its eventual infrastructure settings. Its source of truth i
 contracts/resolved-deployment-specification/v1/
   schema.json
   deployment-dimensions.json
+  verification-matrix.schema.json
+  verification-matrix.json
   fixtures/
 ```
 
@@ -70,6 +72,14 @@ boundaries; glue components are required exactly for receiver providers whose
 boundary crosses clouds, and are forbidden for a single-cloud path. Generated
 copies below the Optimizer, Management API, and Deployer build contexts are
 never edited by hand.
+
+The verification matrix is test evidence rather than a runtime registry. It
+contains independent expected values for 31 deployable components, 54
+component-to-target bindings, 50 unique Terraform targets, four representative
+provider paths, four Azure IoT Hub tier cases, and both storage transitions.
+Tests additionally generate all 27 hot/cool/archive provider triples. Runtime
+code cannot read this matrix, so expected results do not pass through the same
+production function as the values under test.
 
 The two storage lifecycle transitions have explicit runtime ownership.
 Hot-to-cool executes beside the selected hot-storage provider;
@@ -137,6 +147,16 @@ mode, Nearline/Archive classes, transition schedules, and cross-cloud writer
 settings. Progressive usage meters, account-scoped plans, and runtime values a
 provider cannot pin remain evidence rather than Terraform variables. Source
 tests and credential-free Terraform plans assert this distinction.
+
+The canonical executable verification command is:
+
+```bash
+./thesis.sh test deployment-contract
+```
+
+Use `--focused` only for fast field-level diagnosis. It is also the CI drift
+gate. The full command remains the release/handoff evidence because it adds all
+safe service, Flutter, documentation, static, and security checks.
 
 ### Transfer Pricing Catalog
 

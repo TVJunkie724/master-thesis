@@ -159,7 +159,7 @@ when work becomes actionable, then reference the issue here.
 | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Done | Centralized bounded Azure Function HTTP errors, response-to-log correlation, secret/path redaction, safe downstream retry logging, false-success removal, packaging gates, and cross-adapter regression coverage |
 | [#137](https://github.com/TVJunkie724/master-thesis/issues/137) | Done | Azure Dispatcher and storage movers use diagnostic-suppressed correlation logs without payload, endpoint, path, or traceback data; original exceptions, package registration, and retry semantics are preserved by executable inventory and package gates |
 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Done | Whole-run selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, compact recommendation status, full read-only resolved resources, collapsed evidence, and isolated demo parity pass all gates |
-| [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Final gate | Prove Optimizer-to-Terraform continuity with credential-free drift tests |
+| [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Implemented locally; CI pending | Credential-free Optimizer-to-Terraform drift gate, 50 target bindings, 27 storage paths, native mock plans, and complete safe release gate |
 | [#117](https://github.com/TVJunkie724/master-thesis/issues/117) | Done | Removed the unreachable Azure ADT Updater path; Azure L4 now has one package-, Terraform-, runtime-, security-, and documentation-tested Persister-to-ADT-Pusher topology |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |
 | [#110](https://github.com/TVJunkie724/master-thesis/issues/110) | Done | Azure Cosmos/Blob storage and bandwidth tier sources now use exact reviewed catalog evidence, collision-safe candidate identity, fail-closed publication, and a publishable live baseline |
@@ -214,11 +214,11 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Complete the resolved-deployment-specification sequence
-   [#127](https://github.com/TVJunkie724/master-thesis/issues/127) through
-   [#128](https://github.com/TVJunkie724/master-thesis/issues/128), closing
-   [#118](https://github.com/TVJunkie724/master-thesis/issues/118) only after
-   its no-apply drift gate passes.
+1. Verify the focused branch CI for
+   [#128](https://github.com/TVJunkie724/master-thesis/issues/128), then close
+   that final resolved-deployment subphase. Keep parent
+   [#118](https://github.com/TVJunkie724/master-thesis/issues/118) open until
+   the user-approved later application finalization/E2E decision.
 2. Reconcile the remaining service/tier scope in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32).
