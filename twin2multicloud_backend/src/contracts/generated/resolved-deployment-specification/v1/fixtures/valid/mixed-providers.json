@@ -204,32 +204,6 @@
       ]
     },
     {
-      "component_id": "l3_cool.aws.mover_lambda",
-      "slot_id": "l3_cool_storage",
-      "provider": "aws",
-      "service_id": "aws.lambda",
-      "required": true,
-      "dimensions": [
-        {
-          "dimension_id": "aws.lambda.memory_mb",
-          "classification": "deployable_selection",
-          "value": 512,
-          "formula_reference": "formula_set:cost_formula_set_v1",
-          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
-          "unit": "MB",
-          "terraform_target": "aws_l3_cool_mover_memory_mb"
-        },
-        {
-          "dimension_id": "aws.lambda.duration_ms",
-          "classification": "non_deployable_assumption",
-          "value": 1,
-          "formula_reference": "formula_set:cost_formula_set_v1",
-          "evidence_reference": "workload_contract:digital_twin_workload_v1",
-          "unit": "ms"
-        }
-      ]
-    },
-    {
       "component_id": "l3_archive.gcp.cloud_storage",
       "slot_id": "l3_archive_storage",
       "provider": "gcp",
@@ -243,50 +217,6 @@
           "formula_reference": "formula_set:cost_formula_set_v1",
           "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
           "terraform_target": "gcp_l3_archive_storage_class"
-        }
-      ]
-    },
-    {
-      "component_id": "l3_archive.gcp.mover_function",
-      "slot_id": "l3_archive_storage",
-      "provider": "gcp",
-      "service_id": "gcp.cloud_functions_gen2",
-      "required": true,
-      "dimensions": [
-        {
-          "dimension_id": "gcp.functions.memory_mb",
-          "classification": "deployable_selection",
-          "value": 512,
-          "formula_reference": "formula_set:cost_formula_set_v1",
-          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
-          "unit": "MB",
-          "terraform_target": "gcp_l3_archive_mover_memory_mb"
-        },
-        {
-          "dimension_id": "gcp.functions.min_instance_count",
-          "classification": "deployable_selection",
-          "value": 0,
-          "formula_reference": "formula_set:cost_formula_set_v1",
-          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
-          "unit": "instances",
-          "terraform_target": "gcp_l3_archive_mover_min_instances"
-        },
-        {
-          "dimension_id": "gcp.functions.max_instance_count",
-          "classification": "deployable_selection",
-          "value": 1,
-          "formula_reference": "formula_set:cost_formula_set_v1",
-          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
-          "unit": "instances",
-          "terraform_target": "gcp_l3_archive_mover_max_instances"
-        },
-        {
-          "dimension_id": "gcp.functions.duration_ms",
-          "classification": "non_deployable_assumption",
-          "value": 1,
-          "formula_reference": "formula_set:cost_formula_set_v1",
-          "evidence_reference": "workload_contract:digital_twin_workload_v1",
-          "unit": "ms"
         }
       ]
     },
@@ -352,6 +282,92 @@
           "value": "licensed_users",
           "formula_reference": "formula_set:cost_formula_set_v1",
           "evidence_reference": "catalog:pcs_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "component_id": "transition.l3_hot_to_l3_cool.gcp.runtime",
+      "slot_id": "transition_runtime",
+      "provider": "gcp",
+      "service_id": "gcp.cloud_functions_scheduler_transition",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "gcp.functions.memory_mb",
+          "classification": "deployable_selection",
+          "value": 512,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "gcp_hot_to_cool_mover_memory_mb"
+        },
+        {
+          "dimension_id": "gcp.functions.min_instance_count",
+          "classification": "deployable_selection",
+          "value": 0,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_hot_to_cool_mover_min_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.max_instance_count",
+          "classification": "deployable_selection",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "instances",
+          "terraform_target": "gcp_hot_to_cool_mover_max_instances"
+        },
+        {
+          "dimension_id": "gcp.functions.duration_ms",
+          "classification": "non_deployable_assumption",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "ms"
+        },
+        {
+          "dimension_id": "gcp.scheduler.cron",
+          "classification": "deployable_selection",
+          "value": "0 2 * * *",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "gcp_hot_to_cool_scheduler_cron"
+        }
+      ]
+    },
+    {
+      "component_id": "transition.l3_cool_to_l3_archive.aws.runtime",
+      "slot_id": "transition_runtime",
+      "provider": "aws",
+      "service_id": "aws.lambda_eventbridge_transition",
+      "required": true,
+      "dimensions": [
+        {
+          "dimension_id": "aws.lambda.memory_mb",
+          "classification": "deployable_selection",
+          "value": 512,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "unit": "MB",
+          "terraform_target": "aws_cool_to_archive_mover_memory_mb"
+        },
+        {
+          "dimension_id": "aws.lambda.duration_ms",
+          "classification": "non_deployable_assumption",
+          "value": 1,
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "workload_contract:digital_twin_workload_v1",
+          "unit": "ms"
+        },
+        {
+          "dimension_id": "aws.eventbridge.schedule_expression",
+          "classification": "deployable_selection",
+          "value": "rate(7 days)",
+          "formula_reference": "formula_set:cost_formula_set_v1",
+          "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+          "terraform_target": "aws_cool_to_archive_schedule_expression"
         }
       ]
     },
@@ -459,5 +475,5 @@
       ]
     }
   ],
-  "digest": "sha256:1463a2a0615be3753f2046e82bcb122c5fc4dce23298b057a5b9cbe27ab9dc52"
+  "digest": "sha256:564cc36f02af12b7e2833ab0c679ecf295e820f700021000c906eb5eb8609bc4"
 }

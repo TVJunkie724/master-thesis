@@ -39,9 +39,18 @@ def test_calculation_result_exposes_bounded_trace_metadata():
     ]
 
     assert result["resultTraceSchemaVersion"] == TRACE_SCHEMA_VERSION
-    assert len(trace) == expected_records
+    assert len(trace) == expected_records + 2
     assert len(json.dumps(trace)) < 250_000
     assert trace[0]["trace_id"] == "aws.api.request_million.L4.v1"
+    transition_items = [
+        item for item in trace if item["layer"] == "transition_runtime"
+    ]
+    assert len(transition_items) == 2
+    assert all(item["cost_contribution_is_additive"] for item in transition_items)
+    assert all(
+        item["source_type"] == "resolved_runtime_bundle"
+        for item in transition_items
+    )
 
 
 def test_aws_iot_core_trace_connects_intent_to_formula_contribution():

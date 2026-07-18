@@ -96,12 +96,16 @@ class PricingEvidenceDetailResponse(BaseModel):
     selected_path: list[dict] = Field(default_factory=list)
     records: list[dict] = Field(default_factory=list)
     transfer_trace: list[dict] = Field(default_factory=list)
+    transition_runtime_trace: list[dict] = Field(default_factory=list)
     summary: dict = Field(default_factory=dict)
     field_trace_schema_version: Optional[str] = None
     field_trace_available: bool
     field_trace_records: list[dict] = Field(default_factory=list)
     transfer_pricing_context_available: bool = False
     transfer_pricing_context: dict = Field(default_factory=dict)
+    transition_runtime_context_available: bool = False
+    transition_runtime_context: dict = Field(default_factory=dict)
+    transition_runtime_costs: dict[str, float] = Field(default_factory=dict)
     optimization_diagnostics: dict = Field(default_factory=dict)
     pricing_catalog_context: Optional[PricingCatalogContext] = None
     result_metadata: dict = Field(default_factory=dict)

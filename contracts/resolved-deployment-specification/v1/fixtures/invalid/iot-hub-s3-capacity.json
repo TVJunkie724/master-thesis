@@ -226,39 +226,6 @@
         ]
       },
       {
-        "component_id": "l3_cool.azure.function_plan",
-        "slot_id": "l3_cool_storage",
-        "provider": "azure",
-        "service_id": "azure.functions",
-        "required": true,
-        "dimensions": [
-          {
-            "dimension_id": "azure.functions.plan_sku",
-            "classification": "deployable_selection",
-            "value": "Y1",
-            "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
-            "terraform_target": "azure_l3_cool_function_plan_sku"
-          },
-          {
-            "dimension_id": "azure.functions.memory_mb",
-            "classification": "non_deployable_assumption",
-            "value": 128,
-            "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "workload_contract:digital_twin_workload_v1",
-            "unit": "MB"
-          },
-          {
-            "dimension_id": "azure.functions.duration_ms",
-            "classification": "non_deployable_assumption",
-            "value": 1,
-            "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "workload_contract:digital_twin_workload_v1",
-            "unit": "ms"
-          }
-        ]
-      },
-      {
         "component_id": "l3_archive.azure.blob_storage",
         "slot_id": "l3_archive_storage",
         "provider": "azure",
@@ -288,39 +255,6 @@
             "formula_reference": "formula_set:cost_formula_set_v1",
             "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
             "terraform_target": "azure_l3_archive_blob_tier"
-          }
-        ]
-      },
-      {
-        "component_id": "l3_archive.azure.function_plan",
-        "slot_id": "l3_archive_storage",
-        "provider": "azure",
-        "service_id": "azure.functions",
-        "required": true,
-        "dimensions": [
-          {
-            "dimension_id": "azure.functions.plan_sku",
-            "classification": "deployable_selection",
-            "value": "Y1",
-            "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
-            "terraform_target": "azure_l3_archive_function_plan_sku"
-          },
-          {
-            "dimension_id": "azure.functions.memory_mb",
-            "classification": "non_deployable_assumption",
-            "value": 128,
-            "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "workload_contract:digital_twin_workload_v1",
-            "unit": "MB"
-          },
-          {
-            "dimension_id": "azure.functions.duration_ms",
-            "classification": "non_deployable_assumption",
-            "value": 1,
-            "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "workload_contract:digital_twin_workload_v1",
-            "unit": "ms"
           }
         ]
       },
@@ -389,8 +323,90 @@
             "terraform_target": "azure_grafana_sku"
           }
         ]
+      },
+      {
+        "component_id": "transition.l3_hot_to_l3_cool.azure.runtime",
+        "slot_id": "transition_runtime",
+        "provider": "azure",
+        "service_id": "azure.functions_timer_transition",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l3_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
+          },
+          {
+            "dimension_id": "azure.functions.timer_schedule",
+            "classification": "deployable_selection",
+            "value": "0 0 0 * * *",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_hot_to_cool_timer_schedule"
+          }
+        ]
+      },
+      {
+        "component_id": "transition.l3_cool_to_l3_archive.azure.runtime",
+        "slot_id": "transition_runtime",
+        "provider": "azure",
+        "service_id": "azure.functions_timer_transition",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "azure.functions.plan_sku",
+            "classification": "deployable_selection",
+            "value": "Y1",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_l3_function_plan_sku"
+          },
+          {
+            "dimension_id": "azure.functions.memory_mb",
+            "classification": "non_deployable_assumption",
+            "value": 128,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "MB"
+          },
+          {
+            "dimension_id": "azure.functions.duration_ms",
+            "classification": "non_deployable_assumption",
+            "value": 1,
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "workload_contract:digital_twin_workload_v1",
+            "unit": "ms"
+          },
+          {
+            "dimension_id": "azure.functions.timer_schedule",
+            "classification": "deployable_selection",
+            "value": "0 0 0 * * 0",
+            "formula_reference": "formula_set:cost_formula_set_v1",
+            "evidence_reference": "deployment_registry:resolved-deployment-dimensions.v1",
+            "terraform_target": "azure_cool_to_archive_timer_schedule"
+          }
+        ]
       }
     ],
-    "digest": "sha256:25fb8f899bc6bac24d9c8378e14d81a2ca7e67640d2d0cee86fd8c2a77a987ce"
+    "digest": "sha256:e00e5f2bc9054f94f310be1aaf2d463ed25f0c24afd29b0d73a7e018b8a49bce"
   }
 }

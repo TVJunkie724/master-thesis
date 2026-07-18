@@ -132,6 +132,58 @@ def test_selected_provider_path_mismatch_is_rejected():
     assert exc_info.value.code == "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH"
 
 
+def test_transition_runtime_must_match_source_storage_provider():
+    result, specification = _result_and_specification()
+    alternate_result = copy.deepcopy(result)
+    alternate_result["calculationResult"]["L3"]["Hot"] = "Azure"
+    alternate_specification = build_resolved_deployment_specification(
+        alternate_result,
+        calculation_run_id=RUN_ID,
+        pricing_catalogs=result["pricingCatalogs"],
+    )
+    alternate_runtime = next(
+        component
+        for component in alternate_specification["components"]
+        if component["component_id"]
+        == "transition.l3_hot_to_l3_cool.azure.runtime"
+    )
+    runtime_index = next(
+        index
+        for index, component in enumerate(specification["components"])
+        if component["component_id"]
+        == "transition.l3_hot_to_l3_cool.aws.runtime"
+    )
+    specification["components"][runtime_index] = alternate_runtime
+    specification["digest"] = calculate_digest(specification)
+
+    with pytest.raises(ResolvedDeploymentSpecificationError) as exc_info:
+        _validate(specification, result)
+
+    assert exc_info.value.code == "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH"
+    assert exc_info.value.field.endswith("transition_runtime")
+
+
+def test_transition_runtime_order_is_canonical():
+    result, specification = _result_and_specification()
+    indexes = [
+        index
+        for index, component in enumerate(specification["components"])
+        if component["slot_id"] == "transition_runtime"
+    ]
+    first, second = indexes
+    specification["components"][first], specification["components"][second] = (
+        specification["components"][second],
+        specification["components"][first],
+    )
+    specification["digest"] = calculate_digest(specification)
+
+    with pytest.raises(ResolvedDeploymentSpecificationError) as exc_info:
+        _validate(specification, result)
+
+    assert exc_info.value.code == "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH"
+    assert exc_info.value.field.endswith("transition_runtime")
+
+
 def test_catalog_reference_mismatch_is_rejected_after_valid_digest():
     _, specification = _result_and_specification()
     specification["optimization_context"]["catalog_references"]["aws"][

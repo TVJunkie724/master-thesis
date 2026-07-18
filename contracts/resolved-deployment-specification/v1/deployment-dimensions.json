@@ -21,6 +21,7 @@
     "aws.iot_core.message_pricing": "pricing_model",
     "aws.lambda.memory_mb": "baseline_invariant",
     "aws.lambda.duration_ms": "formula_input",
+    "aws.eventbridge.schedule_expression": "baseline_invariant",
     "aws.step_functions.billing": "pricing_model",
     "aws.eventbridge.billing": "pricing_model",
     "aws.dynamodb.billing_mode": "baseline_invariant",
@@ -32,6 +33,7 @@
     "azure.functions.plan_sku": "baseline_invariant",
     "azure.functions.memory_mb": "formula_input",
     "azure.functions.duration_ms": "formula_input",
+    "azure.functions.timer_schedule": "baseline_invariant",
     "azure.event_grid.billing": "pricing_model",
     "azure.logic_apps.billing": "pricing_model",
     "azure.cosmos_db.capacity_mode": "baseline_invariant",
@@ -45,6 +47,7 @@
     "gcp.functions.min_instance_count": "baseline_invariant",
     "gcp.functions.max_instance_count": "baseline_invariant",
     "gcp.functions.duration_ms": "formula_input",
+    "gcp.scheduler.cron": "baseline_invariant",
     "gcp.workflows.billing": "pricing_model",
     "gcp.firestore.mode": "baseline_invariant",
     "gcp.storage.storage_class": "baseline_invariant"
@@ -89,6 +92,10 @@
       "optimizer_key": "L5",
       "deployer_key": "layer_5_provider"
     },
+    "transition_runtime": {
+      "optimizer_key": null,
+      "deployer_key": null
+    },
     "cross_cloud_glue": {
       "optimizer_key": null,
       "deployer_key": null
@@ -130,6 +137,34 @@
         "source_slot": "l4_twin_state",
         "target_slot": "l3_hot_storage",
         "receiver_slot": "l3_hot_storage"
+      }
+    ]
+  },
+  "transition_runtime_policy": {
+    "transitions": [
+      {
+        "boundary_id": "l3_hot_to_l3_cool",
+        "source_slot": "l3_hot_storage",
+        "target_slot": "l3_cool_storage",
+        "monthly_invocations": 30,
+        "invocation_basis": "one_daily_source_mover_invocation",
+        "component_by_provider": {
+          "aws": "transition.l3_hot_to_l3_cool.aws.runtime",
+          "azure": "transition.l3_hot_to_l3_cool.azure.runtime",
+          "gcp": "transition.l3_hot_to_l3_cool.gcp.runtime"
+        }
+      },
+      {
+        "boundary_id": "l3_cool_to_l3_archive",
+        "source_slot": "l3_cool_storage",
+        "target_slot": "l3_archive_storage",
+        "monthly_invocations": 4,
+        "invocation_basis": "one_weekly_source_mover_invocation",
+        "component_by_provider": {
+          "aws": "transition.l3_cool_to_l3_archive.aws.runtime",
+          "azure": "transition.l3_cool_to_l3_archive.azure.runtime",
+          "gcp": "transition.l3_cool_to_l3_archive.gcp.runtime"
+        }
       }
     ]
   },
@@ -212,22 +247,19 @@
     "l3_cool_storage": {
       "aws": {
         "required_components": [
-          "l3_cool.aws.s3",
-          "l3_cool.aws.mover_lambda"
+          "l3_cool.aws.s3"
         ],
         "optional_components": []
       },
       "azure": {
         "required_components": [
-          "l3_cool.azure.blob_storage",
-          "l3_cool.azure.function_plan"
+          "l3_cool.azure.blob_storage"
         ],
         "optional_components": []
       },
       "gcp": {
         "required_components": [
-          "l3_cool.gcp.cloud_storage",
-          "l3_cool.gcp.mover_function"
+          "l3_cool.gcp.cloud_storage"
         ],
         "optional_components": []
       }
@@ -235,22 +267,19 @@
     "l3_archive_storage": {
       "aws": {
         "required_components": [
-          "l3_archive.aws.s3",
-          "l3_archive.aws.mover_lambda"
+          "l3_archive.aws.s3"
         ],
         "optional_components": []
       },
       "azure": {
         "required_components": [
-          "l3_archive.azure.blob_storage",
-          "l3_archive.azure.function_plan"
+          "l3_archive.azure.blob_storage"
         ],
         "optional_components": []
       },
       "gcp": {
         "required_components": [
-          "l3_archive.gcp.cloud_storage",
-          "l3_archive.gcp.mover_function"
+          "l3_archive.gcp.cloud_storage"
         ],
         "optional_components": []
       }
@@ -433,10 +462,10 @@
         }
       }
     },
-    "l3_cool.aws.mover_lambda": {
-      "slot_id": "l3_cool_storage",
+    "transition.l3_hot_to_l3_cool.aws.runtime": {
+      "slot_id": "transition_runtime",
       "provider": "aws",
-      "service_id": "aws.lambda",
+      "service_id": "aws.lambda_eventbridge_transition",
       "dimensions": {
         "aws.lambda.memory_mb": {
           "classification": "deployable_selection",
@@ -444,7 +473,7 @@
           "allowed_values": [
             512
           ],
-          "terraform_target": "aws_l3_cool_mover_memory_mb",
+          "terraform_target": "aws_hot_to_cool_mover_memory_mb",
           "required": true
         },
         "aws.lambda.duration_ms": {
@@ -452,6 +481,15 @@
           "value_type": "integer",
           "minimum": 1,
           "maximum": 900000,
+          "required": true
+        },
+        "aws.eventbridge.schedule_expression": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "rate(1 day)"
+          ],
+          "terraform_target": "aws_hot_to_cool_schedule_expression",
           "required": true
         }
       }
@@ -472,10 +510,10 @@
         }
       }
     },
-    "l3_archive.aws.mover_lambda": {
-      "slot_id": "l3_archive_storage",
+    "transition.l3_cool_to_l3_archive.aws.runtime": {
+      "slot_id": "transition_runtime",
       "provider": "aws",
-      "service_id": "aws.lambda",
+      "service_id": "aws.lambda_eventbridge_transition",
       "dimensions": {
         "aws.lambda.memory_mb": {
           "classification": "deployable_selection",
@@ -483,7 +521,7 @@
           "allowed_values": [
             512
           ],
-          "terraform_target": "aws_l3_archive_mover_memory_mb",
+          "terraform_target": "aws_cool_to_archive_mover_memory_mb",
           "required": true
         },
         "aws.lambda.duration_ms": {
@@ -491,6 +529,15 @@
           "value_type": "integer",
           "minimum": 1,
           "maximum": 900000,
+          "required": true
+        },
+        "aws.eventbridge.schedule_expression": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "rate(7 days)"
+          ],
+          "terraform_target": "aws_cool_to_archive_schedule_expression",
           "required": true
         }
       }
@@ -800,10 +847,10 @@
         }
       }
     },
-    "l3_cool.azure.function_plan": {
-      "slot_id": "l3_cool_storage",
+    "transition.l3_hot_to_l3_cool.azure.runtime": {
+      "slot_id": "transition_runtime",
       "provider": "azure",
-      "service_id": "azure.functions",
+      "service_id": "azure.functions_timer_transition",
       "dimensions": {
         "azure.functions.plan_sku": {
           "classification": "deployable_selection",
@@ -811,7 +858,7 @@
           "allowed_values": [
             "Y1"
           ],
-          "terraform_target": "azure_l3_cool_function_plan_sku",
+          "terraform_target": "azure_l3_function_plan_sku",
           "required": true
         },
         "azure.functions.memory_mb": {
@@ -826,6 +873,15 @@
           "value_type": "integer",
           "minimum": 1,
           "maximum": 900000,
+          "required": true
+        },
+        "azure.functions.timer_schedule": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "0 0 0 * * *"
+          ],
+          "terraform_target": "azure_hot_to_cool_timer_schedule",
           "required": true
         }
       }
@@ -864,10 +920,10 @@
         }
       }
     },
-    "l3_archive.azure.function_plan": {
-      "slot_id": "l3_archive_storage",
+    "transition.l3_cool_to_l3_archive.azure.runtime": {
+      "slot_id": "transition_runtime",
       "provider": "azure",
-      "service_id": "azure.functions",
+      "service_id": "azure.functions_timer_transition",
       "dimensions": {
         "azure.functions.plan_sku": {
           "classification": "deployable_selection",
@@ -875,7 +931,7 @@
           "allowed_values": [
             "Y1"
           ],
-          "terraform_target": "azure_l3_archive_function_plan_sku",
+          "terraform_target": "azure_l3_function_plan_sku",
           "required": true
         },
         "azure.functions.memory_mb": {
@@ -890,6 +946,15 @@
           "value_type": "integer",
           "minimum": 1,
           "maximum": 900000,
+          "required": true
+        },
+        "azure.functions.timer_schedule": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "0 0 0 * * 0"
+          ],
+          "terraform_target": "azure_cool_to_archive_timer_schedule",
           "required": true
         }
       }
@@ -1170,10 +1235,10 @@
         }
       }
     },
-    "l3_cool.gcp.mover_function": {
-      "slot_id": "l3_cool_storage",
+    "transition.l3_hot_to_l3_cool.gcp.runtime": {
+      "slot_id": "transition_runtime",
       "provider": "gcp",
-      "service_id": "gcp.cloud_functions_gen2",
+      "service_id": "gcp.cloud_functions_scheduler_transition",
       "dimensions": {
         "gcp.functions.memory_mb": {
           "classification": "deployable_selection",
@@ -1181,7 +1246,7 @@
           "allowed_values": [
             512
           ],
-          "terraform_target": "gcp_l3_cool_mover_memory_mb",
+          "terraform_target": "gcp_hot_to_cool_mover_memory_mb",
           "required": true
         },
         "gcp.functions.min_instance_count": {
@@ -1190,7 +1255,7 @@
           "allowed_values": [
             0
           ],
-          "terraform_target": "gcp_l3_cool_mover_min_instances",
+          "terraform_target": "gcp_hot_to_cool_mover_min_instances",
           "required": true
         },
         "gcp.functions.max_instance_count": {
@@ -1199,7 +1264,7 @@
           "allowed_values": [
             1
           ],
-          "terraform_target": "gcp_l3_cool_mover_max_instances",
+          "terraform_target": "gcp_hot_to_cool_mover_max_instances",
           "required": true
         },
         "gcp.functions.duration_ms": {
@@ -1207,6 +1272,15 @@
           "value_type": "integer",
           "minimum": 1,
           "maximum": 3600000,
+          "required": true
+        },
+        "gcp.scheduler.cron": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "0 2 * * *"
+          ],
+          "terraform_target": "gcp_hot_to_cool_scheduler_cron",
           "required": true
         }
       }
@@ -1227,10 +1301,10 @@
         }
       }
     },
-    "l3_archive.gcp.mover_function": {
-      "slot_id": "l3_archive_storage",
+    "transition.l3_cool_to_l3_archive.gcp.runtime": {
+      "slot_id": "transition_runtime",
       "provider": "gcp",
-      "service_id": "gcp.cloud_functions_gen2",
+      "service_id": "gcp.cloud_functions_scheduler_transition",
       "dimensions": {
         "gcp.functions.memory_mb": {
           "classification": "deployable_selection",
@@ -1238,7 +1312,7 @@
           "allowed_values": [
             512
           ],
-          "terraform_target": "gcp_l3_archive_mover_memory_mb",
+          "terraform_target": "gcp_cool_to_archive_mover_memory_mb",
           "required": true
         },
         "gcp.functions.min_instance_count": {
@@ -1247,7 +1321,7 @@
           "allowed_values": [
             0
           ],
-          "terraform_target": "gcp_l3_archive_mover_min_instances",
+          "terraform_target": "gcp_cool_to_archive_mover_min_instances",
           "required": true
         },
         "gcp.functions.max_instance_count": {
@@ -1256,7 +1330,7 @@
           "allowed_values": [
             1
           ],
-          "terraform_target": "gcp_l3_archive_mover_max_instances",
+          "terraform_target": "gcp_cool_to_archive_mover_max_instances",
           "required": true
         },
         "gcp.functions.duration_ms": {
@@ -1264,6 +1338,15 @@
           "value_type": "integer",
           "minimum": 1,
           "maximum": 3600000,
+          "required": true
+        },
+        "gcp.scheduler.cron": {
+          "classification": "deployable_selection",
+          "value_type": "string",
+          "allowed_values": [
+            "0 3 * * 0"
+          ],
+          "terraform_target": "gcp_cool_to_archive_scheduler_cron",
           "required": true
         }
       }

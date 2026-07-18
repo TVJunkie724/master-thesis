@@ -331,6 +331,20 @@ def _required_glue_providers(
     return tuple(provider for provider in PROVIDERS if provider in required)
 
 
+def _required_transition_component_ids(
+    registry: Mapping[str, Any],
+    provider_by_slot: Mapping[str, str],
+) -> list[str]:
+    return [
+        transition["component_by_provider"][
+            provider_by_slot[transition["source_slot"]]
+        ]
+        for transition in registry["transition_runtime_policy"][
+            "transitions"
+        ]
+    ]
+
+
 def _validate_components(
     components: list[dict[str, Any]],
     *,
@@ -339,7 +353,12 @@ def _validate_components(
     optimization_context: Mapping[str, Any],
 ) -> None:
     components_by_slot: dict[str, list[dict[str, Any]]] = {
-        slot_id: [] for slot_id in (*SLOT_ORDER, "cross_cloud_glue")
+        slot_id: []
+        for slot_id in (
+            *SLOT_ORDER,
+            "transition_runtime",
+            "cross_cloud_glue",
+        )
     }
     for component in components:
         components_by_slot[component["slot_id"]].append(component)
@@ -370,6 +389,22 @@ def _validate_components(
                 "Deployment components do not match the selected provider slot",
             )
         expected_component_ids.extend(expected_for_slot)
+
+    expected_transition_ids = _required_transition_component_ids(
+        registry,
+        provider_by_slot,
+    )
+    actual_transition_ids = [
+        component["component_id"]
+        for component in components_by_slot["transition_runtime"]
+    ]
+    if actual_transition_ids != expected_transition_ids:
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
+            "resolvedDeploymentSpecification.components.transition_runtime",
+            "Transition runtimes do not match their source storage providers",
+        )
+    expected_component_ids.extend(expected_transition_ids)
 
     glue_component_by_provider = registry["cross_cloud_glue_policy"][
         "component_by_provider"

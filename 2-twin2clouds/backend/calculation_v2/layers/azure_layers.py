@@ -12,6 +12,7 @@ from .contracts import (
     ComponentDeploymentSelection,
     LayerResult,
     SUPPORTED_LAYER_KEYS,
+    TransitionRuntimeResult,
 )
 
 from ..components.azure import (
@@ -324,18 +325,8 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         writes_per_month: float,
         pricing: Dict[str, Any],
         retrievals_gb: float = 0.0,
-        mover_runs_per_month: int = 30
     ) -> LayerResult:
-        """
-        Calculate L3 Cool Storage layer cost.
-        
-        Components:
-            - Blob Storage Cool tier
-            - Hot-Cold Mover Function (scheduled data migration)
-        
-        Args:
-            mover_runs_per_month: Number of times mover runs (default: daily = 30)
-        """
+        """Calculate destination-independent Blob Storage Cool cost."""
         components = {}
         
         # Blob Cool cost
@@ -346,21 +337,10 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
             retrievals_gb=retrievals_gb
         )
         components["blob_cool"] = blob_cost
-        
-        # Hot-Cold Mover Function (scheduled to run periodically)
-        mover_cost = self.functions.calculate_cost(
-            executions=mover_runs_per_month,
-            pricing=pricing,
-            duration_ms=MOVER_FUNCTION_DURATION_MS,
-            memory_mb=AZURE_FUNCTION_MEMORY_MB,
-        )
-        components["hot_cold_mover_function"] = mover_cost
-        
-        total = sum(components.values())
-        
+
         return self._result(
             layer="L3_cool",
-            total_cost=total,
+            total_cost=blob_cost,
             data_size_gb=storage_gb,
             components=components,
             deployment_selections=(
@@ -372,10 +352,6 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
                         "azure.blob.tier": "Cool",
                     },
                 ),
-                _function_selection(
-                    "l3_cool.azure.function_plan",
-                    duration_ms=MOVER_FUNCTION_DURATION_MS,
-                ),
             ),
         )
     
@@ -385,18 +361,8 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
         writes_per_month: float,
         pricing: Dict[str, Any],
         retrievals_gb: float = 0.0,
-        mover_runs_per_month: int = 4
     ) -> LayerResult:
-        """
-        Calculate L3 Archive Storage layer cost.
-        
-        Components:
-            - Blob Storage Archive tier
-            - Cold-Archive Mover Function (scheduled archival)
-        
-        Args:
-            mover_runs_per_month: Number of times mover runs (default: weekly = 4)
-        """
+        """Calculate destination-independent Blob Storage Archive cost."""
         components = {}
         
         # Blob Archive cost
@@ -407,21 +373,10 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
             retrievals_gb=retrievals_gb
         )
         components["blob_archive"] = archive_cost
-        
-        # Cold-Archive Mover Function (scheduled to run periodically)
-        mover_cost = self.functions.calculate_cost(
-            executions=mover_runs_per_month,
-            pricing=pricing,
-            duration_ms=MOVER_FUNCTION_DURATION_MS,
-            memory_mb=AZURE_FUNCTION_MEMORY_MB,
-        )
-        components["cold_archive_mover_function"] = mover_cost
-        
-        total = sum(components.values())
-        
+
         return self._result(
             layer="L3_archive",
-            total_cost=total,
+            total_cost=archive_cost,
             data_size_gb=storage_gb,
             components=components,
             deployment_selections=(
@@ -433,10 +388,66 @@ class AzureLayerCalculators(BaseLayerCalculatorSet):
                         "azure.blob.tier": "Archive",
                     },
                 ),
-                _function_selection(
-                    "l3_archive.azure.function_plan",
-                    duration_ms=MOVER_FUNCTION_DURATION_MS,
-                ),
+            ),
+        )
+
+    def calculate_transition_runtime(
+        self,
+        *,
+        edge_id: str,
+        monthly_invocations: int,
+        invocation_basis: str,
+        pricing: Dict[str, Any],
+    ) -> TransitionRuntimeResult:
+        """Calculate the source Function timer runtime for one storage edge."""
+
+        runtime_profiles = {
+            "l3_hot_to_l3_cool": (
+                "transition.l3_hot_to_l3_cool.azure.runtime",
+                "0 0 0 * * *",
+            ),
+            "l3_cool_to_l3_archive": (
+                "transition.l3_cool_to_l3_archive.azure.runtime",
+                "0 0 0 * * 0",
+            ),
+        }
+        try:
+            component_id, timer_schedule = runtime_profiles[edge_id]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported Azure transition runtime edge: {edge_id!r}"
+            ) from exc
+
+        function_cost = self.functions.calculate_cost(
+            executions=monthly_invocations,
+            pricing=pricing,
+            duration_ms=MOVER_FUNCTION_DURATION_MS,
+            memory_mb=AZURE_FUNCTION_MEMORY_MB,
+        )
+        return TransitionRuntimeResult(
+            edge_id=edge_id,
+            provider=self.provider,
+            monthly_invocations=monthly_invocations,
+            invocation_basis=invocation_basis,
+            function_cost=function_cost,
+            trigger_cost=0.0,
+            total_cost=function_cost,
+            formula_references=(
+                "execution_based_cost",
+                "timer_trigger_included_in_consumption_plan",
+            ),
+            evidence_references=(
+                "azure.functions",
+                "deployment_registry:resolved-deployment-dimensions.v1",
+            ),
+            deployment_selection=_selection(
+                component_id,
+                **{
+                    "azure.functions.plan_sku": "Y1",
+                    "azure.functions.memory_mb": AZURE_FUNCTION_MEMORY_MB,
+                    "azure.functions.duration_ms": MOVER_FUNCTION_DURATION_MS,
+                    "azure.functions.timer_schedule": timer_schedule,
+                },
             ),
         )
     

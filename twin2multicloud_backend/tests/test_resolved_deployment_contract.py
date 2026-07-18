@@ -51,7 +51,7 @@ def test_generated_contract_copy_is_complete_and_self_consistent():
     Draft202012Validator.check_schema(_load(CONTRACT_V1 / "schema.json"))
     assert (CONTRACT_ROOT / ".contract-sha256").read_text().strip() == _tree_digest()
     assert len(list((CONTRACT_V1 / "fixtures" / "valid").glob("*.json"))) == 3
-    assert len(list((CONTRACT_V1 / "fixtures" / "invalid").glob("*.json"))) == 17
+    assert len(list((CONTRACT_V1 / "fixtures" / "invalid").glob("*.json"))) == 20
 
 
 @pytest.mark.parametrize(

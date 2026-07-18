@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from src.schemas.optimizer_transfer_pricing import (
     OptimizerPathDiagnostics,
+    OptimizerTransitionRuntimeContext,
     OptimizerTransferPool,
     OptimizerTransferPricingContext,
     OptimizerTransferRoute,
@@ -79,6 +80,7 @@ class ValidatedOptimizerTransferPricing:
     """Typed route context and solver diagnostics accepted by Management."""
 
     context: OptimizerTransferPricingContext
+    transition_context: OptimizerTransitionRuntimeContext
     diagnostics: OptimizerPathDiagnostics
 
 
@@ -101,7 +103,17 @@ def validate_optimizer_transfer_pricing_result(
         "optimizationDiagnostics",
         errors,
     )
-    if context is None or diagnostics is None:
+    transition_context = _parse_model(
+        OptimizerTransitionRuntimeContext,
+        result.get("transitionRuntimeContext"),
+        "transitionRuntimeContext",
+        errors,
+    )
+    if (
+        context is None
+        or transition_context is None
+        or diagnostics is None
+    ):
         _raise_contract_error(errors)
 
     selected = _selected_providers(result.get("calculationResult"), errors)
@@ -137,12 +149,33 @@ def validate_optimizer_transfer_pricing_result(
         errors,
     )
     _validate_transfer_costs(result.get("transferCosts"), cross_routes, errors)
-    _validate_result_currency(result, context, diagnostics, errors)
-    _validate_diagnostics(result, diagnostics, selected, cross_routes, errors)
+    _validate_transition_runtimes(
+        result,
+        transition_context,
+        selected,
+        routes_by_segment,
+        errors,
+    )
+    _validate_result_currency(
+        result,
+        context,
+        transition_context,
+        diagnostics,
+        errors,
+    )
+    _validate_diagnostics(
+        result,
+        diagnostics,
+        selected,
+        cross_routes,
+        transition_context,
+        errors,
+    )
     if errors:
         _raise_contract_error(errors)
     return ValidatedOptimizerTransferPricing(
         context=context,
+        transition_context=transition_context,
         diagnostics=diagnostics,
     )
 
@@ -416,6 +449,7 @@ def _validate_transfer_costs(
 def _validate_result_currency(
     result: dict[str, Any],
     context: OptimizerTransferPricingContext,
+    transition_context: OptimizerTransitionRuntimeContext,
     diagnostics: OptimizerPathDiagnostics,
     errors: list[dict[str, str]],
 ) -> None:
@@ -425,6 +459,12 @@ def _validate_result_currency(
             errors,
             "transferPricingContext.currency",
             "Transfer currency must match the optimizer result",
+        )
+    if currency != transition_context.currency:
+        _add_error(
+            errors,
+            "transitionRuntimeContext.currency",
+            "Transition runtime currency must match the optimizer result",
         )
     if diagnostics.score_unit != f"{currency}/month":
         _add_error(
@@ -439,6 +479,7 @@ def _validate_diagnostics(
     diagnostics: OptimizerPathDiagnostics,
     selected: dict[str, str],
     cross_routes: list[OptimizerTransferRoute],
+    transition_context: OptimizerTransitionRuntimeContext,
     errors: list[dict[str, str]],
 ) -> None:
     expected_candidate = "|".join(
@@ -469,6 +510,22 @@ def _validate_diagnostics(
             "optimizationDiagnostics.winningTransferCost",
             "Winning transfer cost does not match route evidence",
         )
+    transition_total = sum(
+        (
+            transition.mover_runtime_cost
+            for transition in transition_context.transitions
+        ),
+        Decimal(0),
+    )
+    if not _close(
+        diagnostics.winning_transition_runtime_cost,
+        transition_total,
+    ):
+        _add_error(
+            errors,
+            "optimizationDiagnostics.winningTransitionRuntimeCost",
+            "Winning transition cost does not match runtime evidence",
+        )
     result_total = _decimal_or_none(result.get("totalCost"))
     if result_total is None or abs(result_total - diagnostics.winning_score) > Decimal(
         "0.01"
@@ -478,6 +535,98 @@ def _validate_diagnostics(
             "optimizationDiagnostics.winningScore",
             "Winning score does not match totalCost",
         )
+
+
+def _validate_transition_runtimes(
+    result: dict[str, Any],
+    context: OptimizerTransitionRuntimeContext,
+    selected: dict[str, str],
+    routes_by_segment: dict[str, OptimizerTransferRoute],
+    errors: list[dict[str, str]],
+) -> None:
+    expected = {
+        "l3_hot_to_l3_cool": (
+            "L3_hot",
+            "L3_cool",
+            30,
+            "one_daily_source_mover_invocation",
+            "L3_hot_to_L3_cool",
+        ),
+        "l3_cool_to_l3_archive": (
+            "L3_cool",
+            "L3_archive",
+            4,
+            "one_weekly_source_mover_invocation",
+            "L3_cool_to_L3_archive",
+        ),
+    }
+    runtime_costs = result.get("transitionRuntimeCosts")
+    if not isinstance(runtime_costs, dict) or set(runtime_costs) != set(
+        expected
+    ):
+        _add_error(
+            errors,
+            "transitionRuntimeCosts",
+            "Transition costs must contain exactly the two baseline edges",
+        )
+        runtime_costs = {}
+
+    for transition in context.transitions:
+        (
+            source_slot,
+            destination_slot,
+            invocations,
+            invocation_basis,
+            segment_id,
+        ) = expected[transition.edge_id]
+        field = (
+            "transitionRuntimeContext.transitions."
+            f"{transition.edge_id}"
+        )
+        source_provider = selected.get(source_slot)
+        destination_provider = selected.get(destination_slot)
+        expected_component = (
+            f"transition.{transition.edge_id}."
+            f"{source_provider}.runtime"
+        )
+        if (
+            transition.source_slot != source_slot
+            or transition.destination_slot != destination_slot
+            or transition.source_provider != source_provider
+            or transition.destination_provider != destination_provider
+            or transition.monthly_invocations != invocations
+            or transition.invocation_basis != invocation_basis
+            or transition.source_runtime_component_id
+            != expected_component
+        ):
+            _add_error(
+                errors,
+                field,
+                "Transition runtime does not match source-owned topology",
+            )
+
+        route = routes_by_segment.get(segment_id)
+        if route is not None and (
+            not _close(transition.destination_writer_cost, route.glue_cost)
+            or not _close(transition.egress_cost, route.egress_cost)
+        ):
+            _add_error(
+                errors,
+                field,
+                "Transition writer and egress costs do not match route evidence",
+            )
+        runtime_cost = _decimal_or_none(
+            runtime_costs.get(transition.edge_id)
+        )
+        if runtime_cost is None or not _close(
+            runtime_cost,
+            transition.mover_runtime_cost,
+        ):
+            _add_error(
+                errors,
+                f"transitionRuntimeCosts.{transition.edge_id}",
+                "Transition cost does not match source runtime evidence",
+            )
 
 
 def _selected_providers(

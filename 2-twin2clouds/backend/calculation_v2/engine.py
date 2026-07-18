@@ -33,6 +33,7 @@ from backend.calculation_v2.formulas import (
 from backend.calculation_v2.path_optimizer import (
     LAYER_ORDER,
     build_optimization_diagnostics,
+    build_transition_runtime_context,
     build_transfer_pricing_context,
     evaluate_complete_paths,
 )
@@ -558,13 +559,16 @@ def _calculate_egress_cost(
 
 def _calculate_glue_cost(messages: float, pricing: Dict[str, Any], provider: str) -> float:
     """Calculate cost of glue functions for cross-cloud communication."""
-    if provider == "AWS":
-        return _aws_calc.calculate_glue_cost(messages, pricing)
-    elif provider == "Azure":
-        return _azure_calc.calculate_glue_cost(messages, pricing)
-    elif provider == "GCP":
-        return _gcp_calc.calculate_glue_cost(messages, pricing)
-    return 0.0
+    calculators = {
+        "AWS": _aws_calc,
+        "Azure": _azure_calc,
+        "GCP": _gcp_calc,
+    }
+    try:
+        calculator = calculators[provider]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported glue provider: {provider!r}") from exc
+    return calculator.calculate_glue_cost(messages, pricing)
 
 
 # =============================================================================
@@ -679,6 +683,24 @@ def calculate_cheapest_costs(
             str(_calculate_glue_cost(float(invocations), pricing, label))
         )
 
+    def resolve_transition_runtime(
+        provider,
+        edge_id,
+        monthly_invocations,
+        invocation_basis,
+    ):
+        calculator = {
+            "aws": _aws_calc,
+            "azure": _azure_calc,
+            "gcp": _gcp_calc,
+        }[provider.value]
+        return calculator.calculate_transition_runtime(
+            edge_id=edge_id,
+            monthly_invocations=monthly_invocations,
+            invocation_basis=invocation_basis,
+            pricing=pricing,
+        )
+
     evaluation_set = evaluate_complete_paths(
         layer_options=layer_options,
         derived=derived,
@@ -686,6 +708,7 @@ def calculate_cheapest_costs(
         pricing_catalog_context=pricing_catalog_context,
         pricing_registry=pricing_registry,
         glue_cost_resolver=resolve_glue_cost,
+        transition_runtime_resolver=resolve_transition_runtime,
     )
     snapshot_references = tuple(
         f"pricing_catalog:{pricing_catalog_context.catalogs[provider].snapshot_id}"
@@ -748,6 +771,10 @@ def calculate_cheapest_costs(
         if charge.route.route_class
         == TransferRouteClass.CROSS_PROVIDER_PUBLIC_INTERNET
     }
+    transition_runtime_costs = {
+        charge.workload.edge_id: float(charge.total_cost)
+        for charge in winner.transition_runtime_charges
+    }
     cheapest_path = [
         f"{assignment.layer_key}_{provider_labels[assignment.provider.value]}"
         for assignment in winner.assignments
@@ -784,6 +811,8 @@ def calculate_cheapest_costs(
         },
         "transferCosts": transfer_costs,
         "transferPricingContext": build_transfer_pricing_context(winner),
+        "transitionRuntimeCosts": transition_runtime_costs,
+        "transitionRuntimeContext": build_transition_runtime_context(winner),
         "optimizationDiagnostics": build_optimization_diagnostics(
             evaluation_set,
             winner,
@@ -801,6 +830,12 @@ def calculate_cheapest_costs(
                 "azure": _azure_calc.glue_deployment_selection(),
                 "gcp": _gcp_calc.glue_deployment_selection(),
             },
+            transition_runtime_selections={
+                charge.workload.edge_id: (
+                    charge.result.deployment_selection
+                )
+                for charge in winner.transition_runtime_charges
+            },
             optimization_metadata=optimization_metadata,
             execution_context=execution_context,
             pricing_catalog_context=pricing_catalog_context,
@@ -816,6 +851,8 @@ def calculate_cheapest_costs(
             "gcp": gcp_costs,
         },
         transfer_costs=transfer_costs,
+        transition_runtime_costs=transition_runtime_costs,
+        transition_runtime_context=result_payload["transitionRuntimeContext"],
         optimization_metadata=optimization_metadata,
         pricing_registry_reference=pricing_registry_reference,
     )

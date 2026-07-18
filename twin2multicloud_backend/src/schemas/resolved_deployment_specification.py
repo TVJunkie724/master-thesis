@@ -76,6 +76,7 @@ class ResolvedDeploymentComponent(BaseModel):
         "l3_archive_storage",
         "l4_twin_state",
         "l5_visualization",
+        "transition_runtime",
         "cross_cloud_glue",
     ]
     provider: Literal["aws", "azure", "gcp"]

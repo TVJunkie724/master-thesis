@@ -32,7 +32,7 @@ Optimizer winner
 | 2 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Done: Optimizer emits an exact resolved specification | #127 |
 | 3 | [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Done: Management API validates, persists, freezes, and manifests it | #127, #129 |
 | 4 | [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Done: Deployer validates it and generates typed tfvars | #127, #130 |
-| 4b | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Source-owned storage transition runtimes and destination-owned writers | #127, #129, #130, #131 |
+| 4b | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Done: source-owned storage transition runtimes and destination-owned writers | #127, #129, #130, #131 |
 | 5 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | AWS Terraform alignment | #61, #131 |
 | 6 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Azure Terraform alignment | #61, #131 |
 | 7 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | GCP Terraform alignment | #61, #131 |

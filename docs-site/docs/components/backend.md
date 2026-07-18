@@ -184,6 +184,14 @@ bytes/cost, currency, and winning candidate against the server-resolved catalog
 context. The non-persisting diagnostic calculation proxy and the durable run
 workflow share this one validation service.
 
+The same trust boundary requires `baseline-transition-runtime.v1` with exactly
+the hot-to-cool and cool-to-archive edges in canonical order. It proves that
+each mover runtime belongs to its selected source storage provider, that a
+destination writer exists only for cross-provider movement, and that runtime,
+writer, egress, diagnostics, and flat cost fields reconcile. Manipulated
+provider ownership, component IDs, invocation bases, arithmetic, or route
+evidence fail before any calculation run is committed.
+
 `POST /twins/{id}/optimizer-runs` is the only application command that may
 persist an optimizer result and its deployment-path projection. Management
 resolves the trusted pricing context, invokes the Optimizer, validates the
@@ -216,6 +224,9 @@ the immutable catalog context from that snapshot:
 - `transfer_pricing_context` plus `optimization_diagnostics` for all exact
   baseline routes, provider billing pools, tier contributions, assumptions,
   and bounded path-selection diagnostics;
+- `transition_runtime_context`, `transition_runtime_costs`, and
+  `transition_runtime_trace` for the two source-owned storage movers and their
+  optional destination writers;
 - `pricing_catalog_context` for the exact AWS, Azure, and GCP catalog identities;
 - explicit availability flags and compatibility warnings for historical runs.
 

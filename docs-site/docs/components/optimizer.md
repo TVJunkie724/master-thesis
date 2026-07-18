@@ -78,6 +78,35 @@ Flutter consumes the durable Management run contract and exposes the six routes,
 solver diagnostics, billing pools, and tier contributions as collapsed,
 read-only evidence. No client may author or recalculate this result.
 
+### Storage Transition Runtime Ownership
+
+The fixed baseline storage transitions are not destination-layer costs.
+Hot-to-cool is executed by the selected hot-storage provider and
+cool-to-archive by the selected cool-storage provider:
+
+```text
+source storage
+  -> source-owned mover runtime + schedule
+  -> optional destination-owned writer
+  -> destination storage
+```
+
+Every complete-path candidate therefore contains two independent
+`TransitionRuntimeResult` values in addition to its seven layer results and
+six transfer routes. Destination writer/glue and egress remain part of the
+corresponding transfer route and exist only when the providers differ.
+Destination cool/archive layer results contain storage cost and storage
+deployment selections only.
+
+The winning result exposes `baseline-transition-runtime.v1`,
+`transitionRuntimeCosts`, and
+`optimizationDiagnostics.winningTransitionRuntimeCost`. The runtime context
+records exact source/destination ownership, invocations, formula/evidence
+references, runtime component, function/trigger cost, optional destination
+writer, egress, and reconciled total. Candidate scoring adds the source runtime
+once; it does not add the context's explanatory writer/egress total a second
+time.
+
 ## Evidence And Candidate Flow
 
 ```text
@@ -328,10 +357,11 @@ currency conversion. Therefore USD and EUR views of the same run have identical
 deployment selections and digest. No downstream service may reconstruct SKU,
 capacity, storage class, or runtime configuration from defaults.
 
-The emitted object becomes deployment-authoritative only after the remaining
-Management persistence, DeploymentManifest, Deployer preflight, and Terraform
-translation phases of
-[#118](https://github.com/TVJunkie724/master-thesis/issues/118) are complete.
+Management persistence, DeploymentManifest v2, Deployer preflight, and typed
+tfvar translation are implemented. The remaining provider phases of
+[#118](https://github.com/TVJunkie724/master-thesis/issues/118) bind those
+variables to AWS, Azure, and GCP Terraform resources and prove the final
+credential-free no-apply drift gate.
 
 ## Optimization Strategy Bundle
 

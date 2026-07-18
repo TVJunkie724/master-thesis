@@ -105,6 +105,7 @@ def _sample_pricing():
                 "freeGBSeconds": 400000,
             },
             "cloudWorkflows": {"pricePerStep": 0.00001},
+            "cloudScheduler": {"jobPrice": 0.10},
             "storage_hot": {"writePrice": 0.18, "readPrice": 0.06, "storagePrice": 0.026},
             "storage_cool": {"storagePrice": 0.01, "writePrice": 0.01},
             "storage_archive": {"storagePrice": 0.004, "writePrice": 0.05},
@@ -132,6 +133,8 @@ def test_calculation_result_contains_stable_intent_trace_shape():
     assert trace["summary"]["record_count"] == len(trace["records"])
     assert trace["summary"]["selected_path_count"] == 7
     assert trace["summary"]["transfer_segment_count"] == len(trace["transfer_trace"])
+    assert trace["summary"]["transition_runtime_count"] == 2
+    assert len(trace["transition_runtime_trace"]) == 2
 
     first = trace["records"][0]
     assert set(first) == {

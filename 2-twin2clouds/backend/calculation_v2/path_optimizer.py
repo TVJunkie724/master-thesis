@@ -12,6 +12,7 @@ import json
 from typing import Any
 
 from backend.calculation_v2.components.types import LayerType, Provider
+from backend.calculation_v2.layers import TransitionRuntimeResult
 from backend.calculation_v2.transfer_pricing import (
     TransferBillingScope,
     TransferGeography,
@@ -32,6 +33,7 @@ from backend.transfer_catalog import validate_transfer_catalog
 
 PATH_OPTIMIZATION_SCHEMA_VERSION = "complete-path-optimization.v1"
 TRANSFER_CONTEXT_SCHEMA_VERSION = "complete-path-transfer-pricing.v1"
+TRANSITION_RUNTIME_CONTEXT_SCHEMA_VERSION = "baseline-transition-runtime.v1"
 
 LAYER_ORDER: tuple[tuple[str, LayerType], ...] = (
     ("L1", LayerType.L1_INGESTION),
@@ -69,6 +71,18 @@ class BaselineEdgeWorkload:
 
 
 @dataclass(frozen=True)
+class TransitionRuntimeWorkload:
+    """One source-owned runtime on a fixed baseline storage transition."""
+
+    edge_id: str
+    transfer_segment_id: str
+    source_layer_key: str
+    destination_layer_key: str
+    monthly_invocations: int
+    invocation_basis: str
+
+
+@dataclass(frozen=True)
 class LayerAssignment:
     """One provider selection and its provider-local layer cost."""
 
@@ -79,15 +93,28 @@ class LayerAssignment:
 
 
 @dataclass(frozen=True)
+class TransitionRuntimeCharge:
+    """Costed source runtime bound to one evaluated storage edge."""
+
+    workload: TransitionRuntimeWorkload
+    source_provider: Provider
+    destination_provider: Provider
+    result: TransitionRuntimeResult
+    total_cost: Decimal
+
+
+@dataclass(frozen=True)
 class CompletePathEvaluation:
     """Fully evaluated architecture candidate including all baseline edges."""
 
     candidate_id: str
     assignments: tuple[LayerAssignment, ...]
     transfer_charges: tuple[TransferSegmentCharge, ...]
+    transition_runtime_charges: tuple[TransitionRuntimeCharge, ...]
     pricing_pools: tuple[TransferPricingPool, ...]
     layer_cost: Decimal
     transfer_cost: Decimal
+    transition_runtime_cost: Decimal
     total_cost: Decimal
 
     def provider_for(self, layer_key: str) -> Provider:
@@ -111,6 +138,10 @@ class CompletePathEvaluationSet:
 
 
 GlueCostResolver = Callable[[Provider, Decimal], Decimal]
+TransitionRuntimeCostResolver = Callable[
+    [Provider, str, int, str],
+    TransitionRuntimeResult,
+]
 RouteIndexValue = TransferRouteIntent | tuple[str, str]
 
 
@@ -177,7 +208,9 @@ def build_baseline_edge_workloads(
             volume_bytes=telemetry_bytes,
             volume_basis="monthly_hot_to_cool_transition_cohort",
             glue_invocations=Decimal(30),
-            glue_invocation_basis="one_daily_destination_mover_invocation",
+            glue_invocation_basis=(
+                "one_destination_writer_invocation_per_daily_source_mover_run"
+            ),
             assumptions=(transition_assumption,),
         ),
         BaselineEdgeWorkload(
@@ -189,7 +222,9 @@ def build_baseline_edge_workloads(
             volume_bytes=telemetry_bytes,
             volume_basis="monthly_cool_to_archive_transition_cohort",
             glue_invocations=Decimal(4),
-            glue_invocation_basis="one_weekly_destination_mover_invocation",
+            glue_invocation_basis=(
+                "one_destination_writer_invocation_per_weekly_source_mover_run"
+            ),
             assumptions=(transition_assumption,),
         ),
         BaselineEdgeWorkload(
@@ -219,6 +254,29 @@ def build_baseline_edge_workloads(
     )
 
 
+def build_transition_runtime_workloads() -> tuple[TransitionRuntimeWorkload, ...]:
+    """Return the two closed-world source runtimes in canonical edge order."""
+
+    return (
+        TransitionRuntimeWorkload(
+            edge_id="l3_hot_to_l3_cool",
+            transfer_segment_id="L3_hot_to_L3_cool",
+            source_layer_key="L3_hot",
+            destination_layer_key="L3_cool",
+            monthly_invocations=30,
+            invocation_basis="one_daily_source_mover_invocation",
+        ),
+        TransitionRuntimeWorkload(
+            edge_id="l3_cool_to_l3_archive",
+            transfer_segment_id="L3_cool_to_L3_archive",
+            source_layer_key="L3_cool",
+            destination_layer_key="L3_archive",
+            monthly_invocations=4,
+            invocation_basis="one_weekly_source_mover_invocation",
+        ),
+    )
+
+
 def evaluate_complete_paths(
     *,
     layer_options: Mapping[str, Sequence[tuple[str, float]]],
@@ -227,6 +285,7 @@ def evaluate_complete_paths(
     pricing_catalog_context: PricingCatalogContext,
     pricing_registry: PricingRegistry,
     glue_cost_resolver: GlueCostResolver,
+    transition_runtime_resolver: TransitionRuntimeCostResolver,
 ) -> CompletePathEvaluationSet:
     """Enumerate and evaluate every executable baseline architecture path."""
 
@@ -238,6 +297,7 @@ def evaluate_complete_paths(
 
     normalized_options = _normalize_layer_options(layer_options)
     workloads = build_baseline_edge_workloads(derived)
+    transition_workloads = build_transition_runtime_workloads()
     endpoints = _build_endpoint_index(
         pricing_catalog_context,
         transfer_registry,
@@ -256,6 +316,10 @@ def evaluate_complete_paths(
     evaluations: list[CompletePathEvaluation] = []
     rejected_codes: Counter[str] = Counter()
     glue_cost_cache: dict[tuple[Provider, Decimal], Decimal] = {}
+    transition_runtime_cache: dict[
+        tuple[str, Provider, int, str],
+        TransitionRuntimeResult,
+    ] = {}
     option_product = product(
         *(normalized_options[layer_key] for layer_key, _ in LAYER_ORDER)
     )
@@ -284,6 +348,9 @@ def evaluate_complete_paths(
                     pools=pools,
                     glue_cost_resolver=glue_cost_resolver,
                     glue_cost_cache=glue_cost_cache,
+                    transition_workloads=transition_workloads,
+                    transition_runtime_resolver=transition_runtime_resolver,
+                    transition_runtime_cache=transition_runtime_cache,
                 )
             )
         except TransferPricingContractError as exc:
@@ -321,11 +388,79 @@ def build_optimization_diagnostics(
         "winningScore": float(winner.total_cost),
         "winningLayerCost": float(winner.layer_cost),
         "winningTransferCost": float(winner.transfer_cost),
+        "winningTransitionRuntimeCost": float(
+            winner.transition_runtime_cost
+        ),
         "tieBreakPolicy": "canonical_provider_order",
         "canonicalProviderOrder": [
             provider.value for provider in _CANONICAL_PROVIDER_ORDER
         ],
         "scoreUnit": "USD/month",
+    }
+
+
+def build_transition_runtime_context(
+    winner: CompletePathEvaluation,
+) -> dict[str, Any]:
+    """Serialize source runtime and destination writer evidence separately."""
+
+    transfer_by_segment = {
+        charge.route.segment_id: charge for charge in winner.transfer_charges
+    }
+    transitions = []
+    for charge in winner.transition_runtime_charges:
+        transfer = transfer_by_segment[charge.workload.transfer_segment_id]
+        cross_provider = (
+            charge.source_provider != charge.destination_provider
+        )
+        transition_total = charge.total_cost + transfer.total_cost
+        transitions.append(
+            {
+                "edgeId": charge.workload.edge_id,
+                "sourceSlot": charge.workload.source_layer_key,
+                "destinationSlot": charge.workload.destination_layer_key,
+                "sourceProvider": charge.source_provider.value,
+                "destinationProvider": charge.destination_provider.value,
+                "sourceRuntimeComponentId": (
+                    charge.result.deployment_selection.component_id
+                ),
+                "monthlyInvocations": charge.result.monthly_invocations,
+                "invocationBasis": charge.result.invocation_basis,
+                "formulaReferences": list(
+                    charge.result.formula_references
+                ),
+                "evidenceReferences": list(
+                    charge.result.evidence_references
+                ),
+                "functionCost": _decimal_json(
+                    _decimal(
+                        charge.result.function_cost,
+                        f"{charge.workload.edge_id}.function_cost",
+                    )
+                ),
+                "triggerCost": _decimal_json(
+                    _decimal(
+                        charge.result.trigger_cost,
+                        f"{charge.workload.edge_id}.trigger_cost",
+                    )
+                ),
+                "moverRuntimeCost": _decimal_json(charge.total_cost),
+                "destinationWriterProvider": (
+                    charge.destination_provider.value
+                    if cross_provider
+                    else None
+                ),
+                "destinationWriterCost": _decimal_json(
+                    transfer.glue_cost
+                ),
+                "egressCost": _decimal_json(transfer.egress_cost),
+                "totalCost": _decimal_json(transition_total),
+            }
+        )
+    return {
+        "schemaVersion": TRANSITION_RUNTIME_CONTEXT_SCHEMA_VERSION,
+        "currency": "USD",
+        "transitions": transitions,
     }
 
 
@@ -581,6 +716,12 @@ def _evaluate_path(
     pools: Mapping[Provider, TransferPricingPool],
     glue_cost_resolver: GlueCostResolver,
     glue_cost_cache: dict[tuple[Provider, Decimal], Decimal],
+    transition_workloads: tuple[TransitionRuntimeWorkload, ...],
+    transition_runtime_resolver: TransitionRuntimeCostResolver,
+    transition_runtime_cache: dict[
+        tuple[str, Provider, int, str],
+        TransitionRuntimeResult,
+    ],
 ) -> CompletePathEvaluation:
     assignments_by_key = {
         assignment.layer_key: assignment for assignment in assignments
@@ -662,6 +803,19 @@ def _evaluate_path(
         (charge.total_cost for charge in ordered_charges),
         Decimal(0),
     )
+    transition_runtime_charges = tuple(
+        _resolve_transition_runtime_charge(
+            workload=workload,
+            assignments_by_key=assignments_by_key,
+            resolver=transition_runtime_resolver,
+            cache=transition_runtime_cache,
+        )
+        for workload in transition_workloads
+    )
+    transition_runtime_cost = sum(
+        (charge.total_cost for charge in transition_runtime_charges),
+        Decimal(0),
+    )
     candidate_id = "|".join(
         assignment.provider.value for assignment in assignments
     )
@@ -669,10 +823,65 @@ def _evaluate_path(
         candidate_id=candidate_id,
         assignments=assignments,
         transfer_charges=ordered_charges,
+        transition_runtime_charges=transition_runtime_charges,
         pricing_pools=tuple(used_pools),
         layer_cost=layer_cost,
         transfer_cost=transfer_cost,
-        total_cost=layer_cost + transfer_cost,
+        transition_runtime_cost=transition_runtime_cost,
+        total_cost=layer_cost + transfer_cost + transition_runtime_cost,
+    )
+
+
+def _resolve_transition_runtime_charge(
+    *,
+    workload: TransitionRuntimeWorkload,
+    assignments_by_key: Mapping[str, LayerAssignment],
+    resolver: TransitionRuntimeCostResolver,
+    cache: dict[
+        tuple[str, Provider, int, str],
+        TransitionRuntimeResult,
+    ],
+) -> TransitionRuntimeCharge:
+    source_provider = assignments_by_key[workload.source_layer_key].provider
+    destination_provider = assignments_by_key[
+        workload.destination_layer_key
+    ].provider
+    cache_key = (
+        workload.edge_id,
+        source_provider,
+        workload.monthly_invocations,
+        workload.invocation_basis,
+    )
+    try:
+        result = cache[cache_key]
+    except KeyError:
+        result = resolver(
+            source_provider,
+            workload.edge_id,
+            workload.monthly_invocations,
+            workload.invocation_basis,
+        )
+        cache[cache_key] = result
+
+    expected_provider = _PROVIDER_LABELS[source_provider]
+    if (
+        result.edge_id != workload.edge_id
+        or result.provider != expected_provider
+        or result.monthly_invocations != workload.monthly_invocations
+        or result.invocation_basis != workload.invocation_basis
+    ):
+        raise ValueError(
+            "Transition runtime result differs from its source-owned workload"
+        )
+    return TransitionRuntimeCharge(
+        workload=workload,
+        source_provider=source_provider,
+        destination_provider=destination_provider,
+        result=result,
+        total_cost=_decimal(
+            result.total_cost,
+            f"{workload.edge_id}.{source_provider.value}.runtime_cost",
+        ),
     )
 
 

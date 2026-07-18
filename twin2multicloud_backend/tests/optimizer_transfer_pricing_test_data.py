@@ -190,6 +190,65 @@ def transfer_pricing_result_fields(
             "L5",
         )
     )
+    transition_definitions = (
+        (
+            "l3_hot_to_l3_cool",
+            "L3_hot",
+            "L3_cool",
+            30,
+            "one_daily_source_mover_invocation",
+            "L3_hot_to_L3_cool",
+        ),
+        (
+            "l3_cool_to_l3_archive",
+            "L3_cool",
+            "L3_archive",
+            4,
+            "one_weekly_source_mover_invocation",
+            "L3_cool_to_L3_archive",
+        ),
+    )
+    transitions = []
+    for (
+        edge_id,
+        source_slot,
+        destination_slot,
+        monthly_invocations,
+        invocation_basis,
+        segment_id,
+    ) in transition_definitions:
+        source_provider = selected[source_slot]
+        destination_provider = selected[destination_slot]
+        route = next(
+            item for item in routes if item["segmentId"] == segment_id
+        )
+        transitions.append(
+            {
+                "edgeId": edge_id,
+                "sourceSlot": source_slot,
+                "destinationSlot": destination_slot,
+                "sourceProvider": source_provider,
+                "destinationProvider": destination_provider,
+                "sourceRuntimeComponentId": (
+                    f"transition.{edge_id}.{source_provider}.runtime"
+                ),
+                "monthlyInvocations": monthly_invocations,
+                "invocationBasis": invocation_basis,
+                "formulaReferences": ["fixture_formula"],
+                "evidenceReferences": ["fixture_evidence"],
+                "functionCost": 0.0,
+                "triggerCost": 0.0,
+                "moverRuntimeCost": 0.0,
+                "destinationWriterProvider": (
+                    destination_provider
+                    if source_provider != destination_provider
+                    else None
+                ),
+                "destinationWriterCost": route["glueCost"],
+                "egressCost": route["egressCost"],
+                "totalCost": route["totalCost"],
+            }
+        )
     return {
         "transferCosts": {
             route["segmentId"]: route["totalCost"]
@@ -203,6 +262,15 @@ def transfer_pricing_result_fields(
             "routes": routes,
             "pools": pools,
         },
+        "transitionRuntimeCosts": {
+            transition["edgeId"]: transition["moverRuntimeCost"]
+            for transition in transitions
+        },
+        "transitionRuntimeContext": {
+            "schemaVersion": "baseline-transition-runtime.v1",
+            "currency": currency,
+            "transitions": transitions,
+        },
         "optimizationDiagnostics": {
             "schemaVersion": "complete-path-optimization.v1",
             "enumeratedPathCount": 972,
@@ -213,6 +281,7 @@ def transfer_pricing_result_fields(
             "winningScore": total_cost,
             "winningLayerCost": total_cost,
             "winningTransferCost": 0.0,
+            "winningTransitionRuntimeCost": 0.0,
             "tieBreakPolicy": "canonical_provider_order",
             "canonicalProviderOrder": ["aws", "azure", "gcp"],
             "scoreUnit": f"{currency}/month",

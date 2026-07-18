@@ -48,6 +48,8 @@ def build_intent_result_trace(
     calculation_result: Mapping[str, Any],
     provider_costs: Mapping[str, Mapping[str, Any]],
     transfer_costs: Mapping[str, float],
+    transition_runtime_costs: Mapping[str, float],
+    transition_runtime_context: Mapping[str, Any],
     optimization_metadata: Mapping[str, Any],
     pricing_registry_reference: str,
     contract: OptimizationStrategyContract | None = None,
@@ -99,8 +101,17 @@ def build_intent_result_trace(
             transfer_costs,
             pricing_registry_reference,
         ),
+        "transition_runtime_trace": _transition_runtime_trace_entries(
+            transition_runtime_costs,
+            transition_runtime_context,
+        ),
         "records": records,
-        "summary": _summary(records, selected_path, transfer_costs),
+        "summary": _summary(
+            records,
+            selected_path,
+            transfer_costs,
+            transition_runtime_costs,
+        ),
     }
 
 
@@ -353,6 +364,7 @@ def _summary(
     records: list[Mapping[str, Any]],
     selected_path: list[Mapping[str, Any]],
     transfer_costs: Mapping[str, float],
+    transition_runtime_costs: Mapping[str, float],
 ) -> dict[str, Any]:
     selected_records = [
         record for record in records if record.get("contribution", {}).get("selected")
@@ -374,8 +386,47 @@ def _summary(
         "unsupported_count": len(unsupported),
         "selected_path_count": len(selected_path),
         "transfer_segment_count": len(transfer_costs),
+        "transition_runtime_count": len(transition_runtime_costs),
         "publishable": not review_required and not unsupported,
     }
+
+
+def _transition_runtime_trace_entries(
+    transition_runtime_costs: Mapping[str, float],
+    context: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    transitions = context.get("transitions")
+    if not isinstance(transitions, list):
+        return []
+    entries = []
+    for transition in transitions:
+        if not isinstance(transition, Mapping):
+            continue
+        edge_id = transition.get("edgeId")
+        cost = transition_runtime_costs.get(str(edge_id))
+        entries.append(
+            {
+                "edge_id": edge_id,
+                "source_slot": transition.get("sourceSlot"),
+                "destination_slot": transition.get("destinationSlot"),
+                "source_provider": transition.get("sourceProvider"),
+                "source_runtime_component_id": transition.get(
+                    "sourceRuntimeComponentId"
+                ),
+                "monthly_invocations": transition.get(
+                    "monthlyInvocations"
+                ),
+                "invocation_basis": transition.get("invocationBasis"),
+                "formula_references": list(
+                    transition.get("formulaReferences") or []
+                ),
+                "evidence_references": list(
+                    transition.get("evidenceReferences") or []
+                ),
+                "cost": _rounded(cost),
+            }
+        )
+    return entries
 
 
 def _transfer_segments_for_provider(

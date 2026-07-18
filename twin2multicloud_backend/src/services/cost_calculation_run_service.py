@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime, timezone
 import json
+from math import isfinite
 import re
 from typing import Any
 import uuid
@@ -286,6 +287,9 @@ class CostCalculationRunService:
                 "selected_path": _list_of_dicts(trace_payload.get("selected_path")),
                 "records": _list_of_dicts(trace_payload.get("records")),
                 "transfer_trace": _list_of_dicts(trace_payload.get("transfer_trace")),
+                "transition_runtime_trace": _list_of_dicts(
+                    trace_payload.get("transition_runtime_trace")
+                ),
                 "summary": _dict_or_empty(trace_payload.get("summary")),
                 "field_trace_schema_version": _string_or_none(
                     result.get("resultTraceSchemaVersion")
@@ -295,6 +299,21 @@ class CostCalculationRunService:
                 "transfer_pricing_context_available": (transfer_pricing is not None),
                 "transfer_pricing_context": (
                     raw_transfer_pricing if transfer_pricing is not None else {}
+                ),
+                "transition_runtime_context_available": (
+                    transfer_pricing is not None
+                ),
+                "transition_runtime_context": (
+                    _dict_or_empty(result.get("transitionRuntimeContext"))
+                    if transfer_pricing is not None
+                    else {}
+                ),
+                "transition_runtime_costs": (
+                    _numeric_dict_or_empty(
+                        result.get("transitionRuntimeCosts")
+                    )
+                    if transfer_pricing is not None
+                    else {}
                 ),
                 "optimization_diagnostics": (
                     _dict_or_empty(result.get("optimizationDiagnostics"))
@@ -864,6 +883,24 @@ def _result_metadata(result: dict[str, Any]) -> dict[str, Any]:
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _numeric_dict_or_empty(value: Any) -> dict[str, float]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, float] = {}
+    for key, item in value.items():
+        if (
+            not isinstance(key, str)
+            or isinstance(item, bool)
+            or not isinstance(item, (int, float))
+        ):
+            return {}
+        numeric = float(item)
+        if not isfinite(numeric) or numeric < 0:
+            return {}
+        normalized[key] = numeric
+    return normalized
 
 
 def _list_of_dicts(value: Any) -> list[dict[str, Any]]:

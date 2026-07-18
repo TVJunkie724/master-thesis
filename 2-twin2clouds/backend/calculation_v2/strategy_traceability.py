@@ -132,7 +132,109 @@ def build_intent_result_trace(
                 source=source,
             )
         )
-    return _with_provider_alternatives(trace_items)
+    return [
+        *_with_provider_alternatives(trace_items),
+        *_transition_runtime_trace_items(
+            result_payload,
+            execution_context,
+        ),
+    ][:MAX_TRACE_ITEMS]
+
+
+def _transition_runtime_trace_items(
+    result_payload: dict[str, Any],
+    execution_context: CalculationStrategyExecutionContext,
+) -> list[dict[str, Any]]:
+    context = result_payload.get("transitionRuntimeContext")
+    transitions = (
+        context.get("transitions")
+        if isinstance(context, dict)
+        else None
+    )
+    if not isinstance(transitions, list):
+        return []
+    trace_items = []
+    for transition in transitions:
+        if not isinstance(transition, dict):
+            continue
+        provider = transition.get("sourceProvider")
+        edge_id = transition.get("edgeId")
+        formula_references = list(
+            transition.get("formulaReferences") or []
+        )
+        evidence_references = list(
+            transition.get("evidenceReferences") or []
+        )
+        trace_items.append(
+            {
+                "trace_id": f"{provider}.transition_runtime.{edge_id}.v1",
+                "provider": provider,
+                "layer": "transition_runtime",
+                "service": "source_owned_storage_mover",
+                "intent_id": f"transition_runtime.{edge_id}",
+                "workload_contract_id": (
+                    execution_context.workload_contract_id
+                ),
+                "workload_inputs": {
+                    "monthly_invocations": transition.get(
+                        "monthlyInvocations"
+                    ),
+                    "invocation_basis": transition.get(
+                        "invocationBasis"
+                    ),
+                },
+                "optimization_profile_id": (
+                    execution_context.optimization_profile_id
+                ),
+                "calculation_strategy_id": (
+                    execution_context.calculation_strategy_id
+                ),
+                "formula_set_id": execution_context.formula_set_id,
+                "formula_ref": (
+                    formula_references[0]
+                    if formula_references
+                    else "unknown"
+                ),
+                "provider_pricing_contract_id": None,
+                "pricing_model_classification_id": None,
+                "price_source_classification_ids": [],
+                "selected_evidence_id": None,
+                "selected_evidence_summary": {
+                    "source_type": "resolved_runtime_bundle",
+                    "references": evidence_references,
+                },
+                "alternative_record_ids": [],
+                "rejected_evidence_ids": [],
+                "normalization_steps": [],
+                "result_field": "transitionRuntimeCosts",
+                "result_component_key": edge_id,
+                "cost_contribution": transition.get(
+                    "moverRuntimeCost"
+                ),
+                "cost_contribution_scope": "selected_transition_runtime",
+                "cost_contribution_is_additive": True,
+                "runtime_applicability": True,
+                "runtime_applicability_reason": None,
+                "selection_status": "selected",
+                "selected_for_path": True,
+                "currency": context.get("currency") or "USD",
+                "output_metric_unit": "currency_per_month",
+                "publishability_status": "publishable",
+                "verification_gates": [
+                    "source_provider_ownership",
+                    "resolved_deployment_selection",
+                ],
+                "verification_gate": "G7_CALCULATION_READINESS",
+                "verification_status": "passed",
+                "verification_error_code": None,
+                "verification_error_message": None,
+                "source_build_path": None,
+                "source_type": "resolved_runtime_bundle",
+                "runtime_selected_evidence_available": True,
+                "evidence_reference_kind": "runtime_bundle_reference",
+            }
+        )
+    return trace_items
 
 
 def _trace_item(

@@ -151,10 +151,10 @@ when work becomes actionable, then reference the issue here.
 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Done | Emit exact resolved deployment selections from the Optimizer winner, including formula-bound runtime values, archive classes, and Azure IoT Hub SKU/capacity with provider billing-block normalization |
 | [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Done | Validate, persist, freeze, and bind the specification to DeploymentManifest v2 in the Management API |
 | [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Done | Fail-closed DeploymentManifest v2/specification preflight, stable redacted errors, and allowlisted typed tfvars translation |
-| [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Active pre-provider blocker | Make both storage transition movers source-owned, keep cross-cloud writers destination-owned, and align cost/evidence/specification/runtime ownership |
-| [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Blocked by #61 | Align AWS formula assumptions and Terraform resource values |
-| [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Blocked by #61 | Align Azure IoT Hub and other modeled Azure resource values |
-| [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Blocked by #61 | Align GCP runtime profiles and archive storage model |
+| [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Done | Both storage transition movers are source-owned, cross-cloud writers remain destination-owned, and cost/evidence/specification/runtime ownership is aligned |
+| [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Ready | Align AWS formula assumptions and Terraform resource values |
+| [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Ready | Align Azure IoT Hub and other modeled Azure resource values |
+| [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Ready | Align GCP runtime profiles and archive storage model |
 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Blocked by #130 | Add compact read-only Flutter deployment review |
 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Final gate | Prove Optimizer-to-Terraform continuity with credential-free drift tests |
 | [#117](https://github.com/TVJunkie724/master-thesis/issues/117) | Done | Removed the unreachable Azure ADT Updater path; Azure L4 now has one package-, Terraform-, runtime-, security-, and documentation-tested Persister-to-ADT-Pusher topology |

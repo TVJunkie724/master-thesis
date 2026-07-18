@@ -15,6 +15,8 @@ from .contracts import (
     LayerResult,
     SUPPORTED_LAYER_KEYS,
     SUPPORTED_PROVIDER_KEYS,
+    SUPPORTED_TRANSITION_EDGE_IDS,
+    TransitionRuntimeResult,
 )
 from .gcp_layers import GCPLayerCalculators
 
@@ -28,4 +30,6 @@ __all__ = [
     "LayerResult",
     "SUPPORTED_LAYER_KEYS",
     "SUPPORTED_PROVIDER_KEYS",
+    "SUPPORTED_TRANSITION_EDGE_IDS",
+    "TransitionRuntimeResult",
 ]

@@ -83,6 +83,11 @@ def _convert_provider_costs(result: dict[str, Any], rate: float) -> None:
     for segment, value in (result.get("transferCosts") or {}).items():
         if isinstance(value, (int, float)):
             result["transferCosts"][segment] = _money(value, rate)
+    for edge_id, value in (
+        result.get("transitionRuntimeCosts") or {}
+    ).items():
+        if isinstance(value, (int, float)):
+            result["transitionRuntimeCosts"][edge_id] = _money(value, rate)
 
 
 def _convert_calculation_details(details: Any, rate: float) -> None:
@@ -112,11 +117,25 @@ def _convert_complete_path_costs(result: dict[str, Any], rate: float) -> None:
     for pool in transfer_context.get("pools") or []:
         _convert_key(pool, "aggregateEgressCost", rate)
 
+    transition_context = result.get("transitionRuntimeContext") or {}
+    transition_context["currency"] = "EUR"
+    for transition in transition_context.get("transitions") or []:
+        for key in (
+            "functionCost",
+            "triggerCost",
+            "moverRuntimeCost",
+            "destinationWriterCost",
+            "egressCost",
+            "totalCost",
+        ):
+            _convert_key(transition, key, rate)
+
     diagnostics = result.get("optimizationDiagnostics") or {}
     for key in (
         "winningScore",
         "winningLayerCost",
         "winningTransferCost",
+        "winningTransitionRuntimeCost",
     ):
         _convert_key(diagnostics, key, rate)
     diagnostics["scoreUnit"] = "EUR/month"
@@ -129,6 +148,8 @@ def _convert_trace_costs(
     for entry in intent_trace.get("selected_path") or []:
         _convert_key(entry, "cost", rate)
     for entry in intent_trace.get("transfer_trace") or []:
+        _convert_key(entry, "cost", rate)
+    for entry in intent_trace.get("transition_runtime_trace") or []:
         _convert_key(entry, "cost", rate)
     for record in intent_trace.get("records") or []:
         contribution = record.get("contribution") or {}

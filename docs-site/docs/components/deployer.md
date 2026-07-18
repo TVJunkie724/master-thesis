@@ -45,6 +45,14 @@ Legacy layer-specific endpoints and the interactive CLI are historical, not cano
 application interfaces. Legacy manifests remain inspectable through diagnostic
 paths but are not deployable.
 
+The component list contains the seven fixed baseline slots, followed by exactly
+two source-owned storage transition runtimes and then any required
+destination-owned cross-cloud glue. The Deployer derives transition ownership
+from the selected source storage provider and rejects missing, reordered, or
+destination-owned mover components. The translator emits only the registered
+function runtime and schedule variables; destination writer variables remain
+owned by the existing cross-cloud glue components.
+
 ## Storage And Workspace Model
 
 ```text
@@ -87,6 +95,11 @@ plans, and non-deployable formula assumptions never become Terraform
 variables. Unknown mappings, provider drift, digest drift, contradictory
 targets, or collisions with legacy configuration fail before package,
 workspace, or Terraform side effects.
+
+The canonical transition variables are intentionally provider-specific. Their
+final AWS, Azure, and GCP HCL resource bindings are delivered by roadmap phases
+#132, #133, and #120 respectively; until those gates pass, the platform does
+not claim end-to-end Terraform continuity for the resolved specification.
 
 ## Five-Layer Mapping
 

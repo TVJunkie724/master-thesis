@@ -144,6 +144,23 @@ def _required_glue_providers(
     return tuple(provider for provider in PROVIDERS if provider in required)
 
 
+def _required_transition_components(
+    registry: Mapping[str, Any],
+    provider_by_slot: Mapping[str, str],
+) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (
+            transition["boundary_id"],
+            transition["component_by_provider"][
+                provider_by_slot[transition["source_slot"]]
+            ],
+        )
+        for transition in registry["transition_runtime_policy"][
+            "transitions"
+        ]
+    )
+
+
 def _exact_value_type(value: object, expected: str) -> bool:
     if expected == "integer":
         return isinstance(value, int) and not isinstance(value, bool)
@@ -308,6 +325,10 @@ def build_resolved_deployment_specification(
     selected_providers: Mapping[str, str],
     provider_costs: Mapping[str, Mapping[str, Any]],
     glue_selections: Mapping[str, ComponentDeploymentSelection],
+    transition_runtime_selections: Mapping[
+        str,
+        ComponentDeploymentSelection,
+    ],
     optimization_metadata: Mapping[str, Any],
     execution_context: CalculationStrategyExecutionContext,
     pricing_catalog_context: PricingCatalogContext,
@@ -386,6 +407,27 @@ def build_resolved_deployment_specification(
                 optimization_context=optimization_context,
             )
             for selection in selections
+        )
+
+    for edge_id, component_id in _required_transition_components(
+        registry,
+        provider_by_slot,
+    ):
+        selection = transition_runtime_selections.get(edge_id)
+        if (
+            not isinstance(selection, ComponentDeploymentSelection)
+            or selection.component_id != component_id
+        ):
+            _fail(
+                "incomplete_deployment_specification",
+                f"Missing source-owned transition runtime for {edge_id}",
+            )
+        components.append(
+            _build_component(
+                selection.as_dict(),
+                registry=registry,
+                optimization_context=optimization_context,
+            )
         )
 
     glue_component_by_provider = registry["cross_cloud_glue_policy"][

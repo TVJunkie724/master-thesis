@@ -300,10 +300,23 @@ def _intent_trace(overrides=None):
                 "evidence_reference_ids": ["pricing_registry:aws.transfer.egress"],
             }
         ],
+        "transition_runtime_trace": [
+            {
+                "edge_id": "l3_hot_to_l3_cool",
+                "source_provider": "gcp",
+                "cost": 0.0,
+            },
+            {
+                "edge_id": "l3_cool_to_l3_archive",
+                "source_provider": "aws",
+                "cost": 0.0,
+            },
+        ],
         "summary": {
             "record_count": 1,
             "selected_path_count": 2,
             "transfer_segment_count": 1,
+            "transition_runtime_count": 2,
         },
     }
     if overrides:
@@ -732,6 +745,7 @@ def test_pricing_evidence_detail_returns_trace_and_result_items(
     assert data["selected_path"][0]["provider"] == "AWS"
     assert data["records"][0]["trace_id"] == "trace:aws.l1.iot_core.message_tiers"
     assert data["transfer_trace"][0]["source_intent_id"] == "aws.transfer.egress"
+    assert len(data["transition_runtime_trace"]) == 2
     assert data["field_trace_available"] is True
     assert data["field_trace_schema_version"] == "intent-to-result-trace.v1"
     assert data["field_trace_records"][0]["selection_status"] == "selected"
@@ -741,6 +755,15 @@ def test_pricing_evidence_detail_returns_trace_and_result_items(
         "complete-path-transfer-pricing.v1"
     )
     assert len(data["transfer_pricing_context"]["routes"]) == 6
+    assert data["transition_runtime_context_available"] is True
+    assert data["transition_runtime_context"]["schemaVersion"] == (
+        "baseline-transition-runtime.v1"
+    )
+    assert len(data["transition_runtime_context"]["transitions"]) == 2
+    assert set(data["transition_runtime_costs"]) == {
+        "l3_hot_to_l3_cool",
+        "l3_cool_to_l3_archive",
+    }
     assert data["optimization_diagnostics"]["winningCandidateId"] == (
         "aws|azure|gcp|aws|azure|azure|azure"
     )

@@ -64,6 +64,18 @@ def build_resolved_deployment_specification(
                 )
             )
 
+    for transition in registry["transition_runtime_policy"]["transitions"]:
+        provider = provider_by_slot[transition["source_slot"]]
+        components.append(
+            _component(
+                transition["component_by_provider"][provider],
+                registry=registry,
+                pricing_catalogs=pricing_catalogs,
+                formula_set_id=strategy["formula_set_id"],
+                workload_contract_id=strategy["workload_contract_id"],
+            )
+        )
+
     glue_by_provider = registry["cross_cloud_glue_policy"][
         "component_by_provider"
     ]

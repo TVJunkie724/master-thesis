@@ -35,7 +35,7 @@ BASELINE_SLOTS = (
 )
 PROVIDERS = ("aws", "azure", "gcp")
 VALID_FIXTURE_COUNT = 3
-INVALID_FIXTURE_COUNT = 17
+INVALID_FIXTURE_COUNT = 20
 SECRET_KEY_FRAGMENTS = (
     "access_key",
     "client_secret",
@@ -145,7 +145,11 @@ def _validate_registry(
     slots = registry.get("slots")
     requirements = registry.get("slot_requirements")
     components = registry.get("components")
-    if not isinstance(slots, dict) or tuple(slots) != (*BASELINE_SLOTS, "cross_cloud_glue"):
+    if not isinstance(slots, dict) or tuple(slots) != (
+        *BASELINE_SLOTS,
+        "transition_runtime",
+        "cross_cloud_glue",
+    ):
         raise RuntimeError("Registry slots must use canonical baseline ordering")
     if not isinstance(requirements, dict) or tuple(requirements) != BASELINE_SLOTS:
         raise RuntimeError("Slot requirements must cover every baseline slot in order")
@@ -182,6 +186,83 @@ def _validate_registry(
         if receiver_slot not in {source_slot, target_slot}:
             raise RuntimeError(f"Glue boundary {boundary_id} has an invalid receiver")
 
+    transition_policy = registry.get("transition_runtime_policy")
+    if (
+        not isinstance(transition_policy, dict)
+        or set(transition_policy) != {"transitions"}
+    ):
+        raise RuntimeError("Transition runtime policy must contain transitions")
+    transitions = transition_policy["transitions"]
+    if not isinstance(transitions, list) or len(transitions) != 2:
+        raise RuntimeError("Transition runtime policy must define exactly two edges")
+    expected_transition_ids = (
+        "l3_hot_to_l3_cool",
+        "l3_cool_to_l3_archive",
+    )
+    transition_component_ids: set[str] = set()
+    for transition, expected_boundary_id in zip(
+        transitions,
+        expected_transition_ids,
+        strict=True,
+    ):
+        if not isinstance(transition, dict) or set(transition) != {
+            "boundary_id",
+            "source_slot",
+            "target_slot",
+            "monthly_invocations",
+            "invocation_basis",
+            "component_by_provider",
+        }:
+            raise RuntimeError("Transition runtime edge has an invalid shape")
+        if transition["boundary_id"] != expected_boundary_id:
+            raise RuntimeError("Transition runtime edges must use canonical ordering")
+        if (
+            transition["source_slot"] not in BASELINE_SLOTS
+            or transition["target_slot"] not in BASELINE_SLOTS
+        ):
+            raise RuntimeError(
+                f"Transition {expected_boundary_id} references an unknown slot"
+            )
+        monthly_invocations = transition["monthly_invocations"]
+        if (
+            not isinstance(monthly_invocations, int)
+            or isinstance(monthly_invocations, bool)
+            or monthly_invocations <= 0
+        ):
+            raise RuntimeError(
+                f"Transition {expected_boundary_id} needs positive invocations"
+            )
+        if (
+            not isinstance(transition["invocation_basis"], str)
+            or not transition["invocation_basis"]
+        ):
+            raise RuntimeError(
+                f"Transition {expected_boundary_id} needs an invocation basis"
+            )
+        transition_components = transition["component_by_provider"]
+        if (
+            not isinstance(transition_components, dict)
+            or tuple(transition_components) != PROVIDERS
+        ):
+            raise RuntimeError(
+                f"Transition {expected_boundary_id} must map every provider"
+            )
+        for provider, component_id in transition_components.items():
+            component = components.get(component_id)
+            if (
+                not isinstance(component, dict)
+                or component.get("slot_id") != "transition_runtime"
+                or component.get("provider") != provider
+            ):
+                raise RuntimeError(
+                    f"Transition component mapping is invalid for {provider}"
+                )
+            if component_id in transition_component_ids:
+                raise RuntimeError(
+                    f"Transition component {component_id} is mapped more than once"
+                )
+            transition_component_ids.add(component_id)
+
     referenced_components: set[str] = set()
     for slot_id, providers in requirements.items():
         if not isinstance(providers, dict):
@@ -217,10 +298,25 @@ def _validate_registry(
         provider = component.get("provider")
         if slot_id not in slots or provider not in PROVIDERS:
             raise RuntimeError(f"{component_id} has an invalid slot/provider")
-        if slot_id != "cross_cloud_glue" and component_id not in referenced_components:
+        if (
+            slot_id in BASELINE_SLOTS
+            and component_id not in referenced_components
+        ):
             raise RuntimeError(f"{component_id} is absent from slot requirements")
-        if slot_id == "cross_cloud_glue" and component_id in referenced_components:
-            raise RuntimeError(f"{component_id} cannot be a baseline slot component")
+        if (
+            slot_id not in BASELINE_SLOTS
+            and component_id in referenced_components
+        ):
+            raise RuntimeError(
+                f"{component_id} cannot be a baseline slot component"
+            )
+        if (
+            slot_id == "transition_runtime"
+            and component_id not in transition_component_ids
+        ):
+            raise RuntimeError(
+                f"{component_id} is absent from the transition runtime policy"
+            )
 
         dimensions = component.get("dimensions")
         if not isinstance(dimensions, dict) or not dimensions:
@@ -348,6 +444,15 @@ def _validate_registry(
             or component.get("provider") != provider
         ):
             raise RuntimeError(f"Glue component mapping is invalid for {provider}")
+    registered_transition_components = {
+        component_id
+        for component_id, component in components.items()
+        if component.get("slot_id") == "transition_runtime"
+    }
+    if registered_transition_components != transition_component_ids:
+        raise RuntimeError(
+            "Transition runtime policy must reference every transition component"
+        )
 
 
 def _required_components(
@@ -387,6 +492,17 @@ def _required_glue_components(
     ]
 
 
+def _required_transition_components(
+    registry: dict[str, Any],
+    providers_by_slot: dict[str, str],
+) -> list[str]:
+    required: list[str] = []
+    for transition in registry["transition_runtime_policy"]["transitions"]:
+        provider = providers_by_slot[transition["source_slot"]]
+        required.append(transition["component_by_provider"][provider])
+    return required
+
+
 def validate_specification(
     specification: dict[str, Any],
     registry: dict[str, Any],
@@ -410,7 +526,12 @@ def validate_specification(
         )
 
     components_by_slot: dict[str, list[dict[str, Any]]] = {
-        slot_id: [] for slot_id in (*BASELINE_SLOTS, "cross_cloud_glue")
+        slot_id: []
+        for slot_id in (
+            *BASELINE_SLOTS,
+            "transition_runtime",
+            "cross_cloud_glue",
+        )
     }
     for component in components:
         components_by_slot[component["slot_id"]].append(component)
@@ -452,6 +573,21 @@ def validate_specification(
             )
         expected_order.extend(required)
         expected_order.extend(component_id for component_id in optional if component_id in actual)
+
+    actual_transitions = [
+        component["component_id"]
+        for component in components_by_slot["transition_runtime"]
+    ]
+    expected_transitions = _required_transition_components(
+        registry,
+        providers_by_slot,
+    )
+    if actual_transitions != expected_transitions:
+        _fail(
+            "incomplete_deployment_specification",
+            "Transition runtimes do not match the selected source providers",
+        )
+    expected_order.extend(expected_transitions)
 
     actual_glue = [
         component["component_id"]
@@ -670,6 +806,9 @@ def _build_specification(
         provider = providers_by_slot[slot_id]
         required, _ = _required_components(registry, slot_id, provider)
         component_ids.extend(required)
+    component_ids.extend(
+        _required_transition_components(registry, providers_by_slot)
+    )
     component_ids.extend(_required_glue_components(registry, providers_by_slot))
     optimization_context = {
         "optimization_profile_id": "cost_minimization_v1",
@@ -873,6 +1012,55 @@ def generate_fixtures(registry: dict[str, Any]) -> None:
     invalid["missing-cross-cloud-glue"] = (
         "incomplete_deployment_specification",
         _redigest(missing_glue),
+    )
+
+    missing_transition = copy.deepcopy(mixed)
+    missing_transition["components"] = [
+        component
+        for component in missing_transition["components"]
+        if component["component_id"]
+        != "transition.l3_hot_to_l3_cool.gcp.runtime"
+    ]
+    invalid["missing-transition-runtime"] = (
+        "incomplete_deployment_specification",
+        _redigest(missing_transition),
+    )
+
+    wrong_transition_provider = copy.deepcopy(mixed)
+    transition_index = next(
+        index
+        for index, component in enumerate(
+            wrong_transition_provider["components"]
+        )
+        if component["component_id"]
+        == "transition.l3_hot_to_l3_cool.gcp.runtime"
+    )
+    wrong_transition_provider["components"][transition_index] = _build_component(
+        "transition.l3_hot_to_l3_cool.aws.runtime",
+        registry,
+        wrong_transition_provider["optimization_context"],
+    )
+    invalid["wrong-transition-provider"] = (
+        "incomplete_deployment_specification",
+        _redigest(wrong_transition_provider),
+    )
+
+    reordered_transitions = copy.deepcopy(mixed)
+    transition_indexes = [
+        index
+        for index, component in enumerate(reordered_transitions["components"])
+        if component["slot_id"] == "transition_runtime"
+    ]
+    first_index, second_index = transition_indexes
+    reordered_transitions["components"][first_index], reordered_transitions[
+        "components"
+    ][second_index] = (
+        reordered_transitions["components"][second_index],
+        reordered_transitions["components"][first_index],
+    )
+    invalid["reordered-transition-runtime"] = (
+        "incomplete_deployment_specification",
+        _redigest(reordered_transitions),
     )
 
     unnecessary_glue = copy.deepcopy(all_aws)

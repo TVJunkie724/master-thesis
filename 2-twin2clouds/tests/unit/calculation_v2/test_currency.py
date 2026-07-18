@@ -28,6 +28,20 @@ def _result_payload() -> dict:
         "azureCosts": {"L1": {"cost": 8.0, "components": {"iot": 3.0}}},
         "gcpCosts": {"L1": {"cost": 9.0, "components": {"iot": 2.0}}},
         "transferCosts": {"L1_to_L2": 2.0},
+        "transitionRuntimeCosts": {"l3_hot_to_l3_cool": 1.0},
+        "transitionRuntimeContext": {
+            "currency": "USD",
+            "transitions": [
+                {
+                    "functionCost": 0.4,
+                    "triggerCost": 0.1,
+                    "moverRuntimeCost": 0.5,
+                    "destinationWriterCost": 0.2,
+                    "egressCost": 0.3,
+                    "totalCost": 1.0,
+                }
+            ],
+        },
         "transferPricingContext": {
             "currency": "USD",
             "routes": [
@@ -43,15 +57,17 @@ def _result_payload() -> dict:
             "pools": [{"aggregateEgressCost": 1.0}],
         },
         "optimizationDiagnostics": {
-            "winningScore": 10.0,
+            "winningScore": 11.0,
             "winningLayerCost": 8.0,
             "winningTransferCost": 2.0,
+            "winningTransitionRuntimeCost": 1.0,
             "scoreUnit": "USD/month",
         },
-        "totalCost": 10.0,
+        "totalCost": 11.0,
         "intentTrace": {
             "selected_path": [{"cost": 8.0}],
             "transfer_trace": [{"cost": 2.0}],
+            "transition_runtime_trace": [{"cost": 1.0}],
             "records": [
                 {
                     "contribution": {
@@ -75,7 +91,7 @@ def test_eur_conversion_updates_costs_and_trace_metadata(tmp_path):
     result = apply_result_currency(_result_payload(), "EUR", rates_path=rates)
 
     assert result["currency"] == "EUR"
-    assert result["totalCost"] == 8.0
+    assert result["totalCost"] == 8.8
     assert result["awsCosts"]["L1"]["cost"] == 8.0
     assert result["awsCosts"]["L1"]["components"]["iot"] == 3.2
     calculation = result["awsCosts"]["L1"]["details"]["calculation"]
@@ -85,6 +101,7 @@ def test_eur_conversion_updates_costs_and_trace_metadata(tmp_path):
     assert calculation["sourceCurrency"] == "USD"
     assert calculation["currency"] == "EUR"
     assert result["transferCosts"]["L1_to_L2"] == 1.6
+    assert result["transitionRuntimeCosts"]["l3_hot_to_l3_cool"] == 0.8
     transfer_context = result["transferPricingContext"]
     assert transfer_context["currency"] == "EUR"
     assert transfer_context["routes"][0]["egressCost"] == 0.8
@@ -96,10 +113,17 @@ def test_eur_conversion_updates_costs_and_trace_metadata(tmp_path):
     )
     assert transfer_context["pools"][0]["aggregateEgressCost"] == 0.8
     diagnostics = result["optimizationDiagnostics"]
-    assert diagnostics["winningScore"] == 8.0
+    assert diagnostics["winningScore"] == 8.8
     assert diagnostics["winningLayerCost"] == 6.4
     assert diagnostics["winningTransferCost"] == 1.6
+    assert diagnostics["winningTransitionRuntimeCost"] == 0.8
+    transition = result["transitionRuntimeContext"]["transitions"][0]
+    assert transition["functionCost"] == 0.32
+    assert transition["triggerCost"] == 0.08
+    assert transition["moverRuntimeCost"] == 0.4
+    assert transition["totalCost"] == 0.8
     assert diagnostics["scoreUnit"] == "EUR/month"
+    assert result["intentTrace"]["transition_runtime_trace"][0]["cost"] == 0.8
     assert result["intentTrace"]["records"][0]["contribution"]["cost"] == 6.4
     assert result["resultTrace"][0]["cost_contribution"] == 6.4
     assert result["resultTrace"][0]["source_currency"] == "USD"
@@ -117,7 +141,7 @@ def test_eur_conversion_updates_costs_and_trace_metadata(tmp_path):
 def test_usd_result_has_explicit_identity_conversion():
     result = apply_result_currency(_result_payload(), "USD")
 
-    assert result["totalCost"] == 10.0
+    assert result["totalCost"] == 11.0
     assert result["currency"] == "USD"
     assert result["currencyConversion"]["rate"] == 1.0
     assert result["currencyConversion"]["rate_source"] == "identity"

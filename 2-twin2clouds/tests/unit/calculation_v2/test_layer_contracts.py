@@ -9,6 +9,7 @@ from backend.calculation_v2.layers import (
     LayerCalculatorSet,
     LayerResult,
     SUPPORTED_LAYER_KEYS,
+    TransitionRuntimeResult,
 )
 
 
@@ -199,3 +200,61 @@ def test_layer_result_requires_unique_typed_deployment_selections():
             total_cost=1,
             deployment_selections=(selection, selection),
         )
+
+
+def test_transition_runtime_result_enforces_cost_and_selection_invariants():
+    selection = ComponentDeploymentSelection(
+        "transition.l3_hot_to_l3_cool.aws.runtime",
+        {"aws.lambda.memory_mb": 512},
+    )
+    result = TransitionRuntimeResult(
+        edge_id="l3_hot_to_l3_cool",
+        provider="AWS",
+        monthly_invocations=30,
+        invocation_basis="one_daily_source_mover_invocation",
+        function_cost=0.25,
+        trigger_cost=0.05,
+        total_cost=0.30,
+        formula_references=("execution_based_cost",),
+        evidence_references=("aws.lambda",),
+        deployment_selection=selection,
+    )
+
+    assert result.total_cost == pytest.approx(0.30)
+    assert result.deployment_selection is selection
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    (
+        {"edge_id": "unknown"},
+        {"provider": "Other"},
+        {"monthly_invocations": 0},
+        {"invocation_basis": ""},
+        {"function_cost": -1},
+        {"trigger_cost": float("inf")},
+        {"total_cost": 1},
+        {"formula_references": ()},
+        {"evidence_references": ()},
+        {"deployment_selection": object()},
+    ),
+)
+def test_transition_runtime_result_rejects_invalid_values(overrides):
+    values = {
+        "edge_id": "l3_hot_to_l3_cool",
+        "provider": "AWS",
+        "monthly_invocations": 30,
+        "invocation_basis": "one_daily_source_mover_invocation",
+        "function_cost": 0.25,
+        "trigger_cost": 0.05,
+        "total_cost": 0.30,
+        "formula_references": ("execution_based_cost",),
+        "evidence_references": ("aws.lambda",),
+        "deployment_selection": ComponentDeploymentSelection(
+            "transition.l3_hot_to_l3_cool.aws.runtime",
+            {"aws.lambda.memory_mb": 512},
+        ),
+    }
+
+    with pytest.raises(ValueError):
+        TransitionRuntimeResult(**{**values, **overrides})

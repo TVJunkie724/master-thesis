@@ -129,6 +129,49 @@ def test_translation_is_independent_of_json_object_key_order():
     )
 
 
+def test_transition_runtime_tfvars_are_source_owned_and_allowlisted():
+    specification = load_specification("all-aws.json")
+    providers = provider_config_for_specification(specification)
+
+    validated = validate_deployment_manifest(
+        deployment_manifest(specification, providers=providers),
+        providers,
+    )
+    translated = translate_deployment_tfvars(validated.specification)
+
+    assert translated["aws_hot_to_cool_mover_memory_mb"] == 512
+    assert translated["aws_hot_to_cool_schedule_expression"] == "rate(1 day)"
+    assert translated["aws_cool_to_archive_mover_memory_mb"] == 512
+    assert translated["aws_cool_to_archive_schedule_expression"] == "rate(7 days)"
+    assert "aws_l3_cool_mover_memory_mb" not in translated
+    assert "aws_l3_archive_mover_memory_mb" not in translated
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    (
+        "missing-transition-runtime.json",
+        "wrong-transition-provider.json",
+        "reordered-transition-runtime.json",
+    ),
+)
+def test_transition_runtime_contract_tampering_fails_closed(fixture_name):
+    specification = load_specification(
+        fixture_name,
+        validity="invalid",
+    )
+    providers = provider_config_for_specification(specification)
+
+    with pytest.raises(DeploymentSpecificationError) as exc_info:
+        validate_deployment_manifest(
+            deployment_manifest(specification, providers=providers),
+            providers,
+        )
+
+    assert exc_info.value.code == "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH"
+    assert "transition" in exc_info.value.field
+
+
 def test_zip_and_directory_manifest_validation_are_equivalent(tmp_path):
     specification = load_specification()
     providers = provider_config_for_specification(specification)

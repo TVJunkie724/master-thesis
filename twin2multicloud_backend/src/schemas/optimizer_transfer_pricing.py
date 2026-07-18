@@ -35,6 +35,7 @@ TransferBillingScope = Literal[
     "sku_account_aggregate_public_egress",
 ]
 TransferBillingUnit = Literal["gb", "gib"]
+TransitionSlot = Literal["L3_hot", "L3_cool", "L3_archive"]
 
 _REGION_PATTERN = r"^[a-z][a-z0-9-]{1,62}$"
 _SNAPSHOT_PATTERN = r"^pcs_[0-9a-f]{64}$"
@@ -219,6 +220,120 @@ class OptimizerTransferPricingContext(_TransferModel):
         return self
 
 
+class OptimizerTransitionRuntime(_TransferModel):
+    edge_id: Literal[
+        "l3_hot_to_l3_cool",
+        "l3_cool_to_l3_archive",
+    ]
+    source_slot: TransitionSlot
+    destination_slot: TransitionSlot
+    source_provider: Provider
+    destination_provider: Provider
+    source_runtime_component_id: str = Field(pattern=_IDENTIFIER_PATTERN)
+    monthly_invocations: int = Field(gt=0, le=10_000, strict=True)
+    invocation_basis: str = Field(pattern=_IDENTIFIER_PATTERN)
+    formula_references: tuple[str, ...] = Field(
+        min_length=1,
+        max_length=8,
+    )
+    evidence_references: tuple[str, ...] = Field(
+        min_length=1,
+        max_length=8,
+    )
+    function_cost: Decimal = Field(ge=0, le=_MAX_NUMERIC_EVIDENCE)
+    trigger_cost: Decimal = Field(ge=0, le=_MAX_NUMERIC_EVIDENCE)
+    mover_runtime_cost: Decimal = Field(ge=0, le=_MAX_NUMERIC_EVIDENCE)
+    destination_writer_provider: Provider | None = None
+    destination_writer_cost: Decimal = Field(
+        ge=0,
+        le=_MAX_NUMERIC_EVIDENCE,
+    )
+    egress_cost: Decimal = Field(ge=0, le=_MAX_NUMERIC_EVIDENCE)
+    total_cost: Decimal = Field(ge=0, le=_MAX_NUMERIC_EVIDENCE)
+
+    @field_validator(
+        "function_cost",
+        "trigger_cost",
+        "mover_runtime_cost",
+        "destination_writer_cost",
+        "egress_cost",
+        "total_cost",
+        mode="before",
+    )
+    @classmethod
+    def reject_boolean_costs(cls, value):
+        return _normalize_numeric_evidence(value)
+
+    @field_validator("formula_references", "evidence_references")
+    @classmethod
+    def validate_bounded_references(
+        cls,
+        value: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        if any(not item.strip() or len(item) > 256 for item in value):
+            raise ValueError("runtime references must contain bounded text")
+        return value
+
+    @model_validator(mode="after")
+    def validate_arithmetic_and_ownership(
+        self,
+    ) -> "OptimizerTransitionRuntime":
+        if not _close(
+            self.mover_runtime_cost,
+            self.function_cost + self.trigger_cost,
+        ):
+            raise ValueError(
+                "mover_runtime_cost must equal function_cost + trigger_cost"
+            )
+        if not _close(
+            self.total_cost,
+            (
+                self.mover_runtime_cost
+                + self.destination_writer_cost
+                + self.egress_cost
+            ),
+        ):
+            raise ValueError(
+                "total_cost must equal mover, writer, and egress costs"
+            )
+        cross_provider = self.source_provider != self.destination_provider
+        expected_writer = self.destination_provider if cross_provider else None
+        if self.destination_writer_provider != expected_writer:
+            raise ValueError(
+                "destination_writer_provider must match cross-provider ownership"
+            )
+        if not cross_provider and not _close(
+            self.destination_writer_cost,
+            Decimal(0),
+        ):
+            raise ValueError(
+                "same-provider transitions cannot have destination writer cost"
+            )
+        return self
+
+
+class OptimizerTransitionRuntimeContext(_TransferModel):
+    schema_version: Literal["baseline-transition-runtime.v1"]
+    currency: Literal["USD", "EUR"]
+    transitions: tuple[OptimizerTransitionRuntime, ...] = Field(
+        min_length=2,
+        max_length=2,
+    )
+
+    @model_validator(mode="after")
+    def validate_canonical_edges(
+        self,
+    ) -> "OptimizerTransitionRuntimeContext":
+        if tuple(item.edge_id for item in self.transitions) != (
+            "l3_hot_to_l3_cool",
+            "l3_cool_to_l3_archive",
+        ):
+            raise ValueError(
+                "transition runtimes must use canonical edge ordering"
+            )
+        return self
+
+
 class OptimizerPathDiagnostics(_TransferModel):
     schema_version: Literal["complete-path-optimization.v1"]
     enumerated_path_count: int = Field(gt=0, le=10_000_000, strict=True)
@@ -229,6 +344,10 @@ class OptimizerPathDiagnostics(_TransferModel):
     winning_score: Decimal = Field(ge=0, le=_MAX_NUMERIC_EVIDENCE)
     winning_layer_cost: Decimal = Field(ge=0, le=_MAX_NUMERIC_EVIDENCE)
     winning_transfer_cost: Decimal = Field(
+        ge=0,
+        le=_MAX_NUMERIC_EVIDENCE,
+    )
+    winning_transition_runtime_cost: Decimal = Field(
         ge=0,
         le=_MAX_NUMERIC_EVIDENCE,
     )
@@ -243,6 +362,7 @@ class OptimizerPathDiagnostics(_TransferModel):
         "winning_score",
         "winning_layer_cost",
         "winning_transfer_cost",
+        "winning_transition_runtime_cost",
         mode="before",
     )
     @classmethod
@@ -281,10 +401,14 @@ class OptimizerPathDiagnostics(_TransferModel):
             raise ValueError("rejected path diagnostics must match rejected count")
         if not _close(
             self.winning_score,
-            self.winning_layer_cost + self.winning_transfer_cost,
+            (
+                self.winning_layer_cost
+                + self.winning_transfer_cost
+                + self.winning_transition_runtime_cost
+            ),
         ):
             raise ValueError(
-                "winning score must equal layer and transfer cost"
+                "winning score must equal layer, transfer, and transition cost"
             )
         if self.canonical_provider_order != ("aws", "azure", "gcp"):
             raise ValueError("canonical provider order is invalid")

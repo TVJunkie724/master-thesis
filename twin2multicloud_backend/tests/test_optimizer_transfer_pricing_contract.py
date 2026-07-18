@@ -152,6 +152,56 @@ def test_route_provider_must_match_selected_complete_path():
     )
 
 
+def test_transition_runtime_provider_must_match_its_source_storage_slot():
+    result = deepcopy(optimizer_transfer_result())
+    transition = result["transitionRuntimeContext"]["transitions"][0]
+    transition["sourceProvider"] = "azure"
+
+    with pytest.raises(OptimizerContractError) as exc_info:
+        _validate(result)
+
+    assert {
+        "field": (
+            "transitionRuntimeContext.transitions."
+            "l3_hot_to_l3_cool"
+        ),
+        "message": "Transition runtime does not match source-owned topology",
+    } in exc_info.value.errors
+
+
+def test_flat_transition_cost_must_match_runtime_evidence():
+    result = deepcopy(optimizer_transfer_result())
+    result["transitionRuntimeCosts"]["l3_hot_to_l3_cool"] = 1.0
+
+    with pytest.raises(OptimizerContractError) as exc_info:
+        _validate(result)
+
+    assert {
+        "field": "transitionRuntimeCosts.l3_hot_to_l3_cool",
+        "message": "Transition cost does not match source runtime evidence",
+    } in exc_info.value.errors
+
+
+def test_transition_writer_cost_must_match_transfer_route_evidence():
+    result = deepcopy(optimizer_transfer_result())
+    transition = result["transitionRuntimeContext"]["transitions"][0]
+    transition["destinationWriterCost"] = 1.0
+    transition["totalCost"] = 1.0
+
+    with pytest.raises(OptimizerContractError) as exc_info:
+        _validate(result)
+
+    assert {
+        "field": (
+            "transitionRuntimeContext.transitions."
+            "l3_hot_to_l3_cool"
+        ),
+        "message": (
+            "Transition writer and egress costs do not match route evidence"
+        ),
+    } in exc_info.value.errors
+
+
 def test_non_string_selected_provider_fails_closed_without_internal_error():
     result = deepcopy(optimizer_transfer_result())
     result["calculationResult"]["L1"] = ["AWS"]

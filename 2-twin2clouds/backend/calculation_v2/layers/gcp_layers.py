@@ -15,6 +15,7 @@ from .contracts import (
     ComponentDeploymentSelection,
     LayerResult,
     SUPPORTED_LAYER_KEYS,
+    TransitionRuntimeResult,
 )
 
 from ..components.gcp import (
@@ -290,19 +291,8 @@ class GCPLayerCalculators(BaseLayerCalculatorSet):
         writes_per_month: float,
         pricing: Dict[str, Any],
         retrievals_gb: float = 0.0,
-        mover_runs_per_month: int = 30
     ) -> LayerResult:
-        """
-        Calculate L3 Cool Storage layer cost.
-        
-        Components:
-            - GCS Nearline (storage)
-            - Hot-Cold Mover Cloud Function (scheduled data migration)
-            - Cloud Scheduler (trigger, minimal cost)
-        
-        Args:
-            mover_runs_per_month: Number of times mover runs (default: daily = 30)
-        """
+        """Calculate destination-independent GCS Nearline cost."""
         components = {}
         
         # GCS Nearline cost
@@ -313,33 +303,16 @@ class GCPLayerCalculators(BaseLayerCalculatorSet):
             retrievals_gb=retrievals_gb
         )
         components["gcs_nearline"] = nearline_cost
-        
-        # Hot-Cold Mover Cloud Function (scheduled to run periodically)
-        mover_cost = self.cloud_functions.calculate_cost(
-            executions=mover_runs_per_month,
-            pricing=pricing,
-            duration_ms=MOVER_FUNCTION_DURATION_MS,
-            memory_mb=GCP_MOVER_FUNCTION_MEMORY_MB,
-        )
-        components["hot_cold_mover_function"] = mover_cost
-        
-        total = sum(components.values())
-        
+
         return self._result(
             layer="L3_cool",
-            total_cost=total,
+            total_cost=nearline_cost,
             data_size_gb=storage_gb,
             components=components,
             deployment_selections=(
                 _selection(
                     "l3_cool.gcp.cloud_storage",
                     **{"gcp.storage.storage_class": "NEARLINE"},
-                ),
-                _function_selection(
-                    "l3_cool.gcp.mover_function",
-                    memory_mb=GCP_MOVER_FUNCTION_MEMORY_MB,
-                    max_instances=GCP_MOVER_FUNCTION_MAX_INSTANCES,
-                    duration_ms=MOVER_FUNCTION_DURATION_MS,
                 ),
             ),
         )
@@ -350,19 +323,8 @@ class GCPLayerCalculators(BaseLayerCalculatorSet):
         writes_per_month: float,
         pricing: Dict[str, Any],
         retrievals_gb: float = 0.0,
-        mover_runs_per_month: int = 4
     ) -> LayerResult:
-        """
-        Calculate L3 Archive Storage layer cost.
-        
-        Components:
-            - GCS Archive (storage)
-            - Cold-Archive Mover Cloud Function (scheduled archival)
-            - Cloud Scheduler (trigger, minimal cost)
-        
-        Args:
-            mover_runs_per_month: Number of times mover runs (default: weekly = 4)
-        """
+        """Calculate destination-independent GCS Archive cost."""
         components = {}
         
         archive_cost = self.gcs_archive.calculate_cost(
@@ -372,21 +334,10 @@ class GCPLayerCalculators(BaseLayerCalculatorSet):
             retrievals_gb=retrievals_gb
         )
         components["gcs_archive"] = archive_cost
-        
-        # Cold-Archive Mover Cloud Function (scheduled to run periodically)
-        mover_cost = self.cloud_functions.calculate_cost(
-            executions=mover_runs_per_month,
-            pricing=pricing,
-            duration_ms=MOVER_FUNCTION_DURATION_MS,
-            memory_mb=GCP_MOVER_FUNCTION_MEMORY_MB,
-        )
-        components["cold_archive_mover_function"] = mover_cost
-        
-        total = sum(components.values())
-        
+
         return self._result(
             layer="L3_archive",
-            total_cost=total,
+            total_cost=archive_cost,
             data_size_gb=storage_gb,
             components=components,
             deployment_selections=(
@@ -394,12 +345,80 @@ class GCPLayerCalculators(BaseLayerCalculatorSet):
                     "l3_archive.gcp.cloud_storage",
                     **{"gcp.storage.storage_class": "ARCHIVE"},
                 ),
-                _function_selection(
-                    "l3_archive.gcp.mover_function",
-                    memory_mb=GCP_MOVER_FUNCTION_MEMORY_MB,
-                    max_instances=GCP_MOVER_FUNCTION_MAX_INSTANCES,
-                    duration_ms=MOVER_FUNCTION_DURATION_MS,
-                ),
+            ),
+        )
+
+    def calculate_transition_runtime(
+        self,
+        *,
+        edge_id: str,
+        monthly_invocations: int,
+        invocation_basis: str,
+        pricing: Dict[str, Any],
+    ) -> TransitionRuntimeResult:
+        """Calculate the source Cloud Function and Scheduler runtime."""
+
+        runtime_profiles = {
+            "l3_hot_to_l3_cool": (
+                "transition.l3_hot_to_l3_cool.gcp.runtime",
+                "0 2 * * *",
+            ),
+            "l3_cool_to_l3_archive": (
+                "transition.l3_cool_to_l3_archive.gcp.runtime",
+                "0 3 * * 0",
+            ),
+        }
+        try:
+            component_id, scheduler_cron = runtime_profiles[edge_id]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported GCP transition runtime edge: {edge_id!r}"
+            ) from exc
+
+        function_cost = self.cloud_functions.calculate_cost(
+            executions=monthly_invocations,
+            pricing=pricing,
+            duration_ms=MOVER_FUNCTION_DURATION_MS,
+            memory_mb=GCP_MOVER_FUNCTION_MEMORY_MB,
+        )
+        scheduler_pricing = pricing["gcp"].get("cloudScheduler")
+        if not isinstance(scheduler_pricing, dict):
+            raise ValueError("Missing gcp.cloudScheduler pricing")
+        job_price = scheduler_pricing.get("jobPrice")
+        if (
+            isinstance(job_price, bool)
+            or not isinstance(job_price, (int, float))
+            or job_price < 0
+        ):
+            raise ValueError("gcp.cloudScheduler.jobPrice must be non-negative")
+        trigger_cost = float(job_price)
+        return TransitionRuntimeResult(
+            edge_id=edge_id,
+            provider=self.provider,
+            monthly_invocations=monthly_invocations,
+            invocation_basis=invocation_basis,
+            function_cost=function_cost,
+            trigger_cost=trigger_cost,
+            total_cost=function_cost + trigger_cost,
+            formula_references=(
+                "execution_based_cost",
+                "fixed_job_month_cost",
+            ),
+            evidence_references=(
+                "gcp.functions",
+                "gcp.cloudScheduler",
+            ),
+            deployment_selection=_selection(
+                component_id,
+                **{
+                    "gcp.functions.memory_mb": GCP_MOVER_FUNCTION_MEMORY_MB,
+                    "gcp.functions.min_instance_count": GCP_FUNCTION_MIN_INSTANCES,
+                    "gcp.functions.max_instance_count": (
+                        GCP_MOVER_FUNCTION_MAX_INSTANCES
+                    ),
+                    "gcp.functions.duration_ms": MOVER_FUNCTION_DURATION_MS,
+                    "gcp.scheduler.cron": scheduler_cron,
+                },
             ),
         )
     

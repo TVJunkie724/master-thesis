@@ -13,6 +13,9 @@ SUPPORTED_LAYER_KEYS = frozenset(
     {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
 )
 SUPPORTED_PROVIDER_KEYS = frozenset({"AWS", "Azure", "GCP"})
+SUPPORTED_TRANSITION_EDGE_IDS = frozenset(
+    {"l3_hot_to_l3_cool", "l3_cool_to_l3_archive"}
+)
 
 
 def _validate_non_negative_number(name: str, value: Any) -> float:
@@ -170,6 +173,89 @@ class LayerResult:
         return _plain_detail_value(self.details)
 
 
+@dataclass(frozen=True, slots=True)
+class TransitionRuntimeResult:
+    """Cost and deployment selection for one source-owned storage mover."""
+
+    edge_id: str
+    provider: str
+    monthly_invocations: int
+    invocation_basis: str
+    function_cost: float
+    trigger_cost: float
+    total_cost: float
+    formula_references: tuple[str, ...]
+    evidence_references: tuple[str, ...]
+    deployment_selection: ComponentDeploymentSelection
+
+    def __post_init__(self) -> None:
+        if self.edge_id not in SUPPORTED_TRANSITION_EDGE_IDS:
+            raise ValueError(f"Unsupported transition runtime edge: {self.edge_id!r}")
+        if self.provider not in SUPPORTED_PROVIDER_KEYS:
+            raise ValueError(
+                f"Unsupported transition runtime provider: {self.provider!r}"
+            )
+        if (
+            isinstance(self.monthly_invocations, bool)
+            or not isinstance(self.monthly_invocations, int)
+            or self.monthly_invocations <= 0
+        ):
+            raise ValueError(
+                "Transition runtime monthly_invocations must be a positive integer"
+            )
+        if (
+            not isinstance(self.invocation_basis, str)
+            or not self.invocation_basis.strip()
+        ):
+            raise ValueError("Transition runtime invocation_basis must be non-empty")
+
+        function_cost = _validate_non_negative_number(
+            "transition_function_cost",
+            self.function_cost,
+        )
+        trigger_cost = _validate_non_negative_number(
+            "transition_trigger_cost",
+            self.trigger_cost,
+        )
+        total_cost = _validate_non_negative_number(
+            "transition_total_cost",
+            self.total_cost,
+        )
+        if abs(total_cost - (function_cost + trigger_cost)) > 1e-9:
+            raise ValueError(
+                "Transition runtime total_cost must equal function_cost + trigger_cost"
+            )
+        if (
+            not isinstance(self.formula_references, tuple)
+            or not self.formula_references
+            or any(
+                not isinstance(reference, str) or not reference.strip()
+                for reference in self.formula_references
+            )
+        ):
+            raise ValueError(
+                "Transition runtime formula_references must be non-empty strings"
+            )
+        if (
+            not isinstance(self.evidence_references, tuple)
+            or not self.evidence_references
+            or any(
+                not isinstance(reference, str) or not reference.strip()
+                for reference in self.evidence_references
+            )
+        ):
+            raise ValueError(
+                "Transition runtime evidence_references must be non-empty strings"
+            )
+        if not isinstance(
+            self.deployment_selection,
+            ComponentDeploymentSelection,
+        ):
+            raise ValueError(
+                "Transition runtime deployment_selection must be typed"
+            )
+
+
 class BaseLayerCalculatorSet:
     """Shared provider identity, capability, and result-construction invariants."""
 
@@ -248,6 +334,16 @@ class LayerCalculatorSet(Protocol):
     def calculate_l4_cost(self, *args: Any, **kwargs: Any) -> LayerResult: ...
 
     def calculate_l5_cost(self, *args: Any, **kwargs: Any) -> LayerResult: ...
+
+    def calculate_transition_runtime(
+        self,
+        *,
+        edge_id: str,
+        monthly_invocations: int,
+        invocation_basis: str,
+        pricing: dict[str, Any],
+    ) -> TransitionRuntimeResult:
+        """Calculate one source-owned mover and scheduler bundle."""
 
     def calculate_glue_cost(self, messages: float, pricing: dict) -> float:
         """Calculate the provider's cross-cloud glue function cost."""

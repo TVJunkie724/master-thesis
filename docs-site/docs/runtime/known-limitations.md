@@ -85,6 +85,17 @@ measured and corrected, where material, under
 [formula validation issue #42](https://github.com/TVJunkie724/master-thesis/issues/42)
 before final thesis evaluation and supervised E2E.
 
+Storage mover runtime ownership is now explicit in calculation, evidence,
+resolved specification, Management validation, and Deployer tfvar translation.
+The provider Terraform resources still contain historical literals until the
+AWS, Azure, and GCP alignment phases
+[#132](https://github.com/TVJunkie724/master-thesis/issues/132),
+[#133](https://github.com/TVJunkie724/master-thesis/issues/133), and
+[#120](https://github.com/TVJunkie724/master-thesis/issues/120) complete.
+Consequently, a translated variable is not yet proof that the corresponding
+live resource consumes it; the final credential-free drift gate is
+[#128](https://github.com/TVJunkie724/master-thesis/issues/128).
+
 Calculation traceability now connects the optimization profile and selected path to
 provider pricing contracts, source classifications, formula bindings, evidence
 references, verification gates, and bounded result scopes. This improves auditability;

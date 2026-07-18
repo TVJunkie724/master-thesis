@@ -138,6 +138,7 @@ REALISTIC_PRICING = {
             "freeGBSeconds": 400000,
         },
         "cloudWorkflows": {"pricePerStep": 0.00001},
+        "cloudScheduler": {"jobPrice": 0.10},
         "storage_hot": {
             "writePrice": 0.18,
             "readPrice": 0.06,
@@ -260,7 +261,11 @@ class TestEngineConsistency:
             result[provider_cost_keys[provider]][layer]["cost"]
             for layer, provider in selected.items()
         )
-        expected_total = selected_cost + sum(result["transferCosts"].values())
+        expected_total = (
+            selected_cost
+            + sum(result["transferCosts"].values())
+            + sum(result["transitionRuntimeCosts"].values())
+        )
 
         assert result["totalCost"] == round(expected_total, 2)
     

@@ -173,6 +173,7 @@ class TestEngineIntegration:
                     "freeGBSeconds": 400000,
                 },
                 "cloudWorkflows": {"pricePerStep": 0.00001},
+                "cloudScheduler": {"jobPrice": 0.10},
                 "storage_hot": {
                     "writePrice": 0.18,
                     "readPrice": 0.06,
@@ -547,12 +548,17 @@ class TestEngineIntegration:
             AWS_STANDARD_LAMBDA_MEMORY_MB,
             GCP_MOVER_FUNCTION_MEMORY_MB,
             GCP_STANDARD_FUNCTION_MEMORY_MB,
-            MOVER_FUNCTION_DURATION_MS,
             STANDARD_FUNCTION_DURATION_MS,
         )
         from backend.calculation_v2.engine import (
             calculate_aws_costs,
+            calculate_cheapest_costs,
             calculate_gcp_costs,
+        )
+        from backend.calculation_v2.layers import (
+            AWSLayerCalculators,
+            AzureLayerCalculators,
+            GCPLayerCalculators,
         )
 
         aws = calculate_aws_costs(sample_params, sample_pricing)
@@ -576,14 +582,6 @@ class TestEngineIntegration:
         assert selection(
             aws,
             "L3_archive",
-            "l3_archive.aws.mover_lambda",
-        ) == {
-            "aws.lambda.memory_mb": AWS_MOVER_LAMBDA_MEMORY_MB,
-            "aws.lambda.duration_ms": MOVER_FUNCTION_DURATION_MS,
-        }
-        assert selection(
-            aws,
-            "L3_archive",
             "l3_archive.aws.s3",
         ) == {"aws.s3.storage_class": "DEEP_ARCHIVE"}
         assert selection(
@@ -594,13 +592,81 @@ class TestEngineIntegration:
         assert selection(
             gcp,
             "L3_archive",
-            "l3_archive.gcp.mover_function",
-        )["gcp.functions.memory_mb"] == GCP_MOVER_FUNCTION_MEMORY_MB
-        assert selection(
-            gcp,
-            "L3_archive",
             "l3_archive.gcp.cloud_storage",
         ) == {"gcp.storage.storage_class": "ARCHIVE"}
+        assert {
+            item["componentId"]
+            for layer in ("L3_cool", "L3_archive")
+            for item in aws[layer]["deploymentSelections"]
+        } == {
+            "l3_cool.aws.s3",
+            "l3_archive.aws.s3",
+        }
+        assert {
+            item["componentId"]
+            for layer in ("L3_cool", "L3_archive")
+            for item in gcp[layer]["deploymentSelections"]
+        } == {
+            "l3_cool.gcp.cloud_storage",
+            "l3_archive.gcp.cloud_storage",
+        }
+
+        aws_runtime = AWSLayerCalculators().calculate_transition_runtime(
+            edge_id="l3_cool_to_l3_archive",
+            monthly_invocations=4,
+            invocation_basis="one_weekly_source_mover_invocation",
+            pricing=sample_pricing,
+        )
+        azure_runtime = AzureLayerCalculators().calculate_transition_runtime(
+            edge_id="l3_cool_to_l3_archive",
+            monthly_invocations=4,
+            invocation_basis="one_weekly_source_mover_invocation",
+            pricing=sample_pricing,
+        )
+        gcp_runtime = GCPLayerCalculators().calculate_transition_runtime(
+            edge_id="l3_cool_to_l3_archive",
+            monthly_invocations=4,
+            invocation_basis="one_weekly_source_mover_invocation",
+            pricing=sample_pricing,
+        )
+        assert aws_runtime.deployment_selection.component_id == (
+            "transition.l3_cool_to_l3_archive.aws.runtime"
+        )
+        assert aws_runtime.deployment_selection.dimensions[
+            "aws.lambda.memory_mb"
+        ] == AWS_MOVER_LAMBDA_MEMORY_MB
+        assert aws_runtime.trigger_cost == pytest.approx(0.000004)
+        assert azure_runtime.trigger_cost == 0
+        assert azure_runtime.deployment_selection.dimensions[
+            "azure.functions.timer_schedule"
+        ] == "0 0 0 * * 0"
+        assert gcp_runtime.deployment_selection.component_id == (
+            "transition.l3_cool_to_l3_archive.gcp.runtime"
+        )
+        assert gcp_runtime.deployment_selection.dimensions[
+            "gcp.functions.memory_mb"
+        ] == GCP_MOVER_FUNCTION_MEMORY_MB
+        assert gcp_runtime.trigger_cost == pytest.approx(0.10)
+
+        result = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(
+                sample_pricing
+            ),
+        )
+        runtime_components = {
+            component["component_id"]: component
+            for component in result["resolvedDeploymentSpecification"][
+                "components"
+            ]
+            if component["slot_id"] == "transition_runtime"
+        }
+        assert len(runtime_components) == 2
+        assert all(
+            component_id.startswith("transition.")
+            for component_id in runtime_components
+        )
 
     def test_currency_conversion_does_not_change_deployment_specification(
         self,
