@@ -62,9 +62,9 @@ planout
 # Transient lock info files created by terraform apply
 .terraform.tfstate.lock.info
 
-# Terraform lock file (optional - sometimes committed for version pinning)
-# Comment this out if you want to commit provider version locks
+# Terraform lock files are ignored except for the canonical root module.
 .terraform.lock.hcl
+!src/terraform/.terraform.lock.hcl
 
 # CLI configuration files
 .terraformrc

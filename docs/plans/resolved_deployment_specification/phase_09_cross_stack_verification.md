@@ -292,7 +292,10 @@ Review pass 1 found and fixed:
   Bandit;
 - incomplete Compose cleanup for the documentation profile;
 - missing `GCP_*` and `TF_VAR_*` environment sanitization;
-- unbounded command-start failures in the root orchestrator.
+- unbounded command-start failures in the root orchestrator;
+- private Compose secret ownership that differed between OrbStack and Linux CI;
+- an ignored local Terraform provider lock that made clean-clone initialization
+  non-reproducible.
 
 Review pass 2 repeated the complete local gate and the final focused gate.
 There are no unresolved local findings. The complete run passed in 485.2

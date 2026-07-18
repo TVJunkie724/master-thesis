@@ -43,7 +43,10 @@ and `compose.cloud.local.yaml`. Provider credential variables are removed from
 all child processes. Temporary Management runtime secrets and Compose resources
 live under isolated operating-system/Docker namespaces and are removed whether
 the gate succeeds or fails. Terraform tests use mock providers and never call
-`apply`.
+`apply`. The canonical Deployer root module versions its
+`.terraform.lock.hcl` with Linux AMD64/ARM64 checksums so a clean clone uses the
+same provider set; local state, plans, tfvars, caches, and nested lock files
+remain untracked.
 
 ## Python Security/Quality
 
