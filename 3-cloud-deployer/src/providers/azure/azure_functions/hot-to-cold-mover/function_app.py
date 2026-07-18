@@ -23,14 +23,16 @@ from azure.storage.blob import BlobServiceClient
 
 # Handle import path for shared module
 try:
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import log_runtime_failure
     from _shared.inter_cloud import post_raw
-    from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import log_runtime_failure
     from _shared.inter_cloud import post_raw
-    from _shared.env_utils import require_env
 
 
 class ConfigurationError(Exception):
@@ -194,7 +196,9 @@ def _post_to_remote_cold_writer(
 ) -> None:
     """POST chunk to remote Cold Writer using shared inter_cloud module."""
     if not INTER_CLOUD_TOKEN:
-        raise ValueError("INTER_CLOUD_TOKEN is required for multi-cloud transfers")
+        raise ConfigurationError(
+            "INTER_CLOUD_TOKEN is required for multi-cloud transfers"
+        )
     
     payload = {
         "iot_device_id": iot_device_id,
@@ -211,7 +215,11 @@ def _post_to_remote_cold_writer(
         payload=payload
     )
     
-    logging.info(f"Posted chunk {chunk_index} ({len(items)} items) to remote Cold Writer")
+    logging.info(
+        "Posted chunk %s with %s items to configured remote cold writer",
+        chunk_index,
+        len(items),
+    )
 
 
 def _write_to_local_blob(
@@ -237,7 +245,11 @@ def _write_to_local_blob(
         standard_blob_tier=_get_cold_blob_tier()
     )
     
-    logging.info(f"Wrote {len(items)} items to blob: {blob_name}")
+    logging.info(
+        "Wrote chunk %s with %s items to local cold storage",
+        chunk_index,
+        len(items),
+    )
 
 
 def _delete_from_cosmos(container, items: list) -> None:
@@ -271,23 +283,23 @@ def hot_to_cold_mover(timer: func.TimerRequest) -> None:
     try:
         multi_cloud = _is_multi_cloud_cold()
         if multi_cloud:
-            logging.info(f"Multi-cloud mode: Posting to {REMOTE_COLD_WRITER_URL}")
+            logging.info("Multi-cloud mode: using configured remote cold writer")
         else:
-            logging.info(f"Single-cloud mode: Writing to Blob container {_get_cold_storage_container()}")
+            logging.info("Single-cloud mode: using configured cold container")
         
         # Calculate cutoff
         twin_info = _get_digital_twin_info()
         hot_days = twin_info["config"].get("hot_storage_size_in_days", 7)
         cutoff = datetime.now(timezone.utc) - timedelta(days=hot_days)
         cutoff_iso = cutoff.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
-        logging.info(f"Moving items older than: {cutoff_iso}")
+        logging.info("Calculated hot-storage cutoff")
         
         container = _get_cosmos_container()
         
         # Process each IoT device
         for iot_device in twin_info.get("config_iot_devices", []):
             device_id = iot_device["id"]
-            logging.info(f"Processing device: {device_id}")
+            logging.info("Processing configured device")
             
             # Query items older than cutoff
             query = """
@@ -309,10 +321,10 @@ def hot_to_cold_mover(timer: func.TimerRequest) -> None:
             ))
             
             if not items:
-                logging.info(f"No old items for device {device_id}")
+                logging.info("No eligible items for configured device")
                 continue
             
-            logging.info(f"Found {len(items)} items to move for device {device_id}")
+            logging.info("Found %s eligible items", len(items))
             
             start_timestamp = items[0]["id"]
             end_timestamp = items[-1]["id"]
@@ -338,12 +350,24 @@ def hot_to_cold_mover(timer: func.TimerRequest) -> None:
             # Delete from Cosmos DB after successful move
             _delete_from_cosmos(container, items)
         
-    except ConfigurationError as e:
-        logging.error(f"Configuration Error: {e}")
+    except (
+        ConfigurationError,
+        MissingEnvironmentVariableError,
+        json.JSONDecodeError,
+    ) as exc:
+        log_runtime_failure(
+            "azure.hot-to-cold-mover.configuration",
+            exc,
+            include_diagnostic=False,
+        )
         raise
-        
-    except Exception as e:
-        logging.exception(f"Hot-to-Cold Mover Error: {e}")
+
+    except Exception as exc:
+        log_runtime_failure(
+            "azure.hot-to-cold-mover.execution",
+            exc,
+            include_diagnostic=False,
+        )
         raise
     
     logging.info("Azure Hot-to-Cold Mover: Complete")

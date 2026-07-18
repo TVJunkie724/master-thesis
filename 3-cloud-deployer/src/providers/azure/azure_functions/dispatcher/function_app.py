@@ -15,20 +15,21 @@ import os
 import sys
 import logging
 import urllib.request
-import urllib.error
 
 import azure.functions as func
 
 try:
-    from _shared.env_utils import require_env
-    from _shared.inter_cloud import read_http_error_body, safe_urlopen
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import log_runtime_failure
+    from _shared.inter_cloud import safe_urlopen
     from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
-    from _shared.env_utils import require_env
-    from _shared.inter_cloud import read_http_error_body, safe_urlopen
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import log_runtime_failure
+    from _shared.inter_cloud import safe_urlopen
     from _shared.normalize import normalize_telemetry
 
 
@@ -91,7 +92,9 @@ def _invoke_function(function_name: str, payload: dict) -> None:
         payload: Event data to send
     """
     if not FUNCTION_APP_BASE_URL:
-        raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {function_name}")
+        raise MissingEnvironmentVariableError(
+            "FUNCTION_APP_BASE_URL is missing or empty"
+        )
     
     base_url = f"{FUNCTION_APP_BASE_URL}/api/{function_name}"
     
@@ -108,19 +111,12 @@ def _invoke_function(function_name: str, payload: dict) -> None:
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
-    try:
-        with safe_urlopen(req, timeout=30) as response:
-            logging.info(f"Successfully invoked {function_name}: {response.getcode()}")
-    except urllib.error.HTTPError as e:
-        # Read the error response body to get the actual error message
-        error_body = read_http_error_body(e)
-        logging.error(f"Failed to invoke {function_name}: {e.code} {e.reason}")
-        if error_body:
-            logging.error(f"Error response from {function_name}: {error_body}")
-        raise
-    except urllib.error.URLError as e:
-        logging.error(f"Network error invoking {function_name}: {e.reason}")
-        raise
+    with safe_urlopen(req, timeout=30) as response:
+        logging.info(
+            "Successfully invoked %s: HTTP %s",
+            function_name,
+            response.getcode(),
+        )
 
 
 @bp.function_name(name="dispatcher")
@@ -147,12 +143,12 @@ def dispatcher(event: func.EventGridEvent) -> None:
             device_id = event_data.get("systemProperties", {}).get("iothub-connection-device-id")
         
         if not device_id:
-            logging.error("No device ID found in event")
+            logging.warning("Event has no usable device identifier")
             return
         
         # Determine routing target
         target_function = _get_target_function_name(device_id)
-        logging.info(f"Dispatching to: {target_function}")
+        logging.info("Dispatching to configured %s", target_function)
         
         # Extract the telemetry body from the EventGrid envelope
         # EventGrid wraps IoT Hub messages: {"properties": {}, "systemProperties": {...}, "body": {...}}
@@ -161,13 +157,24 @@ def dispatcher(event: func.EventGridEvent) -> None:
         
         # Normalize telemetry to canonical format (device_id, timestamp)
         telemetry_body = normalize_telemetry(telemetry_body)
-        logging.info(f"Normalized telemetry: {json.dumps(telemetry_body)}")
+        logging.info("Telemetry normalized")
         
         # Invoke target function with normalized telemetry
         _invoke_function(target_function, telemetry_body)
         
         logging.info("Dispatch successful.")
         
-    except Exception as e:
-        logging.exception(f"Dispatcher Error: {e}")
-        raise e
+    except (MissingEnvironmentVariableError, json.JSONDecodeError) as exc:
+        log_runtime_failure(
+            "azure.dispatcher.configuration",
+            exc,
+            include_diagnostic=False,
+        )
+        raise
+    except Exception as exc:
+        log_runtime_failure(
+            "azure.dispatcher.execution",
+            exc,
+            include_diagnostic=False,
+        )
+        raise

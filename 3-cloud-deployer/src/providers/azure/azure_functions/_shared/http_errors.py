@@ -114,15 +114,21 @@ def log_runtime_failure(
     error: BaseException,
     *,
     logger: Any = logging,
+    include_diagnostic: bool = True,
 ) -> str:
-    """Log one redacted diagnostic and return its public correlation ID."""
+    """Log one bounded failure reference and return its correlation ID."""
     correlation_id = str(uuid.uuid4())
+    diagnostic = (
+        redact_runtime_diagnostic(error)
+        if include_diagnostic
+        else "<suppressed>"
+    )
     logger.error(
         "%s failed correlation_id=%s error_type=%s diagnostic=%s",
         component,
         correlation_id,
         type(error).__name__,
-        redact_runtime_diagnostic(error),
+        diagnostic,
     )
     return correlation_id
 

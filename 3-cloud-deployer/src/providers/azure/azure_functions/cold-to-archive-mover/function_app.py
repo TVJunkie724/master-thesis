@@ -21,14 +21,16 @@ from azure.storage.blob import BlobServiceClient
 
 # Handle import path for shared module
 try:
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import log_runtime_failure
     from _shared.inter_cloud import post_raw
-    from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import log_runtime_failure
     from _shared.inter_cloud import post_raw
-    from _shared.env_utils import require_env
 
 
 class ConfigurationError(Exception):
@@ -125,7 +127,9 @@ def _is_multi_cloud_archive() -> bool:
 def _post_to_remote_archive_writer(object_key: str, data: str) -> None:
     """POST data to remote Archive Writer."""
     if not INTER_CLOUD_TOKEN:
-        raise ValueError("INTER_CLOUD_TOKEN is required for multi-cloud transfers")
+        raise ConfigurationError(
+            "INTER_CLOUD_TOKEN is required for multi-cloud transfers"
+        )
     
     payload = {
         "object_key": object_key,
@@ -139,7 +143,7 @@ def _post_to_remote_archive_writer(object_key: str, data: str) -> None:
         payload=payload
     )
     
-    logging.info(f"Posted {object_key} to remote Archive Writer")
+    logging.info("Posted object to configured remote archive writer")
 
 
 @app.function_name(name="cold-to-archive-mover")
@@ -162,14 +166,16 @@ def cold_to_archive_mover(timer: func.TimerRequest) -> None:
     try:
         multi_cloud = _is_multi_cloud_archive()
         if multi_cloud:
-            logging.info(f"Multi-cloud mode: Posting to {REMOTE_ARCHIVE_WRITER_URL}")
+            logging.info(
+                "Multi-cloud mode: using configured remote archive writer"
+            )
         else:
-            logging.info(f"Single-cloud mode: Archiving to {_get_archive_storage_container()}")
+            logging.info("Single-cloud mode: using configured archive container")
         
         # Calculate cutoff
         cold_days = _get_digital_twin_info()["config"].get("cold_storage_size_in_days", 30)
         cutoff = datetime.now(timezone.utc) - timedelta(days=cold_days)
-        logging.info(f"Archiving items older than: {cutoff.isoformat()}")
+        logging.info("Calculated cold-storage cutoff")
         
         blob_service = _get_blob_service()
         cold_container = blob_service.get_container_client(_get_cold_storage_container())
@@ -188,11 +194,13 @@ def cold_to_archive_mover(timer: func.TimerRequest) -> None:
             # Check if blob is older than cutoff
             if blob.last_modified and blob.last_modified < cutoff:
                 blob_name = blob.name
-                logging.info(f"Processing blob: {blob_name}")
+                logging.info("Processing eligible cold-storage object")
                 
                 # Memory guard
                 if blob.size and blob.size > MAX_OBJECT_SIZE_BYTES:
-                    logging.warning(f"Skipping {blob_name}: size {blob.size} exceeds limit")
+                    logging.warning(
+                        "Skipping oversized cold-storage object"
+                    )
                     continue
                 
                 if multi_cloud:
@@ -213,21 +221,33 @@ def cold_to_archive_mover(timer: func.TimerRequest) -> None:
                         source_blob.url,
                         standard_blob_tier=_get_archive_blob_tier()
                     )
-                    logging.info(f"Copied {blob_name} to archive tier")
+                    logging.info("Copied object to configured archive tier")
                 
                 # Delete from cold container
                 cold_container.delete_blob(blob_name)
-                logging.info(f"Deleted {blob_name} from cold container")
+                logging.info("Deleted archived object from cold storage")
                 moved_count += 1
         
         logging.info(f"Moved {moved_count} blobs to archive")
         
-    except ConfigurationError as e:
-        logging.error(f"Configuration Error: {e}")
+    except (
+        ConfigurationError,
+        MissingEnvironmentVariableError,
+        json.JSONDecodeError,
+    ) as exc:
+        log_runtime_failure(
+            "azure.cold-to-archive-mover.configuration",
+            exc,
+            include_diagnostic=False,
+        )
         raise
-        
-    except Exception as e:
-        logging.exception(f"Cold-to-Archive Mover Error: {e}")
+
+    except Exception as exc:
+        log_runtime_failure(
+            "azure.cold-to-archive-mover.execution",
+            exc,
+            include_diagnostic=False,
+        )
         raise
     
     logging.info("Azure Cold-to-Archive Mover: Complete")
