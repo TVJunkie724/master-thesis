@@ -36,8 +36,9 @@ Optimizer winner
 | 5 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | AWS Terraform alignment | #61, #131 |
 | 6 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Azure Terraform alignment | #61, #131 |
 | 7 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | GCP Terraform alignment | #61, #131 |
+| 7b | [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Reject the unsupported legacy error-handling topology at every executable boundary | #127 |
 | 8 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Compact read-only Flutter review | #130 |
-| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134 |
+| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134, #135 |
 
 Provider phases 5-7 may be implemented after phase 4b in any order. Phase 9 is
 the only completion gate for parent issue #118.

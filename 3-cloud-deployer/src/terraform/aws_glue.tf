@@ -126,7 +126,7 @@ resource "aws_lambda_function" "l0_ingestion" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_glue_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.lambda_build_dir}/ingestion.zip"
@@ -159,7 +159,7 @@ resource "aws_lambda_function" "l0_hot_writer" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_glue_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.lambda_build_dir}/hot-writer.zip"
@@ -193,7 +193,7 @@ resource "aws_lambda_function" "l0_hot_reader" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_glue_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.lambda_build_dir}/hot-reader.zip"
@@ -227,7 +227,7 @@ resource "aws_lambda_function" "l0_cold_writer" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_glue_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.lambda_build_dir}/cold-writer.zip"
@@ -237,6 +237,7 @@ resource "aws_lambda_function" "l0_cold_writer" {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
       COLD_S3_BUCKET_NAME = local.aws_l3_s3_cold_bucket_name
+      COLD_STORAGE_CLASS  = var.aws_l3_cool_storage_class
       INTER_CLOUD_TOKEN   = local.inter_cloud_token_value
     }
   }
@@ -261,7 +262,7 @@ resource "aws_lambda_function" "l0_archive_writer" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_glue_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.lambda_build_dir}/archive-writer.zip"
@@ -271,6 +272,7 @@ resource "aws_lambda_function" "l0_archive_writer" {
     variables = {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       ARCHIVE_S3_BUCKET_NAME = local.aws_l3_s3_archive_bucket_name
+      ARCHIVE_STORAGE_CLASS  = var.aws_l3_archive_storage_class
       INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }

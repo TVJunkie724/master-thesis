@@ -437,10 +437,10 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             duration_ms=MOVER_FUNCTION_DURATION_MS,
             memory_mb=AWS_MOVER_LAMBDA_MEMORY_MB,
         )
-        trigger_cost = self.eventbridge.calculate_cost(
-            events=monthly_invocations,
-            pricing=pricing,
-        )
+        # Terraform deploys a legacy same-account scheduled rule, not custom
+        # event ingestion. The custom EventBridge event-bus row therefore does
+        # not describe this trigger and must not be charged here.
+        trigger_cost = 0.0
         return TransitionRuntimeResult(
             edge_id=edge_id,
             provider=self.provider,
@@ -451,11 +451,9 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             total_cost=function_cost + trigger_cost,
             formula_references=(
                 "execution_based_cost",
-                "action_based_cost",
             ),
             evidence_references=(
                 "aws.lambda",
-                "aws.eventBridge",
             ),
             deployment_selection=_mover_lambda_selection(
                 component_id,

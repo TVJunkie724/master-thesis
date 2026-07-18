@@ -35,6 +35,7 @@ DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 
 COLD_S3_BUCKET_NAME = require_env("COLD_S3_BUCKET_NAME")
 ARCHIVE_S3_BUCKET_NAME = require_env("ARCHIVE_S3_BUCKET_NAME")
+ARCHIVE_STORAGE_CLASS = os.environ.get("ARCHIVE_STORAGE_CLASS", "").strip()
 
 # Multi-cloud config (optional)
 REMOTE_ARCHIVE_WRITER_URL = os.environ.get("REMOTE_ARCHIVE_WRITER_URL", "").strip()
@@ -129,6 +130,10 @@ def lambda_handler(event, context):
     if multi_cloud:
         print(f"Multi-cloud mode: Posting to {REMOTE_ARCHIVE_WRITER_URL}")
     else:
+        if not ARCHIVE_STORAGE_CLASS:
+            raise ConfigurationError(
+                "ARCHIVE_STORAGE_CLASS is required for local AWS archive storage"
+            )
         print(f"Single-cloud mode: Copying to s3://{ARCHIVE_S3_BUCKET_NAME}")
 
     try:
@@ -165,7 +170,7 @@ def lambda_handler(event, context):
                             CopySource={"Bucket": COLD_S3_BUCKET_NAME, "Key": key},
                             Bucket=ARCHIVE_S3_BUCKET_NAME,
                             Key=key,
-                            StorageClass="DEEP_ARCHIVE",
+                            StorageClass=ARCHIVE_STORAGE_CLASS,
                             MetadataDirective="COPY"
                         )
                         print(f"Copied {key} to s3://{ARCHIVE_S3_BUCKET_NAME}/{key}")

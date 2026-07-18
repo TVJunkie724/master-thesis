@@ -239,7 +239,7 @@ resource "aws_lambda_function" "l4_connector" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l4_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.l4_lambda_build_dir}/digital-twin-data-connector.zip"
@@ -321,4 +321,3 @@ resource "awscc_iottwinmaker_scene" "main" {
     aws_s3_object.scene_json
   ]
 }
-

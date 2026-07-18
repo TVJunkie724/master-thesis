@@ -93,7 +93,7 @@ resource "aws_lambda_function" "l1_dispatcher" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l1_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.l1_lambda_build_dir}/dispatcher.zip"
@@ -155,7 +155,7 @@ resource "aws_lambda_function" "l1_connector" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l1_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.l1_lambda_build_dir}/connector.zip"

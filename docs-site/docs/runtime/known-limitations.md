@@ -87,14 +87,20 @@ before final thesis evaluation and supervised E2E.
 
 Storage mover runtime ownership is now explicit in calculation, evidence,
 resolved specification, Management validation, and Deployer tfvar translation.
-The provider Terraform resources still contain historical literals until the
-AWS, Azure, and GCP alignment phases
-[#132](https://github.com/TVJunkie724/master-thesis/issues/132),
-[#133](https://github.com/TVJunkie724/master-thesis/issues/133), and
+AWS resource values are specification-bound under
+[#132](https://github.com/TVJunkie724/master-thesis/issues/132). Azure and GCP
+still contain historical resource choices until
+[#133](https://github.com/TVJunkie724/master-thesis/issues/133) and
 [#120](https://github.com/TVJunkie724/master-thesis/issues/120) complete.
-Consequently, a translated variable is not yet proof that the corresponding
-live resource consumes it; the final credential-free drift gate is
+Cross-provider translated variables are therefore not yet proof that every
+live resource consumes the selected value; the final credential-free drift gate is
 [#128](https://github.com/TVJunkie724/master-thesis/issues/128).
+
+The legacy `integrateErrorHandling` field is not an executable capability of
+the current baseline. Flutter keeps it disabled, but canonical API and
+Deployer rejection of historical/direct `true` payloads is tracked as required
+pre-final-gate hardening in
+[#135](https://github.com/TVJunkie724/master-thesis/issues/135).
 
 Calculation traceability now connects the optimization profile and selected path to
 provider pricing contracts, source classifications, formula bindings, evidence

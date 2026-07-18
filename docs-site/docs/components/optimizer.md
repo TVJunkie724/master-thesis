@@ -107,6 +107,13 @@ writer, egress, and reconciled total. Candidate scoring adds the source runtime
 once; it does not add the context's explanatory writer/egress total a second
 time.
 
+For AWS, the deployed transition trigger is a legacy EventBridge scheduled
+rule, not custom event-bus ingestion. Its transition result therefore charges
+the mover Lambda but does not consume
+`aws.eventBridge.pricePerMillionEvents`. A future migration to EventBridge
+Scheduler must introduce its own reviewed pricing intent instead of reusing the
+custom event-bus row.
+
 ## Evidence And Candidate Flow
 
 ```text
@@ -358,10 +365,11 @@ deployment selections and digest. No downstream service may reconstruct SKU,
 capacity, storage class, or runtime configuration from defaults.
 
 Management persistence, DeploymentManifest v2, Deployer preflight, and typed
-tfvar translation are implemented. The remaining provider phases of
-[#118](https://github.com/TVJunkie724/master-thesis/issues/118) bind those
-variables to AWS, Azure, and GCP Terraform resources and prove the final
-credential-free no-apply drift gate.
+tfvar translation are implemented. AWS resource binding is complete. The
+remaining provider phases of
+[#118](https://github.com/TVJunkie724/master-thesis/issues/118) bind Azure and
+GCP variables to their Terraform resources before the final credential-free
+no-apply drift gate.
 
 ## Optimization Strategy Bundle
 

@@ -635,7 +635,7 @@ class TestEngineIntegration:
         assert aws_runtime.deployment_selection.dimensions[
             "aws.lambda.memory_mb"
         ] == AWS_MOVER_LAMBDA_MEMORY_MB
-        assert aws_runtime.trigger_cost == pytest.approx(0.000004)
+        assert aws_runtime.trigger_cost == 0
         assert azure_runtime.trigger_cost == 0
         assert azure_runtime.deployment_selection.dimensions[
             "azure.functions.timer_schedule"

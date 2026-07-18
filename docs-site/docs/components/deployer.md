@@ -96,10 +96,33 @@ variables. Unknown mappings, provider drift, digest drift, contradictory
 targets, or collisions with legacy configuration fail before package,
 workspace, or Terraform side effects.
 
-The canonical transition variables are intentionally provider-specific. Their
-final AWS, Azure, and GCP HCL resource bindings are delivered by roadmap phases
-#132, #133, and #120 respectively; until those gates pass, the platform does
-not claim end-to-end Terraform continuity for the resolved specification.
+The canonical transition variables are intentionally provider-specific. AWS
+resource binding is complete under #132; Azure and GCP remain governed by
+#133 and #120. Until all provider gates pass, the platform does not claim
+cross-provider end-to-end Terraform continuity for the resolved specification.
+
+### AWS Deployment Specification Binding
+
+AWS Terraform consumes specification-derived values for the Lambda memory
+profiles used by L1, L2, L3, L4, and cross-cloud glue, DynamoDB billing mode,
+S3 cool/archive storage classes, and both source-owned mover schedules and
+memory profiles. A Terraform guard rejects an active AWS component whose
+required specification value is absent. Variable validation rejects values
+outside the closed-world registry before provider side effects.
+
+S3 writers and movers receive the selected storage class through runtime
+environment variables. Local movers require it only when AWS owns the
+destination; cross-cloud source movers leave the destination class to the
+registered destination writer. Runtime code does not maintain a second
+storage-class allowlist.
+
+The baseline deploys legacy EventBridge scheduled rules for the two storage
+movers. These rules are not custom event-bus ingestion, so the Optimizer does
+not apply the custom event-bus row to their trigger cost. Migrating to
+EventBridge Scheduler would require a distinct pricing and deployment
+contract. TwinMaker account pricing plans remain account-scoped evidence, and
+Managed Grafana configuration remains a tested baseline invariant rather than
+a per-twin pricing selection.
 
 ## Five-Layer Mapping
 

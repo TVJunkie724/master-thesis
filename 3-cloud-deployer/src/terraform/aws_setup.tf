@@ -108,6 +108,67 @@ locals {
   aws_e2e_iot_publish_policy = "${var.digital_twin_name}-e2e-iot-publish"
 }
 
+# Fail before provider execution if an active AWS component is missing its
+# immutable optimizer-owned deployment selection.
+resource "terraform_data" "aws_deployment_specification_guard" {
+  count = local.aws_enabled ? 1 : 0
+
+  input = {
+    l1_lambda_memory_mb                 = var.aws_l1_lambda_memory_mb
+    l2_lambda_memory_mb                 = var.aws_l2_lambda_memory_mb
+    dynamodb_billing_mode               = var.aws_dynamodb_billing_mode
+    l3_reader_lambda_memory_mb          = var.aws_l3_reader_lambda_memory_mb
+    l3_cool_storage_class               = var.aws_l3_cool_storage_class
+    hot_to_cool_mover_memory_mb         = var.aws_hot_to_cool_mover_memory_mb
+    hot_to_cool_schedule_expression     = var.aws_hot_to_cool_schedule_expression
+    l3_archive_storage_class            = var.aws_l3_archive_storage_class
+    cool_to_archive_mover_memory_mb     = var.aws_cool_to_archive_mover_memory_mb
+    cool_to_archive_schedule_expression = var.aws_cool_to_archive_schedule_expression
+    l4_lambda_memory_mb                 = var.aws_l4_lambda_memory_mb
+    glue_lambda_memory_mb               = var.aws_glue_lambda_memory_mb
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.layer_1_provider != "aws" || var.aws_l1_lambda_memory_mb != null
+      error_message = "AWS L1 requires aws_l1_lambda_memory_mb from the resolved deployment specification."
+    }
+    precondition {
+      condition     = var.layer_2_provider != "aws" || var.aws_l2_lambda_memory_mb != null
+      error_message = "AWS L2 requires aws_l2_lambda_memory_mb from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_3_hot_provider != "aws" || (
+        var.aws_dynamodb_billing_mode != null &&
+        var.aws_l3_reader_lambda_memory_mb != null &&
+        var.aws_hot_to_cool_mover_memory_mb != null &&
+        var.aws_hot_to_cool_schedule_expression != null
+      )
+      error_message = "AWS L3 hot requires billing, reader, and hot-to-cool runtime selections from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_3_cold_provider != "aws" || (
+        var.aws_l3_cool_storage_class != null &&
+        var.aws_cool_to_archive_mover_memory_mb != null &&
+        var.aws_cool_to_archive_schedule_expression != null
+      )
+      error_message = "AWS L3 cool requires storage-class and cool-to-archive runtime selections from the resolved deployment specification."
+    }
+    precondition {
+      condition     = var.layer_3_archive_provider != "aws" || var.aws_l3_archive_storage_class != null
+      error_message = "AWS L3 archive requires aws_l3_archive_storage_class from the resolved deployment specification."
+    }
+    precondition {
+      condition     = var.layer_4_provider != "aws" || var.aws_l4_lambda_memory_mb != null
+      error_message = "AWS L4 requires aws_l4_lambda_memory_mb from the resolved deployment specification."
+    }
+    precondition {
+      condition     = !local.l0_aws_enabled || var.aws_glue_lambda_memory_mb != null
+      error_message = "AWS cross-cloud glue requires aws_glue_lambda_memory_mb from the resolved deployment specification."
+    }
+  }
+}
+
 # ==============================================================================
 # AWS Resource Group (Tag-based Query)
 # ==============================================================================

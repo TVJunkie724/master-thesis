@@ -25,6 +25,7 @@ except ModuleNotFoundError:
 
 # Validate env vars at startup (fail-fast)
 ARCHIVE_S3_BUCKET_NAME = require_env("ARCHIVE_S3_BUCKET_NAME")
+ARCHIVE_STORAGE_CLASS = require_env("ARCHIVE_STORAGE_CLASS")
 EXPECTED_TOKEN = require_env("INTER_CLOUD_TOKEN")
 
 s3_client = boto3.client("s3")
@@ -89,7 +90,7 @@ def lambda_handler(event, context):
             Key=object_key,
             Body=body_content,
             ContentType="application/json",
-            StorageClass="DEEP_ARCHIVE"
+            StorageClass=ARCHIVE_STORAGE_CLASS
         )
         
         print(f"Archive Writer: Wrote to s3://{ARCHIVE_S3_BUCKET_NAME}/{object_key}")

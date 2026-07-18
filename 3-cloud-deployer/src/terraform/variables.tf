@@ -87,6 +87,142 @@ variable "layer_5_provider" {
 }
 
 # ==============================================================================
+# Resolved Deployment Specification - AWS
+# ==============================================================================
+
+variable "aws_l1_lambda_memory_mb" {
+  description = "Specification-selected memory for AWS L1 Lambda functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_l1_lambda_memory_mb == null || var.aws_l1_lambda_memory_mb == 256
+    error_message = "aws_l1_lambda_memory_mb must be 256 when provided."
+  }
+}
+
+variable "aws_l2_lambda_memory_mb" {
+  description = "Specification-selected memory for AWS L2 Lambda functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_l2_lambda_memory_mb == null || var.aws_l2_lambda_memory_mb == 256
+    error_message = "aws_l2_lambda_memory_mb must be 256 when provided."
+  }
+}
+
+variable "aws_dynamodb_billing_mode" {
+  description = "Specification-selected billing mode for AWS L3 hot storage"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.aws_dynamodb_billing_mode == null || var.aws_dynamodb_billing_mode == "PAY_PER_REQUEST"
+    error_message = "aws_dynamodb_billing_mode must be PAY_PER_REQUEST when provided."
+  }
+}
+
+variable "aws_l3_reader_lambda_memory_mb" {
+  description = "Specification-selected memory for AWS L3 reader Lambda functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_l3_reader_lambda_memory_mb == null || var.aws_l3_reader_lambda_memory_mb == 256
+    error_message = "aws_l3_reader_lambda_memory_mb must be 256 when provided."
+  }
+}
+
+variable "aws_l3_cool_storage_class" {
+  description = "Specification-selected S3 storage class for AWS L3 cool storage"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.aws_l3_cool_storage_class == null || var.aws_l3_cool_storage_class == "STANDARD_IA"
+    error_message = "aws_l3_cool_storage_class must be STANDARD_IA when provided."
+  }
+}
+
+variable "aws_hot_to_cool_mover_memory_mb" {
+  description = "Specification-selected memory for the AWS hot-to-cool mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_hot_to_cool_mover_memory_mb == null || var.aws_hot_to_cool_mover_memory_mb == 512
+    error_message = "aws_hot_to_cool_mover_memory_mb must be 512 when provided."
+  }
+}
+
+variable "aws_hot_to_cool_schedule_expression" {
+  description = "Specification-selected EventBridge schedule for the AWS hot-to-cool mover"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.aws_hot_to_cool_schedule_expression == null || var.aws_hot_to_cool_schedule_expression == "rate(1 day)"
+    error_message = "aws_hot_to_cool_schedule_expression must be rate(1 day) when provided."
+  }
+}
+
+variable "aws_l3_archive_storage_class" {
+  description = "Specification-selected S3 storage class for AWS L3 archive storage"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.aws_l3_archive_storage_class == null || var.aws_l3_archive_storage_class == "DEEP_ARCHIVE"
+    error_message = "aws_l3_archive_storage_class must be DEEP_ARCHIVE when provided."
+  }
+}
+
+variable "aws_cool_to_archive_mover_memory_mb" {
+  description = "Specification-selected memory for the AWS cool-to-archive mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_cool_to_archive_mover_memory_mb == null || var.aws_cool_to_archive_mover_memory_mb == 512
+    error_message = "aws_cool_to_archive_mover_memory_mb must be 512 when provided."
+  }
+}
+
+variable "aws_cool_to_archive_schedule_expression" {
+  description = "Specification-selected EventBridge schedule for the AWS cool-to-archive mover"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.aws_cool_to_archive_schedule_expression == null || var.aws_cool_to_archive_schedule_expression == "rate(7 days)"
+    error_message = "aws_cool_to_archive_schedule_expression must be rate(7 days) when provided."
+  }
+}
+
+variable "aws_l4_lambda_memory_mb" {
+  description = "Specification-selected memory for the AWS L4 connector Lambda"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_l4_lambda_memory_mb == null || var.aws_l4_lambda_memory_mb == 256
+    error_message = "aws_l4_lambda_memory_mb must be 256 when provided."
+  }
+}
+
+variable "aws_glue_lambda_memory_mb" {
+  description = "Specification-selected memory for cross-cloud AWS glue Lambdas"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_glue_lambda_memory_mb == null || var.aws_glue_lambda_memory_mb == 256
+    error_message = "aws_glue_lambda_memory_mb must be 256 when provided."
+  }
+}
+
+# ==============================================================================
 # Azure Credentials (from config_credentials.json)
 # ==============================================================================
 

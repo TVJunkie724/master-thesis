@@ -36,6 +36,7 @@ DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 
 DYNAMODB_TABLE_NAME = require_env("DYNAMODB_TABLE_NAME")
 COLD_S3_BUCKET_NAME = require_env("COLD_S3_BUCKET_NAME")
+COLD_STORAGE_CLASS = os.environ.get("COLD_STORAGE_CLASS", "").strip()
 
 # Multi-cloud config (optional)
 REMOTE_COLD_WRITER_URL = os.environ.get("REMOTE_COLD_WRITER_URL", "").strip()
@@ -176,6 +177,10 @@ def _write_to_local_s3(iot_device_id: str, items: list, start: str, end: str, ch
     """Write chunk to local S3 Cold bucket."""
     if not items:
         return
+    if not COLD_STORAGE_CLASS:
+        raise ConfigurationError(
+            "COLD_STORAGE_CLASS is required for local AWS cool storage"
+        )
 
     key = f"{iot_device_id}/{start}-{end}/chunk-{chunk_index:05d}.json"
     body = json.dumps(items, default=str)
@@ -185,7 +190,7 @@ def _write_to_local_s3(iot_device_id: str, items: list, start: str, end: str, ch
         Key=key,
         Body=body,
         ContentType="application/json",
-        StorageClass="STANDARD_IA"
+        StorageClass=COLD_STORAGE_CLASS
     )
 
     print(f"Wrote {len(items)} items to s3://{COLD_S3_BUCKET_NAME}/{key}")

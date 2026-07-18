@@ -64,6 +64,7 @@ class TestHotToColdMoverQuery(unittest.TestCase):
             }),
             "DYNAMODB_TABLE_NAME": "test-hot-table",
             "COLD_S3_BUCKET_NAME": "test-cold-bucket",
+            "COLD_STORAGE_CLASS": "STANDARD_IA",
             "REMOTE_COLD_WRITER_URL": "",
             "INTER_CLOUD_TOKEN": ""
         }, clear=False)
@@ -136,6 +137,7 @@ class TestHotToColdMoverLocalWrite(unittest.TestCase):
             }),
             "DYNAMODB_TABLE_NAME": "test-table",
             "COLD_S3_BUCKET_NAME": "test-cold-bucket",
+            "COLD_STORAGE_CLASS": "STANDARD_IA",
             "REMOTE_COLD_WRITER_URL": "",
             "INTER_CLOUD_TOKEN": ""
         }, clear=False)
@@ -248,7 +250,8 @@ class TestHotToColdMoverChunking(unittest.TestCase):
                 }
             }),
             "DYNAMODB_TABLE_NAME": "test-table",
-            "COLD_S3_BUCKET_NAME": "test-bucket"
+            "COLD_S3_BUCKET_NAME": "test-bucket",
+            "COLD_STORAGE_CLASS": "STANDARD_IA",
         }, clear=False)
         self.env_patch.start()
         
@@ -305,7 +308,8 @@ class TestHotToColdMoverDeletion(unittest.TestCase):
                 }
             }),
             "DYNAMODB_TABLE_NAME": "test-table",
-            "COLD_S3_BUCKET_NAME": "test-bucket"
+            "COLD_S3_BUCKET_NAME": "test-bucket",
+            "COLD_STORAGE_CLASS": "STANDARD_IA",
         }, clear=False)
         self.env_patch.start()
         
@@ -354,6 +358,32 @@ class TestHotToColdMoverEnvValidation(unittest.TestCase):
             }, clear=True):
                 with self.assertRaises(Exception):
                     load_lambda_module(MOVER_PATH)
+
+    def test_local_write_rejects_missing_storage_class(self):
+        """A local AWS destination must not fall back to a literal class."""
+        with patch("boto3.resource"), patch("boto3.client"):
+            with patch.dict(os.environ, {
+                "DIGITAL_TWIN_INFO": json.dumps({
+                    "config_providers": {
+                        "layer_3_hot_provider": "aws",
+                        "layer_3_cold_provider": "aws",
+                    }
+                }),
+                "DYNAMODB_TABLE_NAME": "table",
+                "COLD_S3_BUCKET_NAME": "bucket",
+            }, clear=True):
+                module = load_lambda_module(MOVER_PATH)
+                with self.assertRaisesRegex(
+                    module.ConfigurationError,
+                    "COLD_STORAGE_CLASS",
+                ):
+                    module._write_to_local_s3(
+                        "device",
+                        [{"value": 1}],
+                        "start",
+                        "end",
+                        0,
+                    )
 
 
 if __name__ == "__main__":

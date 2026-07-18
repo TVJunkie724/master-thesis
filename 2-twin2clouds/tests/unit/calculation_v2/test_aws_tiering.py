@@ -15,6 +15,7 @@ from backend.calculation_v2.components.aws.twinmaker import (
     calculate_tiered_bundle_account_cost,
 )
 from backend.calculation_v2.engine import _calculate_egress_cost
+from backend.calculation_v2.layers.aws_layers import AWSLayerCalculators
 from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
 
@@ -389,6 +390,38 @@ class TestAWSActionUnits:
                 events=1,
                 pricing=_aws_pricing(eventBridge={}),
             )
+
+    def test_transition_runtime_does_not_use_custom_event_bus_pricing(self):
+        calculator = AWSLayerCalculators()
+        lambda_pricing = {
+            "requestPrice": 0.0000002,
+            "durationPrice": 0.0000166667,
+            "freeRequests": 0,
+            "freeComputeTime": 0,
+        }
+        low_price = calculator.calculate_transition_runtime(
+            edge_id="l3_hot_to_l3_cool",
+            monthly_invocations=30,
+            invocation_basis="one_daily_source_mover_invocation",
+            pricing=_aws_pricing(**{
+                "lambda": lambda_pricing,
+                "eventBridge": {"pricePerMillionEvents": 1.0},
+            }),
+        )
+        high_price = calculator.calculate_transition_runtime(
+            edge_id="l3_hot_to_l3_cool",
+            monthly_invocations=30,
+            invocation_basis="one_daily_source_mover_invocation",
+            pricing=_aws_pricing(**{
+                "lambda": lambda_pricing,
+                "eventBridge": {"pricePerMillionEvents": 999.0},
+            }),
+        )
+
+        assert low_price.trigger_cost == 0
+        assert high_price.trigger_cost == 0
+        assert low_price.total_cost == pytest.approx(high_price.total_cost)
+        assert "aws.eventBridge" not in low_price.evidence_references
 
 
 class TestAWSTransferTiering:

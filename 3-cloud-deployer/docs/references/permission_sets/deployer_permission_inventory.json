@@ -34,7 +34,6 @@
         "aws_resourcegroups_group",
         "aws_s3_bucket",
         "aws_s3_bucket_cors_configuration",
-        "aws_s3_bucket_lifecycle_configuration",
         "aws_s3_object",
         "aws_sfn_state_machine",
         "aws_ssoadmin_instances"

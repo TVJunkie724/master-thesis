@@ -148,6 +148,55 @@ def test_transition_runtime_tfvars_are_source_owned_and_allowlisted():
 
 
 @pytest.mark.parametrize(
+    "terraform_target",
+    (
+        "aws_l1_lambda_memory_mb",
+        "aws_l2_lambda_memory_mb",
+        "aws_dynamodb_billing_mode",
+        "aws_l3_reader_lambda_memory_mb",
+        "aws_l3_cool_storage_class",
+        "aws_hot_to_cool_mover_memory_mb",
+        "aws_hot_to_cool_schedule_expression",
+        "aws_l3_archive_storage_class",
+        "aws_cool_to_archive_mover_memory_mb",
+        "aws_cool_to_archive_schedule_expression",
+        "aws_l4_lambda_memory_mb",
+        "aws_glue_lambda_memory_mb",
+    ),
+)
+def test_unsupported_aws_deployable_values_fail_preflight(terraform_target):
+    fixture_name = (
+        "mixed-providers.json"
+        if terraform_target == "aws_glue_lambda_memory_mb"
+        else "all-aws.json"
+    )
+    specification = load_specification(fixture_name)
+    providers = provider_config_for_specification(specification)
+    matched = False
+    for component in specification["components"]:
+        for dimension in component["dimensions"]:
+            if dimension.get("terraform_target") != terraform_target:
+                continue
+            matched = True
+            dimension["value"] = (
+                -1 if isinstance(dimension["value"], int) else "__unsupported__"
+            )
+    assert matched, f"Missing fixture target: {terraform_target}"
+    specification["digest"] = calculate_digest(specification)
+
+    with pytest.raises(DeploymentSpecificationError) as exc_info:
+        validate_deployment_manifest(
+            deployment_manifest(specification, providers=providers),
+            providers,
+        )
+
+    assert exc_info.value.code == "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH"
+    assert terraform_target.removeprefix("aws_").split("_")[0] in str(
+        exc_info.value
+    )
+
+
+@pytest.mark.parametrize(
     "fixture_name",
     (
         "missing-transition-runtime.json",
