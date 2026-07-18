@@ -50,6 +50,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "019_pricing_catalog_context",
         "migrations.add_pricing_catalog_context",
     ),
+    Migration(
+        "020_resolved_deployment_specification",
+        "migrations.add_resolved_deployment_specification",
+    ),
 )
 
 

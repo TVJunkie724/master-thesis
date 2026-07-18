@@ -1,7 +1,8 @@
 # Phase 3: Management Persistence and Manifest Binding
 
 **Issue:** [#130](https://github.com/TVJunkie724/master-thesis/issues/130)  
-**Status:** Reviewed and implementation-ready  
+**Status:** Implemented and verified
+
 **Blocked by:** #127, #129
 
 ## Target
@@ -87,9 +88,9 @@ requiring recalculation. No service may synthesize a specification from
 
 ## Definition of Done
 
-- [ ] New runs persist an immutable validated specification and digest.
-- [ ] Legacy runs are readable and explicitly not deployable.
-- [ ] Selection and manifest generation reject all invalid compatibility states.
-- [ ] Manifest v2 carries the exact canonical object and digest.
-- [ ] Migration, rollback, concurrency, API, Ruff, Bandit, and full safe tests pass.
-- [ ] #130 is closed with commit and verification evidence.
+- [x] New runs persist an immutable validated specification and digest.
+- [x] Legacy runs are readable and explicitly not deployable.
+- [x] Selection and manifest generation reject all invalid compatibility states.
+- [x] Manifest v2 carries the exact canonical object and digest.
+- [x] Migration, rollback, concurrency, API, Ruff, Bandit, and full safe tests pass.
+- [x] #130 is closed with commit and verification evidence.

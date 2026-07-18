@@ -5,6 +5,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.schemas.pricing_catalog import PricingCatalogContext
+from src.schemas.resolved_deployment_specification import (
+    DeploymentCompatibilityStatus,
+    ResolvedDeploymentSpecification,
+)
 
 
 class CostCalculationRunCreate(BaseModel):
@@ -57,6 +61,9 @@ class CostCalculationRunSummaryResponse(BaseModel):
     pricing_evidence_version: Optional[str] = None
     pricing_run_reference: Optional[str] = None
     pricing_catalog_context: Optional[PricingCatalogContext] = None
+    deployment_specification_digest: Optional[str] = None
+    deployment_specification_version: Optional[str] = None
+    deployment_compatibility_status: DeploymentCompatibilityStatus
     created_at: datetime
     completed_at: Optional[datetime] = None
     selected_for_deployment_at: Optional[datetime] = None
@@ -67,12 +74,16 @@ class CostCalculationRunSummaryResponse(BaseModel):
 class CostCalculationRunDetailResponse(CostCalculationRunSummaryResponse):
     params: dict
     result_summary: Optional[dict] = None
+    resolved_deployment_specification: (
+        Optional[ResolvedDeploymentSpecification]
+    ) = None
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
 
 
 class CostCalculationRunSelectResponse(BaseModel):
     run: CostCalculationRunSummaryResponse
     selected_for_deployment_at: datetime
+    resolved_deployment_specification: ResolvedDeploymentSpecification
 
 
 class PricingEvidenceDetailResponse(BaseModel):

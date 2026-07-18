@@ -40,6 +40,12 @@ For a new twin, the workspace creates the draft identity first and reuses it
 when a calculation is retried. Saving a draft does not save or alter a
 calculation result.
 
+Each new successful run also freezes the exact provider services, SKUs, plans,
+capacities, storage classes, runtime settings, formula assumptions, and pricing
+evidence needed to reproduce deployment. These values are read-only. A historical
+run created before this contract can still be inspected, but the user must calculate
+again before it can be selected for deployment.
+
 The default result remains concise. Expand **Calculation trace** only when
 provenance is needed. Current results provide nested, read-only details for the
 pricing intent, immutable provider catalogs, exact six-edge transfer routes,

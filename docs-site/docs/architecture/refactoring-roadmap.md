@@ -149,7 +149,7 @@ when work becomes actionable, then reference the issue here.
 | [#118](https://github.com/TVJunkie724/master-thesis/issues/118) | Active pre-Phase-8 blocker | Propagate a versioned resolved service deployment specification from the selected cost model through the Management API and DeploymentManifest into Terraform. Mini-roadmap and reviewed plans: `docs/plans/resolved_deployment_specification/` |
 | [#127](https://github.com/TVJunkie724/master-thesis/issues/127) | Done | Canonical v1 schema, deployment-dimension registry, full provider/slot matrix, golden fixtures, and byte-identical service copies |
 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Done | Emit exact resolved deployment selections from the Optimizer winner, including formula-bound runtime values, archive classes, and Azure IoT Hub SKU/capacity with provider billing-block normalization |
-| [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Blocked by #127 and #129 | Validate, persist, freeze, and manifest the specification in the Management API |
+| [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Done | Validate, persist, freeze, and bind the specification to DeploymentManifest v2 in the Management API |
 | [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Blocked by #127 and #130 | Fail-closed Deployer preflight and typed tfvars translation |
 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Blocked by #131 | Align AWS formula assumptions and Terraform resource values |
 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Blocked by #131 | Align Azure IoT Hub and other modeled Azure resource values |

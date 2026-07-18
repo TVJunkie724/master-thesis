@@ -103,11 +103,20 @@ cross-service contract tests. A new architecture topology is not added to this
 registry; it requires a versioned architecture profile and a new contract
 version. The Optimizer emits the complete specification from the selected
 route-aware winner and rejects incomplete or contradictory component mappings.
-Persistence, manifest binding, and typed Terraform translation are delivered by
-the remaining child phases of
-[#118](https://github.com/TVJunkie724/master-thesis/issues/118). Until those
-phases are complete, the emitted v1 object is verified calculation output, not
-deployment authorization.
+The Management API is the trust boundary for the emitted object. It preallocates
+the calculation run ID, validates the complete specification and digest, persists
+canonical JSON atomically with the result, exposes it read-only, and permits
+selection only while its catalog/account context remains current. Existing runs
+without v1 remain inspectable but have compatibility status
+`legacy_not_deployable`.
+
+`DeploymentManifest 2.0` binds the selected run ID, exact specification object,
+and digest. The Deployer must validate the same generated contract and translate
+only allowlisted `terraform_target` dimensions; that translation is delivered by
+the next child phase of
+[#118](https://github.com/TVJunkie724/master-thesis/issues/118). No downstream
+component may synthesize missing dimensions from calculator or Terraform
+defaults.
 
 ### Transfer Pricing Catalog
 
@@ -148,8 +157,9 @@ Flutter workload parameters
   -> POST /twins/{id}/optimizer-runs
   -> Management resolves exact catalog context
   -> Optimizer calculates result and route evidence
-  -> Management validates all result contracts
-  -> one transaction persists run, items, result, and deployment path
+  -> Optimizer resolves exact deployment components and dimensions
+  -> Management validates all result/specification contracts
+  -> one transaction persists run, items, result, path, and canonical specification
   -> Flutter receives a read-only typed result
 ```
 
@@ -159,7 +169,7 @@ The durable run command is the sole application writer for optimizer results.
 endpoint may store only typed workload inputs. The read-only optimizer config
 projection remains available to configuration validation and deployment
 consumers. A client must never derive or submit provider assignments, catalog
-identities, transfer totals, or cheapest-path columns.
+identities, transfer totals, cheapest-path columns, or deployment dimensions.
 
 ## Errors
 

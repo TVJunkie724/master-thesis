@@ -116,9 +116,25 @@ archive generation, package staging, stream handling, result persistence, rollba
 and recovery. A deployment record is separate from twin state, enabling operation
 history and correlation by session/operation ID.
 
-The Management API builds `deployment_manifest.json` version `1.0`, submits exact
-archive bytes to the Deployer, receives an operation-package token, and uses that token
-for the deploy/destroy operation. It does not write into Deployer templates directly.
+Every new successful optimizer run contains one canonical
+`ResolvedDeploymentSpecification v1`. Management validates its schema, closed-world
+component/dimension registry, run ID, provider path, strategy context, immutable
+pricing references, and SHA-256 digest before committing any run state. The canonical
+JSON, digest, version, and compatibility status are immutable after insertion.
+Historical runs remain readable as `legacy_not_deployable`; they are never upgraded by
+guessing provider settings from legacy cheapest-layer columns.
+
+Exactly one compatible run may be selected per twin/user. A partial unique database
+index enforces this invariant in addition to the application transaction. Package
+generation revalidates the stored object and requires its provider path to equal the
+persisted Optimizer projection before decrypting credentials or materializing files.
+
+The Management API builds `deployment_manifest.json` version `2.0`, embedding the
+exact calculation run ID, specification object, and digest. It submits exact archive
+bytes to the Deployer, receives an operation-package token, and uses that token for
+the deploy/destroy operation. It does not write into Deployer templates directly.
+Deployer-side v2 preflight and typed tfvars translation are the next contract phase;
+until both services support the same version, the integration fails closed.
 
 ## Database Startup And Migrations
 
@@ -129,6 +145,9 @@ lifecycle/operation state, credential audit events, immutable pricing-catalog
 references, and legacy credential disablement. Migration `019` adds the compact
 three-provider context and backfills it only when a historical Optimizer result
 contains a complete, internally valid exact reference set.
+Migration `020` adds the immutable resolved-deployment columns, classifies existing
+runs as `legacy_not_deployable`, normalizes any historical duplicate selections, and
+adds digest, status, immutability, and single-selection database guards.
 
 SQLite is the local single-node storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.
@@ -166,8 +185,9 @@ workflow share this one validation service.
 `POST /twins/{id}/optimizer-runs` is the only application command that may
 persist an optimizer result and its deployment-path projection. Management
 resolves the trusted pricing context, invokes the Optimizer, validates the
-returned contracts, derives the path from `calculationResult`, and commits the
-run, result items, and `OptimizerConfiguration` projection atomically. Generic
+returned contracts and resolved deployment specification, derives the path from
+`calculationResult`, and commits the run, result items, immutable deployment
+specification, and `OptimizerConfiguration` projection atomically. Generic
 twin updates and optimizer-parameter drafts cannot carry a result or cheapest
 path. `GET /twins/{id}/optimizer-config` retains a read-only result projection
 for configuration, validation, and deployment compatibility.

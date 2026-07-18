@@ -17,8 +17,10 @@ User input
        formula set + provider contracts
        scoring strategy: minimum cost
   -> typed result + trace metadata + identical catalog context
-  -> Management contract validation
-  -> atomic calculation run/items/result/path persistence
+  -> exact ResolvedDeploymentSpecification v1
+       selected components, deployable dimensions, assumptions, evidence, digest
+  -> Management schema/registry/run/path/catalog/digest validation
+  -> atomic calculation run/items/result/path/specification persistence
   -> read-only Flutter review
 ```
 
@@ -76,13 +78,18 @@ individual twins.
 
 ```text
 configured twin
+  -> exactly one selected deployment-compatible optimizer run
+  -> Management revalidates frozen specification + current pricing/account context
   -> Management API readiness + preflight
   -> build canonical deployment archive
-       deployment_manifest.json (v1.0)
+       deployment_manifest.json (v2.0)
+       calculation run ID + exact specification + digest
        generated configuration
        user artifacts / scene assets
        transient credential context
-  -> Deployer validates archive and stages operation package
+  -> Deployer validates archive, specification, and typed tfvars
+  -> provider resources must match the costed deployable dimensions
+  -> stage operation package
   -> one-use package token identifies exact accepted bytes
   -> deploy/destroy request acquires token
   -> isolated ephemeral workspace

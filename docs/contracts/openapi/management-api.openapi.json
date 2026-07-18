@@ -1793,6 +1793,36 @@
             "title": "Currency",
             "type": "string"
           },
+          "deployment_compatibility_status": {
+            "enum": [
+              "ready",
+              "legacy_not_deployable"
+            ],
+            "title": "Deployment Compatibility Status",
+            "type": "string"
+          },
+          "deployment_specification_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Digest"
+          },
+          "deployment_specification_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Version"
+          },
           "error_code": {
             "anyOf": [
               {
@@ -1893,6 +1923,16 @@
             ],
             "title": "Pricing Run Reference"
           },
+          "resolved_deployment_specification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "result_items": {
             "items": {
               "$ref": "#/components/schemas/CostCalculationResultItemResponse"
@@ -1960,6 +2000,7 @@
           "currency",
           "optimization_profile_id",
           "scoring_strategy_id",
+          "deployment_compatibility_status",
           "created_at",
           "params"
         ],
@@ -1968,6 +2009,9 @@
       },
       "CostCalculationRunSelectResponse": {
         "properties": {
+          "resolved_deployment_specification": {
+            "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+          },
           "run": {
             "$ref": "#/components/schemas/CostCalculationRunSummaryResponse"
           },
@@ -1979,7 +2023,8 @@
         },
         "required": [
           "run",
-          "selected_for_deployment_at"
+          "selected_for_deployment_at",
+          "resolved_deployment_specification"
         ],
         "title": "CostCalculationRunSelectResponse",
         "type": "object"
@@ -2029,6 +2074,36 @@
           "currency": {
             "title": "Currency",
             "type": "string"
+          },
+          "deployment_compatibility_status": {
+            "enum": [
+              "ready",
+              "legacy_not_deployable"
+            ],
+            "title": "Deployment Compatibility Status",
+            "type": "string"
+          },
+          "deployment_specification_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Digest"
+          },
+          "deployment_specification_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Version"
           },
           "error_code": {
             "anyOf": [
@@ -2173,6 +2248,7 @@
           "currency",
           "optimization_profile_id",
           "scoring_strategy_id",
+          "deployment_compatibility_status",
           "created_at"
         ],
         "title": "CostCalculationRunSummaryResponse",
@@ -4415,32 +4491,6 @@
         "title": "OptimizerParamsUpdate",
         "type": "object"
       },
-      "OptimizerResultUpdate": {
-        "additionalProperties": false,
-        "description": "Save a calculation result already bound to trusted catalog references.",
-        "properties": {
-          "cheapest_path": {
-            "additionalProperties": true,
-            "title": "Cheapest Path",
-            "type": "object"
-          },
-          "params": {
-            "$ref": "#/components/schemas/OptimizerCalculationParams"
-          },
-          "result": {
-            "additionalProperties": true,
-            "title": "Result",
-            "type": "object"
-          }
-        },
-        "required": [
-          "params",
-          "result",
-          "cheapest_path"
-        ],
-        "title": "OptimizerResultUpdate",
-        "type": "object"
-      },
       "PlatformCapabilitySourceHealth": {
         "additionalProperties": false,
         "properties": {
@@ -5057,6 +5107,11 @@
             ],
             "title": "Field Trace Schema Version"
           },
+          "optimization_diagnostics": {
+            "additionalProperties": true,
+            "title": "Optimization Diagnostics",
+            "type": "object"
+          },
           "pricing_catalog_context": {
             "anyOf": [
               {
@@ -5123,6 +5178,16 @@
               }
             ],
             "title": "Trace Schema Version"
+          },
+          "transfer_pricing_context": {
+            "additionalProperties": true,
+            "title": "Transfer Pricing Context",
+            "type": "object"
+          },
+          "transfer_pricing_context_available": {
+            "default": false,
+            "title": "Transfer Pricing Context Available",
+            "type": "boolean"
           },
           "transfer_trace": {
             "items": {
@@ -6431,6 +6496,279 @@
         "title": "RedeployReadinessResponse",
         "type": "object"
       },
+      "ResolvedDeploymentArchitectureProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_id": {
+            "const": "five-layer-baseline",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "const": "1",
+            "title": "Profile Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_version"
+        ],
+        "title": "ResolvedDeploymentArchitectureProfile",
+        "type": "object"
+      },
+      "ResolvedDeploymentCatalogReference": {
+        "additionalProperties": false,
+        "properties": {
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "pricing_region": {
+            "title": "Pricing Region",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "pricing_region",
+          "content_digest"
+        ],
+        "title": "ResolvedDeploymentCatalogReference",
+        "type": "object"
+      },
+      "ResolvedDeploymentComponent": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "title": "Component Id",
+            "type": "string"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentDimension"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "required": {
+            "const": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "service_id": {
+            "title": "Service Id",
+            "type": "string"
+          },
+          "slot_id": {
+            "enum": [
+              "l1_ingestion",
+              "l2_processing",
+              "l3_hot_storage",
+              "l3_cool_storage",
+              "l3_archive_storage",
+              "l4_twin_state",
+              "l5_visualization",
+              "cross_cloud_glue"
+            ],
+            "title": "Slot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "slot_id",
+          "provider",
+          "service_id",
+          "required",
+          "dimensions"
+        ],
+        "title": "ResolvedDeploymentComponent",
+        "type": "object"
+      },
+      "ResolvedDeploymentDimension": {
+        "additionalProperties": false,
+        "properties": {
+          "classification": {
+            "enum": [
+              "deployable_selection",
+              "usage_tier",
+              "account_scope",
+              "non_deployable_assumption"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "dimension_id": {
+            "title": "Dimension Id",
+            "type": "string"
+          },
+          "evidence_reference": {
+            "title": "Evidence Reference",
+            "type": "string"
+          },
+          "formula_reference": {
+            "title": "Formula Reference",
+            "type": "string"
+          },
+          "terraform_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terraform Target"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "dimension_id",
+          "classification",
+          "value",
+          "formula_reference",
+          "evidence_reference"
+        ],
+        "title": "ResolvedDeploymentDimension",
+        "type": "object"
+      },
+      "ResolvedDeploymentOptimizationContext": {
+        "additionalProperties": false,
+        "properties": {
+          "calculation_strategy_id": {
+            "title": "Calculation Strategy Id",
+            "type": "string"
+          },
+          "catalog_references": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ResolvedDeploymentCatalogReference"
+            },
+            "title": "Catalog References",
+            "type": "object"
+          },
+          "formula_set_id": {
+            "title": "Formula Set Id",
+            "type": "string"
+          },
+          "optimization_profile_id": {
+            "title": "Optimization Profile Id",
+            "type": "string"
+          },
+          "optimization_profile_version": {
+            "title": "Optimization Profile Version",
+            "type": "string"
+          },
+          "pricing_registry_version": {
+            "title": "Pricing Registry Version",
+            "type": "string"
+          },
+          "workload_contract_id": {
+            "title": "Workload Contract Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "optimization_profile_id",
+          "optimization_profile_version",
+          "calculation_strategy_id",
+          "formula_set_id",
+          "workload_contract_id",
+          "pricing_registry_version",
+          "catalog_references"
+        ],
+        "title": "ResolvedDeploymentOptimizationContext",
+        "type": "object"
+      },
+      "ResolvedDeploymentSpecification": {
+        "additionalProperties": false,
+        "properties": {
+          "architecture_profile": {
+            "$ref": "#/components/schemas/ResolvedDeploymentArchitectureProfile"
+          },
+          "calculation_run_id": {
+            "title": "Calculation Run Id",
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentComponent"
+            },
+            "maxItems": 64,
+            "minItems": 7,
+            "title": "Components",
+            "type": "array"
+          },
+          "currency": {
+            "const": "USD",
+            "title": "Currency",
+            "type": "string"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "optimization_context": {
+            "$ref": "#/components/schemas/ResolvedDeploymentOptimizationContext"
+          },
+          "schema_version": {
+            "const": "resolved-deployment-specification.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "calculation_run_id",
+          "architecture_profile",
+          "optimization_context",
+          "currency",
+          "components",
+          "digest"
+        ],
+        "title": "ResolvedDeploymentSpecification",
+        "type": "object"
+      },
       "SceneGlbUploadResponse": {
         "description": "Scene GLB upload acknowledgement.",
         "properties": {
@@ -6451,6 +6789,7 @@
         "type": "object"
       },
       "TwinCloudConnectionRefs": {
+        "additionalProperties": false,
         "properties": {
           "aws": {
             "anyOf": [
@@ -6771,6 +7110,7 @@
         "type": "object"
       },
       "TwinConfigUpdate": {
+        "additionalProperties": false,
         "properties": {
           "aws": {
             "anyOf": [
@@ -6843,15 +7183,6 @@
                 "type": "null"
               }
             ]
-          },
-          "optimizer_result": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Optimizer Result"
           }
         },
         "title": "TwinConfigUpdate",
@@ -8861,7 +9192,7 @@
     },
     "/optimizer/calculate": {
       "put": {
-        "description": "**Purpose:** Calculate optimal cross-cloud distribution for a Digital Twin based on 26 parameters.\n\n**Prerequisites:** Call `getPricingStatus` first - if `is_fresh: false`, call `refreshPricing`.\n\n**Response includes:**\n- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n- `cheapestPath`: Optimal provider selection per layer (L1-L5)\n- `combinationTables`: Detailed cost analysis matrices\n- `transferCosts`: Cross-cloud data transfer estimates",
+        "description": "**Purpose:** Calculate the globally cheapest executable complete path for the closed Five-Layer Digital Twin baseline.\n\n**Prerequisites:** Call `getPricingStatus` first. If pricing is stale, refresh the affected provider before calculating.\n\n**Response includes:**\n- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n- `cheapestPath`: Selected provider assignment across all seven slots\n- `transferPricingContext`: Exact six-route, tier, pool, and catalog evidence\n- `optimizationDiagnostics`: Bounded complete-path solver diagnostics\n\nManagement injects trusted catalog context and rejects route evidence that does not match that context or the selected complete path.",
         "operationId": "calculateOptimalDistribution",
         "parameters": [
           {
@@ -11108,7 +11439,7 @@
     },
     "/twins/{twin_id}/config/": {
       "get": {
-        "description": "**Purpose:** Retrieve cloud provider credentials and validation status for Step 1 (Credentials) screen.\n\n**When to call:** When loading Step 1 to show saved credentials (masked) and validation indicators.\n\n**Response fields:**\n- `aws`: Object with masked credentials, region, and `validated` boolean\n- `azure`: Object with masked credentials, region, and `validated` boolean\n- `gcp`: Object with masked credentials, region, and `validated` boolean\n- `debug_mode`: Whether debug logging is enabled\n- `highest_step_reached`: Wizard progress indicator (1-5)\n\n**Note:** Creates empty config if none exists. Credentials are masked in response.",
+        "description": "**Purpose:** Retrieve the secret-free twin configuration, Cloud Connection bindings, and validation status.\n\n**When to call:** When loading the configuration workspace or a configuration review.\n\n**Response fields:**\n- Provider `*_configured`, `*_validated`, region, and Cloud Connection summary fields\n- `debug_mode`: Whether debug logging is enabled\n- `highest_step_reached`: Configuration progress indicator\n- `optimizer_params`: Optional user-authored parameter draft\n- `optimizer_result`: Read-only result from the latest server-owned optimizer run\n\n**Security:** Credential payloads and secret values are never returned.",
         "operationId": "getTwinConfig",
         "parameters": [
           {
@@ -11197,7 +11528,7 @@
         ]
       },
       "put": {
-        "description": "**Purpose:** Save cloud provider credentials and configuration for a Digital Twin.\n\n**When to call:** When user saves credentials in Step 1, or when auto-saving on field blur.\n\n**Request body fields:**\n- `aws`: {access_key_id, secret_access_key, region, session_token(optional)}\n- `azure`: {subscription_id, client_id, client_secret, tenant_id, region}\n- `gcp`: {project_id, billing_account, service_account_json, region}\n- `debug_mode`: Enable verbose logging for deployment\n- `highest_step_reached`: Track wizard progress\n\n**Security:** Credentials are encrypted with user+twin-specific key before storage.\n\n**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT.",
+        "description": "**Purpose:** Save user-authored, non-secret twin configuration fields.\n\n**When to call:** When the configuration workspace explicitly saves a draft.\n\n**Request body fields:**\n- `debug_mode`: Enable verbose logging for deployment\n- `highest_step_reached`: Track configuration progress\n- `optimizer_params`: Optional calculation parameter draft\n- `cloud_connections`: Bind or unbind user-owned deployment Cloud Connections\n\n**Security:** Inline credentials, optimizer results, and unknown fields are rejected. Optimizer results are written only by `createOptimizerRun`.\n\n**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT.",
         "operationId": "updateTwinConfig",
         "parameters": [
           {
@@ -11298,12 +11629,25 @@
           "422": {
             "content": {
               "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation Error - Request body failed schema validation"
           }
         },
         "summary": "Update configuration for a twin",
@@ -13327,7 +13671,7 @@
     },
     "/twins/{twin_id}/optimizer-config/": {
       "get": {
-        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n**Response fields:**\n- `params`: The canonical calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_catalog_context`: Exact immutable pricing references used\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
+        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading the Optimization task to restore the latest server-owned calculation state.\n\n**Response fields:**\n- `params`: The canonical calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_catalog_context`: Exact immutable pricing references used\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
         "operationId": "getOptimizerConfig",
         "parameters": [
           {
@@ -13418,7 +13762,7 @@
     },
     "/twins/{twin_id}/optimizer-config/cheapest-path": {
       "get": {
-        "description": "**Purpose:** Retrieve just the cheapest provider selection per layer - used by deployment logic.\n\n**When to call:** When preparing deployment to determine which cloud providers to deploy to.\n\n**Prerequisite:** Must have run `calculateOptimalDistribution` and saved via `saveOptimizerResult` first.\n\n**Response fields:**\n- `l1`: IoT layer provider (aws, azure, gcp)\n- `l2`: Orchestration layer provider\n- `l3_hot`, `l3_cool`, `l3_archive`: Storage layer providers\n- `l4`: Analytics layer provider\n- `l5`: Visualization layer provider\n\n**Error 404:** Returned if calculation has not been run yet.",
+        "description": "**Purpose:** Retrieve just the cheapest provider selection per layer - used by deployment logic.\n\n**When to call:** When preparing deployment to determine which cloud providers to deploy to.\n\n**Prerequisite:** Must have completed `createOptimizerRun` first.\n\n**Response fields:**\n- `l1`: IoT layer provider (aws, azure, gcp)\n- `l2`: Orchestration layer provider\n- `l3_hot`, `l3_cool`, `l3_archive`: Storage layer providers\n- `l4`: Analytics layer provider\n- `l5`: Visualization layer provider\n\n**Error 404:** Returned if calculation has not been run yet.",
         "operationId": "getCheapestPath",
         "parameters": [
           {
@@ -13509,7 +13853,7 @@
     },
     "/twins/{twin_id}/optimizer-config/params": {
       "put": {
-        "description": "**Purpose:** Persist the canonical optimizer parameters without triggering calculation.\n\n**When to call:** When user changes any parameter in Step 2 (auto-save on blur/change).\n\n**Request body:**\n- `params`: Complete validated calculation input (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n**Behavior:** Saves params but does NOT run calculation. Call `calculateOptimalDistribution` separately.",
+        "description": "**Purpose:** Persist a draft of canonical optimizer parameters without triggering calculation.\n\n**When to call:** For an explicit parameter-only draft save. The application calculation path uses `createOptimizerRun`.\n\n**Request body:**\n- `params`: Complete validated calculation input (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n**Behavior:** Saves params but does not create or alter an optimizer result. Use `createOptimizerRun` for an authoritative calculation.",
         "operationId": "updateOptimizerParams",
         "parameters": [
           {
@@ -13603,120 +13947,6 @@
           }
         },
         "summary": "Save calculation params before Calculate is clicked",
-        "tags": [
-          "optimizer-config"
-        ]
-      }
-    },
-    "/twins/{twin_id}/optimizer-config/result": {
-      "put": {
-        "description": "**Purpose:** Persist the complete optimization result after `calculateOptimalDistribution` returns.\n\n**When to call:** Immediately after receiving successful response from `calculateOptimalDistribution`.\n\n**Request body:**\n- `params`: The parameters used for this calculation\n- `result`: Full calculation response (awsCosts, azureCosts, gcpCosts, combinationTables)\n- `cheapest_path`: Object with l1, l2, l3_hot, l3_cool, l3_archive, l4, l5 provider names\n- `result.pricingCatalogs`: Exact references returned by the Optimizer\n\n**Important:** This enables Step 3 (Deployer) by storing the cheapest_path used for deployment.",
-        "operationId": "saveOptimizerResult",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OptimizerResultUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OptimizerConfigResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Save full calculation result with cheapest path",
         "tags": [
           "optimizer-config"
         ]

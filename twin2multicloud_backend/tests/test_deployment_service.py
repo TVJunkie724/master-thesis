@@ -12,12 +12,14 @@ Tests:
 import io
 import json
 import zipfile
+from datetime import datetime, timezone
 import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 from src.services.deployment_stream_service import LogSession
 from src.models.cloud_connection import CloudConnection
+from src.models.cost_calculation import CostCalculationRun
 from src.models.deployer_config import DeployerConfiguration
 from src.models.deployment import Deployment
 from src.models.optimizer_config import OptimizerConfiguration
@@ -50,6 +52,101 @@ from src.services.errors import (
 from src.services.service_errors import DownstreamServiceError
 from src.utils.crypto import encrypt_scoped
 from tests.conftest import TestingSessionLocal
+from tests.pricing_catalog_test_data import catalog_context
+from tests.resolved_deployment_specification_test_data import (
+    build_resolved_deployment_specification,
+)
+
+
+TEST_CALCULATION_RUN_ID = "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01"
+
+
+def _deployment_run_contract(twin) -> dict:
+    oc = twin.optimizer_config
+    calculation_result = {
+        "L1": oc.cheapest_l1,
+        "L2": oc.cheapest_l2,
+        "L3": {
+            "Hot": oc.cheapest_l3_hot,
+            "Cool": oc.cheapest_l3_cool,
+            "Archive": oc.cheapest_l3_archive,
+        },
+        "L4": oc.cheapest_l4,
+        "L5": oc.cheapest_l5,
+    }
+    result = {
+        "optimization_profile_id": "cost_minimization_v1",
+        "calculation_strategy_id": "cost_calculation_v2",
+        "optimizationProfile": {
+            "profile_version": "2026.06.08",
+            "pricing_registry_version": "2026.07.17",
+        },
+        "calculationStrategy": {
+            "formula_set_id": "cost_formula_set_v1",
+            "workload_contract_id": "digital_twin_workload_v1",
+        },
+        "calculationResult": calculation_result,
+        "pricingCatalogs": catalog_context().to_http_dict(),
+    }
+    specification = build_resolved_deployment_specification(
+        result,
+        calculation_run_id=TEST_CALCULATION_RUN_ID,
+        pricing_catalogs=result["pricingCatalogs"],
+    )
+    result["resolvedDeploymentSpecification"] = specification
+    cheapest_path = {
+        "l1": calculation_result["L1"],
+        "l2": calculation_result["L2"],
+        "l3_hot": calculation_result["L3"]["Hot"],
+        "l3_cool": calculation_result["L3"]["Cool"],
+        "l3_archive": calculation_result["L3"]["Archive"],
+        "l4": calculation_result["L4"],
+        "l5": calculation_result["L5"],
+    }
+    return {
+        "result": result,
+        "specification": specification,
+        "cheapest_path": cheapest_path,
+    }
+
+
+def _attach_selected_run(twin) -> None:
+    contract = _deployment_run_contract(twin)
+    twin.cost_calculation_runs = [
+        SimpleNamespace(
+            id=TEST_CALCULATION_RUN_ID,
+            status="succeeded",
+            result_summary_json=json.dumps(contract["result"]),
+            cheapest_path_json=json.dumps(contract["cheapest_path"]),
+            pricing_catalog_context_json=catalog_context().canonical_json(),
+            deployment_specification_json=json.dumps(
+                contract["specification"],
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            deployment_specification_digest=contract["specification"]["digest"],
+            deployment_specification_version=(
+                contract["specification"]["schema_version"]
+            ),
+            deployment_compatibility_status="ready",
+            selected_for_deployment_at=datetime.now(timezone.utc),
+        )
+    ]
+
+
+def _all_aws_specification() -> dict:
+    optimizer_config = SimpleNamespace(
+        cheapest_l1="aws",
+        cheapest_l2="aws",
+        cheapest_l3_hot="aws",
+        cheapest_l3_cool="aws",
+        cheapest_l3_archive="aws",
+        cheapest_l4="aws",
+        cheapest_l5="aws",
+    )
+    return _deployment_run_contract(
+        SimpleNamespace(optimizer_config=optimizer_config)
+    )["specification"]
 
 
 class _FakeDeployerClient:
@@ -603,6 +700,48 @@ class TestBuildCredentialsConfig:
 class TestBuildProjectZip:
     """Tests for build_project_zip function."""
 
+    def test_rejects_package_without_selected_optimizer_run(self):
+        twin = self._create_mock_twin()
+        twin.cost_calculation_runs = []
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors[0]["field"] == "cost_calculation_run"
+
+    def test_rejects_ambiguous_selected_optimizer_runs(self):
+        twin = self._create_mock_twin()
+        twin.cost_calculation_runs.append(twin.cost_calculation_runs[0])
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors[0]["field"] == "cost_calculation_run"
+
+    def test_rejects_provider_projection_drift(self):
+        twin = self._create_mock_twin()
+        twin.optimizer_config.cheapest_l2 = "azure"
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors[0]["field"] == "providers"
+
+    def test_rejects_selected_run_with_inconsistent_specification_metadata(self):
+        twin = self._create_mock_twin()
+        selected_run = twin.cost_calculation_runs[0]
+        selected_run.deployment_specification_digest = "sha256:" + ("f" * 64)
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors == [
+            {
+                "field": "cost_calculation_run",
+                "message": "DEPLOYMENT_SPECIFICATION_METADATA_MISMATCH",
+            }
+        ]
+
     def test_creates_valid_zip_file(self):
         """Should create a valid ZIP file."""
         twin = self._create_mock_twin()
@@ -639,12 +778,29 @@ class TestBuildProjectZip:
             manifest = json.loads(zf.read(DEPLOYMENT_MANIFEST_FILE))
             manifest_text = json.dumps(manifest)
 
-        assert manifest["manifest_version"] == "1.0"
+        assert manifest["manifest_version"] == "2.0"
         assert manifest["generated_at"].endswith("Z")
         assert manifest["producer"] == "twin2multicloud_backend"
         assert manifest["twin"]["id"] == "twin-123"
         assert manifest["twin"]["resource_name"] == "test-twin"
-        assert manifest["providers"] == {"layer_1_provider": "aws"}
+        assert manifest["providers"] == {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_3_cold_provider": "aws",
+            "layer_3_archive_provider": "aws",
+            "layer_4_provider": "aws",
+            "layer_5_provider": "aws",
+        }
+        assert manifest["calculation_run_id"] == TEST_CALCULATION_RUN_ID
+        assert (
+            manifest["resolved_deployment_specification_digest"]
+            == manifest["resolved_deployment_specification"]["digest"]
+        )
+        assert (
+            manifest["resolved_deployment_specification"]["calculation_run_id"]
+            == TEST_CALCULATION_RUN_ID
+        )
         assert manifest["credentials"] == {
             "providers": ["aws"],
             "sources": {"aws": "cloud_connection"},
@@ -678,6 +834,7 @@ class TestBuildProjectZip:
         """Should write state machine to azure location for Azure L2."""
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "azure"
+        _attach_selected_run(twin)
         twin.deployer_config.state_machine_content = '{"definition": {}}'
         azure_payload = {
             "azure_subscription_id": "subscription-id",
@@ -706,6 +863,7 @@ class TestBuildProjectZip:
         """Should write GCP workflow state machine for every accepted GCP spelling."""
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "GCP"
+        _attach_selected_run(twin)
         twin.deployer_config.state_machine_content = "main:\n  steps: []\n"
         service_account = {
             "project_id": "demo-project",
@@ -813,7 +971,11 @@ class TestBuildProjectZip:
                     twin_id=twin.id,
                     cheapest_l1="AWS",
                     cheapest_l2="GCP",
+                    cheapest_l3_hot="AWS",
+                    cheapest_l3_cool="AWS",
+                    cheapest_l3_archive="AWS",
                     cheapest_l4="AWS",
+                    cheapest_l5="AWS",
                     params=json.dumps(
                         {
                             "hotStorageDurationInMonths": 2,
@@ -840,6 +1002,43 @@ class TestBuildProjectZip:
         db.commit()
         db.expire_all()
 
+        persisted_twin = db.get(DigitalTwin, twin.id)
+        contract = _deployment_run_contract(persisted_twin)
+        db.add(
+            CostCalculationRun(
+                id=TEST_CALCULATION_RUN_ID,
+                twin_id=persisted_twin.id,
+                user_id=user.id,
+                status="succeeded",
+                params_json="{}",
+                result_summary_json=json.dumps(contract["result"]),
+                cheapest_path_json=json.dumps(contract["cheapest_path"]),
+                currency="USD",
+                optimization_profile_id="cost_minimization_v1",
+                optimization_profile_version="2026.06.08",
+                scoring_strategy_id="min_total_cost_v1",
+                calculation_model_version="cost_model_v1",
+                pricing_registry_version="2026.07.17",
+                pricing_catalog_context_json=catalog_context().canonical_json(),
+                deployment_specification_json=json.dumps(
+                    contract["specification"],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                deployment_specification_digest=(
+                    contract["specification"]["digest"]
+                ),
+                deployment_specification_version=(
+                    contract["specification"]["schema_version"]
+                ),
+                deployment_compatibility_status="ready",
+                created_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                selected_for_deployment_at=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
+        db.expire_all()
         persisted_twin = db.get(DigitalTwin, twin.id)
         result = build_project_zip(persisted_twin, user.id)
 
@@ -950,12 +1149,12 @@ class TestBuildProjectZip:
         # Optimizer config
         twin.optimizer_config = Mock()
         twin.optimizer_config.cheapest_l1 = "aws"
-        twin.optimizer_config.cheapest_l2 = None
-        twin.optimizer_config.cheapest_l3_hot = None
-        twin.optimizer_config.cheapest_l3_cool = None
-        twin.optimizer_config.cheapest_l3_archive = None
-        twin.optimizer_config.cheapest_l4 = None
-        twin.optimizer_config.cheapest_l5 = None
+        twin.optimizer_config.cheapest_l2 = "aws"
+        twin.optimizer_config.cheapest_l3_hot = "aws"
+        twin.optimizer_config.cheapest_l3_cool = "aws"
+        twin.optimizer_config.cheapest_l3_archive = "aws"
+        twin.optimizer_config.cheapest_l4 = "aws"
+        twin.optimizer_config.cheapest_l5 = "aws"
         twin.optimizer_config.result_json = None
         twin.optimizer_config.params = json.dumps(
             {
@@ -1005,6 +1204,7 @@ class TestBuildProjectZip:
         twin.configuration.gcp_service_account_json = None
         twin.configuration.gcp_region = "europe-west1"
 
+        _attach_selected_run(twin)
         return twin
 
 
@@ -1072,6 +1272,7 @@ class TestBuildDeploymentManifest:
             },
             credentials,
             ["config.json", "config_credentials.json"],
+            deployment_specification=_all_aws_specification(),
         )
         manifest_text = json.dumps(result)
 

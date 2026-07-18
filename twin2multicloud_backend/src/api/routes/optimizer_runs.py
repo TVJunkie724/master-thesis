@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -15,10 +16,14 @@ from src.schemas.cost_calculation import (
     CostCalculationRunSummaryResponse,
     PricingEvidenceDetailResponse,
 )
+from src.schemas.resolved_deployment_specification import (
+    ResolvedDeploymentSpecification,
+)
 from src.services.cost_calculation_run_service import (
     CostCalculationRunService,
     _json_loads,
     safe_pricing_catalog_context,
+    validate_persisted_run_deployment_specification,
 )
 from src.services.errors import (
     CostCalculationRunSelectionError,
@@ -192,6 +197,11 @@ async def select_optimizer_run_for_deployment(
         return CostCalculationRunSelectResponse(
             run=_run_summary_response(run),
             selected_for_deployment_at=run.selected_for_deployment_at,
+            resolved_deployment_specification=(
+                validate_persisted_run_deployment_specification(
+                    run
+                ).specification
+            ),
         )
     except TwinNotFound as exc:
         raise HTTPException(status_code=404, detail=exc.message)
@@ -247,6 +257,11 @@ def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryR
         pricing_catalog_context=safe_pricing_catalog_context(
             run.pricing_catalog_context_json
         ),
+        deployment_specification_digest=run.deployment_specification_digest,
+        deployment_specification_version=run.deployment_specification_version,
+        deployment_compatibility_status=(
+            run.deployment_compatibility_status or "legacy_not_deployable"
+        ),
         created_at=run.created_at,
         completed_at=run.completed_at,
         selected_for_deployment_at=run.selected_for_deployment_at,
@@ -260,8 +275,21 @@ def _run_detail_response(run: CostCalculationRun) -> CostCalculationRunDetailRes
         **_run_summary_response(run).model_dump(),
         params=_json_loads(run.params_json) or {},
         result_summary=_json_loads(run.result_summary_json),
+        resolved_deployment_specification=_safe_deployment_specification(run),
         result_items=[_result_item_response(item) for item in run.result_items],
     )
+
+
+def _safe_deployment_specification(
+    run: CostCalculationRun,
+) -> ResolvedDeploymentSpecification | None:
+    raw = _json_loads(run.deployment_specification_json)
+    if raw is None:
+        return None
+    try:
+        return ResolvedDeploymentSpecification.model_validate(raw)
+    except ValidationError:
+        return None
 
 
 def _result_item_response(

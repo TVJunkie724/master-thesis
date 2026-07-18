@@ -2,6 +2,7 @@ import json
 from uuid import UUID
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from src.api.routes.optimizer_runs import get_optimizer_client
 from src.models.cost_calculation import CostCalculationRun
@@ -18,17 +19,24 @@ from src.services.errors import (
     ExternalServiceError,
     ExternalServiceUnavailable,
 )
+from src.services.resolved_deployment_specification_service import (
+    calculate_digest,
+)
 from tests.conftest import create_test_twin
 from tests.optimizer_transfer_pricing_test_data import (
     transfer_pricing_result_fields,
 )
 from tests.pricing_catalog_test_data import catalog_context, catalog_reference
+from tests.resolved_deployment_specification_test_data import (
+    build_resolved_deployment_specification,
+)
 
 
 class FakeOptimizerClient:
-    def __init__(self, payload=None, exc=None):
+    def __init__(self, payload=None, exc=None, specification_mutator=None):
         self.payload = payload if payload is not None else _optimizer_payload()
         self.exc = exc
+        self.specification_mutator = specification_mutator
         self.calls = []
         self.catalog_calls = []
 
@@ -39,14 +47,37 @@ class FakeOptimizerClient:
         result = self.payload.get("result", self.payload)
         if isinstance(result, dict):
             result["pricingCatalogs"] = params["providerPricingCatalogs"]
-            specification = result.setdefault(
-                "resolvedDeploymentSpecification",
-                {},
+            if not all(
+                key in result
+                for key in (
+                    "calculationResult",
+                    "optimizationProfile",
+                    "calculationStrategy",
+                )
+            ):
+                return self.payload
+            generated_specification = build_resolved_deployment_specification(
+                result,
+                calculation_run_id=params["calculationRunId"],
+                pricing_catalogs=params["providerPricingCatalogs"],
             )
-            specification.setdefault(
-                "calculation_run_id",
-                params["calculationRunId"],
-            )
+            if "resolvedDeploymentSpecification" not in result:
+                result["resolvedDeploymentSpecification"] = generated_specification
+            elif isinstance(result["resolvedDeploymentSpecification"], dict):
+                generated_specification.update(
+                    result["resolvedDeploymentSpecification"]
+                )
+                result["resolvedDeploymentSpecification"] = generated_specification
+            if (
+                self.specification_mutator is not None
+                and isinstance(
+                    result.get("resolvedDeploymentSpecification"),
+                    dict,
+                )
+            ):
+                self.specification_mutator(
+                    result["resolvedDeploymentSpecification"]
+                )
         return self.payload
 
     async def get_pricing_catalog_baseline(self, provider):
@@ -124,6 +155,7 @@ def _optimizer_payload_with_compatible_aws_context(context):
 def _optimizer_payload(overrides=None):
     result = {
         "optimization_profile_id": "cost_minimization_v1",
+        "calculation_strategy_id": "cost_calculation_v2",
         "result_schema_version": "cost-result.v1",
         "optimizationProfile": {
             "profile_id": "cost_minimization_v1",
@@ -134,6 +166,20 @@ def _optimizer_payload(overrides=None):
             "scoring_strategy_id": "min_total_cost_v1",
             "intent_group_ids": ["cost"],
             "pricing_registry_version": "2026.06.08",
+        },
+        "calculationStrategy": {
+            "optimization_profile_id": "cost_minimization_v1",
+            "calculation_strategy_id": "cost_calculation_v2",
+            "formula_set_id": "cost_formula_set_v1",
+            "workload_contract_id": "digital_twin_workload_v1",
+            "pricing_contract_group_id": "cost_provider_pricing_contracts_v1",
+            "pricing_model_classification_group_id": "cost_pricing_models_v1",
+            "price_source_classification_group_id": "cost_price_sources_v1",
+            "scoring_strategy_id": "min_total_cost_v1",
+            "result_schema_version": "cost-result.v1",
+            "publishable_mode": True,
+            "formula_refs": [],
+            "provider_pricing_contract_ids": [],
         },
         "evidenceReferences": {
             "pricing_registry": "pricing_registry:2026.06.08",
@@ -332,6 +378,13 @@ def test_create_run_persists_history_items_and_compatibility_state(
     assert data["pricing_run_reference"] is None
     assert data["total_monthly_cost"] == 14.75
     assert data["cheapest_path"]["l1"] == "AWS"
+    assert data["deployment_compatibility_status"] == "ready"
+    assert data["deployment_specification_version"] == (
+        "resolved-deployment-specification.v1"
+    )
+    specification = data["resolved_deployment_specification"]
+    assert data["deployment_specification_digest"] == specification["digest"]
+    assert specification["calculation_run_id"] == data["id"]
     assert len(data["result_items"]) == 13
 
     run = db_session.query(CostCalculationRun).filter_by(id=data["id"]).one()
@@ -346,6 +399,9 @@ def test_create_run_persists_history_items_and_compatibility_state(
         == sample_calc_params["numberOfDevices"]
     )
     assert json.loads(config.result_json)["totalCost"] == 14.75
+    assert json.loads(run.deployment_specification_json) == specification
+    assert run.deployment_specification_digest == specification["digest"]
+    assert run.deployment_compatibility_status == "ready"
     assert data["pricing_catalog_context"] == catalog_context().to_http_dict()
     assert json.loads(run.pricing_catalog_context_json) == (
         catalog_context().to_http_dict()
@@ -1049,6 +1105,65 @@ def test_optimizer_calculation_identity_mismatch_is_rejected_without_persistence
     assert db_session.query(CostCalculationRun).count() == 0
 
 
+@pytest.mark.parametrize(
+    "specification_override",
+    [
+        {"digest": "sha256:" + ("0" * 64)},
+        {"client_secret": "must-not-leak"},
+    ],
+)
+def test_invalid_deployment_specification_is_rejected_without_persistence(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+    specification_override,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload(
+        {"resolvedDeploymentSpecification": specification_override}
+    )
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    response_text = str(response.json())
+    assert "must-not-leak" not in response_text
+    assert db_session.query(CostCalculationRun).count() == 0
+
+
+def test_unknown_deployment_component_is_rejected_without_persistence(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+
+    def mutate(specification):
+        specification["components"][0]["component_id"] = "l1.aws.unknown"
+        specification["digest"] = calculate_digest(specification)
+
+    _override_optimizer(
+        client,
+        FakeOptimizerClient(specification_mutator=mutate),
+    )
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert db_session.query(CostCalculationRun).count() == 0
+
+
 def test_disabled_optimizer_profile_is_rejected(
     authenticated_client,
     db_session,
@@ -1152,10 +1267,69 @@ def test_select_for_deployment_marks_run_and_preserves_compatibility(
     )
 
     assert response.status_code == 200
-    assert response.json()["run"]["selected_for_deployment_at"] is not None
+    selection = response.json()
+    assert selection["run"]["selected_for_deployment_at"] is not None
+    assert (
+        selection["resolved_deployment_specification"]["digest"]
+        == selection["run"]["deployment_specification_digest"]
+    )
     config = db_session.query(OptimizerConfiguration).filter_by(twin_id=twin_id).one()
     assert config.cheapest_l1 == "AWS"
     assert config.cheapest_l3_archive == "Azure"
+
+
+@pytest.mark.asyncio
+async def test_select_for_deployment_maps_concurrent_selection_conflict(
+    db_session,
+    sample_calc_params,
+    monkeypatch,
+):
+    user = User(email="selection-conflict@example.test", name="Selection Conflict")
+    db_session.add(user)
+    db_session.flush()
+    twin = DigitalTwin(
+        name="Selection Conflict Twin",
+        user_id=user.id,
+        state=TwinState.DRAFT,
+    )
+    db_session.add(twin)
+    db_session.commit()
+    payload = _optimizer_payload()
+    payload["result"]["calculationResult"]["L4"] = "Azure"
+    payload["result"]["cheapestPath"] = [
+        "L4_Azure" if item == "L4_AWS" else item
+        for item in payload["result"]["cheapestPath"]
+    ]
+    _sync_transfer_pricing(payload["result"])
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=FakeOptimizerClient(payload=payload),
+        aws_twinmaker_contexts=FakeAwsTwinMakerContextService(
+            _available_aws_context(),
+            "aws-refresh-1",
+        ),
+    )
+    run = await service.create_run(
+        twin.id,
+        user.id,
+        OptimizerCalculationParams.model_validate(sample_calc_params),
+    )
+
+    def raise_selection_conflict():
+        raise IntegrityError(
+            "unique selection",
+            {},
+            RuntimeError("concurrent selection"),
+        )
+
+    monkeypatch.setattr(db_session, "commit", raise_selection_conflict)
+
+    with pytest.raises(CostCalculationRunSelectionError) as exc_info:
+        await service.select_for_deployment(twin.id, user.id, run.id)
+
+    assert exc_info.value.error_code == (
+        "COST_CALCULATION_RUN_SELECTION_CONFLICT"
+    )
 
 
 @pytest.mark.asyncio
@@ -1313,6 +1487,94 @@ def test_select_for_deployment_rejects_failed_run(authenticated_client, db_sessi
     )
 
     assert response.status_code == 409
+
+
+def test_select_for_deployment_rejects_legacy_run(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    dev_user = db_session.query(User).filter_by(email="dev@example.com").one()
+    legacy = CostCalculationRun(
+        twin_id=twin_id,
+        user_id=dev_user.id,
+        status="succeeded",
+        params_json="{}",
+        optimization_profile_id="cost_minimization_v1",
+        scoring_strategy_id="min_total_cost_v1",
+        currency="USD",
+        deployment_compatibility_status="legacy_not_deployable",
+    )
+    db_session.add(legacy)
+    db_session.commit()
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/{legacy.id}/select-for-deployment",
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_code"] == (
+        "LEGACY_RUN_NOT_DEPLOYABLE"
+    )
+
+
+def test_legacy_run_remains_readable_with_explicit_compatibility_status(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    dev_user = db_session.query(User).filter_by(email="dev@example.com").one()
+    legacy = CostCalculationRun(
+        twin_id=twin_id,
+        user_id=dev_user.id,
+        status="succeeded",
+        params_json="{}",
+        result_summary_json='{"totalMonthlyCost":12.5}',
+        optimization_profile_id="cost_minimization_v1",
+        scoring_strategy_id="min_total_cost_v1",
+        currency="USD",
+        deployment_compatibility_status="legacy_not_deployable",
+    )
+    db_session.add(legacy)
+    db_session.commit()
+
+    response = client.get(
+        f"/twins/{twin_id}/optimizer-runs/{legacy.id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["deployment_compatibility_status"] == (
+        "legacy_not_deployable"
+    )
+    assert response.json()["resolved_deployment_specification"] is None
+
+
+def test_persisted_deployment_specification_is_immutable(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    _override_optimizer(client, FakeOptimizerClient())
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+    run = db_session.get(CostCalculationRun, response.json()["id"])
+
+    run.deployment_specification_digest = "sha256:" + ("f" * 64)
+    with pytest.raises(
+        ValueError,
+        match="specification fields are immutable",
+    ):
+        db_session.commit()
+    db_session.rollback()
 
 
 @pytest.mark.asyncio

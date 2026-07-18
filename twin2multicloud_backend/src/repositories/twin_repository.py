@@ -44,6 +44,7 @@ class TwinRepository:
                 joinedload(DigitalTwin.configuration),
                 joinedload(DigitalTwin.optimizer_config),
                 joinedload(DigitalTwin.deployer_config),
+                joinedload(DigitalTwin.cost_calculation_runs),
             )
             .filter(
                 DigitalTwin.id == twin_id,

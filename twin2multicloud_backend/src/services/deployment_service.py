@@ -30,9 +30,13 @@ from src.services.credential_resolution_service import (
     DeploymentCredentials,
 )
 from src.services.errors import (
+    CostCalculationRunSelectionError,
     DeploymentPackageBuildFailed,
     ExternalServiceError,
     ExternalServiceUnavailable,
+)
+from src.services.cost_calculation_run_service import (
+    validate_persisted_run_deployment_specification,
 )
 from src.services.provider_contract import provider_id_for_deployer_project
 from src.services.service_errors import DownstreamServiceError
@@ -45,7 +49,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
-DEPLOYMENT_MANIFEST_VERSION = "1.0"
+DEPLOYMENT_MANIFEST_VERSION = "2.0"
 REQUIRED_DEPLOYER_CONFIG_FILES = [
     "config.json",
     "config_iot_devices.json",
@@ -657,7 +661,12 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
 
 def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
     """Materialize the Deployer package from persisted backend state."""
+    deployment_specification = _selected_deployment_specification(twin)
     providers = _build_providers_config(twin)
+    _validate_manifest_provider_path(
+        providers,
+        deployment_specification.specification,
+    )
     deployment_credentials = _build_deployment_credentials(twin, user_id)
     files = _materialize_deployment_files(twin, providers, deployment_credentials)
     binary_files = _materialize_binary_files(twin, providers)
@@ -674,6 +683,7 @@ def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
         deployment_credentials,
         file_names,
         secret_bearing_files,
+        deployment_specification=deployment_specification.specification,
     )
     files = files + (
         DeploymentPackageFile(
@@ -1093,6 +1103,8 @@ def _build_deployment_manifest(
     deployment_credentials: DeploymentCredentials,
     file_names: list[str],
     secret_bearing_files: list[str] | None = None,
+    *,
+    deployment_specification: dict[str, Any],
 ) -> dict[str, Any]:
     """
     Build the secrets-free package manifest.
@@ -1118,12 +1130,87 @@ def _build_deployment_manifest(
             "resource_name": get_resource_name(twin),
         },
         "providers": _remove_empty_values(providers),
+        "calculation_run_id": deployment_specification["calculation_run_id"],
+        "resolved_deployment_specification_digest": (
+            deployment_specification["digest"]
+        ),
+        "resolved_deployment_specification": deployment_specification,
         "credentials": {
             "providers": list(deployment_credentials.providers),
             "sources": dict(deployment_credentials.sources),
             "contains_secret_payloads": _manifest_contains_secret_payloads(),
         },
     }
+
+
+def _selected_deployment_specification(twin):
+    runs = getattr(twin, "cost_calculation_runs", None)
+    selected = [
+        run
+        for run in runs or ()
+        if getattr(run, "selected_for_deployment_at", None) is not None
+    ]
+    if len(selected) != 1:
+        raise DeploymentPackageBuildFailed(
+            "Exactly one deployment-compatible optimizer run must be selected",
+            [
+                {
+                    "field": "cost_calculation_run",
+                    "message": (
+                        "Select one current optimizer run before deployment"
+                    ),
+                }
+            ],
+        )
+    try:
+        return validate_persisted_run_deployment_specification(selected[0])
+    except CostCalculationRunSelectionError as exc:
+        raise DeploymentPackageBuildFailed(
+            "The selected optimizer run is not deployment-compatible",
+            [
+                {
+                    "field": "cost_calculation_run",
+                    "message": exc.error_code,
+                }
+            ],
+        ) from exc
+
+
+def _validate_manifest_provider_path(
+    providers: dict[str, Any],
+    specification: dict[str, Any],
+) -> None:
+    expected_by_key: dict[str, str] = {}
+    deployer_key_by_slot = {
+        "l1_ingestion": "layer_1_provider",
+        "l2_processing": "layer_2_provider",
+        "l3_hot_storage": "layer_3_hot_provider",
+        "l3_cool_storage": "layer_3_cold_provider",
+        "l3_archive_storage": "layer_3_archive_provider",
+        "l4_twin_state": "layer_4_provider",
+        "l5_visualization": "layer_5_provider",
+    }
+    for component in specification["components"]:
+        slot_id = component["slot_id"]
+        deployer_key = deployer_key_by_slot.get(slot_id)
+        if deployer_key is None:
+            continue
+        expected_by_key.setdefault(
+            deployer_key,
+            provider_id_for_deployer_project(component["provider"]),
+        )
+
+    actual = _remove_empty_values(providers)
+    if actual != expected_by_key:
+        raise DeploymentPackageBuildFailed(
+            "Optimizer provider projection differs from the selected specification",
+            [
+                {
+                    "field": "providers",
+                    "message": "Re-select or recalculate the optimizer run",
+                }
+            ],
+        )
 
 
 def _manifest_scalar(value: Any) -> Optional[str]:

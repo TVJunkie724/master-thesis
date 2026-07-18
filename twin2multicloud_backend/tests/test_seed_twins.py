@@ -7,7 +7,10 @@ from src.models.cloud_connection import CloudConnection
 from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
-from src.services.deployment_service import build_deployment_package
+from src.services.deployment_service import (
+    DeploymentPackageBuildFailed,
+    build_deployment_package,
+)
 
 
 def _write_seed_files(tmp_path, *, include_gcp_service_account=True):
@@ -90,9 +93,11 @@ async def test_seed_twins_use_cloud_connections_without_legacy_secret_duplicatio
         assert config.gcp_service_account_json is None
 
     for twin in twins:
-        package = build_deployment_package(twin, seed_user.id)
-        assert package.manifest["credentials"]["contains_secret_payloads"] is False
-        assert set(package.manifest["credentials"]["sources"].values()) == {"cloud_connection"}
+        with pytest.raises(
+            DeploymentPackageBuildFailed,
+            match="optimizer run must be selected",
+        ):
+            build_deployment_package(twin, seed_user.id)
 
 
 @pytest.mark.asyncio

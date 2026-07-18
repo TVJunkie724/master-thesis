@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import json
 import re
 from typing import Any
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.clients.optimizer_client import OptimizerClient
@@ -38,6 +40,14 @@ from src.services.optimizer_transfer_pricing_contract import (
     ValidatedOptimizerTransferPricing,
     validate_optimizer_transfer_pricing_result,
 )
+from src.services.resolved_deployment_specification_service import (
+    LEGACY_NOT_DEPLOYABLE,
+    READY,
+    ResolvedDeploymentSpecificationError,
+    ValidatedResolvedDeploymentSpecification,
+    canonical_json,
+    validate_resolved_deployment_specification,
+)
 from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
 
 
@@ -46,35 +56,6 @@ FAILED = "failed"
 SELECTABLE_STATUSES = {SUCCESS}
 ENABLED_OPTIMIZATION_PROFILES = {"cost_minimization_v1"}
 SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
-
-
-def _validate_optimizer_calculation_run_id(
-    result: dict[str, Any],
-    expected_run_id: str,
-) -> None:
-    specification = result.get("resolvedDeploymentSpecification")
-    if not isinstance(specification, dict):
-        raise OptimizerContractError(
-            "Optimizer response is missing its resolved deployment specification",
-            [
-                {
-                    "field": "resolvedDeploymentSpecification",
-                    "message": "Missing object",
-                }
-            ],
-        )
-    if specification.get("calculation_run_id") != expected_run_id:
-        raise OptimizerContractError(
-            "Optimizer response calculation identity does not match the request",
-            [
-                {
-                    "field": (
-                        "resolvedDeploymentSpecification.calculation_run_id"
-                    ),
-                    "message": "Mismatched calculation run identity",
-                }
-            ],
-        )
 
 
 class CostCalculationRunService:
@@ -133,7 +114,6 @@ class CostCalculationRunService:
             raise
 
         result = self._extract_optimizer_result(optimizer_payload)
-        _validate_optimizer_calculation_run_id(result, run_id)
         contract = self._validate_optimizer_result(result)
         _validate_optimizer_pricing_catalog_context(result, catalog_context)
         transfer_pricing = validate_optimizer_transfer_pricing_result(
@@ -142,6 +122,12 @@ class CostCalculationRunService:
         )
         _validate_optimizer_aws_selection_context(result, aws_context)
         cheapest_path = self._extract_cheapest_path(result)
+        deployment_specification = _validate_optimizer_deployment_specification(
+            result,
+            run_id=run_id,
+            cheapest_path=cheapest_path,
+            catalog_context=catalog_context,
+        )
         result_items = self._build_result_items(
             result,
             cheapest_path,
@@ -174,6 +160,14 @@ class CostCalculationRunService:
                 pricing_evidence_version=pricing_evidence_version,
                 pricing_run_reference=aws_context.source_refresh_run_id,
                 pricing_catalog_context_json=catalog_context.canonical_json(),
+                deployment_specification_json=(
+                    deployment_specification.canonical_json
+                ),
+                deployment_specification_digest=deployment_specification.digest,
+                deployment_specification_version=(
+                    deployment_specification.schema_version
+                ),
+                deployment_compatibility_status=READY,
                 created_at=now,
                 completed_at=now,
             )
@@ -328,6 +322,10 @@ class CostCalculationRunService:
                 error_code="COST_CALCULATION_RUN_NOT_SELECTABLE",
             )
         result = _json_loads(run.result_summary_json) or {}
+        validate_persisted_run_deployment_specification(
+            run,
+            result=result,
+        )
         persisted_catalog_context = _run_pricing_catalog_context(run)
         if not pricing_catalog_contexts_match(
             persisted_catalog_context,
@@ -374,6 +372,13 @@ class CostCalculationRunService:
 
         try:
             self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise CostCalculationRunSelectionError(
+                "Another optimizer run was selected concurrently; reload the "
+                "calculation history before retrying.",
+                error_code="COST_CALCULATION_RUN_SELECTION_CONFLICT",
+            ) from exc
         except Exception:
             self.db.rollback()
             raise
@@ -710,6 +715,92 @@ def _validate_optimizer_pricing_catalog_context(
             }
         ],
     )
+
+
+def _validate_optimizer_deployment_specification(
+    result: dict[str, Any],
+    *,
+    run_id: str,
+    cheapest_path: Mapping[str, Any],
+    catalog_context: PricingCatalogContext,
+) -> ValidatedResolvedDeploymentSpecification:
+    try:
+        return validate_resolved_deployment_specification(
+            result.get("resolvedDeploymentSpecification"),
+            expected_run_id=run_id,
+            expected_cheapest_path=cheapest_path,
+            expected_catalog_context=catalog_context,
+            expected_result=result,
+        )
+    except ResolvedDeploymentSpecificationError as exc:
+        raise OptimizerContractError(
+            "Optimizer resolved deployment specification is invalid",
+            [{"field": exc.field, "message": str(exc)}],
+        ) from exc
+
+
+def validate_persisted_run_deployment_specification(
+    run: CostCalculationRun,
+    *,
+    result: Mapping[str, Any] | None = None,
+    catalog_context: PricingCatalogContext | None = None,
+) -> ValidatedResolvedDeploymentSpecification:
+    """Return a validated immutable run specification or a typed conflict."""
+
+    if run.deployment_compatibility_status != READY:
+        error_code = (
+            "LEGACY_RUN_NOT_DEPLOYABLE"
+            if run.deployment_compatibility_status in {
+                None,
+                LEGACY_NOT_DEPLOYABLE,
+            }
+            else "DEPLOYMENT_SPECIFICATION_NOT_READY"
+        )
+        raise CostCalculationRunSelectionError(
+            "This optimizer run has no deployment-compatible specification; "
+            "run the optimizer again before deployment.",
+            error_code=error_code,
+        )
+    stored_result = result or _json_loads(run.result_summary_json) or {}
+    stored_context = catalog_context or _run_pricing_catalog_context(run)
+    cheapest_path = _json_loads(run.cheapest_path_json) or {}
+    raw_specification = _json_loads(run.deployment_specification_json)
+    try:
+        validated = validate_resolved_deployment_specification(
+            raw_specification,
+            expected_run_id=run.id,
+            expected_cheapest_path=cheapest_path,
+            expected_catalog_context=stored_context,
+            expected_result=stored_result,
+        )
+    except ResolvedDeploymentSpecificationError as exc:
+        raise CostCalculationRunSelectionError(
+            "The stored deployment specification is invalid; run the "
+            "optimizer again before deployment.",
+            error_code=exc.code,
+        ) from exc
+    if (
+        run.deployment_specification_digest != validated.digest
+        or run.deployment_specification_version != validated.schema_version
+    ):
+        raise CostCalculationRunSelectionError(
+            "The stored deployment specification metadata is inconsistent; "
+            "run the optimizer again before deployment.",
+            error_code="DEPLOYMENT_SPECIFICATION_METADATA_MISMATCH",
+        )
+    summary_specification = stored_result.get(
+        "resolvedDeploymentSpecification"
+    )
+    if (
+        not isinstance(summary_specification, Mapping)
+        or canonical_json(summary_specification) != validated.canonical_json
+    ):
+        raise CostCalculationRunSelectionError(
+            "The stored optimizer result and deployment specification differ; "
+            "run the optimizer again before deployment.",
+            error_code="DEPLOYMENT_SPECIFICATION_RESULT_MISMATCH",
+        )
+    return validated
 
 
 def _run_pricing_catalog_context(

@@ -157,3 +157,50 @@ def test_openapi_exposes_only_server_owned_optimizer_result_writes(
     twin_update = schema["components"]["schemas"]["TwinConfigUpdate"]
     assert twin_update["additionalProperties"] is False
     assert "optimizer_result" not in twin_update["properties"]
+
+
+def test_openapi_exposes_deployment_specification_as_typed_read_only_contract(
+    authenticated_client,
+):
+    client, headers = authenticated_client
+
+    schema = client.get("/openapi.json", headers=headers).json()
+    components = schema["components"]["schemas"]
+
+    create_properties = components["CostCalculationRunCreate"]["properties"]
+    assert "resolved_deployment_specification" not in create_properties
+    assert "deployment_specification_digest" not in create_properties
+    assert "deployment_compatibility_status" not in create_properties
+
+    summary = components["CostCalculationRunSummaryResponse"]
+    assert {
+        "deployment_specification_digest",
+        "deployment_specification_version",
+        "deployment_compatibility_status",
+    }.issubset(summary["properties"])
+    assert summary["properties"]["deployment_compatibility_status"]["enum"] == [
+        "ready",
+        "legacy_not_deployable",
+    ]
+
+    detail_specification = components["CostCalculationRunDetailResponse"][
+        "properties"
+    ]["resolved_deployment_specification"]
+    assert _references_component(
+        schema,
+        detail_specification,
+        "ResolvedDeploymentSpecification",
+    )
+
+    selection = components["CostCalculationRunSelectResponse"]
+    assert selection["properties"]["resolved_deployment_specification"] == {
+        "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+    }
+    assert "resolved_deployment_specification" in selection["required"]
+
+    specification = components["ResolvedDeploymentSpecification"]
+    assert specification["additionalProperties"] is False
+    assert specification["properties"]["schema_version"]["const"] == (
+        "resolved-deployment-specification.v1"
+    )
+    assert specification["properties"]["currency"]["const"] == "USD"
