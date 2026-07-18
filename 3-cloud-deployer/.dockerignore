@@ -21,12 +21,13 @@
 # -----------------------------------------------------------------------------
 # Python Artifacts
 # -----------------------------------------------------------------------------
-__pycache__/
-*.py[cod]
+**/__pycache__/
+**/*.py[cod]
 *$py.class
 *.so
 .venv/
 venv/
+.local/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -37,6 +38,7 @@ venv/
 # Terraform State (managed at runtime, not build time)
 # -----------------------------------------------------------------------------
 **/.terraform/
+.terraform.d/
 **/*.tfstate
 **/*.tfstate.backup
 **/*.tfvars.json

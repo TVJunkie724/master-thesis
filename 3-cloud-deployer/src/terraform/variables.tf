@@ -232,7 +232,7 @@ variable "azure_iot_hub_sku" {
   default     = null
 
   validation {
-    condition     = var.azure_iot_hub_sku == null || contains(["F1", "S1", "S2", "S3"], var.azure_iot_hub_sku)
+    condition     = var.azure_iot_hub_sku == null ? true : contains(["F1", "S1", "S2", "S3"], var.azure_iot_hub_sku)
     error_message = "azure_iot_hub_sku must be F1, S1, S2, or S3 when provided."
   }
 }
@@ -243,13 +243,10 @@ variable "azure_iot_hub_capacity" {
   default     = null
 
   validation {
-    condition = (
-      var.azure_iot_hub_capacity == null ||
-      (
-        var.azure_iot_hub_capacity >= 1 &&
-        var.azure_iot_hub_capacity <= 200 &&
-        floor(var.azure_iot_hub_capacity) == var.azure_iot_hub_capacity
-      )
+    condition = var.azure_iot_hub_capacity == null ? true : (
+      var.azure_iot_hub_capacity >= 1 &&
+      var.azure_iot_hub_capacity <= 200 &&
+      floor(var.azure_iot_hub_capacity) == var.azure_iot_hub_capacity
     )
     error_message = "azure_iot_hub_capacity must be an integer between 1 and 200 when provided."
   }
