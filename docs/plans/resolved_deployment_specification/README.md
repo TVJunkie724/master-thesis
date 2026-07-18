@@ -37,9 +37,10 @@ Optimizer winner
 | 6 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Done: Azure Terraform alignment | #61, #131 |
 | 7 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Done: GCP Terraform alignment | #61, #131 |
 | 7b | [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Done: reject the unsupported legacy error-handling topology at every executable boundary | #127 |
-| 7c | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Harden Azure Function HTTP error contracts and redaction | #74 |
+| 7c | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Done: bounded Azure Function HTTP errors, correlation, redaction, and safe downstream retry logs | #74 |
+| 7d | [#137](https://github.com/TVJunkie724/master-thesis/issues/137) | Harden non-HTTP Azure runtime logging and correlation | #136 |
 | 8 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Compact read-only Flutter review | #130 |
-| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134, #135, #136 |
+| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134, #135, #136, #137 |
 
 Provider phases 5-7 may be implemented after phase 4b in any order. Phase 9 is
 the only completion gate for parent issue #118.

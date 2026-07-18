@@ -113,11 +113,14 @@ workflows, device feedback, and user event actions remain separate supported
 capabilities. This boundary was hardened under
 [#135](https://github.com/TVJunkie724/master-thesis/issues/135).
 
-Several historical Azure Function HTTP adapters still expose raw exception
-text in 5xx payloads. The Deployer API boundary itself is redacted, but the
-provider runtime contract must be centralized and hardened before the final
-drift gate under
-[#136](https://github.com/TVJunkie724/master-thesis/issues/136).
+Core Azure Function HTTP adapters now use one bounded typed error contract,
+response-to-log correlation, and central secret/path redaction under
+[#136](https://github.com/TVJunkie724/master-thesis/issues/136). Provider
+response bodies, telemetry/query payloads, signed function URLs, and raw
+exceptions are excluded from their public diagnostics. Timer- and
+Event-Grid-triggered functions do not expose this HTTP response contract and
+remain a separate runtime-observability review boundary tracked by
+[#137](https://github.com/TVJunkie724/master-thesis/issues/137).
 
 Calculation traceability now connects the optimization profile and selected path to
 provider pricing contracts, source classifications, formula bindings, evidence

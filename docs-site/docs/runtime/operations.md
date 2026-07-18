@@ -29,6 +29,11 @@ Secrets must be redacted before logs cross a service boundary. A raw provider re
 is pricing evidence only when stored through the evidence contract, not an excuse to
 log credentials or arbitrary request bodies.
 
+Azure Function HTTP failures return a stable code and, for server-side failures, a
+`correlation_id`. Search container/provider runtime logs for that exact identifier.
+The matching log contains a bounded redacted diagnostic; the response deliberately
+does not expose provider bodies, stack traces, signed URLs, or configuration values.
+
 ## Health Versus Readiness
 
 A running process does not prove cloud readiness. Distinguish:

@@ -243,6 +243,37 @@ layouts differ from AWS Lambda and GCP Cloud Functions; see
   `UNSUPPORTED_ERROR_HANDLING_TOPOLOGY`; the tolerant optional-config loader
   cannot convert or swallow this violation.
 
+### Azure Function HTTP Error Contract
+
+All core HTTP-triggered Azure runtime adapters use the shared
+`_shared/http_errors.py` boundary. Client, authentication, configuration,
+upstream, user-logic, ADT-delivery, and unexpected failures return one bounded
+JSON structure:
+
+```json
+{
+  "error": {
+    "code": "UPSTREAM_ERROR",
+    "message": "The processing service is unavailable.",
+    "correlation_id": "5fb16a61-87bf-4de7-9001-c8c9a71765c2"
+  }
+}
+```
+
+Ordinary 4xx errors omit `correlation_id` because they do not create an
+internal failure log. Logged 5xx/502 failures include the same UUID as the
+response and only a bounded, single-line diagnostic after redacting known
+runtime secret values, credential syntax, signed query parameters, and runtime
+paths. Tracebacks, telemetry/query payloads, downstream response bodies, and
+function-key URLs are not public diagnostics.
+
+Connector success exposes only `remote_status_code`. Event Checker partial
+failures expose only `event_index`, `error_code`, and `correlation_id`.
+`hot-reader-last-entry` fails explicitly after provider errors instead of
+returning empty data as a successful response. The shared Inter-Cloud sender
+logs retry status and attempt metadata without provider response bodies or
+network exception text.
+
 ## Preflight And Verification
 
 Provider permission sets are versioned and can be checked before deployment. Data-flow

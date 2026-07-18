@@ -61,6 +61,17 @@ Inspect configuration completion, CloudConnection validation, deployment preflig
 artifact validation, and current twin state. A twin in `deploying`/`destroying` already
 has an active operation; use status/history rather than starting another.
 
+## An Azure Runtime Request Fails
+
+Use the stable `error.code` to distinguish invalid input, authentication,
+configuration, user-logic, upstream, and ADT-delivery failures. For 5xx/502 responses,
+copy only `correlation_id` into log searches or issue evidence. Do not expect or request
+raw exception text from the response; inspect the matching redacted runtime log.
+
+An Event Checker batch may succeed while one action reports `EVENT_ACTION_FAILED`.
+Use its `event_index` and `correlation_id`; the API intentionally does not echo the
+configured event or downstream response.
+
 ## Tests Attempt Cloud Access
 
 Stop and verify the command. Safe defaults exclude `tests/e2e`, do not enable the local
