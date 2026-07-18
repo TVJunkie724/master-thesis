@@ -139,6 +139,7 @@ def _compose_run(
     *command: str,
     root_mount: bool = False,
     environment: Sequence[str] = (),
+    user: str | None = None,
 ) -> tuple[str, ...]:
     result = [
         *_compose_prefix(project),
@@ -147,6 +148,8 @@ def _compose_run(
         "--no-deps",
         "-T",
     ]
+    if user is not None:
+        result.extend(("--user", user))
     if root_mount:
         result.extend(("-v", f"{ROOT}:/workspace:ro", "-w", "/workspace"))
     for value in environment:
@@ -154,6 +157,16 @@ def _compose_run(
     result.append(service)
     result.extend(command)
     return tuple(result)
+
+
+def _host_user_spec() -> str | None:
+    """Return the POSIX host identity that owns private ephemeral secrets."""
+
+    getuid = getattr(os, "getuid", None)
+    getgid = getattr(os, "getgid", None)
+    if getuid is None or getgid is None:
+        return None
+    return f"{getuid()}:{getgid()}"
 
 
 def focused_stages(project: str) -> tuple[Stage, ...]:
@@ -227,6 +240,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "SEED_DATA=false",
                     "ENABLE_TEST_ENDPOINTS=false",
                 ),
+                user=_host_user_spec(),
             ),
         ),
         Stage(
@@ -308,6 +322,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                     "SEED_DATA=false",
                     "ENABLE_TEST_ENDPOINTS=false",
                 ),
+                user=_host_user_spec(),
             ),
         ),
         Stage(

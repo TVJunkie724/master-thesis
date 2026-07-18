@@ -115,6 +115,26 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         self.assertNotIn("tests/e2e", rendered)
         self.assertNotIn("compose.cloud.local", rendered)
 
+    @unittest.skipUnless(hasattr(os, "getuid"), "POSIX identity required")
+    def test_management_stages_use_host_owner_for_private_secrets(self) -> None:
+        expected_user = f"{os.getuid()}:{os.getgid()}"
+        stages = (
+            *verification.focused_stages("contract-test"),
+            *verification.full_stages("contract-test"),
+        )
+        management_commands = [
+            stage.command
+            for stage in stages
+            if "management-api" in stage.command
+            and stage.name != "Verification images"
+        ]
+
+        self.assertEqual(len(management_commands), 2)
+        for command in management_commands:
+            with self.subTest(command=command):
+                user_index = command.index("--user")
+                self.assertEqual(command[user_index + 1], expected_user)
+
     def test_full_stages_add_safe_project_and_documentation_gates(self) -> None:
         stages = verification.full_stages("contract-test")
         names = [stage.name for stage in stages]
