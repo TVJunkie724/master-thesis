@@ -3,7 +3,7 @@ title: "Phase 8.1: Harden And Freeze five-layer-baseline@1"
 description: "Implementation plan for the explicit, executable, paper-compatible five-layer baseline decision contract."
 tags: [architecture, baseline, five-layer, decisions, thesis, issue-139]
 lastUpdated: "2026-07-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/plans/resolved_deployment_specification/README.md
 - EDTConf CloudDT paper and predecessor implementation provenance retained in the repository
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-19 | VERSION: 1.1
 -->
 
 # Phase 8.1: Harden And Freeze `five-layer-baseline@1`
@@ -162,7 +162,7 @@ Top-level required fields:
 | `source_inventory_digest` | Exact Phase 8.0 content digest |
 | `required_responsibilities` | Exactly the five IDs in Section 3 |
 | `optimization_slots` | Exactly the seven current deployment slots |
-| `component_decisions` | One decision for every in-scope current component |
+| `component_decisions` | One decision for every in-scope current implementation record, grouped by logical component |
 | `edge_decisions` | One decision for every in-scope current edge |
 | `provider_admissibility` | Explicit AWS/Azure/GCP and mixed constraints |
 | `functional_completeness_rules` | Machine-readable required capabilities |
@@ -173,7 +173,10 @@ Top-level required fields:
 
 ### 6.1 Component Decision
 
-Each current component must be assigned exactly one action:
+Each current provider/platform implementation record must be assigned exactly
+one action. Decisions sharing a logical component ID may differ by provider
+only when the provider-specific evidence and target mapping justify the
+difference:
 
 - `retain`: independent deployable component remains;
 - `internalize`: behavior moves behind another retained component boundary;
@@ -184,7 +187,8 @@ Each current component must be assigned exactly one action:
 
 Required fields:
 
-- current and target component IDs;
+- current implementation ID and logical component ID;
+- target logical component and target implementation IDs where applicable;
 - action;
 - target responsibility;
 - provider applicability;
@@ -216,7 +220,7 @@ Required fields:
 
 - current and target edge IDs;
 - mechanism;
-- source/destination target component IDs;
+- source/destination target logical component and implementation IDs;
 - payload/envelope and schema version;
 - invocation and delivery semantics;
 - timeout/retry/dead-letter/idempotency/ordering behavior;
@@ -292,7 +296,8 @@ Extend the architecture inventory checker to:
 
 - validate the decision schema;
 - verify exact source inventory digest;
-- require one component decision per in-scope component;
+- require one component decision per in-scope implementation record and reject
+  inconsistent unqualified logical-component decisions;
 - require one edge decision per in-scope edge;
 - reject target IDs not declared by a decision;
 - reject missing implementation-owner phases;

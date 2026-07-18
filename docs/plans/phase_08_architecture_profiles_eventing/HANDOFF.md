@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-19"
-version: "2.0"
+version: "2.1"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "2.0"
 - docs-site/docs/architecture/refactoring-roadmap.md
 - Current repository code, contracts, tests, migrations, and Git history at master commit 5e675e77
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-19 | VERSION: 2.0
+EXTRACTED: 2026-07-19 | VERSION: 2.1
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -400,8 +400,12 @@ Every phase must preserve:
 - idempotent, tested migrations;
 - immutable accepted calculation and architecture evidence;
 - ownership checks and optimistic revisions for mutable Twin selections;
-- secret-free schemas, fixtures, API errors, logs, manifests, packages,
-  tfvars, and documentation;
+- secret-free schemas, fixtures, API errors, logs, manifests, tfvars,
+  deterministic function/artifact packages, package evidence, and
+  documentation;
+- credential-bearing deployment operation packages only inside the existing
+  private, short-lived, one-use package boundary with owner-only permissions,
+  redaction, acquisition, TTL, and cleanup guarantees;
 - structured errors, correlation, redaction, and bounded diagnostic evidence;
 - deterministic package and Terraform input generation;
 - cleanup, retry, recovery, and destroy behavior for historical operations;

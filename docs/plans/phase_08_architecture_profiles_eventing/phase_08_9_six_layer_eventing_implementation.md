@@ -3,7 +3,7 @@ title: "Phase 8.9: Implement six-layer-eventing@1"
 description: "Implementation plan for one executable closed-world Eventing profile using the approved generic architecture extension points."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-07-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - docs/research/digital_twin_architecture_and_eventing_layer.md
 - Existing resolved-deployment-specification, DeploymentManifest, provider, Terraform, and Flutter extension points
 - User-approved bounded six-layer profile with no arbitrary graph editor
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-19 | VERSION: 1.1
 -->
 
 # Phase 8.9: Implement `six-layer-eventing@1`
@@ -126,19 +126,19 @@ Required topology properties:
 Retain schema v1 and add new semantic definitions/fixtures:
 
 ```text
-contracts/architecture-profiles/v1/
-  profiles/six-layer-eventing.1.json
-  provider-profiles/
-    aws-six-layer-eventing.1.json
-    azure-six-layer-eventing.1.json
-    gcp-six-layer-eventing.1.json
-  catalogs/eventing-components.1.json
-  fixtures/valid/
+contracts/architecture-profiles/definitions/
+  profiles/six-layer-eventing/1/profile.json
+  provider-implementations/six-layer-eventing/1/
+    aws/1.json
+    azure/1.json
+    gcp/1.json
+  component-catalogs/eventing/1/catalog.json
+  fixtures/resolved/
     all-aws-eventing-resolved-architecture.json
     all-azure-eventing-resolved-architecture.json
     mixed-eventing-on-gcp-resolved-architecture.json
     mixed-eventing-resolved-architecture.json
-  fixtures/invalid/
+  fixtures/unsupported/
     unsupported-single-provider-path.json
 ```
 

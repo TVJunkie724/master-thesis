@@ -3,7 +3,7 @@ title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
 lastUpdated: "2026-07-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.0"
 - twin2multicloud_flutter/lib/services/management_api.dart
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-19 | VERSION: 1.1
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -638,9 +638,10 @@ Unhappy:
 Edge:
 
 - idempotent same-profile selection;
-- destructive profile change cancelled/confirmed;
+- destructive profile change cancelled/confirmed with unit-level typed
+  `ArchitectureApi` fixtures until a second implemented profile exists;
 - preview contents match cleared fields, unbound slots, selected run, and
-  readiness categories returned by the real Management API;
+  readiness categories returned by the typed Management API response;
 - compatible CloudConnections and artifacts remain visible after a profile
   change;
 - selected run invalidated;
@@ -677,15 +678,18 @@ Edge:
 Use the real Docker Management API:
 
 - create/load a Twin with default baseline selection;
-- change/reload selection revision;
-- preview and confirm a destructive profile change using the exact
-  `invalidation_digest`;
+- preview and submit an idempotent same-profile selection using the exact empty
+  invalidation set and `invalidation_digest`;
+- reload and verify the unchanged selection revision;
 - create a fixture-backed optimizer run and read resolution;
 - select complete run and verify deployment task unlocks;
 - cross-user resource access remains hidden;
 - no direct Optimizer/Deployer request occurs.
 
 Unit tests may mock `ArchitectureApi`; integration tests may not mock HTTP.
+The first real destructive profile-change integration case belongs to Phase
+8.9, when a second implemented active profile exists. Phase 8.7 must not expose
+an inactive or fake profile merely to exercise that path.
 Extend `run_frontend_integration_tests()` in `thesis.sh` so the resolved host
 device runs `integration_test/architecture_profile_workflow_test.dart` after
 the existing Management readiness test. The script remains credential-free.

@@ -1,4 +1,20 @@
-# Flutter Frontend Architecture Proposal (v3)
+# Flutter Frontend Architecture (v4)
+
+## Current Implementation Boundary
+
+This document contains the original design rationale as well as current
+architecture constraints. Where historical examples or estimates below differ
+from the implemented system, the current code, `docs-site/`, and reviewed
+implementation plans are authoritative.
+
+- Flutter calls only the Management API. Optimizer and Deployer ports are
+  internal/diagnostic boundaries.
+- Riverpod owns runtime mode, authentication, and `ManagementApi` composition.
+  Feature BLoCs own complex workflows such as configuration and deployment.
+- Web, macOS, Windows, and Linux are all mandatory supported targets. Android,
+  iOS, and Fuchsia are unsupported.
+- Operation logs use Management API SSE. A transport failure becomes a bounded
+  reconnect/error state; it does not authorize a direct downstream call.
 
 ## Architecture Overview
 
@@ -37,9 +53,11 @@
 |--------|------|------|--------|
 | **WebSocket** | Bidirectional, low latency | Complex setup, connection management | ❌ Overkill |
 | **Polling** | Simple, no special server code | Wastes bandwidth, 2-5s delay | ❌ Poor UX |
-| **SSE** | One-way streaming, native HTTP, auto-reconnect | Unidirectional only | ✅ **Perfect fit** |
+| **SSE** | One-way streaming, native HTTP, bounded reconnect through the owning BLoC | Unidirectional only | ✅ **Selected** |
 
-**Why SSE?** Deployment logs are **one-way** (server → client). SSE is simpler than WebSocket and supported by Flutter Web and Desktop via `eventsource` package.
+**Why SSE?** Deployment logs are **one-way** (server → client). The current
+`SseService` uses the tracked `http` package on Flutter Web and desktop; the
+owning feature BLoC controls reconnect and error behavior.
 
 ```python
 # FastAPI SSE endpoint (simple!)
@@ -117,9 +135,10 @@ All of these are **Flutter/Dart packages** (libraries):
 
 | Package | What It Does |
 |---------|--------------|
-| **Riverpod** | State management - how Flutter handles app-wide data. Like Redux for React. |
-| **dio** | HTTP client for API calls. Better than built-in `http` package. |
-| **eventsource_client** | Listens to SSE streams for real-time logs. |
+| **Riverpod** | Runtime mode, authentication, and API adapter composition. |
+| **flutter_bloc** | Complex feature workflows and state transitions. |
+| **dio** | Management API request/response client. |
+| **http** | Streaming transport used by `SseService`. |
 | **go_router** | URL-based navigation. Essential for web (browser back/forward). |
 | **Material 3** | Google's design system (buttons, cards, etc.). Built into Flutter. |
 
@@ -692,8 +711,8 @@ CREATE TABLE deployments (
 
 | Topic | Decision | Notes |
 |-------|----------|-------|
-| **Frontend** | Flutter (Web + Desktop) | Web primary, Desktop secondary |
-| **Backend** | Python FastAPI (new Management API) | Ports: 5003 Optimizer, 5004 Deployer, 5005 Management |
+| **Frontend** | Flutter (Web + Desktop) | Web, macOS, Windows, and Linux are mandatory |
+| **Backend** | Python FastAPI Management API | Ports: 5003 Optimizer, 5004 Deployer, 5005 Management |
 | **Database** | SQLite | Relational fits this use case; easy migration to PostgreSQL |
 | **Real-time logs** | SSE (Server-Sent Events) | One-way, simpler than WebSocket |
 | **Authentication** | Google OAuth + JWT | Extensible plugin pattern for future providers |
@@ -739,7 +758,7 @@ CREATE TABLE deployments (
 |------|----------|------------|
 | **Step 2 JS Port Complexity** | HIGH | The Optimizer UI has ~500+ lines of conditional JS. **Mitigation:** Create a mapping doc of all UI behaviors before coding. Consider phased approach: basic inputs first, advanced toggles later. |
 | **Step 3 Flowchart Rendering** | MEDIUM | Custom flowchart is complex. **Mitigation:** Use existing Flutter packages (`graphview`, `flutter_flow_chart`) rather than custom canvas drawing. Start with simple box-arrow layout. |
-| **SSE in Flutter Web** | LOW | SSE is less battle-tested in Flutter Web than native. **Mitigation:** Fall back to polling if SSE fails to connect. Test early. |
+| **SSE in Flutter Web** | LOW | SSE is less battle-tested in Flutter Web than native. **Mitigation:** Use bounded reconnect and explicit error states through the Management API. Test early. |
 | **Credential Storage Security** | MEDIUM | Storing cloud credentials in SQLite. **Mitigation:** Encrypt at rest using `sqlcipher` or store only in memory with secure keychain integration. Document threat model. |
 | **22-day Estimate** | HIGH | Ambitious for thesis timeline. **Mitigation:** Identify MVP-cut scope (see below). |
 
@@ -752,7 +771,7 @@ If the 22-day estimate is too long, here's a prioritized cut list:
 | Simplify Step 3 flowchart → static image per scenario | 2 days | Acceptable for demo |
 | Skip [History ▼] rollback UI → keep backend versioning | 1 day | Can add post-thesis |
 | Mock OAuth → hardcoded test user | 1 day | Fine for local demo |
-| Desktop build → Web only | 0.5 day | Low priority anyway |
+| ~~Desktop build → Web only~~ | 0 days | Rejected: all four supported targets are mandatory |
 | Simplify Step 2 → fewer advanced toggles | 1 day | Core calculation still works |
 
 **Minimum viable: ~17 days** with cuts above.

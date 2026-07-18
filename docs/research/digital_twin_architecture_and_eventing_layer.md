@@ -940,7 +940,7 @@ cost, and deployment validation before it becomes selectable.
 | `ArchitectureProfile` | Logical Digital Twin responsibilities, required capabilities, approved edges, edge semantics, extension slots, and profile version | Shared architecture contract |
 | `ProviderImplementationProfile` | Curated AWS, Azure, or GCP service bundle that realizes one or more logical responsibilities, including constraints, pricing formulas, and internal resources | Optimizer and Deployer contract |
 | `DeploymentComponentCatalog` | Concrete Terraform modules, provider adapters, function templates, runtime wrappers, permissions, artifacts, and output bindings | Deployer-internal implementation catalog |
-| `ResolvedTwinArchitecture` | Immutable deployment decision for one Twin: profile version, provider assignments, selected implementation bundles, component instances, and logical-to-physical bindings | Management API and deployment manifest |
+| `ResolvedTwinArchitecture` | Immutable deployment decision for one Twin: profile version, provider assignments, selected implementation bundles, component instances, and logical-to-physical bindings | Optimizer produces; Management API validates/persists; DeploymentManifest and Deployer consume |
 
 Function templates and other currently hard-coded runtime artifacts therefore
 remain explicit. They move behind registered deployment components rather than
@@ -966,7 +966,10 @@ workload and functional requirements
 Optimizer selects admissible provider implementations
                   |
                   v
-Management API creates ResolvedTwinArchitecture
+Optimizer creates ResolvedTwinArchitecture
+                  |
+                  v
+Management API validates and persists resolution
                   |
                   v
 Deployer resolves component graph and runtime bindings
@@ -993,13 +996,14 @@ string conventions for function names, URLs, ARNs, topics, or storage
 resources. A centralized naming policy may still produce physical resource
 names, but domain code and user code must not reconstruct those names.
 
-Some runtime values only exist after infrastructure provisioning. Those values
-must use an explicit staged deployment contract:
-
-1. provision identities, infrastructure resources, and stable endpoints;
-2. collect typed provider outputs;
-3. build or configure runtime artifacts from validated bindings; and
-4. record the final binding evidence and artifact hashes.
+Some runtime values only exist during or after infrastructure provisioning.
+The baseline must express them through direct Terraform references and
+catalog-declared outputs inside one reviewed root-module dependency graph.
+Packages and all statically resolvable bindings are validated before Terraform;
+post-apply collects only allowlisted runtime outputs and records evidence. A
+separate apply/configuration stage is permitted only when a later reviewed
+component contract proves that Terraform cannot represent the dependency. No
+such extra stage is part of `five-layer-baseline@1` by default.
 
 This does not make Terraform or cloud providers infallible. Quotas, eventual
 consistency, IAM propagation, regional incompatibility, provider drift, and
@@ -1065,8 +1069,9 @@ function editor:
 - the user supplies domain logic through a versioned extension slot with typed
   input and output contracts;
 - non-secret configuration is typed and validated;
-- secrets are injected through references and are never embedded in source,
-  manifests, logs, or Terraform variables;
+- user-managed secret values and secret references are rejected in v1;
+  provider-managed user-function secrets require the separate #153 contract
+  before any write-only reference surface can exist;
 - runtime, dependency, artifact, timeout, network, retry, and resource policies
   are explicit; and
 - packaging is deterministic and must not rewrite user source to insert

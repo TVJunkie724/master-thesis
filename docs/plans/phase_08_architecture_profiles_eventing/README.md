@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-07-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.0"
 - docs/plans/resolved_deployment_specification/README.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, and #153
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-19 | VERSION: 1.1
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -24,7 +24,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Status | Planning; implementation must proceed in the order below |
+| Status | Planning complete and reviewed; implementation must proceed in the order below |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose

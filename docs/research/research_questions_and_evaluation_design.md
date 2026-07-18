@@ -510,7 +510,10 @@ six-layer-eventing@1
   edges: explicit eventing and messaging flows
 ```
 
-This contract should make the two approved profiles data-driven and iterable.
+This contract should make the approved baseline and the separately gated
+Eventing profile candidate data-driven and iterable. `six-layer-eventing@1`
+becomes an approved selectable profile only if the Phase 8 Eventing decision
+gate and implementation gates pass.
 It must not become a general architecture editor or arbitrary topology engine.
 Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge

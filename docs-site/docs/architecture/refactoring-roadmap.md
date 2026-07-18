@@ -226,21 +226,25 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Reconcile the remaining service/tier scope in
-   [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
-   [#32](https://github.com/TVJunkie724/master-thesis/issues/32).
-2. Build pricing freshness and manual override UX only after these Optimizer
-   contracts are stable (#33 and #34).
-3. Complete the remaining functional issues, then run the user-led visual audit in
-   [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-4. Start Phase 8 with the code-verifiable graph reconstruction in
+1. Start Phase 8 with the code-verifiable graph reconstruction in
    [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144).
-   Complete the user-function boundary in
+   GitHub records no native blocker for #144.
+2. Continue the remaining Phase 6 service/tier and fetcher work in
+   [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
+   [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
+   backlog work. They are not native blockers for the read-only Phase 8.0
+   inventory; any covered source change must make the inventory drift gate fail
+   and be reconciled before Phase 8.1 freezes the baseline.
+3. Complete the user-function boundary in
    [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113)
    before Phase 8.3 finalizes extension-slot catalog bindings.
-5. Follow the reviewed
+4. Follow the reviewed
    `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
    skipping its baseline, contract, migration, functional-completeness,
    deployment-graph, Flutter, or Eventing decision gates.
-6. Keep live-cloud E2E and finalization deferred until both the manual UI audit
+5. Build pricing freshness and manual override UX only after their Optimizer
+   contracts are stable (#33 and #34).
+6. Complete the remaining functional issues, then run the user-led visual audit
+   in [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
+7. Keep live-cloud E2E and finalization deferred until both the manual UI audit
    and architecture-profile work are complete.
