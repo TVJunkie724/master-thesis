@@ -97,4 +97,33 @@ void main() {
     expect(find.text('Must be greater than 0.0'), findsOneWidget);
     expect(changed?.averageDigitalTwinQueryUnitsPerQuery, 2.5);
   });
+
+  testWidgets(
+    'processing exposes legacy unsupported topology without coercion',
+    (tester) async {
+      bool? isValid;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: CalcForm(
+                section: CalcFormSection.processing,
+                initialParams: CalcParams.fromJson({
+                  ...CalcParams.defaultParams().toJson(),
+                  'integrateErrorHandling': true,
+                }),
+                onValidChanged: (value) => isValid = value,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Legacy, not deployable'), findsOneWidget);
+      expect(tester.widget<Switch>(find.byType(Switch).last).value, isTrue);
+      expect(isValid, isFalse);
+    },
+  );
 }

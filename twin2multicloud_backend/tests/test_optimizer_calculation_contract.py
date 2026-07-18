@@ -106,6 +106,64 @@ def test_every_management_write_path_rejects_invalid_adt_assumptions(
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize(
+    ("method", "path", "body_factory"),
+    [
+        ("put", "/optimizer/calculate", lambda params: params),
+        (
+            "put",
+            "/twins/unused/optimizer-config/params",
+            lambda params: {"params": params},
+        ),
+        (
+            "post",
+            "/twins/unused/optimizer-runs",
+            lambda params: {"params": params},
+        ),
+        (
+            "put",
+            "/twins/unused/config",
+            lambda params: {"optimizer_params": params},
+        ),
+    ],
+)
+def test_every_management_write_path_rejects_unsupported_error_handling(
+    authenticated_client,
+    sample_calc_params,
+    method,
+    path,
+    body_factory,
+):
+    client, headers = authenticated_client
+    params = deepcopy(sample_calc_params)
+    params["integrateErrorHandling"] = True
+
+    response = getattr(client, method)(
+        path,
+        json=body_factory(params),
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert any(
+        error["loc"][-1] == "integrateErrorHandling"
+        and error["type"] == "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY"
+        for error in response.json()["detail"]
+    )
+
+
+def test_optimizer_params_accept_false_or_omitted_error_handling(
+    sample_calc_params,
+):
+    explicit = OptimizerCalculationParams.model_validate(sample_calc_params)
+    omitted_payload = deepcopy(sample_calc_params)
+    omitted_payload.pop("integrateErrorHandling")
+    omitted = OptimizerCalculationParams.model_validate(omitted_payload)
+
+    assert explicit.integrateErrorHandling is False
+    assert omitted.integrateErrorHandling is False
+
+
 def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
     authenticated_client,
 ):
@@ -139,6 +197,7 @@ def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
         ]
         == 0
     )
+    assert component["properties"]["integrateErrorHandling"]["const"] is False
 
 
 def test_openapi_exposes_only_server_owned_optimizer_result_writes(

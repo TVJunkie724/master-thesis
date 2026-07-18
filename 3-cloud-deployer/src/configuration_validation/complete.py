@@ -16,12 +16,17 @@ from src.provider_capabilities import (
     selections_from_cheapest_path,
     validate_provider_selections,
 )
+from src.core.executable_topology import (
+    UnsupportedErrorHandlingTopologyError,
+    ensure_executable_optimization_topology,
+)
 
 
 PROVIDERS = {"aws", "azure", "gcp"}
 OPTIONAL_LAYER_PROVIDERS = PROVIDERS | {"none"}
 OPTIMIZATION_FLAGS = {
     "needs3DModel",
+    "integrateErrorHandling",
     "returnFeedbackToDevice",
     "triggerNotificationWorkflow",
     "useEventChecking",
@@ -157,6 +162,15 @@ def _optimization_flags(
 ) -> dict[str, bool]:
     values = params or {}
     result = {}
+    try:
+        ensure_executable_optimization_topology(values)
+    except UnsupportedErrorHandlingTopologyError as exc:
+        _add(
+            errors,
+            exc.code,
+            f"optimizer_params.{exc.field}",
+            exc.message,
+        )
     for name in OPTIMIZATION_FLAGS:
         value = values.get(name, False)
         if not isinstance(value, bool):

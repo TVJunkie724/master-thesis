@@ -27,6 +27,11 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .context import DeploymentContext, ProjectConfig
+from .executable_topology import (
+    UnsupportedErrorHandlingTopologyError,
+    ensure_executable_optimization_topology,
+    optimization_input_params,
+)
 from .exceptions import ConfigurationError
 from .project_storage import ProjectStorage, get_project_storage
 from src.deployment_specification import (
@@ -166,8 +171,8 @@ def normalize_optimization_flags(data: Dict[str, Any]) -> Dict[str, bool]:
     """Normalize optimizer-result and legacy flat files into domain flags."""
     if not isinstance(data, dict):
         return OPTIMIZATION_DEFAULTS.copy()
-    nested = data.get("result", {}).get("inputParamsUsed", {})
-    source = nested if isinstance(nested, dict) and nested else data
+    ensure_executable_optimization_topology(data)
+    source = optimization_input_params(data)
     return {
         key: source.get(key, default)
         if isinstance(source.get(key, default), bool)
@@ -416,6 +421,8 @@ def load_optimization_flags(project_path: Path) -> dict:
     try:
         data = _load_json_file(optimization_file, required=False)
         return normalize_optimization_flags(data)
+    except UnsupportedErrorHandlingTopologyError:
+        raise
     except Exception as e:
         logger.warning(
             f"Failed to load config_optimization.json: {e}. Using defaults (all False)."

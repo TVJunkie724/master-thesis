@@ -59,6 +59,7 @@ from backend.optimization.scoring import OptimizationCandidate
 from backend.deployment_specification import (
     build_resolved_deployment_specification,
 )
+from backend.executable_topology import ensure_executable_error_handling_topology
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_registry_service import PricingRegistryService
 from backend.transfer_catalog import validate_transfer_catalog
@@ -607,6 +608,7 @@ def calculate_cheapest_costs(
         - cheapestPath: List of layer-provider combinations
         - totalCost: Total cost of the optimal path
     """
+    ensure_executable_error_handling_topology(params.get("integrateErrorHandling"))
     if params.get("allowGcpSelfHostedL4") or params.get("allowGcpSelfHostedL5"):
         raise ValueError(
             "GCP self-hosted L4/L5 cannot be enabled until the Deployer "

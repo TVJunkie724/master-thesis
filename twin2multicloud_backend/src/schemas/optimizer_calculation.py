@@ -2,7 +2,15 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
+
+from src.contracts.executable_topology import (
+    ERROR_HANDLING_FIELD,
+    UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+    UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+    ensure_executable_error_handling_topology,
+)
 
 
 COMPATIBILITY_ASSUMPTION_FIELDS = (
@@ -46,7 +54,15 @@ class OptimizerCalculationParams(BaseModel):
     useEventChecking: bool = False
     triggerNotificationWorkflow: bool = False
     returnFeedbackToDevice: bool = False
-    integrateErrorHandling: bool = False
+    integrateErrorHandling: bool = Field(
+        default=False,
+        strict=True,
+        description=(
+            "Legacy compatibility field. The executable five-layer baseline "
+            "accepts only false or omission."
+        ),
+        json_schema_extra={"const": False},
+    )
 
     orchestrationActionsPerMessage: int = Field(default=3, ge=1)
     eventsPerMessage: int = Field(default=1, ge=1)
@@ -60,6 +76,18 @@ class OptimizerCalculationParams(BaseModel):
     allowGcpSelfHostedL5: bool = False
     currency: Literal["USD", "EUR"] = "USD"
     optimizationProfileId: str = "cost_minimization_v1"
+
+    @field_validator(ERROR_HANDLING_FIELD)
+    @classmethod
+    def validate_error_handling_topology(cls, value: bool) -> bool:
+        try:
+            ensure_executable_error_handling_topology(value)
+        except ValueError as exc:
+            raise PydanticCustomError(
+                UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+                UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+            ) from exc
+        return value
 
     @model_validator(mode="after")
     def validate_executable_contract(self) -> "OptimizerCalculationParams":

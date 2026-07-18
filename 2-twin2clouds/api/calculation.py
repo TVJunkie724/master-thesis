@@ -16,9 +16,17 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
+from backend.executable_topology import (
+    ERROR_HANDLING_FIELD,
+    UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+    UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+    ensure_executable_error_handling_topology,
+)
 from backend.logger import logger
 from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.utils import print_stack_trace
@@ -175,7 +183,15 @@ class CalcParams(BaseModel):
     useEventChecking: bool = False
     triggerNotificationWorkflow: bool = False
     returnFeedbackToDevice: bool = False
-    integrateErrorHandling: bool = False
+    integrateErrorHandling: bool = Field(
+        default=False,
+        strict=True,
+        description=(
+            "Legacy compatibility field. The executable five-layer baseline "
+            "accepts only false or omission."
+        ),
+        json_schema_extra={"const": False},
+    )
     
     orchestrationActionsPerMessage: int = Field(default=3, ge=1)
     eventsPerMessage: int = Field(default=1, ge=1)
@@ -225,6 +241,18 @@ class CalcParams(BaseModel):
             "Clients cannot infer an AWS TwinMaker plan."
         ),
     )
+
+    @field_validator(ERROR_HANDLING_FIELD)
+    @classmethod
+    def validate_error_handling_topology(cls, value: bool) -> bool:
+        try:
+            ensure_executable_error_handling_topology(value)
+        except ValueError as exc:
+            raise PydanticCustomError(
+                UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+                UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+            ) from exc
+        return value
 
     @model_validator(mode='after')
     def validate_storage_duration_ordering(self) -> 'CalcParams':

@@ -14,6 +14,8 @@ from function_registry import get_function_by_name
 from logger import logger
 import ast
 
+from src.core.executable_topology import ensure_executable_optimization_topology
+
 
 # ==========================================
 # 0. Digital Twin Name Validation
@@ -148,6 +150,8 @@ def validate_config_content(filename, content):
         
         # General Case: Single Object (CONFIG, OPTIMIZATION)
         elif isinstance(content, dict):
+             if filename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
+                 ensure_executable_optimization_topology(content)
              for key in required_keys:
                  if key not in content:
                      errors.append(f"Missing key '{key}'")

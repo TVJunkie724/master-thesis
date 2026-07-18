@@ -36,6 +36,37 @@ VALID_PAYLOADS = '[{"iotDeviceId": "device-1", "temperature": 25}]'
 VALID_AWS_HIERARCHY = '[{"type": "entity", "id": "root", "children": [{"type": "component", "name": "sensor", "componentTypeId": "sensor-type", "properties": [{"name": "temp", "dataType": "DOUBLE"}]}]}]'
 
 
+def test_optimization_file_api_exposes_stable_unsupported_topology_error():
+    response = client.post(
+        "/validate/config/optimization",
+        files={
+            "file": (
+                "config_optimization.json",
+                json.dumps(
+                    {
+                        "result": {
+                            "inputParamsUsed": {
+                                "integrateErrorHandling": True,
+                            }
+                        }
+                    }
+                ),
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == {
+        "error_code": "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+        "field": "integrateErrorHandling",
+        "message": (
+            "The executable five-layer baseline does not deploy the "
+            "requested error-handling topology"
+        ),
+    }
+
+
 class TestDeployerCompleteValidation:
     """Tests for POST /validate/deployer-complete endpoint."""
     
@@ -381,6 +412,28 @@ class TestDeployerCompleteValidation:
         codes = {error["code"] for error in response.json()["errors"]}
         assert "INVALID_OPTIMIZER_FLAG" in codes
         assert "MISSING_SCENE_CONFIG" not in codes
+
+    def test_unsupported_error_handling_topology_is_explicit(self):
+        response = client.post("/validate/deployer-complete", json={
+            "deployer_digital_twin_name": "my-twin",
+            "config_events": VALID_CONFIG_EVENTS,
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_AWS_PROCESSOR},
+            "cheapest_path": {"L2": "aws", "L4": "gcp", "L5": "gcp"},
+            "optimizer_params": {"integrateErrorHandling": True},
+        })
+
+        assert response.status_code == 200
+        assert response.json()["valid"] is False
+        assert {
+            "code": "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+            "field": "optimizer_params.integrateErrorHandling",
+            "message": (
+                "The executable five-layer baseline does not deploy the "
+                "requested error-handling topology"
+            ),
+        } in response.json()["errors"]
 
     def test_orphan_processor_and_action_are_rejected(self):
         response = client.post("/validate/deployer-complete", json={

@@ -173,7 +173,7 @@
         "gcpCosts": {"L3_hot": {"cost": 10.0, "components": {"Cloud Storage": 10.0}}, "L3_cool": {"cost": 7.0, "components": {"Nearline": 7.0}}, "L3_archive": {"cost": 6.82, "components": {"Archive": 6.82}}},
         "cheapestPath": ["L1_AWS", "L2_Azure", "L3_hot_GCP", "L3_cool_GCP", "L3_archive_GCP", "L4_AWS", "L5_AWS"],
         "transferCosts": {"L1_to_L2": 0.5, "L2_to_L3": 0.3},
-        "inputParamsUsed": {"useEventChecking": true, "triggerNotificationWorkflow": true, "returnFeedbackToDevice": true, "integrateErrorHandling": true, "needs3DModel": true}
+        "inputParamsUsed": {"useEventChecking": true, "triggerNotificationWorkflow": true, "returnFeedbackToDevice": true, "integrateErrorHandling": false, "needs3DModel": true}
       }
     },
     "demo-deployed": {
@@ -204,7 +204,7 @@
         "gcpCosts": {"L3_hot": {"cost": 5.0, "components": {"Cloud Storage": 5.0}}, "L3_cool": {"cost": 3.0, "components": {"Nearline": 3.0}}, "L3_archive": {"cost": 2.67, "components": {"Archive": 2.67}}},
         "cheapestPath": ["L1_AWS", "L2_Azure", "L3_hot_GCP", "L3_cool_GCP", "L3_archive_GCP", "L4_AWS", "L5_AWS"],
         "transferCosts": {"L1_to_L2": 0.2, "L2_to_L3": 0.1},
-        "inputParamsUsed": {"useEventChecking": true, "triggerNotificationWorkflow": true, "returnFeedbackToDevice": true, "integrateErrorHandling": true, "needs3DModel": true}
+        "inputParamsUsed": {"useEventChecking": true, "triggerNotificationWorkflow": true, "returnFeedbackToDevice": true, "integrateErrorHandling": false, "needs3DModel": true}
       }
     }
   },

@@ -709,6 +709,34 @@ class TestBuildProjectZip:
 
         assert exc_info.value.errors[0]["field"] == "cost_calculation_run"
 
+    def test_rejects_unsupported_topology_before_credential_resolution(
+        self,
+        monkeypatch,
+    ):
+        twin = self._create_mock_twin()
+        params = json.loads(twin.optimizer_config.params)
+        params["integrateErrorHandling"] = True
+        twin.optimizer_config.params = json.dumps(params)
+        credential_resolution_called = False
+
+        def fail_if_called(*_args, **_kwargs):
+            nonlocal credential_resolution_called
+            credential_resolution_called = True
+            raise AssertionError("credential resolution must not run")
+
+        monkeypatch.setattr(
+            "src.services.deployment_service._build_deployment_credentials",
+            fail_if_called,
+        )
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors[0]["code"] == (
+            "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY"
+        )
+        assert credential_resolution_called is False
+
     def test_rejects_ambiguous_selected_optimizer_runs(self):
         twin = self._create_mock_twin()
         twin.cost_calculation_runs.append(twin.cost_calculation_runs[0])
@@ -1241,6 +1269,24 @@ class TestBuildOptimizationConfig:
         result = _build_optimization_config(oc)
 
         assert result == {"result": {"inputParamsUsed": {}}}
+
+    def test_rejects_legacy_unsupported_error_handling_topology(self):
+        oc = Mock()
+        oc.params = json.dumps({"integrateErrorHandling": True})
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            _build_optimization_config(oc)
+
+        assert exc_info.value.errors == [
+            {
+                "code": "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+                "field": "optimizer_config.params.integrateErrorHandling",
+                "message": (
+                    "The executable five-layer baseline does not deploy the "
+                    "requested error-handling topology"
+                ),
+            }
+        ]
 
 
 class TestBuildDeploymentManifest:

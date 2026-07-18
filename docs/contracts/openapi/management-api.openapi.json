@@ -4324,7 +4324,9 @@
             "type": "integer"
           },
           "integrateErrorHandling": {
+            "const": false,
             "default": false,
+            "description": "Legacy compatibility field. The executable five-layer baseline accepts only false or omission.",
             "title": "Integrateerrorhandling",
             "type": "boolean"
           },
@@ -5195,6 +5197,31 @@
               "type": "object"
             },
             "title": "Transfer Trace",
+            "type": "array"
+          },
+          "transition_runtime_context": {
+            "additionalProperties": true,
+            "title": "Transition Runtime Context",
+            "type": "object"
+          },
+          "transition_runtime_context_available": {
+            "default": false,
+            "title": "Transition Runtime Context Available",
+            "type": "boolean"
+          },
+          "transition_runtime_costs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Transition Runtime Costs",
+            "type": "object"
+          },
+          "transition_runtime_trace": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Transition Runtime Trace",
             "type": "array"
           },
           "twin_id": {
@@ -6584,6 +6611,7 @@
               "l3_archive_storage",
               "l4_twin_state",
               "l5_visualization",
+              "transition_runtime",
               "cross_cloud_glue"
             ],
             "title": "Slot Id",

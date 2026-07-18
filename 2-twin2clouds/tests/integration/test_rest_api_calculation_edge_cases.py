@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 from rest_api import app
+from api.calculation import CalcParams
 from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_catalog_repository import (
@@ -177,6 +178,34 @@ def test_calculate_rejects_unknown_fields():
     )
 
     assert response.status_code == 422
+
+
+def test_calculate_rejects_unsupported_error_handling_topology():
+    payload = _valid_payload()
+    payload["integrateErrorHandling"] = True
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 422
+    errors = response.json()["detail"]
+    assert any(
+        error["loc"][-1] == "integrateErrorHandling"
+        and error["type"] == "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY"
+        for error in errors
+    )
+
+
+@pytest.mark.parametrize("payload_value", [False, None])
+def test_calculate_accepts_false_or_omitted_error_handling_topology(
+    payload_value,
+):
+    payload = _valid_payload()
+    if payload_value is not None:
+        payload["integrateErrorHandling"] = payload_value
+
+    params = CalcParams.model_validate(payload)
+
+    assert params.integrateErrorHandling is False
 
 # -----------------------------------------------------------------------------
 # 2. Engine Robustness / Error Handling

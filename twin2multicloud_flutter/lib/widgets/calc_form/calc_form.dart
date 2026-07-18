@@ -108,7 +108,9 @@ class _CalcFormState extends State<CalcForm> {
 
     // Report form validity after a frame to allow validators to run
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final isValid = _formKey.currentState?.validate() ?? true;
+      final isValid =
+          (_formKey.currentState?.validate() ?? true) &&
+          params.isExecutableTopology;
       widget.onValidChanged?.call(isValid);
     });
   }
@@ -773,7 +775,10 @@ class _CalcFormState extends State<CalcForm> {
             _buildDisabledSwitchWithBadge(
               title: 'Integrate Error Handling',
               tooltip:
-                  'If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead.',
+                  'The executable five-layer baseline does not deploy this '
+                  'topology. Event checking, notification workflows, and '
+                  'device feedback remain separate supported capabilities.',
+              value: _integrateErrorHandling,
             ),
           ],
         ),
@@ -1102,18 +1107,37 @@ class _CalcFormState extends State<CalcForm> {
     );
   }
 
-  /// Helper to build a disabled switch with "Not Implemented" badge and tooltip
+  /// Builds a transparent read-only view of an unavailable baseline capability.
   Widget _buildDisabledSwitchWithBadge({
     required String title,
+    required bool value,
     String? tooltip,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
-      title: Row(
+      title: Text(title),
+      subtitle: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(title),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[800] : Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              value ? 'Legacy, not deployable' : 'Unavailable in baseline',
+              style: TextStyle(
+                fontSize: 11,
+                color: value
+                    ? Theme.of(context).colorScheme.error
+                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
+              ),
+            ),
+          ),
           if (tooltip != null) ...[
-            const SizedBox(width: 4),
             Tooltip(
               message: tooltip,
               child: Icon(
@@ -1125,27 +1149,7 @@ class _CalcFormState extends State<CalcForm> {
           ],
         ],
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey[800] : Colors.grey[200],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'Not Implemented',
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Switch(value: false, onChanged: null),
-        ],
-      ),
+      trailing: Switch(value: value, onChanged: null),
     );
   }
 

@@ -356,6 +356,12 @@
             "title": "Averagesizeofmessageinkb",
             "type": "number"
           },
+          "calculationRunId": {
+            "description": "Management-owned immutable calculation run identity.",
+            "format": "uuid",
+            "title": "Calculationrunid",
+            "type": "string"
+          },
           "coolStorageDurationInMonths": {
             "description": "Cool storage duration (must be >= 1)",
             "minimum": 1.0,
@@ -417,7 +423,9 @@
             "type": "integer"
           },
           "integrateErrorHandling": {
+            "const": false,
             "default": false,
+            "description": "Legacy compatibility field. The executable five-layer baseline accepts only false or omission.",
             "title": "Integrateerrorhandling",
             "type": "boolean"
           },
@@ -482,6 +490,7 @@
           }
         },
         "required": [
+          "calculationRunId",
           "numberOfDevices",
           "deviceSendingIntervalInMinutes",
           "averageSizeOfMessageInKb",
@@ -1646,7 +1655,7 @@
   "paths": {
     "/calculate": {
       "put": {
-        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n3. Calculates costs for each of the 5 architectural layers on each provider\n4. Returns the optimal provider per layer, detailed cost breakdowns, and the same catalog references\n\n**The 5 Architectural Layers:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Processing):** Data processing, event detection, notifications\n- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L4 (Management):** Digital Twin entity management and 3D modeling\n- **L5 (Visualization):** Dashboards and user interfaces\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
+        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n3. Enumerates every executable complete Five-Layer provider assignment\n4. Prices all six approved layer-to-layer routes with aggregate transfer allowances\n5. Scores complete layer and route totals and returns the deterministic winner\n6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n**The 5 Architectural Layers:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Processing):** Data processing, event detection, notifications\n- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L4 (Management):** Digital Twin entity management and 3D modeling\n- **L5 (Visualization):** Dashboards and user interfaces\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
         "operationId": "calculateOptimalCloudDistribution",
         "requestBody": {
           "content": {
@@ -1664,44 +1673,44 @@
               "application/json": {
                 "example": {
                   "result": {
-                    "awsCosts": {
-                      "L1": 12.5,
-                      "L2_Archive": 2.0,
-                      "L2_Cool": 8.0,
-                      "L2_Hot": 5.0
-                    },
-                    "azureCosts": {
-                      "L1": 15.0,
-                      "L4": 20.0
-                    },
                     "calculationResult": {
                       "L1": "GCP",
-                      "L2": {
+                      "L2": "AWS",
+                      "L3": {
                         "Archive": "AWS",
                         "Cool": "GCP",
                         "Hot": "AWS"
                       },
-                      "L3": "AWS",
                       "L4": "Azure",
-                      "L5": "GCP"
+                      "L5": "Azure"
                     },
                     "cheapestPath": [
                       "L1_GCP",
-                      "L2_AWS_Hot",
-                      "L2_GCP_Cool",
-                      "L2_AWS_Archive",
-                      "L3_AWS",
+                      "L2_AWS",
+                      "L3_hot_AWS",
+                      "L3_cool_GCP",
+                      "L3_archive_AWS",
                       "L4_Azure",
-                      "L5_GCP"
+                      "L5_Azure"
                     ],
                     "currency": "USD",
-                    "gcpCosts": {
-                      "L1": 10.0,
-                      "L5": 18.0
+                    "optimizationDiagnostics": {
+                      "enumeratedPathCount": 972,
+                      "evaluatedPathCount": 972,
+                      "rejectedPathCount": 0,
+                      "schemaVersion": "complete-path-optimization.v1",
+                      "scoreUnit": "USD/month",
+                      "winningCandidateId": "gcp|aws|aws|gcp|aws|azure|azure"
                     },
                     "optimization_profile_id": "cost_minimization_v1",
                     "result_schema_version": "cost-result.v1",
-                    "totalCost": 85.5
+                    "totalCost": 85.5,
+                    "transferPricingContext": {
+                      "currency": "USD",
+                      "pools": [],
+                      "routes": [],
+                      "schemaVersion": "complete-path-transfer-pricing.v1"
+                    }
                   }
                 },
                 "schema": {}

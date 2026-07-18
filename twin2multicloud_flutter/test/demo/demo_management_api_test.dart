@@ -268,6 +268,22 @@ void main() {
     );
 
     test(
+      'rejects unsupported error-handling topology without persistence',
+      () async {
+        final params = CalcParams.fromJson({
+          ...CalcParams.defaultParams().toJson(),
+          'integrateErrorHandling': true,
+        });
+
+        await expectLater(
+          api.createOptimizerRun('demo-draft', params),
+          throwsDemoCode('UNSUPPORTED_ERROR_HANDLING_TOPOLOGY'),
+        );
+        expect(await api.getOptimizerConfig('demo-draft'), isNull);
+      },
+    );
+
+    test(
       'does not invent catalog evidence for a legacy saved result',
       () async {
         final legacy = store.optimizerConfig('demo-configured')!;

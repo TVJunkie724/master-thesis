@@ -26,7 +26,7 @@ abstract class TestFixtures {
     amountOfActiveViewers: 10,
   );
 
-  /// Calculation params with all optional features enabled
+  /// Calculation params with every supported optional feature enabled
   static CalcParams get calcParamsFullyConfigured => CalcParams(
     numberOfDevices: 1000,
     deviceSendingIntervalInMinutes: 1.0,
@@ -38,7 +38,7 @@ abstract class TestFixtures {
     orchestrationActionsPerMessage: 5,
     returnFeedbackToDevice: true,
     numberOfEventActions: 2,
-    integrateErrorHandling: true,
+    integrateErrorHandling: false,
     hotStorageDurationInMonths: 3,
     coolStorageDurationInMonths: 12,
     archiveStorageDurationInMonths: 36,

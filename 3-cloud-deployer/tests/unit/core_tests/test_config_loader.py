@@ -8,12 +8,16 @@ from tests.utils.deployment_specification import (
 from src.core.config_loader import (
     ProjectConfigLoader,
     load_project_config,
+    load_optimization_flags,
     load_credentials,
     get_required_providers,
     normalize_optimization_flags,
     normalize_provider_mapping,
     normalize_provider_name,
     ConfigurationError,
+)
+from src.core.executable_topology import (
+    UnsupportedErrorHandlingTopologyError,
 )
 from src.core.project_storage import ProjectStorage
 
@@ -104,6 +108,39 @@ def test_invalid_optimization_flag_type_fails_closed():
     flags = normalize_optimization_flags({"useEventChecking": "true"})
 
     assert flags["useEventChecking"] is False
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"integrateErrorHandling": True},
+        {
+            "result": {
+                "inputParamsUsed": {
+                    "integrateErrorHandling": True,
+                }
+            }
+        },
+    ],
+)
+def test_unsupported_error_handling_topology_is_rejected(payload):
+    with pytest.raises(
+        UnsupportedErrorHandlingTopologyError,
+        match="UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+    ):
+        normalize_optimization_flags(payload)
+
+
+def test_tolerant_optimization_loader_does_not_swallow_topology_violation(
+    sample_project_dir,
+):
+    (sample_project_dir / "config_optimization.json").write_text(
+        json.dumps({"integrateErrorHandling": True})
+    )
+
+    with pytest.raises(UnsupportedErrorHandlingTopologyError):
+        load_optimization_flags(sample_project_dir)
+
 
 def test_load_project_config_missing_required_file(sample_project_dir):
     """Test that missing required file raises ConfigurationError."""

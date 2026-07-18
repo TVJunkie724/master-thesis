@@ -453,7 +453,7 @@ class TestEngineIntegration:
         assert result["evidenceReferences"]["intent_group_ids"] == ["cost"]
         assert result["intentTrace"]["schema_version"] == "intent-result-trace.v1"
         assert result["intentTrace"]["summary"]["record_count"] > 0
-        
+
         # Verify calculationResult has all layers
         calc_result = result["calculationResult"]
         assert "L1" in calc_result
@@ -461,18 +461,51 @@ class TestEngineIntegration:
         assert "L3" in calc_result
         assert "L4" in calc_result
         assert "L5" in calc_result
-        
+
         # Verify provider choices are valid
         valid_providers = ["AWS", "Azure", "GCP"]
         assert calc_result["L1"] in valid_providers
         assert calc_result["L2"] in valid_providers
         assert calc_result["L4"] in valid_providers
         assert calc_result["L5"] in valid_providers
-        
+
         # L3 should have Hot, Cool, Archive
         assert "Hot" in calc_result["L3"]
         assert "Cool" in calc_result["L3"]
         assert "Archive" in calc_result["L3"]
+
+    def test_unsupported_error_handling_fails_before_provider_calculation(
+        self,
+        sample_params,
+        sample_pricing,
+        monkeypatch,
+    ):
+        from backend.calculation_v2 import engine
+        from backend.executable_topology import (
+            UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+        )
+
+        provider_called = False
+
+        def fail_if_called(*_args, **_kwargs):
+            nonlocal provider_called
+            provider_called = True
+            raise AssertionError("provider calculation must not run")
+
+        monkeypatch.setattr(engine, "calculate_aws_costs", fail_if_called)
+        sample_params["integrateErrorHandling"] = True
+
+        with pytest.raises(ValueError) as exc_info:
+            engine.calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
+            )
+
+        assert exc_info.value.code == UNSUPPORTED_ERROR_HANDLING_TOPOLOGY
+        assert provider_called is False
 
     def test_winner_contains_complete_resolved_deployment_specification(
         self,

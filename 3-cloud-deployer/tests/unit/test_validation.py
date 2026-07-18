@@ -46,6 +46,34 @@ class TestValidation(unittest.TestCase):
             validator.validate_config_content(CONSTANTS.CONFIG_FILE, content)
         self.assertIn("Missing key", str(cm.exception))
 
+    def test_validate_optimization_rejects_unsupported_error_handling(self):
+        content = {
+            "result": {
+                "inputParamsUsed": {
+                    "integrateErrorHandling": True,
+                }
+            }
+        }
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+        ):
+            validator.validate_config_content(
+                CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+                content,
+            )
+
+    def test_validate_optimization_accepts_false_or_omitted_error_handling(self):
+        validator.validate_config_content(
+            CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            {"result": {"inputParamsUsed": {"integrateErrorHandling": False}}},
+        )
+        validator.validate_config_content(
+            CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            {"result": {"inputParamsUsed": {}}},
+        )
+
     def test_validate_config_credentials_valid(self):
         """Test valid credentials config"""
         content = {
@@ -461,6 +489,24 @@ class TestValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
              validator.validate_project_zip(zip_buf)
         self.assertIn("Missing event-feedback function", str(cm.exception))
+
+    def test_validate_zip_rejects_unsupported_error_handling_topology(self):
+        opt = {
+            "result": {
+                "inputParamsUsed": {
+                    "integrateErrorHandling": True,
+                }
+            }
+        }
+        zip_buf = self._create_zip_with_configs(
+            {CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+        ):
+            validator.validate_project_zip(zip_buf)
 
     def test_validate_zip_feedback_success(self):
         """Test zip with returnFeedbackToDevice=True AND feedback logic present"""

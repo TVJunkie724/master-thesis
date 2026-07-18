@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import importlib
 import json
 import os
@@ -14,6 +16,12 @@ from typing import Mapping
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CONTRACT_JWT_KEY = hashlib.sha256(
+    b"twin2multicloud-openapi-jwt"
+).hexdigest()
+CONTRACT_ENCRYPTION_KEY = base64.urlsafe_b64encode(
+    hashlib.sha256(b"twin2multicloud-openapi-encryption").digest()
+).decode("ascii")
 
 
 @dataclass(frozen=True)
@@ -28,10 +36,13 @@ SERVICES: dict[str, ServiceSpec] = {
         project_dir=REPO_ROOT / "twin2multicloud_backend",
         app_import="src.main:app",
         env={
+            "APP_ENV": "test",
             "DATABASE_URL": "sqlite:////tmp/twin2multicloud_contract_gate.db",
             "ENABLE_TEST_ENDPOINTS": "false",
             "SEED_DATA": "false",
             "DEBUG": "false",
+            "JWT_SECRET_KEY": CONTRACT_JWT_KEY,
+            "ENCRYPTION_KEY": CONTRACT_ENCRYPTION_KEY,
         },
     ),
     "optimizer": ServiceSpec(
@@ -45,14 +56,6 @@ SERVICES: dict[str, ServiceSpec] = {
 }
 
 
-def ensure_contract_runtime_files() -> None:
-    """Create non-secret runtime files required only to import legacy apps."""
-    config_path = Path("/config/config.json")
-    if not config_path.exists():
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_path.write_text(json.dumps({"mode": "INFO"}) + "\n", encoding="utf-8")
-
-
 def parse_app_import(import_path: str) -> tuple[str, str]:
     if ":" not in import_path:
         raise ValueError(f"Invalid app import '{import_path}'. Expected '<module>:<attribute>'.")
@@ -64,9 +67,8 @@ def parse_app_import(import_path: str) -> tuple[str, str]:
 
 def load_openapi(spec: ServiceSpec) -> dict:
     for key, value in spec.env.items():
-        os.environ.setdefault(key, value)
+        os.environ[key] = value
 
-    ensure_contract_runtime_files()
     os.chdir(spec.project_dir)
     src_dir = spec.project_dir / "src"
     for path in (src_dir, spec.project_dir):

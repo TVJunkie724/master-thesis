@@ -122,6 +122,17 @@ void main() {
         expect(params.averageDigitalTwinQueryResponseSizeInKb, 1.0);
       });
 
+      test(
+        'preserves unsupported historical topology for read-only review',
+        () {
+          final params = CalcParams.fromJson({'integrateErrorHandling': true});
+
+          expect(params.integrateErrorHandling, isTrue);
+          expect(params.isExecutableTopology, isFalse);
+          expect(params.toJson()['integrateErrorHandling'], isTrue);
+        },
+      );
+
       test('rejects invalid present ADT assumption values', () {
         expect(
           () => CalcParams.fromJson({

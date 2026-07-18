@@ -24,6 +24,12 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
+from src.contracts.executable_topology import (
+    ERROR_HANDLING_FIELD,
+    UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+    UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+    ensure_executable_error_handling_topology,
+)
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.credential_resolution_service import (
     CredentialResolutionService,
@@ -661,6 +667,7 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
 
 def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
     """Materialize the Deployer package from persisted backend state."""
+    _ensure_optimizer_topology_is_executable(twin.optimizer_config)
     deployment_specification = _selected_deployment_specification(twin)
     providers = _build_providers_config(twin)
     _validate_manifest_provider_path(
@@ -1247,6 +1254,7 @@ def _build_optimization_config(oc) -> dict:
     input_params = {}
     if oc.params:
         params = _json_object_from_content(oc.params, "optimizer_config.params")
+        _ensure_optimizer_topology_is_executable(oc, params=params)
         input_params = {
             "useEventChecking": params.get("useEventChecking") is True,
             "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow")
@@ -1256,6 +1264,34 @@ def _build_optimization_config(oc) -> dict:
             "needs3DModel": params.get("needs3DModel") is True,
         }
     return {"result": {"inputParamsUsed": input_params}}
+
+
+def _ensure_optimizer_topology_is_executable(
+    oc,
+    *,
+    params: dict[str, Any] | None = None,
+) -> None:
+    """Reject legacy optimizer state before package or credential processing."""
+    if oc is None or not oc.params:
+        return
+    resolved_params = (
+        params
+        if params is not None
+        else _json_object_from_content(
+            oc.params,
+            "optimizer_config.params",
+        )
+    )
+    try:
+        ensure_executable_error_handling_topology(
+            resolved_params.get(ERROR_HANDLING_FIELD)
+        )
+    except ValueError:
+        _raise_package_error(
+            f"optimizer_config.params.{ERROR_HANDLING_FIELD}",
+            UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+            UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+        )
 
 
 async def upload_project_to_deployer(

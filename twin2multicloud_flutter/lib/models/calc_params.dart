@@ -48,7 +48,7 @@ class CalcParams {
   /// Not exposed in UI, hardcoded
   final double eventTriggerRate;
 
-  /// Integrate error handling (default: false)
+  /// Legacy compatibility field; true is not executable in the baseline.
   final bool integrateErrorHandling;
 
   // ============================================================
@@ -152,6 +152,9 @@ class CalcParams {
   bool get isStorageDurationValid =>
       hotStorageDurationInMonths <= coolStorageDurationInMonths &&
       coolStorageDurationInMonths <= archiveStorageDurationInMonths;
+
+  /// Whether the current values can be submitted to the executable baseline.
+  bool get isExecutableTopology => !integrateErrorHandling;
 
   /// Convert to JSON for API request
   Map<String, dynamic> toJson() => {

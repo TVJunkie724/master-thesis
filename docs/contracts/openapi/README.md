@@ -26,6 +26,6 @@ docker run --rm -v "$PWD:/workspace" -w /workspace 3cloud-deployer:latest \
 The snapshots must stay free of live credentials, generated deployment projects,
 and live cloud E2E output.
 
-The exporter creates a minimal non-secret `/config/config.json` inside the
-container when legacy import-time logger code requires that path. It never
-creates or reads cloud credential files.
+The exporter uses an isolated test runtime for the Management API and imports
+all services without creating `/config` files. It never creates or reads cloud
+credential files.

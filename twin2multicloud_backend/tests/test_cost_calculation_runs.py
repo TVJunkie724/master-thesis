@@ -434,6 +434,30 @@ def test_create_run_persists_history_items_and_compatibility_state(
     }
 
 
+def test_create_run_rejects_unsupported_error_handling_without_side_effects(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    fake = FakeOptimizerClient()
+    _override_optimizer(client, fake)
+    invalid_params = dict(sample_calc_params)
+    invalid_params["integrateErrorHandling"] = True
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": invalid_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert fake.calls == []
+    assert db_session.query(CostCalculationRun).count() == 0
+    assert db_session.query(OptimizerConfiguration).count() == 0
+
+
 def test_create_run_rejects_client_owned_pricing_run_reference(
     authenticated_client,
     sample_calc_params,

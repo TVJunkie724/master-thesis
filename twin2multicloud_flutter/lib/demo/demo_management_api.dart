@@ -678,6 +678,13 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
+    if (!params.isExecutableTopology) {
+      throw const DemoApiException(
+        'UNSUPPORTED_ERROR_HANDLING_TOPOLOGY',
+        'The executable five-layer baseline does not deploy the requested '
+            'error-handling topology.',
+      );
+    }
     final paramsJson = params.toJson();
     final configured = store.optimizerConfig('demo-configured');
     final result = configured?['result'] is Map
