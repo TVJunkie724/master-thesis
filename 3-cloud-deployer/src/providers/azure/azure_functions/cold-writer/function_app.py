@@ -20,14 +20,16 @@ from azure.storage.blob import BlobServiceClient
 
 # Handle import path for shared module
 try:
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -95,14 +97,20 @@ def cold_writer(req: func.HttpRequest) -> func.HttpResponse:
         # 1. Validate token
         headers = dict(req.headers)
         if not validate_token(headers, _get_inter_cloud_token()):
-            return func.HttpResponse(
-                json.dumps({"error": "Unauthorized"}),
+            return error_response(
+                code="UNAUTHORIZED",
+                message="Invalid X-Inter-Cloud-Token",
                 status_code=403,
-                mimetype="application/json"
             )
-        
+
         # 2. Parse body
-        body = req.get_json()
+        body = parse_json_request(req)
+        if not isinstance(body, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
         
         iot_device_id = body.get("iot_device_id")
         chunk_index = body.get("chunk_index")
@@ -113,17 +121,17 @@ def cold_writer(req: func.HttpRequest) -> func.HttpResponse:
         
         # 3. Validate required fields
         if not all([iot_device_id, chunk_index is not None, start_timestamp, end_timestamp, items]):
-            return func.HttpResponse(
-                json.dumps({"error": "Missing required fields"}),
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Missing required fields",
                 status_code=400,
-                mimetype="application/json"
             )
         
         if not isinstance(items, list):
-            return func.HttpResponse(
-                json.dumps({"error": "'items' must be a list"}),
+            return error_response(
+                code="INVALID_REQUEST",
+                message="'items' must be a list",
                 status_code=400,
-                mimetype="application/json"
             )
         
         logging.info(f"Received {len(items)} items from {source_cloud}")
@@ -147,18 +155,24 @@ def cold_writer(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except json.JSONDecodeError as e:
-        logging.error(f"Invalid JSON: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": "Invalid JSON"}),
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON",
             status_code=400,
-            mimetype="application/json"
         )
-        
-    except Exception as e:
-        logging.exception(f"Cold Writer Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
+
+    except MissingEnvironmentVariableError as exc:
+        return failure_response(
+            component="azure.cold-writer.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Cold writer configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
+        )
+
+    except Exception as exc:
+        return failure_response(
+            component="azure.cold-writer",
+            error=exc,
         )

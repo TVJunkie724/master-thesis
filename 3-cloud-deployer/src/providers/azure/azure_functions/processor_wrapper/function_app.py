@@ -21,14 +21,16 @@ import azure.functions as func
 
 # Handle import path for shared module
 try:
-    from _shared.env_utils import require_env
-    from _shared.inter_cloud import read_http_error_body, safe_urlopen
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
+    from _shared.inter_cloud import safe_urlopen
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
-    from _shared.env_utils import require_env
-    from _shared.inter_cloud import read_http_error_body, safe_urlopen
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
+    from _shared.inter_cloud import safe_urlopen
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -60,7 +62,11 @@ def _get_user_function_key():
 def _get_processor_url(device_id: str) -> str:
     """Construct processor URL dynamically from device ID with function key."""
     processor_name = f"{device_id}-processor"
-    base_url = os.environ.get("FUNCTION_APP_BASE_URL", "")
+    base_url = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
+    if not base_url:
+        raise MissingEnvironmentVariableError(
+            "FUNCTION_APP_BASE_URL is missing or empty"
+        )
     user_key = _get_user_function_key()
     return f"{base_url}/api/{processor_name}?code={user_key}"
 
@@ -91,14 +97,13 @@ def _invoke_persister(payload: dict) -> None:
         with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Persister invoked successfully: {response.getcode()}")
     except urllib.error.HTTPError as e:
-        # Read the error response body to get the actual error message
-        error_body = read_http_error_body(e)
-        logging.error(f"Failed to invoke Persister: {e.code} {e.reason}")
-        if error_body:
-            logging.error(f"Error response from Persister: {error_body}")
+        logging.error("Failed to invoke Persister: HTTP %s", e.code)
         raise
     except urllib.error.URLError as e:
-        logging.error(f"Network error invoking Persister: {e.reason}")
+        logging.error(
+            "Network error invoking Persister: %s",
+            type(e.reason).__name__,
+        )
         raise
 
 
@@ -115,7 +120,13 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
     
     try:
         # Parse input event
-        event = req.get_json()
+        event = parse_json_request(req)
+        if not isinstance(event, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
         
         # 1. Call User Processor via HTTP
         device_id = event.get("device_id") or event.get("iotDeviceId", "default")
@@ -124,19 +135,30 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
             if not url or not url.startswith("http"):
                 raise Exception(f"Cannot construct processor URL for device {device_id}")
             else:
-                logging.info(f"Calling user processor at {url}")
+                logging.info("Calling configured user processor")
                 data = json.dumps(event).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
                 req_proc = urllib.request.Request(url, data=data, headers=headers, method="POST")
                 with safe_urlopen(req_proc, timeout=30) as response:
                     processed_event = json.loads(response.read().decode("utf-8"))
                 logging.info("User logic completed")
-        except Exception as e:
-            logging.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
-            return func.HttpResponse(
-                json.dumps({"error": "User logic error", "message": str(e)}),
-                status_code=500,
-                mimetype="application/json"
+        except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+            return failure_response(
+                component="azure.processor.user-logic",
+                error=exc,
+                code="USER_LOGIC_ERROR",
+                message="The configured user processor failed.",
+                status_code=502,
+            )
+        except MissingEnvironmentVariableError:
+            raise
+        except Exception as exc:
+            return failure_response(
+                component="azure.processor.user-logic",
+                error=exc,
+                code="USER_LOGIC_ERROR",
+                message="The configured user processor failed.",
+                status_code=502,
             )
         
         # 2. Invoke Persister
@@ -148,10 +170,33 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except Exception as e:
-        logging.exception(f"[SYSTEM_ERROR] Processor error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": "System error", "message": str(e)}),
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON body",
+            status_code=400,
+        )
+
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        return failure_response(
+            component="azure.processor.persister",
+            error=exc,
+            code="UPSTREAM_ERROR",
+            message="The persistence service is unavailable.",
+            status_code=502,
+        )
+
+    except MissingEnvironmentVariableError as exc:
+        return failure_response(
+            component="azure.processor.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Processor configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
+        )
+
+    except Exception as exc:
+        return failure_response(
+            component="azure.processor",
+            error=exc,
         )

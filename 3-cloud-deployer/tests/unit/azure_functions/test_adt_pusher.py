@@ -82,11 +82,17 @@ def _json_body(response) -> dict:
     return json.loads(response.get_body().decode("utf-8"))
 
 
+def _error(response) -> dict:
+    return _json_body(response)["error"]
+
+
 def test_rejects_requests_when_server_token_is_not_configured(monkeypatch):
     module = _load_adt_pusher(monkeypatch, token=None)
     response = module.adt_pusher(_request({}))
     assert response.status_code == 500
-    assert _json_body(response) == {"error": "Service configuration unavailable"}
+    assert _error(response)["code"] == "CONFIGURATION_ERROR"
+    assert _error(response)["message"] == "Service configuration is unavailable."
+    assert _error(response)["correlation_id"]
 
 
 @pytest.mark.parametrize("request_token", [None, "wrong-token"])
@@ -94,14 +100,19 @@ def test_rejects_missing_or_invalid_request_token(monkeypatch, request_token):
     module = _load_adt_pusher(monkeypatch)
     response = module.adt_pusher(_request({}, token=request_token))
     assert response.status_code == 401
-    assert _json_body(response) == {"error": "Unauthorized"}
+    assert _error(response) == {
+        "code": "UNAUTHORIZED",
+        "message": "Invalid or missing X-Inter-Cloud-Token",
+    }
 
 
 def test_rejects_requests_when_adt_endpoint_is_not_configured(monkeypatch):
     module = _load_adt_pusher(monkeypatch, adt_url=None)
     response = module.adt_pusher(_request({}))
     assert response.status_code == 503
-    assert _json_body(response) == {"error": "Service unavailable"}
+    assert _error(response)["code"] == "SERVICE_UNAVAILABLE"
+    assert _error(response)["message"] == "Azure Digital Twins is unavailable."
+    assert _error(response)["correlation_id"]
 
 
 @pytest.mark.parametrize("json_error", [TypeError("invalid"), ValueError("invalid")])
@@ -111,7 +122,10 @@ def test_rejects_invalid_json(monkeypatch, json_error):
         _request(None, json_error=json_error),
     )
     assert response.status_code == 400
-    assert _json_body(response) == {"error": "Invalid JSON"}
+    assert _error(response) == {
+        "code": "INVALID_REQUEST",
+        "message": "Invalid JSON",
+    }
 
 
 @pytest.mark.parametrize(
@@ -137,7 +151,10 @@ def test_rejects_invalid_payload_shapes(monkeypatch, body, error):
     module = _load_adt_pusher(monkeypatch)
     response = module.adt_pusher(_request(body))
     assert response.status_code == 400
-    assert _json_body(response) == {"error": error}
+    assert _error(response) == {
+        "code": "INVALID_REQUEST",
+        "message": error,
+    }
 
 
 def test_updates_mapped_twin_from_inter_cloud_envelope(monkeypatch):
@@ -189,7 +206,7 @@ def test_updates_mapped_twin_from_inter_cloud_envelope(monkeypatch):
         ),
         (
             RuntimeError("secret-provider-detail"),
-            500,
+            502,
             "Azure Digital Twins update failed",
         ),
     ],
@@ -201,6 +218,8 @@ def test_redacts_validation_and_provider_failures(
     status_code,
     error,
 ):
+    if status_code == 502:
+        monkeypatch.setenv("AZURE_PROVIDER_TEST_SECRET", str(failure))
     module = _load_adt_pusher(monkeypatch)
     body = {
         "device_id": "sensor-1",
@@ -213,7 +232,15 @@ def test_redacts_validation_and_provider_failures(
         response = module.adt_pusher(_request(body))
 
     assert response.status_code == status_code
-    assert _json_body(response) == {"error": error}
+    if status_code == 502:
+        assert _error(response)["code"] == "ADT_DELIVERY_FAILED"
+        assert _error(response)["message"] == f"{error}."
+        assert _error(response)["correlation_id"]
+    else:
+        assert _error(response) == {
+            "code": "INVALID_REQUEST",
+            "message": error,
+        }
     assert str(failure) not in caplog.text
     assert str(failure) not in response.get_body().decode("utf-8")
 

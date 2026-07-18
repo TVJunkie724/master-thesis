@@ -48,14 +48,16 @@ from azure.cosmos import CosmosClient
 
 # Handle import path for shared module
 try:
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, log_runtime_failure, parse_json_request
     from _shared.inter_cloud import post_to_remote, safe_urlopen, validate_https_url
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, log_runtime_failure, parse_json_request
     from _shared.inter_cloud import post_to_remote, safe_urlopen, validate_https_url
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 
 
 class ConfigurationError(Exception):
@@ -65,6 +67,10 @@ class ConfigurationError(Exception):
 
 class AdtDeliveryError(Exception):
     """Raised when required Azure Digital Twins delivery fails."""
+
+
+class PayloadValidationError(ValueError):
+    """Raised when telemetry cannot satisfy the persistence contract."""
 
 
 # DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
@@ -174,8 +180,11 @@ def _invoke_event_checker(event: dict) -> None:
     try:
         with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Event Checker invoked: {response.getcode()}")
-    except Exception as e:
-        logging.warning(f"Failed to invoke Event Checker: {e}")
+    except Exception as exc:
+        log_runtime_failure(
+            "azure.persister.optional-event-checker",
+            exc,
+        )
         # Don't fail persister if event checker fails
 
 
@@ -223,7 +232,9 @@ def _build_adt_payload(event: dict) -> dict:
         }
         telemetry = {key: value for key, value in event.items() if key not in excluded_keys}
     if not isinstance(telemetry, dict) or not telemetry:
-        raise ValueError("Telemetry payload must be a non-empty object")
+        raise PayloadValidationError(
+            "Telemetry payload must be a non-empty object"
+        )
 
     return {
         "device_id": event.get("device_id"),
@@ -256,7 +267,7 @@ def _push_to_adt(event: dict) -> None:
             target_layer="L4",
         )
         logging.info("ADT push completed")
-    except (ConfigurationError, ValueError):
+    except (ConfigurationError, PayloadValidationError):
         raise
     except Exception as exc:
         logging.error("ADT push failed: %s", type(exc).__name__)
@@ -299,7 +310,13 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         _validate_config()
 
         # Parse input data
-        event = req.get_json()
+        event = parse_json_request(req)
+        if not isinstance(event, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
         logging.info("Event received")
         
         # Build storage item (Cosmos DB requires 'id' as primary key)
@@ -313,18 +330,18 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         
         if not device_id:
             logging.error("Missing 'device_id' in event - cannot generate document ID")
-            return func.HttpResponse(
-                json.dumps({"error": "Missing 'device_id' in event. Cannot generate document ID."}),
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Missing 'device_id' in event",
                 status_code=400,
-                mimetype="application/json"
             )
         
         if not timestamp_value:
             logging.error("Missing 'timestamp' in event - cannot generate document ID")
-            return func.HttpResponse(
-                json.dumps({"error": "Missing 'timestamp' in event. Did normalization run?"}),
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Missing 'timestamp' in event",
                 status_code=400,
-                mimetype="application/json"
             )
         
         item["id"] = f"{device_id}_{timestamp_value}"
@@ -338,7 +355,7 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         
         # Route based on multi-cloud config
         if _is_multi_cloud_storage():
-            logging.info(f"Multi-cloud mode: POSTing to {REMOTE_WRITER_URL}")
+            logging.info("Multi-cloud mode: POSTing to configured writer")
             
             if not INTER_CLOUD_TOKEN:
                 raise ConfigurationError("INTER_CLOUD_TOKEN required for multi-cloud mode")
@@ -349,7 +366,10 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
                 payload=item,
                 target_layer="L3"
             )
-            logging.info(f"Item persisted to remote cloud: {result}")
+            logging.info(
+                "Item persisted to remote cloud: HTTP %s",
+                result.get("statusCode"),
+            )
         else:
             # Single-cloud: Write to local Cosmos DB
             logging.info("Single-cloud mode: Writing to local Cosmos DB")
@@ -370,34 +390,45 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except ValueError as exc:
-        logging.warning("Persister payload validation failed: %s", type(exc).__name__)
-        return func.HttpResponse(
-            json.dumps({"error": "Invalid telemetry payload"}),
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON body",
             status_code=400,
-            mimetype="application/json",
         )
 
-    except ConfigurationError as exc:
-        logging.error("Persister configuration failed: %s", type(exc).__name__)
-        return func.HttpResponse(
-            json.dumps({"error": "Configuration error"}),
+    except PayloadValidationError:
+        logging.warning("Persister payload validation failed")
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid telemetry payload",
+            status_code=400,
+        )
+
+    except (
+        ConfigurationError,
+        MissingEnvironmentVariableError,
+        json.JSONDecodeError,
+    ) as exc:
+        return failure_response(
+            component="azure.persister.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Persister configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
         )
 
     except AdtDeliveryError as exc:
-        logging.error("Persister ADT delivery failed: %s", type(exc).__name__)
-        return func.HttpResponse(
-            json.dumps({"error": "Azure Digital Twins update failed"}),
+        return failure_response(
+            component="azure.persister.adt-delivery",
+            error=exc,
+            code="ADT_DELIVERY_FAILED",
+            message="Azure Digital Twins update failed.",
             status_code=502,
-            mimetype="application/json"
         )
 
     except Exception as exc:
-        logging.error("Persister failed: %s", type(exc).__name__)
-        return func.HttpResponse(
-            json.dumps({"error": "Persister error"}),
-            status_code=500,
-            mimetype="application/json"
+        return failure_response(
+            component="azure.persister",
+            error=exc,
         )

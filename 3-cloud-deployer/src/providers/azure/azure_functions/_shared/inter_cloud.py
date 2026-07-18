@@ -10,6 +10,7 @@ Editable: Yes - This is shared runtime code packaged with Azure Functions
 """
 import json
 import hmac
+import logging
 import re
 import time
 import uuid
@@ -174,43 +175,71 @@ def post_to_remote(
                 }
         
         except urllib.error.HTTPError as e:
-            # Read error body for better debugging
-            error_body = read_http_error_body(e)
-            
             # Client error (4xx): Do not retry - fail fast
             if 400 <= e.code < 500:
-                print(f"Client Error ({e.code}): {e.reason}. Body: {error_body}. Not retrying.")
-                raise e
-            
+                logging.warning(
+                    "Inter-cloud POST rejected: status=%s retry=false",
+                    e.code,
+                )
+                raise
+
             # Server error (5xx): Retry with backoff
             if attempt < max_retries:
-                print(f"Server Error ({e.code}): {e.reason}. Body: {error_body}. Retrying in {retry_delay}s...")
+                logging.warning(
+                    "Inter-cloud POST failed: status=%s attempt=%s/%s "
+                    "retry_in_seconds=%s",
+                    e.code,
+                    attempt + 1,
+                    max_retries + 1,
+                    retry_delay,
+                )
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Last error: {e.code} {e.reason}. Body: {error_body}")
-                raise e
-        
-        except urllib.error.URLError as e:
+                logging.error(
+                    "Inter-cloud POST failed: status=%s retries_exhausted=true",
+                    e.code,
+                )
+                raise
+
+        except urllib.error.URLError:
             # Network/connection error: Retry with backoff
             if attempt < max_retries:
-                print(f"Network error (attempt {attempt + 1}): {e.reason}. Retrying in {retry_delay}s...")
+                logging.warning(
+                    "Inter-cloud POST network failure: attempt=%s/%s "
+                    "retry_in_seconds=%s",
+                    attempt + 1,
+                    max_retries + 1,
+                    retry_delay,
+                )
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Network error: {e.reason}")
-                raise e
-        
-        except Exception as e:
+                logging.error(
+                    "Inter-cloud POST network failure: retries_exhausted=true"
+                )
+                raise
+
+        except Exception as exc:
             # Other errors: Retry with backoff
             if attempt < max_retries:
-                diagnostic = redact_diagnostic(e)
-                print(f"Error (attempt {attempt + 1}): {diagnostic}. Retrying in {retry_delay}s...")
+                logging.warning(
+                    "Inter-cloud POST runtime failure: error_type=%s "
+                    "attempt=%s/%s retry_in_seconds=%s",
+                    type(exc).__name__,
+                    attempt + 1,
+                    max_retries + 1,
+                    retry_delay,
+                )
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Error: {redact_diagnostic(e)}")
-                raise e
+                logging.error(
+                    "Inter-cloud POST runtime failure: error_type=%s "
+                    "retries_exhausted=true",
+                    type(exc).__name__,
+                )
+                raise
 
 
 def post_raw(
@@ -264,39 +293,69 @@ def post_raw(
                 }
         
         except urllib.error.HTTPError as e:
-            # Read error body for better debugging
-            error_body = read_http_error_body(e)
-            
             if 400 <= e.code < 500:
-                print(f"Client Error ({e.code}): {e.reason}. Body: {error_body}. Not retrying.")
-                raise e
-            
+                logging.warning(
+                    "Inter-cloud raw POST rejected: status=%s retry=false",
+                    e.code,
+                )
+                raise
+
             if attempt < max_retries:
-                print(f"Server Error ({e.code}): {e.reason}. Body: {error_body}. Retrying in {retry_delay}s...")
+                logging.warning(
+                    "Inter-cloud raw POST failed: status=%s attempt=%s/%s "
+                    "retry_in_seconds=%s",
+                    e.code,
+                    attempt + 1,
+                    max_retries + 1,
+                    retry_delay,
+                )
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Last error: {e.code} {e.reason}. Body: {error_body}")
-                raise e
-        
-        except urllib.error.URLError as e:
+                logging.error(
+                    "Inter-cloud raw POST failed: status=%s "
+                    "retries_exhausted=true",
+                    e.code,
+                )
+                raise
+
+        except urllib.error.URLError:
             if attempt < max_retries:
-                print(f"Network error (attempt {attempt + 1}): {e.reason}. Retrying in {retry_delay}s...")
+                logging.warning(
+                    "Inter-cloud raw POST network failure: attempt=%s/%s "
+                    "retry_in_seconds=%s",
+                    attempt + 1,
+                    max_retries + 1,
+                    retry_delay,
+                )
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Network error: {e.reason}")
-                raise e
-        
-        except Exception as e:
+                logging.error(
+                    "Inter-cloud raw POST network failure: "
+                    "retries_exhausted=true"
+                )
+                raise
+
+        except Exception as exc:
             if attempt < max_retries:
-                diagnostic = redact_diagnostic(e)
-                print(f"Error (attempt {attempt + 1}): {diagnostic}. Retrying in {retry_delay}s...")
+                logging.warning(
+                    "Inter-cloud raw POST runtime failure: error_type=%s "
+                    "attempt=%s/%s retry_in_seconds=%s",
+                    type(exc).__name__,
+                    attempt + 1,
+                    max_retries + 1,
+                    retry_delay,
+                )
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Error: {redact_diagnostic(e)}")
-                raise e
+                logging.error(
+                    "Inter-cloud raw POST runtime failure: error_type=%s "
+                    "retries_exhausted=true",
+                    type(exc).__name__,
+                )
+                raise
 
 
 def validate_token(headers: dict, expected_token: str) -> bool:

@@ -10,31 +10,35 @@ Editable: Yes - This is shared runtime code packaged with Azure Functions
 import os
 
 
+class MissingEnvironmentVariableError(EnvironmentError):
+    """Raised when a required Azure Function setting is unavailable."""
+
+
 def require_env(name: str) -> str:
     """
     Get required environment variable or raise error at module load time.
-    
+
     This provides fail-fast behavior for missing configuration.
     Call at module level to ensure the function fails immediately
     during cold start if required configuration is missing.
-    
+
     Args:
         name: The environment variable name
-        
+
     Returns:
         The stripped environment variable value
-        
+
     Raises:
-        EnvironmentError: If the variable is missing or empty
-        
+        MissingEnvironmentVariableError: If the variable is missing or empty
+
     Example:
         from _shared.env_utils import require_env
-        
+
         DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
     """
     value = os.environ.get(name, "").strip()
     if not value:
-        raise EnvironmentError(
+        raise MissingEnvironmentVariableError(
             f"CRITICAL: Required environment variable '{name}' is missing or empty"
         )
     return value

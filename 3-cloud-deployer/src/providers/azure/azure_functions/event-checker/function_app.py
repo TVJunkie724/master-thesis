@@ -47,13 +47,15 @@ import azure.functions as func
 
 # Handle import path for shared module
 try:
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_reference, failure_response, parse_json_request
     from _shared.inter_cloud import safe_urlopen
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_reference, failure_response, parse_json_request
     from _shared.inter_cloud import safe_urlopen
 
 
@@ -69,7 +71,9 @@ VERIFICATION_TRACE_PATTERN = re.compile(r"^VERIFY-[A-F0-9]{8}$")
 
 
 def _verification_trace_id(event: dict):
-    trace_id = event.get("trace_id") or event.get("detail", {}).get("trace_id")
+    detail = event.get("detail")
+    detail_trace_id = detail.get("trace_id") if isinstance(detail, dict) else None
+    trace_id = event.get("trace_id") or detail_trace_id
     if isinstance(trace_id, str) and VERIFICATION_TRACE_PATTERN.fullmatch(trace_id):
         return trace_id
     return None
@@ -252,12 +256,16 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
     Evaluate data against configured event rules and trigger actions.
     """
     logging.info("Azure Event Checker: Checking events")
-    
-    # Fail-fast validation
-    _validate_config()
-    
+
     try:
-        event = req.get_json()
+        _validate_config()
+        event = parse_json_request(req)
+        if not isinstance(event, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
         logging.info("Event received")
         trace_id = _verification_trace_id(event)
         if trace_id:
@@ -268,7 +276,7 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
         
         results = []
         
-        for e in config_events:
+        for event_index, e in enumerate(config_events):
             try:
                 condition = e.get("condition", "")
                 parts = condition.split()
@@ -343,9 +351,16 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
                         _send_feedback(feedback_payload)
                         results.append({"event": condition, "feedback": "sent"})
                 
-            except Exception as ex:
-                logging.exception(f"Event check failed for {e}: {ex}")
-                results.append({"event": str(e), "error": str(ex)})
+            except Exception as exc:
+                result = {
+                    "event_index": event_index,
+                    **failure_reference(
+                        component="azure.event-checker.action",
+                        error=exc,
+                        code="EVENT_ACTION_FAILED",
+                    ),
+                }
+                results.append(result)
         
         return func.HttpResponse(
             json.dumps({"checked": len(config_events), "results": results}),
@@ -353,18 +368,28 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except ConfigurationError as e:
-        logging.error(f"Configuration Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON body",
+            status_code=400,
+        )
+
+    except (
+        ConfigurationError,
+        MissingEnvironmentVariableError,
+        json.JSONDecodeError,
+    ) as exc:
+        return failure_response(
+            component="azure.event-checker.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Event checker configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
         )
         
-    except Exception as e:
-        logging.exception(f"Event Checker Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
-            status_code=500,
-            mimetype="application/json"
+    except Exception as exc:
+        return failure_response(
+            component="azure.event-checker",
+            error=exc,
         )

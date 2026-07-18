@@ -22,14 +22,16 @@ from azure.identity import DefaultAzureCredential
 
 # Handle import path for shared module
 try:
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -141,8 +143,11 @@ def _query_cosmos_db(query_params: dict) -> dict:
             if component_name in components:
                 component_type = components[component_name].get("$model", "")
                 iot_device_id = component_type.replace(f"{twin_name}-", "")
-        except Exception as e:
-            logging.warning(f"Failed to get entity from ADT: {e}")
+        except Exception as exc:
+            logging.warning(
+                "Failed to get entity from ADT: %s",
+                type(exc).__name__,
+            )
     
     if not iot_device_id:
         # Fallback: try to extract from component name or entity ID
@@ -178,7 +183,7 @@ def _query_cosmos_db(query_params: dict) -> dict:
         prop_def = prop_meta.get("definition", {})
         data_type = prop_def.get("dataType", {}).get("type", "STRING")
         property_type = f"{data_type.capitalize()}Value"
-        
+
         entry = {
             "entityPropertyReference": {
                 "propertyName": property_name
@@ -221,16 +226,23 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
         # In multi-cloud, token is required for security.
         token = _get_inter_cloud_token()
         if token and not validate_token(headers, token):
-            return func.HttpResponse(
-                json.dumps({"error": "Unauthorized", "message": "Invalid or missing X-Inter-Cloud-Token"}),
+            return error_response(
+                code="UNAUTHORIZED",
+                message="Invalid or missing X-Inter-Cloud-Token",
                 status_code=401,
-                mimetype="application/json"
             )
         
         # Handle GET requests (simple queries from E2E tests and basic API clients)
         if req.method == "GET":
             device_id = req.params.get("device_id") or req.params.get("iotDeviceId")
-            limit = int(req.params.get("limit", "100"))
+            try:
+                limit = int(req.params.get("limit", "100"))
+            except (TypeError, ValueError):
+                return error_response(
+                    code="INVALID_REQUEST",
+                    message="Query parameter 'limit' must be an integer",
+                    status_code=400,
+                )
             
             container = _get_cosmos_container()
             
@@ -260,8 +272,14 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # Handle POST requests (complex ADT-compatible queries)
-        query_params = req.get_json()
-        logging.info(f"Query: {json.dumps(query_params)}")
+        query_params = parse_json_request(req)
+        if not isinstance(query_params, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
+        logging.info("Received a hot-reader query")
         
         # Query Cosmos DB
         result = _query_cosmos_db(query_params)
@@ -272,18 +290,24 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except json.JSONDecodeError as e:
-        logging.error(f"Invalid JSON: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": "Bad Request", "message": "Invalid JSON"}),
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON",
             status_code=400,
-            mimetype="application/json"
         )
-        
-    except Exception as e:
-        logging.exception(f"Hot Reader Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": "Internal Server Error", "message": str(e)}),
+
+    except (MissingEnvironmentVariableError, json.JSONDecodeError) as exc:
+        return failure_response(
+            component="azure.hot-reader.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Hot reader configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
+        )
+
+    except Exception as exc:
+        return failure_response(
+            component="azure.hot-reader",
+            error=exc,
         )

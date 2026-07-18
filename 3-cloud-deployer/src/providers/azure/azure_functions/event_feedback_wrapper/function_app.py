@@ -22,12 +22,16 @@ import urllib.request
 import urllib.error
 
 try:
-    from _shared.inter_cloud import redact_diagnostic, safe_urlopen
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
+    from _shared.inter_cloud import safe_urlopen
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
-    from _shared.inter_cloud import redact_diagnostic, safe_urlopen
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
+    from _shared.inter_cloud import safe_urlopen
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -45,7 +49,9 @@ def _get_iot_hub_connection_string():
     if _iot_hub_connection_string is None:
         value = os.environ.get("IOT_HUB_CONNECTION_STRING", "").strip()
         if not value:
-            raise EnvironmentError("CRITICAL: IOT_HUB_CONNECTION_STRING is required")
+            raise MissingEnvironmentVariableError(
+                "IOT_HUB_CONNECTION_STRING is required"
+            )
         _iot_hub_connection_string = value
     return _iot_hub_connection_string
 
@@ -73,14 +79,6 @@ def _get_user_function_key():
     """Lazy-load USER_FUNCTION_KEY for Azure→user-functions HTTP authentication."""
     global _user_function_key
     if _user_function_key is None:
-        # Import require_env here to avoid import issues
-        try:
-            from _shared.env_utils import require_env
-        except ModuleNotFoundError:
-            _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            if _func_dir not in sys.path:
-                sys.path.insert(0, _func_dir)
-            from _shared.env_utils import require_env
         _user_function_key = require_env("USER_FUNCTION_KEY")
     return _user_function_key
 
@@ -95,10 +93,29 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     logger.info("Event-Feedback Wrapper: Executing user logic...")
     
     try:
-        event = req.get_json()
+        event = parse_json_request(req)
+        if not isinstance(event, dict) or not isinstance(event.get("detail"), dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must contain an event detail object",
+                status_code=400,
+            )
         logger.info("Event received")
         
         detail = event["detail"]
+        if (
+            "payload" not in detail
+            or not detail.get("iotDeviceId")
+            or not detail.get("digitalTwinName")
+        ):
+            return error_response(
+                code="INVALID_REQUEST",
+                message=(
+                    "Event detail must contain payload, iotDeviceId, "
+                    "and digitalTwinName"
+                ),
+                status_code=400,
+            )
         payload = detail["payload"]  # Extract payload for user processing
         iot_device_id = detail["iotDeviceId"]
         
@@ -109,7 +126,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             processed_payload = payload
         else:
             try:
-                logger.info(f"Calling user event-feedback function at {url}")
+                logger.info("Calling configured user event-feedback function")
                 # Add function key for Azure→user-functions authentication
                 user_key = _get_user_function_key()
                 separator = "&" if "?" in url else "?"
@@ -121,12 +138,26 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 with safe_urlopen(req_feedback, timeout=30) as response:
                     processed_payload = json.loads(response.read().decode("utf-8"))
                 logger.info("User logic completed")
-            except Exception as e:
-                logger.exception(
-                    "[USER_LOGIC_ERROR] Processing failed: %s",
-                    redact_diagnostic(e),
+            except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+                return failure_response(
+                    component="azure.event-feedback.user-logic",
+                    error=exc,
+                    code="USER_LOGIC_ERROR",
+                    message="The configured event-feedback function failed.",
+                    status_code=502,
+                    logger=logger,
                 )
+            except MissingEnvironmentVariableError:
                 raise
+            except Exception as exc:
+                return failure_response(
+                    component="azure.event-feedback.user-logic",
+                    error=exc,
+                    code="USER_LOGIC_ERROR",
+                    message="The configured event-feedback function failed.",
+                    status_code=502,
+                    logger=logger,
+                )
         
         # 2. Build topic and send to IoT Device via C2D
         topic = f"{detail['digitalTwinName']}-{iot_device_id}"
@@ -145,11 +176,26 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except Exception as e:
-        diagnostic = redact_diagnostic(e)
-        logger.exception("Event Feedback Failed: %s", diagnostic)
-        return func.HttpResponse(
-            json.dumps({"statusCode": 500, "body": f"Error: {diagnostic}"}),
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON body",
+            status_code=400,
+        )
+
+    except MissingEnvironmentVariableError as exc:
+        return failure_response(
+            component="azure.event-feedback.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Event-feedback configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
+            logger=logger,
+        )
+
+    except Exception as exc:
+        return failure_response(
+            component="azure.event-feedback",
+            error=exc,
+            logger=logger,
         )

@@ -39,19 +39,22 @@ import json
 import os
 import sys
 import logging
+import urllib.error
 
 import azure.functions as func
 
 # Handle import path for shared module
 try:
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import post_to_remote
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import post_to_remote
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -95,7 +98,13 @@ def connector(req: func.HttpRequest) -> func.HttpResponse:
     
     try:
         # Parse incoming event
-        event = req.get_json()
+        event = parse_json_request(req)
+        if not isinstance(event, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
         logging.info("Event received")
         
         # POST to remote Ingestion endpoint
@@ -106,26 +115,48 @@ def connector(req: func.HttpRequest) -> func.HttpResponse:
             target_layer="L2"
         )
         
-        logging.info(f"Successfully POSTed to remote Ingestion: {result}")
+        remote_status_code = result.get("statusCode")
+        logging.info(
+            "Successfully POSTed to remote Ingestion: HTTP %s",
+            remote_status_code,
+        )
         
         return func.HttpResponse(
-            json.dumps({"status": "forwarded", "remote_response": result}),
+            json.dumps({
+                "status": "forwarded",
+                "remote_status_code": remote_status_code,
+            }),
             status_code=200,
             mimetype="application/json"
         )
         
-    except ValueError as e:
-        logging.error(f"Connector Configuration Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
-            status_code=500,
-            mimetype="application/json"
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON body",
+            status_code=400,
         )
-        
-    except Exception as e:
-        logging.exception(f"Connector Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
+
+    except (MissingEnvironmentVariableError, ValueError) as exc:
+        return failure_response(
+            component="azure.connector",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Connector configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
+        )
+
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        return failure_response(
+            component="azure.connector",
+            error=exc,
+            code="UPSTREAM_ERROR",
+            message="Remote ingestion is unavailable.",
+            status_code=502,
+        )
+
+    except Exception as exc:
+        return failure_response(
+            component="azure.connector",
+            error=exc,
         )

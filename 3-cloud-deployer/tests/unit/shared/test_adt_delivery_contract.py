@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import sys
+import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -319,7 +320,10 @@ def test_azure_rejects_invalid_adt_payload_before_storage(monkeypatch):
 
     assert response.status_code == 400
     assert json.loads(response.get_body()) == {
-        "error": "Invalid telemetry payload",
+        "error": {
+            "code": "INVALID_REQUEST",
+            "message": "Invalid telemetry payload",
+        },
     }
     container.upsert_item.assert_not_called()
 
@@ -335,7 +339,12 @@ def test_azure_configuration_error_uses_stable_response(monkeypatch):
     response = module.persister(MagicMock())
 
     assert response.status_code == 500
-    assert json.loads(response.get_body()) == {"error": "Configuration error"}
+    payload = json.loads(response.get_body())
+    assert payload["error"]["code"] == "CONFIGURATION_ERROR"
+    assert payload["error"]["message"] == (
+        "Persister configuration is unavailable."
+    )
+    uuid.UUID(payload["error"]["correlation_id"])
     container.upsert_item.assert_not_called()
 
 

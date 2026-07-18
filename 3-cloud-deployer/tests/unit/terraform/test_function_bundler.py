@@ -662,6 +662,7 @@ class TestSharedFilesHandling:
             assert "_shared/__init__.py" in names
             # Core _shared has env_utils.py, not utils.py
             assert "_shared/env_utils.py" in names
+            assert "_shared/http_errors.py" in names
     
     def test_generates_default_files_if_missing(self, tmp_path):
         """Should generate default requirements.txt and host.json if not present.
@@ -992,6 +993,7 @@ class TestZipStructureValidation:
             shared_files = [n for n in names if n.startswith("_shared/")]
             assert len(shared_files) > 0, "Missing _shared directory"
             assert "_shared/__init__.py" in names, "Missing _shared/__init__.py"
+            assert "_shared/http_errors.py" in names, "Missing runtime error policy"
             
             # Function submodules
             persister_files = [n for n in names if n.startswith("persister/")]

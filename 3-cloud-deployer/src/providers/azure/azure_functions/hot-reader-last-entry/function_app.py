@@ -19,14 +19,16 @@ from azure.cosmos import CosmosClient
 
 # Handle import path for shared module
 try:
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -157,16 +159,21 @@ def hot_reader_last_entry(req: func.HttpRequest) -> func.HttpResponse:
     try:
         headers = dict(req.headers)
         
-        # Validate token for cross-cloud requests
-        if "x-inter-cloud-token" in headers or "X-Inter-Cloud-Token" in headers:
-            if not validate_token(headers, INTER_CLOUD_TOKEN):
-                return func.HttpResponse(
-                    json.dumps({"error": "Unauthorized"}),
-                    status_code=401,
-                    mimetype="application/json"
-                )
+        # Require the token whenever cross-cloud access is configured.
+        if INTER_CLOUD_TOKEN and not validate_token(headers, INTER_CLOUD_TOKEN):
+            return error_response(
+                code="UNAUTHORIZED",
+                message="Invalid or missing X-Inter-Cloud-Token",
+                status_code=401,
+            )
         
-        query_params = req.get_json()
+        query_params = parse_json_request(req)
+        if not isinstance(query_params, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
         result = _query_last_entry(query_params)
         
         return func.HttpResponse(
@@ -175,10 +182,24 @@ def hot_reader_last_entry(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except Exception as e:
-        logging.exception(f"Hot Reader Last Entry Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"propertyValues": {}}),
-            status_code=200,
-            mimetype="application/json"
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON",
+            status_code=400,
+        )
+
+    except (MissingEnvironmentVariableError, json.JSONDecodeError) as exc:
+        return failure_response(
+            component="azure.hot-reader-last-entry.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Last-entry reader configuration is unavailable.",
+            status_code=500,
+        )
+
+    except Exception as exc:
+        return failure_response(
+            component="azure.hot-reader-last-entry",
+            error=exc,
         )

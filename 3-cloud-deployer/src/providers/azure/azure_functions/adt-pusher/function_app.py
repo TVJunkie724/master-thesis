@@ -32,6 +32,8 @@ try:
         create_adt_client,
         update_adt_twin
     )
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
 except ModuleNotFoundError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,6 +41,8 @@ except ModuleNotFoundError:
         create_adt_client,
         update_adt_twin
     )
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import validate_token
 
 
@@ -61,28 +65,12 @@ INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 # Lazy loading for DIGITAL_TWIN_INFO to allow Azure function discovery
 _digital_twin_info = None
 
-# Import require_env with fallback (same pattern as adt_helper)
-try:
-    from _shared.env_utils import require_env
-except ModuleNotFoundError:
-    # Fallback already handled in adt_helper import above
-    from _shared.env_utils import require_env
-
 def _get_digital_twin_info():
     """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
     global _digital_twin_info
     if _digital_twin_info is None:
         _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
     return _digital_twin_info
-
-
-def _response(error: str, status_code: int) -> func.HttpResponse:
-    """Return a stable JSON error response without provider diagnostics."""
-    return func.HttpResponse(
-        json.dumps({"error": error}),
-        status_code=status_code,
-        mimetype="application/json",
-    )
 
 
 # ==========================================
@@ -125,7 +113,8 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
         200: Success
         400: Invalid request body
         401: Missing or invalid token
-        500: Internal error
+        500: Runtime configuration error
+        502: Azure Digital Twins delivery error
         503: ADT not configured (L4 not deployed yet)
     """
     logging.info("ADT Pusher: Received request")
@@ -133,27 +122,51 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
     # 1. Validate inter-cloud token
     if not INTER_CLOUD_TOKEN:
         logging.error("ADT Pusher: INTER_CLOUD_TOKEN not configured")
-        return _response("Service configuration unavailable", 500)
+        return failure_response(
+            component="azure.adt-pusher.configuration",
+            error=ConfigurationError("INTER_CLOUD_TOKEN is not configured"),
+            code="CONFIGURATION_ERROR",
+            message="Service configuration is unavailable.",
+            status_code=500,
+        )
     
     if not validate_token(req.headers, INTER_CLOUD_TOKEN):
         logging.warning("ADT Pusher: Invalid or missing token")
-        return _response("Unauthorized", 401)
+        return error_response(
+            code="UNAUTHORIZED",
+            message="Invalid or missing X-Inter-Cloud-Token",
+            status_code=401,
+        )
     
     # 2. Check if ADT is configured
     if not ADT_INSTANCE_URL:
         logging.error("ADT Pusher: ADT_INSTANCE_URL not configured")
-        return _response("Service unavailable", 503)
+        return failure_response(
+            component="azure.adt-pusher.configuration",
+            error=ConfigurationError("ADT_INSTANCE_URL is not configured"),
+            code="SERVICE_UNAVAILABLE",
+            message="Azure Digital Twins is unavailable.",
+            status_code=503,
+        )
     
     # 3. Parse request body
     try:
-        body = req.get_json()
-    except (TypeError, ValueError):
+        body = parse_json_request(req)
+    except InvalidRequestBody:
         logging.error("ADT Pusher: Invalid JSON in request body")
-        return _response("Invalid JSON", 400)
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON",
+            status_code=400,
+        )
 
     if not isinstance(body, dict):
         logging.error("ADT Pusher: Request body is not an object")
-        return _response("Request body must be an object", 400)
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Request body must be an object",
+            status_code=400,
+        )
     
     # 3.5 Unwrap inter-cloud envelope if present
     # post_to_remote() wraps payloads in: {source_cloud, target_layer, payload: {...}}
@@ -162,14 +175,22 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
         body = body["payload"]
         if not isinstance(body, dict):
             logging.error("ADT Pusher: Envelope payload is not an object")
-            return _response("Envelope payload must be an object", 400)
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Envelope payload must be an object",
+                status_code=400,
+            )
     
     # 4. Extract device_id and telemetry
     device_id = body.get("device_id")
     
     if not isinstance(device_id, str) or not device_id.strip():
         logging.error("ADT Pusher: Missing device_id in request")
-        return _response("Missing device_id", 400)
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Missing device_id",
+            status_code=400,
+        )
     
     # Try to get telemetry from nested key or treat entire body as telemetry
     telemetry = body.get("telemetry")
@@ -188,16 +209,31 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
     
     if not isinstance(telemetry, dict) or not telemetry:
         logging.warning("ADT Pusher: Missing or invalid telemetry")
-        return _response("Telemetry must be a non-empty object", 400)
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Telemetry must be a non-empty object",
+            status_code=400,
+        )
     
     # 5. Update ADT twin
+    try:
+        digital_twin_info = _get_digital_twin_info()
+    except (MissingEnvironmentVariableError, json.JSONDecodeError) as exc:
+        return failure_response(
+            component="azure.adt-pusher.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Digital twin mapping configuration is unavailable.",
+            status_code=500,
+        )
+
     try:
         adt_client = create_adt_client(ADT_INSTANCE_URL)
         twin_id = update_adt_twin(
             adt_client=adt_client,
             device_id=device_id,
             telemetry=telemetry,
-            digital_twin_info=_get_digital_twin_info()
+            digital_twin_info=digital_twin_info,
         )
         
         logging.info("ADT Pusher: Successfully updated one twin")
@@ -210,7 +246,16 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
         
     except ValueError as exc:
         logging.error("ADT Pusher validation failed: %s", type(exc).__name__)
-        return _response("Invalid telemetry or twin mapping", 400)
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid telemetry or twin mapping",
+            status_code=400,
+        )
     except Exception as exc:
-        logging.error("ADT Pusher update failed: %s", type(exc).__name__)
-        return _response("Azure Digital Twins update failed", 500)
+        return failure_response(
+            component="azure.adt-pusher",
+            error=exc,
+            code="ADT_DELIVERY_FAILED",
+            message="Azure Digital Twins update failed.",
+            status_code=502,
+        )
