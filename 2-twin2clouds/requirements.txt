@@ -16,4 +16,5 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 google-cloud-billing
+jsonschema>=4.25.1,<5.0.0
 PyYAML

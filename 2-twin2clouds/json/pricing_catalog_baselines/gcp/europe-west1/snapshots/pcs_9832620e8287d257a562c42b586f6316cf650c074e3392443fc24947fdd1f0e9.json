@@ -1,0 +1,161 @@
+{
+  "pricing": {
+    "__quality__": {
+      "fallback_fields": [
+        "apiGateway.dataTransferOutPrice",
+        "apiGateway.pricePerMillionCalls",
+        "cloudScheduler.jobPrice",
+        "cloudWorkflows.stepPrice",
+        "functions.durationPrice",
+        "functions.freeComputeTime",
+        "functions.freeRequests",
+        "functions.requestPrice",
+        "grafana.e2MediumPrice",
+        "grafana.storagePrice",
+        "iot.pricePerDeviceAndMonth",
+        "iot.pricePerGiB",
+        "storage_archive.dataRetrievalPrice",
+        "storage_archive.lifecycleAndWritePrice",
+        "storage_archive.storagePrice",
+        "storage_cool.dataRetrievalPrice",
+        "storage_cool.requestPrice",
+        "storage_cool.storagePrice",
+        "storage_cool.upfrontPrice",
+        "storage_hot.freeStorage",
+        "storage_hot.readPrice",
+        "storage_hot.storagePrice",
+        "storage_hot.writePrice",
+        "transfer.egressPrice",
+        "twinmaker.e2MediumPrice",
+        "twinmaker.storagePrice"
+      ],
+      "field_sources": {
+        "apiGateway.dataTransferOutPrice": "fallback_static",
+        "apiGateway.pricePerMillionCalls": "fallback_static",
+        "cloudScheduler.jobPrice": "fallback_static",
+        "cloudWorkflows.stepPrice": "fallback_static",
+        "functions.durationPrice": "fallback_static",
+        "functions.freeComputeTime": "fallback_static",
+        "functions.freeRequests": "fallback_static",
+        "functions.requestPrice": "fallback_static",
+        "grafana.e2MediumPrice": "fallback_static",
+        "grafana.storagePrice": "fallback_static",
+        "iot.pricePerDeviceAndMonth": "fallback_static",
+        "iot.pricePerGiB": "fallback_static",
+        "storage_archive.dataRetrievalPrice": "fallback_static",
+        "storage_archive.lifecycleAndWritePrice": "fallback_static",
+        "storage_archive.storagePrice": "fallback_static",
+        "storage_cool.dataRetrievalPrice": "fallback_static",
+        "storage_cool.requestPrice": "fallback_static",
+        "storage_cool.storagePrice": "fallback_static",
+        "storage_cool.upfrontPrice": "fallback_static",
+        "storage_hot.freeStorage": "fallback_static",
+        "storage_hot.readPrice": "fallback_static",
+        "storage_hot.storagePrice": "fallback_static",
+        "storage_hot.writePrice": "fallback_static",
+        "transfer.egressPrice": "fallback_static",
+        "transfer.pricing_tiers": "curated",
+        "twinmaker.e2MediumPrice": "fallback_static",
+        "twinmaker.storagePrice": "fallback_static"
+      },
+      "quality_status": "review_required",
+      "review_required": true,
+      "unsupported_fields": []
+    },
+    "__schema__": {
+      "baseline_provenance": "curated_legacy_review",
+      "contract_version": "2026.07.17",
+      "generated_at": "2026-07-17T17:54:56+00:00",
+      "pricing_region": "europe-west1",
+      "provider": "gcp",
+      "schema_version": "pricing-provider-schema.v1",
+      "snapshot_digest": "sha256:d41e5f108a8761f5768d0fccbc8f865d045b304eb6a43ac63cdefadda0cf9100"
+    },
+    "apiGateway": {
+      "dataTransferOutPrice": 0.12,
+      "pricePerMillionCalls": 3.0
+    },
+    "cloudScheduler": {
+      "jobPrice": 0.003225806
+    },
+    "cloudWorkflows": {
+      "stepPrice": 2.5e-05
+    },
+    "functions": {
+      "durationPrice": 2.5e-06,
+      "freeComputeTime": 400000,
+      "freeRequests": 2000000,
+      "requestPrice": 4e-07
+    },
+    "grafana": {
+      "e2MediumPrice": 0.0608511,
+      "editorPrice": 0,
+      "storagePrice": 0.2,
+      "viewerPrice": 0
+    },
+    "iot": {
+      "pricePerDeviceAndMonth": 0,
+      "pricePerGiB": 0.0390625
+    },
+    "storage_archive": {
+      "dataRetrievalPrice": 0.05,
+      "lifecycleAndWritePrice": 6.5e-05,
+      "storagePrice": 0.0014
+    },
+    "storage_cool": {
+      "dataRetrievalPrice": 0.01,
+      "requestPrice": 2.6e-05,
+      "storagePrice": 0.011,
+      "upfrontPrice": 0.0
+    },
+    "storage_hot": {
+      "freeStorage": 1,
+      "readPrice": 3.3e-07,
+      "storagePrice": 0.135,
+      "writePrice": 1.8e-06
+    },
+    "transfer": {
+      "egressPrice": 0.12,
+      "pricing_tiers": {
+        "freeTier": {
+          "limit": 100,
+          "price": 0
+        },
+        "tier1": {
+          "limit": 10240,
+          "price": 0.12
+        },
+        "tier2": {
+          "limit": "Infinity",
+          "price": 0.08
+        }
+      }
+    },
+    "twinmaker": {
+      "e2MediumPrice": 0.0608511,
+      "entityPrice": 0,
+      "queryPrice": 0,
+      "storagePrice": 0.2,
+      "unifiedDataAccessAPICallsPrice": 0
+    }
+  },
+  "reference": {
+    "calculation_source": "reviewed_baseline",
+    "content_digest": "sha256:d41e5f108a8761f5768d0fccbc8f865d045b304eb6a43ac63cdefadda0cf9100",
+    "contract_version": "2026.07.17",
+    "fetched_at": "2026-07-17T17:54:56Z",
+    "mapping_versions": [
+      "2026.06.08"
+    ],
+    "pricing_region": "europe-west1",
+    "provider": "gcp",
+    "provider_schema_version": "pricing-provider-schema.v1",
+    "publication_status": "published",
+    "registry_version": "2026.07.17",
+    "review_status": "reviewed",
+    "schema_version": "pricing-catalog-reference.v1",
+    "snapshot_id": "pcs_9832620e8287d257a562c42b586f6316cf650c074e3392443fc24947fdd1f0e9",
+    "source": "reviewed_baseline"
+  },
+  "schema_version": "pricing-catalog-snapshot.v2"
+}

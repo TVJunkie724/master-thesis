@@ -1,22 +1,53 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import json
+from math import isfinite
 import re
 from typing import Any
+import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.clients.optimizer_client import OptimizerClient
 from src.models.cost_calculation import CostCalculationResultItem, CostCalculationRun
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.pricing_catalog import PricingCatalogContext
+from src.services.aws_twinmaker_pricing_context_service import (
+    OPTIMIZER_CONTEXT_COMPARABLE_FIELDS,
+    AwsTwinMakerPricingContextService,
+    ResolvedAwsTwinMakerPricingContext,
+    optimizer_aws_l4_selection_matches_context,
+)
 from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
     ExternalServiceUnavailable,
     OptimizerContractError,
+    PricingCatalogUnavailable,
     TwinNotFound,
+)
+from src.services.pricing_catalog_context_service import (
+    PricingCatalogContextService,
+    parse_pricing_catalog_context,
+    pricing_catalog_contexts_match,
+)
+from src.services.optimizer_transfer_pricing_contract import (
+    EXPECTED_EDGES,
+    ValidatedOptimizerTransferPricing,
+    validate_optimizer_transfer_pricing_result,
+)
+from src.services.resolved_deployment_specification_service import (
+    LEGACY_NOT_DEPLOYABLE,
+    READY,
+    ResolvedDeploymentSpecificationError,
+    ValidatedResolvedDeploymentSpecification,
+    canonical_json,
+    validate_resolved_deployment_specification,
 )
 from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
 
@@ -31,36 +62,78 @@ SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
 class CostCalculationRunService:
     """Owns Management API persistence for optimizer calculation runs."""
 
-    def __init__(self, db: Session, optimizer_client: OptimizerClient | None = None):
+    def __init__(
+        self,
+        db: Session,
+        optimizer_client: OptimizerClient | None = None,
+        aws_twinmaker_contexts: AwsTwinMakerPricingContextService | None = None,
+        pricing_catalog_contexts: PricingCatalogContextService | None = None,
+    ):
         self.db = db
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.twin_repository = TwinRepository(db)
+        self.aws_twinmaker_contexts = (
+            aws_twinmaker_contexts or AwsTwinMakerPricingContextService(db)
+        )
+        self.pricing_catalog_contexts = (
+            pricing_catalog_contexts
+            or PricingCatalogContextService(
+                db,
+                optimizer_client=self.optimizer_client,
+            )
+        )
 
     async def create_run(
         self,
         twin_id: str,
         user_id: str,
-        params: dict[str, Any],
+        params: OptimizerCalculationParams,
         *,
-        pricing_snapshots: dict[str, Any] | None = None,
-        pricing_timestamps: dict[str, Any] | None = None,
         pricing_evidence_version: str | None = None,
-        pricing_run_reference: str | None = None,
     ) -> CostCalculationRun:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
         if not twin:
             raise TwinNotFound("Twin not found")
 
+        optimizer_params = params.to_optimizer_payload()
+        persisted_params = params.to_persisted_payload()
+        run_id = str(uuid.uuid4())
+        optimizer_params["calculationRunId"] = run_id
+        catalog_context = await self.pricing_catalog_contexts.resolve_for_user(user_id)
+        optimizer_params["providerPricingCatalogs"] = catalog_context.to_http_dict()
+        aws_context = await self.aws_twinmaker_contexts.resolve(
+            user_id,
+            catalog_context.catalogs["aws"],
+        )
+        optimizer_params["providerPricingContexts"] = {
+            "awsTwinMaker": aws_context.payload
+        }
+
         try:
-            optimizer_payload = await self.optimizer_client.calculate(params)
+            optimizer_payload = await self.optimizer_client.calculate(optimizer_params)
         except (ExternalServiceUnavailable, ExternalServiceError):
             raise
 
         result = self._extract_optimizer_result(optimizer_payload)
         contract = self._validate_optimizer_result(result)
+        _validate_optimizer_pricing_catalog_context(result, catalog_context)
+        transfer_pricing = validate_optimizer_transfer_pricing_result(
+            result,
+            catalog_context,
+        )
+        _validate_optimizer_aws_selection_context(result, aws_context)
         cheapest_path = self._extract_cheapest_path(result)
+        deployment_specification = _validate_optimizer_deployment_specification(
+            result,
+            run_id=run_id,
+            cheapest_path=cheapest_path,
+            catalog_context=catalog_context,
+        )
         result_items = self._build_result_items(
-            result, cheapest_path, contract["currency"]
+            result,
+            cheapest_path,
+            contract["currency"],
+            transfer_pricing,
         )
 
         now = datetime.now(timezone.utc)
@@ -70,11 +143,12 @@ class CostCalculationRunService:
             self.db.flush()
 
             run = CostCalculationRun(
+                id=run_id,
                 twin_id=twin_id,
                 user_id=user_id,
                 optimizer_config_id=config.id,
                 status=SUCCESS,
-                params_json=_json_dumps(params),
+                params_json=_json_dumps(persisted_params),
                 result_summary_json=_json_dumps(result),
                 cheapest_path_json=_json_dumps(cheapest_path),
                 total_monthly_cost=contract["total_monthly_cost"],
@@ -85,7 +159,16 @@ class CostCalculationRunService:
                 calculation_model_version=contract["calculation_model_version"],
                 pricing_registry_version=contract["pricing_registry_version"],
                 pricing_evidence_version=pricing_evidence_version,
-                pricing_run_reference=pricing_run_reference,
+                pricing_run_reference=aws_context.source_refresh_run_id,
+                pricing_catalog_context_json=catalog_context.canonical_json(),
+                deployment_specification_json=(
+                    deployment_specification.canonical_json
+                ),
+                deployment_specification_digest=deployment_specification.digest,
+                deployment_specification_version=(
+                    deployment_specification.schema_version
+                ),
+                deployment_compatibility_status=READY,
                 created_at=now,
                 completed_at=now,
             )
@@ -95,13 +178,12 @@ class CostCalculationRunService:
             for item in result_items:
                 self.db.add(CostCalculationResultItem(run_id=run.id, **item))
 
-            self._update_optimizer_config_compatibility(
+            self._update_optimizer_config_projection(
                 config,
-                params=params,
+                params=persisted_params,
                 result=result,
                 cheapest_path=cheapest_path,
-                pricing_snapshots=pricing_snapshots or {},
-                pricing_timestamps=pricing_timestamps or {},
+                pricing_catalog_context=catalog_context,
                 calculated_at=now,
             )
             self._before_commit()
@@ -169,6 +251,27 @@ class CostCalculationRunService:
             field_trace
         ):
             warnings.append("Malformed optimizer field trace records were omitted.")
+        transfer_pricing = None
+        raw_transfer_pricing = (
+            result.get("transferPricingContext") if isinstance(result, dict) else None
+        )
+        transfer_pricing_field_present = (
+            isinstance(result, dict) and "transferPricingContext" in result
+        )
+        if isinstance(raw_transfer_pricing, dict):
+            try:
+                transfer_pricing = validate_optimizer_transfer_pricing_result(
+                    result,
+                    _run_pricing_catalog_context(run),
+                )
+            except (OptimizerContractError, CostCalculationRunSelectionError):
+                warnings.append(
+                    "Malformed optimizer transfer pricing evidence was omitted."
+                )
+        elif transfer_pricing_field_present:
+            warnings.append(
+                "Malformed optimizer transfer pricing evidence was omitted."
+            )
 
         return _redact_payload(
             {
@@ -184,18 +287,48 @@ class CostCalculationRunService:
                 "selected_path": _list_of_dicts(trace_payload.get("selected_path")),
                 "records": _list_of_dicts(trace_payload.get("records")),
                 "transfer_trace": _list_of_dicts(trace_payload.get("transfer_trace")),
+                "transition_runtime_trace": _list_of_dicts(
+                    trace_payload.get("transition_runtime_trace")
+                ),
                 "summary": _dict_or_empty(trace_payload.get("summary")),
                 "field_trace_schema_version": _string_or_none(
                     result.get("resultTraceSchemaVersion")
                 ),
                 "field_trace_available": field_trace_available,
                 "field_trace_records": field_trace_records,
+                "transfer_pricing_context_available": (transfer_pricing is not None),
+                "transfer_pricing_context": (
+                    raw_transfer_pricing if transfer_pricing is not None else {}
+                ),
+                "transition_runtime_context_available": (
+                    transfer_pricing is not None
+                ),
+                "transition_runtime_context": (
+                    _dict_or_empty(result.get("transitionRuntimeContext"))
+                    if transfer_pricing is not None
+                    else {}
+                ),
+                "transition_runtime_costs": (
+                    _numeric_dict_or_empty(
+                        result.get("transitionRuntimeCosts")
+                    )
+                    if transfer_pricing is not None
+                    else {}
+                ),
+                "optimization_diagnostics": (
+                    _dict_or_empty(result.get("optimizationDiagnostics"))
+                    if transfer_pricing is not None
+                    else {}
+                ),
+                "pricing_catalog_context": (
+                    safe_pricing_catalog_context(run.pricing_catalog_context_json)
+                ),
                 "result_metadata": _result_metadata(result),
                 "warnings": warnings,
             }
         )
 
-    def select_for_deployment(
+    async def select_for_deployment(
         self,
         twin_id: str,
         user_id: str,
@@ -204,8 +337,42 @@ class CostCalculationRunService:
         run = self.get_run(twin_id, user_id, run_id)
         if run.status not in SELECTABLE_STATUSES:
             raise CostCalculationRunSelectionError(
-                f"Cost calculation run {run_id} is not selectable"
+                f"Cost calculation run {run_id} is not selectable",
+                error_code="COST_CALCULATION_RUN_NOT_SELECTABLE",
             )
+        result = _json_loads(run.result_summary_json) or {}
+        validate_persisted_run_deployment_specification(
+            run,
+            result=result,
+        )
+        persisted_catalog_context = _run_pricing_catalog_context(run)
+        if not pricing_catalog_contexts_match(
+            persisted_catalog_context,
+            result.get("pricingCatalogs"),
+        ):
+            raise CostCalculationRunSelectionError(
+                "The persisted calculation result no longer matches its pricing "
+                "catalog evidence; run the optimizer again before deployment.",
+                error_code="PRICING_CATALOG_CONTEXT_MISMATCH",
+            )
+        try:
+            verified_catalog_context = (
+                await self.pricing_catalog_contexts.verify_context(
+                    persisted_catalog_context
+                )
+            )
+        except PricingCatalogUnavailable as exc:
+            raise CostCalculationRunSelectionError(
+                "Pricing evidence is no longer fresh; refresh pricing and run "
+                "the optimizer again before deployment.",
+                error_code=exc.error_code,
+            ) from exc
+        if _selected_l4_provider(result) == "aws":
+            current_context = await self.aws_twinmaker_contexts.resolve(
+                user_id,
+                verified_catalog_context.catalogs["aws"],
+            )
+            _validate_selected_aws_context(run, result, current_context)
         now = datetime.now(timezone.utc)
         (
             self.db.query(CostCalculationRun)
@@ -224,6 +391,13 @@ class CostCalculationRunService:
 
         try:
             self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise CostCalculationRunSelectionError(
+                "Another optimizer run was selected concurrently; reload the "
+                "calculation history before retrying.",
+                error_code="COST_CALCULATION_RUN_SELECTION_CONFLICT",
+            ) from exc
         except Exception:
             self.db.rollback()
             raise
@@ -335,6 +509,7 @@ class CostCalculationRunService:
         result: dict[str, Any],
         cheapest_path: dict[str, Any],
         currency: str,
+        transfer_pricing: ValidatedOptimizerTransferPricing,
     ) -> list[dict[str, Any]]:
         provider_costs = {
             "AWS": result.get("awsCosts") or {},
@@ -343,56 +518,75 @@ class CostCalculationRunService:
         }
         explicit_items = result.get("resultItems") or result.get("costItems")
         if isinstance(explicit_items, list) and explicit_items:
-            return [
+            items = [
                 self._normalize_result_item(item, currency)
                 for item in explicit_items
-                if isinstance(item, dict)
+                if (
+                    isinstance(item, dict)
+                    and str(item.get("component") or "").lower() != "transfer"
+                    and item.get("layer") not in EXPECTED_EDGES
+                )
             ]
+        else:
+            layer_mapping = {
+                "l1": "L1",
+                "l2": "L2",
+                "l3_hot": "L3_hot",
+                "l3_cool": "L3_cool",
+                "l3_archive": "L3_archive",
+                "l4": "L4",
+                "l5": "L5",
+            }
+            items = []
+            for path_key, layer_key in layer_mapping.items():
+                provider = cheapest_path.get(path_key)
+                cost_payload = provider_costs.get(provider, {}).get(layer_key) or {}
+                items.append(
+                    {
+                        "layer": layer_key,
+                        "component": "layer_total",
+                        "provider": provider,
+                        "cost_amount": _float_or_none(cost_payload.get("cost")),
+                        "currency": currency,
+                        "unit": "month",
+                        "calculation_notes_json": _json_dumps(
+                            {
+                                "source": "optimizer_layer_total",
+                                "path_key": path_key,
+                            }
+                        ),
+                        "review_status": "pending_evidence",
+                    }
+                )
 
-        layer_mapping = {
-            "l1": "L1",
-            "l2": "L2",
-            "l3_hot": "L3_hot",
-            "l3_cool": "L3_cool",
-            "l3_archive": "L3_archive",
-            "l4": "L4",
-            "l5": "L5",
-        }
-        items: list[dict[str, Any]] = []
-        for path_key, layer_key in layer_mapping.items():
-            provider = cheapest_path.get(path_key)
-            cost_payload = provider_costs.get(provider, {}).get(layer_key) or {}
+        for route in transfer_pricing.context.routes:
             items.append(
                 {
-                    "layer": layer_key,
-                    "component": "layer_total",
-                    "provider": provider,
-                    "cost_amount": _float_or_none(cost_payload.get("cost")),
+                    "layer": route.segment_id,
+                    "component": "transfer",
+                    "provider": route.source.provider,
+                    "service_intent_id": (
+                        f"{route.source.provider}.transfer.egress"
+                        if route.route_class == "cross_provider_public_internet"
+                        else None
+                    ),
+                    "cost_amount": float(route.total_cost),
                     "currency": currency,
-                    "unit": "month",
+                    "unit": "bytes/month",
+                    "quantity": float(route.volume_bytes),
+                    "unit_price": None,
+                    "evidence_id": route.evidence_id,
                     "calculation_notes_json": _json_dumps(
                         {
-                            "source": "optimizer_layer_total",
-                            "path_key": path_key,
+                            "source": "optimizer_transfer_pricing_context",
+                            "schemaVersion": (transfer_pricing.context.schema_version),
+                            "route": route.model_dump(
+                                mode="json",
+                                by_alias=True,
+                            ),
                         }
                     ),
-                    "review_status": "pending_evidence",
-                }
-            )
-
-        for transfer_key, transfer_cost in (result.get("transferCosts") or {}).items():
-            items.append(
-                {
-                    "layer": transfer_key,
-                    "component": "transfer",
-                    "provider": None,
-                    "cost_amount": _float_or_none(transfer_cost),
-                    "currency": currency,
-                    "unit": "month",
-                    "calculation_notes_json": _json_dumps(
-                        {"source": "optimizer_transfer_cost"}
-                    ),
-                    "review_status": "pending_evidence",
+                    "review_status": "ready",
                 }
             )
         return items
@@ -423,30 +617,20 @@ class CostCalculationRunService:
             "review_status": item.get("review_status"),
         }
 
-    def _update_optimizer_config_compatibility(
+    def _update_optimizer_config_projection(
         self,
         config: OptimizerConfiguration,
         *,
         params: dict[str, Any],
         result: dict[str, Any],
         cheapest_path: dict[str, Any],
-        pricing_snapshots: dict[str, Any],
-        pricing_timestamps: dict[str, Any],
+        pricing_catalog_context: PricingCatalogContext,
         calculated_at: datetime,
     ) -> None:
         config.params = _json_dumps(params)
         config.result_json = _json_dumps(result)
+        config.pricing_catalog_context_json = pricing_catalog_context.canonical_json()
         self._apply_cheapest_path(config, cheapest_path)
-        config.pricing_aws_snapshot = _json_dumps_or_none(pricing_snapshots.get("aws"))
-        config.pricing_azure_snapshot = _json_dumps_or_none(
-            pricing_snapshots.get("azure")
-        )
-        config.pricing_gcp_snapshot = _json_dumps_or_none(pricing_snapshots.get("gcp"))
-        config.pricing_aws_updated_at = _parse_iso_safe(pricing_timestamps.get("aws"))
-        config.pricing_azure_updated_at = _parse_iso_safe(
-            pricing_timestamps.get("azure")
-        )
-        config.pricing_gcp_updated_at = _parse_iso_safe(pricing_timestamps.get("gcp"))
         config.calculated_at = calculated_at
         self.db.add(config)
 
@@ -467,14 +651,203 @@ class CostCalculationRunService:
         """Test hook for rollback verification."""
 
 
+def _selected_l4_provider(result: dict[str, Any]) -> str | None:
+    calculation_result = result.get("calculationResult")
+    if not isinstance(calculation_result, dict):
+        return None
+    provider = calculation_result.get("L4")
+    if not isinstance(provider, str):
+        return None
+    return provider.strip().lower() or None
+
+
+def _validate_selected_aws_context(
+    run: CostCalculationRun,
+    result: dict[str, Any],
+    current: ResolvedAwsTwinMakerPricingContext,
+) -> None:
+    if not current.available:
+        reason = str(
+            current.payload.get("reasonCode") or "AWS_TWINMAKER_PLAN_UNOBSERVED"
+        )
+        raise CostCalculationRunSelectionError(
+            "AWS TwinMaker pricing context is no longer deployable; "
+            "refresh pricing and run the optimizer again.",
+            error_code=reason,
+        )
+
+    provider_contexts = result.get("providerPricingContexts")
+    stored = (
+        provider_contexts.get("awsTwinMaker")
+        if isinstance(provider_contexts, dict)
+        else None
+    )
+    expected = current.payload
+    if (
+        not isinstance(stored, dict)
+        or stored.get("status") != "compatible"
+        or run.pricing_run_reference != current.source_refresh_run_id
+        or any(
+            stored.get(field) != expected.get(field)
+            for field in OPTIMIZER_CONTEXT_COMPARABLE_FIELDS
+        )
+    ):
+        raise CostCalculationRunSelectionError(
+            "AWS TwinMaker pricing context changed after this calculation; "
+            "run the optimizer again before deployment.",
+            error_code="AWS_TWINMAKER_PLAN_CONNECTION_CHANGED",
+        )
+
+
+def _validate_optimizer_aws_selection_context(
+    result: dict[str, Any],
+    expected: ResolvedAwsTwinMakerPricingContext,
+) -> None:
+    if _selected_l4_provider(result) != "aws":
+        return
+    if not optimizer_aws_l4_selection_matches_context(result, expected):
+        raise OptimizerContractError(
+            "Optimizer selected AWS TwinMaker without the trusted account "
+            "pricing context supplied by Management.",
+            [
+                {
+                    "field": "providerPricingContexts.awsTwinMaker",
+                    "message": "AWS L4 selection is not bound to trusted context",
+                }
+            ],
+        )
+
+
+def _validate_optimizer_pricing_catalog_context(
+    result: dict[str, Any],
+    expected: PricingCatalogContext,
+) -> None:
+    if pricing_catalog_contexts_match(expected, result.get("pricingCatalogs")):
+        return
+    raise OptimizerContractError(
+        "Optimizer result is not bound to the exact pricing catalog context "
+        "supplied by Management.",
+        [
+            {
+                "field": "pricingCatalogs",
+                "message": "Exact catalog references do not match",
+            }
+        ],
+    )
+
+
+def _validate_optimizer_deployment_specification(
+    result: dict[str, Any],
+    *,
+    run_id: str,
+    cheapest_path: Mapping[str, Any],
+    catalog_context: PricingCatalogContext,
+) -> ValidatedResolvedDeploymentSpecification:
+    try:
+        return validate_resolved_deployment_specification(
+            result.get("resolvedDeploymentSpecification"),
+            expected_run_id=run_id,
+            expected_cheapest_path=cheapest_path,
+            expected_catalog_context=catalog_context,
+            expected_result=result,
+        )
+    except ResolvedDeploymentSpecificationError as exc:
+        raise OptimizerContractError(
+            "Optimizer resolved deployment specification is invalid",
+            [{"field": exc.field, "message": str(exc)}],
+        ) from exc
+
+
+def validate_persisted_run_deployment_specification(
+    run: CostCalculationRun,
+    *,
+    result: Mapping[str, Any] | None = None,
+    catalog_context: PricingCatalogContext | None = None,
+) -> ValidatedResolvedDeploymentSpecification:
+    """Return a validated immutable run specification or a typed conflict."""
+
+    if run.deployment_compatibility_status != READY:
+        error_code = (
+            "LEGACY_RUN_NOT_DEPLOYABLE"
+            if run.deployment_compatibility_status in {
+                None,
+                LEGACY_NOT_DEPLOYABLE,
+            }
+            else "DEPLOYMENT_SPECIFICATION_NOT_READY"
+        )
+        raise CostCalculationRunSelectionError(
+            "This optimizer run has no deployment-compatible specification; "
+            "run the optimizer again before deployment.",
+            error_code=error_code,
+        )
+    stored_result = result or _json_loads(run.result_summary_json) or {}
+    stored_context = catalog_context or _run_pricing_catalog_context(run)
+    cheapest_path = _json_loads(run.cheapest_path_json) or {}
+    raw_specification = _json_loads(run.deployment_specification_json)
+    try:
+        validated = validate_resolved_deployment_specification(
+            raw_specification,
+            expected_run_id=run.id,
+            expected_cheapest_path=cheapest_path,
+            expected_catalog_context=stored_context,
+            expected_result=stored_result,
+        )
+    except ResolvedDeploymentSpecificationError as exc:
+        raise CostCalculationRunSelectionError(
+            "The stored deployment specification is invalid; run the "
+            "optimizer again before deployment.",
+            error_code=exc.code,
+        ) from exc
+    if (
+        run.deployment_specification_digest != validated.digest
+        or run.deployment_specification_version != validated.schema_version
+    ):
+        raise CostCalculationRunSelectionError(
+            "The stored deployment specification metadata is inconsistent; "
+            "run the optimizer again before deployment.",
+            error_code="DEPLOYMENT_SPECIFICATION_METADATA_MISMATCH",
+        )
+    summary_specification = stored_result.get(
+        "resolvedDeploymentSpecification"
+    )
+    if (
+        not isinstance(summary_specification, Mapping)
+        or canonical_json(summary_specification) != validated.canonical_json
+    ):
+        raise CostCalculationRunSelectionError(
+            "The stored optimizer result and deployment specification differ; "
+            "run the optimizer again before deployment.",
+            error_code="DEPLOYMENT_SPECIFICATION_RESULT_MISMATCH",
+        )
+    return validated
+
+
+def _run_pricing_catalog_context(
+    run: CostCalculationRun,
+) -> PricingCatalogContext:
+    raw_context = _json_loads(run.pricing_catalog_context_json)
+    try:
+        return parse_pricing_catalog_context(raw_context)
+    except OptimizerContractError as exc:
+        raise CostCalculationRunSelectionError(
+            "This calculation predates verifiable pricing catalog evidence; "
+            "run the optimizer again before deployment.",
+            error_code="PRICING_CATALOG_CONTEXT_MISSING",
+        ) from exc
+
+
+def safe_pricing_catalog_context(value: str | None) -> dict[str, Any] | None:
+    """Return a validated public context or None for historical invalid rows."""
+
+    raw_context = _json_loads(value)
+    try:
+        return parse_pricing_catalog_context(raw_context).to_http_dict()
+    except OptimizerContractError:
+        return None
+
+
 def _json_dumps(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-
-def _json_dumps_or_none(value: Any) -> str | None:
-    if value is None:
-        return None
-    return _json_dumps(value)
 
 
 def _json_loads(value: str | None) -> dict[str, Any] | None:
@@ -485,16 +858,6 @@ def _json_loads(value: str | None) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return parsed if isinstance(parsed, dict) else None
-
-
-def _parse_iso_safe(value: Any) -> datetime | None:
-    if not isinstance(value, str) or not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def _float_or_none(value: Any) -> float | None:
@@ -520,6 +883,24 @@ def _result_metadata(result: dict[str, Any]) -> dict[str, Any]:
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _numeric_dict_or_empty(value: Any) -> dict[str, float]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, float] = {}
+    for key, item in value.items():
+        if (
+            not isinstance(key, str)
+            or isinstance(item, bool)
+            or not isinstance(item, (int, float))
+        ):
+            return {}
+        numeric = float(item)
+        if not isfinite(numeric) or numeric < 0:
+            return {}
+        normalized[key] = numeric
+    return normalized
 
 
 def _list_of_dicts(value: Any) -> list[dict[str, Any]]:

@@ -5,9 +5,6 @@ import pytest
 
 from backend.azure_pricing_evidence import build_azure_intent_evidence
 from backend.fetch_data.cloud_price_fetcher_azure import fetch_azure_price
-from backend.fetch_data.calculate_up_to_date_pricing import (
-    _publish_azure_pricing_candidate,
-)
 from backend.pricing_schema import attach_pricing_metadata, validate_pricing_payload
 
 
@@ -72,6 +69,63 @@ def _transfer_rows():
     ]
 
 
+def _adt_row(
+    *,
+    meter_name,
+    price,
+    meter_id,
+    sku_id="DZH318Z0BZ0T/000C",
+    region=REGION,
+):
+    return _azure_row(
+        serviceName="Digital Twins",
+        productName="Digital Twins",
+        skuName="Standard",
+        meterName=meter_name,
+        meterId=meter_id,
+        skuId=sku_id,
+        productId="DZH318Z0BZ0T",
+        unitOfMeasure="1K",
+        armRegionName=region,
+        retailPrice=price,
+        unitPrice=price,
+        isPrimaryMeterRegion=True,
+    )
+
+
+def _adt_rows(*, region=REGION):
+    suffix = "weu" if region == REGION else "eus"
+    prices = (
+        (0.00325, 0.00130, 0.00065)
+        if region == REGION
+        else (0.00250, 0.00100, 0.00050)
+    )
+    sku_id = "DZH318Z0BZ0T/000C" if region == REGION else "DZH318Z0BZ0T/0005"
+    return [
+        _adt_row(
+            meter_name="Standard Operations",
+            price=prices[0],
+            meter_id=f"operation-{suffix}",
+            sku_id=sku_id,
+            region=region,
+        ),
+        _adt_row(
+            meter_name="Standard Message",
+            price=prices[1],
+            meter_id=f"message-{suffix}",
+            sku_id=sku_id,
+            region=region,
+        ),
+        _adt_row(
+            meter_name="Standard Query Units",
+            price=prices[2],
+            meter_id=f"query-{suffix}",
+            sku_id=sku_id,
+            region=region,
+        ),
+    ]
+
+
 @pytest.mark.parametrize(
     ("neutral_service", "row", "expected"),
     [
@@ -131,7 +185,7 @@ def test_exact_storage_rows_override_broad_keyword_candidates(
 
 
 @patch("backend.fetch_data.cloud_price_fetcher_azure._retail_query_items")
-def test_transfer_rows_build_exact_absolute_tiers(mock_query):
+def test_transfer_rows_build_exact_canonical_decimal_gb_tiers(mock_query):
     mock_query.return_value = _transfer_rows() + [
         _transfer_rows()[1]
         | {
@@ -150,18 +204,101 @@ def test_transfer_rows_build_exact_absolute_tiers(mock_query):
         {"transfer": {"azure": "Bandwidth"}},
     )
 
-    assert result["egressPrice"] == 0.087
-    assert result["pricing_tiers"] == {
-        "freeTier": {"limit": 100, "price": 0.0},
-        "tier1": {"limit": 10335, "price": 0.087},
-        "tier2": {"limit": 51295, "price": 0.083},
-        "tier3": {"limit": 153695, "price": 0.07},
-        "tier4": {"limit": 512095, "price": 0.05},
-        "tier5": {"limit": "Infinity", "price": 0.05},
-    }
+    assert "egressPrice" not in result
+    assert result["billing_unit"] == "gb"
+    assert result["bytes_per_billing_unit"] == 1_000_000_000
+    assert result["network_tier"] == "microsoft_premium_global_network"
+    assert [
+        (
+            tier["start_quantity"],
+            tier["end_quantity"],
+            tier["unit_price"],
+        )
+        for tier in result["pricing_tiers"]
+    ] == [
+        (0, 100, 0),
+        (100, 10335, 0.087),
+        (10335, 51295, 0.083),
+        (51295, 153695, 0.07),
+        (153695, 512095, 0.05),
+        (512095, None, 0.05),
+    ]
     evidence = result["__evidence__"]["pricing_tiers"]
     assert len(evidence["selected_rows"]) == 6
     assert evidence["rejected_rows"][0]["productName"] == "Bandwidth - Routing Preference: Internet"
+    assert result["__transfer_evidence__"]["evidence_id"] == result["evidence_id"]
+
+
+@pytest.mark.parametrize(
+    ("region", "expected", "expected_sku"),
+    [
+        (
+            "westeurope",
+            {
+                "pricePerOperation": 0.00000325,
+                "pricePerMessage": 0.00000130,
+                "pricePerQueryUnit": 0.00000065,
+            },
+            "DZH318Z0BZ0T/000C",
+        ),
+        (
+            "eastus",
+            {
+                "pricePerOperation": 0.00000250,
+                "pricePerMessage": 0.00000100,
+                "pricePerQueryUnit": 0.00000050,
+            },
+            "DZH318Z0BZ0T/0005",
+        ),
+    ],
+)
+@patch("backend.fetch_data.cloud_price_fetcher_azure._retail_query_items")
+def test_adt_meters_are_selected_semantically_and_normalized_per_unit(
+    mock_query,
+    region,
+    expected,
+    expected_sku,
+):
+    mock_query.return_value = _adt_rows(region=region)
+
+    result = fetch_azure_price(
+        "twinmaker",
+        region,
+        {region: region},
+        {"twinmaker": {"azure": "Digital Twins"}},
+    )
+
+    for field, value in expected.items():
+        assert result[field] == pytest.approx(value)
+        evidence = result["__evidence__"][field]
+        assert evidence["match_status"] == "matched"
+        assert evidence["review_required"] is False
+        assert evidence["selected_row"]["armRegionName"] == region
+        assert evidence["selected_row"]["skuId"] == expected_sku
+        assert evidence["selected_row"]["meterId"]
+
+
+def test_adt_duplicate_semantic_candidate_fails_closed_as_ambiguous():
+    duplicate = _adt_rows()
+    duplicate.append(
+        _adt_row(
+            meter_name="Standard Query Units",
+            price=0.00070,
+            meter_id="query-weu-v2",
+        )
+    )
+
+    evidence = build_azure_intent_evidence(
+        duplicate,
+        intent_id="digital_twin.query_unit",
+        region=REGION,
+    )
+
+    assert evidence["match_status"] == "ambiguous"
+    assert evidence["review_required"] is True
+    assert evidence["normalized_value"] is None
+    assert evidence["selected_row"] is None
+    assert len(evidence["candidate_rows"]) == 2
 
 
 def test_changed_stable_identity_fails_closed():
@@ -257,83 +394,17 @@ def test_generated_metadata_exposes_bounded_evidence_and_derived_transfer_value(
     )
     payload = attach_pricing_metadata(
         "azure",
-        {"transfer": {"pricing_tiers": transfer["pricing_tiers"]}},
+        {
+            "transfer": {
+                key: value
+                for key, value in transfer.items()
+                if not key.startswith("__")
+            }
+        },
         {"transfer": transfer},
     )
 
     fields = payload["__evidence__"]["fields"]
     assert fields["transfer.pricing_tiers"]["selected_rows"]
-    assert fields["blobStorageCool.transferCostFromCosmosDB"]["normalized_value"] == 0.087
+    assert fields["transfer.catalog"]["evidence_id"] == transfer["evidence_id"]
     assert "__evidence__" not in validate_pricing_payload("azure", payload)["missing_keys"]
-
-
-@patch("backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically")
-def test_review_candidate_never_replaces_last_known_good(mock_write, tmp_path):
-    target = tmp_path / "pricing_dynamic_azure.json"
-    target.write_text('{"snapshot": "last-known-good"}', encoding="utf-8")
-    candidate = {
-        "__evidence__": {
-            "fields": {
-                "cosmosDB.storagePrice": {
-                    "intent_id": "storage.hot.storage_gb_month",
-                    "mapping_version": "2026.07.16",
-                    "match_status": "changed",
-                    "errors": ["provider identity drift"],
-                }
-            }
-        }
-    }
-
-    result = _publish_azure_pricing_candidate(
-        candidate,
-        target,
-        {"status": "valid", "review_required": True},
-    )
-
-    assert result["__publication__"]["status"] == "review_required"
-    assert target.read_text(encoding="utf-8") == '{"snapshot": "last-known-good"}'
-    mock_write.assert_not_called()
-
-
-@patch("backend.fetch_data.calculate_up_to_date_pricing.write_json_atomically")
-def test_publishable_evidence_atomically_replaces_snapshot(mock_write, tmp_path):
-    target = tmp_path / "pricing_dynamic_azure.json"
-    candidate = {
-        "__schema__": {
-            "schema_version": "pricing-provider-schema.v1",
-            "generated_at": "2026-07-16T12:00:00+00:00",
-        },
-        "__evidence__": {
-            "fields": {
-                "cosmosDB.storagePrice": {
-                    "intent_id": "storage.hot.storage_gb_month",
-                    "mapping_version": "2026.07.16",
-                    "match_status": "matched",
-                    "selected_row": {"meterId": "meter"},
-                    "errors": [],
-                }
-            }
-        }
-    }
-
-    result = _publish_azure_pricing_candidate(
-        candidate,
-        target,
-        {"status": "valid", "review_required": False},
-    )
-
-    assert result["__publication__"]["status"] == "publishable"
-    assert result["__publication__"]["published_snapshot"] == {
-        "snapshot_id": "azure:2026-07-16T12:00:00+00:00",
-        "schema_version": "pricing-provider-schema.v1",
-        "provider": "azure",
-        "source_api": "azure-retail-prices",
-        "fetched_at": "2026-07-16T12:00:00+00:00",
-        "published_at": "2026-07-16T12:00:00+00:00",
-        "mapping_version": "2026.07.16",
-        "candidate_count": 1,
-        "raw_item_count": None,
-        "is_stale": False,
-        "stale_reason": None,
-    }
-    mock_write.assert_called_once_with(target, result)

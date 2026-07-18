@@ -4,10 +4,12 @@ from backend.calculation_v2.layers import (
     AWSLayerCalculators,
     AzureLayerCalculators,
     BaseLayerCalculatorSet,
+    ComponentDeploymentSelection,
     GCPLayerCalculators,
     LayerCalculatorSet,
     LayerResult,
     SUPPORTED_LAYER_KEYS,
+    TransitionRuntimeResult,
 )
 
 
@@ -122,3 +124,137 @@ def test_layer_result_owns_an_immutable_component_snapshot():
     assert result.components == {"service": 1.0}
     with pytest.raises(TypeError):
         result.components["service"] = 3
+
+
+def test_layer_result_owns_a_deeply_immutable_detail_snapshot():
+    details = {"diagnostic": {"states": ["ready"]}}
+    result = LayerResult(
+        provider="AWS",
+        layer="L1",
+        total_cost=1,
+        details=details,
+    )
+
+    details["diagnostic"]["states"].append("changed")
+
+    assert result.details_as_dict() == {
+        "diagnostic": {"states": ["ready"]}
+    }
+    with pytest.raises(TypeError):
+        result.details["diagnostic"]["state"] = "changed"
+
+
+def test_component_deployment_selection_owns_an_immutable_snapshot():
+    dimensions = {"aws.lambda.memory_mb": 256}
+    selection = ComponentDeploymentSelection(
+        "l1.aws.dispatcher_lambda",
+        dimensions,
+    )
+
+    dimensions["aws.lambda.memory_mb"] = 512
+
+    assert selection.as_dict() == {
+        "componentId": "l1.aws.dispatcher_lambda",
+        "dimensions": {"aws.lambda.memory_mb": 256},
+    }
+    with pytest.raises(TypeError):
+        selection.dimensions["aws.lambda.memory_mb"] = 128
+
+
+@pytest.mark.parametrize(
+    ("component_id", "dimensions"),
+    [
+        ("", {"dimension": 1}),
+        ("component", {}),
+        ("component", {"": 1}),
+        ("component", {"dimension": 1.0}),
+        ("component", {"dimension": []}),
+        ("component", {"dimension": ""}),
+    ],
+)
+def test_component_deployment_selection_rejects_invalid_values(
+    component_id,
+    dimensions,
+):
+    with pytest.raises(ValueError):
+        ComponentDeploymentSelection(component_id, dimensions)
+
+
+def test_layer_result_requires_unique_typed_deployment_selections():
+    selection = ComponentDeploymentSelection(
+        "l1.aws.iot_core",
+        {"aws.iot_core.message_pricing": "progressive_usage"},
+    )
+
+    with pytest.raises(ValueError, match="must be a tuple"):
+        LayerResult(
+            provider="AWS",
+            layer="L1",
+            total_cost=1,
+            deployment_selections=[selection],
+        )
+    with pytest.raises(ValueError, match="must be unique"):
+        LayerResult(
+            provider="AWS",
+            layer="L1",
+            total_cost=1,
+            deployment_selections=(selection, selection),
+        )
+
+
+def test_transition_runtime_result_enforces_cost_and_selection_invariants():
+    selection = ComponentDeploymentSelection(
+        "transition.l3_hot_to_l3_cool.aws.runtime",
+        {"aws.lambda.memory_mb": 512},
+    )
+    result = TransitionRuntimeResult(
+        edge_id="l3_hot_to_l3_cool",
+        provider="AWS",
+        monthly_invocations=30,
+        invocation_basis="one_daily_source_mover_invocation",
+        function_cost=0.25,
+        trigger_cost=0.05,
+        total_cost=0.30,
+        formula_references=("execution_based_cost",),
+        evidence_references=("aws.lambda",),
+        deployment_selection=selection,
+    )
+
+    assert result.total_cost == pytest.approx(0.30)
+    assert result.deployment_selection is selection
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    (
+        {"edge_id": "unknown"},
+        {"provider": "Other"},
+        {"monthly_invocations": 0},
+        {"invocation_basis": ""},
+        {"function_cost": -1},
+        {"trigger_cost": float("inf")},
+        {"total_cost": 1},
+        {"formula_references": ()},
+        {"evidence_references": ()},
+        {"deployment_selection": object()},
+    ),
+)
+def test_transition_runtime_result_rejects_invalid_values(overrides):
+    values = {
+        "edge_id": "l3_hot_to_l3_cool",
+        "provider": "AWS",
+        "monthly_invocations": 30,
+        "invocation_basis": "one_daily_source_mover_invocation",
+        "function_cost": 0.25,
+        "trigger_cost": 0.05,
+        "total_cost": 0.30,
+        "formula_references": ("execution_based_cost",),
+        "evidence_references": ("aws.lambda",),
+        "deployment_selection": ComponentDeploymentSelection(
+            "transition.l3_hot_to_l3_cool.aws.runtime",
+            {"aws.lambda.memory_mb": 512},
+        ),
+    }
+
+    with pytest.raises(ValueError):
+        TransitionRuntimeResult(**{**values, **overrides})

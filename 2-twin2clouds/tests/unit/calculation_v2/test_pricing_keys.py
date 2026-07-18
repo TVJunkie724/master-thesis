@@ -58,8 +58,6 @@ class TestPricingKeyFallbacks:
                     "upfrontPrice": 0.0001,
                     "requestPrice": 1e-06,  # NOT writePrice
                     "dataRetrievalPrice": 0.012,
-                    "transferCostFromDynamoDB": 0.099,
-                    "transferCostFromCosmosDB": 0.0495,
                 },
             }
         }
@@ -224,9 +222,11 @@ class TestPricingKeysNotZero:
                     "dataRetrievalPrice": 0.024,
                 },
                 "iotTwinMaker": {
-                    "unifiedDataAccessAPICallsPrice": 1.65e-06,
-                    "entityPrice": 0.0525,
-                    "queryPrice": 5.25e-05,
+                    "usageRates": {
+                        "unifiedDataAccessApiCallPrice": 1.65e-06,
+                        "entityPricePerMonth": 0.0525,
+                        "queryPrice": 5.25e-05,
+                    },
                 },
                 "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
             },

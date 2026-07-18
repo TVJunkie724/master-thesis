@@ -13,6 +13,9 @@ SUPPORTED_LAYER_KEYS = frozenset(
     {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
 )
 SUPPORTED_PROVIDER_KEYS = frozenset({"AWS", "Azure", "GCP"})
+SUPPORTED_TRANSITION_EDGE_IDS = frozenset(
+    {"l3_hot_to_l3_cool", "l3_cool_to_l3_archive"}
+)
 
 
 def _validate_non_negative_number(name: str, value: Any) -> float:
@@ -26,6 +29,70 @@ def _validate_non_negative_number(name: str, value: Any) -> float:
     return normalized
 
 
+def _freeze_detail_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        frozen: dict[str, Any] = {}
+        for key, nested in value.items():
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError(
+                    "Layer result detail names must be non-empty strings"
+                )
+            frozen[key] = _freeze_detail_value(nested)
+        return MappingProxyType(frozen)
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_detail_value(item) for item in value)
+    return value
+
+
+def _plain_detail_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _plain_detail_value(nested)
+            for key, nested in value.items()
+        }
+    if isinstance(value, tuple):
+        return [_plain_detail_value(item) for item in value]
+    return value
+
+
+DeploymentScalar = str | int | bool
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentDeploymentSelection:
+    """Immutable deployment dimensions emitted by one costed component bundle."""
+
+    component_id: str
+    dimensions: Mapping[str, DeploymentScalar]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.component_id, str) or not self.component_id.strip():
+            raise ValueError("Deployment selection component_id must be non-empty")
+        if not isinstance(self.dimensions, Mapping) or not self.dimensions:
+            raise ValueError("Deployment selection dimensions must be a non-empty mapping")
+
+        normalized: dict[str, DeploymentScalar] = {}
+        for dimension_id, value in self.dimensions.items():
+            if not isinstance(dimension_id, str) or not dimension_id.strip():
+                raise ValueError("Deployment dimension IDs must be non-empty strings")
+            if type(value) not in {str, int, bool}:
+                raise ValueError(
+                    f"Deployment dimension {dimension_id!r} must be a scalar"
+                )
+            if isinstance(value, str) and not value:
+                raise ValueError(
+                    f"Deployment dimension {dimension_id!r} must be non-empty"
+                )
+            normalized[dimension_id] = value
+        object.__setattr__(self, "dimensions", MappingProxyType(normalized))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "componentId": self.component_id,
+            "dimensions": dict(self.dimensions),
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class LayerResult:
     """Canonical result returned by every provider layer calculator."""
@@ -36,6 +103,8 @@ class LayerResult:
     data_size_gb: float = 0.0
     messages: float = 0.0
     components: Mapping[str, float] = field(default_factory=dict)
+    deployment_selections: tuple[ComponentDeploymentSelection, ...] = ()
+    details: Mapping[str, Any] = field(default_factory=dict)
     supported: bool = True
     unsupported_reason: str | None = None
 
@@ -64,6 +133,25 @@ class LayerResult:
             "components",
             MappingProxyType(normalized_components),
         )
+        if not isinstance(self.deployment_selections, tuple):
+            raise ValueError("Layer deployment selections must be a tuple")
+        component_ids: list[str] = []
+        for selection in self.deployment_selections:
+            if not isinstance(selection, ComponentDeploymentSelection):
+                raise ValueError(
+                    "Layer deployment selections must use "
+                    "ComponentDeploymentSelection"
+                )
+            component_ids.append(selection.component_id)
+        if len(component_ids) != len(set(component_ids)):
+            raise ValueError("Layer deployment selection component IDs must be unique")
+        if not isinstance(self.details, Mapping):
+            raise ValueError("Layer result details must be a mapping")
+        object.__setattr__(
+            self,
+            "details",
+            _freeze_detail_value(self.details),
+        )
 
         if not isinstance(self.supported, bool):
             raise ValueError("Layer result supported state must be boolean")
@@ -78,6 +166,94 @@ class LayerResult:
             raise ValueError("Supported layer results cannot declare an unsupported reason")
         if not self.supported and not normalized_reason:
             raise ValueError("Unsupported layer results require an explicit reason")
+
+    def details_as_dict(self) -> dict[str, Any]:
+        """Return a detached JSON-compatible details projection."""
+
+        return _plain_detail_value(self.details)
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionRuntimeResult:
+    """Cost and deployment selection for one source-owned storage mover."""
+
+    edge_id: str
+    provider: str
+    monthly_invocations: int
+    invocation_basis: str
+    function_cost: float
+    trigger_cost: float
+    total_cost: float
+    formula_references: tuple[str, ...]
+    evidence_references: tuple[str, ...]
+    deployment_selection: ComponentDeploymentSelection
+
+    def __post_init__(self) -> None:
+        if self.edge_id not in SUPPORTED_TRANSITION_EDGE_IDS:
+            raise ValueError(f"Unsupported transition runtime edge: {self.edge_id!r}")
+        if self.provider not in SUPPORTED_PROVIDER_KEYS:
+            raise ValueError(
+                f"Unsupported transition runtime provider: {self.provider!r}"
+            )
+        if (
+            isinstance(self.monthly_invocations, bool)
+            or not isinstance(self.monthly_invocations, int)
+            or self.monthly_invocations <= 0
+        ):
+            raise ValueError(
+                "Transition runtime monthly_invocations must be a positive integer"
+            )
+        if (
+            not isinstance(self.invocation_basis, str)
+            or not self.invocation_basis.strip()
+        ):
+            raise ValueError("Transition runtime invocation_basis must be non-empty")
+
+        function_cost = _validate_non_negative_number(
+            "transition_function_cost",
+            self.function_cost,
+        )
+        trigger_cost = _validate_non_negative_number(
+            "transition_trigger_cost",
+            self.trigger_cost,
+        )
+        total_cost = _validate_non_negative_number(
+            "transition_total_cost",
+            self.total_cost,
+        )
+        if abs(total_cost - (function_cost + trigger_cost)) > 1e-9:
+            raise ValueError(
+                "Transition runtime total_cost must equal function_cost + trigger_cost"
+            )
+        if (
+            not isinstance(self.formula_references, tuple)
+            or not self.formula_references
+            or any(
+                not isinstance(reference, str) or not reference.strip()
+                for reference in self.formula_references
+            )
+        ):
+            raise ValueError(
+                "Transition runtime formula_references must be non-empty strings"
+            )
+        if (
+            not isinstance(self.evidence_references, tuple)
+            or not self.evidence_references
+            or any(
+                not isinstance(reference, str) or not reference.strip()
+                for reference in self.evidence_references
+            )
+        ):
+            raise ValueError(
+                "Transition runtime evidence_references must be non-empty strings"
+            )
+        if not isinstance(
+            self.deployment_selection,
+            ComponentDeploymentSelection,
+        ):
+            raise ValueError(
+                "Transition runtime deployment_selection must be typed"
+            )
 
 
 class BaseLayerCalculatorSet:
@@ -113,6 +289,8 @@ class BaseLayerCalculatorSet:
         data_size_gb: float = 0.0,
         messages: float = 0.0,
         components: Mapping[str, float] | None = None,
+        deployment_selections: tuple[ComponentDeploymentSelection, ...] = (),
+        details: Mapping[str, Any] | None = None,
         unsupported_reason: str | None = None,
     ) -> LayerResult:
         return LayerResult(
@@ -122,7 +300,9 @@ class BaseLayerCalculatorSet:
             data_size_gb=data_size_gb,
             messages=messages,
             components=components or {},
-            supported=self.supports(layer),
+            deployment_selections=deployment_selections,
+            details=details or {},
+            supported=self.supports(layer) and unsupported_reason is None,
             unsupported_reason=unsupported_reason,
         )
 
@@ -155,5 +335,18 @@ class LayerCalculatorSet(Protocol):
 
     def calculate_l5_cost(self, *args: Any, **kwargs: Any) -> LayerResult: ...
 
+    def calculate_transition_runtime(
+        self,
+        *,
+        edge_id: str,
+        monthly_invocations: int,
+        invocation_basis: str,
+        pricing: dict[str, Any],
+    ) -> TransitionRuntimeResult:
+        """Calculate one source-owned mover and scheduler bundle."""
+
     def calculate_glue_cost(self, messages: float, pricing: dict) -> float:
         """Calculate the provider's cross-cloud glue function cost."""
+
+    def glue_deployment_selection(self) -> ComponentDeploymentSelection:
+        """Return the exact runtime profile used for glue-function pricing."""

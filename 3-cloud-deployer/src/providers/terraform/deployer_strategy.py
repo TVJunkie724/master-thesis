@@ -82,7 +82,10 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         )
 
     def _validate_project(self) -> None:
-        validate_project_directory(self.project_path)
+        validate_project_directory(
+            self.project_path,
+            require_deployment_manifest=True,
+        )
 
     def _validate_credentials(self) -> None:
         providers = self._load_providers_config()

@@ -139,6 +139,96 @@ void main() {
         expect(result.state.configEventsJson, '{"events": []}');
         expect(result.state.configEventsValidated, true);
       });
+
+      test('hydrates a selected latest deployment run as ready', () {
+        final optimization = TypedApiFixtures.optimization(
+          cheapestPath: const [
+            'L1_AWS',
+            'L2_AWS',
+            'L3_hot_AWS',
+            'L3_cool_AWS',
+            'L3_archive_AWS',
+            'L4_AWS',
+            'L5_AWS',
+          ],
+        );
+        final data = TwinEditData(
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            highestStepReached: 2,
+            optimization: optimization,
+          ),
+          deploymentRun: TypedApiFixtures.deploymentRun(
+            selectedForDeploymentAt: TypedApiFixtures.timestamp,
+          ),
+        );
+
+        final result = service.initializeEditMode(
+          twinId: 'twin-123',
+          data: data,
+        );
+
+        expect(result.state.currentStep, 2);
+        expect(result.state.deploymentReview.ready, isTrue);
+        expect(result.state.savedDeploymentRun, data.deploymentRun);
+      });
+
+      test('moves an unselected latest deployment run back to review', () {
+        final data = TwinEditData(
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            highestStepReached: 2,
+            optimization: TypedApiFixtures.optimization(
+              cheapestPath: const [
+                'L1_AWS',
+                'L2_AWS',
+                'L3_hot_AWS',
+                'L3_cool_AWS',
+                'L3_archive_AWS',
+                'L4_AWS',
+                'L5_AWS',
+              ],
+            ),
+          ),
+          deploymentRun: TypedApiFixtures.deploymentRun(),
+        );
+
+        final result = service.initializeEditMode(
+          twinId: 'twin-123',
+          data: data,
+        );
+
+        expect(result.state.currentStep, 1);
+        expect(result.state.deploymentReview.ready, isFalse);
+      });
+
+      test('rejects optimizer and deployment provider drift', () {
+        final data = TwinEditData(
+          twin: TypedApiFixtures.twin(name: 'Test'),
+          config: TypedApiFixtures.twinConfig(
+            highestStepReached: 2,
+            optimization: TypedApiFixtures.optimization(
+              cheapestPath: const [
+                'L1_AZURE',
+                'L2_AWS',
+                'L3_hot_AWS',
+                'L3_cool_AWS',
+                'L3_archive_AWS',
+                'L4_AWS',
+                'L5_AWS',
+              ],
+            ),
+          ),
+          deploymentRun: TypedApiFixtures.deploymentRun(
+            selectedForDeploymentAt: TypedApiFixtures.timestamp,
+          ),
+        );
+
+        expect(
+          () => service.initializeEditMode(twinId: 'twin-123', data: data),
+          throwsFormatException,
+        );
+      });
     });
 
     group('DeployerConfigData.fromJson', () {

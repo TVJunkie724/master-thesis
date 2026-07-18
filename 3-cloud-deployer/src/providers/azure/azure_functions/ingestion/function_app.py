@@ -21,15 +21,17 @@ import urllib.error
 import azure.functions as func
 
 try:
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import safe_urlopen, validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
     from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
+    from _shared.http_errors import InvalidRequestBody, error_response, failure_response, parse_json_request
     from _shared.inter_cloud import safe_urlopen, validate_token
-    from _shared.env_utils import require_env
+    from _shared.env_utils import MissingEnvironmentVariableError, require_env
     from _shared.normalize import normalize_telemetry
 
 
@@ -79,7 +81,9 @@ def _invoke_processor(processor_name: str, payload: dict) -> None:
         payload: Event data to send
     """
     if not FUNCTION_APP_BASE_URL:
-        raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {processor_name}")
+        raise MissingEnvironmentVariableError(
+            "FUNCTION_APP_BASE_URL is missing or empty"
+        )
     
     # Build URL with function key for Azure→Azure authentication
     base_url = f"{FUNCTION_APP_BASE_URL}/api/{processor_name}"
@@ -95,10 +99,14 @@ def _invoke_processor(processor_name: str, payload: dict) -> None:
         with safe_urlopen(req, timeout=30) as response:
             logging.info(f"Successfully invoked {processor_name}: {response.getcode()}")
     except urllib.error.HTTPError as e:
-        logging.error(f"Failed to invoke {processor_name}: {e.code} {e.reason}")
+        logging.error("Failed to invoke %s: HTTP %s", processor_name, e.code)
         raise
     except urllib.error.URLError as e:
-        logging.error(f"Network error invoking {processor_name}: {e.reason}")
+        logging.error(
+            "Network error invoking %s: %s",
+            processor_name,
+            type(e.reason).__name__,
+        )
         raise
 
 
@@ -118,39 +126,52 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
         headers = dict(req.headers)
         if not validate_token(headers, _get_inter_cloud_token()):
             logging.error("Token validation failed")
-            return func.HttpResponse(
-                json.dumps({"error": "Unauthorized", "message": "Invalid X-Inter-Cloud-Token"}),
+            return error_response(
+                code="UNAUTHORIZED",
+                message="Invalid X-Inter-Cloud-Token",
                 status_code=403,
-                mimetype="application/json"
             )
-        
+
         # 2. Parse the envelope
-        body = req.get_json()
+        body = parse_json_request(req)
+        if not isinstance(body, dict):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Request body must be a JSON object",
+                status_code=400,
+            )
         source_cloud = body.get("source_cloud", "unknown")
         logging.info(f"Received envelope from: {source_cloud}")
         
         # 3. Extract actual payload
         payload = body.get("payload")
-        if payload is None:
+        if not isinstance(payload, dict):
             logging.error("No payload in envelope")
-            return func.HttpResponse(
-                json.dumps({"error": "Bad Request", "message": "Missing 'payload' in envelope"}),
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Envelope payload must be a JSON object",
                 status_code=400,
-                mimetype="application/json"
             )
         
         # 4. Normalize payload to canonical format (device_id, timestamp)
-        payload = normalize_telemetry(payload)
+        try:
+            payload = normalize_telemetry(payload)
+        except (TypeError, ValueError):
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Telemetry payload is invalid",
+                status_code=400,
+            )
         logging.info("Payload normalized")
         
         # 5. Validate required fields
         device_id = payload.get("device_id")
         if not device_id:
             logging.error("No device_id in payload")
-            return func.HttpResponse(
-                json.dumps({"error": "Bad Request", "message": "Missing 'device_id' in payload"}),
+            return error_response(
+                code="INVALID_REQUEST",
+                message="Missing 'device_id' in payload",
                 status_code=400,
-                mimetype="application/json"
             )
         
         # 5. Invoke processor wrapper (handles user processing + persister)
@@ -172,18 +193,33 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
         
-    except json.JSONDecodeError as e:
-        logging.error(f"Invalid JSON: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": "Bad Request", "message": "Invalid JSON body"}),
+    except InvalidRequestBody:
+        return error_response(
+            code="INVALID_REQUEST",
+            message="Invalid JSON body",
             status_code=400,
-            mimetype="application/json"
         )
-        
-    except Exception as e:
-        logging.exception(f"Ingestion Error: {e}")
-        return func.HttpResponse(
-            json.dumps({"error": "Internal Server Error", "message": str(e)}),
+
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        return failure_response(
+            component="azure.ingestion.processor",
+            error=exc,
+            code="UPSTREAM_ERROR",
+            message="The processing service is unavailable.",
+            status_code=502,
+        )
+
+    except MissingEnvironmentVariableError as exc:
+        return failure_response(
+            component="azure.ingestion.configuration",
+            error=exc,
+            code="CONFIGURATION_ERROR",
+            message="Ingestion configuration is unavailable.",
             status_code=500,
-            mimetype="application/json"
+        )
+
+    except Exception as exc:
+        return failure_response(
+            component="azure.ingestion",
+            error=exc,
         )

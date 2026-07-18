@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import json
 import shutil
 
@@ -11,10 +13,15 @@ from tests.unit.calculation_v2.test_engine_consistency import (
     REALISTIC_PRICING,
     STANDARD_PARAMS,
 )
+from tests.unit.pricing.transfer_fixtures import pricing_catalog_context_for
 
 
 def _trace():
-    result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+    result = calculate_cheapest_costs(
+        STANDARD_PARAMS,
+        REALISTIC_PRICING,
+        pricing_catalog_context=pricing_catalog_context_for(REALISTIC_PRICING),
+    )
     return result, result["resultTrace"]
 
 
@@ -27,11 +34,23 @@ def _find(trace, provider, intent_id):
 
 def test_calculation_result_exposes_bounded_trace_metadata():
     result, trace = _trace()
+    expected_records = PricingRegistryService().get_status()[
+        "provider_pricing_contract_count"
+    ]
 
     assert result["resultTraceSchemaVersion"] == TRACE_SCHEMA_VERSION
-    assert len(trace) == 48
+    assert len(trace) == expected_records + 2
     assert len(json.dumps(trace)) < 250_000
     assert trace[0]["trace_id"] == "aws.api.request_million.L4.v1"
+    transition_items = [
+        item for item in trace if item["layer"] == "transition_runtime"
+    ]
+    assert len(transition_items) == 2
+    assert all(item["cost_contribution_is_additive"] for item in transition_items)
+    assert all(
+        item["source_type"] == "resolved_runtime_bundle"
+        for item in transition_items
+    )
 
 
 def test_aws_iot_core_trace_connects_intent_to_formula_contribution():
@@ -68,6 +87,113 @@ def test_azure_iot_hub_trace_includes_model_and_source_classifications():
     assert item["source_build_path"] == "fetched_from_provider_api"
     assert item["selected_evidence_id"].startswith("azure.iot.message_ingest")
     assert item["publishability_status"] == "publishable"
+
+
+def test_azure_digital_twins_trace_uses_exact_quantities_and_components():
+    _, trace = _trace()
+    expectations = {
+        "digital_twin.operation": (
+            "monthly_digital_twin_billable_operations",
+            "digital_twins_operations",
+            "request_unit_cost",
+        ),
+        "digital_twin.message": (
+            "monthly_digital_twin_routed_messages",
+            "digital_twins_routed_messages",
+            "message_unit_cost",
+        ),
+        "digital_twin.query_unit": (
+            "monthly_digital_twin_query_units",
+            "digital_twins_query_units",
+            "query_unit_cost",
+        ),
+    }
+
+    for intent_id, (
+        workload_field,
+        component_key,
+        formula_ref,
+    ) in expectations.items():
+        item = _find(trace, "azure", intent_id)
+        assert item["result_component_key"] == component_key
+        assert item["formula_ref"] == formula_ref
+        assert item["workload_inputs"][workload_field] is not None
+        assert item["selection_status"] in {"selected", "alternative"}
+
+    routed_message = _find(trace, "azure", "digital_twin.message")
+    assert routed_message["workload_inputs"][
+        "monthly_digital_twin_routed_messages"
+    ] == 0
+    assert routed_message["cost_contribution"] == 0
+
+
+def test_aws_twinmaker_trace_separates_standard_dimensions_and_bundle_mode():
+    params = dict(STANDARD_PARAMS)
+    pricing = dict(REALISTIC_PRICING)
+    pricing["__aws_schema__"] = {
+        "pricing_region": "eu-central-1",
+        "snapshot_digest": "sha256:" + ("a" * 64),
+    }
+    params["providerPricingContexts"] = {
+        "awsTwinMaker": {
+            "schemaVersion": "aws-twinmaker-account-pricing-context.v1",
+            "status": "available",
+            "sourceRefreshRunId": "refresh-run-1",
+            "connectionFingerprint": "sha256:" + ("b" * 64),
+            "providerAccountId": "123456789012",
+            "pricingRegion": "eu-central-1",
+            "catalogSnapshotDigest": "sha256:" + ("a" * 64),
+            "observedAt": datetime.now(timezone.utc).isoformat(),
+            "currentPlan": {
+                "mode": "STANDARD",
+                "billableEntityCount": 1,
+                "effectiveAt": None,
+                "updatedAt": None,
+                "updateReason": None,
+                "bundle": None,
+            },
+            "pendingPlan": None,
+        }
+    }
+
+    result = calculate_cheapest_costs(
+        params,
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
+    trace = result["resultTrace"]
+
+    expected = {
+        "digital_twin.entity_month": (
+            "twinmaker_entities",
+            "digital_twin_entity_months",
+        ),
+        "digital_twin.query": (
+            "twinmaker_queries",
+            "monthly_digital_twin_queries",
+        ),
+        "digital_twin.api_call": (
+            "twinmaker_api_calls",
+            "monthly_digital_twin_api_calls",
+        ),
+    }
+    for intent_id, (component, workload) in expected.items():
+        item = _find(trace, "aws", intent_id)
+        assert item["runtime_applicability"] is True
+        assert item["result_component_key"] == component
+        assert item["workload_inputs"][workload] is not None
+        assert item["cost_contribution"] >= 0
+        assert item["provider_pricing_context"]["status"] == "compatible"
+        assert item["provider_pricing_context"]["observedMode"] == "STANDARD"
+
+    bundle = _find(trace, "aws", "digital_twin.account_bundle_month")
+    assert bundle["runtime_applicability"] is False
+    assert bundle["runtime_applicability_reason"] == "AWS_TWINMAKER_STANDARD_MODE"
+    assert bundle["selection_status"] == "not_applicable"
+    assert bundle["cost_contribution"] == 0
+    assert bundle["provider_pricing_context"]["sourceRefreshRunId"] == (
+        "refresh-run-1"
+    )
 
 
 def test_gcp_pubsub_trace_includes_workload_inputs_and_formula_ref():
@@ -128,6 +254,7 @@ def test_trace_distinguishes_selection_provider_alternatives_and_unsupported_row
         for provider in ("aws", "azure", "gcp")
     }
     gcp_l4 = _find(trace, "gcp", "digital_twin.query_unit")
+    aws_l4 = _find(trace, "aws", "digital_twin.query")
 
     selected_l1 = l1_records[selected_path["L1"]]
     alternative_l1 = next(
@@ -140,6 +267,11 @@ def test_trace_distinguishes_selection_provider_alternatives_and_unsupported_row
     assert alternative_l1["selection_status"] == "alternative"
     assert alternative_l1["selected_for_path"] is False
     assert gcp_l4["selection_status"] == "unsupported"
+    assert aws_l4["selection_status"] == "unsupported"
+    assert aws_l4["runtime_applicability"] is False
+    assert aws_l4["provider_pricing_context"]["reasonCode"] == (
+        "AWS_TWINMAKER_PLAN_UNOBSERVED"
+    )
 
 
 def test_trace_separates_provider_alternatives_from_rejected_evidence():
@@ -175,6 +307,9 @@ def test_trace_redacts_credential_like_source_values(tmp_path):
     result = calculate_cheapest_costs(
         STANDARD_PARAMS,
         REALISTIC_PRICING,
+        pricing_catalog_context=pricing_catalog_context_for(
+            REALISTIC_PRICING
+        ),
         pricing_registry_service=PricingRegistryService(root),
     )
     serialized = json.dumps(result["resultTrace"])

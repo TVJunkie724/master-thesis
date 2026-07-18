@@ -53,7 +53,6 @@ def test_static_official_fields_are_non_fetchable_and_review_required():
     for record_id in (
         "aws.l2.lambda.free_requests",
         "aws.l3.dynamodb.free_storage",
-        "azure.l4.digital_twins.query_unit_tiers",
         "gcp.l1.pubsub.device_month",
     ):
         record = inventory[record_id]
@@ -90,13 +89,13 @@ def test_current_emergency_fallbacks_are_visible_but_not_publishable_successes()
 
 
 def test_inventory_records_are_serializable_for_api_and_ui_review_surfaces():
-    record = pricing_source_inventory_by_id()["azure.l4.digital_twins.query_unit_tiers"]
+    record = pricing_source_inventory_by_id()["azure.l4.digital_twins_query_units.query"]
 
     payload = record.as_dict()
 
     assert payload["record_id"] == record.record_id
-    assert payload["primary_source_type"] == "static_official_table"
-    assert payload["refreshability"] == "static_non_fetchable"
-    assert payload["failure_behavior"] == "require_review"
-    assert payload["key_path"] == ["azure", "azureDigitalTwins", "queryUnitTiers"]
-    assert payload["normalizer"] == "azure_digital_twins_query_units"
+    assert payload["primary_source_type"] == "dynamic_provider_api"
+    assert payload["refreshability"] == "refreshable"
+    assert payload["failure_behavior"] == "reject_field"
+    assert payload["key_path"] == ["azure", "azureDigitalTwins", "pricePerQueryUnit"]
+    assert payload["normalizer"] is None

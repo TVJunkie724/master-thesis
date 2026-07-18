@@ -27,6 +27,7 @@ extension _WizardInitializationCloudAccessHandlers on WizardBloc {
 
       // The adapter maps an expected 404 to null. Other failures remain visible.
       final deployerConfig = await _api.getDeployerConfig(event.twinId);
+      final deploymentRun = await _api.getLatestOptimizerRun(event.twinId);
 
       // Pass to stateless service for state construction
       final result = _initService.initializeEditMode(
@@ -35,6 +36,7 @@ extension _WizardInitializationCloudAccessHandlers on WizardBloc {
           twin: twin,
           config: config,
           deployerConfig: deployerConfig,
+          deploymentRun: deploymentRun,
         ),
       );
       emit(result.state);

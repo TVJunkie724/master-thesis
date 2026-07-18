@@ -136,11 +136,60 @@ mappings:
     normalization_rule: per_1m_events
     expected_cardinality: one_or_more_per_region
     match: {service_name: Event Grid}
+  - intent_id: digital_twin.operation
+    mapping_version: "2026.07.17"
+    review_status: reviewed
+    normalization_rule: per_1k_operations
+    expected_cardinality: one_per_region
+    match:
+      service_name: Digital Twins
+      product_name: Digital Twins
+      sku_name: Standard
+      meter_name: Standard Operations
+      unit: 1K
+      price_type: Consumption
+      evidence:
+        is_primary_meter_region: true
+    drift_markers:
+      service_name: Digital Twins
+      product_name: Digital Twins
+      meter_name: Standard Operations
+  - intent_id: digital_twin.message
+    mapping_version: "2026.07.17"
+    review_status: reviewed
+    normalization_rule: per_1k_message_units
+    expected_cardinality: one_per_region
+    match:
+      service_name: Digital Twins
+      product_name: Digital Twins
+      sku_name: Standard
+      meter_name: Standard Message
+      unit: 1K
+      price_type: Consumption
+      evidence:
+        is_primary_meter_region: true
+    drift_markers:
+      service_name: Digital Twins
+      product_name: Digital Twins
+      meter_name: Standard Message
   - intent_id: digital_twin.query_unit
-    review_status: draft
-    normalization_rule: per_query_unit
-    expected_cardinality: one_or_more_per_region
-    match: {service_name: Digital Twins, meter_name: Standard Query Units}
+    mapping_version: "2026.07.17"
+    review_status: reviewed
+    normalization_rule: per_1k_query_units
+    expected_cardinality: one_per_region
+    match:
+      service_name: Digital Twins
+      product_name: Digital Twins
+      sku_name: Standard
+      meter_name: Standard Query Units
+      unit: 1K
+      price_type: Consumption
+      evidence:
+        is_primary_meter_region: true
+    drift_markers:
+      service_name: Digital Twins
+      product_name: Digital Twins
+      meter_name: Standard Query Units
   - intent_id: grafana.editor_user_month
     review_status: draft
     normalization_rule: per_user_month

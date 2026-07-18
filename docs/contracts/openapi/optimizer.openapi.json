@@ -13,7 +13,6 @@
             "type": "string"
           },
           "aws_region": {
-            "default": "eu-central-1",
             "title": "Aws Region",
             "type": "string"
           },
@@ -35,9 +34,204 @@
         },
         "required": [
           "aws_access_key_id",
-          "aws_secret_access_key"
+          "aws_secret_access_key",
+          "aws_region"
         ],
         "title": "AWSCredentialsRequest",
+        "type": "object"
+      },
+      "AwsTwinMakerBundle": {
+        "additionalProperties": false,
+        "properties": {
+          "names": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Names",
+            "type": "array"
+          },
+          "tier": {
+            "enum": [
+              "TIER_1",
+              "TIER_2",
+              "TIER_3",
+              "TIER_4"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tier"
+        ],
+        "title": "AwsTwinMakerBundle",
+        "type": "object"
+      },
+      "AwsTwinMakerPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "billableEntityCount": {
+            "minimum": 0.0,
+            "title": "Billableentitycount",
+            "type": "integer"
+          },
+          "bundle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AwsTwinMakerBundle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effectiveAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effectiveat"
+          },
+          "mode": {
+            "enum": [
+              "BASIC",
+              "STANDARD",
+              "TIERED_BUNDLE"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "updateReason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatereason"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "required": [
+          "mode",
+          "billableEntityCount"
+        ],
+        "title": "AwsTwinMakerPlan",
+        "type": "object"
+      },
+      "AwsTwinMakerPricingContextAvailable": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogSnapshotDigest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Catalogsnapshotdigest",
+            "type": "string"
+          },
+          "connectionFingerprint": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Connectionfingerprint",
+            "type": "string"
+          },
+          "currentPlan": {
+            "$ref": "#/components/schemas/AwsTwinMakerPlan"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "title": "Observedat",
+            "type": "string"
+          },
+          "pendingPlan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AwsTwinMakerPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pricingRegion": {
+            "pattern": "^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\\d+$",
+            "title": "Pricingregion",
+            "type": "string"
+          },
+          "providerAccountId": {
+            "pattern": "^\\d{12}$",
+            "title": "Provideraccountid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "aws-twinmaker-account-pricing-context.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "sourceRefreshRunId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Sourcerefreshrunid",
+            "type": "string"
+          },
+          "status": {
+            "const": "available",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "status",
+          "sourceRefreshRunId",
+          "connectionFingerprint",
+          "providerAccountId",
+          "pricingRegion",
+          "catalogSnapshotDigest",
+          "observedAt",
+          "currentPlan"
+        ],
+        "title": "AwsTwinMakerPricingContextAvailable",
+        "type": "object"
+      },
+      "AwsTwinMakerPricingContextUnavailable": {
+        "additionalProperties": false,
+        "properties": {
+          "reasonCode": {
+            "default": "AWS_TWINMAKER_PLAN_UNOBSERVED",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "title": "Reasoncode",
+            "type": "string"
+          },
+          "status": {
+            "const": "unavailable",
+            "default": "unavailable",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "AwsTwinMakerPricingContextUnavailable",
         "type": "object"
       },
       "AzureCredentialsRequest": {
@@ -97,31 +291,8 @@
         "type": "object"
       },
       "CalcParams": {
+        "additionalProperties": false,
         "description": "Defines the parameters for calculating the cost-optimized Digital Twin deployment.\n\nServer-side validation ensures:\n- Positive values for device counts, intervals, and sizes\n- Storage duration ordering: Hot \u2264 Cool \u2264 Archive\n- Non-negative values for editor/viewer counts and dashboard settings",
-        "example": {
-          "allowGcpSelfHostedL4": false,
-          "allowGcpSelfHostedL5": false,
-          "amountOfActiveEditors": 0,
-          "amountOfActiveViewers": 0,
-          "apiCallsPerDashboardRefresh": 1,
-          "archiveStorageDurationInMonths": 12,
-          "averageSizeOfMessageInKb": 0.25,
-          "coolStorageDurationInMonths": 3,
-          "currency": "USD",
-          "dashboardActiveHoursPerDay": 0,
-          "dashboardRefreshesPerHour": 2,
-          "deviceSendingIntervalInMinutes": 2,
-          "entityCount": 1,
-          "eventsPerMessage": 1,
-          "hotStorageDurationInMonths": 1,
-          "integrateErrorHandling": true,
-          "needs3DModel": false,
-          "numberOfDevices": 100,
-          "orchestrationActionsPerMessage": 3,
-          "returnFeedbackToDevice": false,
-          "triggerNotificationWorkflow": true,
-          "useEventChecking": true
-        },
         "properties": {
           "allowGcpSelfHostedL4": {
             "default": false,
@@ -165,11 +336,31 @@
             "title": "Average3Dmodelsizeinmb",
             "type": "number"
           },
+          "averageDigitalTwinQueryResponseSizeInKb": {
+            "default": 1.0,
+            "description": "Estimated average Azure Digital Twins query response size in KB",
+            "exclusiveMinimum": 0.0,
+            "title": "Averagedigitaltwinqueryresponsesizeinkb",
+            "type": "number"
+          },
+          "averageDigitalTwinQueryUnitsPerQuery": {
+            "default": 1.0,
+            "description": "Estimated average Azure Digital Twins query units per logical query",
+            "exclusiveMinimum": 0.0,
+            "title": "Averagedigitaltwinqueryunitsperquery",
+            "type": "number"
+          },
           "averageSizeOfMessageInKb": {
             "description": "Average message size in KB (must be > 0)",
             "exclusiveMinimum": 0.0,
             "title": "Averagesizeofmessageinkb",
             "type": "number"
+          },
+          "calculationRunId": {
+            "description": "Management-owned immutable calculation run identity.",
+            "format": "uuid",
+            "title": "Calculationrunid",
+            "type": "string"
           },
           "coolStorageDurationInMonths": {
             "description": "Cool storage duration (must be >= 1)",
@@ -179,6 +370,10 @@
           },
           "currency": {
             "default": "USD",
+            "enum": [
+              "USD",
+              "EUR"
+            ],
             "title": "Currency",
             "type": "string"
           },
@@ -228,7 +423,9 @@
             "type": "integer"
           },
           "integrateErrorHandling": {
+            "const": false,
             "default": false,
+            "description": "Legacy compatibility field. The executable five-layer baseline accepts only false or omission.",
             "title": "Integrateerrorhandling",
             "type": "boolean"
           },
@@ -256,11 +453,25 @@
             "title": "Numberofeventactions",
             "type": "integer"
           },
+          "optimizationProfileId": {
+            "default": "cost_minimization_v1",
+            "description": "Executable optimization profile. Only cost_minimization_v1 is enabled.",
+            "title": "Optimizationprofileid",
+            "type": "string"
+          },
           "orchestrationActionsPerMessage": {
             "default": 3,
             "minimum": 1.0,
             "title": "Orchestrationactionspermessage",
             "type": "integer"
+          },
+          "providerPricingCatalogs": {
+            "$ref": "#/components/schemas/PricingCatalogContext",
+            "description": "Exact reviewed AWS, Azure, and GCP provider-region catalog references. Calculations never resolve a mutable latest snapshot."
+          },
+          "providerPricingContexts": {
+            "$ref": "#/components/schemas/ProviderPricingContexts",
+            "description": "Management-injected provider account pricing observations. Clients cannot infer an AWS TwinMaker plan."
           },
           "returnFeedbackToDevice": {
             "default": false,
@@ -279,6 +490,7 @@
           }
         },
         "required": [
+          "calculationRunId",
           "numberOfDevices",
           "deviceSendingIntervalInMinutes",
           "averageSizeOfMessageInKb",
@@ -290,12 +502,40 @@
           "amountOfActiveEditors",
           "amountOfActiveViewers",
           "dashboardRefreshesPerHour",
-          "dashboardActiveHoursPerDay"
+          "dashboardActiveHoursPerDay",
+          "providerPricingCatalogs"
         ],
         "title": "CalcParams",
         "type": "object"
       },
+      "CapabilityAvailability": {
+        "enum": [
+          "available",
+          "disabled",
+          "unsupported"
+        ],
+        "title": "CapabilityAvailability",
+        "type": "string"
+      },
+      "CapabilityRoadmap": {
+        "enum": [
+          "none",
+          "planned"
+        ],
+        "title": "CapabilityRoadmap",
+        "type": "string"
+      },
+      "CapabilityVerificationLevel": {
+        "enum": [
+          "not_verified",
+          "contract_tested",
+          "live_verified"
+        ],
+        "title": "CapabilityVerificationLevel",
+        "type": "string"
+      },
       "CredentialRequest": {
+        "additionalProperties": false,
         "description": "Credentials for pricing fetch.",
         "properties": {
           "aws_access_key_id": {
@@ -309,6 +549,18 @@
             ],
             "title": "Aws Access Key Id"
           },
+          "aws_configured_account_id": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Configured Account Id"
+          },
           "aws_region": {
             "anyOf": [
               {
@@ -318,7 +570,6 @@
                 "type": "null"
               }
             ],
-            "default": "eu-central-1",
             "title": "Aws Region"
           },
           "aws_secret_access_key": {
@@ -331,6 +582,51 @@
               }
             ],
             "title": "Aws Secret Access Key"
+          },
+          "aws_session_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Session Token"
+          },
+          "azure_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "westeurope",
+            "title": "Azure Region"
+          },
+          "gcp_billing_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gcp Billing Account"
+          },
+          "gcp_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gcp Project Id"
           },
           "gcp_region": {
             "anyOf": [
@@ -602,6 +898,153 @@
         "title": "OptimizerConfigValidation",
         "type": "object"
       },
+      "PricingCatalogContext": {
+        "additionalProperties": false,
+        "description": "Exact three-provider pricing context required by a calculation.",
+        "properties": {
+          "catalogs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PricingCatalogReference"
+            },
+            "propertyNames": {
+              "enum": [
+                "aws",
+                "azure",
+                "gcp"
+              ]
+            },
+            "title": "Catalogs",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": "provider-pricing-catalog-context.v1",
+            "default": "provider-pricing-catalog-context.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogs"
+        ],
+        "title": "PricingCatalogContext",
+        "type": "object"
+      },
+      "PricingCatalogReference": {
+        "additionalProperties": false,
+        "description": "Immutable identity for one provider-region catalog observation.",
+        "properties": {
+          "calculationSource": {
+            "enum": [
+              "fresh",
+              "last_known_good",
+              "reviewed_baseline"
+            ],
+            "title": "Calculationsource",
+            "type": "string"
+          },
+          "contentDigest": {
+            "title": "Contentdigest",
+            "type": "string"
+          },
+          "contractVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "title": "Fetchedat",
+            "type": "string"
+          },
+          "mappingVersions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mappingversions",
+            "type": "array"
+          },
+          "pricingRegion": {
+            "title": "Pricingregion",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "providerSchemaVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Providerschemaversion",
+            "type": "string"
+          },
+          "publicationStatus": {
+            "enum": [
+              "published",
+              "candidate"
+            ],
+            "title": "Publicationstatus",
+            "type": "string"
+          },
+          "registryVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Registryversion",
+            "type": "string"
+          },
+          "reviewStatus": {
+            "enum": [
+              "reviewed",
+              "review_required"
+            ],
+            "title": "Reviewstatus",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "pricing-catalog-reference.v1",
+            "default": "pricing-catalog-reference.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "snapshotId": {
+            "title": "Snapshotid",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "provider_api",
+              "official_static_documentation",
+              "official_calculator_reference",
+              "curated_model_constant",
+              "reviewed_baseline"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshotId",
+          "provider",
+          "pricingRegion",
+          "providerSchemaVersion",
+          "contractVersion",
+          "registryVersion",
+          "mappingVersions",
+          "fetchedAt",
+          "contentDigest",
+          "source",
+          "reviewStatus",
+          "publicationStatus",
+          "calculationSource"
+        ],
+        "title": "PricingCatalogReference",
+        "type": "object"
+      },
       "PricingSourceInventoryResponse": {
         "properties": {
           "objective": {
@@ -773,6 +1216,360 @@
         "title": "PricingSourceRecordResponse",
         "type": "object"
       },
+      "ProviderCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderLayerCapability"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "layers"
+        ],
+        "title": "ProviderCapability",
+        "type": "object"
+      },
+      "ProviderLayerCapability": {
+        "additionalProperties": false,
+        "description": "One provider-layer capability owned by the Optimizer.",
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/CapabilityAvailability"
+          },
+          "layer": {
+            "enum": [
+              "l1",
+              "l2",
+              "l3_hot",
+              "l3_cool",
+              "l3_archive",
+              "l4",
+              "l5"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "roadmap": {
+            "$ref": "#/components/schemas/CapabilityRoadmap",
+            "default": "none"
+          },
+          "verification_level": {
+            "$ref": "#/components/schemas/CapabilityVerificationLevel"
+          }
+        },
+        "required": [
+          "layer",
+          "availability",
+          "verification_level"
+        ],
+        "title": "ProviderLayerCapability",
+        "type": "object"
+      },
+      "ProviderMappingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "intent_id": {
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "mapping": {
+            "additionalProperties": true,
+            "title": "Mapping",
+            "type": "object"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "registry_version": {
+            "title": "Registry Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registry_version",
+          "provider",
+          "intent_id",
+          "mapping"
+        ],
+        "title": "ProviderMappingResponse",
+        "type": "object"
+      },
+      "ProviderMappingsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "mappings": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Mappings",
+            "type": "object"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "registry_version": {
+            "title": "Registry Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registry_version",
+          "provider",
+          "mappings"
+        ],
+        "title": "ProviderMappingsResponse",
+        "type": "object"
+      },
+      "ProviderPricingContexts": {
+        "additionalProperties": false,
+        "properties": {
+          "awsTwinMaker": {
+            "discriminator": {
+              "mapping": {
+                "available": "#/components/schemas/AwsTwinMakerPricingContextAvailable",
+                "unavailable": "#/components/schemas/AwsTwinMakerPricingContextUnavailable"
+              },
+              "propertyName": "status"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AwsTwinMakerPricingContextAvailable"
+              },
+              {
+                "$ref": "#/components/schemas/AwsTwinMakerPricingContextUnavailable"
+              }
+            ],
+            "title": "Awstwinmaker"
+          }
+        },
+        "title": "ProviderPricingContexts",
+        "type": "object"
+      },
+      "RegistryCollectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "object"
+          },
+          "registry_version": {
+            "title": "Registry Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registry_version",
+          "items"
+        ],
+        "title": "RegistryCollectionResponse",
+        "type": "object"
+      },
+      "RegistryItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "additionalProperties": true,
+            "title": "Item",
+            "type": "object"
+          },
+          "registry_version": {
+            "title": "Registry Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registry_version",
+          "item"
+        ],
+        "title": "RegistryItemResponse",
+        "type": "object"
+      },
+      "RegistryListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "registry_version": {
+            "title": "Registry Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registry_version",
+          "items"
+        ],
+        "title": "RegistryListResponse",
+        "type": "object"
+      },
+      "RegistryStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "calculation_strategy_count": {
+            "title": "Calculation Strategy Count",
+            "type": "integer"
+          },
+          "formula_set_count": {
+            "title": "Formula Set Count",
+            "type": "integer"
+          },
+          "intent_count": {
+            "title": "Intent Count",
+            "type": "integer"
+          },
+          "normalization_rule_count": {
+            "title": "Normalization Rule Count",
+            "type": "integer"
+          },
+          "optimization_bundle_count": {
+            "title": "Optimization Bundle Count",
+            "type": "integer"
+          },
+          "price_source_classification_count": {
+            "title": "Price Source Classification Count",
+            "type": "integer"
+          },
+          "pricing_model_classification_count": {
+            "title": "Pricing Model Classification Count",
+            "type": "integer"
+          },
+          "provider_mapping_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Provider Mapping Counts",
+            "type": "object"
+          },
+          "provider_pricing_contract_count": {
+            "title": "Provider Pricing Contract Count",
+            "type": "integer"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "registry_version": {
+            "title": "Registry Version",
+            "type": "string"
+          },
+          "service_model_count": {
+            "title": "Service Model Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "workload_contract_count": {
+            "title": "Workload Contract Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "registry_version",
+          "intent_count",
+          "normalization_rule_count",
+          "service_model_count",
+          "pricing_model_classification_count",
+          "price_source_classification_count",
+          "optimization_bundle_count",
+          "calculation_strategy_count",
+          "formula_set_count",
+          "workload_contract_count",
+          "provider_pricing_contract_count",
+          "providers",
+          "provider_mapping_counts"
+        ],
+        "title": "RegistryStatusResponse",
+        "type": "object"
+      },
+      "ServiceProviderCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "generated_from": {
+            "const": "runtime_registry",
+            "title": "Generated From",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderCapability"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "provider-service-capabilities.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "service": {
+            "const": "optimizer",
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "service",
+          "generated_from",
+          "providers"
+        ],
+        "title": "ServiceProviderCapabilities",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -858,37 +1655,13 @@
   "paths": {
     "/calculate": {
       "put": {
-        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Loads current pricing data for all three cloud providers\n3. Calculates costs for each of the 5 architectural layers on each provider\n4. Returns the optimal provider per layer and detailed cost breakdowns\n\n**The 5 Architectural Layers:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L3 (Processing):** Data processing, event detection, notifications\n- **L4 (Management):** Digital Twin entity management and 3D modeling\n- **L5 (Visualization):** Dashboards and user interfaces\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
+        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n3. Enumerates every executable complete Five-Layer provider assignment\n4. Prices all six approved layer-to-layer routes with aggregate transfer allowances\n5. Scores complete layer and route totals and returns the deterministic winner\n6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n**The 5 Architectural Layers:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Processing):** Data processing, event detection, notifications\n- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L4 (Management):** Digital Twin entity management and 3D modeling\n- **L5 (Visualization):** Dashboards and user interfaces\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
         "operationId": "calculateOptimalCloudDistribution",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalcParams",
-                "examples": [
-                  {
-                    "amountOfActiveEditors": 2,
-                    "amountOfActiveViewers": 10,
-                    "apiCallsPerDashboardRefresh": 1,
-                    "archiveStorageDurationInMonths": 12,
-                    "averageSizeOfMessageInKb": 0.25,
-                    "coolStorageDurationInMonths": 3,
-                    "currency": "USD",
-                    "dashboardActiveHoursPerDay": 8,
-                    "dashboardRefreshesPerHour": 4,
-                    "deviceSendingIntervalInMinutes": 2.0,
-                    "entityCount": 0,
-                    "eventsPerMessage": 1,
-                    "hotStorageDurationInMonths": 1,
-                    "integrateErrorHandling": true,
-                    "needs3DModel": false,
-                    "numberOfDevices": 100,
-                    "orchestrationActionsPerMessage": 3,
-                    "returnFeedbackToDevice": false,
-                    "triggerNotificationWorkflow": true,
-                    "useEventChecking": true
-                  }
-                ]
+                "$ref": "#/components/schemas/CalcParams"
               }
             }
           },
@@ -900,42 +1673,44 @@
               "application/json": {
                 "example": {
                   "result": {
-                    "awsCosts": {
-                      "L1": 12.5,
-                      "L2_Archive": 2.0,
-                      "L2_Cool": 8.0,
-                      "L2_Hot": 5.0
-                    },
-                    "azureCosts": {
-                      "L1": 15.0,
-                      "L4": 20.0
-                    },
                     "calculationResult": {
                       "L1": "GCP",
-                      "L2": {
+                      "L2": "AWS",
+                      "L3": {
                         "Archive": "AWS",
                         "Cool": "GCP",
                         "Hot": "AWS"
                       },
-                      "L3": "AWS",
                       "L4": "Azure",
-                      "L5": "GCP"
+                      "L5": "Azure"
                     },
                     "cheapestPath": [
                       "L1_GCP",
-                      "L2_AWS_Hot",
-                      "L2_GCP_Cool",
-                      "L2_AWS_Archive",
-                      "L3_AWS",
+                      "L2_AWS",
+                      "L3_hot_AWS",
+                      "L3_cool_GCP",
+                      "L3_archive_AWS",
                       "L4_Azure",
-                      "L5_GCP"
+                      "L5_Azure"
                     ],
                     "currency": "USD",
-                    "gcpCosts": {
-                      "L1": 10.0,
-                      "L5": 18.0
+                    "optimizationDiagnostics": {
+                      "enumeratedPathCount": 972,
+                      "evaluatedPathCount": 972,
+                      "rejectedPathCount": 0,
+                      "schemaVersion": "complete-path-optimization.v1",
+                      "scoreUnit": "USD/month",
+                      "winningCandidateId": "gcp|aws|aws|gcp|aws|azure|azure"
                     },
-                    "totalMonthlyCost": 85.5
+                    "optimization_profile_id": "cost_minimization_v1",
+                    "result_schema_version": "cost-result.v1",
+                    "totalCost": 85.5,
+                    "transferPricingContext": {
+                      "currency": "USD",
+                      "pools": [],
+                      "routes": [],
+                      "schemaVersion": "complete-path-transfer-pricing.v1"
+                    }
                   }
                 },
                 "schema": {}
@@ -958,6 +1733,22 @@
               }
             },
             "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "PRICING_CATALOG_STALE",
+                  "fix_suggestion": "Refresh the affected provider-region pricing catalog and retry",
+                  "http_status": 409,
+                  "message": "Pricing catalog snapshot is stale"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - A required catalog or operation state is not usable"
           },
           "422": {
             "content": {
@@ -1002,6 +1793,27 @@
         "summary": "Calculate optimal multi-cloud cost distribution for Digital Twin deployment",
         "tags": [
           "Calculation"
+        ]
+      }
+    },
+    "/capabilities/providers": {
+      "get": {
+        "operationId": "getOptimizerProviderCapabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceProviderCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get provider-layer calculation capabilities",
+        "tags": [
+          "Capabilities"
         ]
       }
     },
@@ -1070,7 +1882,7 @@
     },
     "/fetch_pricing/aws": {
       "post": {
-        "description": "**Purpose:** Fetches current AWS pricing data and caches it locally for use in cost calculations.\n\n**When to use:**\n- Before running calculations if pricing data is stale (>7 days old)\n- When you need guaranteed fresh pricing data\n- After AWS announces pricing changes\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Requires valid AWS credentials in config_credentials.json\n- May take 30-60 seconds for a full refresh",
+        "description": "**Purpose:** Fetches current AWS pricing data and caches it locally for use in cost calculations.\n\n**When to use:**\n- Before running calculations if pricing data is stale (>7 days old)\n- Debug/local-cloud mode when you need guaranteed fresh pricing data from mounted credential files\n- After AWS announces pricing changes\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Fresh file-based refresh requires `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`\n- App flows should use `/fetch_pricing_with_credentials/aws`\n- May take 30-60 seconds for a full refresh",
         "operationId": "refreshAwsPricing",
         "parameters": [
           {
@@ -1091,6 +1903,16 @@
               "default": false,
               "title": "Force Fetch",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pricing_region",
+            "required": false,
+            "schema": {
+              "default": "eu-central-1",
+              "title": "Pricing Region",
+              "type": "string"
             }
           }
         ],
@@ -1118,6 +1940,22 @@
               }
             },
             "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                  "fix_suggestion": "Use request-body credential validation or start the explicit local-cloud Compose override.",
+                  "http_status": 403,
+                  "message": "File-based credential checks are disabled for this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - This runtime mode does not allow the requested operation"
           },
           "422": {
             "content": {
@@ -1176,6 +2014,16 @@
               "title": "Force Fetch",
               "type": "boolean"
             }
+          },
+          {
+            "in": "query",
+            "name": "pricing_region",
+            "required": false,
+            "schema": {
+              "default": "westeurope",
+              "title": "Pricing Region",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1222,7 +2070,7 @@
     },
     "/fetch_pricing/gcp": {
       "post": {
-        "description": "**Purpose:** Fetches current Google Cloud pricing data and caches it locally.\n\n**When to use:**\n- Before running calculations if pricing data is stale (>7 days old)\n- Requires valid GCP service account credentials\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Requires gcp_credentials.json with Cloud Billing Catalog API access",
+        "description": "**Purpose:** Fetches current Google Cloud pricing data and caches it locally.\n\n**When to use:**\n- Before running calculations if pricing data is stale (>7 days old)\n- Debug/local-cloud mode when mounted GCP service account credentials are available\n\n**Behavior:**\n- Uses cached data if less than 7 days old (unless force_fetch=true)\n- Fresh file-based refresh requires `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`\n- App flows should use `/fetch_pricing_with_credentials/gcp`",
         "operationId": "refreshGcpPricing",
         "parameters": [
           {
@@ -1243,6 +2091,16 @@
               "default": false,
               "title": "Force Fetch",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pricing_region",
+            "required": false,
+            "schema": {
+              "default": "europe-west1",
+              "title": "Pricing Region",
+              "type": "string"
             }
           }
         ],
@@ -1270,6 +2128,22 @@
               }
             },
             "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                  "fix_suggestion": "Use request-body credential validation or start the explicit local-cloud Compose override.",
+                  "http_status": 403,
+                  "message": "File-based credential checks are disabled for this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - This runtime mode does not allow the requested operation"
           },
           "422": {
             "content": {
@@ -1585,7 +2459,7 @@
     },
     "/permissions/verify/aws": {
       "get": {
-        "description": "Validates AWS credentials loaded from the config file. Checks: credentials present, STS GetCallerIdentity succeeds, and Pricing API access works.",
+        "description": "Debug/local-cloud only. Validates AWS credentials loaded from the config file. Checks: credentials present, STS GetCallerIdentity succeeds, and Pricing API access works. Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.",
         "operationId": "verifyAwsCredentialsFromConfig",
         "responses": {
           "200": {
@@ -1607,6 +2481,22 @@
               }
             },
             "description": "Credential check result"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                  "fix_suggestion": "Use request-body credential validation or start the explicit local-cloud Compose override.",
+                  "http_status": 403,
+                  "message": "File-based credential checks are disabled for this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - This runtime mode does not allow the requested operation"
           }
         },
         "summary": "Verify AWS permissions using project config credentials",
@@ -1655,7 +2545,7 @@
     },
     "/permissions/verify/azure": {
       "get": {
-        "description": "Validates Azure configuration loaded from the config file. Note: Azure Pricing API is publicly accessible, so credentials are not strictly required for pricing data. This endpoint validates that the configuration is properly formatted.",
+        "description": "Debug/local-cloud only. Validates Azure configuration loaded from the config file. Note: Azure Pricing API is publicly accessible, so credentials are not strictly required for pricing data. This endpoint validates that the configuration is properly formatted. Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.",
         "operationId": "verifyAzureCredentialsFromConfig",
         "responses": {
           "200": {
@@ -1678,6 +2568,22 @@
               }
             },
             "description": "Credential check result"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                  "fix_suggestion": "Use request-body credential validation or start the explicit local-cloud Compose override.",
+                  "http_status": 403,
+                  "message": "File-based credential checks are disabled for this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - This runtime mode does not allow the requested operation"
           }
         },
         "summary": "Verify Azure configuration using project config",
@@ -1726,7 +2632,7 @@
     },
     "/permissions/verify/gcp": {
       "get": {
-        "description": "Validates GCP service account credentials loaded from the config. Checks: credentials file exists, can load credentials, and Cloud Billing Catalog API access works.",
+        "description": "Debug/local-cloud only. Validates GCP service account credentials loaded from the config. Checks: credentials file exists, can load credentials, and Cloud Billing Catalog API access works. Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.",
         "operationId": "verifyGcpCredentialsFromConfig",
         "responses": {
           "200": {
@@ -1748,6 +2654,22 @@
               }
             },
             "description": "Credential check result"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                  "fix_suggestion": "Use request-body credential validation or start the explicit local-cloud Compose override.",
+                  "http_status": 403,
+                  "message": "File-based credential checks are disabled for this runtime."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - This runtime mode does not allow the requested operation"
           }
         },
         "summary": "Verify GCP permissions using project config credentials",
@@ -1756,7 +2678,7 @@
         ]
       },
       "post": {
-        "description": "Validates GCP credentials using the file path provided in the request body.",
+        "description": "Validates GCP credentials using the file path or service-account JSON provided in the request body.",
         "operationId": "verifyGcpCredentialsFromBody",
         "requestBody": {
           "content": {
@@ -1794,10 +2716,768 @@
         ]
       }
     },
-    "/pricing/export/{provider}": {
+    "/pricing-registry/field-verification-matrix": {
       "get": {
-        "description": "**Purpose:** Returns the complete cached pricing data for a provider with metadata.\n\n**When to use:**\n- To capture exact pricing data used in a calculation for audit trail\n- To understand what pricing data is currently cached\n\n**Parameters:**\n- provider: 'aws', 'azure', or 'gcp'",
-        "operationId": "exportPricingSnapshot",
+        "operationId": "listPricingRegistryFieldVerificationMatrix",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List pricing field verification matrix rows",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/intents": {
+      "get": {
+        "operationId": "listPricingRegistryIntents",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List pricing registry intents",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/intents/{intent_id}": {
+      "get": {
+        "operationId": "getPricingRegistryIntent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "title": "Intent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get one pricing registry intent",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/normalization-rules": {
+      "get": {
+        "operationId": "listPricingRegistryNormalizationRules",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List pricing registry normalization rules",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/optimization-bundles": {
+      "get": {
+        "operationId": "listPricingRegistryOptimizationBundles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List optimization bundles",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/optimization-bundles/{bundle_id}": {
+      "get": {
+        "operationId": "getPricingRegistryOptimizationBundle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get one optimization bundle",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/price-source-classifications": {
+      "get": {
+        "operationId": "listPricingRegistrySourceClassifications",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List price source classifications",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/price-source-classifications/{classification_id}": {
+      "get": {
+        "operationId": "getPricingRegistrySourceClassification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "classification_id",
+            "required": true,
+            "schema": {
+              "title": "Classification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get one price source classification",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/pricing-model-classifications": {
+      "get": {
+        "operationId": "listPricingRegistryModelClassifications",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List pricing model classifications",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/pricing-model-classifications/{classification_id}": {
+      "get": {
+        "operationId": "getPricingRegistryModelClassification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "classification_id",
+            "required": true,
+            "schema": {
+              "title": "Classification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get one pricing model classification",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/provider-pricing-contracts": {
+      "get": {
+        "operationId": "listPricingRegistryProviderPricingContracts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List provider pricing contracts",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/providers/{provider}/mappings": {
+      "get": {
+        "operationId": "listPricingRegistryProviderMappings",
         "parameters": [
           {
             "in": "path",
@@ -1813,17 +3493,316 @@
           "200": {
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderMappingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
                 "example": {
-                  "pricing": [
-                    "...full pricing object..."
-                  ],
-                  "provider": "aws",
-                  "updated_at": "2026-01-29T10:00:00Z"
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
                 },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List pricing registry mappings for one provider",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/providers/{provider}/mappings/{intent_id}": {
+      "get": {
+        "operationId": "getPricingRegistryProviderMapping",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "title": "Intent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderMappingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get one provider mapping for one pricing intent",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/service-models": {
+      "get": {
+        "operationId": "listPricingRegistryServiceModels",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "List pricing registry service models",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/service-models/{service_model_id}": {
+      "get": {
+        "operationId": "getPricingRegistryServiceModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_model_id",
+            "required": true,
+            "schema": {
+              "title": "Service Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get one pricing registry service model",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing-registry/status": {
+      "get": {
+        "operationId": "getPricingRegistryStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INTERNAL_ERROR",
+                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
+                  "http_status": 500,
+                  "message": "An unexpected error occurred while processing your request"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Get pricing registry status",
+        "tags": [
+          "Pricing Registry"
+        ]
+      }
+    },
+    "/pricing/catalogs/baseline/{provider}": {
+      "get": {
+        "description": "Returns only the immutable reference for the source-controlled reviewed provider baseline. Use the exact snapshot endpoint to inspect its payload.",
+        "operationId": "getPricingCatalogBaseline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
                 "schema": {}
               }
             },
-            "description": "Full pricing data with metadata"
+            "description": "Pinned baseline reference"
           },
           "400": {
             "content": {
@@ -1868,7 +3847,270 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Export cached pricing data for audit/snapshot purposes",
+        "summary": "Return the pinned reviewed baseline reference",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/pricing/catalogs/{provider}/{pricing_region}/published": {
+      "get": {
+        "operationId": "getPublishedPricingCatalog",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pricing_region",
+            "required": true,
+            "schema": {
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Active immutable catalog reference"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Return the active provider-region pricing reference",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}": {
+      "get": {
+        "description": "Returns the full pricing and evidence payload only for an explicit provider, pricing region, and immutable snapshot identity.",
+        "operationId": "getExactPricingCatalogSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pricing_region",
+            "required": true,
+            "schema": {
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Exact immutable catalog snapshot"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect one exact immutable provider pricing snapshot",
+        "tags": [
+          "Pricing"
+        ]
+      }
+    },
+    "/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}/reference": {
+      "get": {
+        "description": "Returns only the verified reference and freshness for an explicit provider, pricing region, and immutable snapshot identity.",
+        "operationId": "getExactPricingCatalogReference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pricing_region",
+            "required": true,
+            "schema": {
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Verified exact catalog reference"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify one exact immutable provider pricing reference",
         "tags": [
           "Pricing"
         ]
@@ -1960,6 +4202,18 @@
       "get": {
         "description": "**Purpose:** Check if AWS pricing data is fresh and valid before running calculations.\n\n**Use this to decide:** Should I call `refreshAwsPricing` before `calculateOptimalCloudDistribution`?\n\n**Response fields:**\n- `is_fresh`: true if data aged < 7 days\n- `status`: 'valid', 'incomplete', 'missing', or 'error'\n- `missing_keys`: service keys that are missing if incomplete",
         "operationId": "getAwsPricingStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pricing_region",
+            "required": false,
+            "schema": {
+              "default": "eu-central-1",
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -1975,6 +4229,16 @@
               }
             },
             "description": "Pricing file status"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Check age and validity of cached AWS pricing data",
@@ -1987,6 +4251,18 @@
       "get": {
         "description": "**Purpose:** Check if Azure pricing data is fresh and valid before running calculations.\n\n**Use this to decide:** Should I call `refreshAzurePricing` before `calculateOptimalCloudDistribution`?",
         "operationId": "getAzurePricingStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pricing_region",
+            "required": false,
+            "schema": {
+              "default": "westeurope",
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2002,6 +4278,16 @@
               }
             },
             "description": "Pricing file status"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Check age and validity of cached Azure pricing data",
@@ -2014,6 +4300,18 @@
       "get": {
         "description": "**Purpose:** Check if GCP pricing data is fresh and valid before running calculations.\n\n**Use this to decide:** Should I call `refreshGcpPricing` before `calculateOptimalCloudDistribution`?",
         "operationId": "getGcpPricingStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pricing_region",
+            "required": false,
+            "schema": {
+              "default": "europe-west1",
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2029,6 +4327,16 @@
               }
             },
             "description": "Pricing file status"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Check age and validity of cached GCP pricing data",
@@ -2133,7 +4441,7 @@
               "schema": {
                 "$ref": "#/components/schemas/CredentialRequest",
                 "default": {
-                  "aws_region": "eu-central-1",
+                  "azure_region": "westeurope",
                   "gcp_region": "europe-west1"
                 }
               }
@@ -2268,6 +4576,10 @@
       "name": "Pricing"
     },
     {
+      "description": "Read-only endpoints for pricing intents, mappings, normalization rules, and service models.",
+      "name": "Pricing Registry"
+    },
+    {
       "description": "Endpoints for fetching cloud regions.",
       "name": "Regions"
     },
@@ -2280,12 +4592,16 @@
       "name": "Permissions - Upload"
     },
     {
-      "description": "Verify cloud credentials from project config.",
+      "description": "Debug/local-cloud only. Verify cloud credentials from mounted project config when ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true.",
       "name": "Permissions - Project"
     },
     {
       "description": "Endpoints for validating optimizer configuration.",
       "name": "Validation"
+    },
+    {
+      "description": "Provider-layer calculation capability contracts.",
+      "name": "Capabilities"
     }
   ]
 }

@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/resolved-deployment-specification/v1/verification-matrix.schema.json",
+  "title": "Resolved Deployment Specification verification matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "providers",
+    "representative_paths",
+    "azure_iot_hub_cases",
+    "expected_targets_by_component",
+    "storage_transitions",
+    "glue_component_by_receiver"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "resolved-deployment-verification-matrix.v1"
+    },
+    "providers": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "aws"
+        },
+        {
+          "const": "azure"
+        },
+        {
+          "const": "gcp"
+        }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "representative_paths": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/representativePath"
+      }
+    },
+    "azure_iot_hub_cases": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/azureIotHubCase"
+      }
+    },
+    "expected_targets_by_component": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+          "type": [
+            "integer",
+            "string",
+            "boolean"
+          ]
+        }
+      }
+    },
+    "storage_transitions": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/storageTransition"
+        },
+        {
+          "$ref": "#/$defs/storageTransition"
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "glue_component_by_receiver": {
+      "$ref": "#/$defs/providerComponentMap"
+    }
+  },
+  "$defs": {
+    "provider": {
+      "enum": [
+        "aws",
+        "azure",
+        "gcp"
+      ]
+    },
+    "providerPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "l1_ingestion",
+        "l2_processing",
+        "l3_hot_storage",
+        "l3_cool_storage",
+        "l3_archive_storage",
+        "l4_twin_state",
+        "l5_visualization"
+      ],
+      "properties": {
+        "l1_ingestion": {
+          "$ref": "#/$defs/provider"
+        },
+        "l2_processing": {
+          "$ref": "#/$defs/provider"
+        },
+        "l3_hot_storage": {
+          "$ref": "#/$defs/provider"
+        },
+        "l3_cool_storage": {
+          "$ref": "#/$defs/provider"
+        },
+        "l3_archive_storage": {
+          "$ref": "#/$defs/provider"
+        },
+        "l4_twin_state": {
+          "$ref": "#/$defs/provider"
+        },
+        "l5_visualization": {
+          "$ref": "#/$defs/provider"
+        }
+      }
+    },
+    "representativePath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fixture",
+        "providers"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "fixture": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.json$"
+        },
+        "providers": {
+          "$ref": "#/$defs/providerPath"
+        }
+      }
+    },
+    "azureIotHubCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "messages_per_month",
+        "average_message_size_kb",
+        "expected_sku",
+        "expected_capacity"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "messages_per_month": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "average_message_size_kb": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "expected_sku": {
+          "enum": [
+            "F1",
+            "S1",
+            "S2",
+            "S3"
+          ]
+        },
+        "expected_capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      }
+    },
+    "providerComponentMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aws",
+        "azure",
+        "gcp"
+      ],
+      "properties": {
+        "aws": {
+          "type": "string",
+          "minLength": 1
+        },
+        "azure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gcp": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "storageTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_id",
+        "source_slot",
+        "target_slot",
+        "runtime_component_by_source"
+      ],
+      "properties": {
+        "boundary_id": {
+          "enum": [
+            "l3_hot_to_l3_cool",
+            "l3_cool_to_l3_archive"
+          ]
+        },
+        "source_slot": {
+          "enum": [
+            "l3_hot_storage",
+            "l3_cool_storage"
+          ]
+        },
+        "target_slot": {
+          "enum": [
+            "l3_cool_storage",
+            "l3_archive_storage"
+          ]
+        },
+        "runtime_component_by_source": {
+          "$ref": "#/$defs/providerComponentMap"
+        }
+      }
+    }
+  }
+}

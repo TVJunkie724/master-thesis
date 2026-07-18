@@ -12,7 +12,11 @@ from src.validation.core import run_all_checks
 from src.validation.accessors import DirectoryAccessor
 
 
-def validate_project_directory(project_path: Union[str, Path]) -> None:
+def validate_project_directory(
+    project_path: Union[str, Path],
+    *,
+    require_deployment_manifest: bool = False,
+) -> None:
     """
     Validates an unpacked project directory structure.
     
@@ -37,4 +41,7 @@ def validate_project_directory(project_path: Union[str, Path]) -> None:
         raise ValueError(f"Path is not a directory: {project_path}")
     
     accessor = DirectoryAccessor(project_path)
-    run_all_checks(accessor)
+    run_all_checks(
+        accessor,
+        require_deployment_manifest=require_deployment_manifest,
+    )

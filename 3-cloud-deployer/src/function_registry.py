@@ -41,6 +41,8 @@ class FunctionDefinition:
         dir_name: Directory name if different from name (for filesystem lookup)
         is_optional: Whether this function is optional (won't error if missing)
         boundary: For L0 glue functions, the layer boundary that triggers deployment
+        target_provider_key: For L0 target functions, the configured layer that
+            must resolve to the package provider
         terraform_output_suffix: Suffix for Terraform output keys
     """
     name: str
@@ -49,7 +51,34 @@ class FunctionDefinition:
     dir_name: Optional[str] = None
     is_optional: bool = False
     boundary: Optional[Tuple[str, str]] = None  # (source_layer_key, target_layer_key)
+    target_provider_key: Optional[str] = None
     terraform_output_suffix: str = "_function_name"
+
+    def __post_init__(self) -> None:
+        """Reject ambiguous L0 activation rules at registry construction time."""
+        if self.layer != Layer.L0_GLUE:
+            return
+
+        has_boundary = self.boundary is not None
+        has_target = bool(self.target_provider_key and self.target_provider_key.strip())
+        if self.target_provider_key is not None and not has_target:
+            raise ValueError(
+                f"L0 function '{self.name}' target_provider_key must not be blank"
+            )
+
+        if has_boundary and (
+            len(self.boundary) != 2 or any(not key.strip() for key in self.boundary)
+        ):
+            raise ValueError(
+                f"L0 function '{self.name}' boundary must contain two non-empty keys"
+            )
+
+        activation_modes = int(has_boundary) + int(has_target)
+        if activation_modes != 1:
+            raise ValueError(
+                f"L0 function '{self.name}' must define exactly one activation mode: "
+                "boundary or target_provider_key"
+            )
     
     @property
     def safe_name(self) -> str:
@@ -119,7 +148,7 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
         name="adt-pusher",
         layer=Layer.L0_GLUE,
         providers=["azure"],
-        # No boundary: always bundle when L4=azure (both same-cloud and cross-cloud)
+        target_provider_key="layer_4_provider",
     ),
     FunctionDefinition(
         name="l0-hot-reader",
@@ -199,11 +228,6 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
     ),
     
     # L4: Management
-    FunctionDefinition(
-        name="adt-updater",
-        layer=Layer.L4_MANAGEMENT,
-        providers=["azure"],
-    ),
     FunctionDefinition(
         name="digital-twin-data-connector",
         layer=Layer.L4_MANAGEMENT,
@@ -323,7 +347,7 @@ def get_functions_for_provider_build(
             if registry_target in f.providers:
                 functions.append(f.get_dir_name())
     
-    return list(set(functions))  # Deduplicate
+    return list(dict.fromkeys(functions))
 
 
 
@@ -363,9 +387,13 @@ def get_l0_for_config(providers_config: dict, target_provider: str) -> List[str]
                 dir_name = func.get_dir_name()
                 if dir_name not in functions:
                     functions.append(dir_name)
-        else:
-            # No boundary: always include if provider matches
-            # Used for functions like adt-pusher that are needed regardless of cross-cloud
+        elif func.target_provider_key:
+            # Target-based: include whenever this provider owns the configured layer.
+            # This covers same-cloud and cross-cloud paths without activating the
+            # function merely because the provider appears elsewhere.
+            configured_provider = providers_config.get(func.target_provider_key)
+            if configured_provider != target_provider:
+                continue
             dir_name = func.get_dir_name()
             if dir_name not in functions:
                 functions.append(dir_name)

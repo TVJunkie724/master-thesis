@@ -45,6 +45,49 @@ void main() {
     expect(find.text(reason), findsOneWidget);
     expect(find.text('N/A'), findsOneWidget);
   });
+
+  testWidgets('renders all canonical Azure Digital Twins cost components', (
+    tester,
+  ) async {
+    final result = CalcResult.fromJson({
+      'totalCost': 12,
+      'awsCosts': _providerCosts(),
+      'azureCosts': _providerCosts(
+        l4: _supportedLayer(
+          4,
+          components: {
+            'digital_twins_operations': 1,
+            'digital_twins_query_units': 2,
+            'digital_twins_routed_messages': 0,
+            'adt_pusher_function': 1,
+          },
+        ),
+      ),
+      'gcpCosts': _providerCosts(),
+      'cheapestPath': <String>[],
+      'inputParamsUsed': <String, dynamic>{},
+    });
+
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: ServiceBreakdown(result: result)),
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.widgetWithText(ExpansionTile, 'Layer 4: Twin Management'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ADT Operations'), findsOneWidget);
+    expect(find.text('ADT Query Units'), findsOneWidget);
+    expect(find.text('ADT Routed Messages'), findsOneWidget);
+    expect(find.text('ADT Telemetry Pusher'), findsOneWidget);
+  });
 }
 
 Map<String, dynamic> _providerCosts({Map<String, dynamic>? l4}) => {
@@ -57,8 +100,11 @@ Map<String, dynamic> _providerCosts({Map<String, dynamic>? l4}) => {
   'L5': _supportedLayer(1),
 };
 
-Map<String, dynamic> _supportedLayer(double cost) => {
+Map<String, dynamic> _supportedLayer(
+  double cost, {
+  Map<String, dynamic>? components,
+}) => {
   'cost': cost,
-  'components': {'service': cost},
+  'components': components ?? {'service': cost},
   'supported': true,
 };

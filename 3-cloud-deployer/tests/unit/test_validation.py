@@ -11,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../src'))
 
 import constants as CONSTANTS
 import validator
+from tests.utils.deployment_specification import deployment_manifest
 
 class TestValidation(unittest.TestCase):
 
@@ -44,6 +45,34 @@ class TestValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             validator.validate_config_content(CONSTANTS.CONFIG_FILE, content)
         self.assertIn("Missing key", str(cm.exception))
+
+    def test_validate_optimization_rejects_unsupported_error_handling(self):
+        content = {
+            "result": {
+                "inputParamsUsed": {
+                    "integrateErrorHandling": True,
+                }
+            }
+        }
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+        ):
+            validator.validate_config_content(
+                CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+                content,
+            )
+
+    def test_validate_optimization_accepts_false_or_omitted_error_handling(self):
+        validator.validate_config_content(
+            CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            {"result": {"inputParamsUsed": {"integrateErrorHandling": False}}},
+        )
+        validator.validate_config_content(
+            CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            {"result": {"inputParamsUsed": {}}},
+        )
 
     def test_validate_config_credentials_valid(self):
         """Test valid credentials config"""
@@ -367,7 +396,10 @@ class TestValidation(unittest.TestCase):
                         "layer_1_provider": "aws",
                         "layer_2_provider": "aws",
                         "layer_3_hot_provider": "aws",
-                        "layer_4_provider": "aws"
+                        "layer_3_cold_provider": "aws",
+                        "layer_3_archive_provider": "aws",
+                        "layer_4_provider": "aws",
+                        "layer_5_provider": "aws",
                     })
                 
                 if configs and req in configs:
@@ -380,6 +412,16 @@ class TestValidation(unittest.TestCase):
             if configs and CONSTANTS.CONFIG_OPTIMIZATION_FILE in configs:
                 opt_content = json.dumps(configs[CONSTANTS.CONFIG_OPTIMIZATION_FILE])
             zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, opt_content)
+            zf.writestr(
+                "config_user.json",
+                json.dumps(
+                    {
+                        "admin_email": "admin@example.com",
+                        "admin_first_name": "Platform",
+                        "admin_last_name": "Admin",
+                    }
+                ),
+            )
             
             # Add hierarchy file for L4 provider (required by new cross-config validation)
             # Default providers config sets layer_4_provider=aws
@@ -448,6 +490,24 @@ class TestValidation(unittest.TestCase):
              validator.validate_project_zip(zip_buf)
         self.assertIn("Missing event-feedback function", str(cm.exception))
 
+    def test_validate_zip_rejects_unsupported_error_handling_topology(self):
+        opt = {
+            "result": {
+                "inputParamsUsed": {
+                    "integrateErrorHandling": True,
+                }
+            }
+        }
+        zip_buf = self._create_zip_with_configs(
+            {CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
+        ):
+            validator.validate_project_zip(zip_buf)
+
     def test_validate_zip_feedback_success(self):
         """Test zip with returnFeedbackToDevice=True AND feedback logic present"""
         opt = {"result": {"inputParamsUsed": {"returnFeedbackToDevice": True}}}
@@ -465,24 +525,14 @@ class TestValidation(unittest.TestCase):
         package_files = sorted([
             *CONSTANTS.REQUIRED_CONFIG_FILES,
             CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            "config_user.json",
             "twin_hierarchy/aws_hierarchy.json",
             f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/placeholder.txt",
         ])
         extras = {
-            CONSTANTS.DEPLOYMENT_MANIFEST_FILE: json.dumps({
-                "manifest_version": CONSTANTS.DEPLOYMENT_MANIFEST_VERSION,
-                "producer": "twin2multicloud_backend",
-                "package": {
-                    "format": "deployer-project-zip",
-                    "files": package_files,
-                    "required_files": CONSTANTS.REQUIRED_CONFIG_FILES,
-                },
-                "credentials": {
-                    "providers": ["aws"],
-                    "sources": {"aws": "legacy"},
-                    "contains_secret_payloads": False,
-                },
-            })
+            CONSTANTS.DEPLOYMENT_MANIFEST_FILE: json.dumps(
+                deployment_manifest(package_files=package_files)
+            )
         }
         zip_buf = self._create_zip_with_configs(extra_files=extras)
 
@@ -493,6 +543,7 @@ class TestValidation(unittest.TestCase):
         package_files = sorted([
             *CONSTANTS.REQUIRED_CONFIG_FILES,
             CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            "config_user.json",
             "twin_hierarchy/aws_hierarchy.json",
             f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/placeholder.txt",
         ])
@@ -516,8 +567,8 @@ class TestValidation(unittest.TestCase):
 
         with self.assertRaises(ValueError) as cm:
             validator.validate_project_zip(zip_buf)
-        self.assertIn("deployment_manifest.json", str(cm.exception))
-        self.assertIn("aws_secret_access_key", str(cm.exception))
+        self.assertIn("DEPLOYMENT_MANIFEST_SECRET_PAYLOAD", str(cm.exception))
+        self.assertNotIn("aws_secret_access_key", str(cm.exception))
         self.assertNotIn("do-not-report-value", str(cm.exception))
 
     def test_validate_zip_event_checks_missing_code(self):

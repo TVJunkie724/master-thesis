@@ -24,7 +24,7 @@ resource "azurerm_service_plan" "l2" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  sku_name            = var.azure_l2_function_plan_sku
 
   tags = local.common_tags
 }
@@ -100,7 +100,7 @@ resource "azurerm_linux_function_app" "l2" {
       var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
     ) : ""
 
-    # ADT push: Set when L4=azure (for both same-cloud and cross-cloud)
+    # Canonical L2→L4 path: required whenever Azure owns L4
     REMOTE_ADT_PUSHER_URL = var.layer_4_provider == "azure" ? (
       "${local.azure_l0_glue_url}/${local.api_paths.adt_pusher}"
     ) : ""

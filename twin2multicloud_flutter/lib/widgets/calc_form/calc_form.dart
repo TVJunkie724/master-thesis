@@ -9,7 +9,7 @@ enum CalcFormSection {
   twinCapabilities,
 }
 
-/// Main calculation form with all 26 input fields organized by layer
+/// Main calculation form with optimizer inputs organized by responsibility.
 class CalcForm extends StatefulWidget {
   final void Function(CalcParams params)? onChanged;
   final void Function(bool isValid)? onValidChanged; // Reports form validity
@@ -61,6 +61,8 @@ class _CalcFormState extends State<CalcForm> {
   bool _needs3DModel = false;
   int _entityCount = 0;
   double _average3DModelSizeInMB = 100.0;
+  double _averageDigitalTwinQueryUnitsPerQuery = 1.0;
+  double _averageDigitalTwinQueryResponseSizeInKb = 1.0;
 
   // Layer 5 - Visualization
   int _dashboardRefreshesPerHour = 2;
@@ -91,6 +93,10 @@ class _CalcFormState extends State<CalcForm> {
       needs3DModel: _needs3DModel,
       entityCount: _entityCount,
       average3DModelSizeInMB: _average3DModelSizeInMB,
+      averageDigitalTwinQueryUnitsPerQuery:
+          _averageDigitalTwinQueryUnitsPerQuery,
+      averageDigitalTwinQueryResponseSizeInKb:
+          _averageDigitalTwinQueryResponseSizeInKb,
       dashboardRefreshesPerHour: _dashboardRefreshesPerHour,
       apiCallsPerDashboardRefresh: _apiCallsPerDashboardRefresh,
       dashboardActiveHoursPerDay: _dashboardActiveHoursPerDay,
@@ -102,7 +108,9 @@ class _CalcFormState extends State<CalcForm> {
 
     // Report form validity after a frame to allow validators to run
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final isValid = _formKey.currentState?.validate() ?? true;
+      final isValid =
+          (_formKey.currentState?.validate() ?? true) &&
+          params.isExecutableTopology;
       widget.onValidChanged?.call(isValid);
     });
   }
@@ -164,6 +172,10 @@ class _CalcFormState extends State<CalcForm> {
       _needs3DModel = p.needs3DModel;
       _entityCount = p.entityCount;
       _average3DModelSizeInMB = p.average3DModelSizeInMB;
+      _averageDigitalTwinQueryUnitsPerQuery =
+          p.averageDigitalTwinQueryUnitsPerQuery;
+      _averageDigitalTwinQueryResponseSizeInKb =
+          p.averageDigitalTwinQueryResponseSizeInKb;
       _dashboardRefreshesPerHour = p.dashboardRefreshesPerHour;
       _apiCallsPerDashboardRefresh = p.apiCallsPerDashboardRefresh;
       _dashboardActiveHoursPerDay = p.dashboardActiveHoursPerDay;
@@ -215,6 +227,8 @@ class _CalcFormState extends State<CalcForm> {
       _needs3DModel = needs3D;
       _entityCount = entities;
       _average3DModelSizeInMB = modelSize;
+      _averageDigitalTwinQueryUnitsPerQuery = 1.0;
+      _averageDigitalTwinQueryResponseSizeInKb = 1.0;
       _dashboardRefreshesPerHour = refreshesPerHour;
       _amountOfActiveEditors = editors;
       _amountOfActiveViewers = viewers;
@@ -761,7 +775,10 @@ class _CalcFormState extends State<CalcForm> {
             _buildDisabledSwitchWithBadge(
               title: 'Integrate Error Handling',
               tooltip:
-                  'If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead.',
+                  'The executable five-layer baseline does not deploy this '
+                  'topology. Event checking, notification workflows, and '
+                  'device feedback remain separate supported capabilities.',
+              value: _integrateErrorHandling,
             ),
           ],
         ),
@@ -904,6 +921,49 @@ class _CalcFormState extends State<CalcForm> {
                 },
               ),
             ],
+            const Divider(height: 32),
+            ExpansionTile(
+              key: const ValueKey('adt-billing-assumptions'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              title: const Text('Azure Digital Twins assumptions'),
+              subtitle: const Text('Advanced query billing inputs'),
+              children: [
+                _buildDecimalInput(
+                  fieldKey: const ValueKey('adt-query-units-input'),
+                  label: 'Query Units per Query',
+                  value: _averageDigitalTwinQueryUnitsPerQuery,
+                  min: 0,
+                  exclusiveMin: true,
+                  tooltip:
+                      'Estimated Azure Digital Twins Query Units consumed by one logical dashboard query.',
+                  onChanged: (v) {
+                    setState(() {
+                      _averageDigitalTwinQueryUnitsPerQuery = v;
+                      _selectedPreset = null;
+                    });
+                    _updateParams();
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildDecimalInput(
+                  fieldKey: const ValueKey('adt-query-response-size-input'),
+                  label: 'Query Response Size (KB)',
+                  value: _averageDigitalTwinQueryResponseSizeInKb,
+                  min: 0,
+                  exclusiveMin: true,
+                  tooltip:
+                      'Estimated response payload per logical query. Azure bills operations in one-KB increments.',
+                  onChanged: (v) {
+                    setState(() {
+                      _averageDigitalTwinQueryResponseSizeInKb = v;
+                      _selectedPreset = null;
+                    });
+                    _updateParams();
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1047,18 +1107,37 @@ class _CalcFormState extends State<CalcForm> {
     );
   }
 
-  /// Helper to build a disabled switch with "Not Implemented" badge and tooltip
+  /// Builds a transparent read-only view of an unavailable baseline capability.
   Widget _buildDisabledSwitchWithBadge({
     required String title,
+    required bool value,
     String? tooltip,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
-      title: Row(
+      title: Text(title),
+      subtitle: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(title),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[800] : Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              value ? 'Legacy, not deployable' : 'Unavailable in baseline',
+              style: TextStyle(
+                fontSize: 11,
+                color: value
+                    ? Theme.of(context).colorScheme.error
+                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
+              ),
+            ),
+          ),
           if (tooltip != null) ...[
-            const SizedBox(width: 4),
             Tooltip(
               message: tooltip,
               child: Icon(
@@ -1070,27 +1149,7 @@ class _CalcFormState extends State<CalcForm> {
           ],
         ],
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey[800] : Colors.grey[200],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'Not Implemented',
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Switch(value: false, onChanged: null),
-        ],
-      ),
+      trailing: Switch(value: value, onChanged: null),
     );
   }
 
@@ -1144,12 +1203,14 @@ class _CalcFormState extends State<CalcForm> {
   }
 
   Widget _buildDecimalInput({
+    Key? fieldKey,
     required String label,
     required double value,
     required double min,
     required void Function(double) onChanged,
     String? tooltip,
     double? max,
+    bool exclusiveMin = false,
   }) {
     return Row(
       children: [
@@ -1159,6 +1220,7 @@ class _CalcFormState extends State<CalcForm> {
         ),
         Expanded(
           child: TextFormField(
+            key: fieldKey,
             initialValue: value.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -1170,7 +1232,11 @@ class _CalcFormState extends State<CalcForm> {
               if (text == null || text.isEmpty) return 'Required';
               final parsed = double.tryParse(text);
               if (parsed == null) return 'Invalid number';
-              if (parsed < min) return 'Min: $min';
+              if (!parsed.isFinite) return 'Must be finite';
+              if (exclusiveMin && parsed <= min) {
+                return 'Must be greater than $min';
+              }
+              if (!exclusiveMin && parsed < min) return 'Min: $min';
               if (max != null && parsed > max) return 'Max: $max';
               return null;
             },
@@ -1178,11 +1244,15 @@ class _CalcFormState extends State<CalcForm> {
               final parsed = double.tryParse(text);
               if (parsed != null) {
                 // Clamp to valid range
-                final clamped = max != null
-                    ? parsed.clamp(min, max)
-                    : parsed < min
-                    ? min
-                    : parsed;
+                if (!parsed.isFinite) return;
+                if (exclusiveMin && parsed <= min) return;
+                final clamped =
+                    (max != null
+                            ? parsed.clamp(min, max)
+                            : parsed < min
+                            ? min
+                            : parsed)
+                        .toDouble();
                 onChanged(clamped);
               }
             },

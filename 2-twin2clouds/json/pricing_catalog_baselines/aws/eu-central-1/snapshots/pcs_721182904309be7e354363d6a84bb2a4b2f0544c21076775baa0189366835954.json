@@ -1,0 +1,397 @@
+{
+  "pricing": {
+    "__evidence__": {
+      "provider": "aws",
+      "schema_version": "pricing-generated-evidence.v1",
+      "services": {
+        "iotTwinMaker": {
+          "location": "EU (Frankfurt)",
+          "schema_version": "aws-twinmaker-price-list-evidence.v1",
+          "selected_dimensions": [
+            {
+              "beginRange": "0",
+              "description": "$231 per month for IoTTwinMaker bundle Tier1 in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 231.0,
+              "sku": "MR82933CSNWMYWG5",
+              "unit": "Month",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier1-Entities"
+            },
+            {
+              "beginRange": "3800000",
+              "description": "$0.525 per 10K Queries executed for IoTTwinMaker-Queries in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 5.25e-05,
+              "sku": "DJQH62C3MHF6TPJ2",
+              "unit": "Queries",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier1-Queries"
+            },
+            {
+              "beginRange": "25000000",
+              "description": "$1.65 per million API Calls for IoTTwinMaker-UnifiedDataAccess in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 1.65e-06,
+              "sku": "MT8KP3NARP42JG4S",
+              "unit": "API Calls",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier1-UnifiedDataAccess"
+            },
+            {
+              "beginRange": "0",
+              "description": "$682.50 per month for IoTTwinMaker bundle Tier2 in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 682.5,
+              "sku": "CWSPH28VK4YGERPH",
+              "unit": "Month",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier2-Entities"
+            },
+            {
+              "beginRange": "9000000",
+              "description": "$0.525 per 10K Queries executed for IoTTwinMaker-Queries in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 5.25e-05,
+              "sku": "T43EFF5QCHCN9VPA",
+              "unit": "Queries",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier2-Queries"
+            },
+            {
+              "beginRange": "60000000",
+              "description": "$1.65 per million API Calls for IoTTwinMaker-UnifiedDataAccess in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 1.65e-06,
+              "sku": "CZU42AEW374AHB7B",
+              "unit": "API Calls",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier2-UnifiedDataAccess"
+            },
+            {
+              "beginRange": "0",
+              "description": "$1155 per month for IoTTwinMaker bundle Tier3 in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 1155.0,
+              "sku": "HPW8Z5HPF9QPSK9T",
+              "unit": "Month",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier3-Entities"
+            },
+            {
+              "beginRange": "14300000",
+              "description": "$0.525 per 10K Queries executed for IoTTwinMaker-Queries in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 5.25e-05,
+              "sku": "9YK9CS9ZBNCUZXS4",
+              "unit": "Queries",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier3-Queries"
+            },
+            {
+              "beginRange": "95000000",
+              "description": "$1.65 per million API Calls for IoTTwinMaker-UnifiedDataAccess in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 1.65e-06,
+              "sku": "52UHEV552AJF3XFK",
+              "unit": "API Calls",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier3-UnifiedDataAccess"
+            },
+            {
+              "beginRange": "0",
+              "description": "$2047.50 per month for IoTTwinMaker bundle Tier4 in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 2047.5,
+              "sku": "NT67U5CRCVCWHPAF",
+              "unit": "Month",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier4-Entities"
+            },
+            {
+              "beginRange": "24000000",
+              "description": "$0.525 per 10K Queries executed for IoTTwinMaker-Queries in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 5.25e-05,
+              "sku": "7VWFQNNNQKTWUNBE",
+              "unit": "Queries",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier4-Queries"
+            },
+            {
+              "beginRange": "160000000",
+              "description": "$1.65 per million API Calls for IoTTwinMaker-UnifiedDataAccess in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 1.65e-06,
+              "sku": "48QPPA5GUDYZ6WP6",
+              "unit": "API Calls",
+              "usageType": "EUC1-IoTTwinMaker-BaseTier4-UnifiedDataAccess"
+            },
+            {
+              "beginRange": "0",
+              "description": "$0.0525 per entity per month for IoTTwinMaker-Entities in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 0.0525,
+              "sku": "277WAXHAJDXEASP4",
+              "unit": "Month",
+              "usageType": "EUC1-IoTTwinMaker-Entities"
+            },
+            {
+              "beginRange": "0",
+              "description": "$0.525 per 10K Queries executed for IoTTwinMaker-Queries in EU (Ireland)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 5.25e-05,
+              "sku": "KP52FAAHMP3DKUXG",
+              "unit": "Queries",
+              "usageType": "EUC1-IoTTwinMaker-Queries"
+            },
+            {
+              "beginRange": "0",
+              "description": "$1.65 per million API Calls for IoTTwinMaker-UnifiedDataAccess in EU (Frankfurt)",
+              "endRange": "Inf",
+              "location": "EU (Frankfurt)",
+              "priceUsd": 1.65e-06,
+              "sku": "TZZT53KGACG9PBQP",
+              "unit": "API Calls",
+              "usageType": "EUC1-IoTTwinMaker-UnifiedDataAccess"
+            }
+          ]
+        }
+      }
+    },
+    "__quality__": {
+      "fallback_fields": [
+        "apiGateway.dataTransferOutPrice",
+        "apiGateway.pricePerMillionCalls",
+        "awsManagedGrafana.editorPrice",
+        "awsManagedGrafana.viewerPrice",
+        "dynamoDB.readPrice",
+        "dynamoDB.storagePrice",
+        "dynamoDB.writePrice",
+        "eventBridge.pricePerMillionEvents",
+        "iotCore.pricePerDeviceAndMonth",
+        "iotCore.priceRulesTriggered",
+        "iotCore.pricing_tiers",
+        "lambda.durationPrice",
+        "lambda.requestPrice",
+        "s3GlacierDeepArchive.dataRetrievalPrice",
+        "s3GlacierDeepArchive.lifecycleAndWritePrice",
+        "s3GlacierDeepArchive.storagePrice",
+        "s3InfrequentAccess.dataRetrievalPrice",
+        "s3InfrequentAccess.requestPrice",
+        "s3InfrequentAccess.storagePrice",
+        "s3InfrequentAccess.transferCostFromCosmosDB",
+        "s3InfrequentAccess.transferCostFromDynamoDB",
+        "scheduler.jobPrice",
+        "stepFunctions.pricePer1kStateTransitions",
+        "stepFunctions.pricePerStateTransition",
+        "transfer.egressPrice"
+      ],
+      "field_sources": {
+        "apiGateway.dataTransferOutPrice": "fallback_static",
+        "apiGateway.pricePerMillionCalls": "fallback_static",
+        "awsManagedGrafana.editorPrice": "fallback_static",
+        "awsManagedGrafana.viewerPrice": "fallback_static",
+        "dynamoDB.freeStorage": "curated",
+        "dynamoDB.readPrice": "fallback_static",
+        "dynamoDB.storagePrice": "fallback_static",
+        "dynamoDB.writePrice": "fallback_static",
+        "eventBridge.pricePerMillionEvents": "fallback_static",
+        "iotCore.pricePerDeviceAndMonth": "fallback_static",
+        "iotCore.priceRulesTriggered": "fallback_static",
+        "iotCore.pricing_tiers": "fallback_static",
+        "iotTwinMaker.tieredBundle": "fetched",
+        "iotTwinMaker.usageRates": "fetched",
+        "lambda.durationPrice": "fallback_static",
+        "lambda.freeComputeTime": "curated",
+        "lambda.freeRequests": "curated",
+        "lambda.requestPrice": "fallback_static",
+        "s3GlacierDeepArchive.dataRetrievalPrice": "fallback_static",
+        "s3GlacierDeepArchive.lifecycleAndWritePrice": "fallback_static",
+        "s3GlacierDeepArchive.storagePrice": "fallback_static",
+        "s3InfrequentAccess.dataRetrievalPrice": "fallback_static",
+        "s3InfrequentAccess.requestPrice": "fallback_static",
+        "s3InfrequentAccess.storagePrice": "fallback_static",
+        "s3InfrequentAccess.transferCostFromCosmosDB": "fallback_static",
+        "s3InfrequentAccess.transferCostFromDynamoDB": "fallback_static",
+        "s3InfrequentAccess.upfrontPrice": "curated",
+        "scheduler.jobPrice": "fallback_static",
+        "stepFunctions.pricePer1kStateTransitions": "fallback_static",
+        "stepFunctions.pricePerStateTransition": "fallback_static",
+        "transfer.egressPrice": "fallback_static",
+        "transfer.pricing_tiers": "curated"
+      },
+      "quality_status": "review_required",
+      "review_required": true,
+      "unsupported_fields": []
+    },
+    "__schema__": {
+      "baseline_provenance": "provider_observation_migration",
+      "contract_version": "2026.07.17",
+      "generated_at": "2026-07-17T16:00:19.568525+00:00",
+      "pricing_region": "eu-central-1",
+      "provider": "aws",
+      "schema_version": "pricing-provider-schema.v1",
+      "snapshot_digest": "sha256:6400498a9e9ad37536e60b1b9740174b197a9ba7fc4aebe6420fd761c25b20a0"
+    },
+    "apiGateway": {
+      "dataTransferOutPrice": 0.09,
+      "pricePerMillionCalls": 1.2e-06
+    },
+    "awsManagedGrafana": {
+      "editorPrice": 9.0,
+      "viewerPrice": 5.0
+    },
+    "dynamoDB": {
+      "freeStorage": 25,
+      "readPrice": 1.525e-07,
+      "storagePrice": 0.306,
+      "writePrice": 7.625e-07
+    },
+    "eventBridge": {
+      "pricePerMillionEvents": 1.15e-06
+    },
+    "iotCore": {
+      "pricePerDeviceAndMonth": 1.5e-06,
+      "priceRulesTriggered": 1.8e-07,
+      "pricing_tiers": {
+        "tier1": {
+          "limit": 1000000000,
+          "price": 1e-06
+        },
+        "tier2": {
+          "limit": 5000000000,
+          "price": 8e-07
+        },
+        "tier3": {
+          "limit": "Infinity",
+          "price": 7e-07
+        }
+      }
+    },
+    "iotTwinMaker": {
+      "tieredBundle": {
+        "tiers": [
+          {
+            "apiCallOveragePrice": 1.65e-06,
+            "includedApiCalls": 25000000,
+            "includedQueries": 3800000,
+            "maximumEntities": 1000,
+            "minimumEntities": 1,
+            "monthlyBasePrice": 231.0,
+            "queryOveragePrice": 5.25e-05,
+            "tierId": "TIER_1"
+          },
+          {
+            "apiCallOveragePrice": 1.65e-06,
+            "includedApiCalls": 60000000,
+            "includedQueries": 9000000,
+            "maximumEntities": 5000,
+            "minimumEntities": 1001,
+            "monthlyBasePrice": 682.5,
+            "queryOveragePrice": 5.25e-05,
+            "tierId": "TIER_2"
+          },
+          {
+            "apiCallOveragePrice": 1.65e-06,
+            "includedApiCalls": 95000000,
+            "includedQueries": 14300000,
+            "maximumEntities": 10000,
+            "minimumEntities": 5001,
+            "monthlyBasePrice": 1155.0,
+            "queryOveragePrice": 5.25e-05,
+            "tierId": "TIER_3"
+          },
+          {
+            "apiCallOveragePrice": 1.65e-06,
+            "includedApiCalls": 160000000,
+            "includedQueries": 24000000,
+            "maximumEntities": 20000,
+            "minimumEntities": 10001,
+            "monthlyBasePrice": 2047.5,
+            "queryOveragePrice": 5.25e-05,
+            "tierId": "TIER_4"
+          }
+        ]
+      },
+      "usageRates": {
+        "entityPricePerMonth": 0.0525,
+        "queryPrice": 5.25e-05,
+        "unifiedDataAccessApiCallPrice": 1.65e-06
+      }
+    },
+    "lambda": {
+      "durationPrice": 1.66667e-05,
+      "freeComputeTime": 400000,
+      "freeRequests": 1000000,
+      "requestPrice": 2e-07
+    },
+    "s3GlacierDeepArchive": {
+      "dataRetrievalPrice": 0.024,
+      "lifecycleAndWritePrice": 3.6e-05,
+      "storagePrice": 0.0225
+    },
+    "s3InfrequentAccess": {
+      "dataRetrievalPrice": 0.012,
+      "requestPrice": 1e-06,
+      "storagePrice": 0.0135,
+      "transferCostFromCosmosDB": 0.0495,
+      "transferCostFromDynamoDB": 0.099,
+      "upfrontPrice": 0.0001
+    },
+    "scheduler": {
+      "jobPrice": 1e-06
+    },
+    "stepFunctions": {
+      "pricePer1kStateTransitions": 0.025,
+      "pricePerStateTransition": 2.5e-05
+    },
+    "transfer": {
+      "egressPrice": 0.09,
+      "pricing_tiers": {
+        "freeTier": {
+          "limit": 100,
+          "price": 0
+        },
+        "tier1": {
+          "limit": 10240.0,
+          "price": 0.09
+        },
+        "tier2": {
+          "limit": 51200.0,
+          "price": 0.085
+        },
+        "tier3": {
+          "limit": 153600.0,
+          "price": 0.07
+        },
+        "tier4": {
+          "limit": "Infinity",
+          "price": 0.05
+        }
+      }
+    }
+  },
+  "reference": {
+    "calculation_source": "reviewed_baseline",
+    "content_digest": "sha256:6400498a9e9ad37536e60b1b9740174b197a9ba7fc4aebe6420fd761c25b20a0",
+    "contract_version": "2026.07.17",
+    "fetched_at": "2026-07-17T16:00:19.568525Z",
+    "mapping_versions": [
+      "2026.07.17"
+    ],
+    "pricing_region": "eu-central-1",
+    "provider": "aws",
+    "provider_schema_version": "pricing-provider-schema.v1",
+    "publication_status": "published",
+    "registry_version": "2026.07.17",
+    "review_status": "reviewed",
+    "schema_version": "pricing-catalog-reference.v1",
+    "snapshot_id": "pcs_721182904309be7e354363d6a84bb2a4b2f0544c21076775baa0189366835954",
+    "source": "reviewed_baseline"
+  },
+  "schema_version": "pricing-catalog-snapshot.v2"
+}

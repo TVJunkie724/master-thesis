@@ -2,6 +2,10 @@ from pathlib import Path
 import json
 
 import pytest
+from tests.utils.deployment_specification import (
+    deployment_manifest,
+    provider_config_for_specification,
+)
 
 import src.core.factory as factory
 import src.core.config_loader as config_loader
@@ -90,6 +94,10 @@ def test_create_context_uses_project_context_resolver_for_template(tmp_path, mon
 
 
 def test_create_context_loads_deployment_manifest(tmp_path, monkeypatch):
+    manifest = deployment_manifest(resource_name="factory")
+    providers = provider_config_for_specification(
+        manifest["resolved_deployment_specification"]
+    )
     project_path = tmp_path / "upload" / "factory"
     project_path.mkdir(parents=True)
     (project_path / "config.json").write_text(json.dumps({
@@ -99,16 +107,8 @@ def test_create_context_loads_deployment_manifest(tmp_path, monkeypatch):
         "mode": "DEBUG",
     }))
     (project_path / "config_iot_devices.json").write_text("[]")
-    (project_path / "config_providers.json").write_text(json.dumps({
-        "layer_1_provider": "aws",
-        "layer_2_provider": "aws",
-        "layer_3_hot_provider": "aws",
-        "layer_4_provider": "none",
-    }))
-    (project_path / "deployment_manifest.json").write_text(json.dumps({
-        "manifest_version": "1.0",
-        "twin": {"resource_name": "factory"},
-    }))
+    (project_path / "config_providers.json").write_text(json.dumps(providers))
+    (project_path / "deployment_manifest.json").write_text(json.dumps(manifest))
 
     monkeypatch.setattr(config_loader, "get_project_storage", lambda: ProjectStorage(tmp_path))
 
@@ -116,6 +116,7 @@ def test_create_context_loads_deployment_manifest(tmp_path, monkeypatch):
 
     assert context.is_manifest_backed is True
     assert context.manifest_resource_name == "factory"
+    assert context.validated_deployment_manifest is not None
 
 
 def test_create_context_carries_request_metadata(tmp_path, monkeypatch):
@@ -144,6 +145,10 @@ def test_create_context_carries_request_metadata(tmp_path, monkeypatch):
 
 
 def test_create_context_rejects_manifest_project_name_drift(tmp_path, monkeypatch):
+    manifest = deployment_manifest(resource_name="other")
+    providers = provider_config_for_specification(
+        manifest["resolved_deployment_specification"]
+    )
     project_path = tmp_path / "upload" / "factory"
     project_path.mkdir(parents=True)
     (project_path / "config.json").write_text(json.dumps({
@@ -153,16 +158,8 @@ def test_create_context_rejects_manifest_project_name_drift(tmp_path, monkeypatc
         "mode": "DEBUG",
     }))
     (project_path / "config_iot_devices.json").write_text("[]")
-    (project_path / "config_providers.json").write_text(json.dumps({
-        "layer_1_provider": "aws",
-        "layer_2_provider": "aws",
-        "layer_3_hot_provider": "aws",
-        "layer_4_provider": "none",
-    }))
-    (project_path / "deployment_manifest.json").write_text(json.dumps({
-        "manifest_version": "1.0",
-        "twin": {"resource_name": "other"},
-    }))
+    (project_path / "config_providers.json").write_text(json.dumps(providers))
+    (project_path / "deployment_manifest.json").write_text(json.dumps(manifest))
 
     monkeypatch.setattr(config_loader, "get_project_storage", lambda: ProjectStorage(tmp_path))
 

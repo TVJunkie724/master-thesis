@@ -57,7 +57,13 @@ class CostOnlyScoringStrategy:
     def rank(self, candidates: list[OptimizationCandidate]) -> list[OptimizationCandidate]:
         if not candidates:
             raise ValueError("At least one optimization candidate is required")
-        return sorted(candidates, key=lambda candidate: candidate.metric_value(self.primary_metric_id))
+        return sorted(
+            candidates,
+            key=lambda candidate: (
+                candidate.metric_value(self.primary_metric_id),
+                candidate.candidate_id,
+            ),
+        )
 
     def select_best(self, candidates: list[OptimizationCandidate]) -> OptimizationCandidate:
         return self.rank(candidates)[0]

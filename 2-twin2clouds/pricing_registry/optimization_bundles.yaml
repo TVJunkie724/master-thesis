@@ -1,5 +1,5 @@
 schema_version: pricing-registry-optimization-bundles.v1
-registry_version: 2026.06.08
+registry_version: 2026.07.17
 bundles:
   cost_minimization_v1:
     id: cost_minimization_v1
@@ -15,7 +15,10 @@ bundles:
     pricing_contract_group: cost_provider_pricing_contracts_v1
     provider_pricing_contract_ids:
     - aws.api_request_million.pricing_contract.v1
-    - aws.digital_twin_query_unit.pricing_contract.v1
+    - aws.digital_twin_account_bundle_month.pricing_contract.v1
+    - aws.digital_twin_api_call.pricing_contract.v1
+    - aws.digital_twin_entity_month.pricing_contract.v1
+    - aws.digital_twin_query.pricing_contract.v1
     - aws.event_bus_event_million.pricing_contract.v1
     - aws.functions_compute_gb_second.pricing_contract.v1
     - aws.functions_request.pricing_contract.v1
@@ -31,6 +34,8 @@ bundles:
     - aws.storage_hot_write_request.pricing_contract.v1
     - aws.transfer_egress_gb.pricing_contract.v1
     - azure.api_request_million.pricing_contract.v1
+    - azure.digital_twin_message.pricing_contract.v1
+    - azure.digital_twin_operation.pricing_contract.v1
     - azure.digital_twin_query_unit.pricing_contract.v1
     - azure.event_bus_event_million.pricing_contract.v1
     - azure.functions_compute_gb_second.pricing_contract.v1

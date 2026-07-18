@@ -1,7 +1,8 @@
-# Azure L0 Glue Layer (Cross-Cloud Receiver Functions)
+# Azure L0 Integration Function App
 #
-# This file creates the L0 Glue layer infrastructure for multi-cloud deployments.
-# L0 functions receive data from other clouds and route to local services.
+# This file creates integration functions selected by explicit layer boundaries
+# or target-layer ownership. Most L0 functions receive cross-cloud data. The ADT
+# Pusher is also used for same-cloud Azure when L4 is Azure.
 #
 # Resources Created:
 # - App Service Plan (Consumption Y1): Serverless hosting for L0 functions
@@ -15,6 +16,7 @@
 # - Archive Writer: Receives from remote L3 Cold → writes to local L3 Archive
 # - Hot Reader: Exposes local L3 Hot data → remote L4/L5
 # - Hot Reader Last Entry: Single-entry variant of Hot Reader
+# - ADT Pusher: Receives from the active L2 Persister when L4 is Azure
 #
 # Authentication:
 # - Uses X-Inter-Cloud-Token header for cross-cloud authentication
@@ -25,12 +27,12 @@
 # ==============================================================================
 
 resource "azurerm_service_plan" "l0" {
-  count               = local.deploy_azure ? 1 : 0
+  count               = local.azure_l0_enabled ? 1 : 0
   name                = local.azure_l0_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  sku_name            = local.azure_l0_function_plan_sku
 
   tags = local.common_tags
 }
@@ -40,7 +42,7 @@ resource "azurerm_service_plan" "l0" {
 # ==============================================================================
 
 resource "azurerm_linux_function_app" "l0_glue" {
-  count               = local.deploy_azure ? 1 : 0
+  count               = local.azure_l0_enabled ? 1 : 0
   name                = local.azure_l0_glue_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -108,6 +110,8 @@ resource "azurerm_linux_function_app" "l0_glue" {
     BLOB_CONNECTION_STRING    = var.layer_3_cold_provider == "azure" || var.layer_3_archive_provider == "azure" ? local.azure_storage_connection_string : ""
     COLD_STORAGE_CONTAINER    = var.layer_3_cold_provider == "azure" ? azurerm_storage_container.cold[0].name : ""
     ARCHIVE_STORAGE_CONTAINER = var.layer_3_archive_provider == "azure" ? azurerm_storage_container.archive[0].name : ""
+    COLD_BLOB_TIER            = var.layer_3_cold_provider == "azure" ? var.azure_l3_cool_blob_tier : ""
+    ARCHIVE_BLOB_TIER         = var.layer_3_archive_provider == "azure" ? var.azure_l3_archive_blob_tier : ""
 
     # Full Digital Twin configuration - required by ingestion for routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
@@ -121,7 +125,7 @@ resource "azurerm_linux_function_app" "l0_glue" {
     # Only set when L2 is Azure (otherwise ingestion routes to remote cloud)
     L2_FUNCTION_KEY = var.layer_2_provider == "azure" ? try(data.azurerm_function_app_host_keys.l2[0].default_function_key, "") : ""
 
-    # ADT instance URL - required by adt-pusher for multi-cloud L4 updates
+    # ADT instance URL - required by the canonical Pusher whenever L4 is Azure
     ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? local.azure_adt_url : ""
 
     # Application Insights for logging

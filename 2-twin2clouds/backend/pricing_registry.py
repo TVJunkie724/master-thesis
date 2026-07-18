@@ -13,6 +13,12 @@ from typing import Any
 
 import yaml
 
+from backend.calculation_v2.transfer_pricing import (
+    TRANSFER_ROUTES_SCHEMA_VERSION,
+    TransferPricingContractError,
+    TransferRouteRegistry,
+)
+
 
 REGISTRY_ROOT = Path(__file__).resolve().parents[1] / "pricing_registry"
 
@@ -149,6 +155,7 @@ class PricingRegistry:
     formula_sets: dict[str, dict[str, Any]]
     workload_contracts: dict[str, dict[str, Any]]
     provider_pricing_contracts: dict[str, dict[str, Any]]
+    transfer_routes: TransferRouteRegistry
 
     def mapping_for(self, provider: str, intent_id: str) -> dict[str, Any]:
         try:
@@ -177,6 +184,7 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
     provider_pricing_contracts_doc = _load_yaml_document(
         root_path / "provider_pricing_contracts.yaml"
     )
+    transfer_routes_doc = _load_yaml_document(root_path / "transfer_routes.yaml")
     provider_docs = {
         provider: _load_yaml_document(root_path / "providers" / provider / "mappings.yaml")
         for provider in SUPPORTED_PROVIDERS
@@ -246,6 +254,13 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
             "provider_pricing_contracts.yaml",
         )
     )
+    errors.extend(
+        _validate_schema(
+            transfer_routes_doc,
+            TRANSFER_ROUTES_SCHEMA_VERSION,
+            "transfer_routes.yaml",
+        )
+    )
     for provider, doc in provider_docs.items():
         errors.extend(
             _validate_schema(
@@ -274,6 +289,11 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
         provider_pricing_contracts_doc.get("provider_pricing_contracts") or {}
     )
     provider_mappings = _index_provider_mappings(provider_docs, errors)
+    transfer_routes: TransferRouteRegistry | None = None
+    try:
+        transfer_routes = TransferRouteRegistry.from_document(transfer_routes_doc)
+    except TransferPricingContractError as exc:
+        errors.append(f"transfer_routes.yaml: {exc}")
 
     errors.extend(_validate_intents(intent_groups, intents))
     errors.extend(_validate_normalization_rules(normalization_rules))
@@ -320,6 +340,7 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
         str(formula_sets_doc.get("registry_version") or ""),
         str(workload_contracts_doc.get("registry_version") or ""),
         str(provider_pricing_contracts_doc.get("registry_version") or ""),
+        str(transfer_routes_doc.get("registry_version") or ""),
     }
     if "" in registry_versions:
         errors.append("All registry documents must declare registry_version")
@@ -331,6 +352,10 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
 
     if errors:
         raise PricingRegistryError(sorted(errors))
+    if transfer_routes is None:
+        raise PricingRegistryError(
+            ["transfer_routes.yaml: transfer route registry did not load"]
+        )
 
     return PricingRegistry(
         registry_version=next(iter(registry_versions - {""})),
@@ -347,6 +372,7 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
         formula_sets=formula_sets,
         workload_contracts=workload_contracts,
         provider_pricing_contracts=provider_pricing_contracts,
+        transfer_routes=transfer_routes,
     )
 
 

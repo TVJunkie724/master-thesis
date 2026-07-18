@@ -5,6 +5,9 @@ Test Module Imports
 Verifies that all calculation_v2 modules can be imported correctly.
 """
 
+# This smoke module deliberately imports every public calculation symbol.
+# ruff: noqa: F401
+
 import pytest
 
 
@@ -75,8 +78,8 @@ class TestModuleImports:
             GCPCloudFunctionsCalculator,
             GCPCloudWorkflowsCalculator,
             GCPFirestoreCalculator,
+            GCSArchiveCalculator,
             GCSNearlineCalculator,
-            GCSColdlineCalculator,
             GCPComputeEngineCalculator,
         )
         assert GCPCloudFunctionsCalculator().formula_type

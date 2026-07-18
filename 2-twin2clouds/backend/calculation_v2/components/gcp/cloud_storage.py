@@ -5,8 +5,8 @@ GCP Cloud Storage Cost Calculators
 Calculates GCP Cloud Storage costs for different tiers using the CS (Storage-Based) formula.
 
 Storage Tiers:
-    - Nearline (L3 Cool Storage) - 30 day min storage
-    - Coldline (L3 Archive Storage) - 90 day min storage
+    - Nearline (L3 Cool Storage)
+    - Archive (L3 Archive Storage)
 """
 
 from typing import Dict, Any
@@ -110,9 +110,9 @@ class GCSNearlineCalculator:
         return storage_cost + write_cost + read_cost + retrieval_cost
 
 
-class GCSColdlineCalculator:
+class GCSArchiveCalculator:
     """
-    GCP Cloud Storage Coldline cost calculator for L3 Archive Storage.
+    GCP Cloud Storage Archive cost calculator for L3 Archive Storage.
     
     Uses: CS formula (storage-based) + CA formula (for operations)
     
@@ -123,7 +123,7 @@ class GCSColdlineCalculator:
         - pricing["gcp"]["storage_archive"]["retrievalPrice"] or ["dataRetrievalPrice"]
     """
     
-    component_type = GCPComponent.GCS_COLDLINE
+    component_type = GCPComponent.GCS_ARCHIVE
     formula_type = FormulaType.CS
     
     def calculate_cost(
@@ -135,7 +135,7 @@ class GCSColdlineCalculator:
         retrievals_gb: float = 0.0
     ) -> float:
         """
-        Calculate GCP Cloud Storage Coldline monthly cost.
+        Calculate GCP Cloud Storage Archive monthly cost.
         
         Args:
             storage_gb: Storage volume in GB

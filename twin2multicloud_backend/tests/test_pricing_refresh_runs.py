@@ -1,18 +1,21 @@
 import json
+from datetime import datetime, timezone
+
+import pytest
 
 from src.api.routes.pricing_refresh import get_optimizer_client
 from src.main import app
 from src.models.cloud_connection import CloudConnection
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.user import User
-from src.services.errors import ExternalServiceUnavailable
+from src.services.aws_twinmaker_pricing_context_service import ACCOUNT_CONTEXT_KEY
+from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from tests.pricing_catalog_test_data import catalog_reference
 
 
 class FakeOptimizerClient:
     def __init__(self, payload=None, exc=None):
-        self.payload = (
-            payload if payload is not None else {"status": "ok", "message": "done"}
-        )
+        self.payload = payload
         self.exc = exc
         self.calls = []
 
@@ -26,11 +29,20 @@ class FakeOptimizerClient:
         )
         if self.exc:
             raise self.exc
-        return self.payload
+        if self.payload is not None:
+            return self.payload
+        reference = catalog_reference(provider)
+        return {
+            "schemaVersion": "pricing-catalog-refresh-result.v1",
+            "status": "published",
+            "candidateReference": reference.to_http_dict(),
+            "activeCalculationReference": reference.to_http_dict(),
+            "publication": {"published": True},
+        }
 
 
-def _override_optimizer():
-    fake = FakeOptimizerClient()
+def _override_optimizer(payload=None):
+    fake = FakeOptimizerClient(payload=payload)
     app.dependency_overrides[get_optimizer_client] = lambda: fake
     return fake
 
@@ -67,6 +79,32 @@ def _gcp_request(display_name="GCP Pricing"):
                     "private_key": "TEST_PRIVATE_KEY",
                 }
             ),
+        },
+    }
+
+
+def _aws_refresh_payload():
+    reference = catalog_reference("aws")
+    return {
+        "status": "ok",
+        "activeCalculationReference": reference.to_http_dict(),
+        ACCOUNT_CONTEXT_KEY: {
+            "schema_version": "aws-twinmaker-account-pricing-context.v1",
+            "provider": "aws",
+            "service": "iot_twinmaker",
+            "region": "eu-central-1",
+            "verified_account_id": "123456789012",
+            "catalog_snapshot_digest": reference.content_digest,
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "current_plan": {
+                "mode": "STANDARD",
+                "billable_entity_count": 0,
+                "effective_at": None,
+                "updated_at": None,
+                "update_reason": None,
+                "bundle": None,
+            },
+            "pending_plan": None,
         },
     }
 
@@ -139,7 +177,7 @@ def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_out
     db_session,
 ):
     client, headers = authenticated_client
-    fake = _override_optimizer()
+    fake = _override_optimizer(_aws_refresh_payload())
     created = client.post(
         "/cloud-connections/", json=_aws_request(), headers=headers
     ).json()
@@ -165,11 +203,80 @@ def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_out
         fake.calls[0]["credentials"]["aws_secret_access_key"]
         == "TEST_SECRET_ACCESS_KEY"
     )
+    assert (
+        fake.calls[0]["credentials"]["aws_configured_account_id"]
+        == "123456789012"
+    )
+    persisted_context = body["result_summary"][ACCOUNT_CONTEXT_KEY]
+    assert persisted_context["management_binding"] == {
+        "schema_version": "aws-twinmaker-management-binding.v1",
+        "pricing_connection_id": created["id"],
+        "connection_fingerprint": f"sha256:{connection.payload_fingerprint}",
+        "verified_account_id": "123456789012",
+        "configured_account_id": "123456789012",
+    }
 
     response_text = response.text
     assert "TEST_ACCESS_KEY_ID" not in response_text
     assert "TEST_SECRET_ACCESS_KEY" not in response_text
     assert "secret_access_key" not in response_text
+
+
+def test_start_aws_pricing_refresh_fails_closed_for_malformed_account_context(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    _override_optimizer({ACCOUNT_CONTEXT_KEY: {"status": "unknown"}})
+    created = client.post(
+        "/cloud-connections/",
+        json=_aws_request("Malformed AWS Pricing"),
+        headers=headers,
+    ).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    db_session.commit()
+
+    response = client.post(
+        "/optimizer/pricing-refresh/aws",
+        json={"pricing_connection_id": created["id"], "force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["error_code"] == "AWS_TWINMAKER_CONTEXT_INVALID"
+    assert response.json()["result_summary"] is None
+
+
+def test_account_context_is_not_truncated_from_large_refresh_summary(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    payload = {f"diagnostic_{index}": index for index in range(250)}
+    payload.update(_aws_refresh_payload())
+    _override_optimizer(payload)
+    created = client.post(
+        "/cloud-connections/",
+        json=_aws_request("Large AWS Pricing"),
+        headers=headers,
+    ).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    db_session.commit()
+
+    response = client.post(
+        "/optimizer/pricing-refresh/aws",
+        json={"pricing_connection_id": created["id"], "force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "succeeded"
+    assert ACCOUNT_CONTEXT_KEY in response.json()["result_summary"]
+    assert "activeCalculationReference" in response.json()["result_summary"]
+    assert len(response.json()["result_summary"]) == 200
 
 
 def test_start_gcp_pricing_refresh_maps_service_account_payload(
@@ -279,6 +386,93 @@ def test_failed_optimizer_refresh_is_persisted(authenticated_client, db_session)
     )
     assert stored.status == "failed"
     assert stored.error_code == "OPTIMIZER_UNAVAILABLE"
+
+
+def test_aws_refresh_preserves_allowlisted_optimizer_error_without_raw_detail(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    leaked_detail = "TEST_SECRET_PROVIDER_DETAIL"
+    app.dependency_overrides[get_optimizer_client] = lambda: FakeOptimizerClient(
+        exc=ExternalServiceError(
+            "Optimizer API returned an error",
+            upstream_status_code=403,
+            public_detail=json.dumps(
+                {
+                    "detail": {
+                        "error_code": "AWS_TWINMAKER_PLAN_PERMISSION_DENIED",
+                        "message": leaked_detail,
+                        "recovery_hint": leaked_detail,
+                    }
+                }
+            ),
+        )
+    )
+    created = client.post(
+        "/cloud-connections/", json=_aws_request(), headers=headers
+    ).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    db_session.commit()
+
+    response = client.post(
+        "/optimizer/pricing-refresh/aws",
+        json={"pricing_connection_id": created["id"], "force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["error_code"] == "AWS_TWINMAKER_PLAN_PERMISSION_DENIED"
+    assert (
+        body["error_message"]
+        == "AWS pricing credentials cannot read the TwinMaker pricing plan."
+    )
+    assert leaked_detail not in response.text
+
+
+@pytest.mark.parametrize(
+    "public_detail",
+    [
+        "not-json",
+        json.dumps({"detail": "not-an-object"}),
+        json.dumps(
+            {
+                "detail": {
+                    "error_code": "UNKNOWN_PROVIDER_ERROR",
+                    "message": "TEST_SECRET_PROVIDER_DETAIL",
+                }
+            }
+        ),
+    ],
+)
+def test_pricing_refresh_falls_back_for_untrusted_optimizer_error_detail(
+    authenticated_client,
+    public_detail,
+):
+    client, headers = authenticated_client
+    app.dependency_overrides[get_optimizer_client] = lambda: FakeOptimizerClient(
+        exc=ExternalServiceError(
+            "Optimizer API returned an error",
+            upstream_status_code=502,
+            public_detail=public_detail,
+        )
+    )
+
+    response = client.post(
+        "/optimizer/pricing-refresh/azure",
+        json={"force": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["error_code"] == "OPTIMIZER_ERROR"
+    assert body["error_message"] == "Optimizer service returned an error."
+    assert "TEST_SECRET_PROVIDER_DETAIL" not in response.text
 
 
 def test_pricing_refresh_run_is_user_scoped(authenticated_client, db_session):

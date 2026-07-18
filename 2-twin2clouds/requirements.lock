@@ -3,6 +3,7 @@
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.14.2
+attrs==26.1.0
 azure-common==1.1.28
 azure-core==1.41.0
 azure-identity==1.25.3
@@ -39,6 +40,8 @@ idna==3.18
 iniconfig==2.3.0
 isodate==0.7.2
 jmespath==1.1.0
+jsonschema-specifications==2025.9.1
+jsonschema==4.25.1
 markdown-it-py==4.2.0
 mdurl==0.1.2
 msal==1.37.0
@@ -62,7 +65,9 @@ python-dateutil==2.9.0.post0
 PyYAML==6.0.3
 requests==2.34.2
 requests-oauthlib==2.0.0
+referencing==0.37.0
 rich==15.0.0
+rpds-py==2026.6.3
 ruff==0.15.21
 s3transfer==0.19.1
 six==1.17.0

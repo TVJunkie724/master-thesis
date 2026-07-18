@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -58,6 +59,23 @@ class CloudConnectionCreate(BaseModel):
             raise ValueError(f"{self.auth_type} is not supported for {self.provider} Cloud Connections yet")
         if self.provider == "gcp" and self.gcp and not self.gcp.service_account_json:
             raise ValueError("gcp service_account_json is required for service_account_key Cloud Connections")
+        if self.provider == "aws" and self.aws:
+            cloud_scope = dict(self.cloud_scope)
+            configured_region = str(cloud_scope.get("region") or "").strip()
+            if configured_region and configured_region != self.aws.region:
+                raise ValueError(
+                    "cloud_scope.region must match the AWS credential region"
+                )
+            cloud_scope["region"] = self.aws.region
+            configured_account_id = cloud_scope.get("account_id")
+            if configured_account_id is not None:
+                normalized_account_id = str(configured_account_id).strip()
+                if not re.fullmatch(r"\d{12}", normalized_account_id):
+                    raise ValueError(
+                        "cloud_scope.account_id must be a twelve-digit AWS account ID"
+                    )
+                cloud_scope["account_id"] = normalized_account_id
+            self.cloud_scope = cloud_scope
         if self.purpose == "pricing":
             if self.provider == "azure":
                 raise ValueError("Azure pricing uses the public Retail Prices API")

@@ -16,8 +16,14 @@ class FakeOptimizerClient:
         self.exc = exc
         self.calls = []
 
-    async def get_cache_status(self, *, endpoint_prefix: str, provider: str):
-        self.calls.append((endpoint_prefix, provider))
+    async def get_cache_status(
+        self,
+        *,
+        endpoint_prefix: str,
+        provider: str,
+        pricing_region: str | None = None,
+    ):
+        self.calls.append((endpoint_prefix, provider, pricing_region))
         if self.exc:
             raise self.exc
         return self.results.pop(0)
@@ -40,9 +46,9 @@ async def test_get_pricing_status_aggregates_all_providers():
         "gcp": {"age": "3 days"},
     }
     assert client.calls == [
-        ("pricing_age", "aws"),
-        ("pricing_age", "azure"),
-        ("pricing_age", "gcp"),
+        ("pricing_age", "aws", None),
+        ("pricing_age", "azure", None),
+        ("pricing_age", "gcp", None),
     ]
 
 
@@ -61,9 +67,34 @@ async def test_get_regions_status_returns_error_for_failed_provider():
     assert result["azure"] == {"error": "Failed to fetch"}
     assert result["gcp"] == {"age": "3 days"}
     assert client.calls == [
-        ("regions_age", "aws"),
-        ("regions_age", "azure"),
-        ("regions_age", "gcp"),
+        ("regions_age", "aws", None),
+        ("regions_age", "azure", None),
+        ("regions_age", "gcp", None),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_pricing_status_forwards_provider_regions():
+    client = FakeOptimizerClient(
+        [
+            OptimizerProviderStatus("aws", 200, {}),
+            OptimizerProviderStatus("azure", 200, {}),
+            OptimizerProviderStatus("gcp", 200, {}),
+        ]
+    )
+
+    await OptimizerStatusService(optimizer_client=client).get_pricing_status(
+        pricing_regions={
+            "aws": "eu-central-1",
+            "azure": "westeurope",
+            "gcp": "europe-west1",
+        }
+    )
+
+    assert client.calls == [
+        ("pricing_age", "aws", "eu-central-1"),
+        ("pricing_age", "azure", "westeurope"),
+        ("pricing_age", "gcp", "europe-west1"),
     ]
 
 

@@ -1,4 +1,5 @@
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
+import 'package:twin2multicloud_flutter/models/pricing_catalog.dart';
 
 /// Test fixtures for consistent testing across test files.
 abstract class TestFixtures {
@@ -25,7 +26,7 @@ abstract class TestFixtures {
     amountOfActiveViewers: 10,
   );
 
-  /// Calculation params with all optional features enabled
+  /// Calculation params with every supported optional feature enabled
   static CalcParams get calcParamsFullyConfigured => CalcParams(
     numberOfDevices: 1000,
     deviceSendingIntervalInMinutes: 1.0,
@@ -37,7 +38,7 @@ abstract class TestFixtures {
     orchestrationActionsPerMessage: 5,
     returnFeedbackToDevice: true,
     numberOfEventActions: 2,
-    integrateErrorHandling: true,
+    integrateErrorHandling: false,
     hotStorageDurationInMonths: 3,
     coolStorageDurationInMonths: 12,
     archiveStorageDurationInMonths: 36,
@@ -99,6 +100,27 @@ abstract class TestFixtures {
   // ============================================================
   // CalcResult Fixtures
   // ============================================================
+
+  static Map<String, dynamic> get pricingCatalogContextJson => {
+    'schemaVersion': 'provider-pricing-catalog-context.v1',
+    'catalogs': {
+      'aws': _pricingCatalogReference(
+        provider: 'aws',
+        region: 'eu-central-1',
+        marker: 'a',
+      ),
+      'azure': _pricingCatalogReference(
+        provider: 'azure',
+        region: 'westeurope',
+        marker: 'b',
+      ),
+      'gcp': _pricingCatalogReference(
+        provider: 'gcp',
+        region: 'europe-west1',
+        marker: 'c',
+      ),
+    },
+  };
 
   static Map<String, dynamic> get calcResultJson => <String, dynamic>{
     'result': <String, dynamic>{
@@ -197,6 +219,7 @@ abstract class TestFixtures {
         'L5_AWS',
       ],
       'transferCosts': <String, dynamic>{'L1_to_L2': 0.05, 'L2_to_L3': 0.02},
+      'pricingCatalogs': pricingCatalogContextJson,
       'trace_schema_version': 'intent-result-trace.v1',
       'optimizationProfile': <String, dynamic>{
         'profile_id': 'cost_minimization_v1',
@@ -296,6 +319,185 @@ abstract class TestFixtures {
     },
   };
 
+  static Map<String, dynamic> get calcResultWithTransferEvidenceJson {
+    final result = Map<String, dynamic>.from(
+      calcResultJson['result'] as Map<String, dynamic>,
+    );
+    final calculationResult = <String, dynamic>{
+      'L1': 'AWS',
+      'L2': 'GCP',
+      'L3': {'Hot': 'GCP', 'Cool': 'GCP', 'Archive': 'GCP'},
+      'L4': 'AWS',
+      'L5': 'AWS',
+    };
+    final providerByLayer = <String, String>{
+      'L1': 'aws',
+      'L2': 'gcp',
+      'L3_hot': 'gcp',
+      'L3_cool': 'gcp',
+      'L3_archive': 'gcp',
+      'L4': 'aws',
+      'L5': 'aws',
+    };
+    final regions = <String, String>{
+      'aws': 'eu-central-1',
+      'azure': 'westeurope',
+      'gcp': 'europe-west1',
+    };
+    final snapshots = <String, String>{
+      for (final entry
+          in (pricingCatalogContextJson['catalogs'] as Map).entries)
+        entry.key.toString(): (entry.value as Map)['snapshotId'].toString(),
+    };
+    final policies = <String, Map<String, dynamic>>{
+      'aws': {
+        'networkTier': 'provider_default',
+        'billingScope': 'account_aggregate_public_egress',
+        'billingUnit': 'gb',
+        'bytesPerBillingUnit': 1000000000,
+      },
+      'azure': {
+        'networkTier': 'microsoft_premium_global_network',
+        'billingScope': 'account_aggregate_public_egress',
+        'billingUnit': 'gb',
+        'bytesPerBillingUnit': 1000000000,
+      },
+      'gcp': {
+        'networkTier': 'premium',
+        'billingScope': 'sku_account_aggregate_public_egress',
+        'billingUnit': 'gib',
+        'bytesPerBillingUnit': 1073741824,
+      },
+    };
+    final edges = <(String, String, String, String, String)>[
+      ('L1_to_L2', 'L1', 'L2', 'L1_INGESTION', 'L2_PROCESSING'),
+      ('L2_to_L3_hot', 'L2', 'L3_hot', 'L2_PROCESSING', 'L3_HOT_STORAGE'),
+      (
+        'L3_hot_to_L3_cool',
+        'L3_hot',
+        'L3_cool',
+        'L3_HOT_STORAGE',
+        'L3_COOL_STORAGE',
+      ),
+      (
+        'L3_cool_to_L3_archive',
+        'L3_cool',
+        'L3_archive',
+        'L3_COOL_STORAGE',
+        'L3_ARCHIVE_STORAGE',
+      ),
+      ('L3_hot_to_L4', 'L3_hot', 'L4', 'L3_HOT_STORAGE', 'L4_TWIN_MANAGEMENT'),
+      ('L4_to_L5', 'L4', 'L5', 'L4_TWIN_MANAGEMENT', 'L5_VISUALIZATION'),
+    ];
+    final routes = <Map<String, dynamic>>[];
+    final routesByProvider = <String, List<Map<String, dynamic>>>{};
+    for (final edge in edges) {
+      final sourceProvider = providerByLayer[edge.$2]!;
+      final destinationProvider = providerByLayer[edge.$3]!;
+      final sameProvider = sourceProvider == destinationProvider;
+      final policy = policies[sourceProvider]!;
+      final volumeBytes = policy['bytesPerBillingUnit'] as int;
+      final route = <String, dynamic>{
+        'segmentId': edge.$1,
+        'source': {
+          'layer': edge.$4,
+          'provider': sourceProvider,
+          'region': regions[sourceProvider],
+          'geography': 'europe',
+        },
+        'destination': {
+          'layer': edge.$5,
+          'provider': destinationProvider,
+          'region': regions[destinationProvider],
+          'geography': 'europe',
+        },
+        'routeClass': sameProvider
+            ? 'same_provider_same_region'
+            : 'cross_provider_public_internet',
+        'networkTier': sameProvider ? 'not_applicable' : policy['networkTier'],
+        'volumeBytes': volumeBytes,
+        'poolId': sameProvider ? null : 'pool:$sourceProvider:test',
+        'catalogSnapshotId': sameProvider ? null : snapshots[sourceProvider],
+        'evidenceId': sameProvider ? null : 'transfer.$sourceProvider.test.v1',
+        'tierContributions': sameProvider
+            ? <Map<String, dynamic>>[]
+            : [
+                {
+                  'tierId': 'free_${edge.$1}',
+                  'fromQuantity': 0,
+                  'toQuantity': 1,
+                  'billableQuantity': 1,
+                  'unitPrice': 0,
+                  'cost': 0,
+                },
+              ],
+        'egressCost': 0,
+        'glueCost': 0,
+        'totalCost': 0,
+        'assumptions': ['fixture_edge=${edge.$1}'],
+      };
+      routes.add(route);
+      if (!sameProvider) {
+        routesByProvider.putIfAbsent(sourceProvider, () => []).add(route);
+      }
+    }
+    final pools = <Map<String, dynamic>>[
+      for (final provider in routesByProvider.keys)
+        {
+          'poolId': 'pool:$provider:test',
+          'provider': provider,
+          'routeClass': 'cross_provider_public_internet',
+          'sourceGeography': 'europe',
+          'destinationGeography': 'europe',
+          'networkTier': policies[provider]!['networkTier'],
+          'billingScope': policies[provider]!['billingScope'],
+          'billingUnit': policies[provider]!['billingUnit'],
+          'bytesPerBillingUnit': policies[provider]!['bytesPerBillingUnit'],
+          'catalogSnapshotId': snapshots[provider],
+          'evidenceId': 'transfer.$provider.test.v1',
+          'aggregateVolumeBytes': routesByProvider[provider]!.fold<int>(
+            0,
+            (sum, route) => sum + route['volumeBytes'] as int,
+          ),
+          'aggregateEgressCost': 0,
+        },
+    ];
+    return {
+      'result': {
+        ...result,
+        'calculationResult': calculationResult,
+        'currency': 'USD',
+        'transferCosts': {
+          for (final route in routes.where(
+            (route) => route['routeClass'] == 'cross_provider_public_internet',
+          ))
+            route['segmentId'].toString(): route['totalCost'],
+        },
+        'transferPricingContext': {
+          'schemaVersion': 'complete-path-transfer-pricing.v1',
+          'currency': 'USD',
+          'assumptions': ['deterministic_flutter_fixture'],
+          'routes': routes,
+          'pools': pools,
+        },
+        'optimizationDiagnostics': {
+          'schemaVersion': 'complete-path-optimization.v1',
+          'enumeratedPathCount': 972,
+          'evaluatedPathCount': 972,
+          'rejectedPathCount': 0,
+          'rejectedByErrorCode': <String, int>{},
+          'winningCandidateId': 'aws|gcp|gcp|gcp|gcp|aws|aws',
+          'winningScore': result['totalCost'],
+          'winningLayerCost': result['totalCost'],
+          'winningTransferCost': 0,
+          'tieBreakPolicy': 'canonical_provider_order',
+          'canonicalProviderOrder': ['aws', 'azure', 'gcp'],
+          'scoreUnit': 'USD/month',
+        },
+      },
+    };
+  }
+
   static Map<String, dynamic> get emptyCalcResultJson => <String, dynamic>{
     'result': <String, dynamic>{
       'awsCosts': <String, dynamic>{},
@@ -328,5 +530,47 @@ abstract class TestFixtures {
     'project_id': 'my-project',
     'billing_account': 'billing-12345',
     'region': 'europe-west1',
+  };
+}
+
+Map<String, dynamic> _pricingCatalogReference({
+  required String provider,
+  required String region,
+  required String marker,
+}) {
+  final identity = List.filled(64, marker).join();
+  final fetchedAt = DateTime.utc(2026, 7, 17, 10);
+  const providerSchemaVersion = 'pricing-provider-schema.v1';
+  const contractVersion = '2026.07.17';
+  const registryVersion = '2026.07.17';
+  const mappingVersions = ['2026.07.17'];
+  final contentDigest = 'sha256:$identity';
+  final snapshotId = buildPricingCatalogSnapshotId(
+    provider: provider,
+    pricingRegion: region,
+    providerSchemaVersion: providerSchemaVersion,
+    contractVersion: contractVersion,
+    registryVersion: registryVersion,
+    mappingVersions: mappingVersions,
+    fetchedAt: fetchedAt,
+    contentDigest: contentDigest,
+    source: 'reviewed_baseline',
+    reviewStatus: 'reviewed',
+  );
+  return {
+    'schemaVersion': 'pricing-catalog-reference.v1',
+    'snapshotId': snapshotId,
+    'provider': provider,
+    'pricingRegion': region,
+    'providerSchemaVersion': providerSchemaVersion,
+    'contractVersion': contractVersion,
+    'registryVersion': registryVersion,
+    'mappingVersions': mappingVersions,
+    'fetchedAt': fetchedAt.toIso8601String(),
+    'contentDigest': contentDigest,
+    'source': 'reviewed_baseline',
+    'reviewStatus': 'reviewed',
+    'publicationStatus': 'published',
+    'calculationSource': 'reviewed_baseline',
   };
 }

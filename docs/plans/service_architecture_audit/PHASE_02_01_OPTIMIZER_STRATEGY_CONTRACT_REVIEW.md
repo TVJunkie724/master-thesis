@@ -2,8 +2,8 @@
 title: "Phase 2.1 Review: Optimizer Strategy Contract"
 description: "Review of the optimizer strategy contract that binds objective, pricing intents, formulas, units, sources, and evidence requirements."
 tags: [optimizer, pricing, contracts, audit, issue-102]
-lastUpdated: "2026-06-21"
-version: "1.0"
+lastUpdated: "2026-07-17"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -66,8 +66,10 @@ The cost strategy covers:
   pricing JSONs through its primary path or an alias.
 - Dynamic provider API fields require evidence.
 - Known unit/shape hotspots declare normalizers:
-  Azure IoT Hub tiers, Azure Digital Twins query unit tiers, GCP Pub/Sub
-  GiB/GB volume handling, and GCP Firestore per-100k operation prices.
+  Azure IoT Hub tiers, GCP Pub/Sub GiB/GB volume handling, and GCP Firestore
+  per-100k operation prices. Azure Digital Twins registry evidence is normalized
+  to per-operation, per-message, and per-query-unit values before it reaches
+  the strategy contract.
 
 Latest focused test evidence:
 
@@ -92,7 +94,7 @@ docker run --rm -v /Users/caroline/.codex/worktrees/01ff/master-thesis/2-twin2cl
 | Finding | Owner phase |
 |---|---|
 | Azure IoT Hub currently stores `pricing_tiers`, while the calculator still reads unit-oriented fields with zero defaults. The contract now marks this as `azure_iot_hub_tier_table`; the calculation hardening phase must implement the normalizer/formula bridge. | Phase 2.4 |
-| Azure Digital Twins query pricing includes `queryUnitTiers`; the current calculator reads only `queryPrice`. The contract records `azure_digital_twins_query_units`; tier-aware formula hardening belongs to calculation correctness. | Phase 2.4 |
+| Azure Digital Twins originally modeled query units as a fabricated tier table. Phase 17 removes that table, models query units as workload consumption, and splits operation, routed-message, and query-unit pricing into independent evidence-backed intents. | Phase 17 |
 | GCP Pub/Sub is volume-based while AWS/Azure ingestion is message- or unit-tier based. The contract records the different quantity basis so fetchers and calculators cannot pretend that all L1 prices are per message. | Phase 2.3 and Phase 2.4 |
 | Fallback/static reviewed decisions are supported by the contract model, but current source classification remains provider-API-oriented until the pricing source audit formalizes dynamic vs static vs reviewed decision state. | Phase 2.2 |
 | The contract is not yet enforced inside the fetcher pipeline or API responses. That enforcement belongs to fetcher reliability and API contract phases. | Phase 2.3 and Phase 2.5 |

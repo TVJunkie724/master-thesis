@@ -29,6 +29,7 @@ except ModuleNotFoundError:
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
 _inter_cloud_token = None
 _archive_bucket_name = None
+_archive_storage_class = None
 
 def _get_inter_cloud_token():
     global _inter_cloud_token
@@ -41,6 +42,13 @@ def _get_archive_bucket_name():
     if _archive_bucket_name is None:
         _archive_bucket_name = require_env("ARCHIVE_BUCKET")
     return _archive_bucket_name
+
+
+def _get_archive_storage_class():
+    global _archive_storage_class
+    if _archive_storage_class is None:
+        _archive_storage_class = require_env("ARCHIVE_STORAGE_CLASS")
+    return _archive_storage_class
 
 # Storage client
 _storage_client = None
@@ -79,7 +87,7 @@ def main(request):
         bucket = client.bucket(_get_archive_bucket_name())
         
         blob = bucket.blob(blob_name)
-        blob.storage_class = "ARCHIVE"
+        blob.storage_class = _get_archive_storage_class()
         
         blob.upload_from_string(
             json.dumps(items, default=str),

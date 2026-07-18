@@ -8,10 +8,11 @@ from backend.calculation_v2.components.gcp import (
     GCPComputeEngineCalculator,
     GCPFirestoreCalculator,
     GCPPubSubCalculator,
-    GCSColdlineCalculator,
+    GCSArchiveCalculator,
     GCSNearlineCalculator,
 )
 from backend.calculation_v2.engine import _calculate_egress_cost
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
 
 def _gcp_pricing(**overrides):
@@ -63,13 +64,7 @@ def _gcp_pricing(**overrides):
             "e2MediumPrice": 0.0608511,
             "storagePrice": 0.20,
         },
-        "transfer": {
-            "pricing_tiers": {
-                "freeTier": {"limit": 100, "price": 0},
-                "tier1": {"limit": 10_240, "price": 0.12},
-                "tier2": {"limit": "Infinity", "price": 0.08},
-            }
-        },
+        "transfer": canonical_transfer_catalog("gcp"),
     }
     base.update(overrides)
     return {"gcp": base}
@@ -168,8 +163,8 @@ class TestGCPCloudStorageUnits:
         expected = 1.0 + (2 * 0.10) + (3 * 0.01) + (10 * 0.01)
         assert result == pytest.approx(expected)
 
-    def test_coldline_normalizes_lifecycle_operation_blocks_and_retrieval(self):
-        result = GCSColdlineCalculator().calculate_cost(
+    def test_archive_normalizes_lifecycle_operation_blocks_and_retrieval(self):
+        result = GCSArchiveCalculator().calculate_cost(
             storage_gb=100,
             writes_per_month=20_000,
             reads_per_month=10_000,
@@ -237,18 +232,18 @@ class TestGCPComputeUnits:
 
 
 class TestGCPTransferTiering:
-    def test_gcp_egress_uses_tiered_transfer_pricing(self):
+    def test_gcp_egress_converts_decimal_gb_to_provider_gib_tiers(self):
         result = _calculate_egress_cost(
-            data_gb=10_500,
+            data_gb=1_181.1160064,
             pricing=_gcp_pricing(),
             source_provider="GCP",
         )
 
-        expected = ((10_240 - 100) * 0.12) + ((10_500 - 10_240) * 0.08)
+        expected = (1_024 - 1) * 0.12 + (1_100 - 1_024) * 0.11
         assert result == pytest.approx(expected)
 
     def test_gcp_egress_missing_price_fails_visibly(self):
-        with pytest.raises(ValueError, match="gcp.transfer.egress"):
+        with pytest.raises(ValueError, match="gcp.transfer.catalog"):
             _calculate_egress_cost(
                 data_gb=1,
                 pricing=_gcp_pricing(transfer={}),

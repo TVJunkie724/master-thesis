@@ -1,7 +1,5 @@
-import pytest
-import os
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from backend.utils import get_file_age_string
 
 def test_get_file_age_string_file_not_found():

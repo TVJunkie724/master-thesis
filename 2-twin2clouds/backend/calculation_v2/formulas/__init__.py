@@ -31,10 +31,14 @@ from .core_formulas import (
     tiered_transfer_cost,
 )
 from .pricing_units import (
+    CapacityTierSelection,
     unit_price,
     first_unit_price,
     required_first_unit_price,
+    billable_block_units,
+    billable_1kb_units,
     capacity_tier_cost,
+    select_capacity_tier,
     tiered_unit_cost,
 )
 
@@ -50,6 +54,10 @@ __all__ = [
     "unit_price",
     "first_unit_price",
     "required_first_unit_price",
+    "billable_block_units",
+    "billable_1kb_units",
     "capacity_tier_cost",
+    "CapacityTierSelection",
+    "select_capacity_tier",
     "tiered_unit_cost",
 ]

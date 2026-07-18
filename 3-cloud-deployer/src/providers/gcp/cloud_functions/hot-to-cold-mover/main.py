@@ -37,6 +37,7 @@ class ConfigurationError(Exception):
 _digital_twin_info = None
 _firestore_collection = None
 _cold_bucket_name = None
+_cold_storage_class = None
 
 def _get_digital_twin_info():
     """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
@@ -58,6 +59,14 @@ def _get_cold_bucket_name():
     if _cold_bucket_name is None:
         _cold_bucket_name = require_env("COLD_BUCKET_NAME")
     return _cold_bucket_name
+
+
+def _get_cold_storage_class():
+    """Return the specification-selected local Cloud Storage class."""
+    global _cold_storage_class
+    if _cold_storage_class is None:
+        _cold_storage_class = require_env("COLD_STORAGE_CLASS")
+    return _cold_storage_class
 
 # Multi-cloud config (optional)
 REMOTE_COLD_WRITER_URL = os.environ.get("REMOTE_COLD_WRITER_URL", "")
@@ -132,15 +141,14 @@ def _chunk_items(items: list, max_bytes: int = MAX_CHUNK_SIZE_BYTES) -> list:
 
 
 def _write_to_local_gcs(device_id: str, items: list, start: str, end: str, chunk_index: int):
-    """Write chunk to local Cloud Storage (Nearline class)."""
+    """Write a chunk using the specification-selected local storage class."""
     client = _get_storage_client()
     bucket = client.bucket(_get_cold_bucket_name())
     
     blob_name = f"{device_id}/{start}_to_{end}_chunk{chunk_index}.json"
     blob = bucket.blob(blob_name)
     
-    # Set storage class to NEARLINE
-    blob.storage_class = "NEARLINE"
+    blob.storage_class = _get_cold_storage_class()
     
     blob.upload_from_string(
         json.dumps(items, default=str),

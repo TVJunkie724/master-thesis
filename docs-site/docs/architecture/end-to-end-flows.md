@@ -5,9 +5,10 @@
 ```text
 User input
   -> Flutter Configuration Workspace
-  -> typed Management API request
-  -> configuration/application service
-  -> SQLite configuration + file version
+  -> typed workload parameter draft
+  -> POST durable optimizer run
+  -> Management application service
+  -> owner-scoped exact AWS + Azure + GCP catalog context
   -> Optimizer calculation request
   -> active optimization profile
        metric provider: cost
@@ -15,14 +16,18 @@ User input
        calculation model: cost_model_v1
        formula set + provider contracts
        scoring strategy: minimum cost
-  -> typed result + trace metadata
-  -> persisted calculation run/items
-  -> Flutter review
+  -> typed result + trace metadata + identical catalog context
+  -> exact ResolvedDeploymentSpecification v1
+       selected components, deployable dimensions, assumptions, evidence, digest
+  -> Management schema/registry/run/path/catalog/digest validation
+  -> atomic calculation run/items/result/path/specification persistence
+  -> read-only Flutter review
 ```
 
 The user expresses workload quantities. Provider pricing models are not forced into
 one raw unit; provider contracts and formulas normalize their own billable units into
-the common output metric `USD/month`.
+the common output metric `USD/month`. Flutter cannot author or overwrite calculation
+results, transfer evidence, catalog references, or the deployment path.
 
 ## Pricing Refresh And Review
 
@@ -34,12 +39,12 @@ User selects provider and confirms source scope
   -> provider API rows / official-static classifications
   -> raw evidence retained
   -> intent contract filters and normalizes candidates
-  -> deterministic candidate report
-  -> publishable match? ---- yes ---> atomic last-known-good replacement
+  -> immutable provider-region candidate
+  -> publishable match? ---- yes ---> atomic regional published pointer
               |
               no
               v
-       review-required candidates; last-known-good remains active
+       review-required candidate; published reference remains active
               |
        user records a decision in Management API DB
               |
@@ -48,35 +53,45 @@ User selects provider and confirms source scope
 
 An emergency fallback is diagnostic, never the target source. Review decisions may
 select a mapping but are forbidden from storing a replacement price. Evidence and
-normalization remain inspectable.
+normalization remain inspectable. Calculation resolves the newest usable owner
+refresh reference for each provider, otherwise the reviewed baseline. It verifies
+each exact identity before formula execution; Flutter never exports or authors
+pricing evidence.
 
 ## Credential Bootstrap And Use
 
 ```text
-transient admin/bootstrap credential
-  -> provider bootstrap service
-  -> create/version least-privilege credential material
-  -> encrypt and persist CloudConnection
-  -> discard admin plaintext
+Management bootstrap plan (no admin secret)
+  -> versioned provider script and dry-run command
+  -> operator authenticates in provider CLI outside the app
+  -> explicit script apply creates scoped deployment identity
+  -> ignored local CloudConnection JSON
+  -> authenticated import encrypts and persists CloudConnection
   -> validate/preflight by purpose
-  -> bind deployment connection to twin or set user pricing default
+  -> bind deployment connection to twin
 ```
 
-Bootstrap credentials are not intended to become reusable stored admin credentials.
-Pricing credentials are user-level defaults; deployment credentials can be bound to
-individual twins.
+Bootstrap/admin credentials never cross the application boundary. The current scripts
+produce deployment credentials only. AWS and GCP pricing credentials are imported
+separately as user-level defaults; Azure pricing uses a public API. Deployment
+credentials can be bound to individual twins.
 
 ## Deployment
 
 ```text
 configured twin
+  -> exactly one selected deployment-compatible optimizer run
+  -> Management revalidates frozen specification + current pricing/account context
   -> Management API readiness + preflight
   -> build canonical deployment archive
-       deployment_manifest.json (v1.0)
+       deployment_manifest.json (v2.0)
+       calculation run ID + exact specification + digest
        generated configuration
        user artifacts / scene assets
        transient credential context
-  -> Deployer validates archive and stages operation package
+  -> Deployer validates archive, specification, and typed tfvars
+  -> provider resources must match the costed deployable dimensions
+  -> stage operation package
   -> one-use package token identifies exact accepted bytes
   -> deploy/destroy request acquires token
   -> isolated ephemeral workspace
@@ -89,6 +104,27 @@ configured twin
 
 The canonical operation never mutates the versioned template. Generic project-file
 APIs hide credential files and reject traversal.
+
+## Azure Digital Twins Runtime Update
+
+```text
+normalized telemetry
+  -> provider L2 Persister
+  -> validate Azure-L4 endpoint/token and telemetry shape
+  -> idempotent provider storage write
+  -> authenticated HTTPS ADT Pusher call
+  -> validate token and request envelope
+  -> resolve device-to-twin mapping
+  -> build JSON Patch
+  -> managed-identity Azure Digital Twins SDK update
+  -> acknowledge Persister success
+```
+
+The same path applies when L2 is Azure and when L2 is AWS or GCP. If Azure is not L4,
+the Pusher is absent and no ADT update is attempted. Known configuration and payload
+errors fail before the storage write. An exhausted Pusher delivery fails after the
+idempotent write so the caller can retry without creating a second storage identity.
+The baseline does not claim durable replay or exactly-once delivery.
 
 ## Offline Demo
 

@@ -52,7 +52,7 @@
   "scheduler": {
     "aws": "AWSEvents",
     "azure": "",
-    "gcp": "CloudScheduler"
+    "gcp": ""
   },
   "transfer": {
     "aws": "AWSDataTransfer",

@@ -5,4 +5,5 @@ bandit
 httpx2
 moto
 pytest
+python-hcl2
 ruff

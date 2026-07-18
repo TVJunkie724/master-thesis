@@ -22,9 +22,12 @@ def _write_yaml(path, data):
 
 def test_default_classifications_load_and_cover_every_provider_mapping():
     registry = load_pricing_registry()
+    mapping_count = sum(
+        len(mappings) for mappings in registry.provider_mappings.values()
+    )
 
-    assert len(registry.pricing_model_classifications) == 48
-    assert len(registry.price_source_classifications) == 48
+    assert len(registry.pricing_model_classifications) == mapping_count
+    assert len(registry.price_source_classifications) == mapping_count
 
     for provider, mappings in registry.provider_mappings.items():
         for intent_id in mappings:
@@ -42,11 +45,51 @@ def test_field_verification_matrix_covers_every_active_pricing_field():
     service = PricingRegistryService()
 
     rows = service.build_field_verification_matrix()
+    mapping_count = sum(service.get_status()["provider_mapping_counts"].values())
 
-    assert len(rows) == 48
+    assert len(rows) == mapping_count
     assert all(row["verification_status"] == "passed" for row in rows)
     assert all(row["publishable"] is True for row in rows)
     assert all(row["selected_source_type"] in row["allowed_source_types"] for row in rows)
+
+
+def test_twinmaker_bundle_contract_is_account_scoped_and_composite():
+    registry = load_pricing_registry()
+    contract = registry.provider_pricing_contracts[
+        "aws.digital_twin_account_bundle_month.pricing_contract.v1"
+    ]
+    source = registry.price_source_classifications[
+        "aws.digital_twin_account_bundle_month.source.v1"
+    ]
+
+    assert contract["curated_model_constants"] == {
+        "allocation_policy": "DEDICATED_ACCOUNT_FULL_COST"
+    }
+    assert contract["consumed_workload_fields"] == [
+        "account_digital_twin_entity_count",
+        "account_monthly_digital_twin_queries",
+        "account_monthly_digital_twin_api_calls",
+    ]
+    assert source["source_type"] == "derived_from_provider_api"
+    assert source["derived_from"] == [
+        "AWS Price List API exact regional TwinMaker tier rows",
+        "AWS IoT TwinMaker pricing documentation entity boundaries",
+    ]
+
+
+def test_aws_twinmaker_queries_are_not_modeled_as_query_units():
+    registry = load_pricing_registry()
+    contract = registry.provider_pricing_contracts[
+        "aws.digital_twin_query.pricing_contract.v1"
+    ]
+
+    assert contract["field"] == "digital_twin.query"
+    assert contract["calculation_component"] == "digital_twin_queries"
+    assert "query_unit" not in contract["calculation_component"]
+    assert contract["consumed_workload_fields"] == [
+        "monthly_digital_twin_queries"
+    ]
+    assert "digital_twin.query_unit" not in registry.provider_mappings["aws"]
 
 
 def test_fallback_static_source_cannot_be_publishable(tmp_path):

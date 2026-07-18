@@ -42,6 +42,7 @@ dependencies:
   
   # HTTP
   dio: ^5.4.0
+  crypto: ^3.0.7
   
   # Local Storage
   shared_preferences: ^2.2.2

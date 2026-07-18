@@ -6,6 +6,10 @@ import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 const _providers = {'aws', 'azure', 'gcp'};
+const _serverOwnedOptimizerFields = {
+  'providerPricingCatalogs',
+  'providerPricingContexts',
+};
 const _forbiddenPayloadKeys = {
   'access_key_id',
   'secret_access_key',
@@ -22,6 +26,13 @@ final _apiUri =
 final _authToken =
     _runtime.initialAuthToken ??
     (throw StateError('Integration tests require the development profile.'));
+const _optimizerApiBaseUrl = String.fromEnvironment(
+  'TEST_OPTIMIZER_API_BASE_URL',
+);
+final _optimizerApiUri = _validatedTestOrigin(
+  _optimizerApiBaseUrl,
+  'TEST_OPTIMIZER_API_BASE_URL',
+);
 final _api = ApiService(baseUri: _apiUri, initialAuthToken: _authToken);
 
 void main() {
@@ -99,10 +110,11 @@ void main() {
       if (optimizer != null) {
         expect(optimizer.twinId, listed.id);
         expect(optimizer.id, isNotEmpty);
-        expect(
-          optimizer.pricingSnapshots.keys.toSet(),
-          CloudProvider.values.toSet(),
-        );
+        final context = optimizer.pricingCatalogContext;
+        expect(optimizer.optimization?.result.pricingCatalogContext, context);
+        if (context != null) {
+          expect(context.catalogs.keys.toSet(), CloudProvider.values.toSet());
+        }
       }
 
       final deployer = await _readOrFail(
@@ -182,6 +194,75 @@ void main() {
           isFalse,
           reason: '$endpoint must expose credential metadata only',
         );
+      }
+    });
+
+    testWidgets('publishes one canonical optimizer workload contract', (
+      tester,
+    ) async {
+      final managementOpenApi = await _authenticatedJsonRequest(
+        '/openapi.json',
+      );
+      final optimizerOpenApi = await _publicJsonRequest(
+        _optimizerApiUri,
+        '/openapi.json',
+      );
+      final managementContract = _openApiSchema(
+        managementOpenApi,
+        'OptimizerCalculationParams',
+      );
+      final optimizerContract = _openApiSchema(optimizerOpenApi, 'CalcParams');
+
+      expect(managementContract['additionalProperties'], isFalse);
+      expect(optimizerContract['additionalProperties'], isFalse);
+      final managementProperties = managementContract['properties'] as Map;
+      final optimizerProperties = optimizerContract['properties'] as Map;
+      expect(
+        optimizerProperties.keys
+            .map((key) => key.toString())
+            .toSet()
+            .difference(
+              managementProperties.keys.map((key) => key.toString()).toSet(),
+            ),
+        _serverOwnedOptimizerFields,
+        reason: 'Only documented server-owned pricing fields may differ.',
+      );
+      for (final field in _serverOwnedOptimizerFields) {
+        expect(
+          managementProperties,
+          isNot(contains(field)),
+          reason: 'Clients must not supply trusted $field evidence.',
+        );
+        expect(
+          optimizerProperties,
+          contains(field),
+          reason: 'Management must own and inject $field downstream.',
+        );
+      }
+      expect(
+        optimizerContract['required'],
+        contains('providerPricingCatalogs'),
+      );
+      expect(
+        optimizerContract['required'],
+        isNot(contains('providerPricingContexts')),
+      );
+      expect(
+        _contractProjection(managementContract),
+        _contractProjection(
+          optimizerContract,
+          excludedProperties: _serverOwnedOptimizerFields,
+        ),
+      );
+
+      for (final field in [
+        'averageDigitalTwinQueryUnitsPerQuery',
+        'averageDigitalTwinQueryResponseSizeInKb',
+      ]) {
+        final contract = managementProperties[field] as Map?;
+        expect(contract, isNotNull, reason: 'Missing $field');
+        expect(contract!['exclusiveMinimum'], 0);
+        expect(contract['default'], 1.0);
       }
     });
 
@@ -280,11 +361,92 @@ Future<Object?> _authenticatedJsonRequest(String endpoint) async {
   }
 }
 
+Future<Object?> _publicJsonRequest(Uri baseUri, String endpoint) async {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: baseUri.toString(),
+      validateStatus: (status) => status != null && status < 400,
+    ),
+  );
+  try {
+    final response = await dio.get<Object?>(endpoint);
+    return response.data;
+  } on DioException catch (error) {
+    fail(_safeDioFailureForBase(endpoint, error, baseUri: baseUri));
+  } finally {
+    dio.close(force: true);
+  }
+}
+
+Map _openApiSchema(Object? openApi, String schemaName) {
+  expect(openApi, isA<Map>());
+  final components =
+      (openApi as Map)['components'] as Map? ?? const <Object?, Object?>{};
+  final schemas = components['schemas'] as Map? ?? const <Object?, Object?>{};
+  final contract = schemas[schemaName] as Map?;
+  expect(contract, isNotNull, reason: 'Missing OpenAPI schema $schemaName');
+  return contract!;
+}
+
+Map<String, Object?> _contractProjection(
+  Map contract, {
+  Set<String> excludedProperties = const {},
+}) {
+  const contractKeywords = {
+    'type',
+    'default',
+    'minimum',
+    'maximum',
+    'exclusiveMinimum',
+    'exclusiveMaximum',
+    'enum',
+  };
+  final properties = contract['properties'] as Map;
+  return {
+    'required': ((contract['required'] as List?) ?? const [])
+        .map((value) => value.toString())
+        .where((value) => !excludedProperties.contains(value))
+        .toSet(),
+    'properties': {
+      for (final entry in properties.entries)
+        if (!excludedProperties.contains(entry.key.toString()))
+          entry.key.toString(): {
+            for (final keyword in contractKeywords)
+              if ((entry.value as Map).containsKey(keyword))
+                keyword: entry.value[keyword],
+          },
+    },
+  };
+}
+
 String _safeDioFailure(String endpoint, DioException error) {
+  return _safeDioFailureForBase(endpoint, error, baseUri: _apiUri);
+}
+
+String _safeDioFailureForBase(
+  String endpoint,
+  DioException error, {
+  required Uri baseUri,
+}) {
   final status = error.response?.statusCode?.toString() ?? 'none';
-  return 'Management API request failed at $_apiUri$endpoint; '
+  return 'Read-only API request failed at $baseUri$endpoint; '
       'type=${error.type.name}; status=$status. '
       'Response content and headers were suppressed.';
+}
+
+Uri _validatedTestOrigin(String value, String variable) {
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      !uri.isAbsolute ||
+      uri.host.isEmpty ||
+      !{'http', 'https'}.contains(uri.scheme) ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment ||
+      (uri.path.isNotEmpty && uri.path != '/')) {
+    throw StateError('$variable must be an absolute HTTP(S) origin.');
+  }
+  return uri.replace(path: '');
 }
 
 bool _containsForbiddenKey(Object? value) {

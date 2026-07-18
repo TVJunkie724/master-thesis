@@ -135,7 +135,7 @@ class GCPComponent(Enum):
     # L3: Storage
     FIRESTORE = auto()              # pricing["gcp"]["storage_hot"] (Firestore)
     GCS_NEARLINE = auto()           # pricing["gcp"]["storage_cool"]
-    GCS_COLDLINE = auto()           # pricing["gcp"]["storage_archive"]
+    GCS_ARCHIVE = auto()            # pricing["gcp"]["storage_archive"]
     
     # L4: Twin Management (Self-hosted)
     SELF_HOSTED_TWIN = auto()       # pricing["gcp"]["twinmaker"] (Compute Engine)

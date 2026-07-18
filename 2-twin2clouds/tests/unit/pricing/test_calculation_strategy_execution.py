@@ -16,6 +16,7 @@ from tests.unit.calculation_v2.test_engine_consistency import (
     REALISTIC_PRICING,
     STANDARD_PARAMS,
 )
+from tests.unit.pricing.transfer_fixtures import pricing_catalog_context_for
 
 
 class DriftedPricingRegistryService(PricingRegistryService):
@@ -44,7 +45,14 @@ class DriftedPricingRegistryService(PricingRegistryService):
 
 
 def test_calculation_result_contains_strategy_context_metadata():
-    result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+    result = calculate_cheapest_costs(
+        STANDARD_PARAMS,
+        REALISTIC_PRICING,
+        pricing_catalog_context=pricing_catalog_context_for(REALISTIC_PRICING),
+    )
+    expected_contracts = PricingRegistryService().get_status()[
+        "provider_pricing_contract_count"
+    ]
 
     assert result["calculation_strategy_id"] == "cost_calculation_v2"
     assert result["calculationStrategy"]["calculation_strategy_id"] == "cost_calculation_v2"
@@ -53,7 +61,10 @@ def test_calculation_result_contains_strategy_context_metadata():
     assert result["calculationStrategy"]["pricing_contract_group_id"] == (
         "cost_provider_pricing_contracts_v1"
     )
-    assert len(result["calculationStrategy"]["provider_pricing_contract_ids"]) == 48
+    assert (
+        len(result["calculationStrategy"]["provider_pricing_contract_ids"])
+        == expected_contracts
+    )
     assert result["evidenceReferences"]["calculation_strategy"] == (
         "calculation_strategy:cost_calculation_v2"
     )
@@ -70,6 +81,9 @@ def test_unknown_formula_set_fails_before_provider_calculation():
         calculate_cheapest_costs(
             STANDARD_PARAMS,
             REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
             pricing_registry_service=service,
         )
 
@@ -85,6 +99,9 @@ def test_missing_provider_pricing_contract_fails_before_provider_calculation():
         calculate_cheapest_costs(
             STANDARD_PARAMS,
             REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
             pricing_registry_service=service,
         )
 

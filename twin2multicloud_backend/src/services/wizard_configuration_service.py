@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -122,17 +121,23 @@ class WizardConfigurationService:
         if self._field_present(update, "aws") and update.aws is None:
             self._clear_provider_configuration(config, "aws")
         elif update.aws:
-            raise HTTPException(status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL)
+            raise HTTPException(
+                status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL
+            )
 
         if self._field_present(update, "azure") and update.azure is None:
             self._clear_provider_configuration(config, "azure")
         elif update.azure:
-            raise HTTPException(status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL)
+            raise HTTPException(
+                status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL
+            )
 
         if self._field_present(update, "gcp") and update.gcp is None:
             self._clear_provider_configuration(config, "gcp")
         elif update.gcp:
-            raise HTTPException(status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL)
+            raise HTTPException(
+                status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL
+            )
 
     def _apply_cloud_connection_bindings(
         self,
@@ -157,10 +162,11 @@ class WizardConfigurationService:
                     getattr(update.cloud_connections, provider),
                 )
 
-    def _apply_optimizer_update(self, twin: DigitalTwin, update: TwinConfigUpdate) -> None:
+    def _apply_optimizer_update(
+        self, twin: DigitalTwin, update: TwinConfigUpdate
+    ) -> None:
         has_params = self._field_present(update, "optimizer_params")
-        has_result = self._field_present(update, "optimizer_result")
-        if not has_params and not has_result:
+        if not has_params:
             return
 
         opt_config = twin.optimizer_config
@@ -169,22 +175,11 @@ class WizardConfigurationService:
             self.db.add(opt_config)
             twin.optimizer_config = opt_config
 
-        if has_params:
-            opt_config.params = (
-                self._json_dumps(update.optimizer_params)
-                if update.optimizer_params is not None
-                else None
-            )
-        if has_result:
-            opt_config.result_json = (
-                self._json_dumps(update.optimizer_result)
-                if update.optimizer_result is not None
-                else None
-            )
-            if update.optimizer_result is None:
-                self._clear_cheapest_columns(opt_config)
-            else:
-                self._populate_cheapest_columns(opt_config, update.optimizer_result)
+        opt_config.params = (
+            self._json_dumps(update.optimizer_params.to_persisted_payload())
+            if update.optimizer_params is not None
+            else None
+        )
 
     def _bind_cloud_connection(
         self,
@@ -201,9 +196,13 @@ class WizardConfigurationService:
         service = CloudConnectionService(self.db)
         connection = service.get_connection(connection_id, user_id)
         if not connection:
-            raise HTTPException(status_code=404, detail=f"{provider.upper()} Cloud connection not found")
+            raise HTTPException(
+                status_code=404, detail=f"{provider.upper()} Cloud connection not found"
+            )
         if connection.provider != provider:
-            raise HTTPException(status_code=400, detail=f"Cloud connection provider must be {provider}")
+            raise HTTPException(
+                status_code=400, detail=f"Cloud connection provider must be {provider}"
+            )
         if connection.purpose != "deployment":
             raise HTTPException(
                 status_code=400,
@@ -211,11 +210,19 @@ class WizardConfigurationService:
             )
 
         setattr(config, self._connection_id_attr(provider), connection.id)
-        setattr(config, self._validation_attr(provider), connection.validation_status == "valid")
+        setattr(
+            config,
+            self._validation_attr(provider),
+            connection.validation_status == "valid",
+        )
         self._clear_legacy_credentials(config, provider)
-        self._copy_connection_metadata(config, provider, service.decrypt_payload(connection, user_id))
+        self._copy_connection_metadata(
+            config, provider, service.decrypt_payload(connection, user_id)
+        )
 
-    def _clear_provider_configuration(self, config: TwinConfiguration, provider: str) -> None:
+    def _clear_provider_configuration(
+        self, config: TwinConfiguration, provider: str
+    ) -> None:
         setattr(config, self._connection_id_attr(provider), None)
         setattr(config, self._validation_attr(provider), False)
         self._clear_legacy_credentials(config, provider)
@@ -230,7 +237,9 @@ class WizardConfigurationService:
             config.gcp_project_id = None
             config.gcp_region = "europe-west1"
 
-    def _clear_legacy_credentials(self, config: TwinConfiguration, provider: str) -> None:
+    def _clear_legacy_credentials(
+        self, config: TwinConfiguration, provider: str
+    ) -> None:
         legacy_fields = {
             "aws": [
                 "aws_access_key_id",
@@ -252,17 +261,25 @@ class WizardConfigurationService:
         for field in legacy_fields[provider]:
             setattr(config, field, None)
 
-    def _copy_connection_metadata(self, config: TwinConfiguration, provider: str, payload: dict) -> None:
+    def _copy_connection_metadata(
+        self, config: TwinConfiguration, provider: str, payload: dict
+    ) -> None:
         if provider == "aws":
             config.aws_region = payload.get("aws_region") or config.aws_region
             config.aws_sso_region = payload.get("aws_sso_region")
         elif provider == "azure":
             azure_region = payload.get("azure_region") or config.azure_region
             config.azure_region = azure_region
-            config.azure_region_iothub = payload.get("azure_region_iothub") or azure_region
-            config.azure_region_digital_twin = payload.get("azure_region_digital_twin") or azure_region
+            config.azure_region_iothub = (
+                payload.get("azure_region_iothub") or azure_region
+            )
+            config.azure_region_digital_twin = (
+                payload.get("azure_region_digital_twin") or azure_region
+            )
         elif provider == "gcp":
-            config.gcp_project_id = payload.get("gcp_project_id") or config.gcp_project_id
+            config.gcp_project_id = (
+                payload.get("gcp_project_id") or config.gcp_project_id
+            )
             config.gcp_region = payload.get("gcp_region") or config.gcp_region
 
     def _apply_scalar_field(
@@ -291,47 +308,9 @@ class WizardConfigurationService:
     ) -> None:
         if self._field_present(update, field):
             value = getattr(update, field)
-            setattr(config, field, self._json_dumps(value) if value is not None else None)
-
-    @staticmethod
-    def _populate_cheapest_columns(opt_config: OptimizerConfiguration, optimizer_result: dict | None) -> None:
-        if not optimizer_result or not isinstance(optimizer_result, dict):
-            return
-
-        def _from_path(prefix: str) -> str | None:
-            path = optimizer_result.get("cheapestPath")
-            if not isinstance(path, list):
-                return None
-            for segment in path:
-                if isinstance(segment, str) and segment.startswith(prefix):
-                    return segment[len(prefix):].lower() or None
-            return None
-
-        def _from_calc(*keys: str) -> str | None:
-            node: Any = optimizer_result.get("calculationResult")
-            for key in keys:
-                if not isinstance(node, dict):
-                    return None
-                node = node.get(key)
-            return node.lower() if isinstance(node, str) and node else None
-
-        opt_config.cheapest_l1 = _from_path("L1_") or _from_calc("L1")
-        opt_config.cheapest_l2 = _from_path("L2_") or _from_calc("L2")
-        opt_config.cheapest_l3_hot = _from_path("L3_hot_") or _from_calc("L3", "Hot")
-        opt_config.cheapest_l3_cool = _from_path("L3_cool_") or _from_calc("L3", "Cool")
-        opt_config.cheapest_l3_archive = _from_path("L3_archive_") or _from_calc("L3", "Archive")
-        opt_config.cheapest_l4 = _from_path("L4_") or _from_calc("L4")
-        opt_config.cheapest_l5 = _from_path("L5_") or _from_calc("L5")
-
-    @staticmethod
-    def _clear_cheapest_columns(opt_config: OptimizerConfiguration) -> None:
-        opt_config.cheapest_l1 = None
-        opt_config.cheapest_l2 = None
-        opt_config.cheapest_l3_hot = None
-        opt_config.cheapest_l3_cool = None
-        opt_config.cheapest_l3_archive = None
-        opt_config.cheapest_l4 = None
-        opt_config.cheapest_l5 = None
+            setattr(
+                config, field, self._json_dumps(value) if value is not None else None
+            )
 
     @staticmethod
     def _connection_id_attr(provider: str) -> str:

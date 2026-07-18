@@ -15,6 +15,8 @@ void main() {
         expect(params.deviceSendingIntervalInMinutes, 2.0);
         expect(params.averageSizeOfMessageInKb, 0.25);
         expect(params.needs3DModel, isFalse);
+        expect(params.averageDigitalTwinQueryUnitsPerQuery, 1.0);
+        expect(params.averageDigitalTwinQueryResponseSizeInKb, 1.0);
         expect(params.currency, 'USD');
       });
 
@@ -38,11 +40,11 @@ void main() {
     });
 
     group('toJson', () {
-      test('serializes all 26 fields', () {
+      test('serializes the complete optimizer input contract', () {
         final params = CalcParams.defaultParams();
         final json = params.toJson();
 
-        expect(json.keys.length, 26);
+        expect(json.keys.length, 28);
         expect(json['numberOfDevices'], 100);
         expect(json['deviceSendingIntervalInMinutes'], 2.0);
         expect(json['averageSizeOfMessageInKb'], 0.25);
@@ -50,6 +52,8 @@ void main() {
         expect(json['coolStorageDurationInMonths'], 3);
         expect(json['archiveStorageDurationInMonths'], 12);
         expect(json['needs3DModel'], isFalse);
+        expect(json['averageDigitalTwinQueryUnitsPerQuery'], 1.0);
+        expect(json['averageDigitalTwinQueryResponseSizeInKb'], 1.0);
         expect(json['currency'], 'USD');
       });
 
@@ -75,6 +79,18 @@ void main() {
         expect(json['eventsPerMessage'], 5);
         expect(json['currency'], 'EUR');
       });
+
+      test('compares calculation inputs by value', () {
+        final original = CalcParams.defaultParams();
+        final equivalent = CalcParams.fromJson(original.toJson());
+        final changed = CalcParams.fromJson({
+          ...original.toJson(),
+          'numberOfDevices': original.numberOfDevices + 1,
+        });
+
+        expect(original.hasSameCalculationInputs(equivalent), isTrue);
+        expect(original.hasSameCalculationInputs(changed), isFalse);
+      });
     });
 
     group('fromJson', () {
@@ -88,6 +104,8 @@ void main() {
           'archiveStorageDurationInMonths': 18,
           'needs3DModel': true,
           'entityCount': 10,
+          'averageDigitalTwinQueryUnitsPerQuery': 2,
+          'averageDigitalTwinQueryResponseSizeInKb': 1.5,
           'dashboardRefreshesPerHour': 5,
           'amountOfActiveEditors': 3,
           'amountOfActiveViewers': 15,
@@ -100,6 +118,8 @@ void main() {
         expect(params.deviceSendingIntervalInMinutes, 3.0);
         expect(params.needs3DModel, isTrue);
         expect(params.entityCount, 10);
+        expect(params.averageDigitalTwinQueryUnitsPerQuery, 2.0);
+        expect(params.averageDigitalTwinQueryResponseSizeInKb, 1.5);
         expect(params.currency, 'EUR');
       });
 
@@ -110,6 +130,34 @@ void main() {
         expect(params.numberOfDevices, 100);
         expect(params.currency, 'USD');
         expect(params.useEventChecking, isFalse);
+        expect(params.averageDigitalTwinQueryUnitsPerQuery, 1.0);
+        expect(params.averageDigitalTwinQueryResponseSizeInKb, 1.0);
+      });
+
+      test(
+        'preserves unsupported historical topology for read-only review',
+        () {
+          final params = CalcParams.fromJson({'integrateErrorHandling': true});
+
+          expect(params.integrateErrorHandling, isTrue);
+          expect(params.isExecutableTopology, isFalse);
+          expect(params.toJson()['integrateErrorHandling'], isTrue);
+        },
+      );
+
+      test('rejects invalid present ADT assumption values', () {
+        expect(
+          () => CalcParams.fromJson({
+            'averageDigitalTwinQueryUnitsPerQuery': '1.0',
+          }),
+          throwsFormatException,
+        );
+        expect(
+          () => CalcParams.fromJson({
+            'averageDigitalTwinQueryResponseSizeInKb': 0,
+          }),
+          throwsFormatException,
+        );
       });
     });
 

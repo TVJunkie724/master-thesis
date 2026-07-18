@@ -45,9 +45,9 @@ resource "google_cloudfunctions2_function" "persister" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -65,8 +65,7 @@ resource "google_cloudfunctions2_function" "persister" {
         var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.hot_writer}" : ""
       ) : ""
 
-      # Multi-cloud L2→L4: When GCP L2 sends to Azure ADT (Azure-only feature)
-      # ADT pusher is part of L0 Glue layer, like other cross-cloud receivers
+      # Canonical L2→L4 path when GCP L2 sends to Azure Digital Twins
       REMOTE_ADT_PUSHER_URL = var.layer_2_provider == "google" && var.layer_4_provider == "azure" ? (
         "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.adt_pusher}"
       ) : ""
@@ -137,9 +136,9 @@ resource "google_cloudfunctions2_function" "connector" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l1_function_max_instances
+    min_instance_count    = var.gcp_l1_function_min_instances
+    available_memory      = "${var.gcp_l1_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -213,9 +212,9 @@ resource "google_cloudfunctions2_function" "event_checker" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -331,9 +330,9 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -395,9 +394,9 @@ resource "google_cloudfunctions2_function" "processor" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -463,9 +462,9 @@ resource "google_cloudfunctions2_function" "event_action" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -530,9 +529,9 @@ resource "google_cloudfunctions2_function" "event_feedback" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 

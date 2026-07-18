@@ -49,6 +49,7 @@ google-*.json
 # -----------------------------------------------------------------------------
 # Local .terraform directories (provider plugins, modules)
 **/.terraform/
+**/.terraform.d/
 
 # Terraform state files - May contain sensitive data
 **/*.tfstate
@@ -81,8 +82,9 @@ google-*.json
 # Transient lock info files
 **/.terraform.tfstate.lock.info
 
-# Terraform lock file (optional - some teams commit this for version pinning)
+# Terraform lock files are ignored except for the canonical Deployer root module.
 **/.terraform.lock.hcl
+!3-cloud-deployer/src/terraform/.terraform.lock.hcl
 
 # CLI configuration files
 **/.terraformrc

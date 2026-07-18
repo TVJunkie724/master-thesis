@@ -365,10 +365,16 @@ def extract_operation_archive(
     project_name: str,
     zip_source,
     destination: Path,
+    *,
+    prevalidated: bool = False,
 ) -> list[str]:
     """Validate and extract one secret-bearing package into a private runtime path."""
     buffered = _buffer_zip_source(zip_source)
-    warnings = validator.validate_project_zip(buffered) or []
+    warnings = (
+        []
+        if prevalidated
+        else validate_deployment_operation_archive(buffered)
+    )
     buffered.seek(0)
     _validate_project_name_matches_manifest(
         project_name,
@@ -379,6 +385,16 @@ def extract_operation_archive(
         _extract_canonical_project(archive, destination)
     _remove_generated_project_paths(destination)
     return warnings
+
+
+def validate_deployment_operation_archive(zip_source) -> list[str]:
+    """Require the canonical manifest contract before staging runtime state."""
+    buffered = _buffer_zip_source(zip_source)
+    warnings = validator.validate_project_zip(
+        buffered,
+        require_deployment_manifest=True,
+    )
+    return warnings or []
 
 
 def _replace_project_from_archive(

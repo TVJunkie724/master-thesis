@@ -5,8 +5,10 @@ from src.models.database import get_db
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin_config import (
-    TwinConfigUpdate, TwinConfigResponse, CredentialValidationResult,
-    InlineValidationRequest
+    TwinConfigUpdate,
+    TwinConfigResponse,
+    CredentialValidationResult,
+    InlineValidationRequest,
 )
 from src.schemas.management_contracts import DualCredentialValidationResponse
 from src.schemas.credential_security_event import (
@@ -25,7 +27,9 @@ from src.services.twin_configuration_service import TwinConfigurationService
 from src.api.routes.error_models import ERROR_RESPONSES
 from src.security.rate_limit import CredentialRateClass, credential_rate_limit
 from src.security.request_context import current_request_id
-from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.credential_security_audit_service import (
+    CredentialSecurityAuditService,
+)
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
 inline_router = APIRouter(prefix="/config", tags=["configuration"])
@@ -46,7 +50,9 @@ def _raise_service_http_error(exc: Exception) -> None:
     if isinstance(exc, EntityNotFoundError):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     if isinstance(exc, ValidationError):
-        raise HTTPException(status_code=400, detail=getattr(exc, "detail", None) or str(exc)) from exc
+        raise HTTPException(
+            status_code=400, detail=getattr(exc, "detail", None) or str(exc)
+        ) from exc
     raise exc
 
 
@@ -88,29 +94,31 @@ def _normalize_route_provider(provider: str) -> str:
     operation_id="getTwinConfig",
     summary="Get configuration for a twin",
     description=(
-        "**Purpose:** Retrieve cloud provider credentials and validation status for Step 1 (Credentials) screen.\n\n"
-        "**When to call:** When loading Step 1 to show saved credentials (masked) and validation indicators.\n\n"
+        "**Purpose:** Retrieve the secret-free twin configuration, Cloud Connection bindings, and validation status.\n\n"
+        "**When to call:** When loading the configuration workspace or a configuration review.\n\n"
         "**Response fields:**\n"
-        "- `aws`: Object with masked credentials, region, and `validated` boolean\n"
-        "- `azure`: Object with masked credentials, region, and `validated` boolean\n"
-        "- `gcp`: Object with masked credentials, region, and `validated` boolean\n"
+        "- Provider `*_configured`, `*_validated`, region, and Cloud Connection summary fields\n"
         "- `debug_mode`: Whether debug logging is enabled\n"
-        "- `highest_step_reached`: Wizard progress indicator (1-5)\n\n"
-        "**Note:** Creates empty config if none exists. Credentials are masked in response."
+        "- `highest_step_reached`: Configuration progress indicator\n"
+        "- `optimizer_params`: Optional user-authored parameter draft\n"
+        "- `optimizer_result`: Read-only result from the latest server-owned optimizer run\n\n"
+        "**Security:** Credential payloads and secret values are never returned."
     ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def get_config(
     twin_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Get configuration for a twin. Creates default if none exists."""
     try:
-        return _twin_configuration_service(db).get_config(twin_id=twin_id, user_id=current_user.id)
+        return _twin_configuration_service(db).get_config(
+            twin_id=twin_id, user_id=current_user.id
+        )
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
 
@@ -121,15 +129,14 @@ async def get_config(
     operation_id="updateTwinConfig",
     summary="Update configuration for a twin",
     description=(
-        "**Purpose:** Save cloud provider credentials and configuration for a Digital Twin.\n\n"
-        "**When to call:** When user saves credentials in Step 1, or when auto-saving on field blur.\n\n"
+        "**Purpose:** Save user-authored, non-secret twin configuration fields.\n\n"
+        "**When to call:** When the configuration workspace explicitly saves a draft.\n\n"
         "**Request body fields:**\n"
-        "- `aws`: {access_key_id, secret_access_key, region, session_token(optional)}\n"
-        "- `azure`: {subscription_id, client_id, client_secret, tenant_id, region}\n"
-        "- `gcp`: {project_id, billing_account, service_account_json, region}\n"
         "- `debug_mode`: Enable verbose logging for deployment\n"
-        "- `highest_step_reached`: Track wizard progress\n\n"
-        "**Security:** Credentials are encrypted with user+twin-specific key before storage.\n\n"
+        "- `highest_step_reached`: Track configuration progress\n"
+        "- `optimizer_params`: Optional calculation parameter draft\n"
+        "- `cloud_connections`: Bind or unbind user-owned deployment Cloud Connections\n\n"
+        "**Security:** Inline credentials, optimizer results, and unknown fields are rejected. Optimizer results are written only by `createOptimizerRun`.\n\n"
         "**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n"
         "**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT."
     ),
@@ -137,18 +144,16 @@ async def get_config(
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def update_config(
     twin_id: str,
     update: TwinConfigUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Update configuration for a twin.
-    Credentials are ENCRYPTED with user+twin-specific key.
-    """
+    """Update user-authored, non-secret configuration fields for a twin."""
     try:
         return _twin_configuration_service(db).update_config(
             twin_id=twin_id,
@@ -182,7 +187,7 @@ async def update_config(
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def validate_credentials(
     twin_id: str,
@@ -193,7 +198,7 @@ async def validate_credentials(
             CredentialRateClass.VALIDATION,
             CredentialSecurityAction.STORED_VALIDATE,
         )
-    )
+    ),
 ):
     """
     Validate credentials by calling the Deployer API.
@@ -237,7 +242,7 @@ async def validate_credentials(
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
-    }
+    },
 )
 async def validate_credentials_inline(
     request: InlineValidationRequest,
@@ -247,7 +252,7 @@ async def validate_credentials_inline(
             CredentialRateClass.VALIDATION,
             CredentialSecurityAction.INLINE_VALIDATE,
         )
-    )
+    ),
 ):
     """
     Validate credentials WITHOUT storing them.
@@ -255,7 +260,9 @@ async def validate_credentials_inline(
     Credentials are sent directly to Deployer API, never stored.
     """
     try:
-        result = await _credential_validation_service(db).validate_inline_with_deployer(request)
+        result = await _credential_validation_service(db).validate_inline_with_deployer(
+            request
+        )
         _commit_validation_audit(
             db,
             current_user,
@@ -287,7 +294,7 @@ async def validate_credentials_inline(
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
-    }
+    },
 )
 async def validate_credentials_dual(
     request: InlineValidationRequest,
@@ -297,7 +304,7 @@ async def validate_credentials_dual(
             CredentialRateClass.VALIDATION,
             CredentialSecurityAction.INLINE_VALIDATE,
         )
-    )
+    ),
 ):
     """
     Validate credentials against BOTH Optimizer and Deployer APIs.
@@ -325,7 +332,9 @@ async def validate_credentials_dual(
         )
         return result
     except CredentialResolutionFailed as exc:
-        raise HTTPException(status_code=400, detail=_credential_resolution_failed_detail(exc)) from exc
+        raise HTTPException(
+            status_code=400, detail=_credential_resolution_failed_detail(exc)
+        ) from exc
     except ValidationError as exc:
         _raise_service_http_error(exc)
 
@@ -353,7 +362,7 @@ async def validate_credentials_dual(
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def validate_stored_credentials_dual(
     twin_id: str,
@@ -364,7 +373,7 @@ async def validate_stored_credentials_dual(
             CredentialRateClass.VALIDATION,
             CredentialSecurityAction.STORED_VALIDATE,
         )
-    )
+    ),
 ):
     """
     Validate STORED credentials against BOTH Optimizer and Deployer APIs.
@@ -385,7 +394,9 @@ async def validate_stored_credentials_dual(
             resolved.optimizer_payload,
             resolved.deployer_validation_payload,
         )
-        _set_provider_validated(twin.configuration, provider, result.get("valid", False))
+        _set_provider_validated(
+            twin.configuration, provider, result.get("valid", False)
+        )
         db.commit()
         _commit_validation_audit(
             db,
@@ -396,7 +407,9 @@ async def validate_stored_credentials_dual(
         )
         return result
     except CredentialResolutionFailed as exc:
-        raise HTTPException(status_code=400, detail=_credential_resolution_failed_detail(exc)) from exc
+        raise HTTPException(
+            status_code=400, detail=_credential_resolution_failed_detail(exc)
+        ) from exc
     except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
 

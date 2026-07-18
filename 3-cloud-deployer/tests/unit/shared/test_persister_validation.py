@@ -64,7 +64,10 @@ class TestAWSPersisterTimestampValidation:
                 del sys.modules[key]
         
         env = {
-            "DIGITAL_TWIN_INFO": json.dumps({"config": {"digital_twin_name": "test"}}),
+            "DIGITAL_TWIN_INFO": json.dumps({
+                "config": {"digital_twin_name": "test"},
+                "config_providers": {"layer_4_provider": "aws"},
+            }),
             "DYNAMODB_TABLE_NAME": "test-table",
             "EVENT_CHECKER_LAMBDA_NAME": "test-checker",
             "USE_EVENT_CHECKING": "false"

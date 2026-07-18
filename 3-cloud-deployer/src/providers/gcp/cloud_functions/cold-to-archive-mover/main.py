@@ -36,6 +36,7 @@ class ConfigurationError(Exception):
 _digital_twin_info = None
 _cold_bucket_name = None
 _archive_bucket_name = None
+_archive_storage_class = None
 
 def _get_digital_twin_info():
     global _digital_twin_info
@@ -54,6 +55,14 @@ def _get_archive_bucket_name():
     if _archive_bucket_name is None:
         _archive_bucket_name = require_env("ARCHIVE_BUCKET_NAME")
     return _archive_bucket_name
+
+
+def _get_archive_storage_class():
+    """Return the specification-selected local Cloud Storage class."""
+    global _archive_storage_class
+    if _archive_storage_class is None:
+        _archive_storage_class = require_env("ARCHIVE_STORAGE_CLASS")
+    return _archive_storage_class
 
 # Multi-cloud config (optional)
 REMOTE_ARCHIVE_WRITER_URL = os.environ.get("REMOTE_ARCHIVE_WRITER_URL", "")
@@ -103,7 +112,12 @@ def main(request):
     try:
         client = _get_storage_client()
         cold_bucket = client.bucket(_get_cold_bucket_name())
-        archive_bucket = client.bucket(_get_archive_bucket_name())
+        multi_cloud_archive = _is_multi_cloud_archive()
+        archive_bucket = (
+            None
+            if multi_cloud_archive
+            else client.bucket(_get_archive_bucket_name())
+        )
         
         # Calculate cutoff time
         cutoff = datetime.now(timezone.utc) - timedelta(days=COLD_RETENTION_DAYS)
@@ -118,7 +132,7 @@ def main(request):
         for blob in blobs:
             # Check if blob is old enough
             if blob.time_created and blob.time_created < cutoff:
-                if _is_multi_cloud_archive():
+                if multi_cloud_archive:
                     # Multi-cloud: Download and POST to remote Archive Writer
                     if not INTER_CLOUD_TOKEN:
                         raise ConfigurationError("INTER_CLOUD_TOKEN is required for multi-cloud mode")
@@ -136,9 +150,13 @@ def main(request):
                         payload=payload
                     )
                 else:
-                    # Local: Copy to archive bucket with ARCHIVE class
+                    # Local: copy into the dedicated archive bucket.
+                    if archive_bucket is None:
+                        raise ConfigurationError(
+                            "Local archive bucket was not initialized"
+                        )
                     archive_blob = archive_bucket.blob(blob.name)
-                    archive_blob.storage_class = "ARCHIVE"
+                    archive_blob.storage_class = _get_archive_storage_class()
                     
                     # Rewrite (copy) the blob
                     archive_blob.rewrite(blob)

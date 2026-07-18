@@ -201,7 +201,9 @@ output "azure_adt_access_instructions" {
     "ADT Endpoint: https://${azurerm_digital_twins_instance.main[0].host_name}",
     "",
     "3D Scenes Studio: https://explorer.digitaltwins.azure.net/3dscenes",
-    "Storage Container: ${azurerm_storage_account.main[0].name}/${azurerm_storage_container.scenes[0].name}",
+    local.l4_azure_scene_enabled ? (
+      "Storage Container: ${azurerm_storage_account.main[0].name}/${azurerm_storage_container.scenes[0].name}"
+    ) : "3D scene assets: not configured",
     "",
     "Platform User: ${var.platform_user_email}",
     local.should_create_platform_user ? "Password: Run 'terraform output -raw azure_platform_user_password'" : "User: Existing (ADT Data Owner role assigned)",
@@ -639,4 +641,3 @@ output "azure_log_analytics_workspace_name" {
   description = "Azure Log Analytics Workspace resource name"
   value       = try(azurerm_log_analytics_workspace.main[0].name, null)
 }
-

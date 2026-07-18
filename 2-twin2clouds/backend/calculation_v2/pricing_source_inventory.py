@@ -107,12 +107,12 @@ STATIC_OFFICIAL_FIELDS = frozenset(
         "aws.l5.grafana.viewer",
         "azure.l2.functions.free_requests",
         "azure.l2.functions.free_compute",
-        "azure.l4.digital_twins.query_unit_tiers",
         "azure.l5.grafana.user",
         "azure.l5.grafana.hour",
         "gcp.l1.pubsub.device_month",
         "gcp.l2.functions.free_requests",
         "gcp.l2.functions.free_compute",
+        "gcp.transition.cloud_scheduler.job_month",
     }
 )
 
@@ -138,7 +138,6 @@ CURRENT_EMERGENCY_FALLBACK_FIELDS = frozenset(
         "azure.l2.functions.free_compute",
         "azure.l3.cosmos_db.ru_per_read",
         "azure.l3.cosmos_db.ru_per_write",
-        "azure.l4.digital_twins.query_unit_tiers",
         "azure.l5.grafana.user",
         "azure.l5.grafana.hour",
         "gcp.l1.pubsub.device_month",

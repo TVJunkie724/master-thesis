@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import '../core/result.dart';
-import '../models/calc_result.dart';
 import '../models/authentication.dart';
 import '../models/user.dart';
 import '../models/calc_params.dart';
@@ -15,8 +14,8 @@ import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
-import '../models/pricing_export_snapshot.dart';
 import '../models/provider_capability.dart';
+import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/wizard_config_requests.dart';
@@ -125,8 +124,6 @@ abstract interface class PricingApi {
 
   Future<Map<String, dynamic>> getRegionsStatus();
 
-  Future<PricingExportSnapshot> exportPricing(String provider);
-
   Future<Result<Map<String, dynamic>>> getPricingStatusResult();
 }
 
@@ -135,21 +132,16 @@ abstract interface class PlatformCapabilityApi {
 }
 
 abstract interface class OptimizationApi {
-  Future<OptimizationResultData> calculateCosts(CalcParams params);
+  Future<OptimizerRunData> createOptimizerRun(String twinId, CalcParams params);
 
-  Future<Result<CalcResult>> calculateCostsResult(CalcParams params);
+  Future<OptimizerDeploymentRunData?> getLatestOptimizerRun(String twinId);
+
+  Future<OptimizerRunSelectionData> selectOptimizerRunForDeployment(
+    String twinId,
+    String runId,
+  );
 
   Future<OptimizerConfigData?> getOptimizerConfig(String twinId);
-
-  Future<void> saveOptimizerParams(String twinId, CalcParams params);
-
-  Future<void> saveOptimizerResult(
-    String twinId, {
-    required CalcParams params,
-    required OptimizationResultData optimization,
-    required CheapestPath cheapestPath,
-    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
-  });
 }
 
 abstract interface class DeploymentConfigurationApi {

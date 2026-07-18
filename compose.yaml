@@ -21,8 +21,10 @@ services:
       - "${THESIS_OPTIMIZER_PORT:-5003}:8000"
     volumes:
       - ./2-twin2clouds:/app
+      - optimizer_pricing_catalogs:/var/lib/twin2multicloud-optimizer/pricing-catalogs
     environment:
       - TWIN2CLOUDS_MODE=INFO
+      - PRICING_CATALOG_STORE_ROOT=/var/lib/twin2multicloud-optimizer/pricing-catalogs
     tty: true
     networks:
       - my_master_thesis_network
@@ -115,6 +117,7 @@ networks:
     driver: bridge
 
 volumes:
+  optimizer_pricing_catalogs:
   deployer_runtime_state:
 
 secrets:

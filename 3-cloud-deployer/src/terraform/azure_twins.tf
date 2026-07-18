@@ -6,18 +6,20 @@
 # Resources Created:
 # - Azure Digital Twins Instance: Twin graph service
 # - RBAC Role Assignments: Managed Identity access to ADT
-# - Event Grid Topic: For twin change events (optional)
 #
 # Note: DTDL models and twin instances are created by Python orchestrator
 # after Terraform provisions the ADT instance, as models are generated
 # dynamically from config_hierarchy.json.
 #
-# Architecture:
-#     L3 Hot Storage → ADT Updater (Python SDK) → Azure Digital Twins
+# Canonical five-layer-baseline@1 update path:
+#     L2 Persister (AWS, Azure, or GCP)
+#       -> authenticated HTTPS
+#       -> Azure L0 ADT Pusher
+#       -> managed-identity Azure SDK
+#       -> Azure Digital Twins
 #
-# Note: L4 does NOT require a dedicated Function App. The ADT is updated:
-# - Same-cloud: Python SDK calls directly from L2 persister
-# - Cross-cloud: Via L0 Glue layer (ADT Pusher function)
+# L4 does not have a dedicated Function App or ADT Event Grid subscription.
+# Eventing resources belong to a separate future architecture profile.
 
 # ==============================================================================
 # Azure Digital Twins Instance
@@ -57,20 +59,6 @@ resource "azurerm_role_assignment" "identity_adt_owner" {
 # This is typically the same principal used for Terraform authentication.
 # If using a different principal for the Python orchestrator, add a separate
 # role assignment here.
-
-# ==============================================================================
-# Event Grid Topic for ADT Events (Optional - for change notifications)
-# ==============================================================================
-
-# Uncomment if you need to subscribe to ADT twin change events
-# resource "azurerm_eventgrid_topic" "adt_events" {
-#   count               = var.layer_4_provider == "azure" ? 1 : 0
-#   name                = "${var.digital_twin_name}-adt-events"
-#   resource_group_name = azurerm_resource_group.main[0].name
-#   location            = azurerm_resource_group.main[0].location
-#
-#   tags = local.common_tags
-# }
 
 # ==============================================================================
 # 3D Scene Assets for ADT 3D Scenes Studio
@@ -173,4 +161,3 @@ resource "azurerm_role_assignment" "scenes_user_contributor" {
 
   depends_on = [azuread_user.platform_user]
 }
-

@@ -59,6 +59,7 @@ Usage:
   ./thesis.sh test backend
   ./thesis.sh test frontend
   ./thesis.sh test frontend-integration
+  ./thesis.sh test deployment-contract [--focused]
   ./thesis.sh latex [watch|once|clean|logs]
   ./thesis.sh docs [up|down|logs]
 
@@ -80,6 +81,9 @@ App commands:
                      Run read-only Flutter contracts against credential-free
                      local containers. Requires the host desktop toolchain;
                      cloud credentials and cloud mutations are not supported.
+  test deployment-contract
+                     Run the complete credential-free Optimizer-to-Terraform
+                     drift gate. Pass --focused for contract diagnosis only.
 
 LaTeX commands:
   latex watch        Run latexmk watch mode in Docker.
@@ -519,6 +523,8 @@ run_frontend_integration_tests() {
 
   info "Starting credential-free services for read-only Flutter integration tests."
   compose_cmd up -d 2twin2clouds 3cloud-deployer management-api
+  info "Restarting services so bind-mounted API contracts match the current source."
+  compose_cmd restart 2twin2clouds 3cloud-deployer management-api
   write_flutter_config
   smoke_app
 
@@ -528,7 +534,13 @@ run_frontend_integration_tests() {
   (cd "$FLUTTER_DIR" && flutter test \
     integration_test/management_api_readiness_test.dart \
     -d "$host_device" \
-    --dart-define-from-file=config/dev.json)
+    --dart-define-from-file=config/dev.json \
+    --dart-define="TEST_OPTIMIZER_API_BASE_URL=http://localhost:${THESIS_OPTIMIZER_PORT}")
+}
+
+run_deployment_contract_tests() {
+  ensure_python_command
+  "$PYTHON_COMMAND" "$REPO_ROOT/scripts/verify_resolved_deployment_drift.py" "$@"
 }
 
 latex_command() {
@@ -630,11 +642,25 @@ main() {
       if [ "$#" -gt 0 ]; then
         shift
       fi
-      [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
       case "$target" in
-        backend) run_backend_tests ;;
-        frontend) run_frontend_tests ;;
-        frontend-integration) run_frontend_integration_tests ;;
+        backend)
+          [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
+          run_backend_tests
+          ;;
+        frontend)
+          [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
+          run_frontend_tests
+          ;;
+        frontend-integration)
+          [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
+          run_frontend_integration_tests
+          ;;
+        deployment-contract)
+          if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--focused" ]; }; then
+            fail "test deployment-contract accepts only --focused."
+          fi
+          run_deployment_contract_tests "$@"
+          ;;
         *) fail "Unknown test target: $target" ;;
       esac
       ;;

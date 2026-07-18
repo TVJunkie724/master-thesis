@@ -8,11 +8,10 @@ Each category has:
 - 5 edge cases (boundary conditions)
 """
 
-import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import json
+from unittest.mock import patch
 
+from api.pricing import _validate_pricing_region
 from rest_api import app
 
 client = TestClient(app)
@@ -25,143 +24,114 @@ client = TestClient(app)
 class TestPricingErrorHandling:
     """Tests for /fetch_pricing/* error handling."""
 
-    # Happy Path Tests
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_fetch_pricing_cached_success(self, mock_load, mock_fresh):
-        """Returns cached pricing data when file is fresh."""
-        mock_fresh.return_value = True
-        mock_load.return_value = {"compute": {"price": 0.01}}
-        
-        response = client.post("/fetch_pricing/aws")
-        
-        assert response.status_code == 200
-        assert "compute" in response.json()
+    @patch("api.pricing._cached_refresh_result")
+    def test_fetch_pricing_cached_success(self, mock_cached):
+        """Returns the active immutable reference when the catalog is fresh."""
+        mock_cached.return_value = {
+            "schemaVersion": "pricing-catalog-refresh-result.v2",
+            "provider": "aws",
+            "pricingRegion": "eu-central-1",
+            "status": "cached",
+            "activeCalculationReference": {
+                "snapshotId": "pcs_" + ("a" * 64),
+            },
+        }
 
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_fetch_pricing_stale_cache(self, mock_load, mock_fresh):
-        """Stale AWS cache cannot trigger file-based credential refresh in base runtime."""
-        mock_fresh.return_value = False
-        mock_load.return_value = {"compute": {"price": 0.02}}
-        
+        response = client.post("/fetch_pricing/aws")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "cached"
+        assert response.json()["pricingRegion"] == "eu-central-1"
+
+    @patch("api.pricing._cached_refresh_result", return_value=None)
+    def test_fetch_pricing_stale_cache(self, _mock_cached):
+        """A stale AWS catalog cannot trigger mounted credentials in base runtime."""
         response = client.post("/fetch_pricing/aws")
 
         assert response.status_code == 403
         assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
 
     @patch("api.pricing.calculate_up_to_date_pricing")
-    @patch("api.pricing.is_file_fresh")
+    @patch("api.pricing._cached_refresh_result", return_value=None)
     def test_fetch_pricing_stale_cache_with_local_file_checks_enabled(
         self,
-        mock_fresh,
+        _mock_cached,
         mock_calculate,
         monkeypatch,
     ):
-        """Stale AWS cache can refresh from mounted files only in explicit local-cloud mode."""
+        """Explicit local-cloud mode can refresh a stale regional catalog."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
-        mock_fresh.return_value = False
-        mock_calculate.return_value = {"compute": {"price": 0.02}}
+        mock_calculate.return_value = {
+            "schemaVersion": "pricing-catalog-refresh-result.v2",
+            "status": "published",
+        }
 
         response = client.post("/fetch_pricing/aws")
 
         assert response.status_code == 200
-        assert "compute" in response.json()
+        assert response.json()["status"] == "published"
+        mock_calculate.assert_called_once_with(
+            "aws",
+            False,
+            pricing_region="eu-central-1",
+        )
 
-    @patch("api.pricing.is_file_fresh")
-    def test_fetch_gcp_pricing_stale_cache_requires_local_file_gate(self, mock_fresh):
-        """Stale GCP cache also cannot read mounted credentials in base runtime."""
-        mock_fresh.return_value = False
-
+    @patch("api.pricing._cached_refresh_result", return_value=None)
+    def test_fetch_gcp_pricing_stale_cache_requires_local_file_gate(
+        self,
+        _mock_cached,
+    ):
+        """A stale GCP catalog also cannot read mounted credentials by default."""
         response = client.post("/fetch_pricing/gcp")
 
         assert response.status_code == 403
         assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
 
-    # Error Case Tests
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_file_not_found_returns_404(self, mock_load, mock_fresh):
-        """FileNotFoundError returns 404 with user-friendly message."""
-        mock_fresh.return_value = True
-        mock_load.side_effect = FileNotFoundError("pricing_aws.json not found")
-        
-        response = client.post("/fetch_pricing/aws")
-        
-        assert response.status_code == 404
-        assert "not available" in response.json()["detail"].lower()
-        # Raw path NOT exposed
-        assert "pricing_aws.json" not in response.json()["detail"]
+    @patch("api.pricing._cached_refresh_result")
+    def test_catalog_storage_error_returns_secret_free_500(self, mock_cached):
+        mock_cached.side_effect = RuntimeError(
+            "catalog unavailable at /private/credential/path"
+        )
 
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_generic_exception_returns_500_hidden(self, mock_load, mock_fresh):
-        """Generic exception returns 500 with generic message."""
-        mock_fresh.return_value = True
-        mock_load.side_effect = Exception("Database connection failed at 192.168.1.1")
-        
         response = client.post("/fetch_pricing/aws")
-        
+
         assert response.status_code == 500
-        # Internal details NOT exposed
-        assert "192.168.1.1" not in response.json()["detail"]
-        assert "connection" not in response.json()["detail"].lower()
+        assert "/private/credential/path" not in response.json()["detail"]
+        assert response.json()["detail"] == (
+            "Failed to fetch AWS pricing. Check server logs."
+        )
 
-    # Edge Case Tests
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_empty_pricing_file(self, mock_load, mock_fresh):
-        """Empty pricing file handled gracefully."""
-        mock_fresh.return_value = True
-        mock_load.return_value = {}
-        
-        response = client.post("/fetch_pricing/aws")
-        
-        assert response.status_code == 200
-        assert response.json() == {}
+    def test_invalid_aws_pricing_region_returns_400(self):
+        response = client.post(
+            "/fetch_pricing/aws",
+            params={"pricing_region": "not-an-aws-region"},
+        )
 
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_malformed_json_handled(self, mock_load, mock_fresh):
-        """Malformed JSON in file raises controlled error."""
-        mock_fresh.return_value = True
-        mock_load.side_effect = json.JSONDecodeError("Invalid", "doc", 0)
-        
-        response = client.post("/fetch_pricing/aws")
-        
-        assert response.status_code in [400, 500]
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == (
+            "PRICING_CATALOG_REFERENCE_INVALID"
+        )
+        assert response.json()["detail"]["message"] == (
+            "AWS pricing region is invalid"
+        )
 
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_permission_error_handled(self, mock_load, mock_fresh):
-        """Permission error returns 500 with generic message."""
-        mock_fresh.return_value = True
-        mock_load.side_effect = PermissionError("Access denied to /secret/path")
-        
-        response = client.post("/fetch_pricing/aws")
-        
-        assert response.status_code == 500
-        # Path NOT exposed
-        assert "/secret/path" not in response.json().get("detail", "")
+    def test_region_is_canonicalized_before_storage_lookup(self):
+        assert _validate_pricing_region("azure", " WestEurope ") == "westeurope"
 
-    def test_invalid_provider_handled(self):
-        """Invalid provider returns 422."""
+    @patch("api.pricing._cached_refresh_result")
+    def test_force_refresh_bypasses_published_lookup(self, mock_cached):
+        response = client.post(
+            "/fetch_pricing/gcp",
+            params={"force_fetch": True},
+        )
+
+        assert response.status_code == 403
+        mock_cached.assert_not_called()
+
+    def test_unknown_pricing_route_is_not_exposed(self):
         response = client.post("/fetch_pricing/invalid_provider")
-        
-        # Either 422 or 404
-        assert response.status_code in [404, 422]
 
-    @patch("api.pricing.is_file_fresh")
-    @patch("api.pricing.load_json_file")
-    def test_unicode_in_pricing_data(self, mock_load, mock_fresh):
-        """Unicode characters in pricing handled correctly."""
-        mock_fresh.return_value = True
-        mock_load.return_value = {"region": "São Paulo", "price": 0.01}
-        
-        response = client.post("/fetch_pricing/aws")
-        
-        assert response.status_code == 200
-        assert "São Paulo" in str(response.json())
+        assert response.status_code == 404
 
 
 # ============================================================

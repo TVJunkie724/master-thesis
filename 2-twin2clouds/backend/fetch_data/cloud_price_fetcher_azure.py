@@ -6,6 +6,10 @@ import requests
 from backend.logger import logger
 from backend.azure_pricing_evidence import build_azure_intent_evidence
 from backend.pricing_intent_registry import MATCHED
+from backend.transfer_catalog import (
+    build_transfer_catalog,
+    build_transfer_evidence,
+)
 from backend.fetch_data.fetch_evidence import (
     FieldMatchEvidence,
     MatchStatus,
@@ -32,13 +36,12 @@ REGION_FALLBACK = {
 }
 
 STATIC_DEFAULTS_AZURE = {
-    "transfer": {"egressPrice": 0.08},
     "iot": {
         "pricing_tiers": {
             "freeTier": {"limit": 240_000, "threshold": 0, "price": 0},
-            "tier1": {"limit": 120_000_000, "threshold": 12_000_000},
-            "tier2": {"limit": 1_800_000_000, "threshold": 180_000_000},
-            "tier3": {"limit": "Infinity", "threshold": 9_000_000_000},
+            "tier1": {"limit": 2_400_000_000, "threshold": 12_000_000},
+            "tier2": {"limit": 36_000_000_000, "threshold": 180_000_000},
+            "tier3": {"limit": 90_000_000_000, "threshold": 9_000_000_000},
         }
     },
     "functions": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},
@@ -50,13 +53,6 @@ STATIC_DEFAULTS_AZURE = {
     },
     "storage_cool": {"upfrontPrice": 0.0001, "writePrice": 0.00001, "readPrice": 0.000001},
     "storage_archive": {"writePrice": 0.000013},
-    "twinmaker": {
-        "queryUnitTiers": [
-            {"lower": 1, "upper": 99, "value": 15},
-            {"lower": 100, "upper": 9999, "value": 1500},
-            {"lower": 10000, "value": 4000},
-        ],
-    },
     "grafana": {"userPrice": 6.0, "hourlyPrice": 0.069},
     "orchestration": {"pricePer1kStateTransitions": 0.000125}, # Raw price per 1 action
     "event_bus": {"pricePerMillionEvents": 0.60}, # Raw price per 1M events
@@ -97,14 +93,6 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
         },
         "include": ["blob storage"],
     },
-    "twinmaker": {
-        "meters": {
-            "messagePrice": {"meter_keywords": ["Standard Message"], "unit_keywords": ["1K"]},
-            "operationPrice": {"meter_keywords": ["Standard Operations"], "unit_keywords": ["1K"]},
-            "queryPrice": {"meter_keywords": ["Standard Query Units"], "unit_keywords": ["1K"]},
-        },
-        "include": ["Digital Twins"],
-    },
     "grafana": {
         "meters": {
             "userPrice": {"meter_keywords": ["Standard User", "Essential User"], "unit_keywords": ["1/Month"]},
@@ -127,19 +115,18 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
             "pricePerMillionCalls": {"meter_keywords": ["Consumption Calls"], "unit_keywords": ["10K"]}
         },
     },
-    "transfer": {
-        "meters": {
-            "egressPrice": {"meter_keywords": ["Data Transfer Out"], "unit_keywords": ["GB"]}
-        },
-        "include": ["Bandwidth"],
-    },
 }
 
 REGISTRY_BACKED_AZURE_FIELDS = {
-    "transfer": ("transfer.egress_gb", "pricing_tiers"),
-    "storage_hot": ("storage.hot.storage_gb_month", "storagePrice"),
-    "storage_cool": ("storage.cool.storage_gb_month", "storagePrice"),
-    "storage_archive": ("storage.archive.storage_gb_month", "storagePrice"),
+    "transfer": (("transfer.egress_gb", "pricing_tiers"),),
+    "storage_hot": (("storage.hot.storage_gb_month", "storagePrice"),),
+    "storage_cool": (("storage.cool.storage_gb_month", "storagePrice"),),
+    "storage_archive": (("storage.archive.storage_gb_month", "storagePrice"),),
+    "twinmaker": (
+        ("digital_twin.message", "pricePerMessage"),
+        ("digital_twin.operation", "pricePerOperation"),
+        ("digital_twin.query_unit", "pricePerQueryUnit"),
+    ),
 }
 
 # -----------------------------------------------------------------------------
@@ -469,64 +456,85 @@ def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Di
     return result
 
 
-def _fetch_registry_backed_field(
+def _fetch_registry_backed_fields(
     rows: List[Dict[str, Any]],
     neutral: str,
     region: str,
 ) -> Dict[str, Any]:
-    intent_id, field_key = REGISTRY_BACKED_AZURE_FIELDS[neutral]
-    evidence = build_azure_intent_evidence(
-        rows,
-        intent_id=intent_id,
-        region=region,
-    )
-    result: Dict[str, Any] = {"__evidence__": {field_key: evidence}}
-    if evidence["match_status"] != MATCHED or evidence["review_required"]:
-        logger.warning(
-            "Azure pricing intent %s requires review in region %s: %s",
-            intent_id,
-            region,
-            evidence.get("errors") or [evidence["match_status"]],
+    result: Dict[str, Any] = {"__evidence__": {}}
+    for intent_id, field_key in REGISTRY_BACKED_AZURE_FIELDS[neutral]:
+        evidence = build_azure_intent_evidence(
+            rows,
+            intent_id=intent_id,
+            region=region,
         )
-        return result
-    if evidence.get("currency") != "USD":
-        evidence["review_required"] = True
-        evidence["errors"] = [
-            f"Azure pricing intent {intent_id} returned non-USD currency"
-        ]
-        return result
-
-    if neutral == "transfer":
-        normalized_tiers = evidence.get("normalized_tiers") or []
-        if not normalized_tiers:
+        result["__evidence__"][field_key] = evidence
+        if evidence["match_status"] != MATCHED or evidence["review_required"]:
+            logger.warning(
+                "Azure pricing intent %s requires review in region %s: %s",
+                intent_id,
+                region,
+                evidence.get("errors") or [evidence["match_status"]],
+            )
+            continue
+        if evidence.get("currency") != "USD":
             evidence["review_required"] = True
-            evidence["errors"] = ["Azure transfer intent returned no normalized tiers"]
-            return result
-        result["pricing_tiers"] = {
-            "freeTier" if index == 0 else f"tier{index}": {
-                "limit": tier["limit"],
-                "price": tier["price"],
-            }
-            for index, tier in enumerate(normalized_tiers)
-        }
-        first_paid = next(
-            (tier["price"] for tier in normalized_tiers if tier["price"] > 0),
-            None,
-        )
-        if first_paid is None:
-            evidence["review_required"] = True
-            evidence["errors"] = ["Azure transfer intent has no paid tier"]
-            result.pop("pricing_tiers", None)
-            return result
-        result["egressPrice"] = first_paid
-        return result
+            evidence["errors"] = [
+                f"Azure pricing intent {intent_id} returned non-USD currency"
+            ]
+            continue
 
-    normalized_value = evidence.get("normalized_value")
-    if not isinstance(normalized_value, (int, float)):
-        evidence["review_required"] = True
-        evidence["errors"] = [f"Azure pricing intent {intent_id} is not numeric"]
-        return result
-    result[field_key] = float(normalized_value)
+        if neutral == "transfer":
+            normalized_tiers = evidence.get("normalized_tiers") or []
+            if not normalized_tiers:
+                evidence["review_required"] = True
+                evidence["errors"] = ["Azure transfer intent returned no normalized tiers"]
+                continue
+            selected_rows = evidence.get("selected_rows") or []
+            if not selected_rows:
+                evidence["review_required"] = True
+                evidence["errors"] = [
+                    "Azure transfer intent has no selected tier evidence"
+                ]
+                continue
+            transfer_evidence = build_transfer_evidence(
+                provider="azure",
+                pricing_region=region,
+                source_type="provider_api",
+                source_api="azure-retail-prices",
+                source_url="https://azure.microsoft.com/en-us/pricing/details/bandwidth/",
+                mapping_version=evidence["mapping_version"],
+                selected_rows=selected_rows,
+                fetched_at=evidence["fetched_at"],
+            )
+            catalog = build_transfer_catalog(
+                provider="azure",
+                pricing_region=region,
+                tier_thresholds=[
+                    {
+                        "tier_id": (
+                            "azure-free"
+                            if tier["price"] == 0
+                            else f"azure-paid-{index}"
+                        ),
+                        "start_quantity": tier["lower_bound"],
+                        "unit_price": tier["price"],
+                    }
+                    for index, tier in enumerate(normalized_tiers)
+                ],
+                evidence_id=transfer_evidence["evidence_id"],
+                currency=evidence["currency"],
+            )
+            result.update(catalog)
+            result["__transfer_evidence__"] = transfer_evidence
+            continue
+
+        normalized_value = evidence.get("normalized_value")
+        if not isinstance(normalized_value, (int, float)):
+            evidence["review_required"] = True
+            evidence["errors"] = [f"Azure pricing intent {intent_id} is not numeric"]
+            continue
+        result[field_key] = float(normalized_value)
     return result
 
 # -----------------------------------------------------------------------------
@@ -571,12 +579,12 @@ def fetch_azure_price(service_name: str, region_code: str, region_map: Dict[str,
         elif neutral in REGISTRY_BACKED_AZURE_FIELDS:
             fetched = (
                 {}
-                if neutral == "transfer"
+                if neutral in {"transfer", "twinmaker"}
                 else _fetch_standard(rows, neutral, debug)
             )
-            _, registry_field_key = REGISTRY_BACKED_AZURE_FIELDS[neutral]
-            fetched.pop(registry_field_key, None)
-            fetched.update(_fetch_registry_backed_field(rows, neutral, region))
+            for _, registry_field_key in REGISTRY_BACKED_AZURE_FIELDS[neutral]:
+                fetched.pop(registry_field_key, None)
+            fetched.update(_fetch_registry_backed_fields(rows, neutral, region))
         else:
             fetched = _fetch_standard(rows, neutral, debug)
 

@@ -2,20 +2,143 @@
 Calculation API endpoints.
 
 This module provides the core cost optimization endpoint for Digital Twin deployments.
-It calculates the optimal cloud provider distribution across all 5 architectural layers
-based on current pricing data and user-defined scenario parameters.
+It calculates the optimal complete cloud-provider path across all 5 architectural
+layers based on exact pricing catalogs, route costs, and user-defined scenario
+parameters.
 """
-from typing import Literal
+from datetime import datetime
+from typing import Annotated, Literal, Union
+from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from fastapi import APIRouter, HTTPException
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
+from pydantic_core import PydanticCustomError
 
+from backend.executable_topology import (
+    ERROR_HANDLING_FIELD,
+    UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+    UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+    ensure_executable_error_handling_topology,
+)
 from backend.logger import logger
+from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.utils import print_stack_trace
-from backend.config_loader import load_combined_pricing
+from backend.pricing_catalog_models import PricingCatalogContext
+from backend.pricing_catalog_repository import (
+    PricingCatalogNotFoundError,
+    PricingCatalogRegionMismatchError,
+    PricingCatalogStaleError,
+    PricingCatalogStorageError,
+    PricingCatalogTamperedError,
+    PricingCatalogUnreviewedError,
+    get_pricing_catalog_repository,
+)
+from backend.pricing_catalog_resolver import PricingCatalogResolver
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Calculation"])
+
+
+AwsTwinMakerBundleName = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=128),
+]
+
+
+class AwsTwinMakerBundle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tier: Literal["TIER_1", "TIER_2", "TIER_3", "TIER_4"]
+    names: list[AwsTwinMakerBundleName] = Field(
+        default_factory=list,
+        max_length=20,
+    )
+
+
+class AwsTwinMakerPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["BASIC", "STANDARD", "TIERED_BUNDLE"]
+    billableEntityCount: int = Field(ge=0)
+    effectiveAt: datetime | None = None
+    updatedAt: datetime | None = None
+    updateReason: str | None = Field(default=None, max_length=500)
+    bundle: AwsTwinMakerBundle | None = None
+
+    @model_validator(mode="after")
+    def validate_bundle_contract(self):
+        if self.mode == "TIERED_BUNDLE" and self.bundle is None:
+            raise ValueError("Tiered Bundle plans require bundle metadata")
+        if self.mode != "TIERED_BUNDLE" and self.bundle is not None:
+            raise ValueError("Only Tiered Bundle plans may contain bundle metadata")
+        for field_name in ("effectiveAt", "updatedAt"):
+            value = getattr(self, field_name)
+            if value is not None and value.tzinfo is None:
+                raise ValueError(f"{field_name} must be timezone-aware")
+        return self
+
+
+class AwsTwinMakerPricingContextAvailable(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schemaVersion: Literal["aws-twinmaker-account-pricing-context.v1"]
+    status: Literal["available"]
+    sourceRefreshRunId: str = Field(min_length=1, max_length=128)
+    connectionFingerprint: str = Field(
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    providerAccountId: str = Field(pattern=r"^\d{12}$")
+    pricingRegion: str = Field(
+        pattern=r"^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\d+$",
+    )
+    catalogSnapshotDigest: str = Field(
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    observedAt: datetime
+    currentPlan: AwsTwinMakerPlan
+    pendingPlan: AwsTwinMakerPlan | None = None
+
+    @model_validator(mode="after")
+    def validate_observation_timestamp(self):
+        if self.observedAt.tzinfo is None:
+            raise ValueError("observedAt must be timezone-aware")
+        return self
+
+
+class AwsTwinMakerPricingContextUnavailable(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["unavailable"] = "unavailable"
+    reasonCode: str = Field(
+        default="AWS_TWINMAKER_PLAN_UNOBSERVED",
+        min_length=1,
+        max_length=120,
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+
+
+AwsTwinMakerPricingContext = Annotated[
+    Union[
+        AwsTwinMakerPricingContextAvailable,
+        AwsTwinMakerPricingContextUnavailable,
+    ],
+    Field(discriminator="status"),
+]
+
+
+class ProviderPricingContexts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    awsTwinMaker: AwsTwinMakerPricingContext = Field(
+        default_factory=AwsTwinMakerPricingContextUnavailable
+    )
 
 
 # --------------------------------------------------
@@ -30,6 +153,11 @@ class CalcParams(BaseModel):
     - Storage duration ordering: Hot ≤ Cool ≤ Archive
     - Non-negative values for editor/viewer counts and dashboard settings
     """
+    calculationRunId: UUID = Field(
+        ...,
+        description="Management-owned immutable calculation run identity.",
+    )
+
     # Core IoT parameters - must be positive
     numberOfDevices: int = Field(..., gt=0, description="Number of IoT devices (must be > 0)")
     deviceSendingIntervalInMinutes: float = Field(..., gt=0, description="Sending interval in minutes (must be > 0)")
@@ -55,12 +183,34 @@ class CalcParams(BaseModel):
     useEventChecking: bool = False
     triggerNotificationWorkflow: bool = False
     returnFeedbackToDevice: bool = False
-    integrateErrorHandling: bool = False
+    integrateErrorHandling: bool = Field(
+        default=False,
+        strict=True,
+        description=(
+            "Legacy compatibility field. The executable five-layer baseline "
+            "accepts only false or omission."
+        ),
+        json_schema_extra={"const": False},
+    )
     
     orchestrationActionsPerMessage: int = Field(default=3, ge=1)
     eventsPerMessage: int = Field(default=1, ge=1)
     apiCallsPerDashboardRefresh: int = Field(default=1, ge=1)
     average3DModelSizeInMB: float = Field(default=100.0, gt=0)
+    averageDigitalTwinQueryUnitsPerQuery: float = Field(
+        default=1.0,
+        gt=0,
+        strict=True,
+        allow_inf_nan=False,
+        description="Estimated average Azure Digital Twins query units per logical query",
+    )
+    averageDigitalTwinQueryResponseSizeInKb: float = Field(
+        default=1.0,
+        gt=0,
+        strict=True,
+        allow_inf_nan=False,
+        description="Estimated average Azure Digital Twins query response size in KB",
+    )
     
     # New parameters for enhanced cost calculation
     numberOfDeviceTypes: int = Field(default=1, ge=1, description="Number of distinct device types (each requires a processor)")
@@ -78,6 +228,31 @@ class CalcParams(BaseModel):
         default="cost_minimization_v1",
         description="Executable optimization profile. Only cost_minimization_v1 is enabled.",
     )
+    providerPricingCatalogs: PricingCatalogContext = Field(
+        description=(
+            "Exact reviewed AWS, Azure, and GCP provider-region catalog "
+            "references. Calculations never resolve a mutable latest snapshot."
+        ),
+    )
+    providerPricingContexts: ProviderPricingContexts = Field(
+        default_factory=ProviderPricingContexts,
+        description=(
+            "Management-injected provider account pricing observations. "
+            "Clients cannot infer an AWS TwinMaker plan."
+        ),
+    )
+
+    @field_validator(ERROR_HANDLING_FIELD)
+    @classmethod
+    def validate_error_handling_topology(cls, value: bool) -> bool:
+        try:
+            ensure_executable_error_handling_topology(value)
+        except ValueError as exc:
+            raise PydanticCustomError(
+                UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
+                UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+            ) from exc
+        return value
 
     @model_validator(mode='after')
     def validate_storage_duration_ordering(self) -> 'CalcParams':
@@ -99,33 +274,7 @@ class CalcParams(BaseModel):
             )
         return self
 
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "numberOfDevices": 100,
-            "deviceSendingIntervalInMinutes": 2,
-            "averageSizeOfMessageInKb": 0.25,
-            "hotStorageDurationInMonths": 1,
-            "coolStorageDurationInMonths": 3,
-            "archiveStorageDurationInMonths": 12,
-            "needs3DModel": False,
-            "entityCount": 1,
-            "amountOfActiveEditors": 0,
-            "amountOfActiveViewers": 0,
-            "dashboardRefreshesPerHour": 2,
-            "dashboardActiveHoursPerDay": 0,
-            "currency": "USD",
-            "useEventChecking": True,
-            "triggerNotificationWorkflow": True,
-            "returnFeedbackToDevice": False,
-            "integrateErrorHandling": True,
-            "orchestrationActionsPerMessage": 3,
-            "eventsPerMessage": 1,
-            "apiCallsPerDashboardRefresh": 1,
-            "optimizationProfileId": "cost_minimization_v1",
-            "allowGcpSelfHostedL4": False,
-            "allowGcpSelfHostedL5": False
-        }
-    })
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 # --------------------------------------------------
@@ -146,9 +295,11 @@ class CalcParams(BaseModel):
         
         "**How it works:**\n"
         "1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n"
-        "2. Loads current pricing data for all three cloud providers\n"
-        "3. Calculates costs for each of the 5 architectural layers on each provider\n"
-        "4. Returns the optimal provider per layer and detailed cost breakdowns\n\n"
+        "2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n"
+        "3. Enumerates every executable complete Five-Layer provider assignment\n"
+        "4. Prices all six approved layer-to-layer routes with aggregate transfer allowances\n"
+        "5. Scores complete layer and route totals and returns the deterministic winner\n"
+        "6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n"
         
         "**The 5 Architectural Layers:**\n"
         "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
@@ -160,7 +311,10 @@ class CalcParams(BaseModel):
         "**Important:** This is a calculation-only endpoint. It does not deploy any resources. "
         "Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure."
     ),
-    response_description="Complete cost analysis with optimal provider per layer and detailed breakdowns",
+    response_description=(
+        "Complete-path cost analysis with selected providers, route pricing, "
+        "immutable evidence, and bounded optimization diagnostics"
+    ),
     responses={
         200: {
             "description": "Successful calculation - returns cost breakdown and optimal configuration",
@@ -170,15 +324,40 @@ class CalcParams(BaseModel):
                         "result": {
                             "calculationResult": {
                                 "L1": "GCP",
-                                "L2": {"Hot": "AWS", "Cool": "GCP", "Archive": "AWS"},
-                                "L3": "AWS",
+                                "L2": "AWS",
+                                "L3": {
+                                    "Hot": "AWS",
+                                    "Cool": "GCP",
+                                    "Archive": "AWS",
+                                },
                                 "L4": "Azure",
-                                "L5": "GCP"
+                                "L5": "Azure",
                             },
-                            "awsCosts": {"L1": 12.50, "L2_Hot": 5.00, "L2_Cool": 8.00, "L2_Archive": 2.00},
-                            "azureCosts": {"L1": 15.00, "L4": 20.00},
-                            "gcpCosts": {"L1": 10.00, "L5": 18.00},
-                            "cheapestPath": ["L1_GCP", "L2_AWS_Hot", "L2_GCP_Cool", "L2_AWS_Archive", "L3_AWS", "L4_Azure", "L5_GCP"],
+                            "cheapestPath": [
+                                "L1_GCP",
+                                "L2_AWS",
+                                "L3_hot_AWS",
+                                "L3_cool_GCP",
+                                "L3_archive_AWS",
+                                "L4_Azure",
+                                "L5_Azure",
+                            ],
+                            "transferPricingContext": {
+                                "schemaVersion": "complete-path-transfer-pricing.v1",
+                                "currency": "USD",
+                                "routes": [],
+                                "pools": [],
+                            },
+                            "optimizationDiagnostics": {
+                                "schemaVersion": "complete-path-optimization.v1",
+                                "enumeratedPathCount": 972,
+                                "evaluatedPathCount": 972,
+                                "rejectedPathCount": 0,
+                                "winningCandidateId": (
+                                    "gcp|aws|aws|gcp|aws|azure|azure"
+                                ),
+                                "scoreUnit": "USD/month",
+                            },
                             "totalCost": 85.50,
                             "optimization_profile_id": "cost_minimization_v1",
                             "result_schema_version": "cost-result.v1",
@@ -189,36 +368,12 @@ class CalcParams(BaseModel):
             },
         },
         400: ERROR_RESPONSES[400],
+        409: ERROR_RESPONSES[409],
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
     },
 )
-def calc(params: CalcParams = Body(
-    ...,
-    examples=[{
-        "numberOfDevices": 100,
-        "deviceSendingIntervalInMinutes": 2.0,
-        "averageSizeOfMessageInKb": 0.25,
-        "hotStorageDurationInMonths": 1,
-        "coolStorageDurationInMonths": 3,
-        "archiveStorageDurationInMonths": 12,
-        "needs3DModel": False,
-        "entityCount": 0,
-        "amountOfActiveEditors": 2,
-        "amountOfActiveViewers": 10,
-        "dashboardRefreshesPerHour": 4,
-        "dashboardActiveHoursPerDay": 8,
-        "currency": "USD",
-        "useEventChecking": True,
-        "triggerNotificationWorkflow": True,
-        "returnFeedbackToDevice": False,
-        "integrateErrorHandling": True,
-        "orchestrationActionsPerMessage": 3,
-        "eventsPerMessage": 1,
-        "apiCallsPerDashboardRefresh": 1,
-        "optimizationProfileId": "cost_minimization_v1"
-    }]
-)):
+def calc(params: CalcParams):
     """
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
     """
@@ -227,18 +382,95 @@ def calc(params: CalcParams = Body(
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
         # Convert Pydantic model to dict
-        params_dict = params.model_dump()
+        params_dict = params.model_dump(
+            exclude={"providerPricingCatalogs"},
+        )
+        params_dict["calculationRunId"] = str(params.calculationRunId)
         optimization_profile_id = params_dict.pop("optimizationProfileId")
+        params_dict["_assumption_sources"] = {
+            field: (
+                "explicit_input"
+                if field in params.model_fields_set
+                else "compatibility_default"
+            )
+            for field in (
+                "averageDigitalTwinQueryUnitsPerQuery",
+                "averageDigitalTwinQueryResponseSizeInKb",
+            )
+        }
         
-        # Load combined pricing from separate files
-        pricing_data = load_combined_pricing()
+        resolved_catalogs = PricingCatalogResolver(
+            get_pricing_catalog_repository()
+        ).resolve_context(
+            params.providerPricingCatalogs,
+            require_fresh=True,
+        )
         result = calculate_cheapest_costs(
             params_dict,
-            pricing=pricing_data,
+            pricing=resolved_catalogs.detached_pricing(),
+            pricing_catalog_context=resolved_catalogs.context,
             optimization_profile_id=optimization_profile_id,
         )
+        result["pricingCatalogs"] = resolved_catalogs.context.to_http_dict()
         
         return {"result": result}
+    except PricingCatalogStaleError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": e.code,
+                "message": str(e),
+                "fix_suggestion": (
+                    "Refresh the affected provider-region pricing catalog and "
+                    "retry with its newly published exact reference."
+                ),
+                "http_status": 409,
+            },
+        ) from e
+    except (
+        PricingCatalogNotFoundError,
+        PricingCatalogRegionMismatchError,
+        PricingCatalogUnreviewedError,
+    ) as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": e.code,
+                "message": str(e),
+                "fix_suggestion": (
+                    "Select exactly one published, reviewed catalog for AWS, "
+                    "Azure, and GCP before calculating."
+                ),
+                "http_status": 409,
+            },
+        ) from e
+    except (PricingCatalogTamperedError, PricingCatalogStorageError) as e:
+        logger.error("Pricing catalog resolution failed: %s", e.code)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": e.code,
+                "message": "Pricing catalog storage failed integrity validation.",
+                "fix_suggestion": (
+                    "Restore the durable pricing catalog volume from reviewed "
+                    "baselines or a verified backup before retrying."
+                ),
+                "http_status": 500,
+            },
+        ) from e
+    except TransferPricingContractError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": e.code,
+                "message": e.message,
+                "fix_suggestion": (
+                    "Review the selected provider regions, transfer-route "
+                    "contract, and published transfer pricing evidence."
+                ),
+                "http_status": 409,
+            },
+        ) from e
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

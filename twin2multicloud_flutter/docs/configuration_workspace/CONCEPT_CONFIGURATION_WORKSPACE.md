@@ -26,7 +26,7 @@ architecture are marked as not required rather than silently disappearing.
 2. **Describe workload**: device traffic, processing, retention, and twin
    capabilities.
 3. **Choose architecture**: confirm pricing readiness, calculate alternatives,
-   compare results, and select the architecture.
+   review the recommendation, and verify the immutable deployment selection.
 4. **Prepare deployment**: bind deployment access for selected providers and
    supply data contracts, user logic, and required assets.
 5. **Review configuration**: inspect the complete configuration, resolve
@@ -73,7 +73,7 @@ Configuration workspace
 |-- Choose architecture
 |   |-- Pricing readiness
 |   |-- Calculate alternatives
-|   `-- Compare and select
+|   `-- Review recommendation
 |-- Prepare deployment
 |   |-- Cloud access
 |   |-- Data contracts
@@ -100,6 +100,9 @@ Configuration workspace
 - Cloud access is requested only after architecture selection and only for
   providers used by that architecture.
 - Generated deployment configuration is an artifact, not a navigation task.
+- Provider resources and deployable dimensions are selected by the Optimizer,
+  verified as one immutable run, and shown read-only; Flutter is not a second
+  deployment-configuration source.
 - Final completion requires server-side configuration validation and preflight;
   client readiness is guidance, not authority.
 
@@ -152,4 +155,3 @@ through business tasks while keeping provider-specific implementation detail
 behind typed contracts. The dependency model also makes invalidation and
 conditional requirements explainable, which is essential for reproducible
 configuration and defensible deployment decisions.
-

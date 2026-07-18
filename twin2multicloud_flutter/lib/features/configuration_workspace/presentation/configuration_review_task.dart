@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../bloc/wizard/wizard.dart';
 import '../../../models/deployer_config.dart';
 import '../../../theme/spacing.dart';
+import '../../../widgets/results/resolved_deployment_summary.dart';
 import '../domain/configuration_journey.dart';
 
 class ConfigurationReviewTask extends StatelessWidget {
@@ -27,7 +28,10 @@ class ConfigurationReviewTask extends StatelessWidget {
               maxWidth: AppSpacing.maxContentWidthMedium,
             ),
             child: switch (taskId) {
-              ConfigurationTaskId.summary => _Summary(state: state),
+              ConfigurationTaskId.summary => _Summary(
+                state: state,
+                onOpenTask: onOpenTask,
+              ),
               ConfigurationTaskId.readinessFindings => _Findings(
                 state: state,
                 onOpenTask: onOpenTask,
@@ -48,8 +52,9 @@ class ConfigurationReviewTask extends StatelessWidget {
 
 class _Summary extends StatelessWidget {
   final WizardState state;
+  final ValueChanged<ConfigurationTaskId> onOpenTask;
 
-  const _Summary({required this.state});
+  const _Summary({required this.state, required this.onOpenTask});
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +99,15 @@ class _Summary extends StatelessWidget {
                 ? 'Not calculated'
                 : '${state.calcResult!.totalCost.toStringAsFixed(2)} ${params?.currency ?? 'USD'}',
           },
+        ),
+        ResolvedDeploymentSummary(
+          review: state.deploymentReview,
+          isSelecting: state.isSelectingDeploymentRun,
+          onRetrySelection: () => context.read<WizardBloc>().add(
+            const WizardDeploymentRunSelectionRequested(),
+          ),
+          onRecalculateArchitecture: () =>
+              onOpenTask(ConfigurationTaskId.calculateAlternatives),
         ),
         _SummarySection(
           title: 'Deployment readiness',
@@ -235,6 +249,15 @@ class _Finding {
 
 List<_Finding> _buildFindings(WizardState state) {
   final findings = <_Finding>[];
+  if (state.calcResult != null && !state.deploymentReview.ready) {
+    findings.add(
+      const _Finding(
+        'Resolved architecture needs confirmation',
+        'Verify or recalculate the latest optimizer recommendation.',
+        ConfigurationTaskId.compareAndSelect,
+      ),
+    );
+  }
   if (state.step3Invalidated) {
     findings.add(
       const _Finding(

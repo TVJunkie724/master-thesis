@@ -11,7 +11,6 @@ class TwinConfigUpdateRequest extends Equatable {
   final bool clearAzure;
   final bool clearGcp;
   final Map<String, dynamic>? optimizerParams;
-  final Map<String, dynamic>? optimizerResult;
 
   const TwinConfigUpdateRequest({
     this.debugMode,
@@ -24,7 +23,6 @@ class TwinConfigUpdateRequest extends Equatable {
     this.clearAzure = false,
     this.clearGcp = false,
     this.optimizerParams,
-    this.optimizerResult,
   });
 
   Map<String, dynamic> toJson() {
@@ -35,7 +33,6 @@ class TwinConfigUpdateRequest extends Equatable {
       if (azure != null || clearAzure) 'azure': clearAzure ? null : azure,
       if (gcp != null || clearGcp) 'gcp': clearGcp ? null : gcp,
       if (optimizerParams != null) 'optimizer_params': optimizerParams,
-      if (optimizerResult != null) 'optimizer_result': optimizerResult,
       if (highestStepReached != null)
         'highest_step_reached': highestStepReached,
     };
@@ -53,7 +50,6 @@ class TwinConfigUpdateRequest extends Equatable {
     clearAzure,
     clearGcp,
     optimizerParams,
-    optimizerResult,
   ];
 }
 

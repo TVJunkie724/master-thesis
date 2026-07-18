@@ -1,0 +1,37 @@
+schema_version: pricing-registry-transfer-routes.v1
+registry_version: "2026.07.17"
+
+# This file is a price-free routing contract. Exact rates and tier boundaries
+# belong exclusively to immutable provider-region pricing catalogs.
+region_geographies:
+  aws:
+    eu-central-1: europe
+  azure:
+    westeurope: europe
+  gcp:
+    europe-west1: europe
+
+provider_policies:
+  aws:
+    public_route_tier: provider_default
+    billing_scope: account_aggregate_public_egress
+    catalog_tier_path: [aws, transfer, pricing_tiers]
+  azure:
+    public_route_tier: microsoft_premium_global_network
+    billing_scope: account_aggregate_public_egress
+    catalog_tier_path: [azure, transfer, pricing_tiers]
+  gcp:
+    public_route_tier: premium
+    billing_scope: sku_account_aggregate_public_egress
+    catalog_tier_path: [gcp, transfer, pricing_tiers]
+
+supported_routes:
+  same_provider_same_region:
+    charge_policy: no_egress_charge
+  cross_provider_public_internet:
+    charge_policy: source_provider_egress
+    source_geographies: [europe]
+    destination_geographies: [europe]
+
+unsupported_route_classes:
+  - same_provider_inter_region

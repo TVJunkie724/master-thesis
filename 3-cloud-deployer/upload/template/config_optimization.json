@@ -4,7 +4,7 @@
             "useEventChecking": true,
             "triggerNotificationWorkflow": true,
             "returnFeedbackToDevice": true,
-            "integrateErrorHandling": true,
+            "integrateErrorHandling": false,
             "needs3DModel": true
         }
     }

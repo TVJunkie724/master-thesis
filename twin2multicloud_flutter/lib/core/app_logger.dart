@@ -11,6 +11,7 @@ enum AppLogEvent {
   simulatorDownloadFailed,
   wizardInitializationFailed,
   costCalculationFailed,
+  deploymentRunSelectionFailed,
   pricingSnapshotPersistenceFailed,
   wizardSaveFailed,
   wizardFinishFailed,

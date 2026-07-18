@@ -11,12 +11,13 @@ from src.schemas.optimizer_config import (
     CheapestPathResponse,
     OptimizerConfigResponse,
     OptimizerParamsUpdate,
-    OptimizerResultUpdate,
 )
 from src.services.optimizer_configuration_service import OptimizerConfigurationService
 from src.services.service_errors import EntityNotFoundError
 
-router = APIRouter(prefix="/twins/{twin_id}/optimizer-config", tags=["optimizer-config"])
+router = APIRouter(
+    prefix="/twins/{twin_id}/optimizer-config", tags=["optimizer-config"]
+)
 
 
 def _get_service(db: Session) -> OptimizerConfigurationService:
@@ -34,24 +35,24 @@ def _raise_optimizer_config_error(exc: EntityNotFoundError) -> NoReturn:
     summary="Get optimizer config for a twin",
     description=(
         "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n"
-        "**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n"
+        "**When to call:** When loading the Optimization task to restore the latest server-owned calculation state.\n\n"
         "**Response fields:**\n"
-        "- `params`: The 26 calculation parameters last used\n"
+        "- `params`: The canonical calculation parameters last used\n"
         "- `result`: Full calculation result JSON (costs per provider/layer)\n"
         "- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n"
-        "- `pricing_*_snapshot`: Pricing data used at calculation time\n"
+        "- `pricing_catalog_context`: Exact immutable pricing references used\n"
         "- `calculated_at`: Timestamp of last calculation\n\n"
         "**Note:** Creates empty config if none exists."
     ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def get_optimizer_config(
     twin_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Get optimizer config including params, result, and cheapest path."""
     try:
@@ -66,61 +67,26 @@ async def get_optimizer_config(
     operation_id="updateOptimizerParams",
     summary="Save calculation params before Calculate is clicked",
     description=(
-        "**Purpose:** Persist the 26 optimizer parameters without triggering calculation.\n\n"
-        "**When to call:** When user changes any parameter in Step 2 (auto-save on blur/change).\n\n"
+        "**Purpose:** Persist a draft of canonical optimizer parameters without triggering calculation.\n\n"
+        "**When to call:** For an explicit parameter-only draft save. The application calculation path uses `createOptimizerRun`.\n\n"
         "**Request body:**\n"
-        "- `params`: Object containing all 26 calculation parameters (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n"
-        "**Behavior:** Saves params but does NOT run calculation. Call `calculateOptimalDistribution` separately."
+        "- `params`: Complete validated calculation input (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n"
+        "**Behavior:** Saves params but does not create or alter an optimizer result. Use `createOptimizerRun` for an authoritative calculation."
     ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def update_params(
     twin_id: str,
     update: OptimizerParamsUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Save calculation params (before Calculate is clicked)."""
     try:
         return _get_service(db).update_params(twin_id, current_user.id, update)
-    except EntityNotFoundError as exc:
-        _raise_optimizer_config_error(exc)
-
-
-@router.put(
-    "/result",
-    response_model=OptimizerConfigResponse,
-    operation_id="saveOptimizerResult",
-    summary="Save full calculation result with cheapest path",
-    description=(
-        "**Purpose:** Persist the complete optimization result after `calculateOptimalDistribution` returns.\n\n"
-        "**When to call:** Immediately after receiving successful response from `calculateOptimalDistribution`.\n\n"
-        "**Request body:**\n"
-        "- `params`: The parameters used for this calculation\n"
-        "- `result`: Full calculation response (awsCosts, azureCosts, gcpCosts, combinationTables)\n"
-        "- `cheapest_path`: Object with l1, l2, l3_hot, l3_cool, l3_archive, l4, l5 provider names\n"
-        "- `pricing_snapshots`: {aws: {...}, azure: {...}, gcp: {...}} pricing data used\n"
-        "- `pricing_timestamps`: {aws: ISO, azure: ISO, gcp: ISO} when pricing was fetched\n\n"
-        "**Important:** This enables Step 3 (Deployer) by storing the cheapest_path used for deployment."
-    ),
-    responses={
-        401: ERROR_RESPONSES[401],
-        404: ERROR_RESPONSES[404],
-        422: ERROR_RESPONSES[422],
-    }
-)
-async def save_result(
-    twin_id: str,
-    update: OptimizerResultUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Save full calculation result with cheapest path and pricing snapshots."""
-    try:
-        return _get_service(db).save_result(twin_id, current_user.id, update)
     except EntityNotFoundError as exc:
         _raise_optimizer_config_error(exc)
 
@@ -133,7 +99,7 @@ async def save_result(
     description=(
         "**Purpose:** Retrieve just the cheapest provider selection per layer - used by deployment logic.\n\n"
         "**When to call:** When preparing deployment to determine which cloud providers to deploy to.\n\n"
-        "**Prerequisite:** Must have run `calculateOptimalDistribution` and saved via `saveOptimizerResult` first.\n\n"
+        "**Prerequisite:** Must have completed `createOptimizerRun` first.\n\n"
         "**Response fields:**\n"
         "- `l1`: IoT layer provider (aws, azure, gcp)\n"
         "- `l2`: Orchestration layer provider\n"
@@ -145,12 +111,12 @@ async def save_result(
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def get_cheapest_path(
     twin_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Get cheapest path only (for deployment logic)."""
     try:

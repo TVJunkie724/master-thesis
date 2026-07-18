@@ -34,6 +34,45 @@ AWS_MATCH_FIELD_ALIASES = {
 }
 
 
+def build_aws_intent_evidence(
+    raw_products: Iterable[str | dict[str, Any]],
+    *,
+    intent_id: str,
+    region: str,
+    pricing_registry_service: PricingRegistryService | None = None,
+    fetched_at: str | None = None,
+) -> dict[str, Any]:
+    """Select and normalize one AWS intent through the canonical registry."""
+
+    registry_service = pricing_registry_service or PricingRegistryService()
+    scope = {"provider": "aws", "region": region}
+    snapshot = build_pricing_catalog_snapshot(
+        "aws",
+        raw_products,
+        source_api=AWS_PRICE_LIST_API,
+        request_scope=scope,
+        fetched_at=fetched_at,
+    )
+    mapping = registry_service.get_provider_mapping("aws", intent_id)
+    candidates = snapshot["candidates"]
+    candidate_lookup = {
+        candidate.get("candidate_id"): candidate for candidate in candidates
+    }
+    result = match_pricing_intent(
+        candidates,
+        _intent_match_mapping(mapping),
+    )
+    return _evidence_record(
+        result,
+        mapping=mapping,
+        normalization_rules=registry_service.list_normalization_rules(),
+        registry_version=registry_service.get_registry_version(),
+        request_scope=scope,
+        fetched_at=snapshot["fetched_at"],
+        candidate_lookup=candidate_lookup,
+    )
+
+
 def build_aws_pricing_evidence_report(
     raw_products: Iterable[str | dict[str, Any]],
     *,
@@ -114,6 +153,7 @@ def _intent_match_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
         "review_status": mapping.get("review_status"),
         "match": _translate_match_fields(mapping.get("match") or {}),
         "drift_markers": _translate_match_fields(mapping.get("drift_markers") or {}),
+        "selection_mode": mapping.get("selection_mode", "single"),
         "normalization": {
             "rule_id": mapping.get("normalization_rule"),
         },
@@ -141,9 +181,14 @@ def _evidence_record(
     selected = result.get("selected_candidate")
     selected_full = candidate_lookup.get(selected.get("candidate_id")) if selected else None
     selected_evidence = selected_full or selected
+    selected_series = [
+        candidate_lookup.get(candidate.get("candidate_id"), candidate)
+        for candidate in (result.get("selected_candidates") or [])
+    ]
     normalization_rule_id = mapping.get("normalization_rule")
     normalization_rule = normalization_rules.get(normalization_rule_id, {})
     normalized_value = _normalized_value(selected_evidence, normalization_rule)
+    normalized_tiers = _normalized_tiers(selected_series)
     review_required = status != MATCHED or mapping.get("review_status") != "reviewed"
 
     return {
@@ -151,25 +196,68 @@ def _evidence_record(
         "provider": "aws",
         "intent_id": mapping.get("intent_id"),
         "field_path": mapping.get("intent_id"),
-        "source_type": FETCHED if selected else NOT_APPLICABLE,
+        "source_type": (
+            FETCHED if selected or selected_series else NOT_APPLICABLE
+        ),
         "source_api": AWS_PRICE_LIST_API,
         "request_scope": request_scope,
         "price_list_filters": mapping.get("match") or {},
         "normalization_rule": normalization_rule_id,
         "normalization": normalization_rule,
         "normalized_value": normalized_value,
-        "currency": selected_evidence.get("currency") if selected_evidence else None,
+        "normalized_tiers": normalized_tiers,
+        "currency": (
+            selected_evidence.get("currency")
+            if selected_evidence
+            else _uniform_value(selected_series, "currency")
+        ),
         "mapping_version": mapping.get("mapping_version"),
         "registry_version": registry_version,
         "fetched_at": fetched_at,
         "review_required": review_required,
         "match_status": status,
         "selected_row": _selected_row(selected_evidence),
+        "selected_rows": [
+            _selected_row(candidate) for candidate in selected_series
+        ],
         "candidate_rows": result.get("candidates") or [],
         "rejected_rows": _rejected_rows(result.get("rejections") or [], candidate_lookup),
         "errors": _status_errors(status, mapping.get("intent_id")),
         "review_status": mapping.get("review_status"),
     }
+
+
+def _normalized_tiers(
+    selected: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    ordered = sorted(
+        selected,
+        key=lambda candidate: float(
+            (candidate.get("tier") or {}).get("begin_range")
+        ),
+    )
+    tiers: list[dict[str, Any]] = []
+    for candidate in ordered:
+        tier = candidate.get("tier") or {}
+        raw_end = tier.get("end_range")
+        tiers.append(
+            {
+                "lower_bound": float(tier["begin_range"]),
+                "limit": (
+                    "Infinity"
+                    if str(raw_end).lower() in {"inf", "infinity"}
+                    else float(raw_end)
+                ),
+                "price": float(candidate["raw_price"]),
+                "unit": candidate.get("unit"),
+            }
+        )
+    return tiers
+
+
+def _uniform_value(candidates: list[dict[str, Any]], key: str) -> Any:
+    values = {candidate.get(key) for candidate in candidates}
+    return next(iter(values)) if len(values) == 1 else None
 
 
 def _normalized_value(

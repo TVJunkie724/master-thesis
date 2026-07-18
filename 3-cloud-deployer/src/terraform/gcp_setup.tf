@@ -52,6 +52,13 @@ locals {
     (var.layer_4_provider != "google" && var.layer_4_provider != "" && local.gcp_l3_hot_enabled) ||
     (var.layer_5_provider != "google" && var.layer_5_provider != "" && local.gcp_l3_hot_enabled)
   )
+  gcp_cross_cloud_receiver_required = (
+    local.gcp_needs_ingestion ||
+    local.gcp_needs_hot_writer ||
+    local.gcp_needs_cold_writer ||
+    local.gcp_needs_archive_writer ||
+    local.gcp_needs_hot_reader
+  )
 
   # Base URL for GCP Cloud Functions
   gcp_function_base_url = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
@@ -116,6 +123,100 @@ locals {
   gcp_l2_event_checker_url  = "${local.gcp_function_base_url}/${local.gcp_l2_event_checker_name}"
   gcp_l2_event_feedback_url = "${local.gcp_function_base_url}/${local.gcp_l2_event_feedback_name}"
   gcp_l2_event_workflow_url = "https://workflowexecutions.googleapis.com/v1/projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${local.gcp_l2_event_workflow_name}/executions"
+}
+
+# Fail before provider execution if an active GCP component is missing its
+# immutable optimizer-owned deployment selection.
+resource "terraform_data" "gcp_deployment_specification_guard" {
+  count = local.deploy_gcp ? 1 : 0
+
+  input = {
+    l1_function_memory_mb               = var.gcp_l1_function_memory_mb
+    l1_function_min_instances           = var.gcp_l1_function_min_instances
+    l1_function_max_instances           = var.gcp_l1_function_max_instances
+    l2_function_memory_mb               = var.gcp_l2_function_memory_mb
+    l2_function_min_instances           = var.gcp_l2_function_min_instances
+    l2_function_max_instances           = var.gcp_l2_function_max_instances
+    firestore_mode                      = var.gcp_firestore_mode
+    l3_reader_function_memory_mb        = var.gcp_l3_reader_function_memory_mb
+    l3_reader_function_min_instances    = var.gcp_l3_reader_function_min_instances
+    l3_reader_function_max_instances    = var.gcp_l3_reader_function_max_instances
+    l3_cool_storage_class               = var.gcp_l3_cool_storage_class
+    hot_to_cool_mover_memory_mb         = var.gcp_hot_to_cool_mover_memory_mb
+    hot_to_cool_mover_min_instances     = var.gcp_hot_to_cool_mover_min_instances
+    hot_to_cool_mover_max_instances     = var.gcp_hot_to_cool_mover_max_instances
+    hot_to_cool_scheduler_cron          = var.gcp_hot_to_cool_scheduler_cron
+    l3_archive_storage_class            = var.gcp_l3_archive_storage_class
+    cool_to_archive_mover_memory_mb     = var.gcp_cool_to_archive_mover_memory_mb
+    cool_to_archive_mover_min_instances = var.gcp_cool_to_archive_mover_min_instances
+    cool_to_archive_mover_max_instances = var.gcp_cool_to_archive_mover_max_instances
+    cool_to_archive_scheduler_cron      = var.gcp_cool_to_archive_scheduler_cron
+    glue_function_memory_mb             = var.gcp_glue_function_memory_mb
+    glue_function_min_instances         = var.gcp_glue_function_min_instances
+    glue_function_max_instances         = var.gcp_glue_function_max_instances
+  }
+
+  lifecycle {
+    precondition {
+      condition = var.layer_1_provider != "google" || (
+        var.gcp_l1_function_memory_mb != null &&
+        var.gcp_l1_function_min_instances != null &&
+        var.gcp_l1_function_max_instances != null
+      )
+      error_message = "GCP L1 requires Function memory and scaling selections from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_2_provider != "google" || (
+        var.gcp_l2_function_memory_mb != null &&
+        var.gcp_l2_function_min_instances != null &&
+        var.gcp_l2_function_max_instances != null
+      )
+      error_message = "GCP L2 requires Function memory and scaling selections from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_3_hot_provider != "google" || (
+        var.gcp_firestore_mode != null &&
+        var.gcp_l3_reader_function_memory_mb != null &&
+        var.gcp_l3_reader_function_min_instances != null &&
+        var.gcp_l3_reader_function_max_instances != null &&
+        var.gcp_hot_to_cool_mover_memory_mb != null &&
+        var.gcp_hot_to_cool_mover_min_instances != null &&
+        var.gcp_hot_to_cool_mover_max_instances != null &&
+        var.gcp_hot_to_cool_scheduler_cron != null
+      )
+      error_message = "GCP L3 hot requires Firestore, reader, and hot-to-cool runtime selections from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_3_cold_provider != "google" || (
+        var.gcp_l3_cool_storage_class != null &&
+        var.gcp_cool_to_archive_mover_memory_mb != null &&
+        var.gcp_cool_to_archive_mover_min_instances != null &&
+        var.gcp_cool_to_archive_mover_max_instances != null &&
+        var.gcp_cool_to_archive_scheduler_cron != null
+      )
+      error_message = "GCP L3 cool requires storage-class and cool-to-archive runtime selections from the resolved deployment specification."
+    }
+    precondition {
+      condition     = var.layer_3_archive_provider != "google" || var.gcp_l3_archive_storage_class != null
+      error_message = "GCP L3 archive requires gcp_l3_archive_storage_class from the resolved deployment specification."
+    }
+    precondition {
+      condition = !local.gcp_cross_cloud_receiver_required || (
+        var.gcp_glue_function_memory_mb != null &&
+        var.gcp_glue_function_min_instances != null &&
+        var.gcp_glue_function_max_instances != null
+      )
+      error_message = "GCP cross-cloud receivers require Function memory and scaling selections from the resolved deployment specification."
+    }
+    precondition {
+      condition     = var.layer_4_provider != "google"
+      error_message = "GCP L4 is unsupported by the canonical Deployer capability contract."
+    }
+    precondition {
+      condition     = var.layer_5_provider != "google"
+      error_message = "GCP L5 is unsupported by the canonical Deployer capability contract."
+    }
+  }
 }
 
 # ==============================================================================

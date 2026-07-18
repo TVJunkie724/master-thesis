@@ -13,7 +13,7 @@ The Optimizer owns:
 - provider pricing acquisition and evidence,
 - pricing-source and normalization contracts,
 - monthly cost calculation,
-- cost-based provider selection for layers L1-L5,
+- complete-path cost optimization across layers L1-L5,
 - bounded intent-to-result traceability,
 - pricing readiness and credential preflight contracts.
 
@@ -77,7 +77,10 @@ Canonical endpoints include:
 | `POST` | `/fetch_pricing_with_credentials/{provider}` | Refresh provider pricing with explicit credential context |
 | `POST` | `/stream/fetch_pricing/{provider}` | Stream one operation-scoped refresh |
 | `GET` | `/pricing/source_inventory` | Read pricing source governance |
-| `GET` | `/pricing/export/{provider}` | Export the current provider snapshot |
+| `GET` | `/pricing/catalogs/baseline/{provider}` | Read the pinned reviewed baseline reference |
+| `GET` | `/pricing/catalogs/{provider}/{region}/published` | Read the active regional reference and freshness |
+| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{snapshot_id}/reference` | Verify one exact reference without loading pricing |
+| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{snapshot_id}` | Inspect one explicitly identified immutable snapshot |
 | `POST` | `/permissions/verify/{provider}` | Validate pricing-access credentials |
 | `POST` | `/fetch_currency` | Refresh the USD/EUR conversion snapshot |
 
@@ -86,23 +89,54 @@ The local-file endpoints under `/fetch_pricing/{provider}` and
 `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`. That switch is reserved for the
 explicit local cloud overlay.
 
-Provider refreshes are isolated per operation, duplicate same-provider refreshes
-are rejected, and pricing snapshots are published atomically.
+Provider refreshes are isolated by provider and canonical pricing region.
+Duplicate same-region refreshes are rejected, immutable snapshots are written
+to the durable `optimizer_pricing_catalogs` volume, and reviewed references are
+published atomically. Review-required candidates never replace the regional
+last-known-good pointer.
 
 ## Calculation Contract
 
 Provider prices are normalized to canonical USD inputs. Calculation requests
-may ask for `USD` or `EUR` output. EUR results use the cached exchange-rate
-snapshot and expose `currencyConversion` metadata with source currency, target
-currency, rate, and retrieval time. Invalid or missing rates fail closed.
+must supply a Management-owned UUID under `calculationRunId` and the exact
+reviewed AWS, Azure, and GCP catalog references under
+`providerPricingCatalogs`; the Optimizer resolves all three immutable snapshots
+before any formula executes and returns the same run ID and references in the
+result.
+Requests may ask for `USD` or `EUR` output. EUR results use the cached
+exchange-rate snapshot and expose `currencyConversion` metadata with source
+currency, target currency, rate, and retrieval time. Invalid or missing rates
+fail closed.
 
 The response also includes:
 
 - selected providers per layer,
 - provider and transfer cost breakdowns,
+- all six evaluated baseline edges from L1-to-L2 through L4-to-L5,
+- exact route, tier, billing-pool, and immutable catalog evidence for the
+  winning complete path,
+- bounded complete-path diagnostics with evaluated and rejected candidate
+  counts,
 - optimization profile and strategy identifiers,
 - registry/evidence references,
-- bounded `intentTrace` and `resultTrace` diagnostics.
+- bounded `intentTrace` and `resultTrace` diagnostics,
+- one schema-valid `resolvedDeploymentSpecification` with exact component,
+  tier, SKU, capacity, storage-class, and runtime selections for the winning
+  path.
+
+Selection is not greedy per layer. The Optimizer enumerates every executable
+provider assignment for the closed Five-Layer baseline, calculates layer and
+route costs as one candidate total, applies each transfer allowance once per
+source-provider billing pool, and passes those totals to the active scoring
+strategy. Unsupported routes and capabilities fail closed rather than entering
+selection as zero-cost alternatives.
+
+Azure IoT Hub sizing returns the selected F1/S1/S2/S3 SKU and unit capacity
+rather than only a cost. Physical workload messages are normalized to the
+provider billing blocks first: 0.5 KB for F1 and 4 KB for paid Standard tiers.
+The result keeps physical messages, billable messages, included messages per
+unit, SKU, and capacity together under `details.tierSelection`, making the
+formula and deployable selection directly auditable.
 
 ## Repository Layout
 
@@ -113,7 +147,9 @@ The response also includes:
 | `backend/optimization/` | Metrics, profiles, scoring, and extension points |
 | `backend/fetch_data/` | Provider pricing adapters and refresh orchestration |
 | `pricing_registry/` | Versioned pricing and optimization contracts |
-| `json/fetched_data/` | Current provider and currency snapshots |
+| `json/pricing_catalog_baselines/` | Pinned reviewed regional pricing seed snapshots |
+| `json/fetched_data/` | Region lists and currency snapshots only |
+| `/var/lib/twin2multicloud-optimizer/pricing-catalogs/` | Durable immutable runtime catalogs and regional published pointers |
 | `tests/` | Unit and API integration tests |
 | `implementation_plans/` | Approved and completed implementation records |
 

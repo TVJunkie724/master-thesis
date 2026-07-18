@@ -147,7 +147,7 @@ resource "aws_lambda_function" "l2_persister" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l2_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.l2_lambda_build_dir}/persister.zip"
@@ -164,8 +164,7 @@ resource "aws_lambda_function" "l2_persister" {
         var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
       ) : ""
 
-      # Multi-cloud L2→L4: When AWS L2 sends to Azure ADT (Azure-only feature)
-      # ADT pusher is part of L0 Glue layer, like other cross-cloud receivers
+      # Canonical L2→L4 path when AWS L2 sends to Azure Digital Twins
       REMOTE_ADT_PUSHER_URL = var.layer_2_provider == "aws" && var.layer_4_provider == "azure" ? (
         "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.adt_pusher}"
       ) : ""
@@ -197,7 +196,7 @@ resource "aws_lambda_function" "l2_event_checker" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l2_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   # Use try() to gracefully fallback when file doesn't exist (count=0 case)
@@ -300,7 +299,7 @@ resource "aws_lambda_function" "processor_wrapper" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l2_lambda_memory_mb
 
   filename         = "${local.l2_lambda_build_dir}/processor_wrapper.zip"
   source_code_hash = filebase64sha256("${local.l2_lambda_build_dir}/processor_wrapper.zip")
@@ -327,7 +326,7 @@ resource "aws_lambda_function" "user_processor" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l2_lambda_memory_mb
 
   filename         = each.value.zip_path
   source_code_hash = filebase64sha256(each.value.zip_path)
@@ -353,7 +352,7 @@ resource "aws_lambda_function" "event_action" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l2_lambda_memory_mb
 
   filename         = each.value.zip_path
   source_code_hash = filebase64sha256(each.value.zip_path)
@@ -378,7 +377,7 @@ resource "aws_lambda_function" "event_feedback" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l2_lambda_memory_mb
 
   filename         = var.aws_event_feedback_zip_path
   source_code_hash = filebase64sha256(var.aws_event_feedback_zip_path)
@@ -404,7 +403,7 @@ resource "aws_lambda_function" "event_feedback_wrapper" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l2_lambda_memory_mb
 
   filename         = "${local.l2_lambda_build_dir}/event_feedback_wrapper.zip"
   source_code_hash = filebase64sha256("${local.l2_lambda_build_dir}/event_feedback_wrapper.zip")

@@ -7,6 +7,11 @@ for accessing pricing APIs (AWS, GCP, Azure).
 import os
 from typing import Dict, Any, Optional
 
+from backend.aws_twinmaker_pricing_plan import (
+    AwsTwinMakerPricingPlanError,
+    build_aws_session,
+    observe_aws_twinmaker_pricing_plan,
+)
 from backend.secret_redaction import credential_strings, redact_secret_like_text
 
 # =============================================================================
@@ -16,12 +21,14 @@ from backend.secret_redaction import credential_strings, redact_secret_like_text
 REQUIRED_AWS_PERMISSIONS = [
     "pricing:DescribeServices",
     "pricing:GetProducts",
-    "pricing:GetAttributeValues"
+    "pricing:GetAttributeValues",
+    "iottwinmaker:GetPricingPlan",
 ]
 
 REQUIRED_AWS_CONFIG_FIELDS = [
     "aws_access_key_id",
     "aws_secret_access_key",
+    "aws_region",
 ]
 
 REQUIRED_GCP_CONFIG_FIELDS = [
@@ -79,51 +86,25 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
     
     result["config_present"] = True
     
-    # Step 2: Try to create session and call STS
+    # Step 2: Verify account identity and regional TwinMaker pricing-plan access.
     try:
-        import boto3
-        from botocore.exceptions import ClientError, NoCredentialsError
-        
-        # IMPORTANT: Always use 'us-east-1' for the boto3 session, regardless of user's region.
-        # 
-        # Reason 1: AWS STS endpoint URLs are region-based (sts.{region}.amazonaws.com).
-        #           If user provides invalid region (e.g., "eu-central" instead of "eu-central-1"),
-        #           boto3 constructs an invalid URL, causing connection error before authentication.
-        #
-        # Reason 2: The AWS Pricing API is ONLY available in us-east-1 anyway.
-        #           So the user's region is irrelevant for credential validation in the Optimizer.
-        #           The Pricing client at line 122 already hardcodes region_name="us-east-1".
-        #
-        # Note: This AWS-specific issue does NOT affect Azure (public API) or GCP (global endpoint).
-        session_kwargs = {
-            "aws_access_key_id": credentials["aws_access_key_id"],
-            "aws_secret_access_key": credentials["aws_secret_access_key"],
-            "region_name": "us-east-1",  # Always us-east-1 - see comment above
-        }
-        session_token = credentials.get("aws_session_token")
-        if session_token:
-            session_kwargs["aws_session_token"] = session_token
-        session = boto3.Session(**session_kwargs)
-        
-        # Test STS GetCallerIdentity
-        sts_client = session.client("sts")
-        identity = sts_client.get_caller_identity()
-        
+        session = build_aws_session(credentials, credentials["aws_region"])
+        context = observe_aws_twinmaker_pricing_plan(
+            credentials,
+            credentials["aws_region"],
+            configured_account_id=credentials.get("aws_configured_account_id"),
+            session=session,
+        )
         result["credentials_valid"] = True
         result["identity"] = {
-            "account": identity.get("Account"),
-            "arn": identity.get("Arn"),
-            "user_id": identity.get("UserId")
+            "account": context["verified_account_id"],
         }
-        
-    except NoCredentialsError:
+        result["twinmaker_pricing_plan"] = context
+    except AwsTwinMakerPricingPlanError as exc:
         result["status"] = "invalid"
-        result["message"] = "Invalid AWS credentials - could not authenticate"
-        return result
-    except ClientError as e:
-        error_code = e.response.get("Error", {}).get("Code", "Unknown")
-        result["status"] = "invalid"
-        result["message"] = f"AWS authentication failed: {error_code}"
+        result["message"] = exc.public_message
+        result["error_code"] = exc.code
+        result["credentials_valid"] = exc.identity_verified
         return result
     except Exception as e:
         result["status"] = "error"
@@ -135,6 +116,8 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
     
     # Step 3: Test Pricing API access
     try:
+        from botocore.exceptions import ClientError
+
         # Pricing API is only available in us-east-1
         pricing_client = session.client("pricing", region_name="us-east-1")
         
@@ -149,7 +132,10 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
         
         result["can_fetch_pricing"] = True
         result["status"] = "valid"
-        result["message"] = "AWS credentials are valid and can access Pricing API"
+        result["message"] = (
+            "AWS credentials can read the Price List API and the regional "
+            "TwinMaker pricing plan."
+        )
         
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
@@ -158,7 +144,8 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
             operation = getattr(e, "operation_name", "Pricing API")
             result["message"] = (
                 f"AWS credentials valid but lack Pricing API permission for {operation}. "
-                "Required: pricing:DescribeServices, pricing:GetProducts, pricing:GetAttributeValues"
+                "Required: pricing:DescribeServices, pricing:GetProducts, "
+                "pricing:GetAttributeValues"
             )
         else:
             result["status"] = "error"
@@ -182,7 +169,7 @@ def check_aws_credentials_from_config() -> Dict[str, Any]:
     """
     try:
         from backend import config_loader
-        credentials = config_loader.load_aws_credentials()
+        credentials = (config_loader.load_credentials_file() or {}).get("aws")
         return check_aws_credentials(credentials)
     except Exception as e:
         return {

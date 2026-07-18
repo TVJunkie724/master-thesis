@@ -3,10 +3,34 @@ provider: gcp
 mapping_version: "2026.06.08"
 mappings:
   - intent_id: transfer.egress_gb
-    review_status: draft
-    normalization_rule: per_gb
+    mapping_version: "2026.07.18"
+    review_status: reviewed
+    normalization_rule: per_gib_to_gb
     expected_cardinality: one_or_more_per_region
-    match: {service_name: Compute Engine, resource_family: Network}
+    selection_mode: tier_series
+    match:
+      service_name: Compute Engine
+      sku_name: Network Internet Data Transfer Out from EMEA to EMEA
+      resource_family: Network
+      unit: gibibyte
+      tier:
+        base_unit: By
+        base_unit_description: byte
+        base_unit_conversion_factor: 1073741824
+        display_quantity: 1
+        usage_unit: GiBy
+      evidence:
+        aggregation_level: ACCOUNT
+        aggregation_interval: MONTHLY
+        aggregation_count: 1
+      provider_identifiers:
+        service_id: 6F81-5844-456A
+        sku_id: 5B70-B2D6-B4FC
+    drift_markers:
+      service_name: Compute Engine
+      resource_family: Network
+      provider_identifiers:
+        service_id: 6F81-5844-456A
   - intent_id: iot.message_ingest
     review_status: draft
     normalization_rule: per_gb

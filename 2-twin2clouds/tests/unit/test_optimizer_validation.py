@@ -3,7 +3,6 @@ Unit tests for the Optimizer validation endpoint.
 
 Tests O1-O4 from the implementation plan.
 """
-import pytest
 from fastapi.testclient import TestClient
 from rest_api import app
 

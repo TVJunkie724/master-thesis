@@ -44,7 +44,9 @@ development auth is deliberately not a production substitute.
 ### Credential Operations
 
 Versioned provider bootstrap scripts and encrypted import are implemented. Fully
-request-scoped in-app administrator bootstrap is not yet the canonical runtime path.
+automated in-app administrator bootstrap is not implemented: the app provides a
+secret-free Management API plan/import workflow while provider administration stays
+in the external CLI session. Flutter does not currently expose that workflow.
 Encryption-key rotation requires explicit re-encryption tooling.
 
 ### Provider Permissions
@@ -68,6 +70,60 @@ stable identifiers. Exact storage values and all transfer thresholds passed prov
 contract validation and cumulative calculation boundary tests. This evidence supports
 the selected West Europe intents; it is not a timeless guarantee for every region or
 future Azure catalog revision.
+
+AWS, Azure, and GCP transfer catalogs now use exact reviewed tier series,
+provider-native GB/GiB units, explicit routing policy, and fail-closed runtime
+validation. The Optimizer now scores all complete baseline paths and applies
+transfer allowances once per source-provider billing pool. This is an
+estimation model, not provider invoice reconciliation: it does not import
+unrelated account traffic, negotiated discounts, taxes, or billing exports.
+
+Destination glue free tiers are aggregated across glue routes in one
+calculation. Existing provider layer calculators still price several
+serverless components independently, so account-wide request and compute
+allowances shared between layer functions, glue functions, and unrelated
+workloads are not yet reconciled as one provider invoice pool. This must be
+measured and corrected, where material, under
+[formula validation issue #42](https://github.com/TVJunkie724/master-thesis/issues/42)
+before final thesis evaluation and supervised E2E.
+
+Storage mover runtime ownership is now explicit in calculation, evidence,
+resolved specification, Management validation, and Deployer tfvar translation.
+AWS resource values are specification-bound under
+[#132](https://github.com/TVJunkie724/master-thesis/issues/132), and Azure
+resource/runtime values are specification-bound under
+[#133](https://github.com/TVJunkie724/master-thesis/issues/133). GCP Function
+profiles, Firestore mode, storage classes, transition schedules, and runtime
+writers are specification-bound under
+[#120](https://github.com/TVJunkie724/master-thesis/issues/120). The final
+credential-free cross-stack drift gate remains
+[#128](https://github.com/TVJunkie724/master-thesis/issues/128).
+
+Azure Function Apps always require a host storage account. When Azure owns no
+cool/archive Blob slot, the Deployer retains Standard/LRS as an explicit
+support-resource invariant, but that account's actual operation/storage usage
+is not a separate selected cost component. Empirical reconciliation remains in
+[#42](https://github.com/TVJunkie724/master-thesis/issues/42).
+
+The legacy `integrateErrorHandling` field is not an executable capability of
+the current baseline. Flutter keeps it disabled and exposes historical `true`
+values as legacy, non-deployable state. Optimizer, Management API, Deployer
+validation, package loading, and preflight reject new or historical execution
+attempts with `UNSUPPORTED_ERROR_HANDLING_TOPOLOGY` before calculation,
+persistence, credential resolution, or Terraform. Event checking, notification
+workflows, device feedback, and user event actions remain separate supported
+capabilities. This boundary was hardened under
+[#135](https://github.com/TVJunkie724/master-thesis/issues/135).
+
+Core Azure Function HTTP adapters now use one bounded typed error contract,
+response-to-log correlation, and central secret/path redaction under
+[#136](https://github.com/TVJunkie724/master-thesis/issues/136). Provider
+response bodies, telemetry/query payloads, signed function URLs, and raw
+exceptions are excluded from their public diagnostics. Timer- and
+Event-Grid-triggered functions do not expose this HTTP response contract and
+instead use diagnostic-suppressed correlation logs while preserving the
+original Azure retry semantics under
+[#137](https://github.com/TVJunkie724/master-thesis/issues/137).
 
 Calculation traceability now connects the optimization profile and selected path to
 provider pricing contracts, source classifications, formula bindings, evidence

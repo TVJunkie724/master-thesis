@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.logger import logger
 from backend.config_loader import load_config_file
+from backend.pricing_catalog_repository import get_pricing_catalog_repository
 
 # Import API routers
 from api import capabilities, calculation, pricing, pricing_registry, regions, file_status, credentials, validation
@@ -24,14 +25,14 @@ from api import capabilities, calculation, pricing, pricing_registry, regions, f
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown events."""
-    # Startup
     try:
-        print("")
         logger.info("🚀 Starting Twin2Clouds API...")
         load_config_file()
+        get_pricing_catalog_repository().verify_readiness()
         logger.info("✅ API ready.")
-    except Exception as e:
-        logger.error(f"Failed to load configuration: {e}")
+    except Exception:
+        logger.exception("Optimizer startup readiness failed")
+        raise
     
     yield
     

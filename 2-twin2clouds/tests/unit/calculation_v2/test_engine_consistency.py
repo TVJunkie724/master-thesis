@@ -11,12 +11,14 @@ Since the old engine is now deprecated, we test that the new engine:
 3. Handles all input parameters correctly
 """
 
-import pytest
-from typing import Dict, Any
-
+from tests.unit.pricing.transfer_fixtures import (
+    canonical_transfer_catalog,
+    pricing_catalog_context_for,
+)
 
 # Standard test parameters matching typical use cases
 STANDARD_PARAMS = {
+    "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
     "numberOfDevices": 100,
     "deviceSendingIntervalInMinutes": 2.0,
     "averageSizeOfMessageInKb": 0.25,
@@ -69,18 +71,39 @@ REALISTIC_PRICING = {
         "s3InfrequentAccess": {"storagePrice": 0.0125, "writePrice": 0.01},
         "s3GlacierDeepArchive": {"storagePrice": 0.00099, "writePrice": 0.05},
         "iotTwinMaker": {
-            "queryPrice": 0.001,
-            "entityPrice": 0.0,
-            "unifiedDataAccessAPICallsPrice": 0.000001,
+            "usageRates": {
+                "queryPrice": 0.001,
+                "entityPricePerMonth": 0.000001,
+                "unifiedDataAccessApiCallPrice": 0.000001,
+            },
         },
         "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-        "egress": {"pricePerGB": 0.09},
+        "transfer": canonical_transfer_catalog("aws"),
     },
     "azure": {
         "iotHub": {
-            "pricePerUnit": 25.0,
-            "messagesPerUnit": 400000,
-            "additionalMessagePrice": 0.000004,
+            "pricing_tiers": {
+                "freeTier": {
+                    "limit": 240_000,
+                    "threshold": 240_000,
+                    "price": 0,
+                },
+                "tier1": {
+                    "limit": 120_000_000,
+                    "threshold": 12_000_000,
+                    "price": 25,
+                },
+                "tier2": {
+                    "limit": 1_800_000_000,
+                    "threshold": 180_000_000,
+                    "price": 250,
+                },
+                "tier3": {
+                    "limit": "Infinity",
+                    "threshold": 9_000_000_000,
+                    "price": 2500,
+                },
+            },
         },
         "functions": {
             "requestPrice": 0.0000002,
@@ -104,7 +127,7 @@ REALISTIC_PRICING = {
             "messagePrice": 0.001,
         },
         "azureManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-        "egress": {"pricePerGB": 0.087},
+        "transfer": canonical_transfer_catalog("azure"),
     },
     "gcp": {
         "iot": {"pricePerGiB": 0.04},
@@ -115,6 +138,7 @@ REALISTIC_PRICING = {
             "freeGBSeconds": 400000,
         },
         "cloudWorkflows": {"pricePerStep": 0.00001},
+        "cloudScheduler": {"jobPrice": 0.10},
         "storage_hot": {
             "writePrice": 0.18,
             "readPrice": 0.06,
@@ -124,7 +148,7 @@ REALISTIC_PRICING = {
         "storage_archive": {"storagePrice": 0.004, "writePrice": 0.05},
         "twinmaker": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
         "grafana": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
-        "egress": {"pricePerGB": 0.12},
+        "transfer": canonical_transfer_catalog("gcp"),
     },
 }
 
@@ -136,7 +160,13 @@ class TestEngineConsistency:
         """Verify the output structure is complete."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
-        result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+        result = calculate_cheapest_costs(
+            STANDARD_PARAMS,
+            REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
+        )
         
         # Required top-level keys
         assert "calculationResult" in result
@@ -161,7 +191,13 @@ class TestEngineConsistency:
         """All provider costs should be positive for non-zero usage."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
-        result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+        result = calculate_cheapest_costs(
+            STANDARD_PARAMS,
+            REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
+        )
         
         for provider in ["awsCosts", "azureCosts", "gcpCosts"]:
             costs = result[provider]
@@ -177,7 +213,13 @@ class TestEngineConsistency:
         """Cheapest path should have correct format."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
-        result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+        result = calculate_cheapest_costs(
+            STANDARD_PARAMS,
+            REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
+        )
         path = result["cheapestPath"]
         
         assert len(path) == 7  # L1, L2, L3_hot, L3_cool, L3_archive, L4, L5
@@ -193,17 +235,39 @@ class TestEngineConsistency:
         """Total cost should be sum of layer costs plus transfer costs."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
         
-        result = calculate_cheapest_costs(STANDARD_PARAMS, REALISTIC_PRICING)
+        result = calculate_cheapest_costs(
+            STANDARD_PARAMS,
+            REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
+        )
         
-        # Get the selected providers from cheapest path
-        path = result["cheapestPath"]
-        
-        # Parse selected providers
-        l1_provider = [p for p in path if "L1_" in p][0].split("_")[1].lower()
-        l2_provider = [p for p in path if "L2_" in p and "L3" not in p][0].split("_")[1].lower()
-        
-        # Total cost should be > 0
-        assert result["totalCost"] > 0
+        selected = {
+            "L1": result["calculationResult"]["L1"],
+            "L2": result["calculationResult"]["L2"],
+            "L3_hot": result["calculationResult"]["L3"]["Hot"],
+            "L3_cool": result["calculationResult"]["L3"]["Cool"],
+            "L3_archive": result["calculationResult"]["L3"]["Archive"],
+            "L4": result["calculationResult"]["L4"],
+            "L5": result["calculationResult"]["L5"],
+        }
+        provider_cost_keys = {
+            "AWS": "awsCosts",
+            "Azure": "azureCosts",
+            "GCP": "gcpCosts",
+        }
+        selected_cost = sum(
+            result[provider_cost_keys[provider]][layer]["cost"]
+            for layer, provider in selected.items()
+        )
+        expected_total = (
+            selected_cost
+            + sum(result["transferCosts"].values())
+            + sum(result["transitionRuntimeCosts"].values())
+        )
+
+        assert result["totalCost"] == round(expected_total, 2)
     
     def test_gcp_exclusion_respected(self):
         """GCP should be excluded from L4/L5 when flags are False."""
@@ -213,7 +277,13 @@ class TestEngineConsistency:
         params["allowGcpSelfHostedL4"] = False
         params["allowGcpSelfHostedL5"] = False
         
-        result = calculate_cheapest_costs(params, REALISTIC_PRICING)
+        result = calculate_cheapest_costs(
+            params,
+            REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
+        )
         
         path = result["cheapestPath"]
         l4_segment = [p for p in path if "L4_" in p][0]
@@ -229,12 +299,24 @@ class TestEngineConsistency:
         # Small scenario
         small_params = STANDARD_PARAMS.copy()
         small_params["numberOfDevices"] = 10
-        small_result = calculate_cheapest_costs(small_params, REALISTIC_PRICING)
+        small_result = calculate_cheapest_costs(
+            small_params,
+            REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
+        )
         
         # Large scenario
         large_params = STANDARD_PARAMS.copy()
         large_params["numberOfDevices"] = 10000
-        large_result = calculate_cheapest_costs(large_params, REALISTIC_PRICING)
+        large_result = calculate_cheapest_costs(
+            large_params,
+            REALISTIC_PRICING,
+            pricing_catalog_context=pricing_catalog_context_for(
+                REALISTIC_PRICING
+            ),
+        )
         
         # Large scenario should cost more
         assert large_result["totalCost"] > small_result["totalCost"]

@@ -27,8 +27,17 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .context import DeploymentContext, ProjectConfig
+from .executable_topology import (
+    UnsupportedErrorHandlingTopologyError,
+    ensure_executable_optimization_topology,
+    optimization_input_params,
+)
 from .exceptions import ConfigurationError
 from .project_storage import ProjectStorage, get_project_storage
+from src.deployment_specification import (
+    ValidatedDeploymentManifest,
+    validate_deployment_manifest,
+)
 
 # Constants matching src/constants.py
 CONFIG_FILE = "config.json"
@@ -64,6 +73,7 @@ class ProjectConfigBundle:
     config: ProjectConfig
     credentials: Dict[str, dict]
     deployment_manifest: Dict[str, Any]
+    validated_deployment_manifest: ValidatedDeploymentManifest | None
 
 
 class ProjectConfigLoader:
@@ -81,12 +91,22 @@ class ProjectConfigLoader:
         self, project_name: str, project_path: Path
     ) -> ProjectConfigBundle:
         """Load config, credentials, and manifest from an already resolved path."""
+        config = load_project_config(project_path)
+        deployment_manifest = load_deployment_manifest(project_path)
         return ProjectConfigBundle(
             project_name=project_name,
             project_path=project_path,
-            config=load_project_config(project_path),
+            config=config,
             credentials=load_credentials(project_path),
-            deployment_manifest=load_deployment_manifest(project_path),
+            deployment_manifest=deployment_manifest,
+            validated_deployment_manifest=(
+                validate_deployment_manifest(
+                    deployment_manifest,
+                    config.providers,
+                )
+                if deployment_manifest
+                else None
+            ),
         )
 
     def create_context(
@@ -123,6 +143,7 @@ class ProjectConfigLoader:
             requested_provider=normalize_provider_name(provider_name),
             credentials=bundle.credentials,
             deployment_manifest=bundle.deployment_manifest,
+            validated_deployment_manifest=bundle.validated_deployment_manifest,
         )
         context.validate_manifest_identity()
         return context
@@ -150,8 +171,8 @@ def normalize_optimization_flags(data: Dict[str, Any]) -> Dict[str, bool]:
     """Normalize optimizer-result and legacy flat files into domain flags."""
     if not isinstance(data, dict):
         return OPTIMIZATION_DEFAULTS.copy()
-    nested = data.get("result", {}).get("inputParamsUsed", {})
-    source = nested if isinstance(nested, dict) and nested else data
+    ensure_executable_optimization_topology(data)
+    source = optimization_input_params(data)
     return {
         key: source.get(key, default)
         if isinstance(source.get(key, default), bool)
@@ -400,6 +421,8 @@ def load_optimization_flags(project_path: Path) -> dict:
     try:
         data = _load_json_file(optimization_file, required=False)
         return normalize_optimization_flags(data)
+    except UnsupportedErrorHandlingTopologyError:
+        raise
     except Exception as e:
         logger.warning(
             f"Failed to load config_optimization.json: {e}. Using defaults (all False)."

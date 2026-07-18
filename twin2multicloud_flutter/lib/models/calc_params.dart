@@ -1,8 +1,12 @@
+import 'package:collection/collection.dart';
+
 /// Calculation parameters for cost optimization.
 ///
-/// Contains all 26 input fields required by the Optimizer API.
+/// Contains the user-configurable input fields required by the Optimizer API.
 /// Used in Wizard Step 2 to configure digital twin cost calculation.
 class CalcParams {
+  static const _mapEquality = MapEquality<String, dynamic>();
+
   // ============================================================
   // LAYER 1 & 2 - WORKLOAD PARAMETERS
   // ============================================================
@@ -48,7 +52,7 @@ class CalcParams {
   /// Not exposed in UI, hardcoded
   final double eventTriggerRate;
 
-  /// Integrate error handling (default: false)
+  /// Legacy compatibility field; true is not executable in the baseline.
   final bool integrateErrorHandling;
 
   // ============================================================
@@ -78,6 +82,12 @@ class CalcParams {
   /// Average 3D model size in MB (default: 100.0, min: 0.1)
   /// Only shown when needs3DModel is true
   final double average3DModelSizeInMB;
+
+  /// Estimated Azure Digital Twins query units per logical query.
+  final double averageDigitalTwinQueryUnitsPerQuery;
+
+  /// Estimated Azure Digital Twins response size per logical query.
+  final double averageDigitalTwinQueryResponseSizeInKb;
 
   /// Legacy wire field; provider availability comes from the capability contract.
   final bool allowGcpSelfHostedL4;
@@ -133,6 +143,8 @@ class CalcParams {
     this.integrateErrorHandling = false,
     this.entityCount = 0,
     this.average3DModelSizeInMB = 100.0,
+    this.averageDigitalTwinQueryUnitsPerQuery = 1.0,
+    this.averageDigitalTwinQueryResponseSizeInKb = 1.0,
     this.allowGcpSelfHostedL4 = false,
     this.apiCallsPerDashboardRefresh = 1,
     this.dashboardActiveHoursPerDay = 0,
@@ -145,6 +157,9 @@ class CalcParams {
       hotStorageDurationInMonths <= coolStorageDurationInMonths &&
       coolStorageDurationInMonths <= archiveStorageDurationInMonths;
 
+  /// Whether the current values can be submitted to the executable baseline.
+  bool get isExecutableTopology => !integrateErrorHandling;
+
   /// Convert to JSON for API request
   Map<String, dynamic> toJson() => {
     'numberOfDevices': numberOfDevices,
@@ -156,6 +171,10 @@ class CalcParams {
     'needs3DModel': needs3DModel,
     'entityCount': entityCount,
     'average3DModelSizeInMB': average3DModelSizeInMB,
+    'averageDigitalTwinQueryUnitsPerQuery':
+        averageDigitalTwinQueryUnitsPerQuery,
+    'averageDigitalTwinQueryResponseSizeInKb':
+        averageDigitalTwinQueryResponseSizeInKb,
     'amountOfActiveEditors': amountOfActiveEditors,
     'amountOfActiveViewers': amountOfActiveViewers,
     'dashboardRefreshesPerHour': dashboardRefreshesPerHour,
@@ -174,6 +193,9 @@ class CalcParams {
     'allowGcpSelfHostedL5': allowGcpSelfHostedL5,
     'currency': currency,
   };
+
+  bool hasSameCalculationInputs(CalcParams other) =>
+      _mapEquality.equals(toJson(), other.toJson());
 
   /// Create default params for testing
   factory CalcParams.defaultParams() => CalcParams(
@@ -212,11 +234,40 @@ class CalcParams {
     entityCount: json['entityCount'] ?? 0,
     average3DModelSizeInMB: (json['average3DModelSizeInMB'] ?? 100.0)
         .toDouble(),
+    averageDigitalTwinQueryUnitsPerQuery: _positiveDoubleOrDefault(
+      json,
+      'averageDigitalTwinQueryUnitsPerQuery',
+      1.0,
+    ),
+    averageDigitalTwinQueryResponseSizeInKb: _positiveDoubleOrDefault(
+      json,
+      'averageDigitalTwinQueryResponseSizeInKb',
+      1.0,
+    ),
     dashboardRefreshesPerHour: json['dashboardRefreshesPerHour'] ?? 2,
     apiCallsPerDashboardRefresh: json['apiCallsPerDashboardRefresh'] ?? 1,
     dashboardActiveHoursPerDay: json['dashboardActiveHoursPerDay'] ?? 8,
     amountOfActiveEditors: json['amountOfActiveEditors'] ?? 0,
     amountOfActiveViewers: json['amountOfActiveViewers'] ?? 5,
+    allowGcpSelfHostedL4: json['allowGcpSelfHostedL4'] ?? false,
+    allowGcpSelfHostedL5: json['allowGcpSelfHostedL5'] ?? false,
     currency: json['currency'] ?? 'USD',
   );
+}
+
+double _positiveDoubleOrDefault(
+  Map<String, dynamic> json,
+  String key,
+  double fallback,
+) {
+  if (!json.containsKey(key)) return fallback;
+  final value = json[key];
+  if (value is! num) {
+    throw FormatException('$key must be a number');
+  }
+  final normalized = value.toDouble();
+  if (!normalized.isFinite || normalized <= 0) {
+    throw FormatException('$key must be finite and greater than zero');
+  }
+  return normalized;
 }

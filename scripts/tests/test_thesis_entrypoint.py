@@ -87,6 +87,30 @@ class ThesisEntrypointTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, sys.executable)
 
+    def test_deployment_contract_forwards_focused_mode(self) -> None:
+        result = self.run_bash(
+            "main test deployment-contract --focused",
+            environment={"THESIS_PYTHON_COMMAND": "echo"},
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            "scripts/verify_resolved_deployment_drift.py --focused",
+            result.stdout,
+        )
+
+    def test_deployment_contract_rejects_unknown_options(self) -> None:
+        result = self.run_bash(
+            "main test deployment-contract --live",
+            environment={"THESIS_PYTHON_COMMAND": "echo"},
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(
+            "test deployment-contract accepts only --focused",
+            result.stderr,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

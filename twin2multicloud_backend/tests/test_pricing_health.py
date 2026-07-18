@@ -3,12 +3,13 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.models.optimizer_config import OptimizerConfiguration
-from src.services.service_errors import DownstreamServiceError
+from src.services.errors import ExternalServiceError
+from tests.pricing_catalog_test_data import catalog_status
 
 
-def _mock_optimizer_statuses(mock_factory, aws: dict, azure: dict, gcp: dict):
+def _mock_catalog_context(mock_factory, aws: dict, azure: dict, gcp: dict):
     service = MagicMock()
-    service.get_pricing_status = AsyncMock(
+    service.status_for_user = AsyncMock(
         return_value={"aws": aws, "azure": azure, "gcp": gcp}
     )
     mock_factory.return_value = service
@@ -31,12 +32,18 @@ def _aws_connection_request():
 def test_pricing_health_returns_dashboard_ready_provider_cards(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={"age": "2 hours", "status": "valid", "is_fresh": True},
-            azure={"age": "10 days", "status": "valid", "is_fresh": False},
-            gcp={"status": "incomplete", "missing_keys": ["gcp.iot.unit"]},
+    with patch(
+        "src.api.routes.optimizer._pricing_catalog_context_service"
+    ) as mock_context:
+        _mock_catalog_context(
+            mock_context,
+            aws=catalog_status("aws"),
+            azure=catalog_status("azure", is_fresh=False),
+            gcp={
+                **catalog_status("gcp"),
+                "status": "incomplete",
+                "missing_keys": ["gcp.iot.unit"],
+            },
         )
 
         response = client.get("/optimizer/pricing-health", headers=headers)
@@ -80,7 +87,7 @@ def test_pricing_health_returns_dashboard_ready_provider_cards(authenticated_cli
     assert gcp["primary_message"] == "Pricing refresh requires a user-scoped pricing credential."
 
 
-def test_pricing_health_uses_last_known_good_timestamp(auth_client, test_twin, db):
+def test_pricing_health_ignores_legacy_snapshot_timestamp(auth_client, test_twin, db):
     config = OptimizerConfiguration(
         twin_id=test_twin.id,
         pricing_aws_snapshot=json.dumps({"aws": {"lambda": {"requestPrice": 0.2}}}),
@@ -89,25 +96,32 @@ def test_pricing_health_uses_last_known_good_timestamp(auth_client, test_twin, d
     db.add(config)
     db.commit()
 
-    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={"age": "missing", "status": "missing", "is_fresh": False},
-            azure={"status": "valid", "is_fresh": True},
-            gcp={"status": "valid", "is_fresh": True},
+    with patch(
+        "src.api.routes.optimizer._pricing_catalog_context_service"
+    ) as mock_context:
+        _mock_catalog_context(
+            mock_context,
+            aws={
+                "age": "missing",
+                "status": "missing",
+                "is_fresh": False,
+                "active_reference": None,
+            },
+            azure=catalog_status("azure"),
+            gcp=catalog_status("gcp"),
         )
 
-        response = auth_client.get(f"/optimizer/pricing-health?twin_id={test_twin.id}")
+        response = auth_client.get("/optimizer/pricing-health")
 
     assert response.status_code == 200
     aws = response.json()["providers"]["aws"]
     assert aws["state"] == "missing"
     assert aws["severity"] == "error"
-    assert aws["can_calculate"] is True
-    assert aws["calculation_source"] == "last_known_good"
-    assert aws["pricing_freshness"] == "last_known_good"
-    assert aws["last_fetched_at"] == "2026-06-01T00:00:00+00:00"
-    assert "keep_last_known_good" in aws["actions"]
+    assert aws["can_calculate"] is False
+    assert aws["calculation_source"] == "unavailable"
+    assert aws["pricing_freshness"] == "unavailable"
+    assert aws["last_fetched_at"] is None
+    assert "keep_last_known_good" not in aws["actions"]
 
 
 def test_pricing_health_response_is_secret_free(authenticated_client):
@@ -119,12 +133,14 @@ def test_pricing_health_response_is_secret_free(authenticated_client):
     )
     assert create_response.status_code == 200
 
-    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
-        _mock_optimizer_statuses(
-            mock_client,
-            aws={"age": "1 day", "status": "valid", "is_fresh": True},
-            azure={"status": "valid", "is_fresh": True},
-            gcp={"status": "valid", "is_fresh": True},
+    with patch(
+        "src.api.routes.optimizer._pricing_catalog_context_service"
+    ) as mock_context:
+        _mock_catalog_context(
+            mock_context,
+            aws=catalog_status("aws"),
+            azure=catalog_status("azure"),
+            gcp=catalog_status("gcp"),
         )
 
         response = client.get("/optimizer/pricing-health", headers=headers)
@@ -139,12 +155,18 @@ def test_pricing_health_response_is_secret_free(authenticated_client):
 def test_pricing_health_propagates_optimizer_connect_error(authenticated_client):
     client, headers = authenticated_client
 
-    with patch("src.api.routes.optimizer._optimizer_status_service") as mock_client:
+    with patch(
+        "src.api.routes.optimizer._pricing_catalog_context_service"
+    ) as mock_context:
         service = MagicMock()
-        service.get_pricing_status = AsyncMock(
-            side_effect=DownstreamServiceError(502, "Optimizer request failed")
+        service.status_for_user = AsyncMock(
+            side_effect=ExternalServiceError(
+                "Optimizer request failed",
+                upstream_status_code=502,
+                public_detail="Optimizer request failed",
+            )
         )
-        mock_client.return_value = service
+        mock_context.return_value = service
 
         response = client.get("/optimizer/pricing-health", headers=headers)
 

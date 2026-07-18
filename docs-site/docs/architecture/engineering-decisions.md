@@ -25,11 +25,13 @@ database and stronger migration/backup operations.
 ## Credential SSOT
 
 **Decision:** persist reusable credentials as encrypted, user-scoped CloudConnections;
-keep bootstrap/admin input transient.
+keep bootstrap/admin authentication in the external provider CLI and import only
+generated scoped material.
 
 **Reason:** workspace copies and Docker-mounted plaintext created duplication, unclear
 ownership, accidental disclosure, and difficult rotation. Metadata/purpose/defaults
-make account reuse explicit without returning secrets.
+make account reuse explicit without returning secrets. The Management API produces
+reviewable bootstrap commands but never receives provider administrator credentials.
 
 ## File Registry Plus Operational Database
 

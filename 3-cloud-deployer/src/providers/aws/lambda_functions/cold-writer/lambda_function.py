@@ -25,6 +25,7 @@ except ModuleNotFoundError:
 
 # Validate env vars at startup (fail-fast)
 COLD_S3_BUCKET_NAME = require_env("COLD_S3_BUCKET_NAME")
+COLD_STORAGE_CLASS = require_env("COLD_STORAGE_CLASS")
 EXPECTED_TOKEN = require_env("INTER_CLOUD_TOKEN")
 
 s3_client = boto3.client("s3")
@@ -97,7 +98,7 @@ def lambda_handler(event, context):
             Key=key,
             Body=json.dumps(items, default=str),
             ContentType="application/json",
-            StorageClass="STANDARD_IA"
+            StorageClass=COLD_STORAGE_CLASS
         )
         
         print(f"Cold Writer: Wrote {len(items)} items to s3://{COLD_S3_BUCKET_NAME}/{key}")

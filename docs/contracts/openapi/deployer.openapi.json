@@ -64,6 +64,23 @@
         "title": "AWSCredentialsRequest",
         "type": "object"
       },
+      "AssetExtractionResult": {
+        "description": "Extracted binary assets (GLB files for 3D visualization).",
+        "properties": {
+          "scene_glb": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FileExtractionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "AssetExtractionResult",
+        "type": "object"
+      },
       "AzureCredentialsCheckResponse": {
         "description": "Response schema for Azure credential validation.",
         "properties": {
@@ -219,7 +236,7 @@
         "properties": {
           "file": {
             "contentMediaType": "application/octet-stream",
-            "description": "Project zip file to extract",
+            "description": "Project ZIP file to extract",
             "title": "File",
             "type": "string"
           }
@@ -243,6 +260,21 @@
           "file"
         ],
         "title": "Body_importProjectZip",
+        "type": "object"
+      },
+      "Body_stageDeploymentOperationPackage": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Generated deployment package",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_stageDeploymentOperationPackage",
         "type": "object"
       },
       "Body_validateConfigFile": {
@@ -393,6 +425,32 @@
         "title": "Body_validateUserConfig",
         "type": "object"
       },
+      "CapabilityAvailability": {
+        "enum": [
+          "available",
+          "disabled",
+          "unsupported"
+        ],
+        "title": "CapabilityAvailability",
+        "type": "string"
+      },
+      "CapabilityRoadmap": {
+        "enum": [
+          "none",
+          "planned"
+        ],
+        "title": "CapabilityRoadmap",
+        "type": "string"
+      },
+      "CapabilityVerificationLevel": {
+        "enum": [
+          "not_verified",
+          "contract_tested",
+          "live_verified"
+        ],
+        "title": "CapabilityVerificationLevel",
+        "type": "string"
+      },
       "ConfigType": {
         "enum": [
           "config",
@@ -495,7 +553,8 @@
         "type": "object"
       },
       "DeployerCompleteValidation": {
-        "description": "Input model for complete deployer config validation.",
+        "additionalProperties": false,
+        "description": "Bounded input for complete deployer configuration validation.",
         "properties": {
           "cheapest_path": {
             "anyOf": [
@@ -506,11 +565,14 @@
                       "type": "string"
                     },
                     {
-                      "additionalProperties": true,
+                      "additionalProperties": {
+                        "type": "string"
+                      },
                       "type": "object"
                     }
                   ]
                 },
+                "maxProperties": 20,
                 "type": "object"
               },
               {
@@ -522,6 +584,7 @@
           "config_events": {
             "anyOf": [
               {
+                "maxLength": 5242880,
                 "type": "string"
               },
               {
@@ -533,6 +596,7 @@
           "config_iot_devices": {
             "anyOf": [
               {
+                "maxLength": 5242880,
                 "type": "string"
               },
               {
@@ -544,6 +608,7 @@
           "deployer_digital_twin_name": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
@@ -558,6 +623,7 @@
                 "additionalProperties": {
                   "type": "string"
                 },
+                "maxProperties": 1000,
                 "type": "object"
               },
               {
@@ -569,6 +635,7 @@
           "event_feedback": {
             "anyOf": [
               {
+                "maxLength": 1048576,
                 "type": "string"
               },
               {
@@ -580,6 +647,7 @@
           "hierarchy": {
             "anyOf": [
               {
+                "maxLength": 5242880,
                 "type": "string"
               },
               {
@@ -592,6 +660,7 @@
             "anyOf": [
               {
                 "additionalProperties": true,
+                "maxProperties": 200,
                 "type": "object"
               },
               {
@@ -603,6 +672,7 @@
           "payloads": {
             "anyOf": [
               {
+                "maxLength": 5242880,
                 "type": "string"
               },
               {
@@ -617,6 +687,7 @@
                 "additionalProperties": {
                   "type": "string"
                 },
+                "maxProperties": 1000,
                 "type": "object"
               },
               {
@@ -628,6 +699,7 @@
           "scene_config": {
             "anyOf": [
               {
+                "maxLength": 5242880,
                 "type": "string"
               },
               {
@@ -644,6 +716,7 @@
           "state_machine": {
             "anyOf": [
               {
+                "maxLength": 5242880,
                 "type": "string"
               },
               {
@@ -655,6 +728,7 @@
           "user_config": {
             "anyOf": [
               {
+                "maxLength": 5242880,
                 "type": "string"
               },
               {
@@ -668,7 +742,7 @@
         "type": "object"
       },
       "DeployerValidationResponse": {
-        "description": "Validation response with all errors.",
+        "description": "Aggregate result with deterministic field errors.",
         "properties": {
           "errors": {
             "items": {
@@ -688,24 +762,10 @@
         "title": "DeployerValidationResponse",
         "type": "object"
       },
-      "ErrorResponse": {
-        "description": "Standardized error response with detailed information for troubleshooting.\n\nThis schema provides structured error information that enables:\n1. Understanding what went wrong (error_code, message)\n2. Knowing exactly how to fix it (fix_suggestion)\n3. Identifying specific field issues (field_errors)\n4. Finding additional help (documentation_url)\n\nAll error responses from this API follow this schema for consistency.",
-        "example": {
-          "documentation_url": "https://github.com/TVJunkie724/master-thesis/tree/master/docs-site",
-          "error_code": "VALIDATION_ERROR",
-          "field_errors": [
-            {
-              "field": "numberOfDevices",
-              "message": "Value must be a positive integer",
-              "received_value": "-5"
-            }
-          ],
-          "fix_suggestion": "Ensure all required fields are present and have valid values. See field_errors for details.",
-          "http_status": 422,
-          "message": "Request validation failed"
-        },
+      "FileExtractionResult": {
+        "description": "Result of extracting a single file from the ZIP.",
         "properties": {
-          "documentation_url": {
+          "content": {
             "anyOf": [
               {
                 "type": "string"
@@ -714,123 +774,64 @@
                 "type": "null"
               }
             ],
-            "description": "URL to relevant documentation for this error or endpoint",
-            "example": "https://github.com/TVJunkie724/master-thesis/tree/master/docs-site",
-            "title": "Documentation Url"
+            "title": "Content"
           },
-          "error_code": {
-            "description": "Machine-readable error code in SCREAMING_SNAKE_CASE format. Use this to programmatically identify error types. Common codes: VALIDATION_ERROR, INVALID_CREDENTIALS, RESOURCE_NOT_FOUND, RATE_LIMITED, INTERNAL_ERROR, CONFIGURATION_MISSING",
-            "example": "VALIDATION_ERROR",
-            "title": "Error Code",
-            "type": "string"
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
           },
-          "field_errors": {
+          "is_binary": {
+            "default": false,
+            "title": "Is Binary",
+            "type": "boolean"
+          },
+          "validation_error": {
             "anyOf": [
               {
-                "items": {
-                  "$ref": "#/components/schemas/FieldError"
-                },
-                "type": "array"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "For validation errors (422), detailed list of which fields failed and why",
-            "title": "Field Errors"
-          },
-          "fix_suggestion": {
-            "description": "Actionable instruction that explains exactly how to fix this error and retry the request successfully. Be specific about what to change.",
-            "example": "Set 'numberOfDevices' to a positive integer (e.g., 100). This field represents the number of IoT devices in your deployment.",
-            "title": "Fix Suggestion",
-            "type": "string"
-          },
-          "http_status": {
-            "description": "The HTTP status code associated with this error (400, 401, 403, 404, 422, 500, etc.)",
-            "example": 400,
-            "title": "Http Status",
-            "type": "integer"
-          },
-          "message": {
-            "description": "Human-readable description of what went wrong",
-            "example": "Request validation failed: numberOfDevices must be positive",
-            "title": "Message",
-            "type": "string"
+            "title": "Validation Error"
           }
         },
         "required": [
-          "error_code",
-          "message",
-          "fix_suggestion",
-          "http_status"
+          "exists"
         ],
-        "title": "ErrorResponse",
+        "title": "FileExtractionResult",
         "type": "object"
       },
-      "FieldError": {
-        "description": "Describes a validation error for a specific request field.\n\nUse this to understand exactly which field failed validation\nand what values would be acceptable.",
-        "example": {
-          "allowed_values": [
-            "aws",
-            "azure",
-            "gcp"
-          ],
-          "field": "provider",
-          "message": "Invalid cloud provider specified",
-          "received_value": "alibaba"
-        },
+      "FunctionExtractionResult": {
+        "description": "Extracted function code from processor/action/feedback directories.",
         "properties": {
-          "allowed_values": {
+          "event_actions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FileExtractionResult"
+            },
+            "title": "Event Actions",
+            "type": "object"
+          },
+          "event_feedback": {
             "anyOf": [
               {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
+                "$ref": "#/components/schemas/FileExtractionResult"
               },
               {
                 "type": "null"
               }
-            ],
-            "description": "If applicable, the list of valid values for this field",
-            "example": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Allowed Values"
+            ]
           },
-          "field": {
-            "description": "The name of the field that failed validation (dot notation for nested fields)",
-            "example": "numberOfDevices",
-            "title": "Field",
-            "type": "string"
-          },
-          "message": {
-            "description": "Human-readable explanation of why this field failed validation",
-            "example": "Value must be a positive integer",
-            "title": "Message",
-            "type": "string"
-          },
-          "received_value": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The actual value that was received (stringified for display)",
-            "example": "-5",
-            "title": "Received Value"
+          "processors": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FileExtractionResult"
+            },
+            "title": "Processors",
+            "type": "object"
           }
         },
-        "required": [
-          "field",
-          "message"
-        ],
-        "title": "FieldError",
+        "title": "FunctionExtractionResult",
         "type": "object"
       },
       "GCPCredentialsCheckResponse": {
@@ -970,6 +971,63 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HttpErrorEnvelope": {
+        "description": "Actual FastAPI error shape returned by HTTPException handlers.",
+        "example": {
+          "detail": "The requested operation could not be completed."
+        },
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ],
+            "description": "Human-readable error text or a structured operation-specific error. Clients must preserve structured detail objects when present.",
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "HttpErrorEnvelope",
+        "type": "object"
+      },
+      "ProviderCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderLayerCapability"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "layers"
+        ],
+        "title": "ProviderCapability",
+        "type": "object"
+      },
       "ProviderEnum": {
         "enum": [
           "aws",
@@ -979,6 +1037,63 @@
         ],
         "title": "ProviderEnum",
         "type": "string"
+      },
+      "ProviderLayerCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/CapabilityAvailability"
+          },
+          "layer": {
+            "enum": [
+              "l1",
+              "l2",
+              "l3_hot",
+              "l3_cool",
+              "l3_archive",
+              "l4",
+              "l5"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "roadmap": {
+            "$ref": "#/components/schemas/CapabilityRoadmap",
+            "default": "none"
+          },
+          "verification_level": {
+            "$ref": "#/components/schemas/CapabilityVerificationLevel"
+          }
+        },
+        "required": [
+          "layer",
+          "availability",
+          "verification_level"
+        ],
+        "title": "ProviderLayerCapability",
+        "type": "object"
       },
       "ProviderPreflightCheck": {
         "properties": {
@@ -1117,6 +1232,41 @@
         "title": "ProviderPreflightResponse",
         "type": "object"
       },
+      "ServiceProviderCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "generated_from": {
+            "const": "runtime_registry",
+            "title": "Generated From",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderCapability"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "provider-service-capabilities.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "service": {
+            "const": "deployer",
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "service",
+          "generated_from",
+          "providers"
+        ],
+        "title": "ServiceProviderCapabilities",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1156,6 +1306,47 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "ZipExtractionResponse": {
+        "description": "Full response from /validate/zip/extract endpoint.",
+        "properties": {
+          "assets": {
+            "$ref": "#/components/schemas/AssetExtractionResult"
+          },
+          "files": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FileExtractionResult"
+            },
+            "title": "Files",
+            "type": "object"
+          },
+          "functions": {
+            "$ref": "#/components/schemas/FunctionExtractionResult"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "validation_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Validation Errors",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "ZipExtractionResponse",
+        "type": "object"
       }
     }
   },
@@ -1186,9 +1377,30 @@
         ]
       }
     },
+    "/capabilities/providers": {
+      "get": {
+        "operationId": "getDeployerProviderCapabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceProviderCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get provider-layer deployment capabilities",
+        "tags": [
+          "Capabilities"
+        ]
+      }
+    },
     "/dataflow/verify": {
       "post": {
-        "description": "**Purpose:** Sends a test IoT message and verifies it propagates through the entire pipeline (ingestion \u2192 processing \u2192 storage \u2192 digital twin \u2192 events).\n\n**Response:** SSE stream with phase-by-phase results.\n\n**Duration:** 1-15 minutes depending on cold starts.",
+        "description": "Sends one bounded test message and streams phase results for message delivery, hot storage, digital-twin readiness, and event flow.",
         "operationId": "verifyDataFlow",
         "parameters": [
           {
@@ -1198,7 +1410,19 @@
             "required": true,
             "schema": {
               "description": "Digital twin project name",
+              "maxLength": 128,
+              "minLength": 1,
               "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
               "type": "string"
             }
           }
@@ -1223,23 +1447,16 @@
             "description": "SSE stream with verification results"
           },
           "400": {
-            "description": "Invalid payload or missing configuration"
+            "description": "Invalid or incomplete project configuration"
           },
           "404": {
             "description": "Project not found"
           },
           "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+            "description": "Invalid verification payload"
           }
         },
-        "summary": "Verify end-to-end data flow through deployed pipeline",
+        "summary": "Verify deployed data flow with trace-correlated evidence",
         "tags": [
           "Verification"
         ]
@@ -1286,23 +1503,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "413": {
             "content": {
               "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -1312,24 +1529,14 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           }
         },
         "summary": "Build function deployment ZIP",
@@ -1370,17 +1577,14 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "422": {
             "content": {
@@ -1396,13 +1600,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -1418,7 +1619,7 @@
     },
     "/functions/update_function/{function_name}": {
       "post": {
-        "description": "**Purpose:** Deploy updated function code to cloud via SDK (boto3/Kudu/gcloud).\n\n**When to call:** After modifying function code locally.\n\n**Process:** Build ZIP \u2192 Compare hash \u2192 Upload if changed \u2192 Save metadata.",
+        "description": "**Purpose:** Deploy updated function code to cloud via SDK (boto3/Kudu/gcloud).\n\n**When to call:** After modifying function code locally.\n\n**Process:** Build provider artifact \u2192 Compare deployed evidence \u2192 Upload if changed \u2192 Record deployment evidence.",
         "operationId": "updateFunctionCode",
         "parameters": [
           {
@@ -1468,17 +1669,14 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "422": {
             "content": {
@@ -1494,13 +1692,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -1509,8 +1704,11 @@
           "502": {
             "content": {
               "application/json": {
+                "example": {
+                  "detail": "The cloud provider operation failed."
+                },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -1614,6 +1812,16 @@
               "title": "Project Name",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1674,6 +1882,16 @@
               "default": "template",
               "description": "Name of the project context",
               "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
               "type": "string"
             }
           }
@@ -1738,6 +1956,16 @@
               "title": "Project Name",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1797,6 +2025,16 @@
               "title": "Project Name",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1830,43 +2068,57 @@
     },
     "/infrastructure/status": {
       "get": {
-        "description": "**Purpose:** Unified status check for infrastructure, user functions, and SDK-managed resources.\n\n**Returns three categories:**\n- `infrastructure`: Terraform-managed resources (fast, local state check)\n- `user_functions`: Function deployment status (from hash metadata)\n- `sdk_managed`: Dynamic resources (TwinMaker entities, IoT devices)\n\n**Performance:**\n- Default: ~instant (local state file)\n- With `detailed=true`: 5-30 seconds (cloud API drift detection)",
         "operationId": "getDeploymentStatus",
         "parameters": [
           {
-            "description": "Cloud provider: aws, azure, or google",
+            "description": "Cloud provider: aws, azure, or gcp",
             "in": "query",
             "name": "provider",
-            "required": false,
+            "required": true,
             "schema": {
-              "default": "aws",
-              "description": "Cloud provider: aws, azure, or google",
+              "description": "Cloud provider: aws, azure, or gcp",
               "title": "Provider",
               "type": "string"
             }
           },
           {
-            "description": "Name of the project context",
             "in": "query",
             "name": "project_name",
-            "required": false,
+            "required": true,
             "schema": {
-              "default": "template",
-              "description": "Name of the project context",
+              "maxLength": 128,
+              "minLength": 1,
               "title": "Project Name",
               "type": "string"
             }
           },
           {
-            "description": "Include drift detection (slower, makes cloud API calls)",
+            "description": "Include live drift detection",
             "in": "query",
             "name": "detailed",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Include drift detection (slower, makes cloud API calls)",
+              "description": "Include live drift detection",
               "title": "Detailed",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Operation-Package"
             }
           }
         ],
@@ -1883,17 +2135,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The requested project or resource was not found."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
           },
           "422": {
             "content": {
@@ -1909,20 +2171,17 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Check complete deployment status across all layers",
+        "summary": "Check deployment status across managed resource boundaries",
         "tags": [
           "Infrastructure"
         ]
@@ -1930,30 +2189,37 @@
     },
     "/infrastructure/verify": {
       "post": {
-        "description": "**Purpose:** Run a structured pass/fail/skip check for every resource layer (L0\u2013L5).\n\n**Returns:**\n- `checks`: List of individual check results (name, status, provider, detail)\n- `summary`: Overall counts and healthy boolean\n\n**Performance:** 5-30 seconds (cloud SDK calls for IoT, TwinMaker/ADT, Azure Functions)\n\n**Use case:** Deployment verification in the UI.",
         "operationId": "verifyInfrastructure",
         "parameters": [
           {
-            "description": "Primary cloud provider: aws, azure, or google",
+            "description": "Primary cloud provider",
             "in": "query",
             "name": "provider",
-            "required": false,
+            "required": true,
             "schema": {
-              "default": "aws",
-              "description": "Primary cloud provider: aws, azure, or google",
+              "description": "Primary cloud provider",
               "title": "Provider",
               "type": "string"
             }
           },
           {
-            "description": "Name of the project context",
             "in": "query",
             "name": "project_name",
-            "required": false,
+            "required": true,
             "schema": {
-              "default": "template",
-              "description": "Name of the project context",
+              "maxLength": 128,
+              "minLength": 1,
               "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
               "type": "string"
             }
           }
@@ -1971,17 +2237,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The requested project or resource was not found."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
           },
           "422": {
             "content": {
@@ -1997,20 +2273,17 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Structured infrastructure verification across all layers",
+        "summary": "Verify configured infrastructure across L0-L5",
         "tags": [
           "Infrastructure"
         ]
@@ -2018,17 +2291,26 @@
     },
     "/logs/trace/start": {
       "post": {
-        "description": "**Purpose:** Initiates end-to-end log tracing by sending a test IoT message.\n\n**When to call:** To verify the EDT pipeline is working after deployment.\n\n**Rate limited:** 1 trace per 30 seconds per project.\n**Returns:** trace_id to use with /trace/stream/{trace_id}",
         "operationId": "startLogTrace",
         "parameters": [
           {
-            "description": "Digital twin project name",
             "in": "query",
             "name": "project_name",
             "required": true,
             "schema": {
-              "description": "Digital twin project name",
+              "maxLength": 128,
+              "minLength": 1,
               "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
               "type": "string"
             }
           }
@@ -2040,19 +2322,29 @@
                 "schema": {}
               }
             },
-            "description": "Trace started, returns trace_id and provider info"
+            "description": "Trace started"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2069,26 +2361,23 @@
             "description": "Validation Error"
           },
           "429": {
-            "description": "Rate limited, wait before retrying"
+            "description": "Trace cooldown active"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Send test IoT message with unique trace_id",
+        "summary": "Send one traceable IoT test message",
         "tags": [
           "Logs"
         ]
@@ -2096,7 +2385,6 @@
     },
     "/logs/trace/stream/{trace_id}": {
       "get": {
-        "description": "**Purpose:** Streams logs from all cloud providers containing the trace_id.\n\n**When to call:** After calling /trace/start, use the returned trace_id.\n\n**SSE Events:** 'log' (each matching entry), 'error', 'done' (with summary).\n**Duration:** Polls providers every 2s for 90s.",
         "operationId": "streamLogTrace",
         "parameters": [
           {
@@ -2113,7 +2401,19 @@
             "name": "project_name",
             "required": true,
             "schema": {
+              "maxLength": 128,
+              "minLength": 1,
               "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
               "type": "string"
             }
           }
@@ -2125,29 +2425,26 @@
                 "schema": {}
               }
             },
-            "description": "SSE stream with log events"
+            "description": "SSE stream with log, error, heartbeat, and done events"
           },
           "403": {
-            "description": "Trace ID does not belong to this project"
+            "description": "Trace belongs to another project"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Not Found - The requested resource does not exist"
           },
           "410": {
-            "description": "Trace ID expired (older than 2 minutes)"
+            "description": "Trace expired"
           },
           "422": {
             "content": {
@@ -2158,25 +2455,9 @@
               }
             },
             "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "SSE endpoint streaming logs matching trace_id",
+        "summary": "Stream trace-correlated logs from configured providers",
         "tags": [
           "Logs"
         ]
@@ -2211,36 +2492,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2282,36 +2550,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2353,36 +2608,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2434,13 +2676,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "FORBIDDEN",
-                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
-                  "http_status": 403,
-                  "message": "The requested operation is protected in this runtime."
+                  "detail": "The requested operation is not permitted in this runtime."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2450,13 +2689,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2476,13 +2712,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2522,36 +2755,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2603,13 +2823,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "FORBIDDEN",
-                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
-                  "http_status": 403,
-                  "message": "The requested operation is protected in this runtime."
+                  "detail": "The requested operation is not permitted in this runtime."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2619,13 +2836,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2645,13 +2859,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2691,36 +2902,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2772,13 +2970,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "FORBIDDEN",
-                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
-                  "http_status": 403,
-                  "message": "The requested operation is protected in this runtime."
+                  "detail": "The requested operation is not permitted in this runtime."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2788,13 +2983,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2814,13 +3006,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2860,36 +3049,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2919,13 +3095,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -2977,40 +3150,40 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           }
         },
         "summary": "Create new project from uploaded ZIP file",
@@ -3047,17 +3220,17 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Not Found - The requested resource does not exist"
+          },
+          "409": {
+            "description": "Project has an active deployment operation"
           },
           "422": {
             "content": {
@@ -3073,13 +3246,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3118,6 +3288,32 @@
             },
             "description": "TwinMaker workspace deleted"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The requested project or resource was not found."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3132,13 +3328,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3191,13 +3384,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3217,13 +3407,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3270,33 +3457,40 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Not Found - The requested resource does not exist"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -3312,13 +3506,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3333,7 +3524,7 @@
     },
     "/projects/{project_name}/export": {
       "get": {
-        "description": "**Purpose:** Download a complete project as a ZIP file.\n\n**When to call:** For backup, sharing, or migrating projects.\n\n**Contents:** All configs, hierarchies, state machines, payloads, 3D assets.",
+        "description": "**Purpose:** Download a portable, non-secret project definition as a ZIP file.\n\n**When to call:** For backup, sharing, or migrating projects.\n\n**Contents:** Non-secret configs, hierarchies, state machines, user code, payloads, and 3D assets. Credentials, Terraform state, generated runtime configuration, device keys, and internal metadata are excluded.",
         "operationId": "exportProjectZip",
         "parameters": [
           {
@@ -3361,13 +3552,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3387,13 +3575,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3436,13 +3621,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3462,13 +3644,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3522,13 +3701,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "FORBIDDEN",
-                  "fix_suggestion": "Use the dedicated endpoint or start the explicit local-cloud Compose override when local file access is required.",
-                  "http_status": 403,
-                  "message": "The requested operation is protected in this runtime."
+                  "detail": "The requested operation is not permitted in this runtime."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3538,13 +3714,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3564,13 +3737,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3632,29 +3802,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3674,13 +3838,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3721,29 +3882,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3763,13 +3918,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3777,6 +3929,96 @@
           }
         },
         "summary": "Update project metadata",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/operation-package": {
+      "post": {
+        "description": "Persist a secret-free project definition and stage secrets for one operation.",
+        "operationId": "stageDeploymentOperationPackage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_stageDeploymentOperationPackage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Operation package staged"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error. Check logs."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Stage one short-lived deployment operation package",
         "tags": [
           "Projects"
         ]
@@ -3810,17 +4052,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -3836,13 +4088,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3877,6 +4126,16 @@
               "title": "Provider",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3892,29 +4151,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -3973,33 +4226,40 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Not Found - The requested resource does not exist"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4015,13 +4275,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4064,13 +4321,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4123,29 +4377,23 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "404": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
+                  "detail": "The requested project or resource was not found."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4205,17 +4453,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4231,13 +4489,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4252,7 +4507,7 @@
     },
     "/validate/deployer-complete": {
       "post": {
-        "description": "Validates ALL deployer configuration files and functions for state transition to 'configured'.\n\n**Checks performed (reuses existing validators):**\n- `deployer_digital_twin_name`: Non-empty, valid format (alphanumeric, hyphen, underscore, max 15 chars)\n- `config_events`, `config_iot_devices`: Required, schema validation\n- `payloads`: Required\n- `processors`: One per device in config_iot_devices, code validation\n- `hierarchy`: Required if L4 = AWS or Azure, schema validation\n- `scene_config`, `scene_glb`: Required if needs3DModel = true and L4 = AWS/Azure\n- `event_feedback`: Required if returnFeedbackToDevice = true\n- `event_actions`: One per action functionName in config_events (if useEventChecking = true)\n- `state_machine`: Required if triggerNotificationWorkflow = true\n- `user_config`: Required if L5 = AWS or Azure\n\n**Returns all errors, not just the first one.**",
+        "description": "Validates all deployer wizard fields, cross-field references, provider-specific function contracts, optional capabilities, and platform-user configuration. Returns all deterministic field errors without provider fallbacks.",
         "operationId": "validateDeployerComplete",
         "requestBody": {
           "content": {
@@ -4331,17 +4586,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4357,13 +4622,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4415,17 +4677,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4441,13 +4713,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4487,17 +4756,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4513,13 +4792,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4571,17 +4847,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4597,13 +4883,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4639,6 +4922,19 @@
             },
             "description": "Payloads structure is valid"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -4653,13 +4949,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4711,17 +5004,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4737,13 +5040,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4795,17 +5095,27 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -4821,13 +5131,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4867,17 +5174,14 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "422": {
             "content": {
@@ -4893,13 +5197,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
@@ -4914,28 +5215,33 @@
     },
     "/validate/zip/extract": {
       "post": {
-        "description": "**Purpose:** Extracts and validates project zip for Flutter wizard auto-population.\n\n**When to call:** From Step 3 wizard to import existing project files.\n\n**Mode A:** Pass validation_context to skip credentials (wizard step 3).\n**Mode B:** Full import with include_credentials=true.",
+        "description": "Validates a bounded project ZIP and returns configuration, function, and scene fields for wizard auto-population. Credential files are never returned.",
         "operationId": "extractProjectZip",
         "parameters": [
           {
-            "description": "JSON ValidationContext for Mode A",
             "in": "query",
             "name": "validation_context",
             "required": false,
             "schema": {
-              "description": "JSON ValidationContext for Mode A",
-              "title": "Validation Context",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Validation Context"
             }
           },
           {
-            "description": "Include credentials in response (Mode B only)",
+            "description": "Deprecated; credential content cannot be returned",
             "in": "query",
             "name": "include_credentials",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Include credentials in response (Mode B only)",
+              "description": "Deprecated; credential content cannot be returned",
               "title": "Include Credentials",
               "type": "boolean"
             }
@@ -4955,71 +5261,57 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ZipExtractionResponse"
+                }
               }
             },
-            "description": "Extraction successful with file contents"
+            "description": "Extraction completed with aggregated validation results"
           },
           "400": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Bad Request - The request was malformed or missing required parameters"
+            "description": "Bad Request - The request is invalid for this operation"
           },
           "413": {
-            "description": "File too large (max 100MB)"
+            "description": "Compressed or expanded archive limit exceeded"
           },
           "422": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
+                  "detail": "The request body failed validation."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error - Request body failed schema validation"
+            "description": "Validation Error - The request body failed schema validation"
           },
           "500": {
             "content": {
               "application/json": {
                 "example": {
-                  "error_code": "INTERNAL_ERROR",
-                  "fix_suggestion": "Retry the request. If the error persists, check server logs or contact support.",
-                  "http_status": 500,
-                  "message": "An unexpected error occurred while processing your request"
+                  "detail": "Internal server error. Check logs."
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
                 }
               }
             },
             "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Extract and validate project zip for wizard auto-population",
+        "summary": "Validate and extract non-secret project fields",
         "tags": [
           "Validation"
         ]

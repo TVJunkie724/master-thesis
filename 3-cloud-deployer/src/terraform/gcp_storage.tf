@@ -7,15 +7,14 @@
 # - Firestore Database (Native): Hot storage for real-time queries
 # - Cloud Storage Bucket (Nearline): Cold storage
 # - Cloud Storage Bucket (Archive): Archive storage
-# - Lifecycle Policies: Automatic cold->archive transitions
-# - Cloud Scheduler + Function: Hot-to-cold mover
+# - Cloud Scheduler + Function: Source-owned storage transitions
 #
 # Storage Tiers:
 # - Hot: Firestore (< 30 days by default)
 # - Cold: Cloud Storage Nearline (30-90 days by default)
 # - Archive: Cloud Storage Archive (> 90 days by default)
 #
-# Note: Cold->Archive transition uses lifecycle policies (no function needed).
+# Each transition is owned by exactly one scheduled source-side mover.
 
 # ==============================================================================
 # Firestore Database (Hot Storage)
@@ -28,7 +27,7 @@ resource "google_firestore_database" "main" {
   # Note: Database IDs must be 1-63 chars, lowercase letters, numbers, hyphens
   name        = local.gcp_l3_firestore_database
   location_id = var.gcp_region
-  type        = "FIRESTORE_NATIVE"
+  type        = var.gcp_firestore_mode
 
   # Allow deletion without protection
   deletion_policy = "DELETE"
@@ -70,7 +69,7 @@ resource "google_storage_bucket" "cold" {
   project       = local.gcp_project_id
   name          = local.gcp_l3_cold_bucket
   location      = var.gcp_region
-  storage_class = "NEARLINE"
+  storage_class = var.gcp_l3_cool_storage_class
   force_destroy = true
 
   uniform_bucket_level_access = true
@@ -78,17 +77,6 @@ resource "google_storage_bucket" "cold" {
   # Disable soft-delete to allow immediate bucket name reuse
   soft_delete_policy {
     retention_duration_seconds = 0
-  }
-
-  # Lifecycle: Move to Archive after cold_to_archive_interval_days
-  lifecycle_rule {
-    condition {
-      age = var.layer_3_cold_to_archive_interval_days
-    }
-    action {
-      type          = "SetStorageClass"
-      storage_class = "ARCHIVE"
-    }
   }
 
   labels = local.gcp_common_labels
@@ -101,11 +89,11 @@ resource "google_storage_bucket" "cold" {
 # ==============================================================================
 
 resource "google_storage_bucket" "archive" {
-  count         = local.gcp_l3_archive_enabled && !local.gcp_l3_cold_enabled ? 1 : 0
+  count         = local.gcp_l3_archive_enabled ? 1 : 0
   project       = local.gcp_project_id
   name          = local.gcp_l3_archive_bucket
   location      = var.gcp_region
-  storage_class = "ARCHIVE"
+  storage_class = var.gcp_l3_archive_storage_class
   force_destroy = true
 
   uniform_bucket_level_access = true
@@ -165,9 +153,9 @@ resource "google_cloudfunctions2_function" "hot_reader" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l3_reader_function_max_instances
+    min_instance_count    = var.gcp_l3_reader_function_min_instances
+    available_memory      = "${var.gcp_l3_reader_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -214,9 +202,9 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
   }
 
   service_config {
-    max_instance_count    = 1
-    min_instance_count    = 0
-    available_memory      = "512M"
+    max_instance_count    = var.gcp_hot_to_cool_mover_max_instances
+    min_instance_count    = var.gcp_hot_to_cool_mover_min_instances
+    available_memory      = "${var.gcp_hot_to_cool_mover_memory_mb}M"
     timeout_seconds       = 540 # 9 minutes for batch processing
     service_account_email = google_service_account.functions[0].email
 
@@ -227,6 +215,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
       FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
       FIRESTORE_DATABASE   = local.gcp_firestore_database_name
       COLD_BUCKET_NAME     = try(google_storage_bucket.cold[0].name, "")
+      COLD_STORAGE_CLASS   = local.gcp_l3_cold_enabled ? var.gcp_l3_cool_storage_class : ""
       HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
 
       # Multi-cloud Hot→Cold: When GCP L3 Hot sends to remote Cold
@@ -259,7 +248,7 @@ resource "google_cloud_scheduler_job" "hot_to_cold" {
   name     = local.gcp_l3_hot_to_cold_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
-  schedule = "0 2 * * *" # Run daily at 2 AM
+  schedule = var.gcp_hot_to_cool_scheduler_cron
 
   http_target {
     uri         = google_cloudfunctions2_function.hot_to_cold_mover[0].url
@@ -329,19 +318,20 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
   }
 
   service_config {
-    max_instance_count    = 1
-    min_instance_count    = 0
-    available_memory      = "512M"
+    max_instance_count    = var.gcp_cool_to_archive_mover_max_instances
+    min_instance_count    = var.gcp_cool_to_archive_mover_min_instances
+    available_memory      = "${var.gcp_cool_to_archive_mover_memory_mb}M"
     timeout_seconds       = 540 # 9 minutes for batch processing
     service_account_email = google_service_account.functions[0].email
 
     environment_variables = {
-      DIGITAL_TWIN_NAME   = var.digital_twin_name
-      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
-      GCP_PROJECT_ID      = local.gcp_project_id
-      COLD_BUCKET_NAME    = google_storage_bucket.cold[0].name
-      ARCHIVE_BUCKET_NAME = local.gcp_l3_archive_enabled ? try(google_storage_bucket.archive[0].name, google_storage_bucket.cold[0].name) : ""
-      COLD_RETENTION_DAYS = var.layer_3_cold_to_archive_interval_days
+      DIGITAL_TWIN_NAME     = var.digital_twin_name
+      DIGITAL_TWIN_INFO     = var.digital_twin_info_json
+      GCP_PROJECT_ID        = local.gcp_project_id
+      COLD_BUCKET_NAME      = google_storage_bucket.cold[0].name
+      ARCHIVE_BUCKET_NAME   = local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
+      ARCHIVE_STORAGE_CLASS = local.gcp_l3_archive_enabled ? var.gcp_l3_archive_storage_class : ""
+      COLD_RETENTION_DAYS   = var.layer_3_cold_to_archive_interval_days
 
       # Multi-cloud Cold→Archive: When GCP L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "google" && var.layer_3_archive_provider != "google" ? (
@@ -360,6 +350,7 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
     google_project_service.cloudfunctions,
     google_project_service.run,
     google_storage_bucket.cold,
+    google_storage_bucket.archive,
     google_project_iam_member.functions_custom_role
   ]
 }
@@ -373,7 +364,7 @@ resource "google_cloud_scheduler_job" "cold_to_archive" {
   name     = local.gcp_l3_cold_to_archive_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
-  schedule = "0 3 * * 0" # Run weekly on Sunday at 3 AM
+  schedule = var.gcp_cool_to_archive_scheduler_cron
 
   http_target {
     uri         = google_cloudfunctions2_function.cold_to_archive_mover[0].url

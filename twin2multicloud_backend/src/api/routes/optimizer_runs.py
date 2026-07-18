@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -15,12 +16,21 @@ from src.schemas.cost_calculation import (
     CostCalculationRunSummaryResponse,
     PricingEvidenceDetailResponse,
 )
-from src.services.cost_calculation_run_service import CostCalculationRunService, _json_loads
+from src.schemas.resolved_deployment_specification import (
+    ResolvedDeploymentSpecification,
+)
+from src.services.cost_calculation_run_service import (
+    CostCalculationRunService,
+    _json_loads,
+    safe_pricing_catalog_context,
+    validate_persisted_run_deployment_specification,
+)
 from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
     ExternalServiceUnavailable,
     OptimizerContractError,
+    PricingCatalogUnavailable,
     TwinNotFound,
 )
 
@@ -62,10 +72,7 @@ async def create_optimizer_run(
             twin_id,
             current_user.id,
             request.params,
-            pricing_snapshots=request.pricing_snapshots,
-            pricing_timestamps=request.pricing_timestamps,
             pricing_evidence_version=request.pricing_evidence_version,
-            pricing_run_reference=request.pricing_run_reference,
         )
         return _run_detail_response(run)
     except TwinNotFound as exc:
@@ -84,6 +91,11 @@ async def create_optimizer_run(
         raise HTTPException(
             status_code=502,
             detail=_error_detail("OPTIMIZER_CONTRACT_INVALID", exc.message, exc.errors),
+        )
+    except PricingCatalogUnavailable as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=_error_detail(exc.error_code, exc.message),
         )
 
 
@@ -166,6 +178,8 @@ async def get_optimizer_run_pricing_evidence(
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
         409: ERROR_RESPONSES[409],
+        502: {"description": "Pricing catalog verification failed"},
+        503: {"description": "Optimizer unavailable"},
     },
 )
 async def select_optimizer_run_for_deployment(
@@ -175,15 +189,52 @@ async def select_optimizer_run_for_deployment(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        run = service.select_for_deployment(twin_id, current_user.id, run_id)
+        run = await service.select_for_deployment(
+            twin_id,
+            current_user.id,
+            run_id,
+        )
         return CostCalculationRunSelectResponse(
             run=_run_summary_response(run),
             selected_for_deployment_at=run.selected_for_deployment_at,
+            resolved_deployment_specification=(
+                validate_persisted_run_deployment_specification(
+                    run
+                ).specification
+            ),
         )
     except TwinNotFound as exc:
         raise HTTPException(status_code=404, detail=exc.message)
     except CostCalculationRunSelectionError as exc:
-        raise HTTPException(status_code=409, detail=exc.message)
+        raise HTTPException(
+            status_code=409,
+            detail=_error_detail(exc.error_code, exc.message),
+        )
+    except ExternalServiceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail=_error_detail(
+                "OPTIMIZER_UNAVAILABLE",
+                "Optimizer service is unavailable.",
+            ),
+        )
+    except ExternalServiceError:
+        raise HTTPException(
+            status_code=502,
+            detail=_error_detail(
+                "OPTIMIZER_ERROR",
+                "Optimizer service returned an error.",
+            ),
+        )
+    except OptimizerContractError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=_error_detail(
+                "OPTIMIZER_CONTRACT_INVALID",
+                exc.message,
+                exc.errors,
+            ),
+        )
 
 
 def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryResponse:
@@ -203,6 +254,14 @@ def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryR
         pricing_registry_version=run.pricing_registry_version,
         pricing_evidence_version=run.pricing_evidence_version,
         pricing_run_reference=run.pricing_run_reference,
+        pricing_catalog_context=safe_pricing_catalog_context(
+            run.pricing_catalog_context_json
+        ),
+        deployment_specification_digest=run.deployment_specification_digest,
+        deployment_specification_version=run.deployment_specification_version,
+        deployment_compatibility_status=(
+            run.deployment_compatibility_status or "legacy_not_deployable"
+        ),
         created_at=run.created_at,
         completed_at=run.completed_at,
         selected_for_deployment_at=run.selected_for_deployment_at,
@@ -216,8 +275,21 @@ def _run_detail_response(run: CostCalculationRun) -> CostCalculationRunDetailRes
         **_run_summary_response(run).model_dump(),
         params=_json_loads(run.params_json) or {},
         result_summary=_json_loads(run.result_summary_json),
+        resolved_deployment_specification=_safe_deployment_specification(run),
         result_items=[_result_item_response(item) for item in run.result_items],
     )
+
+
+def _safe_deployment_specification(
+    run: CostCalculationRun,
+) -> ResolvedDeploymentSpecification | None:
+    raw = _json_loads(run.deployment_specification_json)
+    if raw is None:
+        return None
+    try:
+        return ResolvedDeploymentSpecification.model_validate(raw)
+    except ValidationError:
+        return None
 
 
 def _result_item_response(

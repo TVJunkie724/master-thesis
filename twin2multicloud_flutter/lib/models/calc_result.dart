@@ -1,3 +1,6 @@
+import 'pricing_catalog.dart';
+import 'optimizer_transfer_pricing.dart';
+
 /// Calculation result from Optimizer API.
 ///
 /// Contains cost breakdown for all providers, cheapest path,
@@ -41,6 +44,9 @@ class CalcResult {
   final IntentResultTrace? intentTrace;
   final String? fieldTraceSchemaVersion;
   final List<PricingFieldTraceRecord> fieldTraceRecords;
+  final PricingCatalogContext? pricingCatalogContext;
+  final TransferPricingContext? transferPricingContext;
+  final CompletePathOptimizationDiagnostics? optimizationDiagnostics;
 
   /// Input params used for the calculation (for invalidation detection)
   final InputParamsUsed inputParamsUsed;
@@ -67,6 +73,9 @@ class CalcResult {
     this.intentTrace,
     this.fieldTraceSchemaVersion,
     this.fieldTraceRecords = const [],
+    this.pricingCatalogContext,
+    this.transferPricingContext,
+    this.optimizationDiagnostics,
     required this.inputParamsUsed,
   });
 
@@ -95,6 +104,32 @@ class CalcResult {
         }
       });
       return map;
+    }
+
+    final pricingCatalogContext = result['pricingCatalogs'] is Map
+        ? PricingCatalogContext.fromJson(
+            Map<String, dynamic>.from(result['pricingCatalogs'] as Map),
+          )
+        : null;
+    final hasTransferContext = result['transferPricingContext'] != null;
+    final hasOptimizationDiagnostics =
+        result['optimizationDiagnostics'] != null;
+    if (hasTransferContext != hasOptimizationDiagnostics) {
+      throw const FormatException(
+        'Invalid API contract: transfer evidence fields must be provided together.',
+      );
+    }
+    OptimizerTransferEvidence? transferEvidence;
+    if (hasTransferContext) {
+      if (pricingCatalogContext == null) {
+        throw const FormatException(
+          'Invalid API contract: transfer evidence requires pricing catalogs.',
+        );
+      }
+      transferEvidence = OptimizerTransferEvidence.fromResult(
+        result,
+        pricingCatalogContext: pricingCatalogContext,
+      );
     }
 
     return CalcResult(
@@ -159,6 +194,9 @@ class CalcResult {
         result['resultTrace'],
         PricingFieldTraceRecord.fromJson,
       ),
+      pricingCatalogContext: pricingCatalogContext,
+      transferPricingContext: transferEvidence?.context,
+      optimizationDiagnostics: transferEvidence?.diagnostics,
       inputParamsUsed: InputParamsUsed.fromJson(
         result['inputParamsUsed'] as Map<String, dynamic>? ?? {},
       ),

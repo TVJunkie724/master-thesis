@@ -13,7 +13,13 @@ Each layer calculator:
 
 from typing import Dict, Any
 
-from .contracts import BaseLayerCalculatorSet, LayerResult, SUPPORTED_LAYER_KEYS
+from .contracts import (
+    BaseLayerCalculatorSet,
+    ComponentDeploymentSelection,
+    LayerResult,
+    SUPPORTED_LAYER_KEYS,
+    TransitionRuntimeResult,
+)
 
 from ..components.aws import (
     AWSIoTCoreCalculator,
@@ -26,6 +32,45 @@ from ..components.aws import (
     AWSTwinMakerCalculator,
     AWSGrafanaCalculator,
 )
+from ..components.aws.twinmaker import evaluate_twinmaker_context
+from ..deployment_profiles import (
+    AWS_MOVER_LAMBDA_MEMORY_MB,
+    AWS_STANDARD_LAMBDA_MEMORY_MB,
+    MOVER_FUNCTION_DURATION_MS,
+    STANDARD_FUNCTION_DURATION_MS,
+)
+
+
+def _selection(
+    component_id: str,
+    **dimensions: str | int | bool,
+) -> ComponentDeploymentSelection:
+    return ComponentDeploymentSelection(component_id, dimensions)
+
+
+def _standard_lambda_selection(component_id: str) -> ComponentDeploymentSelection:
+    return _selection(
+        component_id,
+        **{
+            "aws.lambda.memory_mb": AWS_STANDARD_LAMBDA_MEMORY_MB,
+            "aws.lambda.duration_ms": STANDARD_FUNCTION_DURATION_MS,
+        },
+    )
+
+
+def _mover_lambda_selection(
+    component_id: str,
+    *,
+    schedule_expression: str,
+) -> ComponentDeploymentSelection:
+    return _selection(
+        component_id,
+        **{
+            "aws.lambda.memory_mb": AWS_MOVER_LAMBDA_MEMORY_MB,
+            "aws.lambda.duration_ms": MOVER_FUNCTION_DURATION_MS,
+            "aws.eventbridge.schedule_expression": schedule_expression,
+        },
+    )
 
 class AWSLayerCalculators(BaseLayerCalculatorSet):
     """
@@ -90,7 +135,14 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             total_cost=total,
             data_size_gb=data_size_gb,
             messages=messages_per_month,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l1.aws.iot_core",
+                    **{"aws.iot_core.message_pricing": "progressive_usage"},
+                ),
+                _standard_lambda_selection("l1.aws.dispatcher_lambda"),
+            ),
         )
     
     def calculate_l2_cost(
@@ -200,11 +252,30 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         
         total = sum(components.values())
         
+        deployment_selections = [
+            _standard_lambda_selection("l2.aws.processing_lambdas")
+        ]
+        if use_event_checking and trigger_notification_workflow:
+            deployment_selections.append(
+                _selection(
+                    "l2.aws.step_functions",
+                    **{"aws.step_functions.billing": "state_transitions"},
+                )
+            )
+        if integrate_error_handling:
+            deployment_selections.append(
+                _selection(
+                    "l2.aws.eventbridge",
+                    **{"aws.eventbridge.billing": "events"},
+                )
+            )
+
         return self._result(
             layer="L2",
             total_cost=total,
             messages=executions_per_month,
-            components=components
+            components=components,
+            deployment_selections=tuple(deployment_selections),
         )
     
     def calculate_l3_hot_cost(
@@ -259,7 +330,14 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             layer="L3_hot",
             total_cost=total,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_hot.aws.dynamodb",
+                    **{"aws.dynamodb.billing_mode": "PAY_PER_REQUEST"},
+                ),
+                _standard_lambda_selection("l3_hot.aws.reader_lambdas"),
+            ),
         )
     
     def calculate_l3_cool_cost(
@@ -268,19 +346,8 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         writes_per_month: float,
         pricing: Dict[str, Any],
         retrievals_gb: float = 0.0,
-        mover_runs_per_month: int = 30
     ) -> LayerResult:
-        """
-        Calculate L3 Cool Storage layer cost.
-        
-        Components:
-            - S3 Infrequent Access (storage)
-            - Hot-Cold Mover Lambda (scheduled data migration)
-            - EventBridge Rule (scheduler trigger)
-        
-        Args:
-            mover_runs_per_month: Number of times mover runs (default: daily = 30)
-        """
+        """Calculate destination-independent S3 Infrequent Access cost."""
         components = {}
         
         # S3 IA cost
@@ -291,30 +358,18 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             retrievals_gb=retrievals_gb
         )
         components["s3_ia"] = s3_cost
-        
-        # Hot-Cold Mover Lambda (scheduled to run periodically)
-        # Data movers typically run longer than normal Lambdas
-        mover_cost = self.lambda_calc.calculate_cost(
-            executions=mover_runs_per_month,
-            pricing=pricing,
-            duration_ms=5000  # Mover takes longer (5 seconds)
-        )
-        components["hot_cold_mover_lambda"] = mover_cost
-        
-        # EventBridge Rule (minimal cost for scheduler)
-        eb_cost = self.eventbridge.calculate_cost(
-            events=mover_runs_per_month,
-            pricing=pricing
-        )
-        components["eventbridge_scheduler"] = eb_cost
-        
-        total = sum(components.values())
-        
+
         return self._result(
             layer="L3_cool",
-            total_cost=total,
+            total_cost=s3_cost,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_cool.aws.s3",
+                    **{"aws.s3.storage_class": "STANDARD_IA"},
+                ),
+            ),
         )
     
     def calculate_l3_archive_cost(
@@ -323,19 +378,8 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         writes_per_month: float,
         pricing: Dict[str, Any],
         retrievals_gb: float = 0.0,
-        mover_runs_per_month: int = 4
     ) -> LayerResult:
-        """
-        Calculate L3 Archive Storage layer cost.
-        
-        Components:
-            - S3 Glacier Deep Archive (storage)
-            - Cold-Archive Mover Lambda (scheduled archival)
-            - EventBridge Rule (scheduler trigger)
-        
-        Args:
-            mover_runs_per_month: Number of times mover runs (default: weekly = 4)
-        """
+        """Calculate destination-independent S3 Glacier archive cost."""
         components = {}
         
         # S3 Glacier cost
@@ -346,29 +390,75 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             retrievals_gb=retrievals_gb
         )
         components["s3_glacier"] = glacier_cost
-        
-        # Cold-Archive Mover Lambda (scheduled to run periodically)
-        mover_cost = self.lambda_calc.calculate_cost(
-            executions=mover_runs_per_month,
-            pricing=pricing,
-            duration_ms=5000  # Mover takes longer (5 seconds)
-        )
-        components["cold_archive_mover_lambda"] = mover_cost
-        
-        # EventBridge Rule (minimal cost for scheduler)
-        eb_cost = self.eventbridge.calculate_cost(
-            events=mover_runs_per_month,
-            pricing=pricing
-        )
-        components["eventbridge_scheduler"] = eb_cost
-        
-        total = sum(components.values())
-        
+
         return self._result(
             layer="L3_archive",
-            total_cost=total,
+            total_cost=glacier_cost,
             data_size_gb=storage_gb,
-            components=components
+            components=components,
+            deployment_selections=(
+                _selection(
+                    "l3_archive.aws.s3",
+                    **{"aws.s3.storage_class": "DEEP_ARCHIVE"},
+                ),
+            ),
+        )
+
+    def calculate_transition_runtime(
+        self,
+        *,
+        edge_id: str,
+        monthly_invocations: int,
+        invocation_basis: str,
+        pricing: Dict[str, Any],
+    ) -> TransitionRuntimeResult:
+        """Calculate the Lambda and EventBridge runtime owned by source storage."""
+
+        runtime_profiles = {
+            "l3_hot_to_l3_cool": (
+                "transition.l3_hot_to_l3_cool.aws.runtime",
+                "rate(1 day)",
+            ),
+            "l3_cool_to_l3_archive": (
+                "transition.l3_cool_to_l3_archive.aws.runtime",
+                "rate(7 days)",
+            ),
+        }
+        try:
+            component_id, schedule_expression = runtime_profiles[edge_id]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported AWS transition runtime edge: {edge_id!r}"
+            ) from exc
+
+        function_cost = self.lambda_calc.calculate_cost(
+            executions=monthly_invocations,
+            pricing=pricing,
+            duration_ms=MOVER_FUNCTION_DURATION_MS,
+            memory_mb=AWS_MOVER_LAMBDA_MEMORY_MB,
+        )
+        # Terraform deploys a legacy same-account scheduled rule, not custom
+        # event ingestion. The custom EventBridge event-bus row therefore does
+        # not describe this trigger and must not be charged here.
+        trigger_cost = 0.0
+        return TransitionRuntimeResult(
+            edge_id=edge_id,
+            provider=self.provider,
+            monthly_invocations=monthly_invocations,
+            invocation_basis=invocation_basis,
+            function_cost=function_cost,
+            trigger_cost=trigger_cost,
+            total_cost=function_cost + trigger_cost,
+            formula_references=(
+                "execution_based_cost",
+            ),
+            evidence_references=(
+                "aws.lambda",
+            ),
+            deployment_selection=_mover_lambda_selection(
+                component_id,
+                schedule_expression=schedule_expression,
+            ),
         )
     
     def calculate_l4_cost(
@@ -376,14 +466,28 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         entity_count: int,
         queries_per_month: float,
         api_calls_per_month: float,
-        pricing: Dict[str, Any]
+        pricing: Dict[str, Any],
+        account_pricing_context: Dict[str, Any] | None = None,
     ) -> LayerResult:
         """
         Calculate L4 Twin Management layer cost.
         
         Components: IoT TwinMaker
         """
-        tm_cost = self.twinmaker.calculate_cost(
+        evaluation = evaluate_twinmaker_context(
+            account_pricing_context,
+            pricing,
+        )
+        if not evaluation.comparable:
+            return self._result(
+                layer="L4",
+                total_cost=0,
+                components={},
+                details={"pricingContext": dict(evaluation.diagnostic)},
+                unsupported_reason=evaluation.reason_code,
+            )
+
+        breakdown = self.twinmaker.calculate_standard_cost(
             entity_count=entity_count,
             queries_per_month=queries_per_month,
             api_calls_per_month=api_calls_per_month,
@@ -392,8 +496,54 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         
         return self._result(
             layer="L4",
-            total_cost=tm_cost,
-            components={"twinmaker": tm_cost}
+            total_cost=breakdown.total,
+            components={
+                "twinmaker": breakdown.total,
+                "twinmaker_entities": breakdown.entity_cost,
+                "twinmaker_queries": breakdown.query_cost,
+                "twinmaker_api_calls": breakdown.api_call_cost,
+            },
+            details={
+                "pricingContext": dict(evaluation.diagnostic),
+                "calculation": {
+                    "pricingMode": "STANDARD",
+                    "currency": "USD",
+                    "period": "month",
+                    "dimensions": [
+                        {
+                            "intentId": "digital_twin.entity_month",
+                            "quantity": breakdown.entity_count,
+                            "unit": "entity_month",
+                            "unitPrice": breakdown.entity_price_per_month,
+                            "contribution": breakdown.entity_cost,
+                        },
+                        {
+                            "intentId": "digital_twin.query",
+                            "quantity": breakdown.queries_per_month,
+                            "unit": "query",
+                            "unitPrice": breakdown.query_price,
+                            "contribution": breakdown.query_cost,
+                        },
+                        {
+                            "intentId": "digital_twin.api_call",
+                            "quantity": breakdown.api_calls_per_month,
+                            "unit": "api_call",
+                            "unitPrice": breakdown.api_call_price,
+                            "contribution": breakdown.api_call_cost,
+                        },
+                    ],
+                },
+            },
+            deployment_selections=(
+                _selection(
+                    "l4.aws.twinmaker",
+                    **{"aws.twinmaker.account_plan": "STANDARD"},
+                ),
+                _selection(
+                    "l4.aws.connector_lambda",
+                    **{"aws.lambda.memory_mb": AWS_STANDARD_LAMBDA_MEMORY_MB},
+                ),
+            ),
         )
     
     def calculate_l5_cost(
@@ -416,7 +566,13 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         return self._result(
             layer="L5",
             total_cost=grafana_cost,
-            components={"grafana": grafana_cost}
+            components={"grafana": grafana_cost},
+            deployment_selections=(
+                _selection(
+                    "l5.aws.managed_grafana",
+                    **{"aws.grafana.user_billing": "licensed_users"},
+                ),
+            ),
         )
     
     def calculate_glue_cost(
@@ -433,3 +589,6 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
             messages=messages,
             pricing=pricing
         )
+
+    def glue_deployment_selection(self) -> ComponentDeploymentSelection:
+        return _standard_lambda_selection("glue.aws.lambda")

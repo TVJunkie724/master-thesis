@@ -14,6 +14,10 @@ Similar to AWS Lambda, this calculator is also used for cross-cloud glue functio
 
 from typing import Dict, Any
 from ..types import AzureComponent, FormulaType
+from ...deployment_profiles import (
+    AZURE_FUNCTION_MEMORY_MB,
+    STANDARD_FUNCTION_DURATION_MS,
+)
 from ...formulas import execution_based_cost
 
 
@@ -36,9 +40,8 @@ class AzureFunctionsCalculator:
     component_type = AzureComponent.FUNCTIONS
     formula_type = FormulaType.CE
     
-    # Default assumptions (consistent with AWS Lambda for fair comparison)
-    DEFAULT_DURATION_MS = 100
-    DEFAULT_MEMORY_MB = 128
+    DEFAULT_DURATION_MS = STANDARD_FUNCTION_DURATION_MS
+    DEFAULT_MEMORY_MB = AZURE_FUNCTION_MEMORY_MB
     
     def calculate_cost(
         self,

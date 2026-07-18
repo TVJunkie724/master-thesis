@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import '../core/result.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
-import '../models/calc_result.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
@@ -15,8 +14,8 @@ import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
-import '../models/pricing_export_snapshot.dart';
 import '../models/provider_capability.dart';
+import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user.dart';
@@ -414,17 +413,99 @@ class ApiService implements ManagementApi {
     return response.data;
   }
 
-  /// Calculate costs using Optimizer
-  /// Returns full result including costs, cheapest path, and overrides
+  /// Run, validate, and persist one optimizer calculation through Management.
   @override
-  Future<OptimizationResultData> calculateCosts(CalcParams params) async {
-    final response = await _dio.put(
-      '/optimizer/calculate',
-      data: params.toJson(),
+  Future<OptimizerRunData> createOptimizerRun(
+    String twinId,
+    CalcParams params,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/optimizer-runs/',
+      data: {'params': params.toJson()},
     );
-    return OptimizationResultData.fromApiJson(
-      _contractMap(response.data, 'calculation'),
+    final run = OptimizerRunData.fromJson(
+      _contractMap(response.data, 'optimizer run'),
     );
+    if (run.twinId != twinId || run.currency != params.currency) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run request context is inconsistent.',
+      );
+    }
+    return run;
+  }
+
+  @override
+  Future<OptimizerDeploymentRunData?> getLatestOptimizerRun(
+    String twinId,
+  ) async {
+    final listResponse = await _dio.get('/twins/$twinId/optimizer-runs/');
+    final rawSummaries = listResponse.data;
+    if (rawSummaries is! List) {
+      throw const FormatException(
+        'Invalid API contract: optimizer runs must be an array.',
+      );
+    }
+    final summaries = rawSummaries.indexed
+        .map(
+          (entry) => OptimizerRunSummaryData.fromJson(
+            _contractMap(entry.$2, 'optimizer runs[${entry.$1}]'),
+          ),
+        )
+        .toList(growable: false);
+    if (summaries.any((summary) => summary.twinId != twinId) ||
+        summaries.map((summary) => summary.id).toSet().length !=
+            summaries.length) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run collection identity is inconsistent.',
+      );
+    }
+    if (summaries
+            .where((summary) => summary.selectedForDeploymentAt != null)
+            .length >
+        1) {
+      throw const FormatException(
+        'Invalid API contract: multiple optimizer runs are selected for deployment.',
+      );
+    }
+    if (summaries.isEmpty) return null;
+
+    final ordered = [...summaries]
+      ..sort((left, right) {
+        final timestamp = right.createdAt.compareTo(left.createdAt);
+        return timestamp != 0 ? timestamp : right.id.compareTo(left.id);
+      });
+    final latest = ordered.first;
+    final detailResponse = await _dio.get(
+      '/twins/$twinId/optimizer-runs/${latest.id}',
+    );
+    final detail = OptimizerDeploymentRunData.fromDetailJson(
+      _contractMap(detailResponse.data, 'optimizer run detail'),
+    );
+    if (detail.summary != latest) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run list and detail differ.',
+      );
+    }
+    return detail;
+  }
+
+  @override
+  Future<OptimizerRunSelectionData> selectOptimizerRunForDeployment(
+    String twinId,
+    String runId,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/optimizer-runs/$runId/select-for-deployment',
+    );
+    final selection = OptimizerRunSelectionData.fromJson(
+      _contractMap(response.data, 'optimizer run selection'),
+    );
+    if (selection.run.twinId != twinId || selection.run.id != runId) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run selection context is inconsistent.',
+      );
+    }
+    return selection;
   }
 
   // ============================================================
@@ -443,51 +524,6 @@ class ApiService implements ManagementApi {
       if (error.response?.statusCode == 404) return null;
       rethrow;
     }
-  }
-
-  /// Save params only (before calculation)
-  @override
-  Future<void> saveOptimizerParams(String twinId, CalcParams params) async {
-    await _dio.put(
-      '/twins/$twinId/optimizer-config/params',
-      data: {'params': params.toJson()},
-    );
-  }
-
-  /// Save full result with pricing snapshots (after calculation)
-  @override
-  Future<void> saveOptimizerResult(
-    String twinId, {
-    required CalcParams params,
-    required OptimizationResultData optimization,
-    required CheapestPath cheapestPath,
-    required Map<CloudProvider, PricingExportSnapshot> pricingSnapshots,
-  }) async {
-    await _dio.put(
-      '/twins/$twinId/optimizer-config/result',
-      data: {
-        'params': params.toJson(),
-        'result': optimization.payload,
-        'cheapest_path': cheapestPath.toJson(),
-        'pricing_snapshots': {
-          for (final entry in pricingSnapshots.entries)
-            entry.key.apiValue: entry.value.payload,
-        },
-        'pricing_timestamps': {
-          for (final entry in pricingSnapshots.entries)
-            entry.key.apiValue: entry.value.updatedAt.toIso8601String(),
-        },
-      },
-    );
-  }
-
-  /// Export pricing data from Optimizer (for snapshotting)
-  @override
-  Future<PricingExportSnapshot> exportPricing(String provider) async {
-    final response = await _dio.get('/optimizer/pricing/export/$provider');
-    return PricingExportSnapshot.fromJson(
-      _contractMap(response.data, 'pricing_export'),
-    );
   }
 
   // ============================================================
@@ -643,26 +679,6 @@ class ApiService implements ManagementApi {
   // ============================================================
   // Result-Returning Methods (Type-Safe Error Handling)
   // ============================================================
-
-  /// Calculate costs with structured error handling.
-  ///
-  /// Returns [Success] with [CalcResult] on success,
-  /// or [Failure] with [AppException] on error.
-  @override
-  Future<Result<CalcResult>> calculateCostsResult(CalcParams params) async {
-    try {
-      final response = await calculateCosts(params);
-      return Success(response.result);
-    } on DioException catch (e) {
-      return Failure(AppException.fromDioError(e));
-    } catch (e) {
-      return Failure(
-        AppException(
-          'Calculation failed: ${ApiErrorHandler.extractMessage(e)}',
-        ),
-      );
-    }
-  }
 
   /// Get pricing status with structured error handling.
   @override

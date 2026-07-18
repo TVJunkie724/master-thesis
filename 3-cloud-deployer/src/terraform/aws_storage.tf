@@ -33,7 +33,7 @@ locals {
 resource "aws_dynamodb_table" "l3_hot" {
   count        = local.l3_hot_aws_enabled ? 1 : 0
   name         = local.aws_l3_dynamodb_table_name
-  billing_mode = "PAY_PER_REQUEST"
+  billing_mode = var.aws_dynamodb_billing_mode
   hash_key     = local.schema_partition_key
   range_key    = local.schema_sort_key
 
@@ -165,7 +165,7 @@ resource "aws_lambda_function" "l3_hot_reader" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 30
-  memory_size   = 256
+  memory_size   = var.aws_l3_reader_lambda_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.l3_lambda_build_dir}/hot-reader.zip"
@@ -200,23 +200,6 @@ resource "aws_s3_bucket" "l3_cold" {
   tags = local.aws_common_tags
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "l3_cold" {
-  count  = local.l3_cold_aws_enabled ? 1 : 0
-  bucket = aws_s3_bucket.l3_cold[0].id
-
-  rule {
-    id     = "transition-to-ia"
-    status = "Enabled"
-
-    filter {}
-
-    transition {
-      days          = 30
-      storage_class = "STANDARD_IA"
-    }
-  }
-}
-
 # ==============================================================================
 # Hot-to-Cold Mover Lambda
 # ==============================================================================
@@ -228,7 +211,7 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 300
-  memory_size   = 512
+  memory_size   = var.aws_hot_to_cool_mover_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.l3_lambda_build_dir}/hot-to-cold-mover.zip"
@@ -239,6 +222,7 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.l3_hot[0].name
       COLD_S3_BUCKET_NAME = try(aws_s3_bucket.l3_cold[0].bucket, "")
+      COLD_STORAGE_CLASS  = local.l3_cold_aws_enabled ? var.aws_l3_cool_storage_class : ""
 
       # Multi-cloud Hot→Cold: When AWS L3 Hot sends to remote Cold
       REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "aws" && var.layer_3_cold_provider != "aws" ? (
@@ -259,7 +243,7 @@ resource "aws_cloudwatch_event_rule" "l3_hot_to_cold" {
   count               = local.l3_hot_aws_enabled ? 1 : 0
   name                = local.aws_l3_hot_to_cold_schedule
   description         = "Trigger hot-to-cold data mover daily"
-  schedule_expression = "rate(1 day)"
+  schedule_expression = var.aws_hot_to_cool_schedule_expression
 
   tags = local.aws_common_tags
 }
@@ -292,23 +276,6 @@ resource "aws_s3_bucket" "l3_archive" {
   tags = local.aws_common_tags
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "l3_archive" {
-  count  = local.l3_archive_aws_enabled ? 1 : 0
-  bucket = aws_s3_bucket.l3_archive[0].id
-
-  rule {
-    id     = "transition-to-glacier"
-    status = "Enabled"
-
-    filter {}
-
-    transition {
-      days          = 0
-      storage_class = "GLACIER"
-    }
-  }
-}
-
 # ==============================================================================
 # Cold-to-Archive Mover Lambda
 # ==============================================================================
@@ -320,7 +287,7 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
   handler       = "lambda_function.lambda_handler"
   runtime       = local.python_runtime_aws
   timeout       = 300
-  memory_size   = 512
+  memory_size   = var.aws_cool_to_archive_mover_memory_mb
 
   # Pre-built by Python before terraform apply
   filename         = "${local.l3_lambda_build_dir}/cold-to-archive-mover.zip"
@@ -331,6 +298,7 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       COLD_S3_BUCKET_NAME    = aws_s3_bucket.l3_cold[0].bucket
       ARCHIVE_S3_BUCKET_NAME = try(aws_s3_bucket.l3_archive[0].bucket, "")
+      ARCHIVE_STORAGE_CLASS  = local.l3_archive_aws_enabled ? var.aws_l3_archive_storage_class : ""
 
       # Multi-cloud Cold→Archive: When AWS L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "aws" && var.layer_3_archive_provider != "aws" ? (
@@ -351,7 +319,7 @@ resource "aws_cloudwatch_event_rule" "l3_cold_to_archive" {
   count               = local.l3_cold_aws_enabled ? 1 : 0
   name                = local.aws_l3_cold_to_archive_schedule
   description         = "Trigger cold-to-archive data mover weekly"
-  schedule_expression = "rate(7 days)"
+  schedule_expression = var.aws_cool_to_archive_schedule_expression
 
   tags = local.aws_common_tags
 }

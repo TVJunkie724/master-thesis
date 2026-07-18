@@ -26,8 +26,10 @@ class OptimizerConfiguration(Base):
     
     # ===== FULL RESULT (for UI display) =====
     result_json = Column(Text, nullable=True)  # Full CalcResult as JSON
+    pricing_catalog_context_json = Column(Text, nullable=True)
     
-    # ===== PRICING SNAPSHOT (audit trail, ~few KB each) =====
+    # Legacy columns retained physically for non-destructive migration only.
+    # Live code uses pricing_catalog_context_json references exclusively.
     pricing_aws_updated_at = Column(DateTime(timezone=True), nullable=True)
     pricing_azure_updated_at = Column(DateTime(timezone=True), nullable=True)
     pricing_gcp_updated_at = Column(DateTime(timezone=True), nullable=True)

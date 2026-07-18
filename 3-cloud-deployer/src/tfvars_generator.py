@@ -26,12 +26,17 @@ import os
 from pathlib import Path
 
 from src.core.config_loader import load_optimization_flags
+from src.core.secure_files import atomic_write_private_bytes
+from src.deployment_specification import (
+    translate_deployment_tfvars,
+    validate_deployment_manifest,
+)
 
 logger = logging.getLogger(__name__)
 
 
 
-class ConfigurationError(Exception):
+class ConfigurationError(ValueError):
     """Raised when a required configuration is missing or invalid."""
     pass
 
@@ -75,6 +80,17 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Load config_providers.json (layer-to-provider mapping)
     providers = _load_providers(project_dir)
     tfvars.update(providers)
+
+    # Validate the immutable optimizer-to-deployer contract before any function
+    # bundles or generated artifacts are created.
+    deployment_manifest = _load_deployment_manifest(project_dir)
+    validated_manifest = validate_deployment_manifest(
+        deployment_manifest,
+        providers,
+    )
+    deployment_tfvars = translate_deployment_tfvars(
+        validated_manifest.specification
+    )
     
     # Load config_iot_devices.json (device definitions)
     tfvars.update(_load_iot_devices(project_dir))
@@ -157,13 +173,23 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     
     # Build AWS user function variables if AWS is used as a provider
     tfvars.update(_get_aws_user_function_vars(project_dir, providers))
+
+    collisions = sorted(set(tfvars).intersection(deployment_tfvars))
+    if collisions:
+        raise ConfigurationError(
+            "Deployment specification Terraform targets collide with legacy "
+            "configuration: " + ", ".join(collisions)
+        )
+    tfvars.update(deployment_tfvars)
     
     # Write output file
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     
-    with open(output_file, "w") as f:
-        json.dump(tfvars, f, indent=2)
+    atomic_write_private_bytes(
+        output_file,
+        json.dumps(tfvars, indent=2, sort_keys=True).encode("utf-8"),
+    )
     
     logger.info(f"✓ Generated tfvars: {output_path}")
     return tfvars
@@ -516,8 +542,9 @@ def _load_credentials(project_dir: Path) -> dict:
             with open(creds_file_path) as f:
                 tfvars["gcp_credentials_json"] = f.read()
         else:
-            # Dummy credentials to prevent Terraform ADC lookup
-            tfvars["gcp_credentials_json"] = '{"type":"service_account","project_id":"dummy","private_key_id":"","private_key":"","client_email":"dummy@dummy.iam.gserviceaccount.com","client_id":"","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token"}'
+            raise ConfigurationError(
+                "Configured GCP credentials file is missing or unreadable"
+            )
     
     return tfvars
 
@@ -547,7 +574,37 @@ def _load_providers(project_dir: Path) -> dict:
         if key not in providers:
             raise ConfigurationError(f"Missing required provider config: {key}")
     
-    return {key: providers[key] for key in required_keys}
+    return {
+        key: (
+            "google"
+            if isinstance(providers[key], str)
+            and providers[key].strip().lower() == "gcp"
+            else providers[key].strip().lower()
+            if isinstance(providers[key], str)
+            else providers[key]
+        )
+        for key in required_keys
+    }
+
+
+def _load_deployment_manifest(project_dir: Path) -> dict:
+    """Load the mandatory manifest for Terraform operations."""
+    manifest_file = project_dir / "deployment_manifest.json"
+    if not manifest_file.exists():
+        raise ConfigurationError(
+            "DeploymentManifest v2 is required for Terraform operations"
+        )
+    try:
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ConfigurationError(
+            "deployment_manifest.json contains invalid JSON"
+        ) from exc
+    if not isinstance(manifest, dict):
+        raise ConfigurationError(
+            "deployment_manifest.json must contain a JSON object"
+        )
+    return manifest
 
 
 def _load_iot_devices(project_dir: Path) -> dict:

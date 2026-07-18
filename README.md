@@ -335,19 +335,28 @@ docker compose logs -f 2twin2clouds
 docker compose logs -f 3cloud-deployer
 ```
 
-**Run backend unit tests (safe — no cloud resources):**
+**Run the safe quality gates:**
 ```bash
-docker run --rm -v "$PWD/twin2multicloud_backend:/app" -w /app -e PYTHONPATH=/app -e DATABASE_URL=sqlite:////tmp/twin2multicloud_management_test.db -e SEED_DATA=false -e ENABLE_TEST_ENDPOINTS=false master-thesis-management-api:latest python -m pytest tests -q
+./thesis.sh test backend
+./thesis.sh test frontend
 
-tmpdir=$(mktemp -d /tmp/optimizer-test.XXXXXX)
-printf '{"aws": {}}\n' > "$tmpdir/config_credentials.json"
-docker run --rm -v "$PWD/2-twin2clouds:/app" -v "$PWD/config.json:/config/config.json:ro" -v "$tmpdir/config_credentials.json:/config/config_credentials.json:ro" -w /app -e PYTHONPATH=/app 2twin2clouds:latest python -m pytest tests -q
-rm -rf "$tmpdir"
+# Fast Optimizer-to-Terraform contract diagnosis
+./thesis.sh test deployment-contract --focused
 
-docker run --rm -v "$PWD/3-cloud-deployer:/app" -w /app -e PYTHONPATH=/app 3cloud-deployer:latest python -m pytest tests/unit tests/api tests/integration tests/test_gcp_simulator.py -q
+# Complete credential-free cross-project release gate
+./thesis.sh test deployment-contract
 ```
 
-> ⚠️ **Never run E2E tests (`tests/e2e/`) without explicit intent** — they deploy real cloud resources and cost money.
+The deployment-contract gate strips provider credential environment variables,
+rejects cloud credential overlays and `RUN_E2E_TESTS=1`, uses isolated temporary
+runtime secrets, performs no `terraform apply`, and removes its verification
+containers, networks, and volumes. The focused mode validates the frozen
+Optimizer result through Management persistence, Manifest v2, typed tfvars, and
+credential-free Terraform mock plans. The no-argument command additionally
+runs all safe service, Flutter, documentation, static, and security gates.
+
+> ⚠️ **Never run E2E tests (`tests/e2e/`) without explicit intent** — they can
+> deploy real cloud resources and incur cost.
 
 **Run the service quality gates:**
 

@@ -1,9 +1,7 @@
 """
 Unit tests for the credentials checker module.
 """
-import pytest
-from unittest.mock import patch, MagicMock, mock_open
-import json
+from unittest.mock import MagicMock, patch
 
 # Import the module under test
 from backend import credentials_checker
@@ -22,8 +20,8 @@ class TestAWSCredentials:
         
         assert result["provider"] == "aws"
         assert result["status"] == "missing"
-        assert result["config_present"] == False
-        assert result["credentials_valid"] == False
+        assert not result["config_present"]
+        assert not result["credentials_valid"]
     
     def test_check_aws_credentials_missing_fields(self):
         """Test when required fields are missing."""
@@ -33,7 +31,7 @@ class TestAWSCredentials:
         
         assert result["status"] == "invalid"
         assert "Missing required fields" in result["message"]
-        assert result["config_present"] == False
+        assert not result["config_present"]
     
     @patch("boto3.Session")
     def test_check_aws_credentials_valid(self, mock_session_class):
@@ -51,12 +49,20 @@ class TestAWSCredentials:
         mock_pricing.describe_services.return_value = {"Services": []}
         mock_pricing.get_attribute_values.return_value = {"AttributeValues": []}
         mock_pricing.get_products.return_value = {"PriceList": []}
+        mock_twinmaker = MagicMock()
+        mock_twinmaker.get_pricing_plan.return_value = {
+            "currentPricingPlan": {
+                "pricingMode": "STANDARD",
+                "billableEntityCount": 0,
+            }
+        }
         
         # Configure session mock
         mock_session = MagicMock()
         mock_session.client.side_effect = lambda service, **kwargs: {
             "sts": mock_sts,
-            "pricing": mock_pricing
+            "pricing": mock_pricing,
+            "iottwinmaker": mock_twinmaker,
         }.get(service, MagicMock())
         
         mock_session_class.return_value = mock_session
@@ -70,9 +76,9 @@ class TestAWSCredentials:
         result = credentials_checker.check_aws_credentials(credentials)
         
         assert result["status"] == "valid"
-        assert result["config_present"] == True
-        assert result["credentials_valid"] == True
-        assert result["can_fetch_pricing"] == True
+        assert result["config_present"]
+        assert result["credentials_valid"]
+        assert result["can_fetch_pricing"]
         assert result["identity"]["account"] == "123456789012"
         mock_pricing.describe_services.assert_called_once_with(MaxResults=1)
         mock_pricing.get_attribute_values.assert_called_once_with(
@@ -98,11 +104,19 @@ class TestAWSCredentials:
         mock_pricing.describe_services.return_value = {"Services": []}
         mock_pricing.get_attribute_values.return_value = {"AttributeValues": []}
         mock_pricing.get_products.return_value = {"PriceList": []}
+        mock_twinmaker = MagicMock()
+        mock_twinmaker.get_pricing_plan.return_value = {
+            "currentPricingPlan": {
+                "pricingMode": "STANDARD",
+                "billableEntityCount": 0,
+            }
+        }
 
         mock_session = MagicMock()
         mock_session.client.side_effect = lambda service, **kwargs: {
             "sts": mock_sts,
-            "pricing": mock_pricing
+            "pricing": mock_pricing,
+            "iottwinmaker": mock_twinmaker,
         }.get(service, MagicMock())
         mock_session_class.return_value = mock_session
 
@@ -120,30 +134,15 @@ class TestAWSCredentials:
             aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
             aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
             aws_session_token="temporary-session-token",
-            region_name="us-east-1",
+            region_name="eu-central-1",
         )
 
     @patch("boto3.Session")
-    def test_check_aws_credentials_region_is_not_required_for_pricing_api(self, mock_session_class):
-        """The Pricing API checker always uses us-east-1, so aws_region is not required."""
-        mock_sts = MagicMock()
-        mock_sts.get_caller_identity.return_value = {
-            "Account": "123456789012",
-            "Arn": "arn:aws:iam::123456789012:user/test",
-            "UserId": "AIDAEXAMPLE"
-        }
-        mock_pricing = MagicMock()
-        mock_pricing.describe_services.return_value = {"Services": []}
-        mock_pricing.get_attribute_values.return_value = {"AttributeValues": []}
-        mock_pricing.get_products.return_value = {"PriceList": []}
-
-        mock_session = MagicMock()
-        mock_session.client.side_effect = lambda service, **kwargs: {
-            "sts": mock_sts,
-            "pricing": mock_pricing
-        }.get(service, MagicMock())
-        mock_session_class.return_value = mock_session
-
+    def test_check_aws_credentials_region_is_required_for_twinmaker(
+        self,
+        mock_session_class,
+    ):
+        """TwinMaker pricing is regional, so the target region is mandatory."""
         result = credentials_checker.check_aws_credentials(
             {
                 "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
@@ -151,12 +150,9 @@ class TestAWSCredentials:
             }
         )
 
-        assert result["status"] == "valid"
-        mock_session_class.assert_called_once_with(
-            aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
-            aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-            region_name="us-east-1",
-        )
+        assert result["status"] == "invalid"
+        assert "aws_region" in result["message"]
+        mock_session_class.assert_not_called()
     
     @patch("boto3.Session")
     def test_check_aws_credentials_invalid_auth(self, mock_session_class):
@@ -181,8 +177,51 @@ class TestAWSCredentials:
         result = credentials_checker.check_aws_credentials(credentials)
         
         assert result["status"] == "invalid"
-        assert "InvalidClientTokenId" in result["message"]
-        assert result["credentials_valid"] == False
+        assert result["error_code"] == "AWS_TWINMAKER_PLAN_AUTHENTICATION_FAILED"
+        assert not result["credentials_valid"]
+
+    @patch("boto3.Session")
+    def test_check_aws_credentials_requires_twinmaker_plan_permission(
+        self,
+        mock_session_class,
+    ):
+        from botocore.exceptions import ClientError
+
+        mock_sts = MagicMock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+        }
+        mock_twinmaker = MagicMock()
+        mock_twinmaker.get_pricing_plan.side_effect = ClientError(
+            {
+                "Error": {
+                    "Code": "AccessDeniedException",
+                    "Message": "Access denied",
+                }
+            },
+            "GetPricingPlan",
+        )
+        mock_session = MagicMock()
+        mock_session.client.side_effect = lambda service, **kwargs: {
+            "sts": mock_sts,
+            "iottwinmaker": mock_twinmaker,
+        }.get(service, MagicMock())
+        mock_session_class.return_value = mock_session
+
+        result = credentials_checker.check_aws_credentials(
+            {
+                "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                "aws_secret_access_key": (
+                    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                ),
+                "aws_region": "eu-central-1",
+            }
+        )
+
+        assert result["status"] == "invalid"
+        assert result["credentials_valid"] is True
+        assert result["can_fetch_pricing"] is False
+        assert result["error_code"] == "AWS_TWINMAKER_PLAN_PERMISSION_DENIED"
     
     @patch("boto3.Session")
     def test_check_aws_credentials_no_pricing_permission(self, mock_session_class):
@@ -203,11 +242,19 @@ class TestAWSCredentials:
             {"Error": {"Code": "AccessDeniedException", "Message": "Access Denied"}},
             "DescribeServices"
         )
+        mock_twinmaker = MagicMock()
+        mock_twinmaker.get_pricing_plan.return_value = {
+            "currentPricingPlan": {
+                "pricingMode": "STANDARD",
+                "billableEntityCount": 0,
+            }
+        }
         
         mock_session = MagicMock()
         mock_session.client.side_effect = lambda service, **kwargs: {
             "sts": mock_sts,
-            "pricing": mock_pricing
+            "pricing": mock_pricing,
+            "iottwinmaker": mock_twinmaker,
         }.get(service, MagicMock())
         
         mock_session_class.return_value = mock_session
@@ -221,8 +268,8 @@ class TestAWSCredentials:
         result = credentials_checker.check_aws_credentials(credentials)
         
         assert result["status"] == "invalid"
-        assert result["credentials_valid"] == True  # Auth succeeded
-        assert result["can_fetch_pricing"] == False  # But pricing failed
+        assert result["credentials_valid"]  # Auth succeeded
+        assert not result["can_fetch_pricing"]  # But pricing failed
         assert "pricing" in result["message"].lower()
 
     @patch("boto3.Session")
@@ -244,11 +291,19 @@ class TestAWSCredentials:
             {"Error": {"Code": "AccessDeniedException", "Message": "Access Denied"}},
             "GetProducts"
         )
+        mock_twinmaker = MagicMock()
+        mock_twinmaker.get_pricing_plan.return_value = {
+            "currentPricingPlan": {
+                "pricingMode": "STANDARD",
+                "billableEntityCount": 0,
+            }
+        }
 
         mock_session = MagicMock()
         mock_session.client.side_effect = lambda service, **kwargs: {
             "sts": mock_sts,
-            "pricing": mock_pricing
+            "pricing": mock_pricing,
+            "iottwinmaker": mock_twinmaker,
         }.get(service, MagicMock())
         mock_session_class.return_value = mock_session
 
@@ -261,8 +316,8 @@ class TestAWSCredentials:
         result = credentials_checker.check_aws_credentials(credentials)
 
         assert result["status"] == "invalid"
-        assert result["credentials_valid"] == True
-        assert result["can_fetch_pricing"] == False
+        assert result["credentials_valid"]
+        assert not result["can_fetch_pricing"]
         assert "GetProducts" in result["message"]
 
 
@@ -279,7 +334,7 @@ class TestGCPCredentials:
         
         assert result["provider"] == "gcp"
         assert result["status"] == "missing"
-        assert result["config_present"] == False
+        assert not result["config_present"]
     
     def test_check_gcp_credentials_file_not_found(self):
         """Test when credentials file doesn't exist."""
@@ -288,7 +343,7 @@ class TestGCPCredentials:
         assert result["status"] == "invalid"
         assert "not found" in result["message"].lower()
         # Note: config_present is True because we received input (just not a valid file)
-        assert result["config_present"] == True
+        assert result["config_present"]
     
     @patch("backend.gcp_utils.parse_gcp_service_account")
     @patch("google.cloud.billing_v1.CloudCatalogClient")
@@ -312,9 +367,9 @@ class TestGCPCredentials:
         result = credentials_checker.check_gcp_credentials("/config/gcp_credentials.json")
         
         assert result["status"] == "valid"
-        assert result["config_present"] == True
-        assert result["credentials_valid"] == True
-        assert result["can_fetch_pricing"] == True
+        assert result["config_present"]
+        assert result["credentials_valid"]
+        assert result["can_fetch_pricing"]
         assert result["identity"]["project_id"] == "my-project"
     
     @patch("backend.gcp_utils.parse_gcp_service_account")
@@ -342,7 +397,7 @@ class TestAzureCredentials:
         
         assert result["provider"] == "azure"
         assert result["status"] == "missing"
-        assert result["can_fetch_pricing"] == True  # Public API
+        assert result["can_fetch_pricing"]  # Public API
     
     def test_check_azure_credentials_missing_fields(self):
         """Test when required fields are missing."""
@@ -352,7 +407,7 @@ class TestAzureCredentials:
         
         assert result["status"] == "invalid"
         assert "Missing required fields" in result["message"]
-        assert result["can_fetch_pricing"] == True  # Still possible - public API
+        assert result["can_fetch_pricing"]  # Still possible - public API
     
     def test_check_azure_credentials_valid(self):
         """Test valid Azure credentials."""
@@ -364,9 +419,9 @@ class TestAzureCredentials:
         result = credentials_checker.check_azure_credentials(credentials)
         
         assert result["status"] == "valid"
-        assert result["config_present"] == True
-        assert result["credentials_valid"] == True
-        assert result["can_fetch_pricing"] == True
+        assert result["config_present"]
+        assert result["credentials_valid"]
+        assert result["can_fetch_pricing"]
         assert "note" in result
     
     def test_check_azure_credentials_invalid_uuid(self):

@@ -60,7 +60,7 @@ void main() {
       await bloc.stream.firstWhere((state) => state.errorMessage != null);
 
       expect(bloc.state.errorMessage, contains('Pricing data is not ready'));
-      verifyNever(() => api.calculateCosts(any()));
+      verifyNever(() => api.createOptimizerRun(any(), any()));
       await bloc.close();
     },
   );

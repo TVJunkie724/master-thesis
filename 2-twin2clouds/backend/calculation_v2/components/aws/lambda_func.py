@@ -15,6 +15,10 @@ This calculator is also used for cross-cloud glue functions
 
 from typing import Dict, Any
 from ..types import AWSComponent, FormulaType
+from ...deployment_profiles import (
+    AWS_STANDARD_LAMBDA_MEMORY_MB,
+    STANDARD_FUNCTION_DURATION_MS,
+)
 from ...formulas import execution_based_cost
 
 
@@ -37,11 +41,8 @@ class AWSLambdaCalculator:
     component_type = AWSComponent.LAMBDA
     formula_type = FormulaType.CE
     
-    # Default assumptions (from current implementation: aws.py lines 346-347)
-    # These match the deployer's Lambda configuration (MemorySize=128)
-    # Using consistent values across AWS/Azure/GCP ensures fair cost comparison.
-    DEFAULT_DURATION_MS = 100   # Conservative estimate for simple data processing
-    DEFAULT_MEMORY_MB = 128     # Matches deployer Lambda config
+    DEFAULT_DURATION_MS = STANDARD_FUNCTION_DURATION_MS
+    DEFAULT_MEMORY_MB = AWS_STANDARD_LAMBDA_MEMORY_MB
     
     def calculate_cost(
         self,

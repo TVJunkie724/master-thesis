@@ -10,7 +10,13 @@ from backend.calculation_v2.components.aws import (
     AWSStepFunctionsCalculator,
     AWSTwinMakerCalculator,
 )
+from backend.calculation_v2.components.aws.twinmaker import (
+    DEDICATED_ACCOUNT_FULL_COST,
+    calculate_tiered_bundle_account_cost,
+)
 from backend.calculation_v2.engine import _calculate_egress_cost
+from backend.calculation_v2.layers.aws_layers import AWSLayerCalculators
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
 
 def _aws_pricing(**overrides):
@@ -35,21 +41,59 @@ def _aws_pricing(**overrides):
             "dataRetrievalPrice": 0.02,
         },
         "iotTwinMaker": {
-            "pricePerEntity": 0.05,
-            "pricePerQuery": 0.00001,
-            "pricePerUnifiedDataAccessAPICall": 0.000001,
-            "modelStoragePrice": 0.023,
+            "usageRates": {
+                "entityPricePerMonth": 0.05,
+                "queryPrice": 0.00001,
+                "unifiedDataAccessApiCallPrice": 0.000001,
+            },
+            "tieredBundle": {
+                "tiers": [
+                    {
+                        "tierId": "TIER_1",
+                        "minimumEntities": 1,
+                        "maximumEntities": 1000,
+                        "monthlyBasePrice": 231.0,
+                        "includedQueries": 3_800_000,
+                        "includedApiCalls": 25_000_000,
+                        "queryOveragePrice": 0.0000525,
+                        "apiCallOveragePrice": 0.00000165,
+                    },
+                    {
+                        "tierId": "TIER_2",
+                        "minimumEntities": 1001,
+                        "maximumEntities": 5000,
+                        "monthlyBasePrice": 682.5,
+                        "includedQueries": 9_000_000,
+                        "includedApiCalls": 60_000_000,
+                        "queryOveragePrice": 0.0000525,
+                        "apiCallOveragePrice": 0.00000165,
+                    },
+                    {
+                        "tierId": "TIER_3",
+                        "minimumEntities": 5001,
+                        "maximumEntities": 10000,
+                        "monthlyBasePrice": 1155.0,
+                        "includedQueries": 14_300_000,
+                        "includedApiCalls": 95_000_000,
+                        "queryOveragePrice": 0.0000525,
+                        "apiCallOveragePrice": 0.00000165,
+                    },
+                    {
+                        "tierId": "TIER_4",
+                        "minimumEntities": 10001,
+                        "maximumEntities": 20000,
+                        "monthlyBasePrice": 2047.5,
+                        "includedQueries": 24_000_000,
+                        "includedApiCalls": 160_000_000,
+                        "queryOveragePrice": 0.0000525,
+                        "apiCallOveragePrice": 0.00000165,
+                    },
+                ]
+            },
         },
         "stepFunctions": {"pricePer1kStateTransitions": 0.025},
         "eventBridge": {"pricePerEvent": 0.000001},
-        "transfer": {
-            "pricing_tiers": {
-                "freeTier": {"limit": 100, "price": 0},
-                "tier1": {"limit": 10_240, "price": 0.09},
-                "tier2": {"limit": 51_200, "price": 0.085},
-                "tier3": {"limit": "Infinity", "price": 0.07},
-            }
-        },
+        "transfer": canonical_transfer_catalog("aws"),
     }
     base.update(overrides)
     return {"aws": base}
@@ -147,26 +191,26 @@ class TestAWSTwinMakerUnits:
             entity_count=10,
             queries_per_month=20_000,
             api_calls_per_month=30_000,
-            model_storage_gb=2,
             pricing=_aws_pricing(),
         )
 
-        expected = (10 * 0.05) + (20_000 * 0.00001) + (30_000 * 0.000001) + (2 * 0.023)
+        expected = (10 * 0.05) + (20_000 * 0.00001) + (30_000 * 0.000001)
         assert result == pytest.approx(expected)
 
-    def test_twinmaker_supports_per_block_legacy_keys(self):
-        result = AWSTwinMakerCalculator().calculate_cost(
-            entity_count=1,
-            queries_per_month=10_000,
-            api_calls_per_month=1_000_000,
-            pricing=_aws_pricing(iotTwinMaker={
-                "entityPrice": 0.05,
-                "queryPricePer10k": 0.50,
-                "unifiedDataAccessAPICallsPricePerMillion": 1.20,
-            }),
-        )
-
-        assert result == pytest.approx(0.05 + 0.50 + 1.20)
+    def test_twinmaker_rejects_flat_legacy_keys(self):
+        with pytest.raises(ValueError, match="usageRates"):
+            AWSTwinMakerCalculator().calculate_cost(
+                entity_count=1,
+                queries_per_month=10_000,
+                api_calls_per_month=1_000_000,
+                pricing=_aws_pricing(
+                    iotTwinMaker={
+                        "entityPrice": 0.05,
+                        "queryPrice": 0.00005,
+                        "unifiedDataAccessAPICallsPrice": 0.0000012,
+                    }
+                ),
+            )
 
     def test_twinmaker_missing_api_price_fails_visibly(self):
         with pytest.raises(ValueError, match="unifiedDataAccessApiCall"):
@@ -174,24 +218,143 @@ class TestAWSTwinMakerUnits:
                 entity_count=1,
                 queries_per_month=1,
                 api_calls_per_month=1,
-                pricing=_aws_pricing(iotTwinMaker={
-                    "entityPrice": 0.05,
-                    "queryPrice": 0.00001,
-                }),
+                pricing=_aws_pricing(
+                    iotTwinMaker={
+                        "usageRates": {
+                            "entityPricePerMonth": 0.05,
+                            "queryPrice": 0.00001,
+                        }
+                    }
+                ),
             )
 
     def test_twinmaker_missing_model_storage_price_fails_when_storage_is_used(self):
-        with pytest.raises(ValueError, match="modelStorage"):
+        with pytest.raises(ValueError, match="no approved pricing contract"):
             AWSTwinMakerCalculator().calculate_cost(
                 entity_count=1,
                 queries_per_month=1,
                 api_calls_per_month=1,
                 model_storage_gb=1,
-                pricing=_aws_pricing(iotTwinMaker={
-                    "entityPrice": 0.05,
-                    "queryPrice": 0.00001,
-                    "unifiedDataAccessAPICallsPrice": 0.000001,
-                }),
+                pricing=_aws_pricing(),
+            )
+
+    def test_twinmaker_bundle_calculates_full_dedicated_account_cost(self):
+        result = calculate_tiered_bundle_account_cost(
+            observed_tier="TIER_1",
+            account_entity_count=500,
+            account_queries_per_month=4_000_000,
+            account_api_calls_per_month=26_000_000,
+            allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
+            pricing=_aws_pricing(),
+        )
+
+        assert result.monthly_base_price == 231.0
+        assert result.query_overage == 200_000
+        assert result.api_call_overage == 1_000_000
+        assert result.total == pytest.approx(
+            231.0 + (200_000 * 0.0000525) + (1_000_000 * 0.00000165)
+        )
+
+    @pytest.mark.parametrize(
+        (
+            "tier",
+            "entities",
+            "base_price",
+            "included_queries",
+            "included_api_calls",
+        ),
+        [
+            ("TIER_1", 1, 231.0, 3_800_000, 25_000_000),
+            ("TIER_1", 1_000, 231.0, 3_800_000, 25_000_000),
+            ("TIER_2", 1_001, 682.5, 9_000_000, 60_000_000),
+            ("TIER_2", 5_000, 682.5, 9_000_000, 60_000_000),
+            ("TIER_3", 5_001, 1155.0, 14_300_000, 95_000_000),
+            ("TIER_3", 10_000, 1155.0, 14_300_000, 95_000_000),
+            ("TIER_4", 10_001, 2047.5, 24_000_000, 160_000_000),
+            ("TIER_4", 20_000, 2047.5, 24_000_000, 160_000_000),
+        ],
+    )
+    def test_twinmaker_bundle_covers_every_entity_and_included_usage_boundary(
+        self,
+        tier,
+        entities,
+        base_price,
+        included_queries,
+        included_api_calls,
+    ):
+        at_boundary = calculate_tiered_bundle_account_cost(
+            observed_tier=tier,
+            account_entity_count=entities,
+            account_queries_per_month=included_queries,
+            account_api_calls_per_month=included_api_calls,
+            allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
+            pricing=_aws_pricing(),
+        )
+        first_overage = calculate_tiered_bundle_account_cost(
+            observed_tier=tier,
+            account_entity_count=entities,
+            account_queries_per_month=included_queries + 1,
+            account_api_calls_per_month=included_api_calls + 1,
+            allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
+            pricing=_aws_pricing(),
+        )
+
+        assert at_boundary.total == base_price
+        assert at_boundary.query_overage == 0
+        assert at_boundary.api_call_overage == 0
+        assert first_overage.total == pytest.approx(
+            base_price + 0.0000525 + 0.00000165
+        )
+
+    @pytest.mark.parametrize("entities", [0, 20_001])
+    def test_twinmaker_bundle_rejects_entities_outside_supported_tiers(
+        self,
+        entities,
+    ):
+        with pytest.raises(ValueError, match="does not belong"):
+            calculate_tiered_bundle_account_cost(
+                observed_tier="TIER_1" if entities == 0 else "TIER_4",
+                account_entity_count=entities,
+                account_queries_per_month=0,
+                account_api_calls_per_month=0,
+                allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
+                pricing=_aws_pricing(),
+            )
+
+    def test_twinmaker_bundle_rejects_incomplete_tier_schedule(self):
+        pricing = _aws_pricing()
+        pricing["aws"]["iotTwinMaker"]["tieredBundle"]["tiers"].pop()
+
+        with pytest.raises(ValueError, match="exactly four tiers"):
+            calculate_tiered_bundle_account_cost(
+                observed_tier="TIER_1",
+                account_entity_count=1,
+                account_queries_per_month=0,
+                account_api_calls_per_month=0,
+                allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
+                pricing=pricing,
+            )
+
+    def test_twinmaker_bundle_rejects_entity_tier_mismatch(self):
+        with pytest.raises(ValueError, match="does not belong"):
+            calculate_tiered_bundle_account_cost(
+                observed_tier="TIER_1",
+                account_entity_count=1_001,
+                account_queries_per_month=0,
+                account_api_calls_per_month=0,
+                allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
+                pricing=_aws_pricing(),
+            )
+
+    def test_twinmaker_bundle_rejects_implicit_allocation(self):
+        with pytest.raises(ValueError, match=DEDICATED_ACCOUNT_FULL_COST):
+            calculate_tiered_bundle_account_cost(
+                observed_tier="TIER_1",
+                account_entity_count=1,
+                account_queries_per_month=0,
+                account_api_calls_per_month=0,
+                allocation_policy="PROPORTIONAL",
+                pricing=_aws_pricing(),
             )
 
 
@@ -227,6 +390,38 @@ class TestAWSActionUnits:
                 events=1,
                 pricing=_aws_pricing(eventBridge={}),
             )
+
+    def test_transition_runtime_does_not_use_custom_event_bus_pricing(self):
+        calculator = AWSLayerCalculators()
+        lambda_pricing = {
+            "requestPrice": 0.0000002,
+            "durationPrice": 0.0000166667,
+            "freeRequests": 0,
+            "freeComputeTime": 0,
+        }
+        low_price = calculator.calculate_transition_runtime(
+            edge_id="l3_hot_to_l3_cool",
+            monthly_invocations=30,
+            invocation_basis="one_daily_source_mover_invocation",
+            pricing=_aws_pricing(**{
+                "lambda": lambda_pricing,
+                "eventBridge": {"pricePerMillionEvents": 1.0},
+            }),
+        )
+        high_price = calculator.calculate_transition_runtime(
+            edge_id="l3_hot_to_l3_cool",
+            monthly_invocations=30,
+            invocation_basis="one_daily_source_mover_invocation",
+            pricing=_aws_pricing(**{
+                "lambda": lambda_pricing,
+                "eventBridge": {"pricePerMillionEvents": 999.0},
+            }),
+        )
+
+        assert low_price.trigger_cost == 0
+        assert high_price.trigger_cost == 0
+        assert low_price.total_cost == pytest.approx(high_price.total_cost)
+        assert "aws.eventBridge" not in low_price.evidence_references
 
 
 class TestAWSTransferTiering:

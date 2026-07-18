@@ -2,31 +2,13 @@
 Shared ADT Helper Module.
 
 Provides common logic for updating Azure Digital Twins properties.
-Used by both ADT Updater (L4, Event Grid) and ADT Pusher (L0, HTTP).
+Used by the canonical ADT Pusher (L0, HTTP).
 
-This module contains the core ADT update logic to avoid code duplication
-between the two Azure Functions that update Digital Twins:
-- ADT Updater: Event Grid triggered, for single-cloud scenarios
-- ADT Pusher: HTTP triggered, for multi-cloud scenarios
+The helper keeps Digital Twins SDK setup, device mapping, and patch generation
+outside the HTTP boundary.
 
 Architecture:
-    ┌─────────────────┐     ┌─────────────────┐
-    │  ADT Updater    │     │   ADT Pusher    │
-    │  (Event Grid)   │     │    (HTTP)       │
-    └────────┬────────┘     └────────┬────────┘
-             │                       │
-             └───────────┬───────────┘
-                         │
-                         ▼
-              ┌──────────────────────┐
-              │   adt_helper.py      │
-              │ update_adt_twin()    │
-              └──────────┬───────────┘
-                         │
-                         ▼
-              ┌──────────────────────┐
-              │  Azure Digital Twins │
-              └──────────────────────┘
+    ADT Pusher -> adt_helper.py -> Azure Digital Twins
 """
 
 import logging
@@ -135,8 +117,7 @@ def update_adt_twin(
     """
     Update an Azure Digital Twin with telemetry data.
     
-    This is the core function used by both ADT Updater and ADT Pusher
-    to update twin properties. It:
+    This is the core function used by ADT Pusher to update twin properties. It:
     1. Maps the device ID to a twin ID
     2. Builds a JSON Patch from telemetry
     3. Applies the patch to the digital twin

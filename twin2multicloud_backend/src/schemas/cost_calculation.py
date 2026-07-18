@@ -3,13 +3,22 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.pricing_catalog import PricingCatalogContext
+from src.schemas.resolved_deployment_specification import (
+    DeploymentCompatibilityStatus,
+    ResolvedDeploymentSpecification,
+)
+
 
 class CostCalculationRunCreate(BaseModel):
-    params: dict = Field(..., description="Optimizer calculation parameters")
-    pricing_snapshots: dict = Field(default_factory=dict)
-    pricing_timestamps: dict = Field(default_factory=dict)
+    model_config = ConfigDict(extra="forbid")
+
+    params: OptimizerCalculationParams = Field(
+        ...,
+        description="Optimizer calculation parameters",
+    )
     pricing_evidence_version: Optional[str] = None
-    pricing_run_reference: Optional[str] = None
 
 
 class CostCalculationResultItemResponse(BaseModel):
@@ -51,6 +60,10 @@ class CostCalculationRunSummaryResponse(BaseModel):
     pricing_registry_version: Optional[str] = None
     pricing_evidence_version: Optional[str] = None
     pricing_run_reference: Optional[str] = None
+    pricing_catalog_context: Optional[PricingCatalogContext] = None
+    deployment_specification_digest: Optional[str] = None
+    deployment_specification_version: Optional[str] = None
+    deployment_compatibility_status: DeploymentCompatibilityStatus
     created_at: datetime
     completed_at: Optional[datetime] = None
     selected_for_deployment_at: Optional[datetime] = None
@@ -61,12 +74,16 @@ class CostCalculationRunSummaryResponse(BaseModel):
 class CostCalculationRunDetailResponse(CostCalculationRunSummaryResponse):
     params: dict
     result_summary: Optional[dict] = None
+    resolved_deployment_specification: (
+        Optional[ResolvedDeploymentSpecification]
+    ) = None
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
 
 
 class CostCalculationRunSelectResponse(BaseModel):
     run: CostCalculationRunSummaryResponse
     selected_for_deployment_at: datetime
+    resolved_deployment_specification: ResolvedDeploymentSpecification
 
 
 class PricingEvidenceDetailResponse(BaseModel):
@@ -79,10 +96,18 @@ class PricingEvidenceDetailResponse(BaseModel):
     selected_path: list[dict] = Field(default_factory=list)
     records: list[dict] = Field(default_factory=list)
     transfer_trace: list[dict] = Field(default_factory=list)
+    transition_runtime_trace: list[dict] = Field(default_factory=list)
     summary: dict = Field(default_factory=dict)
     field_trace_schema_version: Optional[str] = None
     field_trace_available: bool
     field_trace_records: list[dict] = Field(default_factory=list)
+    transfer_pricing_context_available: bool = False
+    transfer_pricing_context: dict = Field(default_factory=dict)
+    transition_runtime_context_available: bool = False
+    transition_runtime_context: dict = Field(default_factory=dict)
+    transition_runtime_costs: dict[str, float] = Field(default_factory=dict)
+    optimization_diagnostics: dict = Field(default_factory=dict)
+    pricing_catalog_context: Optional[PricingCatalogContext] = None
     result_metadata: dict = Field(default_factory=dict)
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

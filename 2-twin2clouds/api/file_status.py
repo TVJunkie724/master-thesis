@@ -10,12 +10,19 @@ to determine if pricing data needs to be refreshed.
 - AWS/Azure regions: 7 days
 - GCP regions: 30 days (due to slow fetch time)
 """
-import os
-from fastapi import APIRouter
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, HTTPException
 
 from backend.logger import logger
 from backend.utils import get_file_age_string, is_file_fresh
-from backend.config_loader import load_json_file
+from backend.pricing_catalog_models import PricingCatalogContractError, canonicalize_pricing_region
+from backend.pricing_catalog_repository import (
+    PricingCatalogNotFoundError,
+    PricingCatalogRepositoryError,
+    get_pricing_catalog_repository,
+)
+from backend.pricing_schema import validate_pricing_payload
 import backend.constants as CONSTANTS
 
 router = APIRouter(tags=["File Status"])
@@ -27,33 +34,51 @@ REGIONS_THRESHOLD_AZURE = 7
 REGIONS_THRESHOLD_GCP = 30
 
 
-def _pricing_status_response(provider: str, file_path, threshold_days: int) -> dict:
-    age = get_file_age_string(file_path)
-    validation = {
-        "schema_version": None,
-        "contract_version": None,
-        "status": "missing",
-        "missing_keys": [],
-        "quality_status": "review_required",
-        "review_required": True,
-        "fallback_fields": [],
-        "unsupported_fields": [],
-    }
+def _pricing_status_response(
+    provider: str,
+    pricing_region: str,
+    threshold_days: int,
+) -> dict:
+    try:
+        pricing_region = canonicalize_pricing_region(provider, pricing_region)
+    except PricingCatalogContractError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": "PRICING_CATALOG_REFERENCE_INVALID",
+                "message": str(exc),
+                "fix_suggestion": (
+                    "Provide a canonical pricing region for the selected provider."
+                ),
+                "http_status": 400,
+            },
+        ) from exc
+    repository = get_pricing_catalog_repository()
+    try:
+        snapshot = repository.resolve_published(
+            provider,
+            pricing_region,
+            require_fresh=False,
+        )
+    except PricingCatalogNotFoundError:
+        return _missing_pricing_status(provider, pricing_region, threshold_days)
+    except PricingCatalogRepositoryError as exc:
+        logger.error(
+            "Failed to resolve %s pricing catalog: %s",
+            provider.upper(),
+            exc.code,
+        )
+        return {
+            **_missing_pricing_status(provider, pricing_region, threshold_days),
+            "status": "error",
+        }
 
-    if os.path.isfile(file_path):
-        try:
-            from backend.pricing_utils import validate_pricing_schema
-
-            data = load_json_file(file_path)
-            validation.update(validate_pricing_schema(provider, data))
-        except Exception as e:
-            logger.error(f"Failed to validate {provider.upper()} pricing: {e}")
-            validation["status"] = "error"
-            validation["quality_status"] = "review_required"
-            validation["review_required"] = True
-
+    validation = validate_pricing_payload(provider, snapshot.pricing)
+    age = datetime.now(timezone.utc) - snapshot.reference.fetched_at
     return {
-        "age": age,
+        "provider": provider,
+        "pricing_region": snapshot.reference.pricing_region,
+        "age": _format_age(age.total_seconds()),
         "schema_version": validation.get("schema_version"),
         "contract_version": validation.get("contract_version"),
         "status": validation["status"],
@@ -62,9 +87,41 @@ def _pricing_status_response(provider: str, file_path, threshold_days: int) -> d
         "review_required": bool(validation.get("review_required", False)),
         "fallback_fields": validation.get("fallback_fields", []),
         "unsupported_fields": validation.get("unsupported_fields", []),
-        "is_fresh": is_file_fresh(file_path, threshold_days),
+        "is_fresh": not repository.is_stale(snapshot.reference),
         "threshold_days": threshold_days,
+        "active_reference": snapshot.reference.to_http_dict(),
     }
+
+
+def _missing_pricing_status(
+    provider: str,
+    pricing_region: str,
+    threshold_days: int,
+) -> dict:
+    return {
+        "provider": provider,
+        "pricing_region": pricing_region,
+        "age": "missing",
+        "schema_version": None,
+        "contract_version": None,
+        "status": "missing",
+        "missing_keys": [],
+        "quality_status": "review_required",
+        "review_required": True,
+        "fallback_fields": [],
+        "unsupported_fields": [],
+        "is_fresh": False,
+        "threshold_days": threshold_days,
+        "active_reference": None,
+    }
+
+
+def _format_age(total_seconds: float) -> str:
+    if total_seconds < 3600:
+        return f"{max(0, int(total_seconds // 60))} minutes"
+    if total_seconds < 86400:
+        return f"{int(total_seconds // 3600)} hours"
+    return f"{int(total_seconds // 86400)} days"
 
 
 # --------------------------------------------------
@@ -96,12 +153,12 @@ def _pricing_status_response(provider: str, file_path, threshold_days: int) -> d
         }
     }
 )
-def get_pricing_age_aws():
+def get_pricing_age_aws(pricing_region: str = "eu-central-1"):
     """
     Checks the age and validity of the local AWS pricing data file.
     """
     return _pricing_status_response(
-        "aws", CONSTANTS.AWS_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS
+        "aws", pricing_region, PRICING_THRESHOLD_DAYS
     )
 
 
@@ -126,12 +183,12 @@ def get_pricing_age_aws():
         }
     }
 )
-def get_pricing_age_azure():
+def get_pricing_age_azure(pricing_region: str = "westeurope"):
     """
     Checks the age and validity of the local Azure pricing data file.
     """
     return _pricing_status_response(
-        "azure", CONSTANTS.AZURE_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS
+        "azure", pricing_region, PRICING_THRESHOLD_DAYS
     )
 
 
@@ -156,12 +213,12 @@ def get_pricing_age_azure():
         }
     }
 )
-def get_pricing_age_gcp():
+def get_pricing_age_gcp(pricing_region: str = "europe-west1"):
     """
     Checks the age and validity of the local GCP pricing data file.
     """
     return _pricing_status_response(
-        "gcp", CONSTANTS.GCP_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS
+        "gcp", pricing_region, PRICING_THRESHOLD_DAYS
     )
 
 

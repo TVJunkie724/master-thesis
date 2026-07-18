@@ -46,6 +46,14 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("016_disable_legacy_credentials", "migrations.disable_legacy_twin_credentials"),
     Migration("017_credential_security_events", "migrations.add_credential_security_events"),
     Migration("018_production_authentication", "migrations.add_production_authentication"),
+    Migration(
+        "019_pricing_catalog_context",
+        "migrations.add_pricing_catalog_context",
+    ),
+    Migration(
+        "020_resolved_deployment_specification",
+        "migrations.add_resolved_deployment_specification",
+    ),
 )
 
 

@@ -48,6 +48,8 @@ def build_intent_result_trace(
     calculation_result: Mapping[str, Any],
     provider_costs: Mapping[str, Mapping[str, Any]],
     transfer_costs: Mapping[str, float],
+    transition_runtime_costs: Mapping[str, float],
+    transition_runtime_context: Mapping[str, Any],
     optimization_metadata: Mapping[str, Any],
     pricing_registry_reference: str,
     contract: OptimizationStrategyContract | None = None,
@@ -99,8 +101,17 @@ def build_intent_result_trace(
             transfer_costs,
             pricing_registry_reference,
         ),
+        "transition_runtime_trace": _transition_runtime_trace_entries(
+            transition_runtime_costs,
+            transition_runtime_context,
+        ),
         "records": records,
-        "summary": _summary(records, selected_path, transfer_costs),
+        "summary": _summary(
+            records,
+            selected_path,
+            transfer_costs,
+            transition_runtime_costs,
+        ),
     }
 
 
@@ -279,7 +290,16 @@ def _workload_trace(params: Mapping[str, Any], derived: Mapping[str, Any]) -> di
             "amountOfActiveViewers": params.get("amountOfActiveViewers"),
             "dashboardRefreshesPerHour": params.get("dashboardRefreshesPerHour"),
             "dashboardActiveHoursPerDay": params.get("dashboardActiveHoursPerDay"),
+            "averageDigitalTwinQueryUnitsPerQuery": params.get(
+                "averageDigitalTwinQueryUnitsPerQuery", 1.0
+            ),
+            "averageDigitalTwinQueryResponseSizeInKb": params.get(
+                "averageDigitalTwinQueryResponseSizeInKb", 1.0
+            ),
         },
+        "assumption_sources": dict(
+            derived.get("digital_twin_assumption_sources") or {}
+        ),
         "derived": {
             "total_messages_per_month": _rounded(derived.get("total_messages_per_month")),
             "data_size_per_month_gb": _rounded(derived.get("data_size_per_month_gb")),
@@ -287,6 +307,24 @@ def _workload_trace(params: Mapping[str, Any], derived: Mapping[str, Any]) -> di
             "cool_storage_gb": _rounded(derived.get("cool_storage_gb")),
             "archive_storage_gb": _rounded(derived.get("archive_storage_gb")),
             "queries_per_month": _rounded(derived.get("queries_per_month")),
+            "monthly_digital_twin_billable_operations": _rounded(
+                derived.get("monthly_digital_twin_billable_operations")
+            ),
+            "monthly_digital_twin_routed_messages": _rounded(
+                derived.get("monthly_digital_twin_routed_messages")
+            ),
+            "monthly_digital_twin_query_units": _rounded(
+                derived.get("monthly_digital_twin_query_units")
+            ),
+            "digital_twin_query_response_operations": _rounded(
+                derived.get("digital_twin_query_response_operations")
+            ),
+        },
+        "billing": {"digital_twin_increment_kb": 1},
+        "topology": {
+            "profile": "five-layer-baseline@1",
+            "telemetry_update_operation_per_message": 1,
+            "digital_twin_event_route_deployed": False,
         },
     }
 
@@ -326,6 +364,7 @@ def _summary(
     records: list[Mapping[str, Any]],
     selected_path: list[Mapping[str, Any]],
     transfer_costs: Mapping[str, float],
+    transition_runtime_costs: Mapping[str, float],
 ) -> dict[str, Any]:
     selected_records = [
         record for record in records if record.get("contribution", {}).get("selected")
@@ -347,8 +386,47 @@ def _summary(
         "unsupported_count": len(unsupported),
         "selected_path_count": len(selected_path),
         "transfer_segment_count": len(transfer_costs),
+        "transition_runtime_count": len(transition_runtime_costs),
         "publishable": not review_required and not unsupported,
     }
+
+
+def _transition_runtime_trace_entries(
+    transition_runtime_costs: Mapping[str, float],
+    context: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    transitions = context.get("transitions")
+    if not isinstance(transitions, list):
+        return []
+    entries = []
+    for transition in transitions:
+        if not isinstance(transition, Mapping):
+            continue
+        edge_id = transition.get("edgeId")
+        cost = transition_runtime_costs.get(str(edge_id))
+        entries.append(
+            {
+                "edge_id": edge_id,
+                "source_slot": transition.get("sourceSlot"),
+                "destination_slot": transition.get("destinationSlot"),
+                "source_provider": transition.get("sourceProvider"),
+                "source_runtime_component_id": transition.get(
+                    "sourceRuntimeComponentId"
+                ),
+                "monthly_invocations": transition.get(
+                    "monthlyInvocations"
+                ),
+                "invocation_basis": transition.get("invocationBasis"),
+                "formula_references": list(
+                    transition.get("formulaReferences") or []
+                ),
+                "evidence_references": list(
+                    transition.get("evidenceReferences") or []
+                ),
+                "cost": _rounded(cost),
+            }
+        )
+    return entries
 
 
 def _transfer_segments_for_provider(
@@ -374,6 +452,7 @@ def _transfer_trace_entries(
         "L3_cool": (calculation_result.get("L3") or {}).get("Cool"),
         "L3_archive": (calculation_result.get("L3") or {}).get("Archive"),
         "L4": calculation_result.get("L4"),
+        "L5": calculation_result.get("L5"),
     }
     segment_layers = {
         "L1_to_L2": ("L1", "L2"),
@@ -381,6 +460,7 @@ def _transfer_trace_entries(
         "L3_hot_to_L3_cool": ("L3_hot", "L3_cool"),
         "L3_cool_to_L3_archive": ("L3_cool", "L3_archive"),
         "L3_hot_to_L4": ("L3_hot", "L4"),
+        "L4_to_L5": ("L4", "L5"),
     }
 
     entries = []
@@ -403,8 +483,7 @@ def _transfer_trace_entries(
                 "source_intent_id": source_intent_id,
                 "evidence_reference_ids": (
                     [
-                        f"{pricing_registry_reference}/{source_intent_id}.egress",
-                        f"{pricing_registry_reference}/{source_intent_id}.egress_tiers",
+                        f"{pricing_registry_reference}/{source_intent_id}.catalog",
                     ]
                     if source_intent_id
                     else []

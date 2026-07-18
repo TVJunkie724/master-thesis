@@ -7,6 +7,7 @@ from src.api.dependencies import ConfigType, ProviderEnum
 from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
 from src.api.upload_limits import MAX_VALIDATION_UPLOAD_BYTES, read_upload_bounded
+from src.core.executable_topology import UnsupportedErrorHandlingTopologyError
 
 router = APIRouter()
 
@@ -112,6 +113,8 @@ async def validate_config(
             validator.validate_config_content(filename, content_str)
         
         return {"message": f"Configuration '{filename}' is valid."}
+    except UnsupportedErrorHandlingTopologyError as exc:
+        raise HTTPException(status_code=400, detail=exc.as_detail()) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=safe_error_detail(exc)) from exc
     except HTTPException:
@@ -272,4 +275,3 @@ async def validate_function_code(
         raise
     except Exception as exc:
         raise internal_server_error("Validate function code", exc) from exc
-

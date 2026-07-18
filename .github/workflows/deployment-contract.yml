@@ -1,0 +1,54 @@
+name: Resolved deployment drift gate
+
+on:
+  push:
+    branches:
+      - master
+      - "codex/**"
+    paths:
+      - ".github/workflows/deployment-contract.yml"
+      - "contracts/resolved-deployment-specification/**"
+      - "scripts/sync_resolved_deployment_contract.py"
+      - "scripts/verify_resolved_deployment_drift.py"
+      - "scripts/tests/test_resolved_deployment_contract_sync.py"
+      - "scripts/tests/test_verify_resolved_deployment_drift.py"
+      - "scripts/tests/test_thesis_entrypoint.py"
+      - "thesis.sh"
+      - "compose.yaml"
+      - "2-twin2clouds/**"
+      - "3-cloud-deployer/**"
+      - "twin2multicloud_backend/**"
+  pull_request:
+    paths:
+      - ".github/workflows/deployment-contract.yml"
+      - "contracts/resolved-deployment-specification/**"
+      - "scripts/sync_resolved_deployment_contract.py"
+      - "scripts/verify_resolved_deployment_drift.py"
+      - "scripts/tests/test_resolved_deployment_contract_sync.py"
+      - "scripts/tests/test_verify_resolved_deployment_drift.py"
+      - "scripts/tests/test_thesis_entrypoint.py"
+      - "thesis.sh"
+      - "compose.yaml"
+      - "2-twin2clouds/**"
+      - "3-cloud-deployer/**"
+      - "twin2multicloud_backend/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-drift-gate:
+    name: Optimizer to Terraform drift
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run credential-free drift verification
+        run: ./thesis.sh test deployment-contract --focused

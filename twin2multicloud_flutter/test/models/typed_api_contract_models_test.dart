@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployer_config.dart';
 import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
-import 'package:twin2multicloud_flutter/models/pricing_export_snapshot.dart';
 import 'package:twin2multicloud_flutter/models/twin_config.dart';
 
 import '../fixtures/test_fixtures.dart';
@@ -130,14 +129,14 @@ void main() {
   });
 
   group('OptimizerConfigData', () {
-    test('decodes typed result, path and provider snapshots', () {
+    test('decodes typed result, path and immutable pricing evidence', () {
       final data = OptimizerConfigData.fromJson(_optimizerConfigJson());
 
       expect(data.optimization?.result.totalCost, greaterThan(0));
       expect(data.cheapestPath?.l1, CloudProvider.aws);
       expect(data.l1Provider, CloudProvider.aws);
-      expect(data.snapshot(CloudProvider.aws).hasData, isTrue);
-      expect(data.snapshot(CloudProvider.gcp).hasData, isFalse);
+      expect(data.catalog(CloudProvider.aws)?.pricingRegion, 'eu-central-1');
+      expect(data.catalog(CloudProvider.gcp)?.pricingRegion, 'europe-west1');
     });
 
     test('rejects unknown providers in the selected path', () {
@@ -150,20 +149,34 @@ void main() {
       );
     });
 
-    test('keeps nested pricing payload immutable', () {
+    test('keeps nested pricing evidence immutable', () {
       final data = OptimizerConfigData.fromJson(_optimizerConfigJson());
-      final payload = data.snapshot(CloudProvider.aws).payload!;
+      final context = data.pricingCatalogContext!;
+      final reference = context.reference(CloudProvider.aws);
 
-      expect(() => payload['new'] = true, throwsUnsupportedError);
       expect(
-        () => (payload['tiers'] as List<Object?>).add('secret'),
+        () => context.catalogs[CloudProvider.aws] = context.reference(
+          CloudProvider.azure,
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => reference.mappingVersions.add('mutable'),
         throwsUnsupportedError,
       );
     });
 
-    test('rejects a malformed optional snapshot', () {
+    test('rejects inconsistent persisted and result evidence', () {
       final json = _optimizerConfigJson();
-      json['pricing_aws_snapshot'] = 'not-an-object';
+      final context = Map<String, dynamic>.from(
+        json['pricing_catalog_context'] as Map,
+      );
+      final catalogs = Map<String, dynamic>.from(context['catalogs'] as Map);
+      context['catalogs'] = catalogs;
+      final aws = Map<String, dynamic>.from(catalogs['aws'] as Map);
+      catalogs['aws'] = aws;
+      aws['pricingRegion'] = 'us-east-1';
+      json['pricing_catalog_context'] = context;
 
       expect(
         () => OptimizerConfigData.fromJson(json),
@@ -189,39 +202,19 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
-  });
 
-  group('PricingExportSnapshot', () {
-    test('decodes metadata and immutable pricing payload', () {
-      final snapshot = PricingExportSnapshot.fromJson({
-        'provider': 'azure',
-        'pricing': {
-          'meter': 0.2,
-          'tiers': [1, 2],
-        },
-        'updated_at': '2026-07-15T10:00:00+02:00',
-        'future_field': 'ignored',
-      });
+    test('keeps historical payloads readable without catalog context', () {
+      final historical = Map<String, dynamic>.from(_calculationPayload)
+        ..remove('pricingCatalogs');
 
-      expect(snapshot.provider, CloudProvider.azure);
-      expect(snapshot.updatedAt, DateTime.utc(2026, 7, 15, 8));
-      expect(() => snapshot.payload['meter'] = 1, throwsUnsupportedError);
-    });
-
-    test('rejects missing payload and unknown provider', () {
       expect(
-        () => PricingExportSnapshot.fromJson({
-          'provider': 'aws',
-          'updated_at': '2026-07-15T08:00:00Z',
-        }),
-        throwsA(isA<FormatException>()),
+        OptimizationResultData.fromPayload(
+          historical,
+        ).result.pricingCatalogContext,
+        isNull,
       );
       expect(
-        () => PricingExportSnapshot.fromJson({
-          'provider': 'unknown',
-          'pricing': <String, dynamic>{},
-          'updated_at': '2026-07-15T08:00:00Z',
-        }),
+        () => OptimizationResultData.fromApiJson(historical),
         throwsA(isA<FormatException>()),
       );
     });
@@ -292,15 +285,7 @@ Map<String, dynamic> _optimizerConfigJson() => {
   'result': _calculationPayload,
   'cheapest_path': {'l1': 'AWS', 'l2': 'azure'},
   'calculated_at': '2026-07-15T08:00:00Z',
-  'pricing_aws_snapshot': {
-    'messages': 0.1,
-    'tiers': [1, 2],
-  },
-  'pricing_aws_updated_at': '2026-07-15T08:00:00Z',
-  'pricing_azure_snapshot': {'messages': 0.2},
-  'pricing_azure_updated_at': '2026-07-15T08:00:00Z',
-  'pricing_gcp_snapshot': null,
-  'pricing_gcp_updated_at': null,
+  'pricing_catalog_context': TestFixtures.pricingCatalogContextJson,
   'updated_at': '2026-07-15T08:00:00Z',
 };
 

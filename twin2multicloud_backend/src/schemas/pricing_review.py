@@ -15,6 +15,7 @@ PricingCalculationSource = Literal[
     "fresh",
     "stale",
     "last_known_good",
+    "reviewed_baseline",
     "fallback_static",
     "unavailable",
 ]

@@ -4,8 +4,14 @@ Unit tests for tfvars_generator module.
 Tests the generation of Terraform variables from project configuration files.
 """
 
-import pytest
 import json
+import stat
+
+import pytest
+from tests.utils.deployment_specification import (
+    deployment_manifest,
+    load_specification,
+)
 
 from src.tfvars_generator import (
     generate_tfvars,
@@ -118,6 +124,24 @@ class TestLoadCredentials:
         assert result["aws_access_key_id"] == "AKIATEST"
         assert result["aws_region"] == "eu-central-1"
 
+    def test_rejects_missing_gcp_credentials_file_without_dummy_fallback(
+        self,
+        tmp_path,
+    ):
+        (tmp_path / "config_credentials.json").write_text(json.dumps({
+            "gcp": {
+                "gcp_project_id": "project",
+                "gcp_region": "europe-west1",
+                "gcp_credentials_file": "missing.json",
+            }
+        }))
+
+        with pytest.raises(
+            ConfigurationError,
+            match="credentials file is missing",
+        ):
+            _load_credentials(tmp_path)
+
 
 class TestLoadProviders:
     """Tests for _load_providers function."""
@@ -223,6 +247,20 @@ class TestGenerateTfvars:
         (tmp_path / "config_iot_devices.json").write_text(json.dumps([
             {"id": "sensor-1", "properties": []}
         ]))
+        (tmp_path / "deployment_manifest.json").write_text(
+            json.dumps(deployment_manifest(
+                providers={
+                    "layer_1_provider": "azure",
+                    "layer_2_provider": "azure",
+                    "layer_3_hot_provider": "azure",
+                    "layer_3_cold_provider": "azure",
+                    "layer_3_archive_provider": "azure",
+                    "layer_4_provider": "azure",
+                    "layer_5_provider": "azure",
+                },
+                specification=load_specification("all-azure.json"),
+            ))
+        )
         
         return tmp_path
     
@@ -240,6 +278,9 @@ class TestGenerateTfvars:
         assert output_path.exists()
         assert result["digital_twin_name"] == "test-twin"
         assert result["layer_1_provider"] == "azure"
+        assert result["azure_iot_hub_sku"] == "F1"
+        assert result["azure_iot_hub_capacity"] == 1
+        assert stat.S_IMODE(output_path.stat().st_mode) == 0o600
         
         # Verify file content matches
         with open(output_path) as f:

@@ -4,7 +4,6 @@ import time
 from backend.logger import logger
 from google.oauth2 import service_account
 import backend.constants as CONSTANTS
-from backend.pricing_schema import strip_pricing_metadata
 
 def load_json_file(file_path: str):
     try:
@@ -19,40 +18,6 @@ def load_json_file(file_path: str):
     except Exception as e:
         logger.error(f"Error loading JSON file {file_path}: {e}")
         raise e
-
-def load_json_file_optional(file_path: str):
-    """
-    Loads a JSON file if it exists, otherwise returns an empty dict.
-    Logs a warning if the file is missing.
-    """
-    if not os.path.exists(file_path):
-        logger.warning(f"⚠️ Optional JSON file not found: {file_path}. Returning empty dict.")
-        return {}
-    return load_json_file(file_path)
-
-def load_combined_pricing():
-    """
-    Loads pricing data from separate provider files and merges them into a single dictionary.
-    Expected structure:
-    {
-        "aws": { ... },
-        "azure": { ... },
-        "gcp": { ... }
-    }
-    """
-    logger.info("🧩 Loading combined pricing data from separate files...")
-    
-    aws_pricing = load_json_file_optional(CONSTANTS.AWS_PRICING_FILE_PATH)
-    azure_pricing = load_json_file_optional(CONSTANTS.AZURE_PRICING_FILE_PATH)
-    gcp_pricing = load_json_file_optional(CONSTANTS.GCP_PRICING_FILE_PATH)
-    
-    combined = {
-        "aws": strip_pricing_metadata(aws_pricing),
-        "azure": strip_pricing_metadata(azure_pricing),
-        "gcp": strip_pricing_metadata(gcp_pricing),
-    }
-    
-    return combined
 
 # --------------------------------------------------------------------
 # Configuration Loader

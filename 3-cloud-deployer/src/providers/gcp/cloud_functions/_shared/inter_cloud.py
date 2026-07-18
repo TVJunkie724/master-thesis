@@ -8,6 +8,7 @@ Cold-to-Archive Mover, and Digital Twin Data Connector.
 Source: src/providers/gcp/cloud_functions/_shared/inter_cloud.py
 Editable: Yes - This is shared runtime code packaged with Cloud Functions
 """
+import hmac
 import json
 import binascii
 import re
@@ -478,7 +479,7 @@ def validate_token(request, expected_token: str) -> bool:
         print("No X-Inter-Cloud-Token header in request")
         return False
     
-    if received_token != expected_token:
+    if not hmac.compare_digest(str(received_token), str(expected_token)):
         print("Token mismatch - invalid authentication")
         return False
     

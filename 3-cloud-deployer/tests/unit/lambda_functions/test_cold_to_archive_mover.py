@@ -56,6 +56,7 @@ class TestColdToArchiveMoverQuery(unittest.TestCase):
             }),
             "COLD_S3_BUCKET_NAME": "test-cold-bucket",
             "ARCHIVE_S3_BUCKET_NAME": "test-archive-bucket",
+            "ARCHIVE_STORAGE_CLASS": "DEEP_ARCHIVE",
             "REMOTE_ARCHIVE_WRITER_URL": "",
             "INTER_CLOUD_TOKEN": ""
         }, clear=False)
@@ -119,7 +120,8 @@ class TestColdToArchiveMoverLocalCopy(unittest.TestCase):
                 }
             }),
             "COLD_S3_BUCKET_NAME": "test-cold-bucket",
-            "ARCHIVE_S3_BUCKET_NAME": "test-archive-bucket"
+            "ARCHIVE_S3_BUCKET_NAME": "test-archive-bucket",
+            "ARCHIVE_STORAGE_CLASS": "DEEP_ARCHIVE",
         }, clear=False)
         self.env_patch.start()
         
@@ -227,7 +229,8 @@ class TestColdToArchiveMoverMemoryGuard(unittest.TestCase):
                 }
             }),
             "COLD_S3_BUCKET_NAME": "test-cold-bucket",
-            "ARCHIVE_S3_BUCKET_NAME": "test-archive-bucket"
+            "ARCHIVE_S3_BUCKET_NAME": "test-archive-bucket",
+            "ARCHIVE_STORAGE_CLASS": "DEEP_ARCHIVE",
         }, clear=False)
         self.env_patch.start()
         
@@ -277,7 +280,8 @@ class TestColdToArchiveMoverDeletion(unittest.TestCase):
                 }
             }),
             "COLD_S3_BUCKET_NAME": "test-cold-bucket",
-            "ARCHIVE_S3_BUCKET_NAME": "test-archive-bucket"
+            "ARCHIVE_S3_BUCKET_NAME": "test-archive-bucket",
+            "ARCHIVE_STORAGE_CLASS": "DEEP_ARCHIVE",
         }, clear=False)
         self.env_patch.start()
         
@@ -332,6 +336,27 @@ class TestColdToArchiveMoverEnvValidation(unittest.TestCase):
             }, clear=True):
                 with self.assertRaises(Exception):
                     load_lambda_module(MOVER_PATH)
+
+    def test_local_copy_rejects_missing_storage_class(self):
+        """A local AWS destination must not fall back to a literal class."""
+        with patch("boto3.client"):
+            with patch.dict(os.environ, {
+                "DIGITAL_TWIN_INFO": json.dumps({
+                    "config": {"cold_storage_size_in_days": 30},
+                    "config_providers": {
+                        "layer_3_cold_provider": "aws",
+                        "layer_3_archive_provider": "aws",
+                    },
+                }),
+                "COLD_S3_BUCKET_NAME": "cold",
+                "ARCHIVE_S3_BUCKET_NAME": "archive",
+            }, clear=True):
+                module = load_lambda_module(MOVER_PATH)
+                with self.assertRaisesRegex(
+                    module.ConfigurationError,
+                    "ARCHIVE_STORAGE_CLASS",
+                ):
+                    module.lambda_handler({}, None)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
 
@@ -101,6 +103,115 @@ void main() {
   });
 
   group('CalcResult', () {
+    group('exact transfer evidence', () {
+      test('parses six exact routes, pools, tiers, and diagnostics', () {
+        final result = CalcResult.fromJson(
+          TestFixtures.calcResultWithTransferEvidenceJson,
+        );
+
+        expect(result.transferPricingContext?.routes, hasLength(6));
+        expect(result.transferPricingContext?.pools, hasLength(2));
+        expect(
+          result.transferPricingContext?.routes
+              .where((route) => route.isCrossProvider)
+              .length,
+          2,
+        );
+        expect(result.optimizationDiagnostics?.evaluatedPathCount, 972);
+        expect(
+          result.optimizationDiagnostics?.winningCandidateId,
+          'aws|gcp|gcp|gcp|gcp|aws|aws',
+        );
+      });
+
+      test('keeps historical results without transfer evidence readable', () {
+        final result = CalcResult.fromJson(TestFixtures.calcResultJson);
+
+        expect(result.transferPricingContext, isNull);
+        expect(result.optimizationDiagnostics, isNull);
+      });
+
+      test('requires transfer context and diagnostics together', () {
+        final json = _transferResultCopy();
+        (json['result'] as Map).remove('optimizationDiagnostics');
+
+        expect(() => CalcResult.fromJson(json), throwsFormatException);
+      });
+
+      test('rejects unsupported versions and incomplete route sets', () {
+        final wrongVersion = _transferResultCopy();
+        ((wrongVersion['result'] as Map)['transferPricingContext']
+                as Map)['schemaVersion'] =
+            'complete-path-transfer-pricing.v2';
+        expect(() => CalcResult.fromJson(wrongVersion), throwsFormatException);
+
+        final missingRoute = _transferResultCopy();
+        (((missingRoute['result'] as Map)['transferPricingContext']
+                    as Map)['routes']
+                as List)
+            .removeLast();
+        expect(() => CalcResult.fromJson(missingRoute), throwsFormatException);
+      });
+
+      test('rejects non-JSON numbers and inconsistent route arithmetic', () {
+        final numericString = _transferResultCopy();
+        final route = _firstTransferRoute(numericString);
+        route['volumeBytes'] = '1000000000';
+        expect(() => CalcResult.fromJson(numericString), throwsFormatException);
+
+        final fractionalBytes = _transferResultCopy();
+        _firstTransferRoute(fractionalBytes)['volumeBytes'] = 1000000000.5;
+        expect(
+          () => CalcResult.fromJson(fractionalBytes),
+          throwsFormatException,
+        );
+
+        final invalidCost = _transferResultCopy();
+        _firstTransferRoute(invalidCost)['totalCost'] = 1;
+        expect(() => CalcResult.fromJson(invalidCost), throwsFormatException);
+
+        final roundedMismatch = _transferResultCopy();
+        ((roundedMismatch['result'] as Map)['optimizationDiagnostics']
+                as Map)['winningScore'] =
+            55.675;
+        expect(
+          () => CalcResult.fromJson(roundedMismatch),
+          throwsFormatException,
+        );
+      });
+
+      test('rejects route, pool, catalog, and solver inconsistencies', () {
+        final wrongRegion = _transferResultCopy();
+        (_firstTransferRoute(wrongRegion)['source'] as Map)['region'] =
+            'europe-west1';
+        expect(() => CalcResult.fromJson(wrongRegion), throwsFormatException);
+
+        final danglingPool = _transferResultCopy();
+        _firstTransferRoute(danglingPool)['poolId'] = 'pool:missing:test';
+        expect(() => CalcResult.fromJson(danglingPool), throwsFormatException);
+
+        final invalidCounts = _transferResultCopy();
+        ((invalidCounts['result'] as Map)['optimizationDiagnostics']
+                as Map)['evaluatedPathCount'] =
+            971;
+        expect(() => CalcResult.fromJson(invalidCounts), throwsFormatException);
+      });
+
+      test('contract errors never echo unknown field names or values', () {
+        const secret = 'SHOULD_NOT_LEAK';
+        final json = _transferResultCopy();
+        ((json['result'] as Map)['transferPricingContext'] as Map)[secret] =
+            secret;
+
+        try {
+          CalcResult.fromJson(json);
+          fail('Expected a strict shape failure.');
+        } on FormatException catch (error) {
+          expect(error.message, isNot(contains(secret)));
+        }
+      });
+    });
+
     // ============================================================
     // Happy Path Tests
     // ============================================================
@@ -248,3 +359,14 @@ void main() {
     });
   });
 }
+
+Map<String, dynamic> _transferResultCopy() =>
+    jsonDecode(jsonEncode(TestFixtures.calcResultWithTransferEvidenceJson))
+        as Map<String, dynamic>;
+
+Map<String, dynamic> _firstTransferRoute(Map<String, dynamic> json) =>
+    ((((json['result'] as Map)['transferPricingContext'] as Map)['routes']
+                    as List)
+                .first
+            as Map)
+        .cast<String, dynamic>();

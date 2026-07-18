@@ -1,0 +1,100 @@
+# Resolved Deployment Specification Mini-Roadmap
+
+**Parent issue:** [#118](https://github.com/TVJunkie724/master-thesis/issues/118)  
+**Base branch:** `master`  
+**Implementation branch:** `codex/pricing-tier-finalization`  
+**Status:** Phases 1-9 complete and verified; final live deployment/E2E deferred
+
+## Purpose
+
+The current five-layer baseline can select the cheapest provider path without
+proving that Terraform deploys the resource configuration used by the cost
+model. This roadmap closes that gap before architecture-profile work begins.
+
+The target flow is:
+
+```text
+Optimizer winner
+  -> ResolvedDeploymentSpecification v1
+  -> Management API validation and immutable persistence
+  -> DeploymentManifest v2
+  -> Deployer preflight and typed tfvars
+  -> provider Terraform resources
+  -> read-only Flutter review
+  -> no-apply cross-stack drift gate
+```
+
+## Phase Order
+
+| Phase | Issue | Deliverable | Blocked By |
+| --- | --- | --- | --- |
+| 1 | [#127](https://github.com/TVJunkie724/master-thesis/issues/127) | Done: canonical contract, dimension registry, matrix, and fixtures | None |
+| 2 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Done: Optimizer emits an exact resolved specification | #127 |
+| 3 | [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Done: Management API validates, persists, freezes, and manifests it | #127, #129 |
+| 4 | [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Done: Deployer validates it and generates typed tfvars | #127, #130 |
+| 4b | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Done: source-owned storage transition runtimes and destination-owned writers | #127, #129, #130, #131 |
+| 5 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Done: AWS Terraform alignment | #61, #131 |
+| 6 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Done: Azure Terraform alignment | #61, #131 |
+| 7 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Done: GCP Terraform alignment | #61, #131 |
+| 7b | [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Done: reject the unsupported legacy error-handling topology at every executable boundary | #127 |
+| 7c | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Done: bounded Azure Function HTTP errors, correlation, redaction, and safe downstream retry logs | #74 |
+| 7d | [#137](https://github.com/TVJunkie724/master-thesis/issues/137) | Done: diagnostic-suppressed correlation for non-HTTP Azure baseline triggers | #136 |
+| 8 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Done: compact read-only Flutter review and fail-closed whole-run selection | #130 |
+| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Done: cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134, #135, #136, #137 |
+
+Provider phases 5-7 may be implemented after phase 4b in any order. Phase 9 is
+the only completion gate for parent issue #118.
+
+## Non-Negotiable Rules
+
+1. A progressive usage tier is never converted into a Terraform SKU.
+2. An account-scoped plan is never silently changed for one twin.
+3. A deployable value must be the same value used by the active cost formula.
+4. Missing or unknown mappings fail before Terraform side effects.
+5. Legacy runs remain readable but are not deployment-compatible.
+6. The specification contains no credentials, endpoints, tokens, or provider
+   response payloads.
+7. Flutter displays the frozen selection but cannot author provider values.
+8. No live cloud apply or final E2E work is part of this roadmap.
+
+## Completion Gate
+
+The roadmap is complete only when one deterministic test path proves:
+
+```text
+Optimizer specification
+  == persisted Management specification
+  == DeploymentManifest specification
+  == Deployer typed tfvars
+  == asserted Terraform resource attributes
+```
+
+The comparison applies to every supported provider and baseline slot. Any
+invariant that remains hardcoded must be explicitly classified, documented, and
+covered by a source-contract test proving it matches the cost model.
+
+## Local Completion Evidence
+
+`./thesis.sh test deployment-contract` passed in 485.2 seconds without cloud
+credentials, provider mutation, or E2E collection. It included:
+
+- 39 focused Optimizer, 75 focused Management, and 44 focused
+  Deployer/Terraform drift tests;
+- 843 full Optimizer tests;
+- 934 full Management API tests;
+- 1,734 full Deployer tests with one explicit skip;
+- 706 Flutter tests, architecture/format/analyzer gates, Web release, and
+  macOS debug build;
+- Ruff, Bandit, compile/dependency checks, Terraform format/validate/mock
+  plans, strict MkDocs, Compose, and repository checks.
+
+The final focused local rerun passed in 38.4 seconds and removed all isolated
+containers, volumes, and networks. The fresh-clone
+[drift workflow](https://github.com/TVJunkie724/master-thesis/actions/runs/29632110122)
+passed in 2 minutes 20 seconds. The
+[Flutter platform workflow](https://github.com/TVJunkie724/master-thesis/actions/runs/29631844619)
+passed its Quality/Web and native Windows, Linux, and macOS jobs.
+
+Phase issue #128 is closed. Parent #118 remains open only for the
+user-requested later real-provider and final-application E2E decision; it is no
+longer a missing pre-Phase-8 implementation gate.

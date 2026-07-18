@@ -183,13 +183,19 @@ Prefer typed subcontracts over one large unstructured update payload:
 - `PATCH /twins/{id}/config/profile` for debug/progress metadata.
 - `PATCH /twins/{id}/config/cloud-connections` for provider references.
 - `PATCH /twins/{id}/optimizer-config/params` for optimizer input.
-- `PUT /twins/{id}/optimizer-config/result` for accepted calculation result.
+- `POST /twins/{id}/optimizer-runs` for the server-owned calculation and
+  accepted result.
 - `PATCH /twins/{id}/deployer/config` for deployment user intent.
 - Existing endpoints may remain as compatibility adapters during migration.
 
 The first implementation slice may keep existing paths and introduce typed
 request builders internally. Route path cleanup can come later if it would
 create too much churn.
+
+The final contract supersedes the earlier compatibility proposal: no generic
+wizard update or dedicated result endpoint accepts client-authored optimizer
+results. The durable run service owns validation, persistence, and deployment
+path derivation.
 
 ---
 

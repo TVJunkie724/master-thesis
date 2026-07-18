@@ -2,20 +2,21 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from backend import config_loader
 from backend.fetch_data.calculate_up_to_date_pricing import (
     fetch_aws_data,
     fetch_azure_data,
     fetch_google_data,
 )
+from backend.pricing_evidence import validate_evidence_record
 from backend.pricing_schema import (
     EXPECTED_PRICING_SCHEMA,
     PRICING_CONTRACT_VERSION,
     PRICING_SCHEMA_VERSION,
     attach_pricing_metadata,
-    strip_pricing_metadata,
+    canonical_pricing_snapshot_digest,
     validate_pricing_payload,
 )
+from tests.unit.pricing.transfer_fixtures import canonical_transfer_fetch
 
 
 SERVICE_MAPPING = {
@@ -36,7 +37,7 @@ SERVICE_MAPPING = {
 
 FETCHED_BY_PROVIDER = {
     "aws": {
-        "transfer": {"egressPrice": 0.09},
+        "transfer": canonical_transfer_fetch("aws"),
         "iot": {
             "pricePerDeviceAndMonth": 0.0035,
             "priceRulesTriggered": 0.00000015,
@@ -70,9 +71,16 @@ FETCHED_BY_PROVIDER = {
             "dataRetrievalPrice": 0.0025,
         },
         "twinmaker": {
-            "unifiedDataAccessAPICallsPrice": 0.0000015,
-            "entityPrice": 0.05,
-            "queryPrice": 0.00005,
+            "usageRates": {
+                "entityPricePerMonth": 0.0525,
+                "queryPrice": 0.0000525,
+                "unifiedDataAccessApiCallPrice": 0.00000165,
+            },
+            "tieredBundle": {
+                "tiers": json.loads(
+                    Path("json/pricing.json").read_text()
+                )["aws"]["iotTwinMaker"]["tieredBundle"]["tiers"]
+            },
         },
         "grafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
         "orchestration": {"pricePer1kStateTransitions": 0.025},
@@ -81,10 +89,7 @@ FETCHED_BY_PROVIDER = {
         "scheduler": {"jobPrice": 0.000001},
     },
     "azure": {
-        "transfer": {
-            "pricing_tiers": {"tier1": {"limit": "Infinity", "price": 0.087}},
-            "egressPrice": 0.087,
-        },
+        "transfer": canonical_transfer_fetch("azure"),
         "iot": {"pricing_tiers": {"tier1": {"limit": "Infinity", "price": 25}}},
         "functions": {
             "requestPrice": 0.0000002,
@@ -112,10 +117,9 @@ FETCHED_BY_PROVIDER = {
             "dataRetrievalPrice": 0.02,
         },
         "twinmaker": {
-            "messagePrice": 0.000001,
-            "operationPrice": 0.0000025,
-            "queryPrice": 0.0000005,
-            "queryUnitTiers": [{"lower": 1, "value": 15}],
+            "pricePerMessage": 0.000001,
+            "pricePerOperation": 0.0000025,
+            "pricePerQueryUnit": 0.0000005,
         },
         "grafana": {"userPrice": 6.0, "hourlyPrice": 0.069},
         "orchestration": {"pricePer1kStateTransitions": 0.025},
@@ -123,7 +127,7 @@ FETCHED_BY_PROVIDER = {
         "data_access": {"pricePerMillionCalls": 3.5},
     },
     "gcp": {
-        "transfer": {"egressPrice": 0.12},
+        "transfer": canonical_transfer_fetch("gcp"),
         "iot": {"pricePerGiB": 0.0000004, "pricePerDeviceAndMonth": 0},
         "functions": {
             "requestPrice": 0.0000004,
@@ -168,8 +172,10 @@ FETCHED_BY_PROVIDER = {
 class _FakeFetcher:
     def __init__(self, provider: str):
         self.provider = provider
+        self.requested_services: list[str] = []
 
     def fetch_price(self, *, service_name: str, **kwargs):
+        self.requested_services.append(service_name)
         return FETCHED_BY_PROVIDER[self.provider].get(service_name, {})
 
 
@@ -206,7 +212,12 @@ def test_legacy_payload_without_quality_metadata_requires_review():
 
 def test_attach_pricing_metadata_marks_fallback_as_review_required():
     template = json.loads(Path("json/pricing.json").read_text())
-    payload = attach_pricing_metadata("aws", template["aws"], fetched={})
+    payload = attach_pricing_metadata(
+        "aws",
+        template["aws"],
+        fetched={},
+        pricing_region="eu-central-1",
+    )
 
     validation = validate_pricing_payload("aws", payload)
 
@@ -215,6 +226,39 @@ def test_attach_pricing_metadata_marks_fallback_as_review_required():
     assert validation["review_required"] is True
     assert "lambda.requestPrice" in validation["fallback_fields"]
     assert payload["__quality__"]["field_sources"]["lambda.requestPrice"] == "fallback_static"
+
+
+def test_aws_snapshot_digest_is_stable_across_generated_timestamp_changes():
+    template = json.loads(Path("json/pricing.json").read_text())
+    first = attach_pricing_metadata(
+        "aws",
+        template["aws"],
+        fetched={},
+        pricing_region="eu-central-1",
+    )
+    second = json.loads(json.dumps(first))
+    second["__schema__"]["generated_at"] = "2099-01-01T00:00:00+00:00"
+
+    assert canonical_pricing_snapshot_digest(first) == (
+        canonical_pricing_snapshot_digest(second)
+    )
+    assert validate_pricing_payload("aws", second)["status"] == "valid"
+
+
+def test_aws_snapshot_validation_rejects_tampered_pricing():
+    template = json.loads(Path("json/pricing.json").read_text())
+    payload = attach_pricing_metadata(
+        "aws",
+        template["aws"],
+        fetched={},
+        pricing_region="eu-central-1",
+    )
+    payload["iotTwinMaker"]["usageRates"]["queryPrice"] *= 2
+
+    validation = validate_pricing_payload("aws", payload)
+
+    assert validation["status"] == "incomplete"
+    assert "__schema__.snapshot_digest (mismatch)" in validation["missing_keys"]
 
 
 def test_attach_pricing_metadata_marks_model_constants_as_curated():
@@ -227,10 +271,14 @@ def test_attach_pricing_metadata_marks_model_constants_as_curated():
         "functions": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},
         "cosmosDB": {"minimumRequestUnits": 400, "RUsPerRead": 1, "RUsPerWrite": 10},
         "blobStorageCool": {"upfrontPrice": 0.0001},
-        "azureDigitalTwins": {"queryUnitTiers": [{"lower": 1, "value": 15}]},
     }
 
-    aws = attach_pricing_metadata("aws", aws_payload, fetched={})
+    aws = attach_pricing_metadata(
+        "aws",
+        aws_payload,
+        fetched={},
+        pricing_region="eu-central-1",
+    )
     azure = attach_pricing_metadata("azure", azure_payload, fetched={})
 
     assert aws["__quality__"]["field_sources"]["lambda.freeRequests"] == "curated"
@@ -238,9 +286,37 @@ def test_attach_pricing_metadata_marks_model_constants_as_curated():
     assert aws["__quality__"]["field_sources"]["s3InfrequentAccess.upfrontPrice"] == "curated"
     assert azure["__quality__"]["field_sources"]["functions.freeComputeTime"] == "curated"
     assert azure["__quality__"]["field_sources"]["cosmosDB.RUsPerRead"] == "curated"
-    assert azure["__quality__"]["field_sources"]["azureDigitalTwins.queryUnitTiers"] == "curated"
     assert "lambda.freeRequests" not in aws["__quality__"]["fallback_fields"]
     assert "cosmosDB.RUsPerRead" not in azure["__quality__"]["fallback_fields"]
+
+
+def test_gcp_scheduler_uses_reviewed_job_month_price_and_official_evidence():
+    payload = attach_pricing_metadata(
+        "gcp",
+        {"cloudScheduler": {"jobPrice": 0.10}},
+        fetched={},
+        pricing_region="europe-west1",
+    )
+
+    assert payload["cloudScheduler"]["jobPrice"] == 0.10
+    assert (
+        payload["__quality__"]["field_sources"]["cloudScheduler.jobPrice"]
+        == "curated"
+    )
+    assert (
+        "cloudScheduler.jobPrice"
+        not in payload["__quality__"]["fallback_fields"]
+    )
+    evidence = payload["__evidence__"]["fields"][
+        "cloudScheduler.jobPrice"
+    ]
+    assert evidence["source_type"] == "official_cloud_evidence"
+    assert evidence["normalized_value"] == 0.10
+    assert evidence["normalization_rule"] == "per_job_month"
+    assert evidence["request_scope"]["free_allowance_allocation"] == (
+        "excluded_without_account_evidence"
+    )
+    assert validate_evidence_record(evidence) == []
 
 
 def test_incomplete_payload_is_review_required_even_without_fallback_metadata():
@@ -249,13 +325,20 @@ def test_incomplete_payload_is_review_required_even_without_fallback_metadata():
     assert validation["status"] == "incomplete"
     assert validation["quality_status"] == "review_required"
     assert validation["review_required"] is True
-    assert "transfer.egressPrice" in validation["missing_keys"]
+    assert "transfer.billing_unit" in validation["missing_keys"]
 
 
 def test_fetched_provider_payloads_are_schema_valid_and_publishable():
+    fetchers: dict[str, _FakeFetcher] = {}
+
+    def create_fetcher(provider: str) -> _FakeFetcher:
+        fetcher = _FakeFetcher(provider)
+        fetchers[provider] = fetcher
+        return fetcher
+
     with patch(
         "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create",
-        side_effect=lambda provider: _FakeFetcher(provider),
+        side_effect=create_fetcher,
     ), patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_aws_credentials"):
         results = {
             "aws": fetch_aws_data(
@@ -288,23 +371,5 @@ def test_fetched_provider_payloads_are_schema_valid_and_publishable():
         assert validation["fallback_fields"] == []
         assert payload["__schema__"]["provider"] == provider
 
-
-def test_combined_pricing_strips_reserved_metadata_before_calculation():
-    aws = attach_pricing_metadata(
-        "aws",
-        json.loads(Path("json/pricing.json").read_text())["aws"],
-        fetched={},
-    )
-
-    with patch.object(
-        config_loader,
-        "load_json_file_optional",
-        side_effect=[aws, {"__schema__": {}, "functions": {}}, {"__quality__": {}, "iot": {}}],
-    ):
-        combined = config_loader.load_combined_pricing()
-
-    assert "__schema__" not in combined["aws"]
-    assert "__quality__" not in combined["aws"]
-    assert "__schema__" not in combined["azure"]
-    assert "__quality__" not in combined["gcp"]
-    assert combined["aws"] == strip_pricing_metadata(aws)
+    assert "scheduler" not in fetchers["gcp"].requested_services
+    assert results["gcp"]["cloudScheduler"]["jobPrice"] == 0.10

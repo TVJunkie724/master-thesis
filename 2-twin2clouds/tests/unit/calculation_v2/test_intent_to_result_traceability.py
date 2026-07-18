@@ -4,10 +4,15 @@ import json
 
 from backend.calculation_v2.engine import calculate_cheapest_costs
 from backend.calculation_v2.traceability import TRACE_SCHEMA_VERSION
+from tests.unit.pricing.transfer_fixtures import (
+    canonical_transfer_catalog,
+    pricing_catalog_context_for,
+)
 
 
 def _sample_params():
     return {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -57,12 +62,14 @@ def _sample_pricing():
             "s3InfrequentAccess": {"storagePrice": 0.0125, "requestPrice": 0.000001},
             "s3GlacierDeepArchive": {"storagePrice": 0.00099, "lifecycleAndWritePrice": 0.00005},
             "iotTwinMaker": {
-                "queryPrice": 0.001,
-                "entityPrice": 0.0,
-                "unifiedDataAccessAPICallsPrice": 0.000001,
+                "usageRates": {
+                    "queryPrice": 0.001,
+                    "entityPricePerMonth": 0.000001,
+                    "unifiedDataAccessApiCallPrice": 0.000001,
+                },
             },
             "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-            "egress": {"pricePerGB": 0.09},
+            "transfer": canonical_transfer_catalog("aws"),
         },
         "azure": {
             "iotHub": {
@@ -82,13 +89,12 @@ def _sample_pricing():
             "blobStorageCool": {"storagePrice": 0.01, "writePrice": 0.00001},
             "blobStorageArchive": {"storagePrice": 0.002, "writePrice": 0.00002},
             "azureDigitalTwins": {
-                "operationPrice": 0.0025,
-                "queryPrice": 0.0005,
-                "messagePrice": 0.001,
-                "queryUnitTiers": [{"minimum": 0, "unitWeight": 1}],
+                "pricePerOperation": 0.0000025,
+                "pricePerQueryUnit": 0.0000005,
+                "pricePerMessage": 0.000001,
             },
             "azureManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
-            "egress": {"pricePerGB": 0.087},
+            "transfer": canonical_transfer_catalog("azure"),
         },
         "gcp": {
             "iot": {"pricePerGiB": 0.04},
@@ -99,18 +105,24 @@ def _sample_pricing():
                 "freeGBSeconds": 400000,
             },
             "cloudWorkflows": {"pricePerStep": 0.00001},
+            "cloudScheduler": {"jobPrice": 0.10},
             "storage_hot": {"writePrice": 0.18, "readPrice": 0.06, "storagePrice": 0.026},
             "storage_cool": {"storagePrice": 0.01, "writePrice": 0.01},
             "storage_archive": {"storagePrice": 0.004, "writePrice": 0.05},
             "twinmaker": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
             "grafana": {"e2MediumPrice": 0.0335, "storagePrice": 0.04},
-            "egress": {"pricePerGB": 0.12},
+            "transfer": canonical_transfer_catalog("gcp"),
         },
     }
 
 
 def test_calculation_result_contains_stable_intent_trace_shape():
-    result = calculate_cheapest_costs(_sample_params(), _sample_pricing())
+    pricing = _sample_pricing()
+    result = calculate_cheapest_costs(
+        _sample_params(),
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
 
     assert result["trace_schema_version"] == TRACE_SCHEMA_VERSION
     trace = result["intentTrace"]
@@ -121,6 +133,8 @@ def test_calculation_result_contains_stable_intent_trace_shape():
     assert trace["summary"]["record_count"] == len(trace["records"])
     assert trace["summary"]["selected_path_count"] == 7
     assert trace["summary"]["transfer_segment_count"] == len(trace["transfer_trace"])
+    assert trace["summary"]["transition_runtime_count"] == 2
+    assert len(trace["transition_runtime_trace"]) == 2
 
     first = trace["records"][0]
     assert set(first) == {
@@ -150,7 +164,12 @@ def test_calculation_result_contains_stable_intent_trace_shape():
 
 
 def test_selected_trace_records_match_selected_path():
-    result = calculate_cheapest_costs(_sample_params(), _sample_pricing())
+    pricing = _sample_pricing()
+    result = calculate_cheapest_costs(
+        _sample_params(),
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
     trace = result["intentTrace"]
 
     selected_path = {
@@ -171,7 +190,12 @@ def test_selected_trace_records_match_selected_path():
 
 
 def test_trace_is_bounded_and_secret_free():
-    result = calculate_cheapest_costs(_sample_params(), _sample_pricing())
+    pricing = _sample_pricing()
+    result = calculate_cheapest_costs(
+        _sample_params(),
+        pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+    )
     serialized = json.dumps(result["intentTrace"])
 
     assert "aws_secret_access_key" not in serialized

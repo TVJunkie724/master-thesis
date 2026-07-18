@@ -249,21 +249,32 @@ Built-in default processors at `src/providers/*/default-processor/` contain full
 
 ## Tiered Pricing for Additional Services
 
-**Status:** Not Implemented
+**Status:** In Progress — [GitHub #116](https://github.com/TVJunkie724/master-thesis/issues/116)
 
-The cost engine currently applies tiered pricing only to AWS IoT Core (`tiered_message_cost`). Several other services that offer volume-based tiered pricing in practice are modeled with flat single-tier rates:
+Provider-specific service tiering has been hardened incrementally. The
+remaining blocker in this section is the transfer model:
 
 | Service | Current Formula | Issue |
 |---------|----------------|-------|
-| AWS IoT TwinMaker | `action_based_cost` (flat) | First-tier rate applied to entire volume |
-| Azure Digital Twins | `action_based_cost` + `message_based_cost` (flat) | Same |
-| Cross-cloud egress | Hardcoded flat $/GB in `engine.py` | `tiered_transfer_cost` defined but unused |
+| Cross-cloud egress | Source-provider tier tables | Destination, region, route class, and network tier are not yet part of the selection key |
 
-**Impact:** At high volumes (e.g., preset scenario 3), the flat-rate simplification inflates L4 costs by orders of magnitude because the first-tier rate is applied to the full volume instead of applying decreasing rates to successive brackets.
+**Impact:** Source-only egress pricing can select the wrong route-specific rate.
+It also repeats provider free allowances per segment and is added only after
+greedy per-layer selection, which can select a non-optimal complete path.
 
-**Fix:** Extend the existing `tiered_message_cost` / `tiered_transfer_cost` tier-walking algorithm to TwinMaker, Digital Twins, and egress calculators. Requires fetching tier breakpoints from the pricing APIs.
+Azure Digital Twins is no longer part of this item. Its official operation,
+routed-message, and query-unit meters are normalized from 1K billing blocks to
+per-unit prices; query units are workload consumption, not a pricing tier.
+AWS IoT TwinMaker public rates and account pricing-plan semantics are handled
+by the completed #115 implementation.
 
-**Files:** `components/aws/twinmaker.py`, `components/azure/digital_twins.py`, `engine.py` (egress), `formulas/core_formulas.py`
+**Fix:** Implement the reviewed Phase 19
+[`Route-Aware Transfer Pricing`](../2-twin2clouds/implementation_plans/2026-07-18_route_aware_transfer_pricing.md)
+plan. Do not infer tier breakpoints for services whose official model is a flat
+usage meter.
+
+**Files:** `components/aws/twinmaker.py`, transfer route contracts,
+`engine.py`, `formulas/core_formulas.py`
 
 ---
 

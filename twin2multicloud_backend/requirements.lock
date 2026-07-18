@@ -6,6 +6,7 @@ aiosqlite==0.22.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.14.1
+attrs==26.1.0
 bandit==1.9.4
 certifi==2026.6.17
 cffi==2.1.0
@@ -25,6 +26,8 @@ idna==3.18
 iniconfig==2.3.0
 isodate==0.7.2
 joserfc==1.7.2
+jsonschema-specifications==2025.9.1
+jsonschema==4.25.1
 lxml==6.1.1
 limits==5.8.0
 markdown-it-py==4.2.0
@@ -44,7 +47,9 @@ python-jose==3.5.0
 python-multipart==0.0.32
 python3-saml==1.16.0
 redis==7.4.1
+referencing==0.37.0
 rich==15.0.0
+rpds-py==2026.6.3
 rsa==4.9.1
 ruff==0.15.21
 setuptools==79.0.1

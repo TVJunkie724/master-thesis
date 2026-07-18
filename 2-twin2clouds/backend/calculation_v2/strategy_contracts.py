@@ -473,16 +473,34 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             ),
         ),
         _intent(
-            "gcp.l3.gcs_coldline",
+            "gcp.l3.gcs_archive",
             Provider.GCP,
             LayerType.L3_ARCHIVE_STORAGE,
-            "gcs_coldline",
+            "gcs_archive",
             "storage_archive",
-            "GCP Cloud Storage Coldline storage, lifecycle, and retrieval pricing.",
+            "GCP Cloud Storage Archive storage, lifecycle, and retrieval pricing.",
             (
                 _field("storage", ("gcp", "storage_archive", "storagePrice"), "usd/gb_month", "usd/gb_month", "stored_gb_month"),
                 _field("lifecycle_write", ("gcp", "storage_archive", "lifecycleAndWritePrice"), "usd/action", "usd/action", "writes", aliases=(("gcp", "storage_archive", "writePrice"),)),
                 _field("retrieval", ("gcp", "storage_archive", "dataRetrievalPrice"), "usd/gb", "usd/gb", "retrieved_gb", aliases=(("gcp", "storage_archive", "retrievalPrice"),)),
+            ),
+        ),
+        _intent(
+            "gcp.transition.cloud_scheduler",
+            Provider.GCP,
+            LayerType.L3_COOL_STORAGE,
+            "cloud_scheduler",
+            "cloudScheduler",
+            "GCP Cloud Scheduler job-month pricing for storage transitions.",
+            (
+                _field(
+                    "job_month",
+                    ("gcp", "cloudScheduler", "jobPrice"),
+                    "usd/job_month",
+                    "usd/job_month",
+                    "scheduled_jobs",
+                    source_type=PricingSourceType.STATIC_OFFICIAL_TABLE,
+                ),
             ),
         ),
         _intent(
@@ -493,23 +511,42 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "iotTwinMaker",
             "AWS IoT TwinMaker entity, query, and API pricing.",
             (
-                _field("entity", ("aws", "iotTwinMaker", "entityPrice"), "usd/entity_month", "usd/entity_month", "entities", aliases=(("aws", "iotTwinMaker", "pricePerEntity"),)),
-                _field("query", ("aws", "iotTwinMaker", "queryPrice"), "usd/query", "usd/query", "queries"),
-                _field("api_call", ("aws", "iotTwinMaker", "unifiedDataAccessAPICallsPrice"), "usd/action", "usd/action", "api_calls"),
+                _field("entity", ("aws", "iotTwinMaker", "usageRates", "entityPricePerMonth"), "usd/entity_month", "usd/entity_month", "entities"),
+                _field("query", ("aws", "iotTwinMaker", "usageRates", "queryPrice"), "usd/query", "usd/query", "queries"),
+                _field("api_call", ("aws", "iotTwinMaker", "usageRates", "unifiedDataAccessApiCallPrice"), "usd/action", "usd/action", "api_calls"),
             ),
         ),
         _intent(
-            "azure.l4.digital_twins",
+            "azure.l4.digital_twins_operations",
             Provider.AZURE,
             LayerType.L4_TWIN_MANAGEMENT,
-            "digital_twins",
+            "digital_twins_operations",
             "azureDigitalTwins",
-            "Azure Digital Twins operation, message, query, and tier pricing.",
+            "Azure Digital Twins billable operation pricing.",
             (
-                _field("operation", ("azure", "azureDigitalTwins", "operationPrice"), "usd/action", "usd/1k_actions", "operations", normalizer="price_per_1k_to_price_per_action"),
-                _field("message", ("azure", "azureDigitalTwins", "messagePrice"), "usd/message", "usd/1k_messages", "messages", normalizer="price_per_1k_to_price_per_action"),
-                _field("query", ("azure", "azureDigitalTwins", "queryPrice"), "usd/query_unit", "usd/1k_query_units", "query_units", normalizer="price_per_1k_to_price_per_action"),
-                _field("query_unit_tiers", ("azure", "azureDigitalTwins", "queryUnitTiers"), "query_unit", "tier_table", "query_complexity", normalizer="azure_digital_twins_query_units"),
+                _field("operation", ("azure", "azureDigitalTwins", "pricePerOperation"), "usd/action", "usd/action", "operations"),
+            ),
+        ),
+        _intent(
+            "azure.l4.digital_twins_messages",
+            Provider.AZURE,
+            LayerType.L4_TWIN_MANAGEMENT,
+            "digital_twins_routed_messages",
+            "azureDigitalTwins",
+            "Azure Digital Twins routed-message pricing.",
+            (
+                _field("message", ("azure", "azureDigitalTwins", "pricePerMessage"), "usd/message", "usd/message", "messages"),
+            ),
+        ),
+        _intent(
+            "azure.l4.digital_twins_query_units",
+            Provider.AZURE,
+            LayerType.L4_TWIN_MANAGEMENT,
+            "digital_twins_query_units",
+            "azureDigitalTwins",
+            "Azure Digital Twins query-unit pricing.",
+            (
+                _field("query", ("azure", "azureDigitalTwins", "pricePerQueryUnit"), "usd/query_unit", "usd/query_unit", "query_units"),
             ),
         ),
         _intent(
@@ -570,8 +607,14 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "transfer",
             "AWS cross-cloud egress pricing.",
             (
-                _field("egress", ("aws", "transfer", "egressPrice"), "usd/gb", "usd/gb", "egress_gb"),
-                _field("egress_tiers", ("aws", "transfer", "pricing_tiers"), "usd/gb", "tier_table", "egress_gb", normalizer="transfer_tier_table"),
+                _field(
+                    "catalog",
+                    ("aws", "transfer"),
+                    "transfer_catalog",
+                    "transfer_catalog",
+                    "egress_bytes",
+                    normalizer="canonical_transfer_catalog",
+                ),
             ),
         ),
         _intent(
@@ -582,7 +625,14 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "transfer",
             "Azure cross-cloud egress pricing.",
             (
-                _field("egress_tiers", ("azure", "transfer", "pricing_tiers"), "usd/gb", "tier_table", "egress_gb", normalizer="transfer_tier_table"),
+                _field(
+                    "catalog",
+                    ("azure", "transfer"),
+                    "transfer_catalog",
+                    "transfer_catalog",
+                    "egress_bytes",
+                    normalizer="canonical_transfer_catalog",
+                ),
             ),
         ),
         _intent(
@@ -593,8 +643,14 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             "transfer",
             "GCP cross-cloud egress pricing.",
             (
-                _field("egress", ("gcp", "transfer", "egressPrice"), "usd/gb", "usd/gb", "egress_gb"),
-                _field("egress_tiers", ("gcp", "transfer", "pricing_tiers"), "usd/gb", "tier_table", "egress_gb", normalizer="transfer_tier_table"),
+                _field(
+                    "catalog",
+                    ("gcp", "transfer"),
+                    "transfer_catalog",
+                    "transfer_catalog",
+                    "egress_bytes",
+                    normalizer="canonical_transfer_catalog",
+                ),
             ),
         ),
     )
@@ -619,14 +675,17 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
         _binding("cost.gcp.l3.gcs_nearline", FormulaType.CS, ("gcp.l3.gcs_nearline",), "GCSNearlineCalculator.calculate_cost", "L3_cool.gcs_nearline", ("storage_gb", "writes_per_month", "retrievals_gb")),
         _binding("cost.aws.l3.s3_glacier", FormulaType.CS, ("aws.l3.s3_glacier",), "AWSS3GlacierCalculator.calculate_cost", "L3_archive.s3_glacier", ("storage_gb", "writes_per_month", "retrievals_gb")),
         _binding("cost.azure.l3.blob_archive", FormulaType.CS, ("azure.l3.blob_archive",), "AzureBlobArchiveCalculator.calculate_cost", "L3_archive.blob_archive", ("storage_gb", "writes_per_month", "retrievals_gb")),
-        _binding("cost.gcp.l3.gcs_coldline", FormulaType.CS, ("gcp.l3.gcs_coldline",), "GCSColdlineCalculator.calculate_cost", "L3_archive.gcs_coldline", ("storage_gb", "writes_per_month", "retrievals_gb")),
+        _binding("cost.gcp.l3.gcs_archive", FormulaType.CS, ("gcp.l3.gcs_archive",), "GCSArchiveCalculator.calculate_cost", "L3_archive.gcs_archive", ("storage_gb", "writes_per_month", "retrievals_gb")),
+        _binding("cost.gcp.transition.cloud_scheduler", FormulaType.CA, ("gcp.transition.cloud_scheduler",), "GCPLayerCalculators.calculate_transition_runtime", "transition_runtime.cloud_scheduler", ("scheduled_jobs",), normalizer="fixed_job_month_cost"),
         _binding("cost.aws.l4.twinmaker", FormulaType.CA, ("aws.l4.twinmaker",), "AWSTwinMakerCalculator.calculate_cost", "L4.twinmaker", ("entity_count", "queries_per_month", "api_calls_per_month")),
-        _binding("cost.azure.l4.digital_twins", FormulaType.CA, ("azure.l4.digital_twins",), "AzureDigitalTwinsCalculator.calculate_cost", "L4.digital_twins", ("operations_per_month", "queries_per_month", "messages_per_month"), normalizer="azure_digital_twins_query_units"),
+        _binding("cost.azure.l4.digital_twins_operations", FormulaType.CA, ("azure.l4.digital_twins_operations",), "AzureDigitalTwinsCalculator.calculate_breakdown", "L4.digital_twins_operations", ("billable_operations",)),
+        _binding("cost.azure.l4.digital_twins_messages", FormulaType.CM, ("azure.l4.digital_twins_messages",), "AzureDigitalTwinsCalculator.calculate_breakdown", "L4.digital_twins_routed_messages", ("billable_messages",)),
+        _binding("cost.azure.l4.digital_twins_query_units", FormulaType.CA, ("azure.l4.digital_twins_query_units",), "AzureDigitalTwinsCalculator.calculate_breakdown", "L4.digital_twins_query_units", ("billable_query_units",)),
         _binding("cost.gcp.l4.self_hosted_twin", FormulaType.CU, ("gcp.l4.self_hosted_twin",), "GCPComputeEngineCalculator.calculate_twinmaker_cost", "L4.self_hosted_twin", ("hours_per_month", "disk_gb")),
         _binding("cost.aws.l5.grafana", FormulaType.CU, ("aws.l5.grafana",), "AWSGrafanaCalculator.calculate_cost", "L5.grafana", ("num_editors", "num_viewers")),
         _binding("cost.azure.l5.grafana", FormulaType.CU, ("azure.l5.grafana",), "AzureGrafanaCalculator.calculate_cost", "L5.grafana", ("num_editors", "num_viewers", "hours_per_month")),
         _binding("cost.gcp.l5.self_hosted_grafana", FormulaType.CU, ("gcp.l5.self_hosted_grafana",), "GCPComputeEngineCalculator.calculate_grafana_cost", "L5.self_hosted_grafana", ("hours_per_month", "disk_gb")),
-        _binding("cost.transfer.egress", FormulaType.CTRANSFER, ("aws.transfer.egress", "azure.transfer.egress", "gcp.transfer.egress"), "calculation_v2.engine._calculate_egress_cost", "transfer.egress", ("data_gb", "source_provider"), normalizer="transfer_tier_table"),
+        _binding("cost.transfer.egress", FormulaType.CTRANSFER, ("aws.transfer.egress", "azure.transfer.egress", "gcp.transfer.egress"), "calculation_v2.path_optimizer.evaluate_complete_paths", "transfer.egress", ("volume_bytes", "source_provider", "destination_provider", "catalog_snapshot_id"), normalizer="canonical_transfer_catalog"),
     )
 
     return OptimizationStrategyContract(

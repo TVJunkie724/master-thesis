@@ -55,7 +55,7 @@ def _store(tmp_path: Path) -> tuple[OperationPackageStore, Path, RuntimeStateSto
 
 def test_stage_is_private_and_acquire_is_one_shot(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, durable, runtime_state_store = _store(tmp_path)
 
@@ -83,9 +83,27 @@ def test_stage_is_private_and_acquire_is_one_shot(monkeypatch, tmp_path):
             pass
 
 
+def test_stage_rejects_invalid_contract_before_creating_package_root(
+    monkeypatch,
+    tmp_path,
+):
+    store, _durable, _runtime_state_store = _store(tmp_path)
+    monkeypatch.setattr(
+        "file_manager.validate_deployment_operation_archive",
+        lambda _archive: (_ for _ in ()).throw(
+            ValueError("DEPLOYMENT_MANIFEST_REQUIRED")
+        ),
+    )
+
+    with pytest.raises(ValueError, match="DEPLOYMENT_MANIFEST_REQUIRED"):
+        store.stage("factory", _archive())
+
+    assert not store.root.exists()
+
+
 def test_acquire_rejects_cross_project_and_concurrent_use(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
     staged = store.stage("factory", _archive())
@@ -102,7 +120,7 @@ def test_acquire_rejects_cross_project_and_concurrent_use(monkeypatch, tmp_path)
 
 def test_discard_project_invalidates_unused_packages(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
     first = store.stage("factory", _archive())
@@ -116,7 +134,7 @@ def test_discard_project_invalidates_unused_packages(monkeypatch, tmp_path):
 
 def test_discard_project_rejects_active_operation(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
     staged = store.stage("factory", _archive())
@@ -132,7 +150,7 @@ def test_cleanup_removes_expired_packages_but_never_active_package(
     monkeypatch, tmp_path
 ):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
     staged = store.stage("factory", _archive())
@@ -155,7 +173,7 @@ def test_cleanup_removes_expired_packages_but_never_active_package(
 
 def test_cleanup_removes_package_with_stale_process_lock(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
     staged = store.stage("factory", _archive())
@@ -172,7 +190,7 @@ def test_acquire_preserves_original_failure_when_output_sync_also_fails(
     tmp_path,
 ):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
     staged = store.stage("factory", _archive())
@@ -191,7 +209,7 @@ def test_acquire_preserves_original_failure_when_output_sync_also_fails(
 
 def test_acquire_surfaces_output_sync_failure_after_success(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "file_manager.validator.validate_project_zip", lambda _archive: []
+        "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
     staged = store.stage("factory", _archive())

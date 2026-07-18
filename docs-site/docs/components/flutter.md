@@ -92,10 +92,50 @@ nested `Field-level audit` groups typed records by provider and then by service.
 can inspect intent, formula, source, verification, result scope, evidence, alternatives,
 and rejected evidence counts without exposing raw provider catalog rows.
 
+The Optimization task creates a durable, server-owned calculation run through
+`POST /twins/{id}/optimizer-runs`. In create mode, Flutter creates and retains
+the draft twin before starting that run, so a retry cannot create a duplicate
+twin. Flutter never submits an optimizer result, cheapest path, transfer cost,
+or catalog reference. Save Draft persists only user-authored configuration.
+
+A successful calculation returns a typed immutable
+`ResolvedDeploymentSpecification`. Flutter immediately selects that whole run
+through the Management API verification endpoint. Selection verifies run/twin
+identity, compatibility, schema version, digest, specification identity, and
+pricing/account context. A selection failure preserves the cost result but blocks
+all navigation into deployment preparation. Edit mode loads the newest run and
+never inherits selection state from an older run.
+
+`DeploymentSelectionStatus` keeps the recommendation task concise.
+`ResolvedDeploymentSummary` lists every primary and supporting component in the
+final review, while technical evidence remains collapsed. The widgets receive an
+immutable `ResolvedDeploymentReview`; they cannot edit dimensions or call HTTP.
+Known v1 payloads parse strictly and fail closed. Unknown future versions remain
+readable as unsupported metadata and require recalculation with a compatible app.
+Changing a workload input clears the result and deployment run atomically. Late
+calculation or selection responses are ignored, and calculate/select/save/finish
+commands cannot overlap.
+
 Historical records without the newer selection/scope fields remain readable and are
 labelled with compatibility defaults. Shared diagnostic amounts are explicitly marked
 non-additive. The detail layout stacks labels at constrained widths and is covered in
 light and dark themes.
+
+Pricing evidence is also a typed read-only boundary. Flutter validates the exact
+three-provider catalog context, canonical provider/region metadata, UTC timestamp,
+review/publication state, content digest, and the derived cross-runtime snapshot ID.
+It does not export or persist full pricing payloads after a calculation. The
+Management API resolves and verifies trusted references; Flutter shows compact rows
+in Latest Refresh, Calculation Trace, and Twin Overview, with full IDs and versions
+behind nested technical details. Legacy saved results show explicit unavailable
+provider rows and expose no pricing JSON artifact action.
+
+Current route-aware results also expose the exact six baseline transfer edges
+under one collapsed `Transfer route evidence` section. Solver diagnostics,
+provider billing pools, native GB/GiB tier contributions, network tiers,
+regions, source snapshot IDs, costs, and assumptions remain read-only and
+collapsed until requested. Historical results without this additive contract
+remain readable and are labelled as lacking exact route evidence.
 
 Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
 opens a system browser, polls the one-time Management API exchange, retains the access

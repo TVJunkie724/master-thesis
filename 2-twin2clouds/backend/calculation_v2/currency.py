@@ -42,6 +42,7 @@ def apply_result_currency(
 
     if target_currency == "EUR":
         _convert_provider_costs(result, rate)
+        _convert_complete_path_costs(result, rate)
         _convert_trace_costs(result, rate, target_currency)
         result["totalCost"] = round(_money(result.get("totalCost"), rate), 2)
 
@@ -77,10 +78,67 @@ def _convert_provider_costs(result: dict[str, Any], rate: float) -> None:
             for component, value in components.items():
                 if isinstance(value, (int, float)):
                     components[component] = _money(value, rate)
+            _convert_calculation_details(layer.get("details"), rate)
 
     for segment, value in (result.get("transferCosts") or {}).items():
         if isinstance(value, (int, float)):
             result["transferCosts"][segment] = _money(value, rate)
+    for edge_id, value in (
+        result.get("transitionRuntimeCosts") or {}
+    ).items():
+        if isinstance(value, (int, float)):
+            result["transitionRuntimeCosts"][edge_id] = _money(value, rate)
+
+
+def _convert_calculation_details(details: Any, rate: float) -> None:
+    if not isinstance(details, dict):
+        return
+    calculation = details.get("calculation")
+    if not isinstance(calculation, dict) or calculation.get("currency") != "USD":
+        return
+    for dimension in calculation.get("dimensions") or []:
+        if not isinstance(dimension, dict):
+            continue
+        _convert_key(dimension, "unitPrice", rate)
+        _convert_key(dimension, "contribution", rate)
+    calculation["sourceCurrency"] = "USD"
+    calculation["currency"] = "EUR"
+
+
+def _convert_complete_path_costs(result: dict[str, Any], rate: float) -> None:
+    transfer_context = result.get("transferPricingContext") or {}
+    transfer_context["currency"] = "EUR"
+    for route in transfer_context.get("routes") or []:
+        for key in ("egressCost", "glueCost", "totalCost"):
+            _convert_key(route, key, rate)
+        for contribution in route.get("tierContributions") or []:
+            _convert_key(contribution, "unitPrice", rate)
+            _convert_key(contribution, "cost", rate)
+    for pool in transfer_context.get("pools") or []:
+        _convert_key(pool, "aggregateEgressCost", rate)
+
+    transition_context = result.get("transitionRuntimeContext") or {}
+    transition_context["currency"] = "EUR"
+    for transition in transition_context.get("transitions") or []:
+        for key in (
+            "functionCost",
+            "triggerCost",
+            "moverRuntimeCost",
+            "destinationWriterCost",
+            "egressCost",
+            "totalCost",
+        ):
+            _convert_key(transition, key, rate)
+
+    diagnostics = result.get("optimizationDiagnostics") or {}
+    for key in (
+        "winningScore",
+        "winningLayerCost",
+        "winningTransferCost",
+        "winningTransitionRuntimeCost",
+    ):
+        _convert_key(diagnostics, key, rate)
+    diagnostics["scoreUnit"] = "EUR/month"
 
 
 def _convert_trace_costs(
@@ -90,6 +148,8 @@ def _convert_trace_costs(
     for entry in intent_trace.get("selected_path") or []:
         _convert_key(entry, "cost", rate)
     for entry in intent_trace.get("transfer_trace") or []:
+        _convert_key(entry, "cost", rate)
+    for entry in intent_trace.get("transition_runtime_trace") or []:
         _convert_key(entry, "cost", rate)
     for record in intent_trace.get("records") or []:
         contribution = record.get("contribution") or {}

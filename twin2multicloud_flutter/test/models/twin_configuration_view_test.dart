@@ -10,7 +10,7 @@ import '../fixtures/typed_api_fixtures.dart';
 
 void main() {
   group('TwinConfigurationView', () {
-    test('maps optimizer result, workload params and pricing snapshots', () {
+    test('maps optimizer result, workload params and pricing evidence', () {
       final view = TwinConfigurationView.fromState(_state());
 
       expect(view.pathSegments, ['L1_AWS', 'L2_Azure', 'L4_GCP']);
@@ -20,11 +20,9 @@ void main() {
       expect(view.optimization.messagesPerHour, '12.0');
       expect(view.optimization.retention, '6 months');
       expect(view.optimization.calculatedAt, '2026-06-21T10:00:00.000Z');
-      expect(view.pricingSnapshots, hasLength(3));
-      expect(view.pricingSnapshots.first.filename, 'aws_pricing.json');
       expect(
-        view.pricingSnapshots.first.artifactContent,
-        contains('"messages"'),
+        view.pricingCatalogContext?.reference(CloudProvider.aws).pricingRegion,
+        'eu-central-1',
       );
     });
 
@@ -67,7 +65,7 @@ void main() {
       expect(view.optimization.messagesPerHour, isNull);
       expect(view.configurationArtifacts, isEmpty);
       expect(view.functionGroups, isEmpty);
-      expect(view.pricingSnapshots.first.hasData, isFalse);
+      expect(view.pricingCatalogContext, isNull);
     });
   });
 }
@@ -110,14 +108,7 @@ TwinOverviewLoaded _state({
             optimization: optimization,
             cheapestPath: cheapestPath,
             calculatedAt: calculatedAt,
-            pricingSnapshots: {
-              for (final provider in CloudProvider.values)
-                provider: ProviderPricingSnapshot(
-                  provider: provider,
-                  payload: {'messages': provider.index + 0.1},
-                  updatedAt: calculatedAt,
-                ),
-            },
+            pricingCatalogContext: optimization.result.pricingCatalogContext,
             updatedAt: calculatedAt,
           )
         : null,

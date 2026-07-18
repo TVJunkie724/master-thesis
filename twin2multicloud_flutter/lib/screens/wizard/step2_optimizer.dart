@@ -4,11 +4,13 @@ import '../../bloc/wizard/wizard.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
 import '../../widgets/calc_form/calc_form.dart';
 import '../../widgets/results/calculation_trace_summary.dart';
 import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
+import '../../widgets/results/deployment_selection_status.dart';
 import '../../widgets/pricing/pricing_readiness_summary.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
 
@@ -33,9 +35,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     super.initState();
 
     final state = context.read<WizardBloc>().state;
-    if (!_isWorkloadTask(widget.taskId)) {
-      context.read<WizardBloc>().add(const WizardPricingHealthLoadRequested());
-    }
+    _loadPricingHealthIfNeeded();
     // Auto-scroll to results if they're already present (edit mode resume)
     if (state.calcResult != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -50,6 +50,26 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         });
       });
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant Step2Optimizer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.taskId != widget.taskId) {
+      _loadPricingHealthIfNeeded();
+    }
+  }
+
+  void _loadPricingHealthIfNeeded() {
+    if (_isWorkloadTask(widget.taskId)) return;
+    final bloc = context.read<WizardBloc>();
+    final state = bloc.state;
+    if (state.pricingHealth != null ||
+        state.isPricingHealthLoading ||
+        state.pricingHealthError != null) {
+      return;
+    }
+    bloc.add(const WizardPricingHealthLoadRequested());
   }
 
   void _onCalcParamsChanged(CalcParams params) {
@@ -310,6 +330,15 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         _buildTotalCost(result),
         const SizedBox(height: 16),
         CalculationTraceSummary(result: result),
+        const SizedBox(height: AppSpacing.md),
+        const Divider(),
+        DeploymentSelectionStatus(
+          review: state.deploymentReview,
+          isSelecting: state.isSelectingDeploymentRun,
+          onRetry: () => context.read<WizardBloc>().add(
+            const WizardDeploymentRunSelectionRequested(),
+          ),
+        ),
 
         // Note: Unconfigured provider warning is now shown in the wizard header
         const SizedBox(height: 32),

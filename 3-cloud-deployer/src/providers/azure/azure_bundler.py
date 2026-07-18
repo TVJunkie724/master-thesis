@@ -640,37 +640,6 @@ def bundle_l3_functions(project_path: str) -> bytes:
     return zip_buffer.getvalue()
 
 
-def bundle_l4_functions(project_path: str) -> bytes:
-    """Bundle L4 functions (ADT-related)."""
-    if not project_path:
-        raise ValueError("project_path is required")
-    
-    azure_functions_dir = _get_azure_functions_dir(project_path)
-    
-    # Use registry
-    l4_funcs = get_by_layer(Layer.L4_MANAGEMENT)
-    functions = [f.get_dir_name() for f in l4_funcs if "azure" in f.providers]
-    
-    logger.info(f"Bundling L4 functions: {functions}")
-    
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        _add_shared_files(zf, azure_functions_dir)
-        
-        func_dirs = []
-        for func_name in functions:
-            func_dir = azure_functions_dir / func_name
-            if func_dir.exists():
-                func_dirs.append(func_dir)
-            else:
-                logger.warning(f"L4 function not found: {func_name}")
-        
-        if func_dirs:
-            _merge_function_files(zf, func_dirs, azure_functions_dir)
-    
-    return zip_buffer.getvalue()
-
-
 def bundle_user_functions(project_path: str) -> Optional[bytes]:
     """
     Bundle user-customizable functions from upload/<project>/azure_functions/.

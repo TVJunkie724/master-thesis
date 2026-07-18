@@ -3,6 +3,7 @@ uvicorn
 requests
 colorlog
 aiohttp
+jsonschema>=4.25.1,<5.0.0
 
 python-multipart
 

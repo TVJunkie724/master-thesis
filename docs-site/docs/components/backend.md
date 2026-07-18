@@ -46,14 +46,16 @@ FastAPI route
 | `/twins/{id}/config` | configuration workspace persistence and validation |
 | `/twins/{id}/optimizer-config` | typed optimization inputs and projections |
 | `/twins/{id}/optimizer-runs` | durable calculation execution/results |
-| `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact and field-level calculation trace |
+| `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
-| `/cloud-bootstrap` | transient admin credential bootstrap/validate workflows |
+| `/cloud-bootstrap` | secret-free manual bootstrap plans and generated deployment-connection import |
 | `/cloud-access` | account-level capability inventory |
 | `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
 | `/optimizer/pricing-refresh` | provider refresh run lifecycle |
 | `/optimizer/pricing-review` | health, candidates, evidence, decisions |
+| `/optimizer/pricing-status`, `/optimizer/pricing-health` | owner-scoped status of the exact immutable catalogs used for calculation |
+| `/optimizer/pricing/catalogs/{provider}/{region}/snapshots/{id}` | authenticated, size-bounded inspection of one exact catalog |
 | `/credential-security-events` | owner-scoped credential audit history |
 | `/sse` | server-sent operation/log streams |
 
@@ -114,34 +116,134 @@ archive generation, package staging, stream handling, result persistence, rollba
 and recovery. A deployment record is separate from twin state, enabling operation
 history and correlation by session/operation ID.
 
-The Management API builds `deployment_manifest.json` version `1.0`, submits exact
-archive bytes to the Deployer, receives an operation-package token, and uses that token
-for the deploy/destroy operation. It does not write into Deployer templates directly.
+Every new successful optimizer run contains one canonical
+`ResolvedDeploymentSpecification v1`. Management validates its schema, closed-world
+component/dimension registry, run ID, provider path, strategy context, immutable
+pricing references, and SHA-256 digest before committing any run state. The canonical
+JSON, digest, version, and compatibility status are immutable after insertion.
+Historical runs remain readable as `legacy_not_deployable`; they are never upgraded by
+guessing provider settings from legacy cheapest-layer columns.
+
+Exactly one compatible run may be selected per twin/user. A partial unique database
+index enforces this invariant in addition to the application transaction. Package
+generation revalidates the stored object and requires its provider path to equal the
+persisted Optimizer projection before decrypting credentials or materializing files.
+
+The Management API builds `deployment_manifest.json` version `2.0`, embedding the
+exact calculation run ID, specification object, and digest. It submits exact archive
+bytes to the Deployer, receives an operation-package token, and uses that token for
+the deploy/destroy operation. It does not write into Deployer templates directly.
+The Deployer revalidates Manifest v2, the specification digest, provider path,
+components, dimensions, and formula/evidence bindings before staging runtime
+state. It translates only allowlisted deployment selections into typed tfvars;
+unknown or drifting contracts fail closed.
 
 ## Database Startup And Migrations
 
 Startup calls `Base.metadata.create_all()` for missing tables and then the explicit
 idempotent migration runner for existing SQLite databases. Migrations cover Cloud
 Connections, purpose/version fields, pricing reviews, calculation runs, deployment
-lifecycle/operation state, credential audit events, and legacy credential disablement.
+lifecycle/operation state, credential audit events, immutable pricing-catalog
+references, and legacy credential disablement. Migration `019` adds the compact
+three-provider context and backfills it only when a historical Optimizer result
+contains a complete, internally valid exact reference set.
+Migration `020` adds the immutable resolved-deployment columns, classifies existing
+runs as `legacy_not_deployable`, normalizes any historical duplicate selections, and
+adds digest, status, immutability, and single-selection database guards.
 
 SQLite is the local single-node storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.
 
+## Pricing Catalog Trust Boundary
+
+The Management API resolves the catalog context before every calculation:
+
+```text
+owner-scoped successful refresh reference
+  -> exact reference verification in Optimizer
+  -> fallback to committed reviewed baseline when no owner reference is usable
+  -> strict AWS + Azure + GCP reference set
+  -> calculation request
+  -> result must return the identical set
+  -> compact references persisted with run and optimizer projection
+```
+
+`PricingCatalogReference` validates provider, canonical region, versions, UTC
+fetch time, digest, review/publication state, calculation source, and the derived
+snapshot identity. A run cannot be selected for deployment when any referenced
+catalog is missing, stale, malformed, or different from the Optimizer's exact
+read result.
+
+For route-aware results, Management additionally validates
+`complete-path-transfer-pricing.v1` and `complete-path-optimization.v1` before
+returning or persisting a calculation. The gate requires exactly the six
+baseline segments and checks their endpoints, selected providers, regions,
+route classes, provider network tiers, pool identities, source snapshot IDs,
+tier arithmetic and continuous marginal quantity coverage, aggregate
+bytes/cost, currency, and winning candidate against the server-resolved catalog
+context. The non-persisting diagnostic calculation proxy and the durable run
+workflow share this one validation service.
+
+The same trust boundary requires `baseline-transition-runtime.v1` with exactly
+the hot-to-cool and cool-to-archive edges in canonical order. It proves that
+each mover runtime belongs to its selected source storage provider, that a
+destination writer exists only for cross-provider movement, and that runtime,
+writer, egress, diagnostics, and flat cost fields reconcile. Manipulated
+provider ownership, component IDs, invocation bases, arithmetic, or route
+evidence fail before any calculation run is committed.
+
+`POST /twins/{id}/optimizer-runs` is the only application command that may
+persist an optimizer result and its deployment-path projection. Management
+resolves the trusted pricing context, invokes the Optimizer, validates the
+returned contracts and resolved deployment specification, derives the path from
+`calculationResult`, and commits the run, result items, immutable deployment
+specification, and `OptimizerConfiguration` projection atomically. Generic
+twin updates and optimizer-parameter drafts cannot carry a result or cheapest
+path. `GET /twins/{id}/optimizer-config` retains a read-only result projection
+for configuration, validation, and deployment compatibility.
+
+The Management database does not store full public pricing catalogs. Existing
+legacy snapshot/timestamp columns are outside the live contract and do not make
+pricing calculable. Full pricing remains in the Optimizer's immutable regional
+catalog store and is returned only through the explicit authenticated diagnostic
+route. The client enforces an 8 MiB response limit.
+
+For AWS TwinMaker, the user/account observation remains separate from the public
+catalog reference. Region and content digest must agree before calculation, and
+an AWS L4 result must return the exact Management-injected account context.
+
 ## Persisted Pricing Trace
 
 Cost-calculation result JSON is an immutable snapshot of the Optimizer response. The
-pricing-evidence detail endpoint projects two trace levels from that snapshot:
+pricing-evidence detail endpoint projects three calculation-evidence levels plus
+the immutable catalog context from that snapshot:
 
 - `intent_trace` for the compact selected-path explanation;
 - `field_trace_records` plus `field_trace_schema_version` for provider-field audit
   details;
+- `transfer_pricing_context` plus `optimization_diagnostics` for all exact
+  baseline routes, provider billing pools, tier contributions, assumptions,
+  and bounded path-selection diagnostics;
+- `transition_runtime_context`, `transition_runtime_costs`, and
+  `transition_runtime_trace` for the two source-owned storage movers and their
+  optional destination writers;
+- `pricing_catalog_context` for the exact AWS, Azure, and GCP catalog identities;
 - explicit availability flags and compatibility warnings for historical runs.
 
+Management creates one queryable transfer result item per baseline edge from
+the validated route contract. Each item stores source provider, monthly byte
+quantity, cost, evidence ID, and the bounded route detail. It never trusts or
+persists a competing downstream or client-authored transfer item when the exact
+route contract is present.
+
 The service applies recursive secret and local-path redaction before returning either
-trace. Malformed field entries are omitted with a warning instead of making an entire
-historical run unreadable. No separate trace table or migration is required because
-the durable run result already owns the immutable payload.
+trace. Malformed field or transfer evidence is omitted with a warning instead
+of making an entire historical run unreadable. A historical run without the
+new transfer contract remains readable with
+`transfer_pricing_context_available=false`; Management does not reconstruct or
+invent missing evidence. No separate trace table or migration is required
+because the durable run result and existing result-item columns already
+represent the bounded metadata.
 
 ## Security And Errors
 

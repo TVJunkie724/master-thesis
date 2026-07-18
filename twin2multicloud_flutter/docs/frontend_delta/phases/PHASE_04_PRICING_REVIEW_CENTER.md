@@ -2,8 +2,8 @@
 title: "Phase 4: Pricing Review Center"
 description: "Plan the dedicated provider pricing refresh and candidate review workspace."
 tags: [flutter, frontend-delta, pricing, review]
-lastUpdated: "2026-07-11"
-version: "1.1"
+lastUpdated: "2026-07-17"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,8 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 # Phase 4: Pricing Review Center
 
 **Status:** Done. The account-scoped provider workflow, explicit credential
-confirmation, candidate decisions, and lazy sanitized trace are implemented.
+confirmation, candidate decisions, lazy sanitized trace, and read-only AWS TwinMaker
+account-plan diagnostics are implemented.
 
 ## Summary
 
@@ -53,6 +54,9 @@ explicit reviewed decisions.
 - Approval and unresolved decision behavior.
 - Collapsed pricing trace details for users who need to inspect the complete
   fetch and match path.
+- Typed AWS TwinMaker account-plan parsing at the refresh-run model boundary.
+- Compact current/pending plan summary with collapsed technical evidence and
+  actionable compatibility guidance.
 
 ## UI Shape
 
@@ -87,6 +91,8 @@ Pricing Review Center
   - reviewed decision and stale/fingerprint state when available.
 - The trace must be sanitized by the backend before Flutter receives it.
 - Flutter displays trace data; it does not recompute pricing correctness.
+- Flutter displays the Management-bound TwinMaker plan observation; it never
+  changes the account plan or infers compatibility from an untyped JSON map.
 
 ## Architecture Guardrails
 
@@ -109,6 +115,11 @@ Pricing Review Center
 - User can choose contract-valid candidates or mark unresolved.
 - AI suggestion may preselect a row but never persists without explicit user
   approval.
+- AWS latest-refresh details show current mode, account, observation, pending
+  state, region, billable entities, bundle metadata, connection, schema, and
+  refresh-run reference without adding an editable plan control.
+- Malformed optional account-plan context is omitted without making the refresh
+  run unreadable.
 - Flutter never receives OpenAI keys, cloud credentials, or raw unbounded
   provider payloads.
 
@@ -119,6 +130,9 @@ Pricing Review Center
 - Widget tests cover AI disabled, AI agreement, AI disagreement, missing
   credential, blocked validation, Azure public API, and collapsed/expanded trace
   panels.
+- Model and widget tests cover Standard, Basic, Tiered Bundle, pending, stale,
+  malformed nested context, connection/account mismatch, narrow layout, and
+  secret-free provider errors.
 - Integration tests use Management API/SSE without live cloud deployment E2E.
 
 ## Roadmap Anchor

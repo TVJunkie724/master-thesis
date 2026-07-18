@@ -34,8 +34,8 @@ override.tf.json
 # Local .terraform directory
 .terraform/
 
-# Terraform lock file
-.terraform.lock.hcl
+# The root-module provider lock is versioned for reproducible init/validation.
+!.terraform.lock.hcl
 
 # Transient lock info files
 .terraform.tfstate.lock.info

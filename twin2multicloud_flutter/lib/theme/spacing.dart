@@ -104,6 +104,15 @@ abstract class AppSpacing {
   /// Wizard navigation uses its three-region desktop layout from this width.
   static const double configurationNavigationWideBreakpoint = 1024;
 
+  /// Resolved deployment rows use fixed metadata columns from this width.
+  static const double resolvedDeploymentWideBreakpoint = 720;
+
+  /// Stable slot column width in resolved deployment rows.
+  static const double resolvedDeploymentSlotColumnWidth = 112;
+
+  /// Stable provider column width in resolved deployment rows.
+  static const double resolvedDeploymentProviderColumnWidth = 96;
+
   /// Maximum width for confirmation-dialog content.
   static const double dialogContentMaxWidth = 480;
 

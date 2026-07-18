@@ -392,181 +392,114 @@
         "title": "BoundCloudConnectionSummary",
         "type": "object"
       },
-      "CalcParams": {
-        "description": "All 26 calculation parameters matching Optimizer API.",
+      "CapabilityAvailability": {
+        "enum": [
+          "available",
+          "disabled",
+          "unsupported"
+        ],
+        "title": "CapabilityAvailability",
+        "type": "string"
+      },
+      "CapabilityRoadmap": {
+        "enum": [
+          "none",
+          "planned"
+        ],
+        "title": "CapabilityRoadmap",
+        "type": "string"
+      },
+      "CapabilitySource": {
+        "additionalProperties": false,
         "properties": {
-          "allowGcpSelfHostedL4": {
-            "default": false,
-            "title": "Allowgcpselfhostedl4",
-            "type": "boolean"
+          "availability": {
+            "$ref": "#/components/schemas/CapabilityAvailability"
           },
-          "allowGcpSelfHostedL5": {
-            "default": false,
-            "title": "Allowgcpselfhostedl5",
-            "type": "boolean"
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           },
-          "amountOfActiveEditors": {
-            "default": 0,
-            "description": "Monthly active editors",
-            "minimum": 0.0,
-            "title": "Amountofactiveeditors",
-            "type": "integer"
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
           },
-          "amountOfActiveViewers": {
-            "default": 0,
-            "description": "Monthly active viewers",
-            "minimum": 0.0,
-            "title": "Amountofactiveviewers",
-            "type": "integer"
+          "roadmap": {
+            "$ref": "#/components/schemas/CapabilityRoadmap"
           },
-          "apiCallsPerDashboardRefresh": {
-            "default": 1,
-            "minimum": 1.0,
-            "title": "Apicallsperdashboardrefresh",
-            "type": "integer"
-          },
-          "archiveStorageDurationInMonths": {
-            "description": "Archive storage duration (months)",
-            "minimum": 6.0,
-            "title": "Archivestoragedurationinmonths",
-            "type": "integer"
-          },
-          "average3DModelSizeInMB": {
-            "default": 100.0,
-            "description": "Average 3D model size in MB",
-            "exclusiveMinimum": 0.0,
-            "title": "Average3Dmodelsizeinmb",
-            "type": "number"
-          },
-          "averageSizeOfMessageInKb": {
-            "description": "Average message size in KB",
-            "exclusiveMinimum": 0.0,
-            "title": "Averagesizeofmessageinkb",
-            "type": "number"
-          },
-          "coolStorageDurationInMonths": {
-            "description": "Cool storage duration (months)",
-            "minimum": 1.0,
-            "title": "Coolstoragedurationinmonths",
-            "type": "integer"
-          },
-          "currency": {
-            "default": "USD",
-            "description": "Currency code (USD or EUR)",
-            "title": "Currency",
-            "type": "string"
-          },
-          "dashboardActiveHoursPerDay": {
-            "default": 0,
-            "description": "Active hours per day",
-            "maximum": 24.0,
-            "minimum": 0.0,
-            "title": "Dashboardactivehoursperday",
-            "type": "integer"
-          },
-          "dashboardRefreshesPerHour": {
-            "default": 0,
-            "description": "Dashboard refresh rate",
-            "minimum": 0.0,
-            "title": "Dashboardrefreshesperhour",
-            "type": "integer"
-          },
-          "deviceSendingIntervalInMinutes": {
-            "description": "Sending interval in minutes",
-            "exclusiveMinimum": 0.0,
-            "title": "Devicesendingintervalinminutes",
-            "type": "number"
-          },
-          "entityCount": {
-            "default": 0,
-            "description": "Number of 3D entities",
-            "minimum": 0.0,
-            "title": "Entitycount",
-            "type": "integer"
-          },
-          "eventTriggerRate": {
-            "default": 0.1,
-            "description": "Event trigger rate (0-1)",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Eventtriggerrate",
-            "type": "number"
-          },
-          "eventsPerMessage": {
-            "default": 1,
-            "minimum": 1.0,
-            "title": "Eventspermessage",
-            "type": "integer"
-          },
-          "hotStorageDurationInMonths": {
-            "description": "Hot storage duration (months)",
-            "minimum": 1.0,
-            "title": "Hotstoragedurationinmonths",
-            "type": "integer"
-          },
-          "integrateErrorHandling": {
-            "default": false,
-            "title": "Integrateerrorhandling",
-            "type": "boolean"
-          },
-          "needs3DModel": {
-            "description": "Whether 3D model is needed",
-            "title": "Needs3Dmodel",
-            "type": "boolean"
-          },
-          "numberOfDeviceTypes": {
-            "default": 1,
-            "description": "Number of device types",
-            "minimum": 1.0,
-            "title": "Numberofdevicetypes",
-            "type": "integer"
-          },
-          "numberOfDevices": {
-            "description": "Number of IoT devices",
-            "exclusiveMinimum": 0.0,
-            "title": "Numberofdevices",
-            "type": "integer"
-          },
-          "numberOfEventActions": {
-            "default": 0,
-            "description": "Number of event actions",
-            "minimum": 0.0,
-            "title": "Numberofeventactions",
-            "type": "integer"
-          },
-          "orchestrationActionsPerMessage": {
-            "default": 3,
-            "minimum": 1.0,
-            "title": "Orchestrationactionspermessage",
-            "type": "integer"
-          },
-          "returnFeedbackToDevice": {
-            "default": false,
-            "title": "Returnfeedbacktodevice",
-            "type": "boolean"
-          },
-          "triggerNotificationWorkflow": {
-            "default": false,
-            "title": "Triggernotificationworkflow",
-            "type": "boolean"
-          },
-          "useEventChecking": {
-            "default": false,
-            "title": "Useeventchecking",
-            "type": "boolean"
+          "verification_level": {
+            "$ref": "#/components/schemas/CapabilityVerificationLevel"
           }
         },
         "required": [
-          "numberOfDevices",
-          "deviceSendingIntervalInMinutes",
-          "averageSizeOfMessageInKb",
-          "hotStorageDurationInMonths",
-          "coolStorageDurationInMonths",
-          "archiveStorageDurationInMonths",
-          "needs3DModel"
+          "availability",
+          "roadmap",
+          "reason_code",
+          "reason",
+          "verification_level"
         ],
-        "title": "CalcParams",
+        "title": "CapabilitySource",
         "type": "object"
+      },
+      "CapabilitySourceHealth": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "provider-service-capabilities.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "available",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "schema_version"
+        ],
+        "title": "CapabilitySourceHealth",
+        "type": "object"
+      },
+      "CapabilitySources": {
+        "additionalProperties": false,
+        "properties": {
+          "deployer": {
+            "$ref": "#/components/schemas/CapabilitySource"
+          },
+          "optimizer": {
+            "$ref": "#/components/schemas/CapabilitySource"
+          }
+        },
+        "required": [
+          "optimizer",
+          "deployer"
+        ],
+        "title": "CapabilitySources",
+        "type": "object"
+      },
+      "CapabilityVerificationLevel": {
+        "enum": [
+          "not_verified",
+          "contract_tested",
+          "live_verified"
+        ],
+        "title": "CapabilityVerificationLevel",
+        "type": "string"
       },
       "CheapestPathResponse": {
         "description": "Cheapest path for deployment.",
@@ -1790,12 +1723,11 @@
         "type": "object"
       },
       "CostCalculationRunCreate": {
+        "additionalProperties": false,
         "properties": {
           "params": {
-            "additionalProperties": true,
-            "description": "Optimizer calculation parameters",
-            "title": "Params",
-            "type": "object"
+            "$ref": "#/components/schemas/OptimizerCalculationParams",
+            "description": "Optimizer calculation parameters"
           },
           "pricing_evidence_version": {
             "anyOf": [
@@ -1807,27 +1739,6 @@
               }
             ],
             "title": "Pricing Evidence Version"
-          },
-          "pricing_run_reference": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Run Reference"
-          },
-          "pricing_snapshots": {
-            "additionalProperties": true,
-            "title": "Pricing Snapshots",
-            "type": "object"
-          },
-          "pricing_timestamps": {
-            "additionalProperties": true,
-            "title": "Pricing Timestamps",
-            "type": "object"
           }
         },
         "required": [
@@ -1881,6 +1792,36 @@
           "currency": {
             "title": "Currency",
             "type": "string"
+          },
+          "deployment_compatibility_status": {
+            "enum": [
+              "ready",
+              "legacy_not_deployable"
+            ],
+            "title": "Deployment Compatibility Status",
+            "type": "string"
+          },
+          "deployment_specification_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Digest"
+          },
+          "deployment_specification_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Version"
           },
           "error_code": {
             "anyOf": [
@@ -1939,6 +1880,16 @@
             "title": "Params",
             "type": "object"
           },
+          "pricing_catalog_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingCatalogContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pricing_evidence_version": {
             "anyOf": [
               {
@@ -1971,6 +1922,16 @@
               }
             ],
             "title": "Pricing Run Reference"
+          },
+          "resolved_deployment_specification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "result_items": {
             "items": {
@@ -2039,6 +2000,7 @@
           "currency",
           "optimization_profile_id",
           "scoring_strategy_id",
+          "deployment_compatibility_status",
           "created_at",
           "params"
         ],
@@ -2047,6 +2009,9 @@
       },
       "CostCalculationRunSelectResponse": {
         "properties": {
+          "resolved_deployment_specification": {
+            "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+          },
           "run": {
             "$ref": "#/components/schemas/CostCalculationRunSummaryResponse"
           },
@@ -2058,7 +2023,8 @@
         },
         "required": [
           "run",
-          "selected_for_deployment_at"
+          "selected_for_deployment_at",
+          "resolved_deployment_specification"
         ],
         "title": "CostCalculationRunSelectResponse",
         "type": "object"
@@ -2108,6 +2074,36 @@
           "currency": {
             "title": "Currency",
             "type": "string"
+          },
+          "deployment_compatibility_status": {
+            "enum": [
+              "ready",
+              "legacy_not_deployable"
+            ],
+            "title": "Deployment Compatibility Status",
+            "type": "string"
+          },
+          "deployment_specification_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Digest"
+          },
+          "deployment_specification_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Specification Version"
           },
           "error_code": {
             "anyOf": [
@@ -2160,6 +2156,16 @@
               }
             ],
             "title": "Optimizer Config Id"
+          },
+          "pricing_catalog_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingCatalogContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "pricing_evidence_version": {
             "anyOf": [
@@ -2242,6 +2248,7 @@
           "currency",
           "optimization_profile_id",
           "scoring_strategy_id",
+          "deployment_compatibility_status",
           "created_at"
         ],
         "title": "CostCalculationRunSummaryResponse",
@@ -4205,6 +4212,189 @@
         "title": "OperationSessionResponse",
         "type": "object"
       },
+      "OptimizerCalculationParams": {
+        "additionalProperties": false,
+        "description": "Validated calculation inputs shared by every Management write path.",
+        "properties": {
+          "allowGcpSelfHostedL4": {
+            "default": false,
+            "title": "Allowgcpselfhostedl4",
+            "type": "boolean"
+          },
+          "allowGcpSelfHostedL5": {
+            "default": false,
+            "title": "Allowgcpselfhostedl5",
+            "type": "boolean"
+          },
+          "amountOfActiveEditors": {
+            "minimum": 0.0,
+            "title": "Amountofactiveeditors",
+            "type": "integer"
+          },
+          "amountOfActiveViewers": {
+            "minimum": 0.0,
+            "title": "Amountofactiveviewers",
+            "type": "integer"
+          },
+          "apiCallsPerDashboardRefresh": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Apicallsperdashboardrefresh",
+            "type": "integer"
+          },
+          "archiveStorageDurationInMonths": {
+            "minimum": 6.0,
+            "title": "Archivestoragedurationinmonths",
+            "type": "integer"
+          },
+          "average3DModelSizeInMB": {
+            "default": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Average3Dmodelsizeinmb",
+            "type": "number"
+          },
+          "averageDigitalTwinQueryResponseSizeInKb": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Averagedigitaltwinqueryresponsesizeinkb",
+            "type": "number"
+          },
+          "averageDigitalTwinQueryUnitsPerQuery": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Averagedigitaltwinqueryunitsperquery",
+            "type": "number"
+          },
+          "averageSizeOfMessageInKb": {
+            "exclusiveMinimum": 0.0,
+            "title": "Averagesizeofmessageinkb",
+            "type": "number"
+          },
+          "coolStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Coolstoragedurationinmonths",
+            "type": "integer"
+          },
+          "currency": {
+            "default": "USD",
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "dashboardActiveHoursPerDay": {
+            "maximum": 24.0,
+            "minimum": 0.0,
+            "title": "Dashboardactivehoursperday",
+            "type": "integer"
+          },
+          "dashboardRefreshesPerHour": {
+            "minimum": 0.0,
+            "title": "Dashboardrefreshesperhour",
+            "type": "integer"
+          },
+          "deviceSendingIntervalInMinutes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Devicesendingintervalinminutes",
+            "type": "number"
+          },
+          "entityCount": {
+            "minimum": 0.0,
+            "title": "Entitycount",
+            "type": "integer"
+          },
+          "eventTriggerRate": {
+            "default": 0.1,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Eventtriggerrate",
+            "type": "number"
+          },
+          "eventsPerMessage": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Eventspermessage",
+            "type": "integer"
+          },
+          "hotStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Hotstoragedurationinmonths",
+            "type": "integer"
+          },
+          "integrateErrorHandling": {
+            "const": false,
+            "default": false,
+            "description": "Legacy compatibility field. The executable five-layer baseline accepts only false or omission.",
+            "title": "Integrateerrorhandling",
+            "type": "boolean"
+          },
+          "needs3DModel": {
+            "title": "Needs3Dmodel",
+            "type": "boolean"
+          },
+          "numberOfDeviceTypes": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Numberofdevicetypes",
+            "type": "integer"
+          },
+          "numberOfDevices": {
+            "exclusiveMinimum": 0.0,
+            "title": "Numberofdevices",
+            "type": "integer"
+          },
+          "numberOfEventActions": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Numberofeventactions",
+            "type": "integer"
+          },
+          "optimizationProfileId": {
+            "default": "cost_minimization_v1",
+            "title": "Optimizationprofileid",
+            "type": "string"
+          },
+          "orchestrationActionsPerMessage": {
+            "default": 3,
+            "minimum": 1.0,
+            "title": "Orchestrationactionspermessage",
+            "type": "integer"
+          },
+          "returnFeedbackToDevice": {
+            "default": false,
+            "title": "Returnfeedbacktodevice",
+            "type": "boolean"
+          },
+          "triggerNotificationWorkflow": {
+            "default": false,
+            "title": "Triggernotificationworkflow",
+            "type": "boolean"
+          },
+          "useEventChecking": {
+            "default": false,
+            "title": "Useeventchecking",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "numberOfDevices",
+          "deviceSendingIntervalInMinutes",
+          "averageSizeOfMessageInKb",
+          "hotStorageDurationInMonths",
+          "coolStorageDurationInMonths",
+          "archiveStorageDurationInMonths",
+          "needs3DModel",
+          "entityCount",
+          "amountOfActiveEditors",
+          "amountOfActiveViewers",
+          "dashboardRefreshesPerHour",
+          "dashboardActiveHoursPerDay"
+        ],
+        "title": "OptimizerCalculationParams",
+        "type": "object"
+      },
       "OptimizerConfigResponse": {
         "properties": {
           "calculated_at": {
@@ -4245,77 +4435,15 @@
             ],
             "title": "Params"
           },
-          "pricing_aws_snapshot": {
+          "pricing_catalog_context": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/PricingCatalogContext"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Pricing Aws Snapshot"
-          },
-          "pricing_aws_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Aws Updated At"
-          },
-          "pricing_azure_snapshot": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Azure Snapshot"
-          },
-          "pricing_azure_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Azure Updated At"
-          },
-          "pricing_gcp_snapshot": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Gcp Snapshot"
-          },
-          "pricing_gcp_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Gcp Updated At"
+            ]
           },
           "result": {
             "anyOf": [
@@ -4348,61 +4476,182 @@
         "type": "object"
       },
       "OptimizerParamsUpdate": {
+        "additionalProperties": false,
         "description": "Update calculation params only.",
         "properties": {
           "params": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/OptimizerCalculationParams"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Params"
+            ]
           }
         },
         "title": "OptimizerParamsUpdate",
         "type": "object"
       },
-      "OptimizerResultUpdate": {
-        "description": "Save calculation result + pricing snapshots.",
+      "PlatformCapabilitySourceHealth": {
+        "additionalProperties": false,
         "properties": {
-          "cheapest_path": {
-            "additionalProperties": true,
-            "title": "Cheapest Path",
-            "type": "object"
+          "deployer": {
+            "$ref": "#/components/schemas/CapabilitySourceHealth"
           },
-          "params": {
-            "additionalProperties": true,
-            "title": "Params",
-            "type": "object"
-          },
-          "pricing_snapshots": {
-            "additionalProperties": true,
-            "title": "Pricing Snapshots",
-            "type": "object"
-          },
-          "pricing_timestamps": {
-            "additionalProperties": true,
-            "title": "Pricing Timestamps",
-            "type": "object"
-          },
-          "result": {
-            "additionalProperties": true,
-            "title": "Result",
-            "type": "object"
+          "optimizer": {
+            "$ref": "#/components/schemas/CapabilitySourceHealth"
           }
         },
         "required": [
-          "params",
-          "result",
-          "cheapest_path",
-          "pricing_snapshots",
-          "pricing_timestamps"
+          "optimizer",
+          "deployer"
         ],
-        "title": "OptimizerResultUpdate",
+        "title": "PlatformCapabilitySourceHealth",
+        "type": "object"
+      },
+      "PlatformLayerCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/CapabilityAvailability"
+          },
+          "layer": {
+            "enum": [
+              "l1",
+              "l2",
+              "l3_hot",
+              "l3_cool",
+              "l3_archive",
+              "l4",
+              "l5"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "restriction_source": {
+            "enum": [
+              "none",
+              "restricted_by_optimizer",
+              "restricted_by_deployer",
+              "restricted_by_both"
+            ],
+            "title": "Restriction Source",
+            "type": "string"
+          },
+          "roadmap": {
+            "$ref": "#/components/schemas/CapabilityRoadmap"
+          },
+          "selectable": {
+            "title": "Selectable",
+            "type": "boolean"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/CapabilitySources"
+          },
+          "sources_agree": {
+            "title": "Sources Agree",
+            "type": "boolean"
+          },
+          "verification_level": {
+            "$ref": "#/components/schemas/CapabilityVerificationLevel"
+          }
+        },
+        "required": [
+          "layer",
+          "availability",
+          "roadmap",
+          "reason_code",
+          "reason",
+          "selectable",
+          "sources_agree",
+          "restriction_source",
+          "verification_level",
+          "sources"
+        ],
+        "title": "PlatformLayerCapability",
+        "type": "object"
+      },
+      "PlatformProviderCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformProviderCapability"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "platform-provider-capabilities.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/PlatformCapabilitySourceHealth"
+          }
+        },
+        "required": [
+          "schema_version",
+          "complete",
+          "sources",
+          "providers"
+        ],
+        "title": "PlatformProviderCapabilities",
+        "type": "object"
+      },
+      "PlatformProviderCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformLayerCapability"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "layers"
+        ],
+        "title": "PlatformProviderCapability",
         "type": "object"
       },
       "PricingAiSuggestion": {
@@ -4610,6 +4859,144 @@
         "title": "PricingCandidateSelection",
         "type": "object"
       },
+      "PricingCatalogContext": {
+        "additionalProperties": false,
+        "description": "Exact reviewed AWS, Azure, and GCP references for one calculation.",
+        "properties": {
+          "catalogs": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Catalogs",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": "provider-pricing-catalog-context.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "catalogs"
+        ],
+        "title": "PricingCatalogContext",
+        "type": "object"
+      },
+      "PricingCatalogReference": {
+        "additionalProperties": false,
+        "description": "One immutable provider-region pricing identity.",
+        "properties": {
+          "calculationSource": {
+            "enum": [
+              "fresh",
+              "last_known_good",
+              "reviewed_baseline"
+            ],
+            "title": "Calculationsource",
+            "type": "string"
+          },
+          "contentDigest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contentdigest",
+            "type": "string"
+          },
+          "contractVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "title": "Fetchedat",
+            "type": "string"
+          },
+          "mappingVersions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mappingversions",
+            "type": "array"
+          },
+          "pricingRegion": {
+            "pattern": "^[a-z][a-z0-9-]{1,62}$",
+            "title": "Pricingregion",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "providerSchemaVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Providerschemaversion",
+            "type": "string"
+          },
+          "publicationStatus": {
+            "const": "published",
+            "title": "Publicationstatus",
+            "type": "string"
+          },
+          "registryVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Registryversion",
+            "type": "string"
+          },
+          "reviewStatus": {
+            "const": "reviewed",
+            "title": "Reviewstatus",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "pricing-catalog-reference.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "snapshotId": {
+            "pattern": "^pcs_[0-9a-f]{64}$",
+            "title": "Snapshotid",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "provider_api",
+              "official_static_documentation",
+              "official_calculator_reference",
+              "curated_model_constant",
+              "reviewed_baseline"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "snapshotId",
+          "provider",
+          "pricingRegion",
+          "providerSchemaVersion",
+          "contractVersion",
+          "registryVersion",
+          "mappingVersions",
+          "fetchedAt",
+          "contentDigest",
+          "source",
+          "reviewStatus",
+          "publicationStatus",
+          "calculationSource"
+        ],
+        "title": "PricingCatalogReference",
+        "type": "object"
+      },
       "PricingCredentialSummary": {
         "properties": {
           "connection_id": {
@@ -4699,6 +5086,44 @@
       },
       "PricingEvidenceDetailResponse": {
         "properties": {
+          "field_trace_available": {
+            "title": "Field Trace Available",
+            "type": "boolean"
+          },
+          "field_trace_records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Field Trace Records",
+            "type": "array"
+          },
+          "field_trace_schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Trace Schema Version"
+          },
+          "optimization_diagnostics": {
+            "additionalProperties": true,
+            "title": "Optimization Diagnostics",
+            "type": "object"
+          },
+          "pricing_catalog_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingCatalogContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "profile": {
             "additionalProperties": true,
             "title": "Profile",
@@ -4756,12 +5181,47 @@
             ],
             "title": "Trace Schema Version"
           },
+          "transfer_pricing_context": {
+            "additionalProperties": true,
+            "title": "Transfer Pricing Context",
+            "type": "object"
+          },
+          "transfer_pricing_context_available": {
+            "default": false,
+            "title": "Transfer Pricing Context Available",
+            "type": "boolean"
+          },
           "transfer_trace": {
             "items": {
               "additionalProperties": true,
               "type": "object"
             },
             "title": "Transfer Trace",
+            "type": "array"
+          },
+          "transition_runtime_context": {
+            "additionalProperties": true,
+            "title": "Transition Runtime Context",
+            "type": "object"
+          },
+          "transition_runtime_context_available": {
+            "default": false,
+            "title": "Transition Runtime Context Available",
+            "type": "boolean"
+          },
+          "transition_runtime_costs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Transition Runtime Costs",
+            "type": "object"
+          },
+          "transition_runtime_trace": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Transition Runtime Trace",
             "type": "array"
           },
           "twin_id": {
@@ -4784,7 +5244,8 @@
         "required": [
           "run_id",
           "twin_id",
-          "trace_available"
+          "trace_available",
+          "field_trace_available"
         ],
         "title": "PricingEvidenceDetailResponse",
         "type": "object"
@@ -5811,6 +6272,7 @@
               "fresh",
               "stale",
               "last_known_good",
+              "reviewed_baseline",
               "fallback_static",
               "unavailable"
             ],
@@ -5928,6 +6390,7 @@
               "fresh",
               "stale",
               "last_known_good",
+              "reviewed_baseline",
               "fallback_static",
               "unavailable"
             ],
@@ -6060,6 +6523,280 @@
         "title": "RedeployReadinessResponse",
         "type": "object"
       },
+      "ResolvedDeploymentArchitectureProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_id": {
+            "const": "five-layer-baseline",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "const": "1",
+            "title": "Profile Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_version"
+        ],
+        "title": "ResolvedDeploymentArchitectureProfile",
+        "type": "object"
+      },
+      "ResolvedDeploymentCatalogReference": {
+        "additionalProperties": false,
+        "properties": {
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "pricing_region": {
+            "title": "Pricing Region",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "pricing_region",
+          "content_digest"
+        ],
+        "title": "ResolvedDeploymentCatalogReference",
+        "type": "object"
+      },
+      "ResolvedDeploymentComponent": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "title": "Component Id",
+            "type": "string"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentDimension"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "required": {
+            "const": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "service_id": {
+            "title": "Service Id",
+            "type": "string"
+          },
+          "slot_id": {
+            "enum": [
+              "l1_ingestion",
+              "l2_processing",
+              "l3_hot_storage",
+              "l3_cool_storage",
+              "l3_archive_storage",
+              "l4_twin_state",
+              "l5_visualization",
+              "transition_runtime",
+              "cross_cloud_glue"
+            ],
+            "title": "Slot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "slot_id",
+          "provider",
+          "service_id",
+          "required",
+          "dimensions"
+        ],
+        "title": "ResolvedDeploymentComponent",
+        "type": "object"
+      },
+      "ResolvedDeploymentDimension": {
+        "additionalProperties": false,
+        "properties": {
+          "classification": {
+            "enum": [
+              "deployable_selection",
+              "usage_tier",
+              "account_scope",
+              "non_deployable_assumption"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "dimension_id": {
+            "title": "Dimension Id",
+            "type": "string"
+          },
+          "evidence_reference": {
+            "title": "Evidence Reference",
+            "type": "string"
+          },
+          "formula_reference": {
+            "title": "Formula Reference",
+            "type": "string"
+          },
+          "terraform_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terraform Target"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "dimension_id",
+          "classification",
+          "value",
+          "formula_reference",
+          "evidence_reference"
+        ],
+        "title": "ResolvedDeploymentDimension",
+        "type": "object"
+      },
+      "ResolvedDeploymentOptimizationContext": {
+        "additionalProperties": false,
+        "properties": {
+          "calculation_strategy_id": {
+            "title": "Calculation Strategy Id",
+            "type": "string"
+          },
+          "catalog_references": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ResolvedDeploymentCatalogReference"
+            },
+            "title": "Catalog References",
+            "type": "object"
+          },
+          "formula_set_id": {
+            "title": "Formula Set Id",
+            "type": "string"
+          },
+          "optimization_profile_id": {
+            "title": "Optimization Profile Id",
+            "type": "string"
+          },
+          "optimization_profile_version": {
+            "title": "Optimization Profile Version",
+            "type": "string"
+          },
+          "pricing_registry_version": {
+            "title": "Pricing Registry Version",
+            "type": "string"
+          },
+          "workload_contract_id": {
+            "title": "Workload Contract Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "optimization_profile_id",
+          "optimization_profile_version",
+          "calculation_strategy_id",
+          "formula_set_id",
+          "workload_contract_id",
+          "pricing_registry_version",
+          "catalog_references"
+        ],
+        "title": "ResolvedDeploymentOptimizationContext",
+        "type": "object"
+      },
+      "ResolvedDeploymentSpecification": {
+        "additionalProperties": false,
+        "properties": {
+          "architecture_profile": {
+            "$ref": "#/components/schemas/ResolvedDeploymentArchitectureProfile"
+          },
+          "calculation_run_id": {
+            "title": "Calculation Run Id",
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentComponent"
+            },
+            "maxItems": 64,
+            "minItems": 7,
+            "title": "Components",
+            "type": "array"
+          },
+          "currency": {
+            "const": "USD",
+            "title": "Currency",
+            "type": "string"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "optimization_context": {
+            "$ref": "#/components/schemas/ResolvedDeploymentOptimizationContext"
+          },
+          "schema_version": {
+            "const": "resolved-deployment-specification.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "calculation_run_id",
+          "architecture_profile",
+          "optimization_context",
+          "currency",
+          "components",
+          "digest"
+        ],
+        "title": "ResolvedDeploymentSpecification",
+        "type": "object"
+      },
       "SceneGlbUploadResponse": {
         "description": "Scene GLB upload acknowledgement.",
         "properties": {
@@ -6080,6 +6817,7 @@
         "type": "object"
       },
       "TwinCloudConnectionRefs": {
+        "additionalProperties": false,
         "properties": {
           "aws": {
             "anyOf": [
@@ -6400,6 +7138,7 @@
         "type": "object"
       },
       "TwinConfigUpdate": {
+        "additionalProperties": false,
         "properties": {
           "aws": {
             "anyOf": [
@@ -6465,21 +7204,13 @@
           },
           "optimizer_params": {
             "anyOf": [
-              {},
+              {
+                "$ref": "#/components/schemas/OptimizerCalculationParams"
+              },
               {
                 "type": "null"
               }
-            ],
-            "title": "Optimizer Params"
-          },
-          "optimizer_result": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Optimizer Result"
+            ]
           }
         },
         "title": "TwinConfigUpdate",
@@ -8489,7 +9220,7 @@
     },
     "/optimizer/calculate": {
       "put": {
-        "description": "**Purpose:** Calculate optimal cross-cloud distribution for a Digital Twin based on 26 parameters.\n\n**Prerequisites:** Call `getPricingStatus` first - if `is_fresh: false`, call `refreshPricing`.\n\n**Response includes:**\n- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n- `cheapestPath`: Optimal provider selection per layer (L1-L5)\n- `combinationTables`: Detailed cost analysis matrices\n- `transferCosts`: Cross-cloud data transfer estimates",
+        "description": "**Purpose:** Calculate the globally cheapest executable complete path for the closed Five-Layer Digital Twin baseline.\n\n**Prerequisites:** Call `getPricingStatus` first. If pricing is stale, refresh the affected provider before calculating.\n\n**Response includes:**\n- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n- `cheapestPath`: Selected provider assignment across all seven slots\n- `transferPricingContext`: Exact six-route, tier, pool, and catalog evidence\n- `optimizationDiagnostics`: Bounded complete-path solver diagnostics\n\nManagement injects trusted catalog context and rejects route evidence that does not match that context or the selected complete path.",
         "operationId": "calculateOptimalDistribution",
         "parameters": [
           {
@@ -8513,7 +9244,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalcParams"
+                "$ref": "#/components/schemas/OptimizerCalculationParams"
               }
             }
           },
@@ -8581,22 +9312,6 @@
       "get": {
         "operationId": "getPricingHealth",
         "parameters": [
-          {
-            "in": "query",
-            "name": "twin_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Twin Id"
-            }
-          },
           {
             "in": "header",
             "name": "authorization",
@@ -8979,27 +9694,9 @@
     },
     "/optimizer/pricing-review-state": {
       "get": {
-        "description": "**Purpose:** Expose pricing quality/freshness as typed state for UI and calculation guards.\n\n**When to call:** Before calculation and after pricing refresh.\n\n**Response fields per provider:**\n- `state`: `fresh`, `stale`, `review_required`, `missing`, or `failed`\n- `review_required`: true when user-visible review/action is needed\n- `can_calculate`: true when fresh, stale, or last-known-good pricing can be used\n- `calculation_source`: source used by calculations (`fresh`, `stale`, `last_known_good`, `fallback_static`, `unavailable`)\n- `review_reasons`: structured reasons such as missing keys or failed Optimizer status",
+        "description": "**Purpose:** Expose pricing quality/freshness as typed state for UI and calculation guards.\n\n**When to call:** Before calculation and after pricing refresh.\n\n**Response fields per provider:**\n- `state`: `fresh`, `stale`, `review_required`, `missing`, or `failed`\n- `review_required`: true when user-visible review/action is needed\n- `can_calculate`: true only when an exact published catalog is fresh\n- `calculation_source`: immutable catalog source or `unavailable`\n- `review_reasons`: structured reasons such as missing keys or failed Optimizer status",
         "operationId": "getPricingReviewState",
         "parameters": [
-          {
-            "description": "Twin ID used to resolve last-known-good pricing snapshots",
-            "in": "query",
-            "name": "twin_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Twin ID used to resolve last-known-good pricing snapshots",
-              "title": "Twin Id"
-            }
-          },
           {
             "in": "header",
             "name": "authorization",
@@ -9044,22 +9741,6 @@
             },
             "description": "Unauthorized - Authentication credentials are missing or invalid"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
           "422": {
             "content": {
               "application/json": {
@@ -9070,8 +9751,14 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "description": "Optimizer contract or request failed"
+          },
           "503": {
             "description": "Cannot connect to Optimizer service"
+          },
+          "504": {
+            "description": "Optimizer service timed out"
           }
         },
         "summary": "Get typed pricing review state for all providers",
@@ -9583,7 +10270,7 @@
     },
     "/optimizer/pricing-status": {
       "get": {
-        "description": "**Purpose:** Check freshness of cached pricing data before calculations.\n\n**When to call:** Before `calculateOptimalDistribution` to decide if `refreshPricing` is needed.\n\n**Response fields per provider:**\n- `age`: Human-readable age (e.g., '3 days')\n- `is_fresh`: Boolean, true if cached data < 7 days old\n- `status`: 'valid', 'incomplete', 'missing', or 'error'",
+        "description": "**Purpose:** Check the exact immutable catalog selected for each provider before calculations.\n\n**When to call:** Before `calculateOptimalDistribution` to decide if `refreshPricing` is needed.\n\n**Response fields per provider:**\n- `age`: Human-readable age (e.g., '3 days')\n- `is_fresh`: Boolean, true only while the catalog is calculation-eligible\n- `active_reference`: Exact provider, region, version, timestamp, and digest identity",
         "operationId": "getPricingStatus",
         "parameters": [
           {
@@ -9638,20 +10325,26 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "description": "Optimizer contract or request failed"
+          },
           "503": {
             "description": "Cannot connect to Optimizer service"
+          },
+          "504": {
+            "description": "Optimizer service timed out"
           }
         },
-        "summary": "Get pricing cache status for all providers",
+        "summary": "Get active pricing catalog status for all providers",
         "tags": [
           "optimizer"
         ]
       }
     },
-    "/optimizer/pricing/export/{provider}": {
+    "/optimizer/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}": {
       "get": {
-        "description": "**Purpose:** Export full pricing data for a provider to store as snapshot with calculation results.\n\n**When to call:** After `calculateOptimalDistribution` to preserve the pricing data used.\n\n**Path parameter:** provider = 'aws', 'azure', or 'gcp'",
-        "operationId": "exportPricingSnapshot",
+        "description": "Returns one explicitly identified, size-bounded provider-region snapshot for authenticated diagnostics. Calculations and persistence use references only.",
+        "operationId": "getExactPricingCatalogSnapshot",
         "parameters": [
           {
             "in": "path",
@@ -9659,6 +10352,24 @@
             "required": true,
             "schema": {
               "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pricing_region",
+            "required": true,
+            "schema": {
+              "title": "Pricing Region",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
               "type": "string"
             }
           },
@@ -9720,6 +10431,9 @@
             },
             "description": "Unauthorized - Authentication credentials are missing or invalid"
           },
+          "404": {
+            "description": "Exact pricing catalog does not exist"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -9730,11 +10444,17 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "description": "Optimizer contract or request failed"
+          },
           "503": {
             "description": "Cannot connect to Optimizer service"
+          },
+          "504": {
+            "description": "Optimizer service timed out"
           }
         },
-        "summary": "Export pricing data for snapshotting",
+        "summary": "Inspect one exact immutable pricing catalog snapshot",
         "tags": [
           "optimizer"
         ]
@@ -10039,6 +10759,61 @@
         "summary": "SSE stream for pricing refresh with real-time logs",
         "tags": [
           "optimizer"
+        ]
+      }
+    },
+    "/platform/provider-capabilities": {
+      "get": {
+        "operationId": "getPlatformProviderCapabilities",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProviderCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "Invalid upstream capability contract"
+          },
+          "503": {
+            "description": "Capability source unavailable"
+          }
+        },
+        "summary": "Get aggregate provider-layer platform capabilities",
+        "tags": [
+          "platform"
         ]
       }
     },
@@ -10692,7 +11467,7 @@
     },
     "/twins/{twin_id}/config/": {
       "get": {
-        "description": "**Purpose:** Retrieve cloud provider credentials and validation status for Step 1 (Credentials) screen.\n\n**When to call:** When loading Step 1 to show saved credentials (masked) and validation indicators.\n\n**Response fields:**\n- `aws`: Object with masked credentials, region, and `validated` boolean\n- `azure`: Object with masked credentials, region, and `validated` boolean\n- `gcp`: Object with masked credentials, region, and `validated` boolean\n- `debug_mode`: Whether debug logging is enabled\n- `highest_step_reached`: Wizard progress indicator (1-5)\n\n**Note:** Creates empty config if none exists. Credentials are masked in response.",
+        "description": "**Purpose:** Retrieve the secret-free twin configuration, Cloud Connection bindings, and validation status.\n\n**When to call:** When loading the configuration workspace or a configuration review.\n\n**Response fields:**\n- Provider `*_configured`, `*_validated`, region, and Cloud Connection summary fields\n- `debug_mode`: Whether debug logging is enabled\n- `highest_step_reached`: Configuration progress indicator\n- `optimizer_params`: Optional user-authored parameter draft\n- `optimizer_result`: Read-only result from the latest server-owned optimizer run\n\n**Security:** Credential payloads and secret values are never returned.",
         "operationId": "getTwinConfig",
         "parameters": [
           {
@@ -10781,7 +11556,7 @@
         ]
       },
       "put": {
-        "description": "**Purpose:** Save cloud provider credentials and configuration for a Digital Twin.\n\n**When to call:** When user saves credentials in Step 1, or when auto-saving on field blur.\n\n**Request body fields:**\n- `aws`: {access_key_id, secret_access_key, region, session_token(optional)}\n- `azure`: {subscription_id, client_id, client_secret, tenant_id, region}\n- `gcp`: {project_id, billing_account, service_account_json, region}\n- `debug_mode`: Enable verbose logging for deployment\n- `highest_step_reached`: Track wizard progress\n\n**Security:** Credentials are encrypted with user+twin-specific key before storage.\n\n**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT.",
+        "description": "**Purpose:** Save user-authored, non-secret twin configuration fields.\n\n**When to call:** When the configuration workspace explicitly saves a draft.\n\n**Request body fields:**\n- `debug_mode`: Enable verbose logging for deployment\n- `highest_step_reached`: Track configuration progress\n- `optimizer_params`: Optional calculation parameter draft\n- `cloud_connections`: Bind or unbind user-owned deployment Cloud Connections\n\n**Security:** Inline credentials, optimizer results, and unknown fields are rejected. Optimizer results are written only by `createOptimizerRun`.\n\n**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT.",
         "operationId": "updateTwinConfig",
         "parameters": [
           {
@@ -10882,12 +11657,25 @@
           "422": {
             "content": {
               "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation Error - Request body failed schema validation"
           }
         },
         "summary": "Update configuration for a twin",
@@ -12911,7 +13699,7 @@
     },
     "/twins/{twin_id}/optimizer-config/": {
       "get": {
-        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading Step 2 (Optimizer) screen to restore previous calculation state.\n\n**Response fields:**\n- `params`: The 26 calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_*_snapshot`: Pricing data used at calculation time\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
+        "description": "**Purpose:** Retrieve the full optimizer configuration including saved parameters, calculation results, and cheapest path.\n\n**When to call:** When loading the Optimization task to restore the latest server-owned calculation state.\n\n**Response fields:**\n- `params`: The canonical calculation parameters last used\n- `result`: Full calculation result JSON (costs per provider/layer)\n- `cheapest_path`: Optimal provider per layer (l1, l2, l3_hot, l3_cool, l3_archive, l4, l5)\n- `pricing_catalog_context`: Exact immutable pricing references used\n- `calculated_at`: Timestamp of last calculation\n\n**Note:** Creates empty config if none exists.",
         "operationId": "getOptimizerConfig",
         "parameters": [
           {
@@ -13002,7 +13790,7 @@
     },
     "/twins/{twin_id}/optimizer-config/cheapest-path": {
       "get": {
-        "description": "**Purpose:** Retrieve just the cheapest provider selection per layer - used by deployment logic.\n\n**When to call:** When preparing deployment to determine which cloud providers to deploy to.\n\n**Prerequisite:** Must have run `calculateOptimalDistribution` and saved via `saveOptimizerResult` first.\n\n**Response fields:**\n- `l1`: IoT layer provider (aws, azure, gcp)\n- `l2`: Orchestration layer provider\n- `l3_hot`, `l3_cool`, `l3_archive`: Storage layer providers\n- `l4`: Analytics layer provider\n- `l5`: Visualization layer provider\n\n**Error 404:** Returned if calculation has not been run yet.",
+        "description": "**Purpose:** Retrieve just the cheapest provider selection per layer - used by deployment logic.\n\n**When to call:** When preparing deployment to determine which cloud providers to deploy to.\n\n**Prerequisite:** Must have completed `createOptimizerRun` first.\n\n**Response fields:**\n- `l1`: IoT layer provider (aws, azure, gcp)\n- `l2`: Orchestration layer provider\n- `l3_hot`, `l3_cool`, `l3_archive`: Storage layer providers\n- `l4`: Analytics layer provider\n- `l5`: Visualization layer provider\n\n**Error 404:** Returned if calculation has not been run yet.",
         "operationId": "getCheapestPath",
         "parameters": [
           {
@@ -13093,7 +13881,7 @@
     },
     "/twins/{twin_id}/optimizer-config/params": {
       "put": {
-        "description": "**Purpose:** Persist the 26 optimizer parameters without triggering calculation.\n\n**When to call:** When user changes any parameter in Step 2 (auto-save on blur/change).\n\n**Request body:**\n- `params`: Object containing all 26 calculation parameters (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n**Behavior:** Saves params but does NOT run calculation. Call `calculateOptimalDistribution` separately.",
+        "description": "**Purpose:** Persist a draft of canonical optimizer parameters without triggering calculation.\n\n**When to call:** For an explicit parameter-only draft save. The application calculation path uses `createOptimizerRun`.\n\n**Request body:**\n- `params`: Complete validated calculation input (numberOfDevices, hotStorageDurationInMonths, etc.)\n\n**Behavior:** Saves params but does not create or alter an optimizer result. Use `createOptimizerRun` for an authoritative calculation.",
         "operationId": "updateOptimizerParams",
         "parameters": [
           {
@@ -13187,120 +13975,6 @@
           }
         },
         "summary": "Save calculation params before Calculate is clicked",
-        "tags": [
-          "optimizer-config"
-        ]
-      }
-    },
-    "/twins/{twin_id}/optimizer-config/result": {
-      "put": {
-        "description": "**Purpose:** Persist the complete optimization result after `calculateOptimalDistribution` returns.\n\n**When to call:** Immediately after receiving successful response from `calculateOptimalDistribution`.\n\n**Request body:**\n- `params`: The parameters used for this calculation\n- `result`: Full calculation response (awsCosts, azureCosts, gcpCosts, combinationTables)\n- `cheapest_path`: Object with l1, l2, l3_hot, l3_cool, l3_archive, l4, l5 provider names\n- `pricing_snapshots`: {aws: {...}, azure: {...}, gcp: {...}} pricing data used\n- `pricing_timestamps`: {aws: ISO, azure: ISO, gcp: ISO} when pricing was fetched\n\n**Important:** This enables Step 3 (Deployer) by storing the cheapest_path used for deployment.",
-        "operationId": "saveOptimizerResult",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OptimizerResultUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OptimizerConfigResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Save full calculation result with cheapest path",
         "tags": [
           "optimizer-config"
         ]
@@ -13809,6 +14483,12 @@
               }
             },
             "description": "Validation Error"
+          },
+          "502": {
+            "description": "Pricing catalog verification failed"
+          },
+          "503": {
+            "description": "Optimizer unavailable"
           }
         },
         "summary": "Select a successful optimizer run as deployment handoff source",

@@ -1,5 +1,5 @@
 schema_version: pricing-registry-intents.v1
-registry_version: "2026.06.08"
+registry_version: "2026.07.17"
 intent_groups:
   cost:
     metric: cost
@@ -84,12 +84,48 @@ intents:
     normalized_unit: 1m_events
     required_by: [cost_model_v1]
     expected_providers: [aws, azure, gcp]
+  digital_twin.operation:
+    group: cost
+    description: Azure Digital Twins billable operations normalized per operation.
+    normalized_unit: operation
+    required_by: [cost_model_v1]
+    expected_providers: [azure]
+  digital_twin.message:
+    group: cost
+    description: Azure Digital Twins routed messages normalized per 1 KB message unit.
+    normalized_unit: message_unit
+    required_by: [cost_model_v1]
+    expected_providers: [azure]
+  digital_twin.entity_month:
+    group: cost
+    description: AWS IoT TwinMaker billable entities normalized per entity-month.
+    normalized_unit: entity_month
+    required_by: [cost_model_v1]
+    expected_providers: [aws]
+  digital_twin.api_call:
+    group: cost
+    description: AWS IoT TwinMaker unified-data access normalized per API call.
+    normalized_unit: api_call
+    required_by: [cost_model_v1]
+    expected_providers: [aws]
+  digital_twin.query:
+    group: cost
+    description: AWS IoT TwinMaker queries normalized per query.
+    normalized_unit: query
+    required_by: [cost_model_v1]
+    expected_providers: [aws]
   digital_twin.query_unit:
     group: cost
     description: Digital twin query units normalized per query unit.
     normalized_unit: query_unit
     required_by: [cost_model_v1]
-    expected_providers: [aws, azure, gcp]
+    expected_providers: [azure, gcp]
+  digital_twin.account_bundle_month:
+    group: cost
+    description: AWS IoT TwinMaker account-wide tiered bundle schedule per month.
+    normalized_unit: account_bundle_month
+    required_by: [cost_model_v1]
+    expected_providers: [aws]
   grafana.editor_user_month:
     group: cost
     description: Managed Grafana editor users normalized per user-month.

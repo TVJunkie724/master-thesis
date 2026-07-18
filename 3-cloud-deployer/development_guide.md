@@ -11,6 +11,12 @@ architecture, cloud bootstrap, and thesis context belong in `docs-site/`.
 - Keep `upload/<project>/` limited to durable, secret-free project definitions.
 - Materialize credentials only through `OperationPackageStore`; operation
   routes must require and consume an `X-Operation-Package` token.
+- Require `DeploymentManifest 2.0` and a valid frozen
+  `ResolvedDeploymentSpecification v1` before deployment, destruction, or
+  credential-backed drift operations.
+- Add deployment variables only through the canonical generated dimension
+  registry and pure translator. Never infer specification-owned values from
+  Terraform defaults.
 - Persist only allowlisted Terraform/runtime outputs through
   `RuntimeStateStore` under the protected Deployer data volume.
 - Never add credentials, generated Terraform variables, plans, or state to Git
@@ -53,6 +59,9 @@ resources and must never run as an incidental collection side effect.
 7. New dependencies must be declared in the correct runtime/development file;
    regenerate `requirements.lock` and verify both Docker targets.
 8. New work is tracked in GitHub Issues. Do not add service-local TODO trackers.
+9. A new deployable dimension requires contract fixtures, semantic validation,
+   tfvars translation, provider resource assertions, and cross-stack drift
+   coverage.
 
 ## Verification
 

@@ -40,6 +40,177 @@ immutable result, and Flutter only renders typed read models. A contribution amo
 not additive unless its record explicitly proves that property. Alternative providers
 and rejected pricing rows are different concepts and must remain separate fields.
 
+The public Management calculation input and the internal Optimizer input intentionally
+differ by three server-owned fields. `calculationRunId` is the Management-owned UUID
+that binds the result to its durable run. `providerPricingCatalogs` is the mandatory
+exact public-catalog context; `providerPricingContexts` carries optional owner-scoped
+account observations. Flutter supplies none of them. The Management API resolves and
+injects them, and the live integration gate compares every remaining workload field
+exactly.
+
+### Resolved Deployment Specification
+
+`ResolvedDeploymentSpecification v1` is the repository contract that binds a
+cost-model winner to its eventual infrastructure settings. Its source of truth is:
+
+```text
+contracts/resolved-deployment-specification/v1/
+  schema.json
+  deployment-dimensions.json
+  verification-matrix.schema.json
+  verification-matrix.json
+  fixtures/
+```
+
+The schema fixes the wire shape. The dimension registry is the closed-world
+mapping for the current `five-layer-baseline@1`: component IDs, provider and
+slot ownership, allowed values, value origin, unit, classification, and
+Terraform target. The optimization context binds each provider's immutable
+catalog snapshot ID, pricing region, and content digest. It also defines the
+five existing cross-cloud receiver
+boundaries; glue components are required exactly for receiver providers whose
+boundary crosses clouds, and are forbidden for a single-cloud path. Generated
+copies below the Optimizer, Management API, and Deployer build contexts are
+never edited by hand.
+
+The verification matrix is test evidence rather than a runtime registry. It
+contains independent expected values for 31 deployable components, 54
+component-to-target bindings, 50 unique Terraform targets, four representative
+provider paths, four Azure IoT Hub tier cases, and both storage transitions.
+Tests additionally generate all 27 hot/cool/archive provider triples. Runtime
+code cannot read this matrix, so expected results do not pass through the same
+production function as the values under test.
+
+The two storage lifecycle transitions have explicit runtime ownership.
+Hot-to-cool executes beside the selected hot-storage provider;
+cool-to-archive executes beside the selected cool-storage provider. A
+cross-provider edge additionally requires the destination provider's registered
+writer/glue component. The source mover and destination writer are separate
+cost, evidence, deployment, and verification records; neither may be inferred
+from the destination storage slot.
+
+```bash
+python scripts/sync_resolved_deployment_contract.py --sync --check
+```
+
+The command validates JSON Schema Draft 2020-12, semantic component
+cardinality, canonical ordering, provider support, value bounds, cross-field
+combinations, units,
+secret-like fields, canonical SHA-256 digests, positive fixtures, negative
+fixtures, and byte identity of all generated copies. Run it after every
+contract edit.
+
+Every dimension belongs to exactly one semantic class:
+
+| Classification | Meaning | May become a Terraform variable |
+|---|---|---|
+| `deployable_selection` | exact SKU, plan, storage class, capacity, or runtime setting | yes, through its allowlisted target |
+| `usage_tier` | progressive billing or metering behavior | no |
+| `account_scope` | provider-account state not owned by one twin | no |
+| `non_deployable_assumption` | formula input that the selected resource cannot enforce directly | no |
+
+Function bundles must disclose the memory and duration consumed by their cost
+formula. Enforceable memory settings are deployment selections; provider
+runtime or duration values that Terraform cannot guarantee remain explicit
+non-deployable assumptions. They are still mandatory evidence and may never be
+reconstructed from calculator defaults downstream.
+
+To extend the existing baseline, update the canonical registry and all affected
+formula/provider adapters, regenerate fixtures and copies, and pass the
+cross-service contract tests. A new architecture topology is not added to this
+registry; it requires a versioned architecture profile and a new contract
+version. The Optimizer emits the complete specification from the selected
+route-aware winner and rejects incomplete or contradictory component mappings.
+The Management API is the trust boundary for the emitted object. It preallocates
+the calculation run ID, validates the complete specification and digest, persists
+canonical JSON atomically with the result, exposes it read-only, and permits
+selection only while its catalog/account context remains current. Existing runs
+without v1 remain inspectable but have compatibility status
+`legacy_not_deployable`.
+
+`DeploymentManifest 2.0` binds the selected run ID, exact specification object,
+and digest. The Deployer validates the same generated contract before creating
+an operation workspace, verifies the exact provider/component/dimension
+binding, and translates only allowlisted `deployable_selection`
+`terraform_target` dimensions. The translation is pure and deterministic;
+usage tiers, account-scope state, and non-deployable assumptions produce no
+Terraform variables. Missing, stale, conflicting, or unknown mappings fail
+with stable redacted errors. No downstream component may synthesize missing
+dimensions from calculator or Terraform defaults.
+
+AWS, Azure, and GCP have completed provider resource binding. AWS deployable values
+reach Lambda memory, DynamoDB billing mode, S3 storage classes, and transition
+schedules. Azure deployable values reach IoT Hub SKU/capacity, Function plans,
+Cosmos mode, storage replication/access tiers, transition timers, and Managed
+Grafana. GCP deployable values reach Cloud Function memory/scaling, Firestore
+mode, Nearline/Archive classes, transition schedules, and cross-cloud writer
+settings. Progressive usage meters, account-scoped plans, and runtime values a
+provider cannot pin remain evidence rather than Terraform variables. Source
+tests and credential-free Terraform plans assert this distinction.
+
+The canonical executable verification command is:
+
+```bash
+./thesis.sh test deployment-contract
+```
+
+Use `--focused` only for fast field-level diagnosis. It is also the CI drift
+gate. The full command remains the release/handoff evidence because it adds all
+safe service, Flutter, documentation, static, and security checks.
+
+### Transfer Pricing Catalog
+
+Every provider-region pricing snapshot contains one
+`transfer-pricing-catalog.v1` object. The calculation contract requires its
+route class, source region/geography, destination geographies, network tier,
+billing scope, native billing unit, byte divisor, currency, evidence ID,
+aggregation semantics, and contiguous explicit tier ranges. Unknown,
+missing, gapped, overlapping, unit-inconsistent, or non-terminal data fails
+before a transfer value can enter scoring.
+
+AWS and Azure use decimal GB; GCP uses GiB. The common comparison quantity is
+bytes. No API adapter, Management service, or Flutter model may reconstruct a
+scalar transfer rate or substitute a default when the catalog is unavailable.
+Aggregate pool allocation and complete-path selection are owned by
+`calculation_v2/path_optimizer.py`, not by clients. The Optimizer evaluates all
+executable combinations of the seven baseline slots and all six approved
+directed edges before the active scoring strategy selects a winner. Clients may
+display `complete-path-transfer-pricing.v1` and
+`complete-path-optimization.v1`; they must not recalculate pools, infer missing
+routes, or replace exact catalog references.
+
+The Management API is the trust boundary for these two result contracts. Its
+shared transfer-pricing validator compares route endpoints and regions with the
+server-owned catalog context, checks provider policy and pool/tier arithmetic,
+requires marginal tier intervals to cover the provider pool's normalized byte
+quantity without gaps, and binds the diagnostic winner to
+`calculationResult`. Numeric strings and booleans are not coerced. Only
+validated route objects become persisted transfer result items, and
+client-supplied transfer result items are ignored. Historical results without
+these additive contracts remain readable but are explicitly unavailable for
+route evidence.
+
+### Calculation Result Ownership
+
+```text
+Flutter workload parameters
+  -> POST /twins/{id}/optimizer-runs
+  -> Management resolves exact catalog context
+  -> Optimizer calculates result and route evidence
+  -> Optimizer resolves exact deployment components and dimensions
+  -> Management validates all result/specification contracts
+  -> one transaction persists run, items, result, path, and canonical specification
+  -> Flutter receives a read-only typed result
+```
+
+The durable run command is the sole application writer for optimizer results.
+`TwinConfigUpdate` has no `optimizer_result` field, and
+`PUT /twins/{id}/optimizer-config/result` does not exist. The parameter-draft
+endpoint may store only typed workload inputs. The read-only optimizer config
+projection remains available to configuration validation and deployment
+consumers. A client must never derive or submit provider assignments, catalog
+identities, transfer totals, cheapest-path columns, or deployment dimensions.
+
 ## Errors
 
 Public errors should provide stable code, safe message, actionable suggestion where

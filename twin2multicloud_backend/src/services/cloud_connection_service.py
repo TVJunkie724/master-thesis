@@ -91,7 +91,33 @@ class CloudConnectionService:
         if request.permission_set_version is not None:
             connection.permission_set_version = request.permission_set_version
         if request.cloud_scope is not None:
-            connection.cloud_scope = json.dumps(request.cloud_scope, sort_keys=True)
+            cloud_scope = dict(request.cloud_scope)
+            if connection.provider == "aws":
+                payload = self.decrypt_payload(connection, user_id)
+                credential_region = str(payload.get("aws_region") or "").strip()
+                requested_region = str(cloud_scope.get("region") or "").strip()
+                if requested_region and requested_region != credential_region:
+                    raise ValueError(
+                        "cloud_scope.region must match the AWS credential region"
+                    )
+                cloud_scope["region"] = credential_region
+                account_id = cloud_scope.get("account_id")
+                if account_id is not None:
+                    normalized_account_id = str(account_id).strip()
+                    if not (
+                        len(normalized_account_id) == 12
+                        and normalized_account_id.isdigit()
+                    ):
+                        raise ValueError(
+                            "cloud_scope.account_id must be a twelve-digit "
+                            "AWS account ID"
+                        )
+                    cloud_scope["account_id"] = normalized_account_id
+            if cloud_scope != self._safe_json_dict(connection.cloud_scope):
+                connection.validation_status = "untested"
+                connection.validation_message = None
+                connection.last_validated_at = None
+            connection.cloud_scope = json.dumps(cloud_scope, sort_keys=True)
         if request.is_default_for_pricing is not None:
             if request.is_default_for_pricing:
                 self._repo.clear_pricing_defaults(connection.user_id, connection.provider)

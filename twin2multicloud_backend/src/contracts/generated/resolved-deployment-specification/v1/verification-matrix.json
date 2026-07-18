@@ -1,0 +1,237 @@
+{
+  "schema_version": "resolved-deployment-verification-matrix.v1",
+  "providers": [
+    "aws",
+    "azure",
+    "gcp"
+  ],
+  "representative_paths": [
+    {
+      "id": "all-aws",
+      "fixture": "all-aws.json",
+      "providers": {
+        "l1_ingestion": "aws",
+        "l2_processing": "aws",
+        "l3_hot_storage": "aws",
+        "l3_cool_storage": "aws",
+        "l3_archive_storage": "aws",
+        "l4_twin_state": "aws",
+        "l5_visualization": "aws"
+      }
+    },
+    {
+      "id": "all-azure",
+      "fixture": "all-azure.json",
+      "providers": {
+        "l1_ingestion": "azure",
+        "l2_processing": "azure",
+        "l3_hot_storage": "azure",
+        "l3_cool_storage": "azure",
+        "l3_archive_storage": "azure",
+        "l4_twin_state": "azure",
+        "l5_visualization": "azure"
+      }
+    },
+    {
+      "id": "mixed",
+      "fixture": "mixed-providers.json",
+      "providers": {
+        "l1_ingestion": "gcp",
+        "l2_processing": "azure",
+        "l3_hot_storage": "gcp",
+        "l3_cool_storage": "aws",
+        "l3_archive_storage": "gcp",
+        "l4_twin_state": "azure",
+        "l5_visualization": "aws"
+      }
+    },
+    {
+      "id": "gcp-storage",
+      "fixture": null,
+      "providers": {
+        "l1_ingestion": "aws",
+        "l2_processing": "aws",
+        "l3_hot_storage": "gcp",
+        "l3_cool_storage": "gcp",
+        "l3_archive_storage": "gcp",
+        "l4_twin_state": "aws",
+        "l5_visualization": "aws"
+      }
+    }
+  ],
+  "azure_iot_hub_cases": [
+    {
+      "id": "f1-single-unit",
+      "messages_per_month": 200000,
+      "average_message_size_kb": 0.5,
+      "expected_sku": "F1",
+      "expected_capacity": 1
+    },
+    {
+      "id": "s1-two-units",
+      "messages_per_month": 12000001,
+      "average_message_size_kb": 0.5,
+      "expected_sku": "S1",
+      "expected_capacity": 2
+    },
+    {
+      "id": "s2-single-unit",
+      "messages_per_month": 180000000,
+      "average_message_size_kb": 0.5,
+      "expected_sku": "S2",
+      "expected_capacity": 1
+    },
+    {
+      "id": "s3-five-units",
+      "messages_per_month": 45000000000,
+      "average_message_size_kb": 0.5,
+      "expected_sku": "S3",
+      "expected_capacity": 5
+    }
+  ],
+  "expected_targets_by_component": {
+    "l1.aws.dispatcher_lambda": {
+      "aws_l1_lambda_memory_mb": 256
+    },
+    "l2.aws.processing_lambdas": {
+      "aws_l2_lambda_memory_mb": 256
+    },
+    "l3_hot.aws.dynamodb": {
+      "aws_dynamodb_billing_mode": "PAY_PER_REQUEST"
+    },
+    "l3_hot.aws.reader_lambdas": {
+      "aws_l3_reader_lambda_memory_mb": 256
+    },
+    "l3_cool.aws.s3": {
+      "aws_l3_cool_storage_class": "STANDARD_IA"
+    },
+    "transition.l3_hot_to_l3_cool.aws.runtime": {
+      "aws_hot_to_cool_mover_memory_mb": 512,
+      "aws_hot_to_cool_schedule_expression": "rate(1 day)"
+    },
+    "l3_archive.aws.s3": {
+      "aws_l3_archive_storage_class": "DEEP_ARCHIVE"
+    },
+    "transition.l3_cool_to_l3_archive.aws.runtime": {
+      "aws_cool_to_archive_mover_memory_mb": 512,
+      "aws_cool_to_archive_schedule_expression": "rate(7 days)"
+    },
+    "l4.aws.connector_lambda": {
+      "aws_l4_lambda_memory_mb": 256
+    },
+    "glue.aws.lambda": {
+      "aws_glue_lambda_memory_mb": 256
+    },
+    "l1.azure.iot_hub": {
+      "azure_iot_hub_sku": "F1",
+      "azure_iot_hub_capacity": 1
+    },
+    "l1.azure.function_plan": {
+      "azure_l1_function_plan_sku": "Y1"
+    },
+    "l2.azure.function_plan": {
+      "azure_l2_function_plan_sku": "Y1"
+    },
+    "l3_hot.azure.cosmos_db": {
+      "azure_cosmos_capacity_mode": "serverless"
+    },
+    "l3_hot.azure.function_plan": {
+      "azure_l3_function_plan_sku": "Y1"
+    },
+    "l3_cool.azure.blob_storage": {
+      "azure_storage_account_tier": "Standard",
+      "azure_storage_replication_type": "LRS",
+      "azure_l3_cool_blob_tier": "Cool"
+    },
+    "transition.l3_hot_to_l3_cool.azure.runtime": {
+      "azure_l3_function_plan_sku": "Y1",
+      "azure_hot_to_cool_timer_schedule": "0 0 0 * * *"
+    },
+    "l3_archive.azure.blob_storage": {
+      "azure_storage_account_tier": "Standard",
+      "azure_storage_replication_type": "LRS",
+      "azure_l3_archive_blob_tier": "Archive"
+    },
+    "transition.l3_cool_to_l3_archive.azure.runtime": {
+      "azure_l3_function_plan_sku": "Y1",
+      "azure_cool_to_archive_timer_schedule": "0 0 0 * * 0"
+    },
+    "l4.azure.pusher_function": {
+      "azure_l4_function_plan_sku": "Y1"
+    },
+    "l5.azure.managed_grafana": {
+      "azure_grafana_sku": "Standard"
+    },
+    "glue.azure.functions": {
+      "azure_glue_function_plan_sku": "Y1"
+    },
+    "l1.gcp.dispatcher_function": {
+      "gcp_l1_function_memory_mb": 256,
+      "gcp_l1_function_min_instances": 0,
+      "gcp_l1_function_max_instances": 10
+    },
+    "l2.gcp.processing_functions": {
+      "gcp_l2_function_memory_mb": 256,
+      "gcp_l2_function_min_instances": 0,
+      "gcp_l2_function_max_instances": 10
+    },
+    "l3_hot.gcp.firestore": {
+      "gcp_firestore_mode": "FIRESTORE_NATIVE"
+    },
+    "l3_hot.gcp.reader_function": {
+      "gcp_l3_reader_function_memory_mb": 256,
+      "gcp_l3_reader_function_min_instances": 0,
+      "gcp_l3_reader_function_max_instances": 10
+    },
+    "l3_cool.gcp.cloud_storage": {
+      "gcp_l3_cool_storage_class": "NEARLINE"
+    },
+    "transition.l3_hot_to_l3_cool.gcp.runtime": {
+      "gcp_hot_to_cool_mover_memory_mb": 512,
+      "gcp_hot_to_cool_mover_min_instances": 0,
+      "gcp_hot_to_cool_mover_max_instances": 1,
+      "gcp_hot_to_cool_scheduler_cron": "0 2 * * *"
+    },
+    "l3_archive.gcp.cloud_storage": {
+      "gcp_l3_archive_storage_class": "ARCHIVE"
+    },
+    "transition.l3_cool_to_l3_archive.gcp.runtime": {
+      "gcp_cool_to_archive_mover_memory_mb": 512,
+      "gcp_cool_to_archive_mover_min_instances": 0,
+      "gcp_cool_to_archive_mover_max_instances": 1,
+      "gcp_cool_to_archive_scheduler_cron": "0 3 * * 0"
+    },
+    "glue.gcp.functions": {
+      "gcp_glue_function_memory_mb": 256,
+      "gcp_glue_function_min_instances": 0,
+      "gcp_glue_function_max_instances": 10
+    }
+  },
+  "storage_transitions": [
+    {
+      "boundary_id": "l3_hot_to_l3_cool",
+      "source_slot": "l3_hot_storage",
+      "target_slot": "l3_cool_storage",
+      "runtime_component_by_source": {
+        "aws": "transition.l3_hot_to_l3_cool.aws.runtime",
+        "azure": "transition.l3_hot_to_l3_cool.azure.runtime",
+        "gcp": "transition.l3_hot_to_l3_cool.gcp.runtime"
+      }
+    },
+    {
+      "boundary_id": "l3_cool_to_l3_archive",
+      "source_slot": "l3_cool_storage",
+      "target_slot": "l3_archive_storage",
+      "runtime_component_by_source": {
+        "aws": "transition.l3_cool_to_l3_archive.aws.runtime",
+        "azure": "transition.l3_cool_to_l3_archive.azure.runtime",
+        "gcp": "transition.l3_cool_to_l3_archive.gcp.runtime"
+      }
+    }
+  ],
+  "glue_component_by_receiver": {
+    "aws": "glue.aws.lambda",
+    "azure": "glue.azure.functions",
+    "gcp": "glue.gcp.functions"
+  }
+}

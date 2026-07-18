@@ -4,6 +4,8 @@ import 'calc_params.dart';
 import 'calc_result.dart';
 import 'cloud_connection.dart';
 import 'json_contract.dart';
+import 'pricing_catalog.dart';
+import 'resolved_deployment_specification.dart';
 
 class OptimizationResultData extends Equatable {
   final CalcResult result;
@@ -15,7 +17,13 @@ class OptimizationResultData extends Equatable {
     final payload = json['result'] == null
         ? JsonContract.immutableObject(json, 'calculation')
         : JsonContract.requiredObject(json, 'result');
-    return OptimizationResultData.fromPayload(payload);
+    final data = OptimizationResultData.fromPayload(payload);
+    if (data.result.pricingCatalogContext == null) {
+      throw const FormatException(
+        'Invalid API contract: calculation result is missing pricingCatalogs.',
+      );
+    }
+    return data;
   }
 
   factory OptimizationResultData.fromPayload(Map<String, dynamic> payload) {
@@ -30,6 +38,98 @@ class OptimizationResultData extends Equatable {
 
   @override
   List<Object?> get props => [result, payload];
+}
+
+class OptimizerRunData extends Equatable {
+  final String id;
+  final String twinId;
+  final OptimizationResultData optimization;
+  final OptimizerDeploymentRunData deploymentRun;
+  final double totalMonthlyCost;
+  final String currency;
+  final DateTime createdAt;
+  final DateTime completedAt;
+
+  const OptimizerRunData({
+    required this.id,
+    required this.twinId,
+    required this.optimization,
+    required this.deploymentRun,
+    required this.totalMonthlyCost,
+    required this.currency,
+    required this.createdAt,
+    required this.completedAt,
+  });
+
+  factory OptimizerRunData.fromJson(Map<String, dynamic> json) {
+    final status = JsonContract.requiredString(json, 'status');
+    if (status != 'succeeded') {
+      throw const FormatException(
+        'Invalid API contract: optimizer run status must be succeeded.',
+      );
+    }
+    final result = OptimizationResultData.fromPayload(
+      JsonContract.requiredObject(json, 'result_summary'),
+    );
+    if (result.result.transferPricingContext == null ||
+        result.result.optimizationDiagnostics == null) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run is missing exact transfer evidence.',
+      );
+    }
+    final totalMonthlyCost = _requiredFiniteNonNegativeNumber(
+      json,
+      'total_monthly_cost',
+    );
+    if ((totalMonthlyCost - result.result.totalCost).abs() > 0.000000001) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run total is inconsistent.',
+      );
+    }
+    final currency = JsonContract.requiredString(json, 'currency');
+    if (currency != 'USD' && currency != 'EUR') {
+      throw const FormatException(
+        'Invalid API contract: optimizer run currency is unsupported.',
+      );
+    }
+    final createdAt = JsonContract.requiredDate(json, 'created_at');
+    final completedAt = JsonContract.requiredDate(json, 'completed_at');
+    if (completedAt.isBefore(createdAt)) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run timestamps are inconsistent.',
+      );
+    }
+    final id = JsonContract.requiredString(json, 'id');
+    final twinId = JsonContract.requiredString(json, 'twin_id');
+    final deploymentRun = OptimizerDeploymentRunData.fromDetailJson(json);
+    if (deploymentRun.id != id || deploymentRun.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: optimizer deployment run identity is inconsistent.',
+      );
+    }
+    return OptimizerRunData(
+      id: id,
+      twinId: twinId,
+      optimization: result,
+      deploymentRun: deploymentRun,
+      totalMonthlyCost: totalMonthlyCost,
+      currency: currency,
+      createdAt: createdAt,
+      completedAt: completedAt,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    id,
+    twinId,
+    optimization,
+    deploymentRun,
+    totalMonthlyCost,
+    currency,
+    createdAt,
+    completedAt,
+  ];
 }
 
 class CheapestPath extends Equatable {
@@ -118,23 +218,6 @@ class CheapestPath extends Equatable {
   List<Object?> get props => [l1, l2, l3Hot, l3Cool, l3Archive, l4, l5];
 }
 
-class ProviderPricingSnapshot extends Equatable {
-  final CloudProvider provider;
-  final Map<String, dynamic>? payload;
-  final DateTime? updatedAt;
-
-  const ProviderPricingSnapshot({
-    required this.provider,
-    this.payload,
-    this.updatedAt,
-  });
-
-  bool get hasData => payload != null && payload!.isNotEmpty;
-
-  @override
-  List<Object?> get props => [provider, payload, updatedAt];
-}
-
 class OptimizerConfigData extends Equatable {
   final String id;
   final String twinId;
@@ -142,7 +225,7 @@ class OptimizerConfigData extends Equatable {
   final OptimizationResultData? optimization;
   final CheapestPath? cheapestPath;
   final DateTime? calculatedAt;
-  final Map<CloudProvider, ProviderPricingSnapshot> pricingSnapshots;
+  final PricingCatalogContext? pricingCatalogContext;
   final DateTime updatedAt;
 
   const OptimizerConfigData({
@@ -152,7 +235,7 @@ class OptimizerConfigData extends Equatable {
     this.optimization,
     this.cheapestPath,
     this.calculatedAt,
-    required this.pricingSnapshots,
+    this.pricingCatalogContext,
     required this.updatedAt,
   });
 
@@ -160,36 +243,38 @@ class OptimizerConfigData extends Equatable {
     final paramsJson = JsonContract.optionalObject(json, 'params');
     final resultJson = JsonContract.optionalObject(json, 'result');
     final pathJson = JsonContract.optionalObject(json, 'cheapest_path');
-    final snapshots = <CloudProvider, ProviderPricingSnapshot>{};
-    for (final provider in CloudProvider.values) {
-      snapshots[provider] = ProviderPricingSnapshot(
-        provider: provider,
-        payload: JsonContract.optionalObject(
-          json,
-          'pricing_${provider.apiValue}_snapshot',
-        ),
-        updatedAt: JsonContract.optionalDate(
-          json,
-          'pricing_${provider.apiValue}_updated_at',
-        ),
+    final pricingContextJson = JsonContract.optionalObject(
+      json,
+      'pricing_catalog_context',
+    );
+    final pricingCatalogContext = pricingContextJson == null
+        ? null
+        : PricingCatalogContext.fromJson(pricingContextJson);
+    final optimization = resultJson == null
+        ? null
+        : OptimizationResultData.fromPayload(resultJson);
+    final resultContext = optimization?.result.pricingCatalogContext;
+    if ((pricingCatalogContext == null) != (resultContext == null) ||
+        (pricingCatalogContext != null &&
+            pricingCatalogContext != resultContext)) {
+      throw const FormatException(
+        'Invalid API contract: optimizer pricing catalog evidence is inconsistent.',
       );
     }
     return OptimizerConfigData(
       id: JsonContract.requiredString(json, 'id'),
       twinId: JsonContract.requiredString(json, 'twin_id'),
       params: paramsJson == null ? null : CalcParams.fromJson(paramsJson),
-      optimization: resultJson == null
-          ? null
-          : OptimizationResultData.fromPayload(resultJson),
+      optimization: optimization,
       cheapestPath: pathJson == null ? null : CheapestPath.fromJson(pathJson),
       calculatedAt: JsonContract.optionalDate(json, 'calculated_at'),
-      pricingSnapshots: Map.unmodifiable(snapshots),
+      pricingCatalogContext: pricingCatalogContext,
       updatedAt: JsonContract.requiredDate(json, 'updated_at'),
     );
   }
 
-  ProviderPricingSnapshot snapshot(CloudProvider provider) =>
-      pricingSnapshots[provider] ?? ProviderPricingSnapshot(provider: provider);
+  PricingCatalogReference? catalog(CloudProvider provider) =>
+      pricingCatalogContext?.catalogs[provider];
 
   CloudProvider? get l1Provider => cheapestPath?.l1;
 
@@ -201,7 +286,7 @@ class OptimizerConfigData extends Equatable {
     optimization,
     cheapestPath,
     calculatedAt,
-    pricingSnapshots,
+    pricingCatalogContext,
     updatedAt,
   ];
 }
@@ -216,4 +301,17 @@ CloudProvider? _optionalProvider(Map<String, dynamic> json, String field) {
       'Invalid API contract: cheapest_path.$field contains an unknown provider.',
     );
   }
+}
+
+double _requiredFiniteNonNegativeNumber(
+  Map<String, dynamic> json,
+  String field,
+) {
+  final value = json[field];
+  if (value is! num || !value.isFinite || value < 0) {
+    throw FormatException(
+      'Invalid API contract: $field must be a finite non-negative number.',
+    );
+  }
+  return value.toDouble();
 }

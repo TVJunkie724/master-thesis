@@ -1,9 +1,9 @@
 schema_version: pricing-registry-workload-contracts.v1
-registry_version: 2026.06.08
+registry_version: 2026.07.17
 workload_contracts:
   digital_twin_workload_v1:
     id: digital_twin_workload_v1
-    version: 2026.06.10
+    version: 2026.07.17
     status: ready
     description: Canonical thesis workload fields consumed by cost calculation.
     fields:
@@ -72,6 +72,46 @@ workload_contracts:
         unit: event
         value_type: integer
         description: Monthly event bus events.
+      monthly_digital_twin_billable_operations:
+        id: monthly_digital_twin_billable_operations
+        unit: operation
+        value_type: number
+        description: Monthly Azure Digital Twins billable operations derived from telemetry updates and query responses.
+      monthly_digital_twin_routed_messages:
+        id: monthly_digital_twin_routed_messages
+        unit: message_unit
+        value_type: number
+        description: Monthly Azure Digital Twins routed 1 KB message units; zero for five-layer-baseline@1.
+      digital_twin_entity_months:
+        id: digital_twin_entity_months
+        unit: entity_month
+        value_type: number
+        description: Average AWS IoT TwinMaker billable entities over the calculation month.
+      monthly_digital_twin_api_calls:
+        id: monthly_digital_twin_api_calls
+        unit: api_call
+        value_type: number
+        description: Monthly AWS IoT TwinMaker unified-data access API calls.
+      monthly_digital_twin_queries:
+        id: monthly_digital_twin_queries
+        unit: query
+        value_type: number
+        description: Monthly AWS IoT TwinMaker queries.
+      account_digital_twin_entity_count:
+        id: account_digital_twin_entity_count
+        unit: entity
+        value_type: integer
+        description: Account-wide TwinMaker billable entity count used only for bundle tier validation.
+      account_monthly_digital_twin_queries:
+        id: account_monthly_digital_twin_queries
+        unit: query
+        value_type: number
+        description: Account-wide monthly TwinMaker queries used only with an explicit bundle allocation policy.
+      account_monthly_digital_twin_api_calls:
+        id: account_monthly_digital_twin_api_calls
+        unit: api_call
+        value_type: number
+        description: Account-wide monthly TwinMaker unified-data API calls used only with an explicit bundle allocation policy.
       monthly_digital_twin_query_units:
         id: monthly_digital_twin_query_units
         unit: query_unit

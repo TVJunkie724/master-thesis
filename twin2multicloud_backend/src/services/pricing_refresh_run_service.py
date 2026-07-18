@@ -17,6 +17,10 @@ from src.schemas.pricing_refresh import (
     PricingRefreshRunResponse,
     PricingRefreshStartRequest,
 )
+from src.services.aws_twinmaker_pricing_context_service import (
+    ACCOUNT_CONTEXT_KEY,
+    AwsTwinMakerPricingContextService,
+)
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.errors import (
     ExternalServiceError,
@@ -39,6 +43,36 @@ SENSITIVE_KEY_PARTS = (
 )
 MAX_RESULT_SUMMARY_ITEMS = 200
 MAX_RESULT_SUMMARY_TEXT_LENGTH = 500
+PRIORITIZED_RESULT_KEYS = (
+    "schemaVersion",
+    "status",
+    "candidateReference",
+    "activeCalculationReference",
+    "publication",
+    "quality",
+    "summary",
+    ACCOUNT_CONTEXT_KEY,
+)
+SAFE_OPTIMIZER_PRICING_ERRORS = {
+    "AWS_TWINMAKER_PLAN_AUTHENTICATION_FAILED": (
+        "AWS pricing credentials are invalid or expired."
+    ),
+    "AWS_TWINMAKER_PLAN_PERMISSION_DENIED": (
+        "AWS pricing credentials cannot read the TwinMaker pricing plan."
+    ),
+    "AWS_TWINMAKER_PLAN_ACCOUNT_MISMATCH": (
+        "AWS pricing credentials do not match the configured account."
+    ),
+    "AWS_TWINMAKER_PLAN_THROTTLED": (
+        "AWS throttled the TwinMaker pricing-plan request. Retry later."
+    ),
+    "AWS_TWINMAKER_PLAN_RESPONSE_INVALID": (
+        "AWS returned an unsupported TwinMaker pricing-plan response."
+    ),
+    "AWS_TWINMAKER_CATALOG_CONTRACT_INVALID": (
+        "AWS TwinMaker pricing catalog evidence is invalid."
+    ),
+}
 
 
 class PricingRefreshRunService:
@@ -48,6 +82,7 @@ class PricingRefreshRunService:
         self.db = db
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.cloud_connections = CloudConnectionService(db)
+        self.aws_twinmaker_contexts = AwsTwinMakerPricingContextService(db)
 
     async def create_run(
         self,
@@ -76,11 +111,38 @@ class PricingRefreshRunService:
 
         try:
             payload = self._optimizer_payload(provider, connection, user_id)
+        except ValueError:
+            run.status = "failed"
+            run.error_code = "PRICING_CREDENTIAL_UNREADABLE"
+            run.error_message = "Pricing credential payload cannot be read."
+        else:
+            await self._execute_refresh(run, provider, payload, connection)
+
+        run.completed_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(run)
+        return run
+
+    async def _execute_refresh(
+        self,
+        run: PricingRefreshRun,
+        provider: CloudAccessProvider,
+        payload: dict[str, Any],
+        connection: CloudConnection | None,
+    ) -> None:
+        try:
             result = await self.optimizer_client.refresh_pricing(
                 provider,
                 credentials=payload,
-                force_fetch=request.force,
+                force_fetch=bool(run.force),
             )
+            if provider == "aws":
+                if connection is None:
+                    raise ValueError("AWS pricing CloudConnection is required.")
+                result = self.aws_twinmaker_contexts.bind_refresh_result(
+                    connection,
+                    result,
+                )
             run.status = "succeeded"
             run.result_summary_json = _json_dumps(_safe_result_summary(result))
             if connection is not None:
@@ -89,19 +151,17 @@ class PricingRefreshRunService:
             run.status = "failed"
             run.error_code = "OPTIMIZER_UNAVAILABLE"
             run.error_message = "Optimizer service is unavailable."
-        except ExternalServiceError:
+        except ExternalServiceError as exc:
+            error_code, error_message = _safe_optimizer_pricing_error(exc)
             run.status = "failed"
-            run.error_code = "OPTIMIZER_ERROR"
-            run.error_message = "Optimizer service returned an error."
+            run.error_code = error_code
+            run.error_message = error_message
         except ValueError:
             run.status = "failed"
-            run.error_code = "PRICING_CREDENTIAL_UNREADABLE"
-            run.error_message = "Pricing credential payload cannot be read."
-
-        run.completed_at = datetime.now(timezone.utc)
-        self.db.commit()
-        self.db.refresh(run)
-        return run
+            run.error_code = "AWS_TWINMAKER_CONTEXT_INVALID"
+            run.error_message = (
+                "AWS TwinMaker pricing-plan evidence could not be verified."
+            )
 
     def get_run(self, refresh_run_id: str, user_id: str) -> PricingRefreshRun:
         run = (
@@ -206,6 +266,14 @@ class PricingRefreshRunService:
             raise PricingRefreshRequestError("Pricing CloudConnection is required.")
 
         payload = self.cloud_connections.build_optimizer_credentials(connection, user_id)
+        if provider == "aws":
+            cloud_scope = _json_loads(connection.cloud_scope) or {}
+            configured_account_id = _string_or_none(
+                cloud_scope.get("account_id")
+            )
+            if configured_account_id:
+                payload["aws_configured_account_id"] = configured_account_id
+            return payload
         if provider != "gcp":
             return payload
         return {
@@ -233,7 +301,17 @@ def _safe_result_summary(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
     result: dict[str, Any] = {}
-    for key, raw in list(value.items())[:MAX_RESULT_SUMMARY_ITEMS]:
+    prioritized_items = [
+        (key, value[key])
+        for key in PRIORITIZED_RESULT_KEYS
+        if key in value
+    ]
+    prioritized_items.extend(
+        (key, raw)
+        for key, raw in value.items()
+        if key not in PRIORITIZED_RESULT_KEYS
+    )
+    for key, raw in prioritized_items[:MAX_RESULT_SUMMARY_ITEMS]:
         if _is_sensitive_key(str(key)):
             continue
         result[str(key)] = _safe_value(raw)
@@ -278,3 +356,19 @@ def _string_or_none(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _safe_optimizer_pricing_error(
+    error: ExternalServiceError,
+) -> tuple[str, str]:
+    """Preserve allowlisted provider codes without trusting upstream messages."""
+
+    try:
+        payload = json.loads(error.public_detail)
+    except (TypeError, ValueError):
+        payload = None
+    detail = payload.get("detail") if isinstance(payload, dict) else None
+    error_code = detail.get("error_code") if isinstance(detail, dict) else None
+    if isinstance(error_code, str) and error_code in SAFE_OPTIMIZER_PRICING_ERRORS:
+        return error_code, SAFE_OPTIMIZER_PRICING_ERRORS[error_code]
+    return "OPTIMIZER_ERROR", "Optimizer service returned an error."

@@ -4,9 +4,8 @@ Unit tests for pricing SSE streaming endpoint.
 Tests for the /stream/fetch_pricing/{provider} endpoint that streams
 real-time logs during pricing fetch operations.
 """
-import pytest
 import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from rest_api import app
 
@@ -122,7 +121,7 @@ class TestSseUtils:
         
         # Extract data line
         lines = result.strip().split("\n")
-        data_line = [l for l in lines if l.startswith("data:")][0]
+        data_line = [line for line in lines if line.startswith("data:")][0]
         data_json = json.loads(data_line.replace("data: ", ""))
         
         assert data_json["type"] == "error"

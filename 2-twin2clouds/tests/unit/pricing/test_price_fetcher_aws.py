@@ -2,6 +2,9 @@ import pytest
 import json
 from unittest.mock import patch, MagicMock
 from backend.fetch_data.cloud_price_fetcher_aws import (
+    TwinMakerPricingContractError,
+    TwinMakerPricingFetchError,
+    _extract_twinmaker_pricing,
     fetch_aws_price,
     _extract_prices_from_api_response,
     _extract_prices_with_evidence,
@@ -29,6 +32,121 @@ def create_mock_price_item(description, price_per_unit, unit="USD"):
             }
         }
     })
+
+
+def create_twinmaker_price_item(
+    usage_type,
+    price,
+    *,
+    begin_range="0",
+    location="EU (Frankfurt)",
+):
+    return json.dumps(
+        {
+            "product": {
+                "sku": f"sku-{usage_type}",
+                "attributes": {
+                    "usagetype": f"EUC1-{usage_type}",
+                    "location": location,
+                },
+            },
+            "terms": {
+                "OnDemand": {
+                    "term": {
+                        "priceDimensions": {
+                            "dimension": {
+                                "description": f"{usage_type} provider description",
+                                "beginRange": begin_range,
+                                "endRange": "Inf",
+                                "unit": "Unit",
+                                "pricePerUnit": {"USD": str(price)},
+                            }
+                        }
+                    }
+                }
+            },
+        }
+    )
+
+
+def complete_twinmaker_price_list():
+    rows = [
+        create_twinmaker_price_item("IoTTwinMaker-Entities", 0.0525),
+        create_twinmaker_price_item("IoTTwinMaker-Queries", 0.0000525),
+        create_twinmaker_price_item(
+            "IoTTwinMaker-UnifiedDataAccess",
+            0.00000165,
+        ),
+    ]
+    limits = {
+        1: (3_800_000, 25_000_000, 231.0),
+        2: (9_000_000, 60_000_000, 682.5),
+        3: (14_300_000, 95_000_000, 1_155.0),
+        4: (24_000_000, 160_000_000, 2_047.5),
+    }
+    for tier, (queries, api_calls, base_price) in limits.items():
+        rows.extend(
+            [
+                create_twinmaker_price_item(
+                    f"IoTTwinMaker-BaseTier{tier}-Entities",
+                    base_price,
+                ),
+                create_twinmaker_price_item(
+                    f"IoTTwinMaker-BaseTier{tier}-Queries",
+                    0.0000525,
+                    begin_range=str(queries),
+                ),
+                create_twinmaker_price_item(
+                    f"IoTTwinMaker-BaseTier{tier}-UnifiedDataAccess",
+                    0.00000165,
+                    begin_range=str(api_calls),
+                ),
+            ]
+        )
+    return rows
+
+
+def create_transfer_price_item(
+    begin_range,
+    end_range,
+    price,
+    *,
+    unit="GB",
+    transfer_type="AWS Outbound",
+):
+    return json.dumps(
+        {
+            "product": {
+                "sku": f"transfer-{begin_range}",
+                "productFamily": "Data Transfer",
+                "attributes": {
+                    "servicecode": "AWSDataTransfer",
+                    "servicename": "AWS Data Transfer",
+                    "fromLocation": "EU (Frankfurt)",
+                    "toLocation": "External",
+                    "transferType": transfer_type,
+                    "location": "EU (Frankfurt)",
+                },
+            },
+            "terms": {
+                "OnDemand": {
+                    "term": {
+                        "priceDimensions": {
+                            f"dimension-{begin_range}": {
+                                "description": (
+                                    "Data transfer out from EU (Frankfurt)"
+                                ),
+                                "beginRange": str(begin_range),
+                                "endRange": str(end_range),
+                                "unit": unit,
+                                "pricePerUnit": {"USD": str(price)},
+                            }
+                        }
+                    }
+                }
+            },
+        }
+    )
 
 def test_extract_prices_from_api_response_basic():
     """Test basic price extraction"""
@@ -144,6 +262,95 @@ def test_fetch_aws_price_lambda(mock_fetch_products, mock_get_client):
     assert "requestPrice" in result
     assert "freeRequests" not in result
 
+
+@patch("backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client")
+@patch("backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products")
+def test_fetch_aws_transfer_builds_exact_canonical_decimal_gb_catalog(
+    mock_fetch_products,
+    mock_get_client,
+):
+    mock_get_client.return_value = MagicMock()
+    mock_fetch_products.return_value = [
+        create_transfer_price_item(0, 10240, 0.09),
+        create_transfer_price_item(10240, 51200, 0.085),
+        create_transfer_price_item(51200, 153600, 0.07),
+        create_transfer_price_item(153600, "Inf", 0.05),
+    ]
+
+    result = fetch_aws_price(
+        "transfer",
+        "AWSDataTransfer",
+        "eu-central-1",
+        {"eu-central-1": "EU (Frankfurt)"},
+    )
+
+    assert "egressPrice" not in result
+    assert result["billing_unit"] == "gb"
+    assert result["bytes_per_billing_unit"] == 1_000_000_000
+    assert [
+        (
+            tier["start_quantity"],
+            tier["end_quantity"],
+            tier["unit_price"],
+        )
+        for tier in result["pricing_tiers"]
+    ] == [
+        (0, 100, 0),
+        (100, 10240, 0.09),
+        (10240, 51200, 0.085),
+        (51200, 153600, 0.07),
+        (153600, None, 0.05),
+    ]
+    assert result["__evidence__"]["evidence_id"] == result["evidence_id"]
+    assert len(result["__intent_evidence__"]["selected_rows"]) == 4
+
+
+@pytest.mark.parametrize(
+    "rows, expected",
+    [
+        (
+            [
+                create_transfer_price_item(0, 10240, 0.09),
+                create_transfer_price_item(51200, "Inf", 0.05),
+            ],
+            "gapped or overlapping",
+        ),
+        (
+            [create_transfer_price_item(0, "Inf", 0.09, unit="GiB")],
+            "incomplete or requires review",
+        ),
+        (
+            [
+                create_transfer_price_item(
+                    0,
+                    "Inf",
+                    0.09,
+                    transfer_type="AWS Inbound",
+                )
+            ],
+            "incomplete or requires review",
+        ),
+    ],
+)
+@patch("backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client")
+@patch("backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products")
+def test_fetch_aws_transfer_fails_closed_for_contract_drift(
+    mock_fetch_products,
+    mock_get_client,
+    rows,
+    expected,
+):
+    mock_get_client.return_value = MagicMock()
+    mock_fetch_products.return_value = rows
+
+    with pytest.raises(ValueError, match=expected):
+        fetch_aws_price(
+            "transfer",
+            "AWSDataTransfer",
+            "eu-central-1",
+            {"eu-central-1": "EU (Frankfurt)"},
+        )
+
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 def test_fetch_aws_price_client_error(mock_get_client):
     """Test handling of client creation failure"""
@@ -183,26 +390,94 @@ def test_fetch_aws_price_grafana(mock_get_client):
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 @patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
 def test_fetch_aws_price_twinmaker(mock_fetch_products, mock_get_client):
-    """Test fetching AWS TwinMaker pricing"""
+    """TwinMaker fetches one exact regional catalog contract."""
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
+    mock_fetch_products.return_value = complete_twinmaker_price_list()
     
-    # Mock TwinMaker response (simplified)
-    # MUST matching keywords in AWS_SERVICE_KEYWORDS["twinmaker"]["fields"]
-    # entityPrice: ["per entity per month", "iottwinmaker-entities"]
-    # queryPrice: ["per 10k queries", "queries executed"]
-    mock_fetch_products.side_effect = [
-        # Call 1: IOTTwinMaker (Entity)
-        [create_mock_price_item("IoT TwinMaker Per Entity Per Month", 0.5)],
-        # Call 2: IOTTwinMakerQueries (Queries)
-        [create_mock_price_item("IoT TwinMaker Queries Executed", 0.000002)]
+    region_map = {"eu-central-1": "EU (Frankfurt)"}
+    
+    result = fetch_aws_price(
+        "twinmaker",
+        "IOTTwinMaker",
+        "eu-central-1",
+        region_map,
+        debug=False,
+    )
+    
+    assert result["usageRates"] == {
+        "entityPricePerMonth": 0.0525,
+        "queryPrice": 0.0000525,
+        "unifiedDataAccessApiCallPrice": 0.00000165,
+    }
+    assert [tier["tierId"] for tier in result["tieredBundle"]["tiers"]] == [
+        "TIER_1",
+        "TIER_2",
+        "TIER_3",
+        "TIER_4",
     ]
-    
-    region_map = {"us-east-1": "US East (N. Virginia)"}
-    
-    result = fetch_aws_price("twinmaker", "IOTTwinMaker", "us-east-1", region_map, debug=False)
-    
-    assert result is not None
-    assert "entityPrice" in result
-    assert result["entityPrice"] == 0.5
-    # queryPrice might be missing if _fetch_twinmaker_prices logic varies, but checking coverage
+    assert result["tieredBundle"]["tiers"][0]["includedQueries"] == 3_800_000
+    assert mock_fetch_products.call_count == 1
+
+
+def test_twinmaker_extractor_rejects_missing_dimension():
+    rows = complete_twinmaker_price_list()
+    rows.pop()
+
+    with pytest.raises(TwinMakerPricingContractError, match="incomplete"):
+        _extract_twinmaker_pricing(rows, "EU (Frankfurt)")
+
+
+def test_twinmaker_extractor_rejects_duplicate_positive_dimension():
+    rows = complete_twinmaker_price_list()
+    rows.append(
+        create_twinmaker_price_item("IoTTwinMaker-Queries", 0.0000525)
+    )
+
+    with pytest.raises(TwinMakerPricingContractError, match="duplicated"):
+        _extract_twinmaker_pricing(rows, "EU (Frankfurt)")
+
+
+def test_twinmaker_extractor_rejects_other_region_matching_row():
+    rows = complete_twinmaker_price_list()
+    rows[0] = create_twinmaker_price_item(
+        "IoTTwinMaker-Entities",
+        0.0525,
+        location="US East (N. Virginia)",
+    )
+
+    with pytest.raises(TwinMakerPricingContractError, match="different location"):
+        _extract_twinmaker_pricing(rows, "EU (Frankfurt)")
+
+
+def test_twinmaker_extractor_rejects_non_monotonic_included_usage():
+    rows = complete_twinmaker_price_list()
+    for index, row in enumerate(rows):
+        if "BaseTier2-Queries" in row:
+            rows[index] = create_twinmaker_price_item(
+                "IoTTwinMaker-BaseTier2-Queries",
+                0.0000525,
+                begin_range="100",
+            )
+            break
+
+    with pytest.raises(TwinMakerPricingContractError, match="increasing"):
+        _extract_twinmaker_pricing(rows, "EU (Frankfurt)")
+
+
+@patch("backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client")
+def test_twinmaker_fetch_surfaces_price_list_api_failure(mock_get_client):
+    client = MagicMock()
+    client.get_paginator.side_effect = RuntimeError("provider transport detail")
+    mock_get_client.return_value = client
+
+    with pytest.raises(TwinMakerPricingFetchError) as raised:
+        fetch_aws_price(
+            "twinmaker",
+            "IOTTwinMaker",
+            "eu-central-1",
+            {"eu-central-1": "EU (Frankfurt)"},
+        )
+
+    assert raised.value.code == "AWS_TWINMAKER_CATALOG_FETCH_FAILED"
+    assert "provider transport detail" not in raised.value.public_message

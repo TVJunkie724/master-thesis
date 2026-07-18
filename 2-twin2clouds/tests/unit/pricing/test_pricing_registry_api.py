@@ -1,3 +1,4 @@
+import os
 import shutil
 
 from fastapi.testclient import TestClient
@@ -51,13 +52,42 @@ def test_pricing_registry_service_reloads_registry_version(tmp_path):
         "formula_sets.yaml",
         "workload_contracts.yaml",
         "provider_pricing_contracts.yaml",
+        "transfer_routes.yaml",
     ):
         path = root / name
-        path.write_text(path.read_text().replace("2026.06.08", "2026.06.09"))
+        path.write_text(path.read_text().replace("2026.07.17", "2026.07.18"))
 
     service = PricingRegistryService(root)
 
-    assert service.get_registry_version() == "2026.06.09"
+    assert service.get_registry_version() == "2026.07.18"
+
+
+def test_pricing_registry_service_invalidates_cached_snapshot(tmp_path):
+    root = _copy_registry(tmp_path)
+    service = PricingRegistryService(root)
+
+    assert service.get_registry_version() == "2026.07.17"
+
+    for path in root.glob("*.yaml"):
+        path.write_text(path.read_text().replace("2026.07.17", "2026.07.18"))
+
+    assert service.get_registry_version() == "2026.07.18"
+
+
+def test_pricing_registry_service_invalidates_for_provider_mapping_change(
+    tmp_path,
+):
+    root = _copy_registry(tmp_path)
+    service = PricingRegistryService(root)
+    initial = service.load()
+    mapping_path = root / "providers" / "aws" / "mappings.yaml"
+    metadata = mapping_path.stat()
+    os.utime(
+        mapping_path,
+        ns=(metadata.st_atime_ns, metadata.st_mtime_ns + 1_000_000_000),
+    )
+
+    assert service.load() is not initial
 
 
 def test_pricing_registry_service_rejects_unknown_provider():
@@ -73,20 +103,14 @@ def test_pricing_registry_service_rejects_unknown_provider():
 
 def test_get_pricing_registry_status_endpoint():
     response = client.get("/pricing-registry/status")
+    expected = PricingRegistryService().get_status()
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "valid"
-    assert body["registry_version"] == "2026.06.08"
-    assert body["intent_count"] == 16
-    assert body["pricing_model_classification_count"] == 48
-    assert body["price_source_classification_count"] == 48
-    assert body["optimization_bundle_count"] == 1
-    assert body["calculation_strategy_count"] == 1
-    assert body["formula_set_count"] == 1
-    assert body["workload_contract_count"] == 1
-    assert body["provider_pricing_contract_count"] == 48
-    assert body["provider_mapping_counts"] == {"aws": 16, "azure": 16, "gcp": 16}
+    assert body == expected
+    assert body["provider_mapping_counts"]["aws"] == 19
+    assert body["provider_mapping_counts"]["azure"] == 18
+    assert body["provider_mapping_counts"]["gcp"] == 16
 
 
 def test_list_pricing_registry_intents_endpoint_supports_metric_filter():
@@ -94,7 +118,7 @@ def test_list_pricing_registry_intents_endpoint_supports_metric_filter():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["registry_version"] == "2026.06.08"
+    assert body["registry_version"] == "2026.07.17"
     assert "api.request_million" in body["items"]
     assert all(intent["group"] == "cost" for intent in body["items"].values())
 
@@ -104,7 +128,7 @@ def test_get_pricing_registry_intent_endpoint_returns_stable_shape():
 
     assert response.status_code == 200
     assert response.json() == {
-        "registry_version": "2026.06.08",
+        "registry_version": "2026.07.17",
         "item": {
             "group": "cost",
             "description": "API calls normalized per one million requests.",
@@ -151,9 +175,15 @@ def test_list_pricing_model_classifications_endpoint_supports_provider_filter():
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["items"]) == 16
+    assert len(body["items"]) == 19
     assert body["items"]["aws.iot_message_ingest.model.v1"]["pricing_model_type"] == (
         "tiered_message_unit"
+    )
+    assert (
+        body["items"]["aws.digital_twin_account_bundle_month.model.v1"][
+            "pricing_model_type"
+        ]
+        == "account_wide_tiered_bundle"
     )
     assert all(item["provider"] == "aws" for item in body["items"].values())
 
@@ -173,7 +203,10 @@ def test_field_verification_matrix_endpoint_covers_active_fields():
 
     assert response.status_code == 200
     rows = response.json()["items"]
-    assert len(rows) == 48
+    expected_count = sum(
+        PricingRegistryService().get_status()["provider_mapping_counts"].values()
+    )
+    assert len(rows) == expected_count
     assert {
         (row["provider"], row["field"], row["selected_source_type"])
         for row in rows
@@ -200,7 +233,9 @@ def test_list_optimization_bundles_endpoint_exposes_strategy_contract():
     assert bundle["calculation_strategy_id"] == "cost_calculation_v2"
     assert bundle["formula_set_id"] == "cost_formula_set_v1"
     assert bundle["workload_contract_id"] == "digital_twin_workload_v1"
-    assert len(bundle["provider_pricing_contract_ids"]) == 48
+    assert len(bundle["provider_pricing_contract_ids"]) == (
+        PricingRegistryService().get_status()["provider_pricing_contract_count"]
+    )
 
 
 def test_list_provider_pricing_contracts_endpoint_supports_provider_filter():
@@ -208,8 +243,15 @@ def test_list_provider_pricing_contracts_endpoint_supports_provider_filter():
 
     assert response.status_code == 200
     contracts = response.json()["items"]
-    assert len(contracts) == 16
+    assert len(contracts) == (
+        PricingRegistryService().get_status()["provider_mapping_counts"]["azure"]
+    )
     assert all(contract["provider"] == "azure" for contract in contracts.values())
+    assert {
+        "azure.digital_twin_operation.pricing_contract.v1",
+        "azure.digital_twin_message.pricing_contract.v1",
+        "azure.digital_twin_query_unit.pricing_contract.v1",
+    } <= set(contracts)
     assert contracts["azure.iot_message_ingest.pricing_contract.v1"][
         "allowed_formula_refs"
     ] == ["tiered_unit_cost"]

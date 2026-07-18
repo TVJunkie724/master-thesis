@@ -3,9 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/cloud_access_inventory.dart';
 import 'package:twin2multicloud_flutter/models/pricing_candidate_review.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
+import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/widgets/pricing/pricing_candidate_review_panel.dart';
 import 'package:twin2multicloud_flutter/widgets/pricing/pricing_provider_selector.dart';
 import 'package:twin2multicloud_flutter/widgets/pricing/pricing_provider_workspace.dart';
+import 'package:twin2multicloud_flutter/widgets/pricing/pricing_refresh_run_summary.dart';
+
+import '../../fixtures/test_fixtures.dart';
 
 void main() {
   testWidgets('wide provider selector shows status and changes provider', (
@@ -183,6 +187,154 @@ void main() {
     await tester.pumpAndSettle();
     expect(traceRequests, 1);
   });
+
+  testWidgets('shows compact TwinMaker plan and collapsed technical details', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(PricingRefreshRunSummary(run: _awsRefreshRun())),
+    );
+
+    await tester.tap(find.text('Latest refresh'));
+    await tester.pumpAndSettle();
+    expect(find.text('eu-central-1'), findsOneWidget);
+    expect(find.text('Reviewed baseline'), findsOneWidget);
+    expect(find.textContaining('sha256:aaaaaaaaaaaa...'), findsOneWidget);
+    expect(find.text('AWS TwinMaker plan'), findsOneWidget);
+    expect(find.textContaining('Current: Standard'), findsOneWidget);
+    expect(find.textContaining('Account: 123456789012'), findsOneWidget);
+    expect(find.textContaining('Pending: None'), findsOneWidget);
+    expect(find.textContaining('Region: eu-central-1'), findsNothing);
+
+    await tester.tap(find.text('Technical details').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Region: eu-central-1'), findsOneWidget);
+    expect(find.textContaining('Billable entities: 42'), findsOneWidget);
+    expect(find.textContaining('Refresh run: run-aws'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TwinMaker diagnostics remain usable in a narrow window', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(PricingRefreshRunSummary(run: _awsRefreshRun())),
+    );
+    await tester.tap(find.text('Latest refresh'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Technical details').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Snapshot ID: pcs_'), findsOneWidget);
+    await tester.ensureVisible(find.text('Technical details').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Technical details').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Pricing connection: aws-1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('maps pricing-plan permission failures to actionable text', (
+    tester,
+  ) async {
+    final run = PricingRefreshRun.fromJson({
+      'refresh_run_id': 'run-failed',
+      'provider': 'aws',
+      'status': 'failed',
+      'credential_summary': {'identity_label': 'AWS Pricing', 'scope': 'user'},
+      'error_code': 'AWS_TWINMAKER_PLAN_PERMISSION_DENIED',
+      'error_message': 'Raw provider failure',
+      'created_at': '2026-07-17T08:00:00Z',
+    });
+    await tester.pumpWidget(_app(PricingRefreshRunSummary(run: run)));
+    await tester.tap(find.text('Latest refresh'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('AWS pricing-plan access is missing'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Raw provider failure'), findsNothing);
+  });
+
+  testWidgets('shows Basic, pending, and stale compatibility guidance', (
+    tester,
+  ) async {
+    final run = _awsRefreshRun(
+      currentPlan: {
+        'mode': 'BASIC',
+        'billable_entity_count': 12,
+        'effective_at': null,
+        'updated_at': null,
+        'update_reason': null,
+        'bundle': null,
+      },
+      pendingPlan: {
+        'mode': 'STANDARD',
+        'billable_entity_count': 12,
+        'effective_at': '2026-07-20T08:00:00Z',
+        'updated_at': null,
+        'update_reason': null,
+        'bundle': null,
+      },
+      observedAt: DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 8))
+          .toIso8601String(),
+    );
+    await tester.pumpWidget(_app(PricingRefreshRunSummary(run: run)));
+    await tester.tap(find.text('Latest refresh'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Basic does not provide the complete'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('pending pricing-plan change'), findsOneWidget);
+    expect(find.textContaining('older than seven days'), findsOneWidget);
+  });
+
+  testWidgets('shows Tiered Bundle allocation guidance and bundle details', (
+    tester,
+  ) async {
+    final run = _awsRefreshRun(
+      currentPlan: {
+        'mode': 'TIERED_BUNDLE',
+        'billable_entity_count': 5000,
+        'effective_at': null,
+        'updated_at': null,
+        'update_reason': null,
+        'bundle': {
+          'tier': 'TIER_2',
+          'names': ['Factory', 'Warehouse'],
+        },
+      },
+    );
+    await tester.pumpWidget(_app(PricingRefreshRunSummary(run: run)));
+    await tester.tap(find.text('Latest refresh'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('requires an explicit account-cost allocation'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Technical details').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Bundle: Tier 2 · Factory, Warehouse'),
+      findsOneWidget,
+    );
+  });
 }
 
 Widget _app(Widget child) => MaterialApp(
@@ -255,4 +407,46 @@ PricingCandidateReport _report() => PricingCandidateReport.fromJson({
   ],
   'review_state': 'ready',
   'created_at': '2026-07-11T10:00:00Z',
+});
+
+PricingRefreshRun _awsRefreshRun({
+  Map<String, dynamic>? currentPlan,
+  Map<String, dynamic>? pendingPlan,
+  String? observedAt,
+}) => PricingRefreshRun.fromJson({
+  'schema_version': 'pricing-refresh-run.v1',
+  'refresh_run_id': 'run-aws',
+  'provider': 'aws',
+  'status': 'succeeded',
+  'credential_summary': {
+    'connection_id': 'aws-1',
+    'identity_label': 'AWS Pricing',
+    'scope': 'user',
+    'provider_account_id': '123456789012',
+  },
+  'result_summary': {
+    'activeCalculationReference':
+        (TestFixtures.pricingCatalogContextJson['catalogs'] as Map)['aws'],
+    'accountPricingContext': {
+      'schema_version': 'aws-twinmaker-account-pricing-context.v1',
+      'provider': 'aws',
+      'service': 'iot_twinmaker',
+      'region': 'eu-central-1',
+      'verified_account_id': '123456789012',
+      'observed_at': observedAt ?? DateTime.now().toUtc().toIso8601String(),
+      'current_plan':
+          currentPlan ??
+          {
+            'mode': 'STANDARD',
+            'billable_entity_count': 42,
+            'effective_at': null,
+            'updated_at': null,
+            'update_reason': null,
+            'bundle': null,
+          },
+      'pending_plan': pendingPlan,
+      'management_binding': {'pricing_connection_id': 'aws-1'},
+    },
+  },
+  'created_at': '2026-07-17T08:00:00Z',
 });

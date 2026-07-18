@@ -1,23 +1,21 @@
-import 'dart:convert';
-
 import '../bloc/twin_overview/twin_overview_state.dart';
 import 'calc_params.dart';
 import 'calc_result.dart';
-import 'cloud_connection.dart';
 import 'deployer_config.dart';
 import 'optimizer_config.dart';
+import 'pricing_catalog.dart';
 
 class TwinConfigurationView {
   final List<String> pathSegments;
   final OptimizationSummaryView optimization;
-  final List<ProviderPricingSnapshotView> pricingSnapshots;
+  final PricingCatalogContext? pricingCatalogContext;
   final List<ConfigurationArtifactView> configurationArtifacts;
   final List<FunctionArtifactGroupView> functionGroups;
 
   const TwinConfigurationView({
     required this.pathSegments,
     required this.optimization,
-    required this.pricingSnapshots,
+    required this.pricingCatalogContext,
     required this.configurationArtifacts,
     required this.functionGroups,
   });
@@ -47,13 +45,7 @@ class TwinConfigurationView {
         params: optimizerConfig?.params,
         calculatedAt: optimizerConfig?.calculatedAt,
       ),
-      pricingSnapshots: [
-        for (final provider in CloudProvider.values)
-          ProviderPricingSnapshotView.fromSnapshot(
-            optimizerConfig?.snapshot(provider) ??
-                ProviderPricingSnapshot(provider: provider),
-          ),
-      ],
+      pricingCatalogContext: optimizerConfig?.pricingCatalogContext,
       configurationArtifacts: _configurationArtifacts(
         deployerConfig: deployerConfig,
         l2Provider: l2Provider,
@@ -98,34 +90,6 @@ class OptimizationSummaryView {
       calculatedAt: calculatedAt?.toIso8601String(),
     );
   }
-}
-
-class ProviderPricingSnapshotView {
-  final String provider;
-  final String? updatedAt;
-  final String? artifactContent;
-
-  const ProviderPricingSnapshotView({
-    required this.provider,
-    this.updatedAt,
-    this.artifactContent,
-  });
-
-  factory ProviderPricingSnapshotView.fromSnapshot(
-    ProviderPricingSnapshot snapshot,
-  ) {
-    return ProviderPricingSnapshotView(
-      provider: snapshot.provider.label,
-      updatedAt: snapshot.updatedAt?.toIso8601String(),
-      artifactContent: snapshot.payload == null
-          ? null
-          : _prettyPrintJson(snapshot.payload!),
-    );
-  }
-
-  bool get hasData => artifactContent != null;
-  String get filename => '${provider.toLowerCase()}_pricing.json';
-  String get title => '$provider Pricing';
 }
 
 class ConfigurationArtifactView {
@@ -310,13 +274,4 @@ String _stateMachineFilename(String provider) {
     'azure' => 'azure_logic_app.json',
     _ => 'aws_step_function.json',
   };
-}
-
-String _prettyPrintJson(Map<String, dynamic> json) {
-  try {
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(json);
-  } catch (_) {
-    return json.toString();
-  }
 }

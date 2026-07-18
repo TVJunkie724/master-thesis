@@ -78,12 +78,34 @@ class OptimizerContractError(DomainError):
         self.errors = errors or []
 
 
+class PricingCatalogUnavailable(DomainError):
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str = "PRICING_CATALOG_UNAVAILABLE",
+    ):
+        super().__init__(message)
+        self.error_code = error_code
+
+
 class ProviderCapabilityContractInvalid(DomainError):
     status_code = 502
 
 
 class CostCalculationRunSelectionError(DomainError):
     status_code = 409
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str = "COST_CALCULATION_RUN_SELECTION_CONFLICT",
+    ):
+        super().__init__(message)
+        self.error_code = error_code
 
 
 class PricingRefreshRequestError(DomainError):

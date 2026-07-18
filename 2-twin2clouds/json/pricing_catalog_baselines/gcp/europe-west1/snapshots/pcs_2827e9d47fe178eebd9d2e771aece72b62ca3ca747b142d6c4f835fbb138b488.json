@@ -1,0 +1,238 @@
+{
+  "pricing": {
+    "__evidence__": {
+      "fields": {
+        "transfer.catalog": {
+          "evidence_id": "gcp.transfer.17b2550c76fcff88ad9d2a1b79a576c592f804b751d4ad2c2ce8858d7cd0e857",
+          "fetched_at": "2026-07-17T17:54:56Z",
+          "intent_id": "transfer.egress_gb",
+          "mapping_version": "2026.07.18",
+          "pricing_region": "europe-west1",
+          "provider": "gcp",
+          "review_required": false,
+          "schema_version": "transfer-pricing-evidence.v1",
+          "selected_row_count": 3,
+          "selected_rows": [
+            {
+              "endQuantity": 1024,
+              "startQuantity": 0,
+              "tierId": "gcp-paid-1",
+              "unitPrice": 0.12
+            },
+            {
+              "endQuantity": 10240,
+              "startQuantity": 1024,
+              "tierId": "gcp-paid-2",
+              "unitPrice": 0.11
+            },
+            {
+              "endQuantity": null,
+              "startQuantity": 10240,
+              "tierId": "gcp-paid-3",
+              "unitPrice": 0.085
+            }
+          ],
+          "source_api": "gcp-official-pricing-reviewed-baseline",
+          "source_type": "reviewed_baseline",
+          "source_url": "https://cloud.google.com/skus/sku-groups/network-premium-gce-internet-egress"
+        }
+      },
+      "provider": "gcp",
+      "schema_version": "pricing-generated-evidence.v1"
+    },
+    "__quality__": {
+      "fallback_fields": [
+        "apiGateway.pricePerMillionCalls",
+        "cloudScheduler.jobPrice",
+        "cloudWorkflows.stepPrice",
+        "functions.durationPrice",
+        "functions.freeComputeTime",
+        "functions.freeRequests",
+        "functions.requestPrice",
+        "grafana.e2MediumPrice",
+        "grafana.storagePrice",
+        "iot.pricePerDeviceAndMonth",
+        "iot.pricePerGiB",
+        "storage_archive.dataRetrievalPrice",
+        "storage_archive.lifecycleAndWritePrice",
+        "storage_archive.storagePrice",
+        "storage_cool.dataRetrievalPrice",
+        "storage_cool.requestPrice",
+        "storage_cool.storagePrice",
+        "storage_cool.upfrontPrice",
+        "storage_hot.freeStorage",
+        "storage_hot.readPrice",
+        "storage_hot.storagePrice",
+        "storage_hot.writePrice",
+        "twinmaker.e2MediumPrice",
+        "twinmaker.storagePrice"
+      ],
+      "field_sources": {
+        "apiGateway.pricePerMillionCalls": "fallback_static",
+        "cloudScheduler.jobPrice": "fallback_static",
+        "cloudWorkflows.stepPrice": "fallback_static",
+        "functions.durationPrice": "fallback_static",
+        "functions.freeComputeTime": "fallback_static",
+        "functions.freeRequests": "fallback_static",
+        "functions.requestPrice": "fallback_static",
+        "grafana.e2MediumPrice": "fallback_static",
+        "grafana.storagePrice": "fallback_static",
+        "iot.pricePerDeviceAndMonth": "fallback_static",
+        "iot.pricePerGiB": "fallback_static",
+        "storage_archive.dataRetrievalPrice": "fallback_static",
+        "storage_archive.lifecycleAndWritePrice": "fallback_static",
+        "storage_archive.storagePrice": "fallback_static",
+        "storage_cool.dataRetrievalPrice": "fallback_static",
+        "storage_cool.requestPrice": "fallback_static",
+        "storage_cool.storagePrice": "fallback_static",
+        "storage_cool.upfrontPrice": "fallback_static",
+        "storage_hot.freeStorage": "fallback_static",
+        "storage_hot.readPrice": "fallback_static",
+        "storage_hot.storagePrice": "fallback_static",
+        "storage_hot.writePrice": "fallback_static",
+        "transfer.aggregation_semantics": "curated",
+        "transfer.billing_scope": "curated",
+        "transfer.billing_unit": "curated",
+        "transfer.bytes_per_billing_unit": "curated",
+        "transfer.currency": "curated",
+        "transfer.destination_geographies": "curated",
+        "transfer.evidence_id": "curated",
+        "transfer.network_tier": "curated",
+        "transfer.pricing_tiers": "curated",
+        "transfer.route_class": "curated",
+        "transfer.schema_version": "curated",
+        "transfer.source_geography": "curated",
+        "transfer.source_region": "curated",
+        "twinmaker.e2MediumPrice": "fallback_static",
+        "twinmaker.storagePrice": "fallback_static"
+      },
+      "quality_status": "review_required",
+      "review_required": true,
+      "unsupported_fields": []
+    },
+    "__schema__": {
+      "baseline_provenance": "curated_legacy_review",
+      "contract_version": "2026.07.18",
+      "generated_at": "2026-07-17T17:54:56+00:00",
+      "pricing_region": "europe-west1",
+      "provider": "gcp",
+      "schema_version": "pricing-provider-schema.v2",
+      "snapshot_digest": "sha256:82c3945fabd1ef26186426e71cf8b05be0e871ee12eb76092bf39d834ec8963b"
+    },
+    "apiGateway": {
+      "pricePerMillionCalls": 3.0
+    },
+    "cloudScheduler": {
+      "jobPrice": 0.003225806
+    },
+    "cloudWorkflows": {
+      "stepPrice": 2.5e-05
+    },
+    "functions": {
+      "durationPrice": 2.5e-06,
+      "freeComputeTime": 400000,
+      "freeRequests": 2000000,
+      "requestPrice": 4e-07
+    },
+    "grafana": {
+      "e2MediumPrice": 0.0608511,
+      "editorPrice": 0,
+      "storagePrice": 0.2,
+      "viewerPrice": 0
+    },
+    "iot": {
+      "pricePerDeviceAndMonth": 0,
+      "pricePerGiB": 0.0390625
+    },
+    "storage_archive": {
+      "dataRetrievalPrice": 0.05,
+      "lifecycleAndWritePrice": 6.5e-05,
+      "storagePrice": 0.0014
+    },
+    "storage_cool": {
+      "dataRetrievalPrice": 0.01,
+      "requestPrice": 2.6e-05,
+      "storagePrice": 0.011,
+      "upfrontPrice": 0.0
+    },
+    "storage_hot": {
+      "freeStorage": 1,
+      "readPrice": 3.3e-07,
+      "storagePrice": 0.135,
+      "writePrice": 1.8e-06
+    },
+    "transfer": {
+      "aggregation_semantics": "sku_account_aggregate_public_egress",
+      "billing_scope": "sku_account_aggregate_public_egress",
+      "billing_unit": "gib",
+      "bytes_per_billing_unit": 1073741824,
+      "currency": "USD",
+      "destination_geographies": [
+        "europe"
+      ],
+      "evidence_id": "gcp.transfer.17b2550c76fcff88ad9d2a1b79a576c592f804b751d4ad2c2ce8858d7cd0e857",
+      "network_tier": "premium",
+      "pricing_tiers": [
+        {
+          "end_quantity": 1,
+          "start_quantity": 0,
+          "tier_id": "free-allowance",
+          "unit": "gib",
+          "unit_price": 0
+        },
+        {
+          "end_quantity": 1024,
+          "start_quantity": 1,
+          "tier_id": "gcp-paid-1",
+          "unit": "gib",
+          "unit_price": 0.12
+        },
+        {
+          "end_quantity": 10240,
+          "start_quantity": 1024,
+          "tier_id": "gcp-paid-2",
+          "unit": "gib",
+          "unit_price": 0.11
+        },
+        {
+          "end_quantity": null,
+          "start_quantity": 10240,
+          "tier_id": "gcp-paid-3",
+          "unit": "gib",
+          "unit_price": 0.085
+        }
+      ],
+      "route_class": "cross_provider_public_internet",
+      "schema_version": "transfer-pricing-catalog.v1",
+      "source_geography": "europe",
+      "source_region": "europe-west1"
+    },
+    "twinmaker": {
+      "e2MediumPrice": 0.0608511,
+      "entityPrice": 0,
+      "queryPrice": 0,
+      "storagePrice": 0.2,
+      "unifiedDataAccessAPICallsPrice": 0
+    }
+  },
+  "reference": {
+    "calculation_source": "reviewed_baseline",
+    "content_digest": "sha256:82c3945fabd1ef26186426e71cf8b05be0e871ee12eb76092bf39d834ec8963b",
+    "contract_version": "2026.07.18",
+    "fetched_at": "2026-07-17T17:54:56Z",
+    "mapping_versions": [
+      "2026.06.08",
+      "2026.07.18"
+    ],
+    "pricing_region": "europe-west1",
+    "provider": "gcp",
+    "provider_schema_version": "pricing-provider-schema.v2",
+    "publication_status": "published",
+    "registry_version": "2026.07.17",
+    "review_status": "reviewed",
+    "schema_version": "pricing-catalog-reference.v1",
+    "snapshot_id": "pcs_2827e9d47fe178eebd9d2e771aece72b62ca3ca747b142d6c4f835fbb138b488",
+    "source": "reviewed_baseline"
+  },
+  "schema_version": "pricing-catalog-snapshot.v2"
+}

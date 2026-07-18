@@ -14,6 +14,8 @@ from function_registry import get_function_by_name
 from logger import logger
 import ast
 
+from src.core.executable_topology import ensure_executable_optimization_topology
+
 
 # ==========================================
 # 0. Digital Twin Name Validation
@@ -148,6 +150,8 @@ def validate_config_content(filename, content):
         
         # General Case: Single Object (CONFIG, OPTIMIZATION)
         elif isinstance(content, dict):
+             if filename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
+                 ensure_executable_optimization_topology(content)
              for key in required_keys:
                  if key not in content:
                      errors.append(f"Missing key '{key}'")
@@ -750,7 +754,11 @@ def validate_state_machine_content(filename, content):
 # ==========================================
 # 3. Zip Archive Validation
 # ==========================================
-def validate_project_zip(zip_source):
+def validate_project_zip(
+    zip_source,
+    *,
+    require_deployment_manifest: bool = False,
+):
     """
     Validates that a zip file contains all required configuration files 
     AND validates their content against defined schemas.
@@ -774,7 +782,10 @@ def validate_project_zip(zip_source):
         or if any configuration file has invalid content/schema.
     """
     from src.validation.zip_validator import validate_project_zip as _validate_project_zip
-    return _validate_project_zip(zip_source)
+    return _validate_project_zip(
+        zip_source,
+        require_deployment_manifest=require_deployment_manifest,
+    )
 
 # ==========================================
 # 4. Function Code Validation (Syntax & Structure)

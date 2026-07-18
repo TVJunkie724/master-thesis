@@ -281,6 +281,32 @@ def test_match_pricing_intent_rejects_invalid_tier_series(tiers, error_fragment)
     assert any(error_fragment in error for error in result["errors"])
 
 
+@pytest.mark.parametrize(
+    ("field", "error_fragment"),
+    [
+        ("currency", "must declare exactly one currency"),
+        ("unit", "must declare exactly one billing unit"),
+    ],
+)
+def test_match_pricing_intent_rejects_tier_series_without_unit_contract(
+    field,
+    error_fragment,
+):
+    mapping = _mapping(
+        selection_mode="tier_series",
+        match={"service_name": "Bandwidth"},
+    )
+    candidate = _candidate(
+        service_name="Bandwidth",
+        **{field: None},
+    )
+
+    result = match_pricing_intent([candidate], mapping)
+
+    assert result["status"] == FAILED
+    assert any(error_fragment in error for error in result["errors"])
+
+
 def test_match_pricing_intent_rejects_unknown_selection_mode():
     result = match_pricing_intent(
         [_candidate()],

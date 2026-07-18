@@ -175,6 +175,20 @@ ERROR_RESPONSES = {
             }
         }
     },
+    409: {
+        "description": "Conflict - A required catalog or operation state is not usable",
+        "model": ErrorResponse,
+        "content": {
+            "application/json": {
+                "example": {
+                    "error_code": "PRICING_CATALOG_STALE",
+                    "message": "Pricing catalog snapshot is stale",
+                    "fix_suggestion": "Refresh the affected provider-region pricing catalog and retry",
+                    "http_status": 409
+                }
+            }
+        }
+    },
     422: {
         "description": "Validation Error - Request body failed schema validation",
         "model": ErrorResponse,
