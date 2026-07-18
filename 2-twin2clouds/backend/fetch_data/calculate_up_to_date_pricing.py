@@ -731,6 +731,11 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
 
     for neutral_service, service_codes_per_provider in service_mapping.items():
         try:
+            if neutral_service == "scheduler":
+                # Cloud Scheduler is a global official-table price. Keeping it
+                # out of regional SKU matching avoids publishing a regional
+                # match for an account-scoped job-month charge.
+                continue
             service_code = service_codes_per_provider.get("gcp", "")
 
             if not service_code:
@@ -858,9 +863,8 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
     }
 
     neutral_service, provider_service = "scheduler", "cloudScheduler"
-    sch = fetched.get(neutral_service, {})
     gcp[provider_service] = {
-        "jobPrice": _get_or_warn("GCP", neutral_service, provider_service, "jobPrice", sch, 0.10, STATIC_DEFAULTS_GCP)
+        "jobPrice": STATIC_DEFAULTS_GCP[neutral_service]["jobPrice"],
     }
 
     logger.info("✅ GCP pricing schema built successfully.")

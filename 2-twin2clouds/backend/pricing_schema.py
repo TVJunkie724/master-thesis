@@ -229,8 +229,13 @@ CURATED_FIELDS = {
         "functions.freeRequests",
         "functions.freeComputeTime",
     },
-    "gcp": set(),
+    "gcp": {
+        "cloudScheduler.jobPrice",
+    },
 }
+
+GCP_CLOUD_SCHEDULER_PRICE_URL = "https://cloud.google.com/scheduler/pricing"
+GCP_CLOUD_SCHEDULER_REVIEWED_AT = "2026-07-17T00:00:00Z"
 
 
 def validate_pricing_payload(provider: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -381,14 +386,15 @@ def _build_generated_evidence(
             }
         return result
     if provider == "gcp":
-        if not transfer_evidence:
-            return None
+        fields = {
+            "cloudScheduler.jobPrice": build_gcp_cloud_scheduler_evidence(),
+        }
+        if transfer_evidence:
+            fields["transfer.catalog"] = deepcopy(transfer_evidence)
         return {
             "schema_version": "pricing-generated-evidence.v1",
             "provider": provider,
-            "fields": {
-                "transfer.catalog": deepcopy(transfer_evidence),
-            },
+            "fields": dict(sorted(fields.items())),
         }
     if provider != "azure":
         return None
@@ -413,6 +419,41 @@ def _build_generated_evidence(
         "schema_version": "pricing-generated-evidence.v1",
         "provider": provider,
         "fields": dict(sorted(fields.items())),
+    }
+
+
+def build_gcp_cloud_scheduler_evidence() -> dict[str, Any]:
+    """Return reproducible official evidence for the global job-month price."""
+
+    return {
+        "schema_version": "pricing-evidence.v1",
+        "provider": "gcp",
+        "intent_id": "gcp.transition.cloud_scheduler",
+        "field_path": "cloudScheduler.jobPrice",
+        "source_type": "official_cloud_evidence",
+        "source_api": "gcp-cloud-scheduler-pricing-documentation",
+        "request_scope": {
+            "billing_scope": "billing_account",
+            "free_allowance_allocation": "excluded_without_account_evidence",
+            "price_basis": "job_month",
+        },
+        "normalization_rule": "per_job_month",
+        "normalized_value": 0.10,
+        "currency": "USD",
+        "mapping_version": "2026.07.17",
+        "registry_version": "2026.07.17",
+        "fetched_at": GCP_CLOUD_SCHEDULER_REVIEWED_AT,
+        "review_required": False,
+        "source_reference": {
+            "document_id": "gcp-cloud-scheduler-pricing",
+            "url": GCP_CLOUD_SCHEDULER_PRICE_URL,
+        },
+        "reproducible": True,
+        "selected_row": {
+            "description": "Cloud Scheduler job",
+            "price": 0.10,
+            "unit": "job_month",
+        },
     }
 
 

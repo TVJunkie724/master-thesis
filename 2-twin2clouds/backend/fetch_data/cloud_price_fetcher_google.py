@@ -54,7 +54,12 @@ STATIC_DEFAULTS_GCP = {
     "computeEngine": {
         "e2MediumPrice": 0.0335,
         "storagePrice": 0.04
-    }
+    },
+    # Cloud Scheduler is documented globally as USD 0.10 per job-month.
+    # The account-wide free allowance is deliberately not allocated per Twin.
+    "scheduler": {
+        "jobPrice": 0.10,
+    },
 }
 
 
@@ -99,12 +104,6 @@ GCP_SERVICE_KEYWORDS = {
     "transfer": {
         "service_display_name": "Compute Engine",
         "meters": {}
-    },
-    "scheduler": {
-        "service_display_name": "Cloud Scheduler",
-        "meters": {
-            "jobPrice": {"desc_keywords": ["Job"], "unit_keywords": ["job month", "count"]}
-        }
     },
     "orchestration": { # Maps to Cloud Workflows
         "service_display_name": "Workflows",

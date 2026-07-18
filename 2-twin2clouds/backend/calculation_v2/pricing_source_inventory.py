@@ -112,6 +112,7 @@ STATIC_OFFICIAL_FIELDS = frozenset(
         "gcp.l1.pubsub.device_month",
         "gcp.l2.functions.free_requests",
         "gcp.l2.functions.free_compute",
+        "gcp.transition.cloud_scheduler.job_month",
     }
 )
 

@@ -47,9 +47,9 @@ resource "google_cloudfunctions2_function" "ingestion" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_glue_function_max_instances
+    min_instance_count    = var.gcp_glue_function_min_instances
+    available_memory      = "${var.gcp_glue_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -105,9 +105,9 @@ resource "google_cloudfunctions2_function" "hot_writer" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_glue_function_max_instances
+    min_instance_count    = var.gcp_glue_function_min_instances
+    available_memory      = "${var.gcp_glue_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -164,16 +164,17 @@ resource "google_cloudfunctions2_function" "cold_writer" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_glue_function_max_instances
+    min_instance_count    = var.gcp_glue_function_min_instances
+    available_memory      = "${var.gcp_glue_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
     environment_variables = {
-      DIGITAL_TWIN_NAME = var.digital_twin_name
-      COLD_BUCKET       = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : ""
-      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
+      DIGITAL_TWIN_NAME  = var.digital_twin_name
+      COLD_BUCKET        = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : ""
+      COLD_STORAGE_CLASS = local.gcp_l3_cold_enabled ? var.gcp_l3_cool_storage_class : ""
+      INTER_CLOUD_TOKEN  = local.inter_cloud_token_value
     }
   }
 
@@ -220,18 +221,17 @@ resource "google_cloudfunctions2_function" "archive_writer" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_glue_function_max_instances
+    min_instance_count    = var.gcp_glue_function_min_instances
+    available_memory      = "${var.gcp_glue_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
     environment_variables = {
-      DIGITAL_TWIN_NAME = var.digital_twin_name
-      ARCHIVE_BUCKET = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : (
-        local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
-      )
-      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
+      DIGITAL_TWIN_NAME     = var.digital_twin_name
+      ARCHIVE_BUCKET        = local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
+      ARCHIVE_STORAGE_CLASS = local.gcp_l3_archive_enabled ? var.gcp_l3_archive_storage_class : ""
+      INTER_CLOUD_TOKEN     = local.inter_cloud_token_value
     }
   }
 

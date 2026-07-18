@@ -121,6 +121,26 @@ def test_formula_bindings_reference_known_pricing_intents():
         assert binding.calculation_entrypoint
 
 
+def test_gcp_scheduler_contract_binds_official_job_month_to_transition_runtime():
+    contract = cost_strategy_contract()
+    intent = contract.intent_map()["gcp.transition.cloud_scheduler"]
+    field = intent.fields[0]
+
+    assert field.key_path == ("gcp", "cloudScheduler", "jobPrice")
+    assert field.canonical_unit == "usd/job_month"
+    assert field.quantity_basis == "scheduled_jobs"
+    assert field.source_type == PricingSourceType.STATIC_OFFICIAL_TABLE
+
+    binding = next(
+        item
+        for item in contract.formula_bindings
+        if item.binding_id == "cost.gcp.transition.cloud_scheduler"
+    )
+    assert binding.intent_ids == ("gcp.transition.cloud_scheduler",)
+    assert binding.required_usage_inputs == ("scheduled_jobs",)
+    assert binding.normalizer == "fixed_job_month_cost"
+
+
 def test_future_objectives_are_not_runtime_selectable_with_formula_bindings():
     for objective in (
         OptimizationObjective.LATENCY,

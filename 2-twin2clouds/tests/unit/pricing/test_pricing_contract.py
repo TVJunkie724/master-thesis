@@ -7,6 +7,7 @@ from backend.fetch_data.calculate_up_to_date_pricing import (
     fetch_azure_data,
     fetch_google_data,
 )
+from backend.pricing_evidence import validate_evidence_record
 from backend.pricing_schema import (
     EXPECTED_PRICING_SCHEMA,
     PRICING_CONTRACT_VERSION,
@@ -171,8 +172,10 @@ FETCHED_BY_PROVIDER = {
 class _FakeFetcher:
     def __init__(self, provider: str):
         self.provider = provider
+        self.requested_services: list[str] = []
 
     def fetch_price(self, *, service_name: str, **kwargs):
+        self.requested_services.append(service_name)
         return FETCHED_BY_PROVIDER[self.provider].get(service_name, {})
 
 
@@ -287,6 +290,35 @@ def test_attach_pricing_metadata_marks_model_constants_as_curated():
     assert "cosmosDB.RUsPerRead" not in azure["__quality__"]["fallback_fields"]
 
 
+def test_gcp_scheduler_uses_reviewed_job_month_price_and_official_evidence():
+    payload = attach_pricing_metadata(
+        "gcp",
+        {"cloudScheduler": {"jobPrice": 0.10}},
+        fetched={},
+        pricing_region="europe-west1",
+    )
+
+    assert payload["cloudScheduler"]["jobPrice"] == 0.10
+    assert (
+        payload["__quality__"]["field_sources"]["cloudScheduler.jobPrice"]
+        == "curated"
+    )
+    assert (
+        "cloudScheduler.jobPrice"
+        not in payload["__quality__"]["fallback_fields"]
+    )
+    evidence = payload["__evidence__"]["fields"][
+        "cloudScheduler.jobPrice"
+    ]
+    assert evidence["source_type"] == "official_cloud_evidence"
+    assert evidence["normalized_value"] == 0.10
+    assert evidence["normalization_rule"] == "per_job_month"
+    assert evidence["request_scope"]["free_allowance_allocation"] == (
+        "excluded_without_account_evidence"
+    )
+    assert validate_evidence_record(evidence) == []
+
+
 def test_incomplete_payload_is_review_required_even_without_fallback_metadata():
     validation = validate_pricing_payload("aws", {"transfer": {"pricing_tiers": []}})
 
@@ -297,9 +329,16 @@ def test_incomplete_payload_is_review_required_even_without_fallback_metadata():
 
 
 def test_fetched_provider_payloads_are_schema_valid_and_publishable():
+    fetchers: dict[str, _FakeFetcher] = {}
+
+    def create_fetcher(provider: str) -> _FakeFetcher:
+        fetcher = _FakeFetcher(provider)
+        fetchers[provider] = fetcher
+        return fetcher
+
     with patch(
         "backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create",
-        side_effect=lambda provider: _FakeFetcher(provider),
+        side_effect=create_fetcher,
     ), patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_aws_credentials"):
         results = {
             "aws": fetch_aws_data(
@@ -331,3 +370,6 @@ def test_fetched_provider_payloads_are_schema_valid_and_publishable():
         assert validation["quality_status"] == "publishable"
         assert validation["fallback_fields"] == []
         assert payload["__schema__"]["provider"] == provider
+
+    assert "scheduler" not in fetchers["gcp"].requested_services
+    assert results["gcp"]["cloudScheduler"]["jobPrice"] == 0.10

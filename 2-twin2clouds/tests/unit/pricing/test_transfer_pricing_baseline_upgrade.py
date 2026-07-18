@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -5,6 +6,7 @@ import shutil
 import pytest
 
 from backend.pricing_catalog_models import PricingCatalogSnapshot
+from backend.pricing_catalog_models import canonical_json_bytes
 from backend.transfer_catalog import TRANSFER_CATALOG_FIELDS, validate_transfer_catalog
 from scripts.upgrade_transfer_pricing_baseline import (
     upgrade_transfer_pricing_baseline,
@@ -40,6 +42,16 @@ def test_transfer_baseline_upgrade_is_non_destructive_and_auditable(tmp_path):
     assert _load_json(output_root / "history" / predecessor_path.name) == (
         predecessor_payload
     )
+    predecessor_digest = hashlib.sha256(
+        canonical_json_bytes(predecessor_payload)
+    ).hexdigest()[:12]
+    assert _load_json(
+        output_root
+        / "history"
+        / f"baseline-2026.07.18-{predecessor_digest}.json"
+    ) == (
+        predecessor_payload
+    )
     template = _load_json(output_root / "pricing.template.json")
     for provider, reference in manifest.catalogs.items():
         snapshot_path = (
@@ -64,6 +76,23 @@ def test_transfer_baseline_upgrade_is_non_destructive_and_auditable(tmp_path):
         evidence = snapshot.pricing["__evidence__"]["fields"]["transfer.catalog"]
         assert evidence["source_type"] == "reviewed_baseline"
         assert evidence["review_required"] is False
+
+        if provider == "gcp":
+            assert snapshot.pricing["cloudScheduler"]["jobPrice"] == 0.10
+            assert (
+                field_sources["cloudScheduler.jobPrice"] == "curated"
+            )
+            assert (
+                "cloudScheduler.jobPrice"
+                not in snapshot.pricing["__quality__"]["fallback_fields"]
+            )
+            scheduler_evidence = snapshot.pricing["__evidence__"]["fields"][
+                "cloudScheduler.jobPrice"
+            ]
+            assert scheduler_evidence["source_type"] == (
+                "official_cloud_evidence"
+            )
+            assert scheduler_evidence["normalized_value"] == 0.10
 
         predecessor = predecessor_payload["catalogs"][provider]
         predecessor_snapshot = (

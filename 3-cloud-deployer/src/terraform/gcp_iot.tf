@@ -78,9 +78,9 @@ resource "google_cloudfunctions2_function" "dispatcher" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l1_function_max_instances
+    min_instance_count    = var.gcp_l1_function_min_instances
+    available_memory      = "${var.gcp_l1_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 

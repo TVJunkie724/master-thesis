@@ -399,6 +399,263 @@ variable "azure_glue_function_plan_sku" {
 }
 
 # ==============================================================================
+# Resolved Deployment Specification - GCP
+# ==============================================================================
+
+variable "gcp_l1_function_memory_mb" {
+  description = "Specification-selected memory for GCP L1 Cloud Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l1_function_memory_mb == null || var.gcp_l1_function_memory_mb == 256
+    error_message = "gcp_l1_function_memory_mb must be 256 when provided."
+  }
+}
+
+variable "gcp_l1_function_min_instances" {
+  description = "Specification-selected minimum instances for GCP L1 Cloud Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l1_function_min_instances == null || var.gcp_l1_function_min_instances == 0
+    error_message = "gcp_l1_function_min_instances must be 0 when provided."
+  }
+}
+
+variable "gcp_l1_function_max_instances" {
+  description = "Specification-selected maximum instances for GCP L1 Cloud Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l1_function_max_instances == null || var.gcp_l1_function_max_instances == 10
+    error_message = "gcp_l1_function_max_instances must be 10 when provided."
+  }
+}
+
+variable "gcp_l2_function_memory_mb" {
+  description = "Specification-selected memory for GCP L2 Cloud Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l2_function_memory_mb == null || var.gcp_l2_function_memory_mb == 256
+    error_message = "gcp_l2_function_memory_mb must be 256 when provided."
+  }
+}
+
+variable "gcp_l2_function_min_instances" {
+  description = "Specification-selected minimum instances for GCP L2 Cloud Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l2_function_min_instances == null || var.gcp_l2_function_min_instances == 0
+    error_message = "gcp_l2_function_min_instances must be 0 when provided."
+  }
+}
+
+variable "gcp_l2_function_max_instances" {
+  description = "Specification-selected maximum instances for GCP L2 Cloud Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l2_function_max_instances == null || var.gcp_l2_function_max_instances == 10
+    error_message = "gcp_l2_function_max_instances must be 10 when provided."
+  }
+}
+
+variable "gcp_firestore_mode" {
+  description = "Specification-selected Firestore database mode"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.gcp_firestore_mode == null || var.gcp_firestore_mode == "FIRESTORE_NATIVE"
+    error_message = "gcp_firestore_mode must be FIRESTORE_NATIVE when provided."
+  }
+}
+
+variable "gcp_l3_reader_function_memory_mb" {
+  description = "Specification-selected memory for the GCP L3 hot reader"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l3_reader_function_memory_mb == null || var.gcp_l3_reader_function_memory_mb == 256
+    error_message = "gcp_l3_reader_function_memory_mb must be 256 when provided."
+  }
+}
+
+variable "gcp_l3_reader_function_min_instances" {
+  description = "Specification-selected minimum instances for the GCP L3 hot reader"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l3_reader_function_min_instances == null || var.gcp_l3_reader_function_min_instances == 0
+    error_message = "gcp_l3_reader_function_min_instances must be 0 when provided."
+  }
+}
+
+variable "gcp_l3_reader_function_max_instances" {
+  description = "Specification-selected maximum instances for the GCP L3 hot reader"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_l3_reader_function_max_instances == null || var.gcp_l3_reader_function_max_instances == 10
+    error_message = "gcp_l3_reader_function_max_instances must be 10 when provided."
+  }
+}
+
+variable "gcp_l3_cool_storage_class" {
+  description = "Specification-selected Cloud Storage class for GCP L3 cool storage"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.gcp_l3_cool_storage_class == null || var.gcp_l3_cool_storage_class == "NEARLINE"
+    error_message = "gcp_l3_cool_storage_class must be NEARLINE when provided."
+  }
+}
+
+variable "gcp_hot_to_cool_mover_memory_mb" {
+  description = "Specification-selected memory for the GCP hot-to-cool mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_hot_to_cool_mover_memory_mb == null || var.gcp_hot_to_cool_mover_memory_mb == 512
+    error_message = "gcp_hot_to_cool_mover_memory_mb must be 512 when provided."
+  }
+}
+
+variable "gcp_hot_to_cool_mover_min_instances" {
+  description = "Specification-selected minimum instances for the GCP hot-to-cool mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_hot_to_cool_mover_min_instances == null || var.gcp_hot_to_cool_mover_min_instances == 0
+    error_message = "gcp_hot_to_cool_mover_min_instances must be 0 when provided."
+  }
+}
+
+variable "gcp_hot_to_cool_mover_max_instances" {
+  description = "Specification-selected maximum instances for the GCP hot-to-cool mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_hot_to_cool_mover_max_instances == null || var.gcp_hot_to_cool_mover_max_instances == 1
+    error_message = "gcp_hot_to_cool_mover_max_instances must be 1 when provided."
+  }
+}
+
+variable "gcp_hot_to_cool_scheduler_cron" {
+  description = "Specification-selected Cloud Scheduler cron for the GCP hot-to-cool mover"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.gcp_hot_to_cool_scheduler_cron == null || var.gcp_hot_to_cool_scheduler_cron == "0 2 * * *"
+    error_message = "gcp_hot_to_cool_scheduler_cron must be 0 2 * * * when provided."
+  }
+}
+
+variable "gcp_l3_archive_storage_class" {
+  description = "Specification-selected Cloud Storage class for GCP L3 archive storage"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.gcp_l3_archive_storage_class == null || var.gcp_l3_archive_storage_class == "ARCHIVE"
+    error_message = "gcp_l3_archive_storage_class must be ARCHIVE when provided."
+  }
+}
+
+variable "gcp_cool_to_archive_mover_memory_mb" {
+  description = "Specification-selected memory for the GCP cool-to-archive mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_cool_to_archive_mover_memory_mb == null || var.gcp_cool_to_archive_mover_memory_mb == 512
+    error_message = "gcp_cool_to_archive_mover_memory_mb must be 512 when provided."
+  }
+}
+
+variable "gcp_cool_to_archive_mover_min_instances" {
+  description = "Specification-selected minimum instances for the GCP cool-to-archive mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_cool_to_archive_mover_min_instances == null || var.gcp_cool_to_archive_mover_min_instances == 0
+    error_message = "gcp_cool_to_archive_mover_min_instances must be 0 when provided."
+  }
+}
+
+variable "gcp_cool_to_archive_mover_max_instances" {
+  description = "Specification-selected maximum instances for the GCP cool-to-archive mover"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_cool_to_archive_mover_max_instances == null || var.gcp_cool_to_archive_mover_max_instances == 1
+    error_message = "gcp_cool_to_archive_mover_max_instances must be 1 when provided."
+  }
+}
+
+variable "gcp_cool_to_archive_scheduler_cron" {
+  description = "Specification-selected Cloud Scheduler cron for the GCP cool-to-archive mover"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.gcp_cool_to_archive_scheduler_cron == null || var.gcp_cool_to_archive_scheduler_cron == "0 3 * * 0"
+    error_message = "gcp_cool_to_archive_scheduler_cron must be 0 3 * * 0 when provided."
+  }
+}
+
+variable "gcp_glue_function_memory_mb" {
+  description = "Specification-selected memory for cross-cloud GCP receiver Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_glue_function_memory_mb == null || var.gcp_glue_function_memory_mb == 256
+    error_message = "gcp_glue_function_memory_mb must be 256 when provided."
+  }
+}
+
+variable "gcp_glue_function_min_instances" {
+  description = "Specification-selected minimum instances for cross-cloud GCP receiver Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_glue_function_min_instances == null || var.gcp_glue_function_min_instances == 0
+    error_message = "gcp_glue_function_min_instances must be 0 when provided."
+  }
+}
+
+variable "gcp_glue_function_max_instances" {
+  description = "Specification-selected maximum instances for cross-cloud GCP receiver Functions"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.gcp_glue_function_max_instances == null || var.gcp_glue_function_max_instances == 10
+    error_message = "gcp_glue_function_max_instances must be 10 when provided."
+  }
+}
+
+# ==============================================================================
 # Azure Credentials (from config_credentials.json)
 # ==============================================================================
 

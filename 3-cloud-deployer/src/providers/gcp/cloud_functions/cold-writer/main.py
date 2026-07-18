@@ -26,9 +26,31 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
-COLD_BUCKET_NAME = require_env("COLD_BUCKET")
+# Lazy-loaded environment variables avoid import-time failures in build tools.
+_inter_cloud_token = None
+_cold_bucket_name = None
+_cold_storage_class = None
+
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
+
+
+def _get_cold_bucket_name():
+    global _cold_bucket_name
+    if _cold_bucket_name is None:
+        _cold_bucket_name = require_env("COLD_BUCKET")
+    return _cold_bucket_name
+
+
+def _get_cold_storage_class():
+    global _cold_storage_class
+    if _cold_storage_class is None:
+        _cold_storage_class = require_env("COLD_STORAGE_CLASS")
+    return _cold_storage_class
 
 # Storage client
 _storage_client = None
@@ -49,7 +71,7 @@ def main(request):
     print("Hello from Cold Writer!")
     
     # Validate token
-    if not validate_token(request, INTER_CLOUD_TOKEN):
+    if not validate_token(request, _get_inter_cloud_token()):
         return build_auth_error_response()
     
     try:
@@ -67,11 +89,11 @@ def main(request):
         
         # Write to Cloud Storage
         client = _get_storage_client()
-        bucket = client.bucket(COLD_BUCKET_NAME)
+        bucket = client.bucket(_get_cold_bucket_name())
         
         blob_name = f"{device_id}/{start_time}_to_{end_time}_chunk{chunk_index}.json"
         blob = bucket.blob(blob_name)
-        blob.storage_class = "NEARLINE"
+        blob.storage_class = _get_cold_storage_class()
         
         blob.upload_from_string(
             json.dumps(items, default=str),

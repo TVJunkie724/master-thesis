@@ -1,9 +1,10 @@
-"""Upgrade reviewed baselines to the canonical transfer-pricing contract."""
+"""Upgrade reviewed baselines to current canonical pricing contracts."""
 
 from __future__ import annotations
 
 import argparse
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -20,6 +21,7 @@ from backend.pricing_schema import (
     PRICING_CONTRACT_VERSION,
     PRICING_SCHEMA_VERSION,
     RESERVED_PRICING_KEYS,
+    build_gcp_cloud_scheduler_evidence,
     canonical_pricing_snapshot_digest,
 )
 from backend.transfer_catalog import (
@@ -104,9 +106,20 @@ def upgrade_transfer_pricing_baseline(
     shutil.copytree(source_root, output_root)
     history_root = output_root / "history"
     history_root.mkdir(parents=True, exist_ok=True)
-    (history_root / "baseline-2026.07.17.json").write_bytes(
-        canonical_json_bytes(source_manifest_payload)
+    predecessor_bytes = canonical_json_bytes(source_manifest_payload)
+    predecessor_digest = hashlib.sha256(predecessor_bytes).hexdigest()[:12]
+    predecessor_manifest = (
+        history_root / f"baseline-2026.07.18-{predecessor_digest}.json"
     )
+    if (
+        predecessor_manifest.exists()
+        and predecessor_manifest.read_bytes() != predecessor_bytes
+    ):
+        raise FileExistsError(
+            "Baseline predecessor history already exists with different "
+            f"content: {predecessor_manifest}"
+        )
+    predecessor_manifest.write_bytes(predecessor_bytes)
 
     references = {}
     snapshots = {}
@@ -257,6 +270,25 @@ def _upgrade_provider_pricing(
         },
     )
     generated.setdefault("fields", {})["transfer.catalog"] = evidence
+    if provider == "gcp":
+        prepared.setdefault("cloudScheduler", {})["jobPrice"] = 0.10
+        field_sources["cloudScheduler.jobPrice"] = CURATED
+        quality["fallback_fields"] = [
+            path
+            for path in quality.get("fallback_fields", [])
+            if path != "cloudScheduler.jobPrice"
+        ]
+        generated["fields"]["cloudScheduler.jobPrice"] = (
+            build_gcp_cloud_scheduler_evidence()
+        )
+        quality["review_required"] = bool(
+            quality.get("fallback_fields") or quality.get("unsupported_fields")
+        )
+        quality["quality_status"] = (
+            "review_required"
+            if quality["review_required"]
+            else "publishable"
+        )
     schema["snapshot_digest"] = canonical_pricing_snapshot_digest(prepared)
     return prepared
 
@@ -293,7 +325,7 @@ def main() -> None:
         registry_root=args.registry_root,
     )
     print(
-        "Upgraded transfer pricing baselines:",
+        "Upgraded reviewed pricing baselines:",
         ", ".join(
             f"{provider}={reference.snapshot_id}"
             for provider, reference in sorted(manifest.catalogs.items())

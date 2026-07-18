@@ -167,12 +167,15 @@ def test_static_defaults_structure():
     
     expected_services = [
         "iot", "functions", "storage_hot",
-        "storage_cool", "storage_archive", "twinmaker", "grafana"
+        "storage_cool", "storage_archive", "twinmaker", "grafana",
+        "scheduler",
     ]
     
     for service in expected_services:
         assert service in STATIC_DEFAULTS_GCP
         assert isinstance(STATIC_DEFAULTS_GCP[service], dict)
+
+    assert STATIC_DEFAULTS_GCP["scheduler"]["jobPrice"] == 0.10
 
 
 def test_fetch_gcp_transfer_builds_exact_canonical_gib_catalog():

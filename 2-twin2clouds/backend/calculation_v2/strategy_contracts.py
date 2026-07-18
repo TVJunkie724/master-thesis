@@ -486,6 +486,24 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
             ),
         ),
         _intent(
+            "gcp.transition.cloud_scheduler",
+            Provider.GCP,
+            LayerType.L3_COOL_STORAGE,
+            "cloud_scheduler",
+            "cloudScheduler",
+            "GCP Cloud Scheduler job-month pricing for storage transitions.",
+            (
+                _field(
+                    "job_month",
+                    ("gcp", "cloudScheduler", "jobPrice"),
+                    "usd/job_month",
+                    "usd/job_month",
+                    "scheduled_jobs",
+                    source_type=PricingSourceType.STATIC_OFFICIAL_TABLE,
+                ),
+            ),
+        ),
+        _intent(
             "aws.l4.twinmaker",
             Provider.AWS,
             LayerType.L4_TWIN_MANAGEMENT,
@@ -658,6 +676,7 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
         _binding("cost.aws.l3.s3_glacier", FormulaType.CS, ("aws.l3.s3_glacier",), "AWSS3GlacierCalculator.calculate_cost", "L3_archive.s3_glacier", ("storage_gb", "writes_per_month", "retrievals_gb")),
         _binding("cost.azure.l3.blob_archive", FormulaType.CS, ("azure.l3.blob_archive",), "AzureBlobArchiveCalculator.calculate_cost", "L3_archive.blob_archive", ("storage_gb", "writes_per_month", "retrievals_gb")),
         _binding("cost.gcp.l3.gcs_archive", FormulaType.CS, ("gcp.l3.gcs_archive",), "GCSArchiveCalculator.calculate_cost", "L3_archive.gcs_archive", ("storage_gb", "writes_per_month", "retrievals_gb")),
+        _binding("cost.gcp.transition.cloud_scheduler", FormulaType.CA, ("gcp.transition.cloud_scheduler",), "GCPLayerCalculators.calculate_transition_runtime", "transition_runtime.cloud_scheduler", ("scheduled_jobs",), normalizer="fixed_job_month_cost"),
         _binding("cost.aws.l4.twinmaker", FormulaType.CA, ("aws.l4.twinmaker",), "AWSTwinMakerCalculator.calculate_cost", "L4.twinmaker", ("entity_count", "queries_per_month", "api_calls_per_month")),
         _binding("cost.azure.l4.digital_twins_operations", FormulaType.CA, ("azure.l4.digital_twins_operations",), "AzureDigitalTwinsCalculator.calculate_breakdown", "L4.digital_twins_operations", ("billable_operations",)),
         _binding("cost.azure.l4.digital_twins_messages", FormulaType.CM, ("azure.l4.digital_twins_messages",), "AzureDigitalTwinsCalculator.calculate_breakdown", "L4.digital_twins_routed_messages", ("billable_messages",)),

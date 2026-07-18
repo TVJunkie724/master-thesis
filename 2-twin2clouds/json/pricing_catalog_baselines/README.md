@@ -16,7 +16,7 @@ snapshot or published pointer.
 |---|---|---|
 | AWS | `eu-central-1` | 2026-07-17 provider observation plus a 2026-07-18 reviewed, exact public-egress tier series |
 | Azure | `westeurope` | Publishable 2026-07-17 Azure Retail Prices observation with the exact Microsoft Global Network tier series |
-| GCP | `europe-west1` | Curated 2026-07-17 service baseline plus a 2026-07-18 reviewed Premium Internet Egress SKU and official GiB tier series |
+| GCP | `europe-west1` | Curated 2026-07-17 service baseline plus reviewed Premium Internet Egress tiers and the official Cloud Scheduler job-month price |
 
 The available GCP service-account files returned `401 UNAUTHENTICATED` during
 the bounded read-only Cloud Billing Catalog preflight on 2026-07-17. The GCP
@@ -27,10 +27,20 @@ no longer one of those fallbacks: it is bound to Compute Engine service
 native GiB tiers. Replacing the remaining GCP fallback fields with validated
 Catalog evidence remains provider-pricing hardening work.
 
-The package was upgraded non-destructively from the tracked v1 seed. The old
-manifest remains under `history/`, old snapshots remain addressable, and the
-new manifest points only to strict `pricing-provider-schema.v2` snapshots.
-Reproduce that one-time transformation only through:
+Cloud Scheduler is the exception among the remaining GCP service fields. Its
+global official price is stored as `0.10 USD/job-month` with reproducible
+documentation evidence. The three-job free allowance is billing-account-wide
+and is not allocated to an individual Twin without account allocation
+evidence. Each source-owned GCP storage transition therefore contributes one
+job-month exactly once. The earlier `0.003225806` value incorrectly represented
+a daily fraction and remains visible only in the immutable predecessor
+snapshot.
+
+The package was upgraded non-destructively from tracked predecessor seeds.
+Every old manifest remains under `history/`, old snapshots remain addressable,
+and the active manifest points only to strict
+`pricing-provider-schema.v2` snapshots. Reproduce a reviewed transformation
+only through:
 
 ```bash
 cd 2-twin2clouds

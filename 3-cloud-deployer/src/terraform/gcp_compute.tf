@@ -45,9 +45,9 @@ resource "google_cloudfunctions2_function" "persister" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -136,9 +136,9 @@ resource "google_cloudfunctions2_function" "connector" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l1_function_max_instances
+    min_instance_count    = var.gcp_l1_function_min_instances
+    available_memory      = "${var.gcp_l1_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -212,9 +212,9 @@ resource "google_cloudfunctions2_function" "event_checker" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -330,9 +330,9 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -394,9 +394,9 @@ resource "google_cloudfunctions2_function" "processor" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -462,9 +462,9 @@ resource "google_cloudfunctions2_function" "event_action" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 
@@ -529,9 +529,9 @@ resource "google_cloudfunctions2_function" "event_feedback" {
   }
 
   service_config {
-    max_instance_count    = 10
-    min_instance_count    = 0
-    available_memory      = "256M"
+    max_instance_count    = var.gcp_l2_function_max_instances
+    min_instance_count    = var.gcp_l2_function_min_instances
+    available_memory      = "${var.gcp_l2_function_memory_mb}M"
     timeout_seconds       = 60
     service_account_email = google_service_account.functions[0].email
 

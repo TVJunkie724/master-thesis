@@ -41,7 +41,7 @@
     },
     "gcp": {
       "calculation_source": "reviewed_baseline",
-      "content_digest": "sha256:0eeea454dabb8a566931c939fc3dfb1232d881a622d1444d9aea87ba445b36b0",
+      "content_digest": "sha256:82c3945fabd1ef26186426e71cf8b05be0e871ee12eb76092bf39d834ec8963b",
       "contract_version": "2026.07.18",
       "fetched_at": "2026-07-17T17:54:56Z",
       "mapping_versions": [
@@ -55,7 +55,7 @@
       "registry_version": "2026.07.17",
       "review_status": "reviewed",
       "schema_version": "pricing-catalog-reference.v1",
-      "snapshot_id": "pcs_67960b3679fa272fe27acc985608e3654acc300454bb318b947d7c9bf3a583ad",
+      "snapshot_id": "pcs_2827e9d47fe178eebd9d2e771aece72b62ca3ca747b142d6c4f835fbb138b488",
       "source": "reviewed_baseline"
     }
   },

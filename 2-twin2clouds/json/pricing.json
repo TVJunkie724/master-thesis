@@ -298,7 +298,7 @@
       "pricePerMillionCalls": 3.0
     },
     "cloudScheduler": {
-      "jobPrice": 0.003225806
+      "jobPrice": 0.1
     },
     "cloudWorkflows": {
       "stepPrice": 2.5e-05
