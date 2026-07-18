@@ -45,6 +45,7 @@ BASELINE_SLOTS = (
 PROVIDERS = ("aws", "azure", "gcp")
 VALID_FIXTURE_COUNT = 3
 INVALID_FIXTURE_COUNT = 20
+VERIFICATION_MATRIX_VERSION = "resolved-deployment-verification-matrix.v1"
 SECRET_KEY_FRAGMENTS = (
     "access_key",
     "client_secret",
@@ -462,6 +463,163 @@ def _validate_registry(
         raise RuntimeError(
             "Transition runtime policy must reference every transition component"
         )
+
+
+def _validate_verification_matrix(
+    matrix: dict[str, Any],
+    matrix_schema: dict[str, Any],
+    registry: dict[str, Any],
+) -> None:
+    Draft202012Validator.check_schema(matrix_schema)
+    validator = Draft202012Validator(matrix_schema)
+    errors = sorted(validator.iter_errors(matrix), key=lambda item: list(item.path))
+    if errors:
+        error = errors[0]
+        location = ".".join(str(part) for part in error.absolute_path) or "$"
+        raise RuntimeError(
+            f"Verification matrix schema failed at {location}: {error.message}"
+        )
+    _walk_keys(matrix)
+
+    if matrix["schema_version"] != VERIFICATION_MATRIX_VERSION:
+        raise RuntimeError("Verification matrix version is unsupported")
+    if tuple(matrix["providers"]) != PROVIDERS:
+        raise RuntimeError("Verification matrix providers must use canonical order")
+
+    paths = matrix["representative_paths"]
+    path_ids = [path["id"] for path in paths]
+    if len(path_ids) != len(set(path_ids)):
+        raise RuntimeError("Representative path identifiers must be unique")
+    required_path_ids = {"all-aws", "all-azure", "mixed", "gcp-storage"}
+    if not required_path_ids.issubset(path_ids):
+        raise RuntimeError("Verification matrix lacks a required representative path")
+    valid_fixture_names = {
+        path.name for path in (SOURCE_V1 / "fixtures" / "valid").glob("*.json")
+    }
+    for path in paths:
+        if tuple(path["providers"]) != BASELINE_SLOTS:
+            raise RuntimeError(
+                f"Representative path {path['id']} must cover canonical slots in order"
+            )
+        for slot_id, provider in path["providers"].items():
+            if provider not in registry["slot_requirements"][slot_id]:
+                raise RuntimeError(
+                    f"Representative path {path['id']} uses unsupported "
+                    f"{slot_id}/{provider}"
+                )
+        fixture = path["fixture"]
+        if fixture is not None and fixture not in valid_fixture_names:
+            raise RuntimeError(
+                f"Representative path {path['id']} references an unknown fixture"
+            )
+        if fixture is not None:
+            fixture_specification = _read_json(
+                SOURCE_V1 / "fixtures" / "valid" / fixture
+            )
+            fixture_providers = {
+                slot_id: next(
+                    component["provider"]
+                    for component in fixture_specification["components"]
+                    if component["slot_id"] == slot_id
+                )
+                for slot_id in BASELINE_SLOTS
+            }
+            if fixture_providers != path["providers"]:
+                raise RuntimeError(
+                    f"Representative path {path['id']} differs from its fixture"
+                )
+
+    azure_cases = matrix["azure_iot_hub_cases"]
+    azure_case_ids = [case["id"] for case in azure_cases]
+    if len(azure_case_ids) != len(set(azure_case_ids)):
+        raise RuntimeError("Azure IoT Hub case identifiers must be unique")
+    if {case["expected_sku"] for case in azure_cases} != {"F1", "S1", "S2", "S3"}:
+        raise RuntimeError("Azure IoT Hub cases must cover every supported SKU")
+
+    expected_targets = matrix["expected_targets_by_component"]
+    registry_targets: dict[str, dict[str, dict[str, Any]]] = {}
+    for component_id, component in registry["components"].items():
+        deployable = {
+            definition["terraform_target"]: definition
+            for definition in component["dimensions"].values()
+            if definition["classification"] == "deployable_selection"
+        }
+        if deployable:
+            registry_targets[component_id] = deployable
+    if set(expected_targets) != set(registry_targets):
+        missing = sorted(set(registry_targets) - set(expected_targets))
+        unknown = sorted(set(expected_targets) - set(registry_targets))
+        raise RuntimeError(
+            "Verification targets do not cover deployable components exactly: "
+            f"missing={missing}, unknown={unknown}"
+        )
+
+    values_by_target: dict[str, object] = {}
+    for component_id, target_values in expected_targets.items():
+        definitions = registry_targets[component_id]
+        if set(target_values) != set(definitions):
+            raise RuntimeError(
+                f"Verification targets differ for component {component_id}"
+            )
+        for target, value in target_values.items():
+            definition = definitions[target]
+            if not _exact_python_type(value, definition["value_type"]):
+                raise RuntimeError(
+                    f"Verification target {target} has the wrong value type"
+                )
+            allowed_values = definition.get("allowed_values")
+            if allowed_values is not None and value not in allowed_values:
+                raise RuntimeError(
+                    f"Verification target {target} has an unsupported value"
+                )
+            if value < definition.get("minimum", value):
+                raise RuntimeError(
+                    f"Verification target {target} is below its minimum"
+                )
+            if value > definition.get("maximum", value):
+                raise RuntimeError(
+                    f"Verification target {target} exceeds its maximum"
+                )
+            previous = values_by_target.setdefault(target, value)
+            if previous != value:
+                raise RuntimeError(
+                    f"Verification target {target} has contradictory values"
+                )
+
+    azure_component = registry["components"]["l1.azure.iot_hub"]
+    azure_constraints = azure_component["combination_constraints"]
+    if len(azure_constraints) != 1:
+        raise RuntimeError("Azure IoT Hub must define one SKU/capacity constraint")
+    ranges = azure_constraints[0]["ranges_by_selector"]
+    for case in azure_cases:
+        limits = ranges[case["expected_sku"]]
+        if not limits["minimum"] <= case["expected_capacity"] <= limits["maximum"]:
+            raise RuntimeError(
+                f"Azure IoT Hub case {case['id']} violates registry constraints"
+            )
+
+    expected_transitions = registry["transition_runtime_policy"]["transitions"]
+    matrix_transitions = matrix["storage_transitions"]
+    for actual, expected in zip(
+        matrix_transitions,
+        expected_transitions,
+        strict=True,
+    ):
+        if (
+            actual["boundary_id"] != expected["boundary_id"]
+            or actual["source_slot"] != expected["source_slot"]
+            or actual["target_slot"] != expected["target_slot"]
+            or actual["runtime_component_by_source"]
+            != expected["component_by_provider"]
+        ):
+            raise RuntimeError(
+                f"Verification transition {actual['boundary_id']} differs from policy"
+            )
+    if (
+        matrix["glue_component_by_receiver"]
+        != registry["cross_cloud_glue_policy"]["component_by_provider"]
+    ):
+        raise RuntimeError("Verification glue mapping differs from registry policy")
 
 
 def _required_components(
@@ -1153,6 +1311,9 @@ def validate_source() -> tuple[dict[str, Any], dict[str, Any]]:
     schema = _read_json(SOURCE_V1 / "schema.json")
     registry = _read_json(SOURCE_V1 / "deployment-dimensions.json")
     _validate_registry(registry, schema)
+    matrix_schema = _read_json(SOURCE_V1 / "verification-matrix.schema.json")
+    matrix = _read_json(SOURCE_V1 / "verification-matrix.json")
+    _validate_verification_matrix(matrix, matrix_schema, registry)
 
     valid_paths = sorted((SOURCE_V1 / "fixtures" / "valid").glob("*.json"))
     invalid_paths = sorted((SOURCE_V1 / "fixtures" / "invalid").glob("*.json"))
