@@ -15,6 +15,7 @@ import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
+import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/wizard_config_requests.dart';
@@ -132,6 +133,13 @@ abstract interface class PlatformCapabilityApi {
 
 abstract interface class OptimizationApi {
   Future<OptimizerRunData> createOptimizerRun(String twinId, CalcParams params);
+
+  Future<OptimizerDeploymentRunData?> getLatestOptimizerRun(String twinId);
+
+  Future<OptimizerRunSelectionData> selectOptimizerRunForDeployment(
+    String twinId,
+    String runId,
+  );
 
   Future<OptimizerConfigData?> getOptimizerConfig(String twinId);
 }

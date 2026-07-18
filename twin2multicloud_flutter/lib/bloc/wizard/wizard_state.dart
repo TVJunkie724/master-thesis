@@ -12,6 +12,7 @@ import '../../models/deployer_config.dart';
 import '../../models/optimizer_config.dart';
 import '../../models/pricing_health.dart';
 import '../../models/provider_capability.dart';
+import '../../models/resolved_deployment_specification.dart';
 import '../../utils/twin_state_utils.dart';
 
 // ============================================================
@@ -125,11 +126,16 @@ class WizardState extends Equatable {
 
   // === Persistent Data: Step 2 ===
   final CalcParams? calcParams;
+  final CalcParams? savedCalcParams;
   final bool isCalcFormValid; // Whether the calculation form passes validation
   final CalcResult? calcResult;
   final CalcResult? savedCalcResult; // Last saved result from DB (for revert)
   final OptimizationResultData? optimizationResultData;
   final OptimizationResultData? savedOptimizationResultData;
+  final OptimizerDeploymentRunData? deploymentRun;
+  final OptimizerDeploymentRunData? savedDeploymentRun;
+  final bool isSelectingDeploymentRun;
+  final String? deploymentRunSelectionError;
   final PricingHealthResponse? pricingHealth;
   final bool isPricingHealthLoading;
   final String? pricingHealthError;
@@ -216,11 +222,16 @@ class WizardState extends Equatable {
     this.cloudConnectionErrors = const {},
     this.cloudConnectionValidation = const {},
     this.calcParams,
+    this.savedCalcParams,
     this.isCalcFormValid = true, // Default to valid
     this.calcResult,
     this.savedCalcResult,
     this.optimizationResultData,
     this.savedOptimizationResultData,
+    this.deploymentRun,
+    this.savedDeploymentRun,
+    this.isSelectingDeploymentRun = false,
+    this.deploymentRunSelectionError,
     this.pricingHealth,
     this.isPricingHealthLoading = false,
     this.pricingHealthError,
@@ -277,7 +288,18 @@ class WizardState extends Equatable {
   bool get canProceedToStep2 => twinName?.trim().isNotEmpty == true;
 
   /// Can proceed from Step 2 to Step 3?
-  bool get canProceedToStep3 => calcResult != null;
+  bool get canProceedToStep3 =>
+      calcResult != null &&
+      !isCalculating &&
+      !isSelectingDeploymentRun &&
+      deploymentReview.ready;
+
+  ResolvedDeploymentReview get deploymentReview =>
+      ResolvedDeploymentReview.fromRun(
+        deploymentRun,
+        isSelecting: isSelectingDeploymentRun,
+        selectionFailed: deploymentRunSelectionError != null,
+      );
 
   bool isArtifactValidating(String artifactId) =>
       validatingArtifactIds.contains(artifactId);
@@ -316,6 +338,7 @@ class WizardState extends Equatable {
       calcParams != null &&
       isCalcFormValid &&
       !isCalculating &&
+      !isSelectingDeploymentRun &&
       pricingCanCalculate;
 
   PlatformLayerCapability? providerCapability(String? provider, String layer) {
@@ -364,6 +387,7 @@ class WizardState extends Equatable {
   bool get isConfigurationReadyForFinish =>
       twinName?.trim().isNotEmpty == true &&
       calcResult != null &&
+      deploymentReview.ready &&
       unconfiguredProviders.isEmpty &&
       deployerReadiness.ready &&
       !step3Invalidated;
@@ -556,11 +580,16 @@ class WizardState extends Equatable {
     Map<CloudProvider, CloudConnectionValidationResult?>?
     cloudConnectionValidation,
     CalcParams? calcParams,
+    CalcParams? savedCalcParams,
     bool? isCalcFormValid,
     CalcResult? calcResult,
     CalcResult? savedCalcResult,
     OptimizationResultData? optimizationResultData,
     OptimizationResultData? savedOptimizationResultData,
+    OptimizerDeploymentRunData? deploymentRun,
+    OptimizerDeploymentRunData? savedDeploymentRun,
+    bool? isSelectingDeploymentRun,
+    String? deploymentRunSelectionError,
     PricingHealthResponse? pricingHealth,
     bool? isPricingHealthLoading,
     String? pricingHealthError,
@@ -606,6 +635,11 @@ class WizardState extends Equatable {
     bool clearError = false,
     bool clearSuccess = false,
     bool clearWarning = false,
+    bool clearCalcResult = false,
+    bool clearOptimizationResultData = false,
+    bool clearDeploymentRun = false,
+    bool clearSavedDeploymentRun = false,
+    bool clearDeploymentRunSelectionError = false,
     // L4 content clear flags
     bool clearHierarchyContent = false,
     bool clearSceneConfigContent = false,
@@ -646,13 +680,26 @@ class WizardState extends Equatable {
       cloudConnectionValidation:
           cloudConnectionValidation ?? this.cloudConnectionValidation,
       calcParams: calcParams ?? this.calcParams,
+      savedCalcParams: savedCalcParams ?? this.savedCalcParams,
       isCalcFormValid: isCalcFormValid ?? this.isCalcFormValid,
-      calcResult: calcResult ?? this.calcResult,
+      calcResult: clearCalcResult ? null : (calcResult ?? this.calcResult),
       savedCalcResult: savedCalcResult ?? this.savedCalcResult,
-      optimizationResultData:
-          optimizationResultData ?? this.optimizationResultData,
+      optimizationResultData: clearOptimizationResultData
+          ? null
+          : (optimizationResultData ?? this.optimizationResultData),
       savedOptimizationResultData:
           savedOptimizationResultData ?? this.savedOptimizationResultData,
+      deploymentRun: clearDeploymentRun
+          ? null
+          : (deploymentRun ?? this.deploymentRun),
+      savedDeploymentRun: clearSavedDeploymentRun
+          ? null
+          : (savedDeploymentRun ?? this.savedDeploymentRun),
+      isSelectingDeploymentRun:
+          isSelectingDeploymentRun ?? this.isSelectingDeploymentRun,
+      deploymentRunSelectionError: clearDeploymentRunSelectionError
+          ? null
+          : (deploymentRunSelectionError ?? this.deploymentRunSelectionError),
       pricingHealth: pricingHealth ?? this.pricingHealth,
       isPricingHealthLoading:
           isPricingHealthLoading ?? this.isPricingHealthLoading,
@@ -748,11 +795,16 @@ class WizardState extends Equatable {
     cloudConnectionErrors,
     cloudConnectionValidation,
     calcParams,
+    savedCalcParams,
     isCalcFormValid,
     calcResult,
     savedCalcResult,
     optimizationResultData,
     savedOptimizationResultData,
+    deploymentRun,
+    savedDeploymentRun,
+    isSelectingDeploymentRun,
+    deploymentRunSelectionError,
     pricingHealth,
     isPricingHealthLoading,
     pricingHealthError,

@@ -23,6 +23,7 @@ class DemoFixtureStore {
   static const _requiredMapKeys = {
     'twin_configs',
     'optimizer_configs',
+    'optimizer_runs',
     'deployer_configs',
     'pricing_health',
     'pricing_reports',
@@ -45,19 +46,29 @@ class DemoFixtureStore {
   };
 
   final Map<String, dynamic> _root;
+  final Map<String, dynamic>? _deploymentSpecificationTemplate;
   final DemoClock clock;
   int _sequence;
 
-  DemoFixtureStore._(this._root, this.clock, this._sequence);
+  DemoFixtureStore._(
+    this._root,
+    this._deploymentSpecificationTemplate,
+    this.clock,
+    this._sequence,
+  );
 
   factory DemoFixtureStore.fromJson(
     Map<String, dynamic> fixture, {
+    Map<String, dynamic>? deploymentSpecificationTemplate,
     DemoClock? clock,
   }) {
     final copy = _copyMap(fixture);
     _validate(copy);
     return DemoFixtureStore._(
       copy,
+      deploymentSpecificationTemplate == null
+          ? null
+          : _copyMap(deploymentSpecificationTemplate),
       clock ?? () => DateTime.now().toUtc(),
       _initialSequence(copy),
     );
@@ -70,8 +81,13 @@ class DemoFixtureStore {
   }) async {
     final source = bundle ?? rootBundle;
     final path = 'assets/demo/v1/${scenario.name}.json';
-    final raw = await source.loadString(path);
+    final raw = await source.loadString(path, cache: false);
+    final specificationRaw = await source.loadString(
+      'assets/demo/v1/resolved-deployment-specification-mixed.json',
+      cache: false,
+    );
     final decoded = jsonDecode(raw);
+    final specificationDecoded = jsonDecode(specificationRaw);
     if (decoded is! Map) {
       throw const DemoApiException(
         'DEMO_FIXTURE_ROOT_INVALID',
@@ -86,7 +102,19 @@ class DemoFixtureStore {
             '"${fixture['scenario']}" instead of "${scenario.name}".',
       );
     }
-    return DemoFixtureStore.fromJson(fixture, clock: clock);
+    if (specificationDecoded is! Map) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
+        'Demo deployment specification fixture must be a JSON object.',
+      );
+    }
+    return DemoFixtureStore.fromJson(
+      fixture,
+      deploymentSpecificationTemplate: Map<String, dynamic>.from(
+        specificationDecoded,
+      ),
+      clock: clock,
+    );
   }
 
   String get scenario => _root['scenario'] as String;
@@ -100,6 +128,17 @@ class DemoFixtureStore {
 
   Map<String, dynamic> get pricingHealth => _copyMap(_map('pricing_health'));
 
+  Map<String, dynamic> deploymentSpecificationTemplate() {
+    final template = _deploymentSpecificationTemplate;
+    if (template == null) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_SPECIFICATION_MISSING',
+        'The canonical demo deployment specification is unavailable.',
+      );
+    }
+    return _copyMap(template);
+  }
+
   Map<String, dynamic> twin(String twinId) {
     return _copyMap(_findById(_list('twins'), twinId, 'DEMO_TWIN_NOT_FOUND'));
   }
@@ -110,6 +149,11 @@ class DemoFixtureStore {
 
   Map<String, dynamic>? optimizerConfig(String twinId) {
     return _copyNullableMap(_map('optimizer_configs')[twinId]);
+  }
+
+  List<Map<String, dynamic>> optimizerRuns(String twinId) {
+    final value = _map('optimizer_runs')[twinId];
+    return value is List ? _copyMapList(value) : const [];
   }
 
   Map<String, dynamic>? deployerConfig(String twinId) {
@@ -190,6 +234,7 @@ class DemoFixtureStore {
     for (final key in [
       'twin_configs',
       'optimizer_configs',
+      'optimizer_runs',
       'deployer_configs',
       'deployment_outputs',
       'deployment_logs',
@@ -207,6 +252,57 @@ class DemoFixtureStore {
   void setOptimizerConfig(String twinId, Map<String, dynamic> value) {
     twin(twinId);
     _map('optimizer_configs')[twinId] = _copyMap(value);
+  }
+
+  void addOptimizerRun(String twinId, Map<String, dynamic> value) {
+    twin(twinId);
+    if (value['twin_id']?.toString() != twinId) {
+      throw const DemoApiException(
+        'DEMO_OPTIMIZER_RUN_TWIN_MISMATCH',
+        'Optimizer run belongs to a different twin.',
+      );
+    }
+    final runs = _map('optimizer_runs').putIfAbsent(twinId, () => <dynamic>[]);
+    if (runs is! List) {
+      throw DemoApiException(
+        'DEMO_FIXTURE_COLLECTION_INVALID',
+        'Optimizer runs for "$twinId" must be a list.',
+      );
+    }
+    final runId = value['id']?.toString() ?? '';
+    if (runId.isEmpty ||
+        runs.any((item) => item is Map && item['id']?.toString() == runId)) {
+      throw DemoApiException(
+        'DEMO_OPTIMIZER_RUN_ID_INVALID',
+        'Optimizer run ID "$runId" is empty or duplicated.',
+      );
+    }
+    runs.add(_copyMap(value));
+  }
+
+  void selectOptimizerRun(String twinId, String runId, String selectedAt) {
+    final runs = _map('optimizer_runs')[twinId];
+    if (runs is! List) {
+      throw DemoApiException(
+        'DEMO_OPTIMIZER_RUN_NOT_FOUND',
+        'Optimizer run "$runId" does not exist.',
+      );
+    }
+    var found = false;
+    for (final item in runs.whereType<Map>()) {
+      if (item['id']?.toString() == runId) {
+        item['selected_for_deployment_at'] = selectedAt;
+        found = true;
+      } else {
+        item['selected_for_deployment_at'] = null;
+      }
+    }
+    if (!found) {
+      throw DemoApiException(
+        'DEMO_OPTIMIZER_RUN_NOT_FOUND',
+        'Optimizer run "$runId" does not exist.',
+      );
+    }
   }
 
   void setDeployerConfig(String twinId, Map<String, dynamic> value) {
@@ -361,6 +457,7 @@ class DemoFixtureStore {
     for (final key in [
       'twin_configs',
       'optimizer_configs',
+      'optimizer_runs',
       'deployer_configs',
       'deployment_outputs',
       'deployment_logs',
@@ -374,6 +471,43 @@ class DemoFixtureStore {
             'Collection "$key" references unknown twin "$id".',
           );
         }
+      }
+    }
+
+    final optimizerRuns = root['optimizer_runs'] as Map;
+    final runIds = <String>{};
+    for (final entry in optimizerRuns.entries) {
+      final twinId = entry.key.toString();
+      if (entry.value is! List) {
+        throw DemoApiException(
+          'DEMO_FIXTURE_COLLECTION_INVALID',
+          'Optimizer runs for "$twinId" must be a list.',
+        );
+      }
+      var selectedCount = 0;
+      for (final run in (entry.value as List).whereType<Map>()) {
+        final runId = run['id']?.toString() ?? '';
+        if (runId.isEmpty || !runIds.add(runId)) {
+          throw DemoApiException(
+            'DEMO_OPTIMIZER_RUN_ID_INVALID',
+            'Optimizer run ID "$runId" is empty or duplicated.',
+          );
+        }
+        if (run['twin_id']?.toString() != twinId) {
+          throw const DemoApiException(
+            'DEMO_OPTIMIZER_RUN_TWIN_MISMATCH',
+            'Optimizer run belongs to a different twin.',
+          );
+        }
+        if (run['selected_for_deployment_at'] != null) {
+          selectedCount += 1;
+        }
+      }
+      if (selectedCount > 1) {
+        throw DemoApiException(
+          'DEMO_OPTIMIZER_RUN_SELECTION_CONFLICT',
+          'Twin "$twinId" has multiple selected optimizer runs.',
+        );
       }
     }
 
@@ -510,7 +644,11 @@ class DemoFixtureStore {
 
   static int _initialSequence(Map<String, dynamic> root) {
     return (root['twins'] as List).length +
-        (root['cloud_connections'] as List).length;
+        (root['cloud_connections'] as List).length +
+        (root['optimizer_runs'] as Map).values.whereType<List>().fold<int>(
+          0,
+          (total, runs) => total + runs.length,
+        );
   }
 
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {

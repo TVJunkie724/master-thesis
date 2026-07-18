@@ -245,6 +245,9 @@ class _WizardViewState extends ConsumerState<WizardView> {
   String _calculationDisabledReason(WizardState state) {
     if (state.status == WizardStatus.saving) return 'Save in progress';
     if (state.isCalculating) return 'Calculation in progress';
+    if (state.isSelectingDeploymentRun) {
+      return 'Deployment selection verification in progress';
+    }
     if (state.isPricingHealthLoading) return 'Checking pricing readiness';
     if (state.pricingHealthError != null) {
       return 'Retry pricing readiness before calculating';
@@ -307,7 +310,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
   bool _commandInProgress(WizardState state) =>
       state.status == WizardStatus.loading ||
       state.status == WizardStatus.saving ||
-      state.isCalculating;
+      state.isCalculating ||
+      state.isSelectingDeploymentRun;
 
   Future<void> _requestExit(
     BuildContext context,

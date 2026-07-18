@@ -271,17 +271,26 @@ class ConfigurationJourney {
     final architectureBlocker = workloadComplete
         ? null
         : 'Complete the workload description first';
+    final deploymentSelectionReady =
+        architectureReady && state.canProceedToStep3;
+    final recommendationStatus = !architectureReady
+        ? ConfigurationTaskStatus.blocked
+        : deploymentSelectionReady
+        ? ConfigurationTaskStatus.complete
+        : ConfigurationTaskStatus.attention;
 
     final requiredProvidersConfigured =
         architectureReady && state.unconfiguredProviders.isEmpty;
-    final cloudAccessStatus = !architectureReady
+    final cloudAccessStatus = !deploymentSelectionReady
         ? ConfigurationTaskStatus.blocked
         : requiredProvidersConfigured
         ? ConfigurationTaskStatus.complete
         : ConfigurationTaskStatus.attention;
-    final deploymentBlocker = architectureReady
-        ? null
-        : 'Select an architecture first';
+    final deploymentBlocker = !architectureReady
+        ? 'Calculate an architecture first'
+        : !deploymentSelectionReady
+        ? 'Confirm the resolved architecture first'
+        : null;
 
     final readiness = state.deployerReadiness;
     final config = readiness.section(DeployerSectionId.configuration);
@@ -290,7 +299,7 @@ class ConfigurationJourney {
     final assets = readiness.section(DeployerSectionId.digitalTwinAssets);
 
     ConfigurationTaskStatus deploymentStatus(DeployerSectionReadiness section) {
-      if (!architectureReady) return ConfigurationTaskStatus.blocked;
+      if (!deploymentSelectionReady) return ConfigurationTaskStatus.blocked;
       if (section.artifacts.every((artifact) => !artifact.required)) {
         return ConfigurationTaskStatus.notRequired;
       }
@@ -304,7 +313,7 @@ class ConfigurationJourney {
     }
 
     final allReady =
-        architectureReady &&
+        deploymentSelectionReady &&
         requiredProvidersConfigured &&
         readiness.ready &&
         !state.step3Invalidated;
@@ -381,8 +390,8 @@ class ConfigurationJourney {
       ConfigurationTaskId.compareAndSelect: task(
         ConfigurationTaskId.compareAndSelect,
         architecture,
-        'Compare and select',
-        architectureStatus,
+        'Review recommendation',
+        recommendationStatus,
         blocker: architectureBlocker,
       ),
       ConfigurationTaskId.cloudAccess: task(

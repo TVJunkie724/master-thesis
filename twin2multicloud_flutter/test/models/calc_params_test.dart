@@ -79,6 +79,18 @@ void main() {
         expect(json['eventsPerMessage'], 5);
         expect(json['currency'], 'EUR');
       });
+
+      test('compares calculation inputs by value', () {
+        final original = CalcParams.defaultParams();
+        final equivalent = CalcParams.fromJson(original.toJson());
+        final changed = CalcParams.fromJson({
+          ...original.toJson(),
+          'numberOfDevices': original.numberOfDevices + 1,
+        });
+
+        expect(original.hasSameCalculationInputs(equivalent), isTrue);
+        expect(original.hasSameCalculationInputs(changed), isFalse);
+      });
     });
 
     group('fromJson', () {

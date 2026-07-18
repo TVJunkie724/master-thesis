@@ -7,6 +7,7 @@ import '../../../models/calc_result.dart';
 import '../../../models/architecture_path.dart';
 import '../../../models/cloud_connection.dart';
 import '../../../models/deployer_config.dart';
+import '../../../models/resolved_deployment_specification.dart';
 import '../../../models/twin.dart';
 import '../../../models/twin_config.dart';
 import '../helpers/credentials_helper.dart';
@@ -31,11 +32,13 @@ class TwinEditData {
   final Twin twin;
   final TwinConfigData config;
   final DeployerConfigData? deployerConfig;
+  final OptimizerDeploymentRunData? deploymentRun;
 
   const TwinEditData({
     required this.twin,
     required this.config,
     this.deployerConfig,
+    this.deploymentRun,
   });
 }
 
@@ -87,6 +90,11 @@ class WizardInitService {
     // Load optimizer params if available
     CalcParams? loadedParams;
     loadedParams = config.optimizerParams;
+    _validateDeploymentRunAgainstOptimization(data.deploymentRun, loadedResult);
+    if (startStep >= 2 &&
+        !ResolvedDeploymentReview.fromRun(data.deploymentRun).ready) {
+      startStep = 1;
+    }
 
     // Generate warning for unconfigured providers
     String? warningMessage;
@@ -113,10 +121,13 @@ class WizardInitService {
         gcp: credentials['gcp'] ?? const ProviderCredentials(),
         selectedCloudConnectionIds: selectedCloudConnectionIds,
         calcParams: loadedParams,
+        savedCalcParams: loadedParams,
         calcResult: loadedResult,
         savedCalcResult: loadedResult,
         optimizationResultData: loadedOptimization,
         savedOptimizationResultData: loadedOptimization,
+        deploymentRun: data.deploymentRun,
+        savedDeploymentRun: data.deploymentRun,
         // Deployer config
         deployerDigitalTwinName: deployerData.deployerDigitalTwinName,
         configEventsJson: deployerData.configEventsJson,
@@ -147,6 +158,48 @@ class WizardInitService {
         warningMessage: warningMessage,
       ),
     );
+  }
+
+  void _validateDeploymentRunAgainstOptimization(
+    OptimizerDeploymentRunData? run,
+    CalcResult? optimization,
+  ) {
+    final specification = run?.specification;
+    if (specification is! ResolvedDeploymentSpecificationV1 ||
+        optimization == null) {
+      return;
+    }
+    const pathPrefixBySlot = {
+      ResolvedDeploymentSlot.l1Ingestion: 'L1_',
+      ResolvedDeploymentSlot.l2Processing: 'L2_',
+      ResolvedDeploymentSlot.l3HotStorage: 'L3_hot_',
+      ResolvedDeploymentSlot.l3CoolStorage: 'L3_cool_',
+      ResolvedDeploymentSlot.l3ArchiveStorage: 'L3_archive_',
+      ResolvedDeploymentSlot.l4TwinState: 'L4_',
+      ResolvedDeploymentSlot.l5Visualization: 'L5_',
+    };
+    for (final entry in pathPrefixBySlot.entries) {
+      final segment = optimization.cheapestPath.cast<String?>().firstWhere(
+        (candidate) =>
+            candidate?.toLowerCase().startsWith(entry.value.toLowerCase()) ==
+            true,
+        orElse: () => null,
+      );
+      final expectedProvider = segment == null
+          ? null
+          : ArchitecturePath.providerForSegment(segment);
+      final actualProviders = specification.components
+          .where((component) => component.slot == entry.key)
+          .map((component) => component.provider.apiValue.toUpperCase())
+          .toSet();
+      if (expectedProvider == null ||
+          actualProviders.length != 1 ||
+          actualProviders.single != expectedProvider) {
+        throw const FormatException(
+          'Invalid API contract: optimizer projection and deployment specification differ.',
+        );
+      }
+    }
   }
 
   /// Generate warning for unconfigured providers in optimal path.

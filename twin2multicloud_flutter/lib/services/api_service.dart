@@ -15,6 +15,7 @@ import '../models/pricing_candidate_review.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
+import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user.dart';
@@ -431,6 +432,80 @@ class ApiService implements ManagementApi {
       );
     }
     return run;
+  }
+
+  @override
+  Future<OptimizerDeploymentRunData?> getLatestOptimizerRun(
+    String twinId,
+  ) async {
+    final listResponse = await _dio.get('/twins/$twinId/optimizer-runs/');
+    final rawSummaries = listResponse.data;
+    if (rawSummaries is! List) {
+      throw const FormatException(
+        'Invalid API contract: optimizer runs must be an array.',
+      );
+    }
+    final summaries = rawSummaries.indexed
+        .map(
+          (entry) => OptimizerRunSummaryData.fromJson(
+            _contractMap(entry.$2, 'optimizer runs[${entry.$1}]'),
+          ),
+        )
+        .toList(growable: false);
+    if (summaries.any((summary) => summary.twinId != twinId) ||
+        summaries.map((summary) => summary.id).toSet().length !=
+            summaries.length) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run collection identity is inconsistent.',
+      );
+    }
+    if (summaries
+            .where((summary) => summary.selectedForDeploymentAt != null)
+            .length >
+        1) {
+      throw const FormatException(
+        'Invalid API contract: multiple optimizer runs are selected for deployment.',
+      );
+    }
+    if (summaries.isEmpty) return null;
+
+    final ordered = [...summaries]
+      ..sort((left, right) {
+        final timestamp = right.createdAt.compareTo(left.createdAt);
+        return timestamp != 0 ? timestamp : right.id.compareTo(left.id);
+      });
+    final latest = ordered.first;
+    final detailResponse = await _dio.get(
+      '/twins/$twinId/optimizer-runs/${latest.id}',
+    );
+    final detail = OptimizerDeploymentRunData.fromDetailJson(
+      _contractMap(detailResponse.data, 'optimizer run detail'),
+    );
+    if (detail.summary != latest) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run list and detail differ.',
+      );
+    }
+    return detail;
+  }
+
+  @override
+  Future<OptimizerRunSelectionData> selectOptimizerRunForDeployment(
+    String twinId,
+    String runId,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/optimizer-runs/$runId/select-for-deployment',
+    );
+    final selection = OptimizerRunSelectionData.fromJson(
+      _contractMap(response.data, 'optimizer run selection'),
+    );
+    if (selection.run.twinId != twinId || selection.run.id != runId) {
+      throw const FormatException(
+        'Invalid API contract: optimizer run selection context is inconsistent.',
+      );
+    }
+    return selection;
   }
 
   // ============================================================

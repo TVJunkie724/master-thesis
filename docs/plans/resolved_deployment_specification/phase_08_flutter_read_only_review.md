@@ -1,7 +1,7 @@
 # Phase 8: Flutter Read-Only Deployment Review
 
 **Issue:** [#134](https://github.com/TVJunkie724/master-thesis/issues/134)  
-**Status:** Reviewed and implementation-ready  
+**Status:** Implemented, reviewed, and verified
 **Blocked by:** #130
 
 This is Resolved Deployment Specification subphase 8, not repository
@@ -55,6 +55,12 @@ call is introduced.
   metadata and never crash the screen or become deployable.
 - A known v1 specification with malformed fields, mismatched run identity, or
   mismatched digest fails closed as an API-contract error.
+- Changing any calculation input invalidates the cost result, optimization
+  projection, and resolved deployment run as one state transition. A late
+  calculation or selection response cannot restore the invalidated run.
+- Calculation, selection, save, finish, and navigation commands cannot overlap.
+  Saved input, result, optimization, and deployment-run snapshots are restored
+  atomically.
 
 ## 2. Visual Layout
 
@@ -171,7 +177,7 @@ ConfigurationReviewTask [MODIFY]
     `-- _Summary [MODIFY]
         |-- _SummarySection [REUSE]
         |-- ResolvedDeploymentSummary [NEW]
-        |   |-- ResolvedDeploymentStatusHeader [NEW]
+        |   |-- DeploymentSelectionStatus [REUSE]
         |   |-- LayoutBuilder [REUSE]
         |   |   `-- ResolvedDeploymentComponentRow[] [NEW]
         |   `-- ExpansionTile [REUSE]
@@ -198,7 +204,8 @@ dimensions. Existing summary sections, Material icons, `ExpansionTile`,
 | Result review | modify `lib/screens/wizard/step2_optimizer.dart`; add `lib/widgets/results/deployment_selection_status.dart` |
 | Final summary | modify `lib/features/configuration_workspace/presentation/configuration_review_task.dart`; add `lib/widgets/results/resolved_deployment_summary.dart` |
 | Tokens | modify `lib/theme/spacing.dart` only for the three named layout constants |
-| Demo | modify `lib/demo/demo_fixture_store.dart` and `lib/demo/demo_management_api.dart` |
+| Demo | modify `lib/demo/demo_fixture_store.dart` and `lib/demo/demo_management_api.dart`; consume a generated, byte-identical copy of the canonical mixed-provider fixture |
+| Contract tooling | modify `scripts/sync_resolved_deployment_contract.py` so the demo fixture cannot drift from the contract SSOT |
 | Tests | focused model, service, BLoC, journey, widget, demo, and integration files under the matching `test/` and `integration_test/` boundaries |
 | Documentation | this plan, Configuration Workspace reference/roadmap, docs-site Flutter/runtime pages, and refactoring roadmap |
 
@@ -289,12 +296,12 @@ Expanded evidence contains:
 No credentials, raw pricing rows, unrestricted JSON, endpoints, or tokens are
 rendered.
 
-The summary file owns three private stateless leaf widgets:
+The summary file owns the following private stateless leaf widgets and reuses
+`DeploymentSelectionStatus` for the shared state header:
 
 | Widget | Parameters | Responsibility |
 | --- | --- | --- |
-| `_ResolvedDeploymentStatusHeader` | `review`, `isSelecting` | icon, state label, bounded summary |
-| `_ResolvedDeploymentComponentRow` | `component`, `wide` | responsive slot/provider/service/deployable-dimension row |
+| `_ResolvedDeploymentComponentRow` | `component` | responsive slot/provider/service/deployable-dimension row |
 | `_ResolvedDeploymentEvidenceRow` | `label`, `value` | wrapping, selectable technical key/value row |
 
 `Step2Optimizer` only passes the derived review state and retry event to
@@ -306,9 +313,9 @@ review state plus retry/recalculation callbacks to
 
 | Width | Behavior |
 | --- | --- |
-| `>= 1024` | Component rows use fixed slot/provider columns plus flexible service/dimension content. |
-| `600-1023` | Slot/provider share the first line; service and dimensions wrap below. |
-| `< 600` | Every row stacks slot, provider, service, then dimensions; actions remain full-width when needed. |
+| `>= 720` | Component rows use fixed slot/provider columns plus flexible service/dimension content. |
+| `600-719` | Slot/provider share the first line; service and dimensions wrap below. |
+| `< 600` | Slot/provider wrap as needed; service and dimensions remain below; actions stay reachable without horizontal scrolling. |
 
 The existing content-width constraints remain authoritative. New breakpoints
 must be named in `AppSpacing`; no inline breakpoint or row-width literal is
@@ -323,6 +330,7 @@ Widgets receive immutable review projections and emit events only.
 
 - `OptimizerDeploymentRunData? deploymentRun`
 - `OptimizerDeploymentRunData? savedDeploymentRun`
+- `CalcParams? savedCalcParams`
 - `bool isSelectingDeploymentRun`
 - `String? deploymentRunSelectionError`
 
@@ -403,9 +411,9 @@ summary sections.
 - Selection errors use the existing page alert plus a local retry affordance;
   raw backend details are normalized by `ApiErrorHandler`.
 - Empty state contains no decorative card or illustration.
-- Recalculation invalidation snapshots and restores `deploymentRun` together
-  with the existing result so run identity cannot drift from the visible cost
-  result.
+- Recalculation invalidation snapshots and restores `calcParams`,
+  `deploymentRun`, and the existing result atomically so workload, run
+  identity, and visible cost evidence cannot drift apart.
 
 ## 9. Accessibility
 
@@ -518,8 +526,9 @@ Edge cases:
 
 ### Demo And Docker Contract
 
-- Demo fixtures cover selected single-cloud, selected multi-cloud, legacy,
-  unsupported, and retryable failure projections.
+- Canonical contract fixtures cover selected single-cloud and multi-cloud
+  specifications; demo/widget projections cover legacy, unsupported, and
+  retryable failure states.
 - Demo calculation and selection use the same typed state transitions as live
   mode.
 - The existing Docker-backed, non-cloud integration gate inspects the
@@ -550,20 +559,32 @@ Edge cases:
 
 ## 12. Definition Of Done
 
-- [ ] Current and selected optimizer runs are typed end to end.
-- [ ] Calculation invokes Management run selection and fails closed when
+- [x] Current and selected optimizer runs are typed end to end.
+- [x] Calculation invokes Management run selection and fails closed when
       verification cannot complete.
-- [ ] Edit hydration cannot mix a newer run with an older selection.
-- [ ] The latest supported selected specification gates deployment readiness.
-- [ ] A user can confirm every exact frozen deployment component and dimension.
-- [ ] Legacy and unsupported states provide a clear recalculation path.
-- [ ] Technical evidence is collapsed by default and contains no secrets or
+- [x] Edit hydration cannot mix a newer run with an older selection.
+- [x] The latest supported selected specification gates deployment readiness.
+- [x] A user can confirm every exact frozen deployment component and dimension.
+- [x] Legacy and unsupported states provide a clear recalculation path.
+- [x] Technical evidence is collapsed by default and contains no secrets or
       unrestricted provider JSON.
-- [ ] Widgets contain no HTTP, mutable domain state, inline design tokens, or
+- [x] Widgets contain no HTTP, mutable domain state, inline design tokens, or
       direct Optimizer/Deployer calls.
-- [ ] Model, API, BLoC, journey, widget, responsive, demo, and Docker contract
+- [x] Model, API, BLoC, journey, widget, responsive, demo, and Docker contract
       gates pass.
-- [ ] Analyzer, full Flutter tests, Web/macOS builds, Management contract
+- [x] Analyzer, full Flutter tests, Web/macOS builds, Management contract
       tests, strict docs, and diff gates pass.
-- [ ] Documentation and GitHub issue state match the implementation.
-- [ ] #134 is closed with commit and verification evidence.
+- [x] Documentation matches the implementation.
+- [ ] #134 is closed with commit and verification evidence after commit.
+
+## 13. Verification Evidence
+
+Verified on 2026-07-17 without provider credentials or cloud mutation:
+
+- `flutter test`: 706 passed;
+- `flutter analyze`: no issues;
+- Flutter architecture and formatting gates: passed;
+- Web and macOS release builds with `config/dev.example.json`: passed;
+- focused Management API deployment-contract suite: 131 passed;
+- canonical contract synchronization check: passed;
+- strict MkDocs build and `git diff --check`: passed.

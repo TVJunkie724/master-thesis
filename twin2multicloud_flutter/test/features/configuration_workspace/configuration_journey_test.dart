@@ -6,6 +6,8 @@ import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 
+import '../../fixtures/typed_api_fixtures.dart';
+
 void main() {
   group('ConfigurationJourney', () {
     test('has stable unique task ordering and compatibility mapping', () {
@@ -33,7 +35,7 @@ void main() {
       );
       expect(
         journey.task(ConfigurationTaskId.cloudAccess).blockingReason,
-        'Select an architecture first',
+        'Calculate an architecture first',
       );
     });
 
@@ -77,6 +79,9 @@ void main() {
           calcParams: CalcParams.defaultParams(),
           pricingHealth: _healthyPricing(),
           calcResult: _result(const ['L1_AWS', 'L2_AWS', 'L4_AZURE']),
+          deploymentRun: TypedApiFixtures.deploymentRun(
+            selectedForDeploymentAt: TypedApiFixtures.timestamp,
+          ),
         ),
       );
 
@@ -133,6 +138,9 @@ void main() {
         configIotDevicesValidated: true,
         payloadsJson: '{}',
         payloadsValidated: true,
+        deploymentRun: TypedApiFixtures.deploymentRun(
+          selectedForDeploymentAt: TypedApiFixtures.timestamp,
+        ),
       );
 
       expect(ready.isConfigurationReadyForFinish, isTrue);
@@ -145,6 +153,36 @@ void main() {
             .copyWith(selectedCloudConnectionIds: const {})
             .isConfigurationReadyForFinish,
         isFalse,
+      );
+    });
+
+    test('blocks deployment tasks until the latest run is selected', () {
+      final journey = ConfigurationJourney.fromWizardState(
+        WizardState(
+          status: WizardStatus.ready,
+          twinName: 'Factory twin',
+          calcParams: CalcParams.defaultParams(),
+          pricingHealth: _healthyPricing(),
+          calcResult: _result(const ['L1_AWS']),
+          deploymentRun: TypedApiFixtures.deploymentRun(),
+        ),
+      );
+
+      expect(
+        journey.task(ConfigurationTaskId.compareAndSelect).label,
+        'Review recommendation',
+      );
+      expect(
+        journey.task(ConfigurationTaskId.compareAndSelect).status,
+        ConfigurationTaskStatus.current,
+      );
+      expect(
+        journey.task(ConfigurationTaskId.cloudAccess).status,
+        ConfigurationTaskStatus.blocked,
+      );
+      expect(
+        journey.task(ConfigurationTaskId.cloudAccess).blockingReason,
+        'Confirm the resolved architecture first',
       );
     });
   });

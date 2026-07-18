@@ -3,7 +3,7 @@
 **Parent issue:** [#118](https://github.com/TVJunkie724/master-thesis/issues/118)  
 **Base branch:** `master`  
 **Implementation branch:** `codex/pricing-tier-finalization`  
-**Status:** Reviewed, implementation-ready, and required before Phase 8
+**Status:** Phases 1-8 complete; phase 9 is the final pre-architecture gate
 
 ## Purpose
 
@@ -39,7 +39,7 @@ Optimizer winner
 | 7b | [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Done: reject the unsupported legacy error-handling topology at every executable boundary | #127 |
 | 7c | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Done: bounded Azure Function HTTP errors, correlation, redaction, and safe downstream retry logs | #74 |
 | 7d | [#137](https://github.com/TVJunkie724/master-thesis/issues/137) | Done: diagnostic-suppressed correlation for non-HTTP Azure baseline triggers | #136 |
-| 8 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Compact read-only Flutter review | #130 |
+| 8 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Done: compact read-only Flutter review and fail-closed whole-run selection | #130 |
 | 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134, #135, #136, #137 |
 
 Provider phases 5-7 may be implemented after phase 4b in any order. Phase 9 is

@@ -131,6 +131,7 @@ Map<String, dynamic> _minimalFixture({int schemaVersion = 1}) {
     'cloud_connections': <dynamic>[],
     'twin_configs': <String, dynamic>{},
     'optimizer_configs': <String, dynamic>{},
+    'optimizer_runs': <String, dynamic>{},
     'deployer_configs': <String, dynamic>{},
     'pricing_health': <String, dynamic>{},
     'pricing_reports': <String, dynamic>{},

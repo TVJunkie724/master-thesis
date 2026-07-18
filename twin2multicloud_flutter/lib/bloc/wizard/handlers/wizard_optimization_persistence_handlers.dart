@@ -25,7 +25,8 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         if (!state.canProceedToStep3) {
           emit(
             newState.copyWith(
-              errorMessage: 'Run calculation before proceeding',
+              errorMessage:
+                  'Calculate and verify the deployment selection before proceeding',
             ),
           );
           return;
@@ -42,12 +43,16 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     // Issue 3 fix: When advancing from Step 2 to Step 3 for first time,
     // snapshot current calcResult as savedCalcResult for revert capability
     CalcResult? snapshotCalcResult;
+    CalcParams? snapshotCalcParams;
     OptimizationResultData? snapshotOptimizationResultData;
+    OptimizerDeploymentRunData? snapshotDeploymentRun;
     if (state.currentStep == 1 &&
         nextStep == 2 &&
         state.savedCalcResult == null) {
       snapshotCalcResult = state.calcResult;
+      snapshotCalcParams = state.calcParams;
       snapshotOptimizationResultData = state.optimizationResultData;
+      snapshotDeploymentRun = state.deploymentRun;
     }
 
     emit(
@@ -57,7 +62,9 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
             ? nextStep
             : state.highestStepReached,
         savedCalcResult: snapshotCalcResult,
+        savedCalcParams: snapshotCalcParams,
         savedOptimizationResultData: snapshotOptimizationResultData,
+        savedDeploymentRun: snapshotDeploymentRun,
       ),
     );
   }
@@ -74,17 +81,27 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     final reachable = switch (event.step) {
       0 => true,
       1 => state.twinName?.trim().isNotEmpty == true,
-      2 => state.calcResult != null,
+      2 => state.canProceedToStep3,
       _ => false,
     };
     if (!reachable) return;
 
+    final enteringDeployment =
+        event.step == 2 &&
+        state.currentStep != 2 &&
+        state.savedCalcResult == null;
     emit(
       state.clearNotifications().copyWith(
         currentStep: event.step,
         highestStepReached: event.step > state.highestStepReached
             ? event.step
             : state.highestStepReached,
+        savedCalcParams: enteringDeployment ? state.calcParams : null,
+        savedCalcResult: enteringDeployment ? state.calcResult : null,
+        savedOptimizationResultData: enteringDeployment
+            ? state.optimizationResultData
+            : null,
+        savedDeploymentRun: enteringDeployment ? state.deploymentRun : null,
       ),
     );
   }
@@ -127,7 +144,26 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     WizardCalcParamsChanged event,
     Emitter<WizardState> emit,
   ) {
-    emit(state.copyWith(calcParams: event.params, hasUnsavedChanges: true));
+    final inputsChanged =
+        state.calcParams?.hasSameCalculationInputs(event.params) != true;
+    emit(
+      state.copyWith(
+        calcParams: event.params,
+        hasUnsavedChanges: true,
+        step3Invalidated: inputsChanged && state.hasSection3Data
+            ? true
+            : state.step3Invalidated,
+        clearCalcResult: inputsChanged,
+        clearOptimizationResultData: inputsChanged,
+        clearDeploymentRun: inputsChanged,
+        clearDeploymentRunSelectionError: inputsChanged,
+        isSelectingDeploymentRun: inputsChanged
+            ? false
+            : state.isSelectingDeploymentRun,
+        clearError: inputsChanged,
+        clearSuccess: inputsChanged,
+      ),
+    );
   }
 
   void _onCalcFormValidChanged(
@@ -141,7 +177,11 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     WizardCalculateRequested event,
     Emitter<WizardState> emit,
   ) async {
-    if (state.status == WizardStatus.saving || state.isCalculating) return;
+    if (state.status == WizardStatus.saving ||
+        state.isCalculating ||
+        state.isSelectingDeploymentRun) {
+      return;
+    }
     if (state.calcParams == null) {
       emit(
         state.copyWith(errorMessage: 'Configure calculation parameters first'),
@@ -158,7 +198,14 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       return;
     }
 
-    emit(state.copyWith(isCalculating: true, clearError: true));
+    final requestedParams = state.calcParams!;
+    emit(
+      state.copyWith(
+        isCalculating: true,
+        clearError: true,
+        clearDeploymentRunSelectionError: true,
+      ),
+    );
 
     try {
       String? twinId = state.twinId;
@@ -178,7 +225,20 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         emit(state.copyWith(twinId: twinId));
       }
 
-      final run = await _api.createOptimizerRun(twinId, state.calcParams!);
+      final run = await _api.createOptimizerRun(twinId, requestedParams);
+      if (state.calcParams?.hasSameCalculationInputs(requestedParams) != true) {
+        emit(
+          state.copyWith(
+            isCalculating: false,
+            isSelectingDeploymentRun: false,
+            errorMessage:
+                'Calculation inputs changed while the optimizer was running. Calculate again to verify the current workload.',
+            clearDeploymentRun: true,
+            clearDeploymentRunSelectionError: true,
+          ),
+        );
+        return;
+      }
       final response = run.optimization;
       final result = response.result;
 
@@ -209,22 +269,100 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       emit(
         state.copyWith(
           isCalculating: false,
+          isSelectingDeploymentRun: true,
           calcResult: result,
           optimizationResultData: response,
+          deploymentRun: run.deploymentRun,
           hasUnsavedChanges: true,
           step3Invalidated: invalidatesStep3,
           warningMessage: warning,
           clearSuccess:
               invalidatesStep3, // Clear success message when warning appears
+          clearDeploymentRunSelectionError: true,
         ),
+      );
+      await _selectDeploymentRun(
+        run.deploymentRun,
+        emit,
+        warningMessage: warning,
+        replaceWarning: true,
       );
     } catch (e) {
       _logger.warning(AppLogEvent.costCalculationFailed);
       emit(
         state.copyWith(
           isCalculating: false,
+          isSelectingDeploymentRun: false,
           errorMessage:
               'Calculation failed: ${ApiErrorHandler.extractMessage(e)}',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onDeploymentRunSelectionRequested(
+    WizardDeploymentRunSelectionRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    final run = state.deploymentRun;
+    final reviewState = state.deploymentReview.state;
+    if (run == null ||
+        !{
+          ResolvedDeploymentReviewState.selectionRequired,
+          ResolvedDeploymentReviewState.failed,
+        }.contains(reviewState) ||
+        state.isCalculating ||
+        state.status == WizardStatus.saving ||
+        state.isSelectingDeploymentRun) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        isSelectingDeploymentRun: true,
+        clearError: true,
+        clearDeploymentRunSelectionError: true,
+      ),
+    );
+    await _selectDeploymentRun(run, emit);
+  }
+
+  Future<void> _selectDeploymentRun(
+    OptimizerDeploymentRunData run,
+    Emitter<WizardState> emit, {
+    String? warningMessage,
+    bool replaceWarning = false,
+  }) async {
+    try {
+      final selection = await _api.selectOptimizerRunForDeployment(
+        run.twinId,
+        run.id,
+      );
+      if (state.deploymentRun != run || !state.isSelectingDeploymentRun) {
+        return;
+      }
+      final selectedRun = run.applySelection(selection);
+      emit(
+        state.copyWith(
+          deploymentRun: selectedRun,
+          isSelectingDeploymentRun: false,
+          warningMessage: warningMessage,
+          clearWarning: replaceWarning && warningMessage == null,
+          clearDeploymentRunSelectionError: true,
+          clearError: true,
+        ),
+      );
+    } catch (error) {
+      if (state.deploymentRun != run || !state.isSelectingDeploymentRun) {
+        return;
+      }
+      _logger.warning(AppLogEvent.deploymentRunSelectionFailed);
+      final message = ApiErrorHandler.extractMessage(error);
+      emit(
+        state.copyWith(
+          isSelectingDeploymentRun: false,
+          deploymentRunSelectionError: message,
+          errorMessage:
+              'Deployment selection failed: $message. The calculation remains available for review.',
         ),
       );
     }
@@ -258,7 +396,11 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     WizardSaveDraft event,
     Emitter<WizardState> emit,
   ) async {
-    if (state.status == WizardStatus.saving || state.isCalculating) return;
+    if (state.status == WizardStatus.saving ||
+        state.isCalculating ||
+        state.isSelectingDeploymentRun) {
+      return;
+    }
     emit(state.copyWith(status: WizardStatus.saving, clearError: true));
 
     try {
@@ -308,7 +450,9 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           hasUnsavedChanges: false,
           savedCalcResult:
               state.calcResult, // Update saved result on successful save
+          savedCalcParams: state.calcParams,
           savedOptimizationResultData: state.optimizationResultData,
+          savedDeploymentRun: state.deploymentRun,
           step3Invalidated: false, // Clear invalidation after save
           successMessage: stateRegressed
               ? 'Saved. Configuration reverted to draft.'
@@ -327,7 +471,11 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
   }
 
   Future<void> _onFinish(WizardFinish event, Emitter<WizardState> emit) async {
-    if (state.status == WizardStatus.saving || state.isCalculating) return;
+    if (state.status == WizardStatus.saving ||
+        state.isCalculating ||
+        state.isSelectingDeploymentRun) {
+      return;
+    }
     if (!state.isConfigurationReadyForFinish) {
       emit(
         state.copyWith(
@@ -444,8 +592,13 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     emit(
       state.copyWith(
         step3Invalidated: false,
+        calcParams: state.savedCalcParams,
         calcResult: state.savedCalcResult, // Visually revert to saved result
         optimizationResultData: state.savedOptimizationResultData,
+        deploymentRun: state.savedDeploymentRun,
+        clearDeploymentRun: state.savedDeploymentRun == null,
+        clearDeploymentRunSelectionError: true,
+        isSelectingDeploymentRun: false,
         hasUnsavedChanges: false,
         successMessage: 'Changes discarded',
       ),

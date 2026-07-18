@@ -35,6 +35,16 @@ Legacy provider snapshot/timestamp columns may remain after the non-destructive
 migration, but live readiness, calculation, evidence, and deployment selection
 never read them.
 
+Modern successful calculation runs also persist one immutable
+`resolved-deployment-specification.v1`, its digest, compatibility state, and
+selection timestamp. The Management API permits at most one selected run per twin.
+Creating a newer run does not transfer the older selection. Flutter and deployment
+readiness therefore use the newest run for review, while the Deployer receives only
+the explicitly selected compatible run through `DeploymentManifest v2`.
+Flutter snapshots workload inputs, the result projection, and deployment run as one
+unit. Input changes invalidate that unit; discard restores the complete saved unit,
+so the UI cannot combine values from different calculations.
+
 Deleting the database deletes durable application history and encrypted credentials.
 Deleting the encryption key without first re-encrypting CloudConnections makes those
 records unreadable.

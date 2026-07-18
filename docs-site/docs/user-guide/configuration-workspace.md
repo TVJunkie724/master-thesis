@@ -10,7 +10,7 @@ navigable tasks; blocked tasks explain their prerequisite.
 |---|---|
 | Define twin | identity and mode |
 | Describe workload | scenario/currency, device traffic, processing, retention, twin capabilities |
-| Choose architecture | pricing readiness, calculate alternatives, compare/select |
+| Choose architecture | pricing readiness, calculate alternatives, review recommendation |
 | Prepare deployment | cloud access, data contracts, user logic, twin assets |
 | Review configuration | summary, readiness findings, validation/preflight |
 
@@ -23,7 +23,7 @@ step projections internally where needed for compatibility.
 twin identity
    -> complete workload
       -> pricing ready enough to calculate
-         -> calculation result / selected architecture
+         -> calculation result / verified deployment selection
             -> required provider cloud access
                -> deployment artifacts
                   -> validation and preflight
@@ -45,6 +45,22 @@ capacities, storage classes, runtime settings, formula assumptions, and pricing
 evidence needed to reproduce deployment. These values are read-only. A historical
 run created before this contract can still be inspected, but the user must calculate
 again before it can be selected for deployment.
+
+After calculation, the workspace asks the Management API to verify and select the
+whole optimizer run for deployment. A failed verification leaves the cost result
+visible for diagnosis but blocks deployment preparation until the same run is
+verified or the architecture is recalculated. Opening a saved twin always uses its
+newest run; an older selected run is never combined with a newer calculation.
+Changing any workload input clears the previous recommendation and requires a new
+calculation and verification.
+
+The **Review recommendation** task shows this status compactly. The final
+configuration summary lists all seven architecture slots plus any required storage
+transition or cross-cloud runtime components under **Resolved cloud resources**.
+Provider values are read-only. Expand **Show technical evidence** to inspect the
+full specification digest, formula and catalog references, classifications, and
+Terraform targets. Progressive usage tiers, account-level plans, and calculation
+assumptions are explicitly distinguished from values that Terraform can enforce.
 
 The default result remains concise. Expand **Calculation trace** only when
 provenance is needed. Current results provide nested, read-only details for the

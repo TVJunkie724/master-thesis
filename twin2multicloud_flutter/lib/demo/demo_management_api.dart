@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
+
 import '../core/result.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
@@ -16,6 +18,7 @@ import '../models/pricing_catalog.dart';
 import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
+import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user.dart';
@@ -702,6 +705,7 @@ class DemoManagementApi implements ManagementApi {
     result.addAll(_defaultTransferEvidence(result, params.currency));
     final optimization = OptimizationResultData.fromApiJson({'result': result});
     final now = store.clock().toUtc();
+    final runId = _nextDemoRunId();
     final cheapestPath = CheapestPath.fromSegments(
       List<String>.from(result['cheapestPath'] as List),
     );
@@ -719,15 +723,90 @@ class DemoManagementApi implements ManagementApi {
       ..['optimizer_result'] = _copyMap(optimization.payload);
     store.setTwinConfig(twinId, twinConfig);
 
-    return OptimizerRunData.fromJson({
-      'id': store.nextId('demo-optimizer-run'),
+    final specification = _demoDeploymentSpecification(
+      runId: runId,
+      cheapestPath: cheapestPath,
+      pricingCatalogContext: pricingCatalogContext,
+    );
+    final runJson = {
+      'id': runId,
       'twin_id': twinId,
       'status': 'succeeded',
       'result_summary': optimization.payload,
       'total_monthly_cost': optimization.result.totalCost,
       'currency': params.currency,
+      'deployment_compatibility_status': 'ready',
+      'deployment_specification_digest': specification['digest'],
+      'deployment_specification_version': specification['schema_version'],
+      'resolved_deployment_specification': specification,
+      'selected_for_deployment_at': null,
       'created_at': now.toIso8601String(),
       'completed_at': now.toIso8601String(),
+    };
+    store.addOptimizerRun(twinId, runJson);
+    return OptimizerRunData.fromJson(runJson);
+  }
+
+  @override
+  Future<OptimizerDeploymentRunData?> getLatestOptimizerRun(
+    String twinId,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    var runs = store.optimizerRuns(twinId);
+    if (runs.isEmpty && store.optimizerConfig(twinId) != null) {
+      _seedExistingOptimizerRun(twinId);
+      runs = store.optimizerRuns(twinId);
+    }
+    if (runs.isEmpty) return null;
+    runs.sort((left, right) {
+      final leftCreated = DateTime.parse(left['created_at'].toString());
+      final rightCreated = DateTime.parse(right['created_at'].toString());
+      final timestamp = rightCreated.compareTo(leftCreated);
+      return timestamp != 0
+          ? timestamp
+          : right['id'].toString().compareTo(left['id'].toString());
+    });
+    return OptimizerDeploymentRunData.fromDetailJson(runs.first);
+  }
+
+  @override
+  Future<OptimizerRunSelectionData> selectOptimizerRunForDeployment(
+    String twinId,
+    String runId,
+  ) async {
+    await _pause();
+    final runs = store.optimizerRuns(twinId);
+    final run = runs.cast<Map<String, dynamic>?>().firstWhere(
+      (item) => item?['id']?.toString() == runId,
+      orElse: () => null,
+    );
+    if (run == null ||
+        run['status'] != 'succeeded' ||
+        run['deployment_compatibility_status'] != 'ready' ||
+        run['resolved_deployment_specification'] is! Map) {
+      throw DemoApiException(
+        'DEMO_OPTIMIZER_RUN_NOT_SELECTABLE',
+        'Optimizer run "$runId" is not selectable.',
+      );
+    }
+    final selectedAt = store.clock().toUtc().toIso8601String();
+    store.selectOptimizerRun(twinId, runId, selectedAt);
+    final selectedRun = store
+        .optimizerRuns(twinId)
+        .firstWhere((item) => item['id']?.toString() == runId);
+    final specification = _copyMap(
+      selectedRun['resolved_deployment_specification'] as Map,
+    );
+    final summary = _copyMap(selectedRun)
+      ..remove('resolved_deployment_specification')
+      ..remove('result_summary')
+      ..remove('params')
+      ..remove('result_items');
+    return OptimizerRunSelectionData.fromJson({
+      'run': summary,
+      'selected_for_deployment_at': selectedAt,
+      'resolved_deployment_specification': specification,
     });
   }
 
@@ -1548,6 +1627,91 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
+  void _seedExistingOptimizerRun(String twinId) {
+    final raw = store.optimizerConfig(twinId);
+    if (raw == null) return;
+    final runId = _nextDemoRunId();
+    final createdAt =
+        DateTime.tryParse(raw['calculated_at']?.toString() ?? '')?.toUtc() ??
+        store.clock().toUtc();
+    store.addOptimizerRun(twinId, {
+      'id': runId,
+      'twin_id': twinId,
+      'status': 'succeeded',
+      'deployment_compatibility_status': 'legacy_not_deployable',
+      'deployment_specification_digest': null,
+      'deployment_specification_version': null,
+      'resolved_deployment_specification': null,
+      'selected_for_deployment_at': null,
+      'created_at': createdAt.toIso8601String(),
+    });
+  }
+
+  Map<String, dynamic> _demoDeploymentSpecification({
+    required String runId,
+    required CheapestPath cheapestPath,
+    required PricingCatalogContext pricingCatalogContext,
+  }) {
+    final specification = store.deploymentSpecificationTemplate()
+      ..['calculation_run_id'] = runId;
+    final optimizationContext =
+        _copyMap(specification['optimization_context'] as Map)
+          ..['catalog_references'] = {
+            for (final entry in pricingCatalogContext.catalogs.entries)
+              entry.key.apiValue: {
+                'snapshot_id': entry.value.snapshotId,
+                'pricing_region': entry.value.pricingRegion,
+                'content_digest': entry.value.contentDigest,
+              },
+          };
+    specification['optimization_context'] = optimizationContext;
+    final parsed = ResolvedDeploymentSpecificationData.fromJson(
+      specification
+        ..['digest'] = ResolvedDeploymentSpecificationData.calculateDigest(
+          specification,
+        ),
+    );
+    if (parsed is! ResolvedDeploymentSpecificationV1) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
+        'The canonical demo deployment specification is unsupported.',
+      );
+    }
+    final providersBySlot = {
+      for (final component in parsed.architectureComponents)
+        component.slot: component.provider,
+    };
+    const pathSlots = <(ResolvedDeploymentSlot, String)>[
+      (ResolvedDeploymentSlot.l1Ingestion, 'l1'),
+      (ResolvedDeploymentSlot.l2Processing, 'l2'),
+      (ResolvedDeploymentSlot.l3HotStorage, 'l3_hot'),
+      (ResolvedDeploymentSlot.l3CoolStorage, 'l3_cool'),
+      (ResolvedDeploymentSlot.l3ArchiveStorage, 'l3_archive'),
+      (ResolvedDeploymentSlot.l4TwinState, 'l4'),
+      (ResolvedDeploymentSlot.l5Visualization, 'l5'),
+    ];
+    if (pathSlots.any(
+      (entry) =>
+          cheapestPath.providerForLayer(entry.$2) != providersBySlot[entry.$1],
+    )) {
+      throw const DemoApiException(
+        'DEMO_OPTIMIZER_PATH_CONTRACT_MISMATCH',
+        'Demo optimizer result differs from the canonical deployment fixture.',
+      );
+    }
+    specification['digest'] =
+        ResolvedDeploymentSpecificationData.calculateDigest(specification);
+    return specification;
+  }
+
+  String _nextDemoRunId() {
+    final seed = store.nextId('demo-optimizer-run');
+    final hex = sha256.convert(utf8.encode(seed)).toString();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '5${hex.substring(13, 16)}-a${hex.substring(17, 20)}-'
+        '${hex.substring(20, 32)}';
+  }
+
   Map<String, dynamic> _accessEntry(Map<String, dynamic> connection) {
     final id = connection['id'].toString();
     final summary = connection['payload_summary'] as Map? ?? const {};
@@ -1665,13 +1829,9 @@ class DemoManagementApi implements ManagementApi {
     return {
       'totalCost': 42.0,
       'awsCosts': {
-        'L1': {
-          'cost': 8.0,
-          'components': {'IoT Core': 8.0},
-        },
-        'L4': {
-          'cost': 10.0,
-          'components': {'TwinMaker': 10.0},
+        'L3_cool': {
+          'cost': 3.0,
+          'components': {'S3 Standard-IA': 3.0},
         },
         'L5': {
           'cost': 8.0,
@@ -1683,28 +1843,32 @@ class DemoManagementApi implements ManagementApi {
           'cost': 7.0,
           'components': {'Functions': 7.0},
         },
+        'L4': {
+          'cost': 10.0,
+          'components': {'Digital Twins': 10.0},
+        },
       },
       'gcpCosts': {
+        'L1': {
+          'cost': 8.0,
+          'components': {'Pub/Sub': 8.0},
+        },
         'L3_hot': {
           'cost': 4.0,
-          'components': {'Cloud Storage': 4.0},
-        },
-        'L3_cool': {
-          'cost': 3.0,
-          'components': {'Nearline': 3.0},
+          'components': {'Firestore': 4.0},
         },
         'L3_archive': {
           'cost': 2.0,
-          'components': {'Archive': 2.0},
+          'components': {'Cloud Storage Archive': 2.0},
         },
       },
       'cheapestPath': [
-        'L1_AWS',
+        'L1_GCP',
         'L2_Azure',
         'L3_hot_GCP',
-        'L3_cool_GCP',
+        'L3_cool_AWS',
         'L3_archive_GCP',
-        'L4_AWS',
+        'L4_Azure',
         'L5_AWS',
       ],
       'pricingCatalogs': _demoPricingCatalogContext(store.clock()),
@@ -1801,6 +1965,7 @@ class DemoManagementApi implements ManagementApi {
     ];
     final routes = <Map<String, dynamic>>[];
     final routesByProvider = <String, List<Map<String, dynamic>>>{};
+    final consumedQuantityByProvider = <String, int>{};
     for (final edge in edges) {
       final sourceProvider = selected[edge.$2]!;
       final destinationProvider = selected[edge.$3]!;
@@ -1810,7 +1975,34 @@ class DemoManagementApi implements ManagementApi {
       final destinationCatalog = catalogs[destinationProvider] as Map;
       final billingQuantity = sameProvider ? 1 : 2;
       final paidUnitPrice = (policy['paidUnitPrice'] as num).toDouble();
-      final egressCost = sameProvider ? 0.0 : paidUnitPrice;
+      final consumedQuantity = sameProvider
+          ? 0
+          : consumedQuantityByProvider[sourceProvider] ?? 0;
+      final freeQuantity = sameProvider || consumedQuantity > 0 ? 0 : 1;
+      final paidQuantity = sameProvider ? 0 : billingQuantity - freeQuantity;
+      final egressCost = paidQuantity * paidUnitPrice;
+      final tierContributions = <Map<String, dynamic>>[];
+      if (!sameProvider && freeQuantity > 0) {
+        tierContributions.add({
+          'tierId': 'demo_free_${edge.$1}',
+          'fromQuantity': consumedQuantity,
+          'toQuantity': consumedQuantity + freeQuantity,
+          'billableQuantity': freeQuantity,
+          'unitPrice': 0,
+          'cost': 0,
+        });
+      }
+      if (!sameProvider && paidQuantity > 0) {
+        final paidFrom = consumedQuantity + freeQuantity;
+        tierContributions.add({
+          'tierId': 'demo_paid_${edge.$1}',
+          'fromQuantity': paidFrom,
+          'toQuantity': paidFrom + paidQuantity,
+          'billableQuantity': paidQuantity,
+          'unitPrice': paidUnitPrice,
+          'cost': egressCost,
+        });
+      }
       final route = <String, dynamic>{
         'segmentId': edge.$1,
         'source': {
@@ -1833,26 +2025,7 @@ class DemoManagementApi implements ManagementApi {
         'poolId': sameProvider ? null : 'pool:$sourceProvider:demo',
         'catalogSnapshotId': sameProvider ? null : sourceCatalog['snapshotId'],
         'evidenceId': sameProvider ? null : 'transfer.$sourceProvider.demo.v1',
-        'tierContributions': sameProvider
-            ? <Map<String, dynamic>>[]
-            : [
-                {
-                  'tierId': 'demo_free_${edge.$1}',
-                  'fromQuantity': 0,
-                  'toQuantity': 1,
-                  'billableQuantity': 1,
-                  'unitPrice': 0,
-                  'cost': 0,
-                },
-                {
-                  'tierId': 'demo_paid_${edge.$1}',
-                  'fromQuantity': 1,
-                  'toQuantity': 2,
-                  'billableQuantity': 1,
-                  'unitPrice': paidUnitPrice,
-                  'cost': paidUnitPrice,
-                },
-              ],
+        'tierContributions': tierContributions,
         'egressCost': egressCost,
         'glueCost': 0,
         'totalCost': egressCost,
@@ -1863,6 +2036,8 @@ class DemoManagementApi implements ManagementApi {
       };
       routes.add(route);
       if (!sameProvider) {
+        consumedQuantityByProvider[sourceProvider] =
+            consumedQuantity + billingQuantity;
         routesByProvider.putIfAbsent(sourceProvider, () => []).add(route);
       }
     }

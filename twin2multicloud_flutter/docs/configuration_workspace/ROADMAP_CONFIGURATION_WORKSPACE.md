@@ -2,8 +2,8 @@
 title: "Configuration Workspace Roadmap"
 description: "Incremental migration from the legacy three-step wizard to the dependency-aware configuration workspace."
 tags: [flutter, roadmap, configuration, wizard]
-lastUpdated: "2026-07-12"
-version: "1.0"
+lastUpdated: "2026-07-17"
+version: "1.1"
 ---
 
 # Configuration Workspace Roadmap
@@ -21,6 +21,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 5 | Done | Prepare deployment | Existing validated editors are composed into focused access, contract, logic, and asset tasks; all 384 tests pass. |
 | 6 | Done | Review and preflight | Summary, actionable findings, centralized fail-closed readiness, and distributed server validation provide one completion path; 387 tests pass. |
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
+| 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
 
 ## Cross-Phase Definition Of Done
 
@@ -35,6 +36,9 @@ adds focused tests, receives two code reviews, and is committed independently.
   the final gate.
 - No credentials, generated artifacts, or provider responses are logged or
   rendered outside their approved evidence surfaces.
+- The visible optimizer result, selected run, and resolved deployment
+  specification retain one identity; a newer unselected run cannot inherit an
+  older deployment selection.
 
 ## Compatibility Strategy
 
@@ -60,6 +64,7 @@ spread into new widgets.
 | Navigation | Widget tests for direct revisit, prerequisite blocking, recommended next task, and compact layout. |
 | Workload | Round-trip tests proving every `CalcParams` field survives task navigation and presets. |
 | Architecture | Tests for stale pricing, calculation errors, recalculation invalidation, and selected result restoration. |
+| Deployment selection | Strict specification parsing/digest tests, latest-run list/detail consistency, bounded selection retry, navigation gates, and responsive read-only summary coverage. |
 | Deployment preparation | Requirement-matrix tests across provider paths and optional 3D assets. |
 | Completion | Tests proving client readiness cannot bypass server validation or preflight. |
 | Accessibility | Semantic labels, keyboard traversal, focus recovery, and no overflow at supported desktop widths. |

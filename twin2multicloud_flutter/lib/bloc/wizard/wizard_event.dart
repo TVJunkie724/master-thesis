@@ -197,6 +197,10 @@ class WizardCalculateRequested extends WizardEvent {
   const WizardCalculateRequested();
 }
 
+class WizardDeploymentRunSelectionRequested extends WizardEvent {
+  const WizardDeploymentRunSelectionRequested();
+}
+
 // ============================================================
 // PERSISTENCE EVENTS
 // ============================================================

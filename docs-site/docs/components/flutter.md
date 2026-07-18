@@ -98,6 +98,24 @@ the draft twin before starting that run, so a retry cannot create a duplicate
 twin. Flutter never submits an optimizer result, cheapest path, transfer cost,
 or catalog reference. Save Draft persists only user-authored configuration.
 
+A successful calculation returns a typed immutable
+`ResolvedDeploymentSpecification`. Flutter immediately selects that whole run
+through the Management API verification endpoint. Selection verifies run/twin
+identity, compatibility, schema version, digest, specification identity, and
+pricing/account context. A selection failure preserves the cost result but blocks
+all navigation into deployment preparation. Edit mode loads the newest run and
+never inherits selection state from an older run.
+
+`DeploymentSelectionStatus` keeps the recommendation task concise.
+`ResolvedDeploymentSummary` lists every primary and supporting component in the
+final review, while technical evidence remains collapsed. The widgets receive an
+immutable `ResolvedDeploymentReview`; they cannot edit dimensions or call HTTP.
+Known v1 payloads parse strictly and fail closed. Unknown future versions remain
+readable as unsupported metadata and require recalculation with a compatible app.
+Changing a workload input clears the result and deployment run atomically. Late
+calculation or selection responses are ignored, and calculate/select/save/finish
+commands cannot overlap.
+
 Historical records without the newer selection/scope fields remain readable and are
 labelled with compatibility defaults. Shared diagnostic amounts are explicitly marked
 non-additive. The detail layout stacks labels at constrained widths and is covered in

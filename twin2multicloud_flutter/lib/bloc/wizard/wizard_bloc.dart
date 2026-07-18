@@ -6,10 +6,12 @@ import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/app_logger.dart';
+import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/optimizer_config.dart';
+import '../../models/resolved_deployment_specification.dart';
 import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
@@ -92,6 +94,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardCalcParamsChanged>(_onCalcParamsChanged);
     on<WizardCalcFormValidChanged>(_onCalcFormValidChanged);
     on<WizardCalculateRequested>(_onCalculateRequested);
+    on<WizardDeploymentRunSelectionRequested>(
+      _onDeploymentRunSelectionRequested,
+    );
 
     // === Persistence ===
     on<WizardSaveDraft>(_onSaveDraft);

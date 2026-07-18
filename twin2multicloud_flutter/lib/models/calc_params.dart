@@ -1,8 +1,12 @@
+import 'package:collection/collection.dart';
+
 /// Calculation parameters for cost optimization.
 ///
 /// Contains the user-configurable input fields required by the Optimizer API.
 /// Used in Wizard Step 2 to configure digital twin cost calculation.
 class CalcParams {
+  static const _mapEquality = MapEquality<String, dynamic>();
+
   // ============================================================
   // LAYER 1 & 2 - WORKLOAD PARAMETERS
   // ============================================================
@@ -189,6 +193,9 @@ class CalcParams {
     'allowGcpSelfHostedL5': allowGcpSelfHostedL5,
     'currency': currency,
   };
+
+  bool hasSameCalculationInputs(CalcParams other) =>
+      _mapEquality.equals(toJson(), other.toJson());
 
   /// Create default params for testing
   factory CalcParams.defaultParams() => CalcParams(

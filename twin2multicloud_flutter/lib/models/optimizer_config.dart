@@ -5,6 +5,7 @@ import 'calc_result.dart';
 import 'cloud_connection.dart';
 import 'json_contract.dart';
 import 'pricing_catalog.dart';
+import 'resolved_deployment_specification.dart';
 
 class OptimizationResultData extends Equatable {
   final CalcResult result;
@@ -43,6 +44,7 @@ class OptimizerRunData extends Equatable {
   final String id;
   final String twinId;
   final OptimizationResultData optimization;
+  final OptimizerDeploymentRunData deploymentRun;
   final double totalMonthlyCost;
   final String currency;
   final DateTime createdAt;
@@ -52,6 +54,7 @@ class OptimizerRunData extends Equatable {
     required this.id,
     required this.twinId,
     required this.optimization,
+    required this.deploymentRun,
     required this.totalMonthlyCost,
     required this.currency,
     required this.createdAt,
@@ -96,10 +99,19 @@ class OptimizerRunData extends Equatable {
         'Invalid API contract: optimizer run timestamps are inconsistent.',
       );
     }
+    final id = JsonContract.requiredString(json, 'id');
+    final twinId = JsonContract.requiredString(json, 'twin_id');
+    final deploymentRun = OptimizerDeploymentRunData.fromDetailJson(json);
+    if (deploymentRun.id != id || deploymentRun.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: optimizer deployment run identity is inconsistent.',
+      );
+    }
     return OptimizerRunData(
-      id: JsonContract.requiredString(json, 'id'),
-      twinId: JsonContract.requiredString(json, 'twin_id'),
+      id: id,
+      twinId: twinId,
       optimization: result,
+      deploymentRun: deploymentRun,
       totalMonthlyCost: totalMonthlyCost,
       currency: currency,
       createdAt: createdAt,
@@ -112,6 +124,7 @@ class OptimizerRunData extends Equatable {
     id,
     twinId,
     optimization,
+    deploymentRun,
     totalMonthlyCost,
     currency,
     createdAt,

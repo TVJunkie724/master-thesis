@@ -24,6 +24,15 @@ GENERATED_ROOTS = (
     ROOT / "twin2multicloud_backend" / "src" / "contracts" / "generated",
     ROOT / "3-cloud-deployer" / "src" / "contracts" / "generated",
 )
+FLUTTER_DEMO_FIXTURE = (
+    ROOT
+    / "twin2multicloud_flutter"
+    / "assets"
+    / "demo"
+    / "v1"
+    / "resolved-deployment-specification-mixed.json"
+)
+FLUTTER_DEMO_SOURCE = SOURCE_V1 / "fixtures" / "valid" / "mixed-providers.json"
 BASELINE_SLOTS = (
     "l1_ingestion",
     "l2_processing",
@@ -1182,6 +1191,8 @@ def synchronize() -> None:
             shutil.rmtree(target)
         shutil.copytree(SOURCE_ROOT, target)
         (target / ".contract-sha256").write_text(tree_digest + "\n", encoding="utf-8")
+    FLUTTER_DEMO_FIXTURE.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(FLUTTER_DEMO_SOURCE, FLUTTER_DEMO_FIXTURE)
 
 
 def check_synchronized() -> None:
@@ -1203,6 +1214,13 @@ def check_synchronized() -> None:
         marker = target / ".contract-sha256"
         if not marker.is_file() or marker.read_text(encoding="utf-8").strip() != tree_digest:
             raise RuntimeError(f"Generated contract digest is stale: {target}")
+    if (
+        not FLUTTER_DEMO_FIXTURE.is_file()
+        or FLUTTER_DEMO_FIXTURE.read_bytes() != FLUTTER_DEMO_SOURCE.read_bytes()
+    ):
+        raise RuntimeError(
+            f"Flutter demo deployment fixture is stale: {FLUTTER_DEMO_FIXTURE}"
+        )
 
 
 def main() -> int:
