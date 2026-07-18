@@ -119,7 +119,8 @@ response-to-log correlation, and central secret/path redaction under
 response bodies, telemetry/query payloads, signed function URLs, and raw
 exceptions are excluded from their public diagnostics. Timer- and
 Event-Grid-triggered functions do not expose this HTTP response contract and
-remain a separate runtime-observability review boundary tracked by
+instead use diagnostic-suppressed correlation logs while preserving the
+original Azure retry semantics under
 [#137](https://github.com/TVJunkie724/master-thesis/issues/137).
 
 Calculation traceability now connects the optimization profile and selected path to

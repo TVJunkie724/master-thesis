@@ -274,6 +274,14 @@ returning empty data as a successful response. The shared Inter-Cloud sender
 logs retry status and attempt metadata without provider response bodies or
 network exception text.
 
+The Event Grid Dispatcher and both timer-triggered storage movers use the same
+correlation helper without an HTTP response. Their application logs retain
+only a stable component and phase, the exception type, a UUID correlation
+identifier, and `diagnostic=<suppressed>`. Suppression is intentional because
+arbitrary telemetry and provider SDK exceptions cannot be proven safe through
+pattern redaction. The original exception is re-raised unchanged so Azure
+trigger retry semantics remain intact.
+
 ## Preflight And Verification
 
 Provider permission sets are versioned and can be checked before deployment. Data-flow

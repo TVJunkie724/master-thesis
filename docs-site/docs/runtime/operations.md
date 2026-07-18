@@ -34,6 +34,13 @@ Azure Function HTTP failures return a stable code and, for server-side failures,
 The matching log contains a bounded redacted diagnostic; the response deliberately
 does not expose provider bodies, stack traces, signed URLs, or configuration values.
 
+Event Grid and timer-triggered Azure Functions cannot return an HTTP error.
+Their failure records contain only component and phase, exception type, a UUID
+correlation identifier, and `diagnostic=<suppressed>`. Application logs omit
+payload, device, object, endpoint, and traceback details. The original
+exception is re-raised unchanged so the Azure host retains its configured
+retry behavior.
+
 ## Health Versus Readiness
 
 A running process does not prove cloud readiness. Distinguish:
