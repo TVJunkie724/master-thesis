@@ -71,6 +71,14 @@ boundary crosses clouds, and are forbidden for a single-cloud path. Generated
 copies below the Optimizer, Management API, and Deployer build contexts are
 never edited by hand.
 
+The two storage lifecycle transitions have explicit runtime ownership.
+Hot-to-cool executes beside the selected hot-storage provider;
+cool-to-archive executes beside the selected cool-storage provider. A
+cross-provider edge additionally requires the destination provider's registered
+writer/glue component. The source mover and destination writer are separate
+cost, evidence, deployment, and verification records; neither may be inferred
+from the destination storage slot.
+
 ```bash
 python scripts/sync_resolved_deployment_contract.py --sync --check
 ```

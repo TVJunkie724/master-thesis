@@ -49,6 +49,7 @@ google-*.json
 # -----------------------------------------------------------------------------
 # Local .terraform directories (provider plugins, modules)
 **/.terraform/
+**/.terraform.d/
 
 # Terraform state files - May contain sensitive data
 **/*.tfstate

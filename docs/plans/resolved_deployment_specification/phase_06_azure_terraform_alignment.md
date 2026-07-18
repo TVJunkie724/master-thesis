@@ -2,7 +2,7 @@
 
 **Issue:** [#133](https://github.com/TVJunkie724/master-thesis/issues/133)  
 **Status:** Reviewed and implementation-ready  
-**Blocked by:** #131
+**Blocked by:** #61, #131
 
 ## Target
 
@@ -15,6 +15,11 @@ selection represented by the active cost model.
 - Propagate the exact F1/S1/S2/S3 capacity result selected by the Optimizer.
 - Add validated Function plan variables where the current cost formula is
   specifically Consumption/Y1.
+- Bind both source-owned transition bundles to the shared L3 Function App plan
+  without contradictory per-slot plan values.
+- Make the hot-to-cool and cool-to-archive timer schedules consume resolved
+  baseline values. The current daily Azure cold-to-archive timer must not remain
+  inconsistent with a weekly Optimizer assumption.
 - Keep Consumption Function memory and duration as disclosed assumptions because
   Terraform cannot pin the billed runtime memory.
 - Add validated Cosmos deployment mode (`serverless`).
@@ -34,6 +39,7 @@ selection represented by the active cost model.
 - `src/terraform/azure_glue.tf`
 - `src/terraform/azure_grafana.tf`
 - Azure Blob writer/mover functions that apply runtime tiers
+- Azure transition timer functions and their shared Function App plan
 - focused Azure Terraform and function contract tests
 
 ## Tests and Gates

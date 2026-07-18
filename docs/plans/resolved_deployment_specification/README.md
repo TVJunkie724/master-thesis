@@ -32,13 +32,14 @@ Optimizer winner
 | 2 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Done: Optimizer emits an exact resolved specification | #127 |
 | 3 | [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Done: Management API validates, persists, freezes, and manifests it | #127, #129 |
 | 4 | [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Done: Deployer validates it and generates typed tfvars | #127, #130 |
-| 5 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | AWS Terraform alignment | #131 |
-| 6 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Azure Terraform alignment | #131 |
-| 7 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | GCP Terraform alignment | #131 |
+| 4b | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Source-owned storage transition runtimes and destination-owned writers | #127, #129, #130, #131 |
+| 5 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | AWS Terraform alignment | #61, #131 |
+| 6 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Azure Terraform alignment | #61, #131 |
+| 7 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | GCP Terraform alignment | #61, #131 |
 | 8 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Compact read-only Flutter review | #130 |
-| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #120, #127, #129, #130, #131, #132, #133, #134 |
+| 9 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Cross-stack no-apply drift gate and final audit | #61, #120, #127, #129, #130, #131, #132, #133, #134 |
 
-Provider phases 5-7 may be implemented after phase 4 in any order. Phase 9 is
+Provider phases 5-7 may be implemented after phase 4b in any order. Phase 9 is
 the only completion gate for parent issue #118.
 
 ## Non-Negotiable Rules

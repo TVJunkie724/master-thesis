@@ -2,7 +2,7 @@
 
 **Issue:** [#132](https://github.com/TVJunkie724/master-thesis/issues/132)  
 **Status:** Reviewed and implementation-ready  
-**Blocked by:** #131
+**Blocked by:** #61, #131
 
 ## Target
 
@@ -13,9 +13,15 @@ evidence only.
 ## Implementation
 
 - Add typed validated variables for standard and mover Lambda memory.
+- Bind the hot-to-cool and cool-to-archive transition runtime schedules and
+  memory values from their source-owned transition components.
+- Verify the EventBridge Scheduler/EventBridge trigger pricing source and ensure
+  the trigger contribution used by the Optimizer matches the deployed trigger.
 - Apply the standard profile to dispatcher, connector, ingestion, processing,
   reader, event, TwinMaker connector, and glue Lambdas.
 - Apply the mover profile only to lifecycle mover Lambdas.
+- Assert both transition Lambdas and trigger rules are enabled by the source
+  storage provider, never by the destination storage provider.
 - Add validated DynamoDB billing mode.
 - Add validated S3 cool and archive storage classes.
 - Align archive calculation and Terraform on `DEEP_ARCHIVE` unless the reviewed

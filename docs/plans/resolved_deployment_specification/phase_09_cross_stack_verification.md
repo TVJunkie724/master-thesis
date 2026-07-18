@@ -2,7 +2,7 @@
 
 **Issue:** [#128](https://github.com/TVJunkie724/master-thesis/issues/128)  
 **Status:** Reviewed and implementation-ready  
-**Blocked by:** #120, #127, #129, #130, #131, #132, #133, #134
+**Blocked by:** #61, #120, #127, #129, #130, #131, #132, #133, #134
 
 ## Target
 
@@ -31,6 +31,9 @@ fixed workload and catalog references
 - AWS Deep Archive path;
 - GCP Archive path;
 - standard versus mover function runtime profiles;
+- all 27 `(hot, cool, archive)` provider triples, covering all 9
+  source/destination pairs for each storage transition and exact
+  runtime/trigger tfvars;
 - legacy, missing, altered, unknown-version, unknown-value, provider-mismatch,
   and digest-mismatch negatives.
 

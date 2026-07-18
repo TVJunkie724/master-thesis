@@ -2,7 +2,7 @@
 
 **Issue:** [#120](https://github.com/TVJunkie724/master-thesis/issues/120)  
 **Status:** Reviewed and implementation-ready  
-**Blocked by:** #131
+**Blocked by:** #61, #131
 
 ## Target
 
@@ -17,6 +17,13 @@ and Firestore mode. L4 and L5 remain explicitly unsupported.
 - Apply standard settings to dispatcher, connector, ingestion, processing,
   readers, event functions, and glue.
 - Apply mover settings to lifecycle mover functions.
+- Bind both source-owned transition Function and Cloud Scheduler dimensions.
+- Remove the current same-cloud cold-to-archive ambiguity: one path must own
+  archival. Terraform must not deploy both a lifecycle-class transition and a
+  scheduled mover for the same logical edge unless the cost model and contract
+  explicitly model both.
+- Verify Cloud Scheduler pricing from the approved pricing source and include
+  it exactly once in the transition runtime formula.
 - Add validated Firestore Native mode.
 - Add validated Nearline and Archive storage classes.
 - Replace the L3 archive Coldline calculator/pricing intent with the reviewed
