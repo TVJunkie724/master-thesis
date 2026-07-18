@@ -78,3 +78,31 @@ def test_authentication_migration_rejects_conflicting_legacy_identity(tmp_path):
 
     with pytest.raises(RuntimeError, match="different user"):
         migrate(f"sqlite:///{database}")
+
+
+def test_authentication_migration_skips_unavailable_legacy_provider_column(tmp_path):
+    database = tmp_path / "auth-google-only.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE users (
+                id VARCHAR PRIMARY KEY,
+                email VARCHAR NOT NULL,
+                google_id VARCHAR
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO users VALUES ('u1', 'person@example.test', 'google-sub')"
+        )
+
+    actions = migrate(f"sqlite:///{database}")
+
+    with sqlite3.connect(database) as connection:
+        identities = connection.execute(
+            "SELECT provider, subject, user_id FROM external_identities"
+        ).fetchall()
+
+    assert "migrated google identities: 1" in actions
+    assert not any("uibk" in action for action in actions)
+    assert identities == [("google", "google-sub", "u1")]

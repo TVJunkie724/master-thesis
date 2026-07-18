@@ -7,6 +7,20 @@ import sqlite3
 import uuid
 
 
+LEGACY_IDENTITY_QUERIES = (
+    (
+        "google",
+        "google_id",
+        "SELECT id, email, google_id FROM users WHERE google_id IS NOT NULL",
+    ),
+    (
+        "uibk",
+        "uibk_id",
+        "SELECT id, email, uibk_id FROM users WHERE uibk_id IS NOT NULL",
+    ),
+)
+
+
 def _resolve_db_path() -> str:
     database_url = os.environ.get("DATABASE_URL", "sqlite:///./data/app.db")
     if database_url.startswith("sqlite:///"):
@@ -26,13 +40,11 @@ def migrate(database_url: str | None = None) -> list[str]:
         _create_tables(connection)
         actions.append("authentication tables ready")
         if _table_exists(connection, "users"):
-            columns = _columns(connection, "users")
-            for provider, column in (("google", "google_id"), ("uibk", "uibk_id")):
+            columns = _user_columns(connection)
+            for provider, column, query in LEGACY_IDENTITY_QUERIES:
                 if column not in columns:
                     continue
-                rows = connection.execute(
-                    f"SELECT id, email, {column} FROM users WHERE {column} IS NOT NULL"
-                ).fetchall()
+                rows = connection.execute(query).fetchall()
                 for user_id, email, subject in rows:
                     _assert_identity_slot_available(
                         connection,
@@ -166,8 +178,8 @@ def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
     ).fetchone() is not None
 
 
-def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
-    return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+def _user_columns(connection: sqlite3.Connection) -> set[str]:
+    return {row[1] for row in connection.execute("PRAGMA table_info(users)")}
 
 
 if __name__ == "__main__":
