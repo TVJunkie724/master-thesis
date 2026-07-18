@@ -109,6 +109,7 @@ when work becomes actionable, then reference the issue here.
 | [#11](https://github.com/TVJunkie724/master-thesis/issues/11) | Done | ProjectStorage abstraction for Deployer project data |
 | [#12](https://github.com/TVJunkie724/master-thesis/issues/12) | Done | Legacy global state replaced by explicit deployment context |
 | [#13](https://github.com/TVJunkie724/master-thesis/issues/13) | Done | Config loading unified through deployment context |
+| [#153 Design provider-managed secrets for user-function extensions](https://github.com/TVJunkie724/master-thesis/issues/153) | Planned hardening; blocked by #113 | Provider-managed secret-store and runtime-identity capability without plaintext or `CloudConnection` reuse |
 | [#14](https://github.com/TVJunkie724/master-thesis/issues/14) | Open | Reduce monolithic Deployer modules |
 | [#16](https://github.com/TVJunkie724/master-thesis/issues/16) | Open | Optimize L0 glue conditional deployment |
 | [#20](https://github.com/TVJunkie724/master-thesis/issues/20) | Open | Observability variables through config/API/UI |
@@ -189,8 +190,19 @@ when work becomes actionable, then reference the issue here.
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Reconstruct the implemented graph, freeze a hardened `five-layer-baseline@1`, define closed-world architecture-profile contracts, and evaluate `six-layer-eventing@1` separately. Agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
-| [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Active prerequisite | Establish the platform-owned component and user-code boundary required before resolved architecture profiles can bind extension slots safely |
+| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned epic | Closed-world architecture-profile program. Reviewed mini-roadmap: `docs/plans/phase_08_architecture_profiles_eventing/README.md`; agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
+| [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Planned prerequisite | Deterministic Python 3.11 extension boundary with typed non-secret configuration. Provider-managed user-function secrets are intentionally separate hardening work |
+| [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Planned, first | Code-verified current Function-and-Edge Matrix; no runtime behavior change |
+| [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Planned | Explicit executable `five-layer-baseline@1` decision contract |
+| [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Planned | Shared `ArchitectureProfile`, provider, component-catalog, and resolved-architecture contracts |
+| [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Planned | Registered AWS/Azure/GCP baseline implementations and deterministic deployer ownership |
+| [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Planned | Normalized profile selection, immutable resolved architecture, migration, and server-derived invalidation preview |
+| [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Planned | Functional-completeness gate before profile-local cost ranking |
+| [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Planned | Deterministic component/binding graph before package and Terraform side effects |
+| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Planned | Compact Management-API-only profile workflow for Web, macOS, Windows, and Linux |
+| [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Planned decision gate | Source-backed capability, pricing, scenario, envelope, and multi-cloud bridge decision |
+| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Blocked by decision gate | Executable `six-layer-eventing@1` through the same generic contracts |
+| [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Planned | RQ-mapped reproducibility package and complete current-system documentation |
 
 ### Later: Platform Extensions
 
@@ -221,13 +233,14 @@ when work becomes actionable, then reference the issue here.
    contracts are stable (#33 and #34).
 3. Complete the remaining functional issues, then run the user-led visual audit in
    [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-4. Complete the current-system hardening prerequisites, including the
-   user-function boundary in
-   [#113](https://github.com/TVJunkie724/master-thesis/issues/113), without
-   prematurely redesigning runtime topology.
-5. Execute Phase 8 through
-   [#112](https://github.com/TVJunkie724/master-thesis/issues/112): reconstruct
-   the current graph, freeze the hardened five-layer baseline, and only then
-   design and evaluate the Eventing extension and its multi-cloud bridge.
+4. Start Phase 8 with the code-verifiable graph reconstruction in
+   [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144).
+   Complete the user-function boundary in
+   [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113)
+   before Phase 8.3 finalizes extension-slot catalog bindings.
+5. Follow the reviewed
+   `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
+   skipping its baseline, contract, migration, functional-completeness,
+   deployment-graph, Flutter, or Eventing decision gates.
 6. Keep live-cloud E2E and finalization deferred until both the manual UI audit
    and architecture-profile work are complete.
