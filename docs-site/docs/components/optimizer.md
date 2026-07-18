@@ -267,6 +267,17 @@ The Optimizer and Management API share the same validated request shape. Managem
 persists the complete canonical representation; direct downstream forwarding preserves
 omitted additive assumptions so their provenance is not lost.
 
+### Executable Error-Handling Boundary
+
+`integrateErrorHandling` is retained only so historical calculation inputs can
+be inspected. The current `five-layer-baseline@1` has no matching provider
+resource topology, deployment specification dimension, or Terraform path.
+Therefore only `false` or omission is valid for a new calculation. The HTTP
+schema and direct calculation engine reject `true` with
+`UNSUPPORTED_ERROR_HANDLING_TOPOLOGY` before pricing catalogs or provider
+calculators are used. This rule is independent of the supported event-checking,
+workflow, feedback, and event-action inputs.
+
 [#110 Resolve Azure pricing fallback sources with catalog evidence](https://github.com/TVJunkie724/master-thesis/issues/110)
 records this hardening. The broader multi-service fetcher work remains tracked by
 [#32 Refresh optimizer pricing schema and provider fetchers for expanded services](https://github.com/TVJunkie724/master-thesis/issues/32).

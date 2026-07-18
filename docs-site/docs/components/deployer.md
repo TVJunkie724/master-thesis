@@ -238,6 +238,10 @@ layouts differ from AWS Lambda and GCP Cloud Functions; see
 - project/package contention returns conflicts instead of concurrent mutation.
 - specification and manifest failures expose stable bounded codes without
   archive paths, credential fields, or provider payloads.
+- flat and canonical nested optimization configs that request the unsupported
+  legacy error-handling topology fail with
+  `UNSUPPORTED_ERROR_HANDLING_TOPOLOGY`; the tolerant optional-config loader
+  cannot convert or swallow this violation.
 
 ## Preflight And Verification
 

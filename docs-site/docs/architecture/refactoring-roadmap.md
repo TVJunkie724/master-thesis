@@ -155,9 +155,9 @@ when work becomes actionable, then reference the issue here.
 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Done | AWS Lambda memory, DynamoDB billing, S3 storage classes, mover schedules, runtime class propagation, and trigger-pricing semantics are specification-aligned |
 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Done | Azure IoT Hub, Function plans, Cosmos mode, Blob/storage tiers, mover timers, Grafana, and topology-owned L0 resources are specification-aligned |
 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Done | GCP Function profiles/scaling, Firestore mode, Nearline/Archive classes, source-owned movers, Scheduler pricing/schedules, and cross-cloud writers are specification-aligned |
-| [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Ready | Reject the undeployed legacy error-handling topology at Optimizer, Management, Deployer, and Flutter boundaries |
+| [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Done | The undeployed legacy error-handling topology is rejected before calculation, persistence, credential resolution, package creation, and Terraform; historical values remain visible and event/workflow/feedback features remain separate |
 | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Ready | Centralize and redact Azure Function HTTP error contracts before the final drift gate |
-| [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Blocked by #130 | Add compact read-only Flutter deployment review |
+| [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Ready | Add compact read-only Flutter deployment review; prerequisite #130 is complete |
 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Final gate | Prove Optimizer-to-Terraform continuity with credential-free drift tests |
 | [#117](https://github.com/TVJunkie724/master-thesis/issues/117) | Done | Removed the unreachable Azure ADT Updater path; Azure L4 now has one package-, Terraform-, runtime-, security-, and documentation-tested Persister-to-ADT-Pusher topology |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |

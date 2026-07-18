@@ -73,6 +73,12 @@ The calculation evidence view records the supplied values, their source, the der
 operation/query-unit quantities, and the three separate Azure Digital Twins cost
 components.
 
+The Processing task shows **Integrate Error Handling** as unavailable for the
+current five-layer baseline. Historical configurations that enabled the legacy
+field remain visible as **Legacy, not deployable** and must be recalculated
+without that field before deployment. This does not disable event checking,
+notification workflows, device feedback, or configured event actions.
+
 ## Artifacts
 
 Data contracts, user functions, IoT payloads, hierarchy/state-machine files, and scene

@@ -104,9 +104,13 @@ is not a separate selected cost component. Empirical reconciliation remains in
 [#42](https://github.com/TVJunkie724/master-thesis/issues/42).
 
 The legacy `integrateErrorHandling` field is not an executable capability of
-the current baseline. Flutter keeps it disabled, but canonical API and
-Deployer rejection of historical/direct `true` payloads is tracked as required
-pre-final-gate hardening in
+the current baseline. Flutter keeps it disabled and exposes historical `true`
+values as legacy, non-deployable state. Optimizer, Management API, Deployer
+validation, package loading, and preflight reject new or historical execution
+attempts with `UNSUPPORTED_ERROR_HANDLING_TOPOLOGY` before calculation,
+persistence, credential resolution, or Terraform. Event checking, notification
+workflows, device feedback, and user event actions remain separate supported
+capabilities. This boundary was hardened under
 [#135](https://github.com/TVJunkie724/master-thesis/issues/135).
 
 Several historical Azure Function HTTP adapters still expose raw exception
