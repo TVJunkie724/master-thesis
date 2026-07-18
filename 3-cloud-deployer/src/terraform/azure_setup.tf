@@ -67,6 +67,134 @@ locals {
   # ADT URL must use the actual host_name from the resource (not string-constructed)
   # Azure's format is: name.api.region-code.digitaltwins.azure.net (e.g., .api.weu.)
   azure_adt_url = try("https://${azurerm_digital_twins_instance.main[0].host_name}", "")
+
+  # L0 is an implementation host, not a provider-wide foundation resource. Keep
+  # this condition aligned with function_registry.get_l0_for_config().
+  azure_cross_cloud_receiver_required = (
+    (var.layer_1_provider != var.layer_2_provider && var.layer_2_provider == "azure") ||
+    (var.layer_2_provider != var.layer_3_hot_provider && var.layer_3_hot_provider == "azure") ||
+    (var.layer_3_hot_provider != var.layer_3_cold_provider && var.layer_3_cold_provider == "azure") ||
+    (var.layer_3_cold_provider != var.layer_3_archive_provider && var.layer_3_archive_provider == "azure") ||
+    (var.layer_4_provider != var.layer_3_hot_provider && var.layer_3_hot_provider == "azure")
+  )
+  azure_l0_enabled = local.azure_cross_cloud_receiver_required || var.layer_4_provider == "azure"
+  azure_l0_function_plan_sku = (
+    var.layer_4_provider == "azure"
+    ? var.azure_l4_function_plan_sku
+    : var.azure_glue_function_plan_sku
+  )
+
+  azure_blob_storage_enabled = (
+    var.layer_3_cold_provider == "azure" ||
+    var.layer_3_archive_provider == "azure"
+  )
+  # Function Apps require a host storage account even when Azure does not own a
+  # costed Blob slot. Standard/LRS is the explicit support-resource invariant.
+  azure_effective_storage_account_tier = (
+    local.azure_blob_storage_enabled
+    ? coalesce(var.azure_storage_account_tier, "Standard")
+    : "Standard"
+  )
+  azure_effective_storage_replication_type = (
+    local.azure_blob_storage_enabled
+    ? coalesce(var.azure_storage_replication_type, "LRS")
+    : "LRS"
+  )
+}
+
+# Fail before provider execution if an active Azure component is missing its
+# immutable optimizer-owned deployment selection.
+resource "terraform_data" "azure_deployment_specification_guard" {
+  count = local.deploy_azure ? 1 : 0
+
+  input = {
+    iot_hub_sku                    = var.azure_iot_hub_sku
+    iot_hub_capacity               = var.azure_iot_hub_capacity
+    l1_function_plan_sku           = var.azure_l1_function_plan_sku
+    l2_function_plan_sku           = var.azure_l2_function_plan_sku
+    cosmos_capacity_mode           = var.azure_cosmos_capacity_mode
+    l3_function_plan_sku           = var.azure_l3_function_plan_sku
+    storage_account_tier           = var.azure_storage_account_tier
+    storage_replication_type       = var.azure_storage_replication_type
+    l3_cool_blob_tier              = var.azure_l3_cool_blob_tier
+    hot_to_cool_timer_schedule     = var.azure_hot_to_cool_timer_schedule
+    l3_archive_blob_tier           = var.azure_l3_archive_blob_tier
+    cool_to_archive_timer_schedule = var.azure_cool_to_archive_timer_schedule
+    l4_function_plan_sku           = var.azure_l4_function_plan_sku
+    grafana_sku                    = var.azure_grafana_sku
+    glue_function_plan_sku         = var.azure_glue_function_plan_sku
+  }
+
+  lifecycle {
+    precondition {
+      condition = var.layer_1_provider != "azure" || (
+        var.azure_iot_hub_sku != null &&
+        var.azure_iot_hub_capacity != null &&
+        var.azure_l1_function_plan_sku != null
+      )
+      error_message = "Azure L1 requires IoT Hub SKU/capacity and Function plan selections from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_1_provider != "azure" || (
+        var.azure_iot_hub_sku == "F1" ? var.azure_iot_hub_capacity == 1 :
+        var.azure_iot_hub_sku == "S1" ? var.azure_iot_hub_capacity >= 1 && var.azure_iot_hub_capacity <= 200 :
+        var.azure_iot_hub_sku == "S2" ? var.azure_iot_hub_capacity >= 1 && var.azure_iot_hub_capacity <= 200 :
+        var.azure_iot_hub_sku == "S3" ? var.azure_iot_hub_capacity >= 1 && var.azure_iot_hub_capacity <= 10 :
+        false
+      )
+      error_message = "Azure IoT Hub SKU/capacity combination is outside the resolved deployment contract."
+    }
+    precondition {
+      condition     = var.layer_2_provider != "azure" || var.azure_l2_function_plan_sku != null
+      error_message = "Azure L2 requires azure_l2_function_plan_sku from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_3_hot_provider != "azure" || (
+        var.azure_cosmos_capacity_mode != null &&
+        var.azure_l3_function_plan_sku != null &&
+        var.azure_hot_to_cool_timer_schedule != null
+      )
+      error_message = "Azure L3 hot requires Cosmos, Function plan, and hot-to-cool schedule selections from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_3_cold_provider != "azure" || (
+        var.azure_storage_account_tier != null &&
+        var.azure_storage_replication_type != null &&
+        var.azure_l3_cool_blob_tier != null &&
+        var.azure_l3_function_plan_sku != null &&
+        var.azure_cool_to_archive_timer_schedule != null
+      )
+      error_message = "Azure L3 cool requires storage, Blob tier, Function plan, and cool-to-archive schedule selections from the resolved deployment specification."
+    }
+    precondition {
+      condition = var.layer_3_archive_provider != "azure" || (
+        var.azure_storage_account_tier != null &&
+        var.azure_storage_replication_type != null &&
+        var.azure_l3_archive_blob_tier != null
+      )
+      error_message = "Azure L3 archive requires storage and Blob tier selections from the resolved deployment specification."
+    }
+    precondition {
+      condition     = var.layer_4_provider != "azure" || var.azure_l4_function_plan_sku != null
+      error_message = "Azure L4 requires azure_l4_function_plan_sku from the resolved deployment specification."
+    }
+    precondition {
+      condition     = var.layer_5_provider != "azure" || var.azure_grafana_sku != null
+      error_message = "Azure L5 requires azure_grafana_sku from the resolved deployment specification."
+    }
+    precondition {
+      condition     = !local.azure_cross_cloud_receiver_required || var.azure_glue_function_plan_sku != null
+      error_message = "Azure cross-cloud receivers require azure_glue_function_plan_sku from the resolved deployment specification."
+    }
+    precondition {
+      condition = (
+        var.azure_l4_function_plan_sku == null ||
+        var.azure_glue_function_plan_sku == null ||
+        var.azure_l4_function_plan_sku == var.azure_glue_function_plan_sku
+      )
+      error_message = "Azure L4 pusher and cross-cloud receivers share one L0 Function plan and must select the same SKU."
+    }
+  }
 }
 
 # ==============================================================================
@@ -103,8 +231,8 @@ resource "azurerm_storage_account" "main" {
   name                     = local.azure_storage_account_name
   resource_group_name      = azurerm_resource_group.main[0].name
   location                 = azurerm_resource_group.main[0].location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
+  account_tier             = local.azure_effective_storage_account_tier
+  account_replication_type = local.azure_effective_storage_replication_type
   min_tls_version          = "TLS1_2"
 
   # CORS configuration for Azure 3D Scenes Studio
@@ -133,4 +261,3 @@ locals {
     "DefaultEndpointsProtocol=https;AccountName=${azurerm_storage_account.main[0].name};AccountKey=${azurerm_storage_account.main[0].primary_access_key};EndpointSuffix=core.windows.net"
   ) : ""
 }
-

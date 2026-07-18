@@ -16,7 +16,7 @@ import sys
 import logging
 
 import azure.functions as func
-from azure.storage.blob import BlobServiceClient, StandardBlobTier
+from azure.storage.blob import BlobServiceClient
 
 # Handle import path for shared module
 try:
@@ -34,6 +34,7 @@ except ModuleNotFoundError:
 _inter_cloud_token = None
 _blob_connection_string = None
 _archive_storage_container = None
+_archive_blob_tier = None
 
 
 def _get_inter_cloud_token():
@@ -55,6 +56,13 @@ def _get_archive_storage_container():
     if _archive_storage_container is None:
         _archive_storage_container = require_env("ARCHIVE_STORAGE_CONTAINER")
     return _archive_storage_container
+
+
+def _get_archive_blob_tier():
+    global _archive_blob_tier
+    if _archive_blob_tier is None:
+        _archive_blob_tier = require_env("ARCHIVE_BLOB_TIER")
+    return _archive_blob_tier
 
 
 # Blob container (lazy initialized)
@@ -115,7 +123,7 @@ def archive_writer(req: func.HttpRequest) -> func.HttpResponse:
         blob_client.upload_blob(
             data,
             overwrite=True,
-            standard_blob_tier=StandardBlobTier.ARCHIVE
+            standard_blob_tier=_get_archive_blob_tier()
         )
         
         logging.info(f"Wrote {object_key} to archive tier")

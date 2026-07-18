@@ -223,6 +223,182 @@ variable "aws_glue_lambda_memory_mb" {
 }
 
 # ==============================================================================
+# Resolved Deployment Specification - Azure
+# ==============================================================================
+
+variable "azure_iot_hub_sku" {
+  description = "Specification-selected Azure IoT Hub SKU"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_iot_hub_sku == null || contains(["F1", "S1", "S2", "S3"], var.azure_iot_hub_sku)
+    error_message = "azure_iot_hub_sku must be F1, S1, S2, or S3 when provided."
+  }
+}
+
+variable "azure_iot_hub_capacity" {
+  description = "Specification-selected Azure IoT Hub unit capacity"
+  type        = number
+  default     = null
+
+  validation {
+    condition = (
+      var.azure_iot_hub_capacity == null ||
+      (
+        var.azure_iot_hub_capacity >= 1 &&
+        var.azure_iot_hub_capacity <= 200 &&
+        floor(var.azure_iot_hub_capacity) == var.azure_iot_hub_capacity
+      )
+    )
+    error_message = "azure_iot_hub_capacity must be an integer between 1 and 200 when provided."
+  }
+}
+
+variable "azure_l1_function_plan_sku" {
+  description = "Specification-selected Azure L1 Function plan SKU"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_l1_function_plan_sku == null || var.azure_l1_function_plan_sku == "Y1"
+    error_message = "azure_l1_function_plan_sku must be Y1 when provided."
+  }
+}
+
+variable "azure_l2_function_plan_sku" {
+  description = "Specification-selected Azure L2 Function plan SKU"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_l2_function_plan_sku == null || var.azure_l2_function_plan_sku == "Y1"
+    error_message = "azure_l2_function_plan_sku must be Y1 when provided."
+  }
+}
+
+variable "azure_cosmos_capacity_mode" {
+  description = "Specification-selected Azure Cosmos DB capacity mode"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_cosmos_capacity_mode == null || var.azure_cosmos_capacity_mode == "serverless"
+    error_message = "azure_cosmos_capacity_mode must be serverless when provided."
+  }
+}
+
+variable "azure_l3_function_plan_sku" {
+  description = "Specification-selected shared Azure L3 Function plan SKU"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_l3_function_plan_sku == null || var.azure_l3_function_plan_sku == "Y1"
+    error_message = "azure_l3_function_plan_sku must be Y1 when provided."
+  }
+}
+
+variable "azure_storage_account_tier" {
+  description = "Specification-selected Azure Blob storage account tier"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_storage_account_tier == null || var.azure_storage_account_tier == "Standard"
+    error_message = "azure_storage_account_tier must be Standard when provided."
+  }
+}
+
+variable "azure_storage_replication_type" {
+  description = "Specification-selected Azure Blob storage replication type"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_storage_replication_type == null || var.azure_storage_replication_type == "LRS"
+    error_message = "azure_storage_replication_type must be LRS when provided."
+  }
+}
+
+variable "azure_l3_cool_blob_tier" {
+  description = "Specification-selected Azure L3 cool Blob access tier"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_l3_cool_blob_tier == null || var.azure_l3_cool_blob_tier == "Cool"
+    error_message = "azure_l3_cool_blob_tier must be Cool when provided."
+  }
+}
+
+variable "azure_hot_to_cool_timer_schedule" {
+  description = "Specification-selected Azure hot-to-cool NCRONTAB schedule"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_hot_to_cool_timer_schedule == null || var.azure_hot_to_cool_timer_schedule == "0 0 0 * * *"
+    error_message = "azure_hot_to_cool_timer_schedule must be 0 0 0 * * * when provided."
+  }
+}
+
+variable "azure_l3_archive_blob_tier" {
+  description = "Specification-selected Azure L3 archive Blob access tier"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_l3_archive_blob_tier == null || var.azure_l3_archive_blob_tier == "Archive"
+    error_message = "azure_l3_archive_blob_tier must be Archive when provided."
+  }
+}
+
+variable "azure_cool_to_archive_timer_schedule" {
+  description = "Specification-selected Azure cool-to-archive NCRONTAB schedule"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_cool_to_archive_timer_schedule == null || var.azure_cool_to_archive_timer_schedule == "0 0 0 * * 0"
+    error_message = "azure_cool_to_archive_timer_schedule must be 0 0 0 * * 0 when provided."
+  }
+}
+
+variable "azure_l4_function_plan_sku" {
+  description = "Specification-selected Azure L4 pusher Function plan SKU"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_l4_function_plan_sku == null || var.azure_l4_function_plan_sku == "Y1"
+    error_message = "azure_l4_function_plan_sku must be Y1 when provided."
+  }
+}
+
+variable "azure_grafana_sku" {
+  description = "Specification-selected Azure Managed Grafana SKU"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_grafana_sku == null || var.azure_grafana_sku == "Standard"
+    error_message = "azure_grafana_sku must be Standard when provided."
+  }
+}
+
+variable "azure_glue_function_plan_sku" {
+  description = "Specification-selected Azure cross-cloud receiver Function plan SKU"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_glue_function_plan_sku == null || var.azure_glue_function_plan_sku == "Y1"
+    error_message = "azure_glue_function_plan_sku must be Y1 when provided."
+  }
+}
+
+# ==============================================================================
 # Azure Credentials (from config_credentials.json)
 # ==============================================================================
 

@@ -33,9 +33,13 @@ resource "azurerm_cosmosdb_account" "main" {
   offer_type          = "Standard"
   kind                = "GlobalDocumentDB"
 
-  # Serverless capacity mode
-  capabilities {
-    name = "EnableServerless"
+  # The closed-world contract currently permits only serverless capacity.
+  dynamic "capabilities" {
+    for_each = var.azure_cosmos_capacity_mode == "serverless" ? [1] : []
+
+    content {
+      name = "EnableServerless"
+    }
   }
 
   consistency_policy {
@@ -113,7 +117,7 @@ resource "azurerm_service_plan" "l3" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1"
+  sku_name            = var.azure_l3_function_plan_sku
 
   tags = local.common_tags
 }
@@ -186,6 +190,12 @@ resource "azurerm_linux_function_app" "l3" {
     # Mover intervals (in days)
     HOT_TO_COLD_DAYS     = var.layer_3_hot_to_cold_interval_days
     COLD_TO_ARCHIVE_DAYS = var.layer_3_cold_to_archive_interval_days
+
+    # Optimizer-owned runtime deployment selections
+    HOT_TO_COOL_TIMER_SCHEDULE     = var.layer_3_hot_provider == "azure" ? var.azure_hot_to_cool_timer_schedule : ""
+    COOL_TO_ARCHIVE_TIMER_SCHEDULE = var.layer_3_cold_provider == "azure" ? var.azure_cool_to_archive_timer_schedule : ""
+    COLD_BLOB_TIER                 = var.layer_3_cold_provider == "azure" ? var.azure_l3_cool_blob_tier : ""
+    ARCHIVE_BLOB_TIER              = var.layer_3_archive_provider == "azure" ? var.azure_l3_archive_blob_tier : ""
 
     # Digital Twin info
     DIGITAL_TWIN_NAME = var.digital_twin_name

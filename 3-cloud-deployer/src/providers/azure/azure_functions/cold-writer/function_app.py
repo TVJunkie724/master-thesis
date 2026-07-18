@@ -34,6 +34,7 @@ except ModuleNotFoundError:
 _inter_cloud_token = None
 _blob_connection_string = None
 _cold_storage_container = None
+_cold_blob_tier = None
 
 
 def _get_inter_cloud_token():
@@ -55,6 +56,13 @@ def _get_cold_storage_container():
     if _cold_storage_container is None:
         _cold_storage_container = require_env("COLD_STORAGE_CONTAINER")
     return _cold_storage_container
+
+
+def _get_cold_blob_tier():
+    global _cold_blob_tier
+    if _cold_blob_tier is None:
+        _cold_blob_tier = require_env("COLD_BLOB_TIER")
+    return _cold_blob_tier
 
 
 # Blob container (lazy initialized)
@@ -128,7 +136,7 @@ def cold_writer(req: func.HttpRequest) -> func.HttpResponse:
         blob_client.upload_blob(
             json.dumps(items, default=str),
             overwrite=True,
-            standard_blob_tier="Cool"
+            standard_blob_tier=_get_cold_blob_tier()
         )
         
         logging.info(f"Wrote {len(items)} items to blob: {blob_name}")

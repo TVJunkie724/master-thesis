@@ -197,6 +197,77 @@ def test_unsupported_aws_deployable_values_fail_preflight(terraform_target):
 
 
 @pytest.mark.parametrize(
+    "terraform_target",
+    (
+        "azure_iot_hub_sku",
+        "azure_iot_hub_capacity",
+        "azure_l1_function_plan_sku",
+        "azure_l2_function_plan_sku",
+        "azure_cosmos_capacity_mode",
+        "azure_l3_function_plan_sku",
+        "azure_storage_account_tier",
+        "azure_storage_replication_type",
+        "azure_l3_cool_blob_tier",
+        "azure_hot_to_cool_timer_schedule",
+        "azure_l3_archive_blob_tier",
+        "azure_cool_to_archive_timer_schedule",
+        "azure_l4_function_plan_sku",
+        "azure_grafana_sku",
+        "azure_glue_function_plan_sku",
+    ),
+)
+def test_unsupported_azure_deployable_values_fail_preflight(terraform_target):
+    fixture_name = (
+        "mixed-providers.json"
+        if terraform_target == "azure_glue_function_plan_sku"
+        else "all-azure.json"
+    )
+    specification = load_specification(fixture_name)
+    providers = provider_config_for_specification(specification)
+    matched = False
+    for component in specification["components"]:
+        for dimension in component["dimensions"]:
+            if dimension.get("terraform_target") != terraform_target:
+                continue
+            matched = True
+            dimension["value"] = (
+                -1 if isinstance(dimension["value"], int) else "__unsupported__"
+            )
+    assert matched, f"Missing fixture target: {terraform_target}"
+    specification["digest"] = calculate_digest(specification)
+
+    with pytest.raises(DeploymentSpecificationError) as exc_info:
+        validate_deployment_manifest(
+            deployment_manifest(specification, providers=providers),
+            providers,
+        )
+
+    assert exc_info.value.code == "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH"
+
+
+def test_azure_iot_hub_sku_capacity_combination_fails_preflight():
+    specification = load_specification("all-azure.json")
+    providers = provider_config_for_specification(specification)
+    for component in specification["components"]:
+        if component["component_id"] != "l1.azure.iot_hub":
+            continue
+        for dimension in component["dimensions"]:
+            if dimension.get("terraform_target") == "azure_iot_hub_capacity":
+                dimension["value"] = 2
+    specification["digest"] = calculate_digest(specification)
+
+    with pytest.raises(DeploymentSpecificationError) as exc_info:
+        validate_deployment_manifest(
+            deployment_manifest(specification, providers=providers),
+            providers,
+        )
+
+    assert exc_info.value.code == "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH"
+    assert exc_info.value.field.endswith("l1.azure.iot_hub")
+    assert "combination is unsupported" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
     "fixture_name",
     (
         "missing-transition-runtime.json",

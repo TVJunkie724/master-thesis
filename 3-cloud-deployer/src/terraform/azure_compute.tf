@@ -24,7 +24,7 @@ resource "azurerm_service_plan" "l2" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  sku_name            = var.azure_l2_function_plan_sku
 
   tags = local.common_tags
 }

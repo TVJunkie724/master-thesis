@@ -27,12 +27,12 @@
 # ==============================================================================
 
 resource "azurerm_service_plan" "l0" {
-  count               = local.deploy_azure ? 1 : 0
+  count               = local.azure_l0_enabled ? 1 : 0
   name                = local.azure_l0_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  sku_name            = local.azure_l0_function_plan_sku
 
   tags = local.common_tags
 }
@@ -42,7 +42,7 @@ resource "azurerm_service_plan" "l0" {
 # ==============================================================================
 
 resource "azurerm_linux_function_app" "l0_glue" {
-  count               = local.deploy_azure ? 1 : 0
+  count               = local.azure_l0_enabled ? 1 : 0
   name                = local.azure_l0_glue_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -110,6 +110,8 @@ resource "azurerm_linux_function_app" "l0_glue" {
     BLOB_CONNECTION_STRING    = var.layer_3_cold_provider == "azure" || var.layer_3_archive_provider == "azure" ? local.azure_storage_connection_string : ""
     COLD_STORAGE_CONTAINER    = var.layer_3_cold_provider == "azure" ? azurerm_storage_container.cold[0].name : ""
     ARCHIVE_STORAGE_CONTAINER = var.layer_3_archive_provider == "azure" ? azurerm_storage_container.archive[0].name : ""
+    COLD_BLOB_TIER            = var.layer_3_cold_provider == "azure" ? var.azure_l3_cool_blob_tier : ""
+    ARCHIVE_BLOB_TIER         = var.layer_3_archive_provider == "azure" ? var.azure_l3_archive_blob_tier : ""
 
     # Full Digital Twin configuration - required by ingestion for routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json

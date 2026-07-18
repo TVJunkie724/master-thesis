@@ -26,8 +26,8 @@ resource "azurerm_iothub" "main" {
   location            = local.azure_iothub_region
 
   sku {
-    name     = "S1"
-    capacity = 1
+    name     = var.azure_iot_hub_sku
+    capacity = var.azure_iot_hub_capacity
   }
 
   tags = local.common_tags
@@ -63,7 +63,7 @@ resource "azurerm_service_plan" "l1" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  sku_name            = var.azure_l1_function_plan_sku
 
   tags = local.common_tags
 }
@@ -214,4 +214,3 @@ resource "azurerm_eventgrid_system_topic_event_subscription" "iothub_to_dispatch
   # Ensure the function app (with code) is deployed and synced before creating the subscription
   depends_on = [time_sleep.wait_for_function_sync]
 }
-

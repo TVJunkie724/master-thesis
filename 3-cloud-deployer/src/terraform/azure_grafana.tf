@@ -27,8 +27,7 @@ resource "azurerm_dashboard_grafana" "main" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
 
-  # Standard SKU for production use
-  sku = "Standard"
+  sku = var.azure_grafana_sku
 
   # Grafana version (11 required for Standard SKU as of 2024)
   grafana_major_version = "11"
@@ -111,4 +110,3 @@ resource "time_sleep" "wait_for_grafana_role" {
   create_duration = "180s"
   depends_on      = [azurerm_role_assignment.grafana_deployer]
 }
-

@@ -17,7 +17,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 import azure.functions as func
-from azure.storage.blob import BlobServiceClient, StandardBlobTier
+from azure.storage.blob import BlobServiceClient
 
 # Handle import path for shared module
 try:
@@ -41,6 +41,7 @@ _digital_twin_info = None
 _blob_connection_string = None
 _cold_storage_container = None
 _archive_storage_container = None
+_archive_blob_tier = None
 
 
 def _get_digital_twin_info():
@@ -69,6 +70,13 @@ def _get_archive_storage_container():
     if _archive_storage_container is None:
         _archive_storage_container = require_env("ARCHIVE_STORAGE_CONTAINER")
     return _archive_storage_container
+
+
+def _get_archive_blob_tier():
+    global _archive_blob_tier
+    if _archive_blob_tier is None:
+        _archive_blob_tier = require_env("ARCHIVE_BLOB_TIER")
+    return _archive_blob_tier
 
 
 # Multi-cloud config (optional)
@@ -135,12 +143,16 @@ def _post_to_remote_archive_writer(object_key: str, data: str) -> None:
 
 
 @app.function_name(name="cold-to-archive-mover")
-@app.timer_trigger(schedule="0 0 0 * * *", arg_name="timer", run_on_startup=False)
+@app.timer_trigger(
+    schedule="%COOL_TO_ARCHIVE_TIMER_SCHEDULE%",
+    arg_name="timer",
+    run_on_startup=False,
+)
 def cold_to_archive_mover(timer: func.TimerRequest) -> None:
     """
     Move aged data from Blob Cool to Archive tier.
     
-    Runs daily at midnight UTC.
+    Runs weekly at midnight UTC under the baseline deployment contract.
     """
     logging.info("Azure Cold-to-Archive Mover: Starting")
     
@@ -161,7 +173,11 @@ def cold_to_archive_mover(timer: func.TimerRequest) -> None:
         
         blob_service = _get_blob_service()
         cold_container = blob_service.get_container_client(_get_cold_storage_container())
-        archive_container = blob_service.get_container_client(_get_archive_storage_container())
+        archive_container = (
+            None
+            if multi_cloud
+            else blob_service.get_container_client(_get_archive_storage_container())
+        )
         
         # List blobs in cold container
         blobs = list(cold_container.list_blobs())
@@ -187,11 +203,15 @@ def cold_to_archive_mover(timer: func.TimerRequest) -> None:
                 else:
                     # Copy to archive container with Archive tier
                     source_blob = cold_container.get_blob_client(blob_name)
+                    if archive_container is None:
+                        raise ConfigurationError(
+                            "Archive container is unavailable in local mode"
+                        )
                     dest_blob = archive_container.get_blob_client(blob_name)
                     
                     dest_blob.start_copy_from_url(
                         source_blob.url,
-                        standard_blob_tier=StandardBlobTier.ARCHIVE
+                        standard_blob_tier=_get_archive_blob_tier()
                     )
                     logging.info(f"Copied {blob_name} to archive tier")
                 

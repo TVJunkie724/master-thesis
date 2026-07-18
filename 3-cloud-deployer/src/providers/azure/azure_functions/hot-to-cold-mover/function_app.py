@@ -46,6 +46,7 @@ _cosmos_db_database = None
 _cosmos_db_container = None
 _blob_connection_string = None
 _cold_storage_container = None
+_cold_blob_tier = None
 
 def _get_digital_twin_info():
     global _digital_twin_info
@@ -88,6 +89,13 @@ def _get_cold_storage_container():
     if _cold_storage_container is None:
         _cold_storage_container = require_env("COLD_STORAGE_CONTAINER")
     return _cold_storage_container
+
+
+def _get_cold_blob_tier():
+    global _cold_blob_tier
+    if _cold_blob_tier is None:
+        _cold_blob_tier = require_env("COLD_BLOB_TIER")
+    return _cold_blob_tier
 
 
 # Multi-cloud config (optional)
@@ -226,7 +234,7 @@ def _write_to_local_blob(
     blob_client.upload_blob(
         body,
         overwrite=True,
-        standard_blob_tier="Cool"
+        standard_blob_tier=_get_cold_blob_tier()
     )
     
     logging.info(f"Wrote {len(items)} items to blob: {blob_name}")
@@ -243,7 +251,11 @@ def _delete_from_cosmos(container, items: list) -> None:
 
 
 @bp.function_name(name="hot-to-cold-mover")
-@bp.timer_trigger(schedule="0 0 0 * * *", arg_name="timer", run_on_startup=False)
+@bp.timer_trigger(
+    schedule="%HOT_TO_COOL_TIMER_SCHEDULE%",
+    arg_name="timer",
+    run_on_startup=False,
+)
 def hot_to_cold_mover(timer: func.TimerRequest) -> None:
     """
     Move aged data from Cosmos DB to cold storage.
