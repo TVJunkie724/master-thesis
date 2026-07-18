@@ -575,7 +575,7 @@ Edge cases:
 - [x] Analyzer, full Flutter tests, Web/macOS builds, Management contract
       tests, strict docs, and diff gates pass.
 - [x] Documentation matches the implementation.
-- [ ] #134 is closed with commit and verification evidence after commit.
+- [x] #134 is closed with commit and verification evidence.
 
 ## 13. Verification Evidence
 
