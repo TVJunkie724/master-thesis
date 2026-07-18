@@ -26,10 +26,23 @@ The API returns metadata and validation results, never the stored plaintext payl
 
 ## Bootstrap A Scoped Connection
 
-When supported, a transient administrator credential can create a versioned scoped
-credential. The generated connection is encrypted and persisted; administrator
-plaintext is discarded after the operation. The administrator credential is not a
-profile secret and cannot be read back.
+The current bootstrap is a manual, versioned static-script workflow:
+
+1. request the provider bootstrap plan through the authenticated Management API;
+2. review the returned dry-run command and cloud scope;
+3. authenticate through the provider CLI outside the application;
+4. run the script without `--apply`, review its plan, then apply explicitly;
+5. store its generated deployment CloudConnection JSON only in an ignored local path;
+6. import that generated connection and validate it before binding it to a twin.
+
+The Management API never receives or persists the administrator credential. Current
+bootstrap scripts create deployment identities only. AWS and GCP pricing connections
+are created/imported separately; Azure pricing uses its public API path.
+Flutter does not currently expose the bootstrap plan/import workflow, so operators use
+the Management OpenAPI/HTTP boundary for these two steps.
+
+See [Cloud Setup](../cloud-setup/index.md) for provider-specific commands and security
+rules.
 
 ## Delete Or Replace
 

@@ -9,7 +9,7 @@
 | OAuth/SAML provider secret/key | long-lived runtime secret | deployment secret/config boundary | authenticate the Management API to an external IdP |
 | login state/poll verifier | one short transaction | database digest; opaque value held by browser/client | correlate and consume an external login once |
 | application access token | short-lived session | Flutter process memory plus revocable DB session ID | authorize Management API calls |
-| bootstrap/admin credential | one operation | transient request memory | create scoped provider credentials |
+| bootstrap/admin session | one operator session | external provider CLI; never sent to the app | create a scoped deployment identity through the versioned script |
 | deployment CloudConnection | reusable, user-owned | encrypted database payload | validate and deploy a twin |
 | pricing CloudConnection | reusable user default | encrypted database payload | refresh provider pricing |
 | local credential overlay | development compatibility | ignored read-only files | supervised checks and sample seeding |
@@ -21,6 +21,7 @@ valid substitutes for application runtime secrets.
 
 - CloudConnections are owner-scoped and encrypted with Fernet-compatible key material.
 - API responses expose metadata, not decrypted payloads.
+- bootstrap plan/import endpoints never accept provider administrator credentials;
 - secret redaction is applied to downstream validation messages and logs;
 - bound connections cannot be silently deleted into dangling references;
 - credential operations are rate limited by operation class and authenticated user;

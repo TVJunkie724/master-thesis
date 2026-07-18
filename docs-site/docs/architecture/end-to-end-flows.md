@@ -61,18 +61,20 @@ pricing evidence.
 ## Credential Bootstrap And Use
 
 ```text
-transient admin/bootstrap credential
-  -> provider bootstrap service
-  -> create/version least-privilege credential material
-  -> encrypt and persist CloudConnection
-  -> discard admin plaintext
+Management bootstrap plan (no admin secret)
+  -> versioned provider script and dry-run command
+  -> operator authenticates in provider CLI outside the app
+  -> explicit script apply creates scoped deployment identity
+  -> ignored local CloudConnection JSON
+  -> authenticated import encrypts and persists CloudConnection
   -> validate/preflight by purpose
-  -> bind deployment connection to twin or set user pricing default
+  -> bind deployment connection to twin
 ```
 
-Bootstrap credentials are not intended to become reusable stored admin credentials.
-Pricing credentials are user-level defaults; deployment credentials can be bound to
-individual twins.
+Bootstrap/admin credentials never cross the application boundary. The current scripts
+produce deployment credentials only. AWS and GCP pricing credentials are imported
+separately as user-level defaults; Azure pricing uses a public API. Deployment
+credentials can be bound to individual twins.
 
 ## Deployment
 

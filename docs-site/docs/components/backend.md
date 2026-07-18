@@ -49,7 +49,7 @@ FastAPI route
 | `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
-| `/cloud-bootstrap` | transient admin credential bootstrap/validate workflows |
+| `/cloud-bootstrap` | secret-free manual bootstrap plans and generated deployment-connection import |
 | `/cloud-access` | account-level capability inventory |
 | `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
 | `/optimizer/pricing-refresh` | provider refresh run lifecycle |

@@ -44,7 +44,9 @@ development auth is deliberately not a production substitute.
 ### Credential Operations
 
 Versioned provider bootstrap scripts and encrypted import are implemented. Fully
-request-scoped in-app administrator bootstrap is not yet the canonical runtime path.
+automated in-app administrator bootstrap is not implemented: the app provides a
+secret-free Management API plan/import workflow while provider administration stays
+in the external CLI session. Flutter does not currently expose that workflow.
 Encryption-key rotation requires explicit re-encryption tooling.
 
 ### Provider Permissions

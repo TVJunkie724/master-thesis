@@ -15,6 +15,8 @@ docs-site/
     getting-started/      first-use paths
     user-guide/           user workflows
     architecture/         boundaries, flows, evolution
+    contracts-and-data-flow/
+                          visual cross-project contracts and runtime flows
     components/           project internals
     runtime/              configuration and operation
     cloud-setup/          provider/security setup
@@ -34,7 +36,9 @@ live separately under `docs/research/`. Final thesis prose lives under
 - do not present proposed research contributions as implemented product behavior;
 - never include live credentials, account IDs, private endpoints, or ignored files;
 - place diagrams beside the explanation they support;
-- prefer ASCII for maintained flows and existing images for historical/contextual value;
+- preserve useful ASCII diagrams in their existing context;
+- use Mermaid for the dedicated cross-project contract and runtime-flow reference;
+- keep each diagram paired with prose or a table that defines its exact semantics;
 - link exact API fields to live OpenAPI rather than copying large drifting schemas;
 - use GitHub issues for active work, not new `future-work.md` backlogs;
 - update provenance when historical source material is revised or retired.

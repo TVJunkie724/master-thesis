@@ -32,6 +32,13 @@ theme:
 extra_javascript:
   - javascripts/external-links.js
 
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
 nav:
   - Home: index.md
   - Getting Started:
@@ -51,6 +58,14 @@ nav:
       - Project Background: architecture/project-background.md
       - Roadmap: architecture/roadmap.md
       - Refactoring Roadmap: architecture/refactoring-roadmap.md
+  - Contracts & Data Flow:
+      - Overview: contracts-and-data-flow/index.md
+      - System Boundaries: contracts-and-data-flow/system-boundaries.md
+      - Cross-Project Contract Map: contracts-and-data-flow/contract-map.md
+      - Pricing & Optimization: contracts-and-data-flow/pricing-optimization.md
+      - Deployment Lifecycle: contracts-and-data-flow/deployment-lifecycle.md
+      - Credentials & Trust: contracts-and-data-flow/credentials-and-trust.md
+      - State Ownership: contracts-and-data-flow/state-ownership.md
   - Components:
       - Flutter UI: components/flutter.md
       - Management API: components/backend.md
