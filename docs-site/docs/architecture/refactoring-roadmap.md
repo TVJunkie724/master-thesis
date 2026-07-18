@@ -189,7 +189,7 @@ when work becomes actionable, then reference the issue here.
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Reconstruct the implemented graph, freeze a hardened `five-layer-baseline@1`, define closed-world architecture-profile contracts, and evaluate `six-layer-eventing@1` separately |
+| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned | Reconstruct the implemented graph, freeze a hardened `five-layer-baseline@1`, define closed-world architecture-profile contracts, and evaluate `six-layer-eventing@1` separately. Agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
 | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Active prerequisite | Establish the platform-owned component and user-code boundary required before resolved architecture profiles can bind extension slots safely |
 
 ### Later: Platform Extensions
@@ -229,5 +229,5 @@ when work becomes actionable, then reference the issue here.
    [#112](https://github.com/TVJunkie724/master-thesis/issues/112): reconstruct
    the current graph, freeze the hardened five-layer baseline, and only then
    design and evaluate the Eventing extension and its multi-cloud bridge.
-7. Keep live-cloud E2E and finalization deferred until both the manual UI audit
+6. Keep live-cloud E2E and finalization deferred until both the manual UI audit
    and architecture-profile work are complete.
