@@ -145,6 +145,11 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         "-lockfile=readonly",
         plugin_cache=plugin_cache,
     )
+    _run_terraform(
+        terraform_dir,
+        "validate",
+        plugin_cache=plugin_cache,
+    )
     result = _run_terraform(
         terraform_dir,
         "test",
