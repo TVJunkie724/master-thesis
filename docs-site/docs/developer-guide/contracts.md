@@ -128,14 +128,15 @@ Terraform variables. Missing, stale, conflicting, or unknown mappings fail
 with stable redacted errors. No downstream component may synthesize missing
 dimensions from calculator or Terraform defaults.
 
-AWS and Azure have completed provider resource binding. AWS deployable values
+AWS, Azure, and GCP have completed provider resource binding. AWS deployable values
 reach Lambda memory, DynamoDB billing mode, S3 storage classes, and transition
 schedules. Azure deployable values reach IoT Hub SKU/capacity, Function plans,
 Cosmos mode, storage replication/access tiers, transition timers, and Managed
-Grafana. Progressive usage meters, account-scoped plans, and runtime values a
+Grafana. GCP deployable values reach Cloud Function memory/scaling, Firestore
+mode, Nearline/Archive classes, transition schedules, and cross-cloud writer
+settings. Progressive usage meters, account-scoped plans, and runtime values a
 provider cannot pin remain evidence rather than Terraform variables. Source
-tests and credential-free Terraform plans assert this distinction. GCP remains
-a separate provider gate.
+tests and credential-free Terraform plans assert this distinction.
 
 ### Transfer Pricing Catalog
 

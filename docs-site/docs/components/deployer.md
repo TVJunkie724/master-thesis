@@ -96,11 +96,10 @@ variables. Unknown mappings, provider drift, digest drift, contradictory
 targets, or collisions with legacy configuration fail before package,
 workspace, or Terraform side effects.
 
-The canonical transition variables are intentionally provider-specific. AWS
-and Azure resource binding is complete under #132 and #133; GCP remains
-governed by #120. Until the remaining provider gate passes, the platform does
-not claim cross-provider end-to-end Terraform continuity for the resolved
-specification.
+The canonical transition variables are intentionally provider-specific. AWS,
+Azure, and GCP resource binding is complete under #132, #133, and #120. The
+final cross-provider continuity claim remains gated by the credential-free
+cross-stack verification in #128.
 
 ### AWS Deployment Specification Binding
 
@@ -150,6 +149,25 @@ costed cool/archive Blob slot. In that support-only case, Standard/LRS remains
 an explicit infrastructure invariant. Its small provider-billed usage is not
 misrepresented as a selected storage component and remains part of empirical
 formula validation under #42.
+
+### GCP Deployment Specification Binding
+
+GCP Terraform consumes specification-selected Function memory and min/max
+instances for L1, L2, L3 readers, storage movers, and cross-cloud receivers.
+It also consumes Firestore Native mode, Nearline and Archive storage classes,
+and the daily/weekly Cloud Scheduler cron expressions. Missing values fail in
+a Terraform precondition before provider execution.
+
+Hot-to-cool is owned by the hot-storage provider; cool-to-archive is owned by
+the cool-storage provider. GCP uses one scheduled source mover per transition
+and does not duplicate the same transition through a Cloud Storage lifecycle
+rule. When GCP owns archive storage, Terraform always creates a distinct
+Archive bucket, including same-provider GCP paths.
+
+Local movers and cross-cloud destination writers receive the selected storage
+class through environment variables. A remote source mover does not require a
+local destination bucket or class. GCP L4 and L5 remain unsupported and are
+rejected by both the resolved-specification contract and the Terraform guard.
 
 ## Five-Layer Mapping
 

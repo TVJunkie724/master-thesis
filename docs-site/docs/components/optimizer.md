@@ -221,6 +221,23 @@ The committed v2 seeds preserve the v1 manifest and snapshots for audit. The
 runtime repository verifies that exact predecessor before a one-time
 idempotent upgrade and preserves any newer published pointer.
 
+### GCP Scheduler Job-Month
+
+The two GCP storage transitions each use one source-owned Cloud Function and
+one Cloud Scheduler job. Scheduler pricing is a global official-table value,
+not a region-specific matching fallback:
+
+```text
+transition trigger cost = 1 scheduled job * 0.10 USD/job-month
+```
+
+The official three-job free allowance applies to the billing account. The
+Optimizer does not assign that shared allowance to a Twin without explicit
+account-allocation evidence. The immutable GCP baseline records the official
+[Cloud Scheduler pricing](https://cloud.google.com/scheduler/pricing), value,
+unit, review date, and allocation rule. The previous daily-fraction value
+remains only in its immutable predecessor snapshot.
+
 ### Azure Digital Twins Quantities
 
 Azure Digital Twins does not use a device-count tier table. The Optimizer derives

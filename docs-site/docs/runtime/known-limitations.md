@@ -90,11 +90,11 @@ resolved specification, Management validation, and Deployer tfvar translation.
 AWS resource values are specification-bound under
 [#132](https://github.com/TVJunkie724/master-thesis/issues/132), and Azure
 resource/runtime values are specification-bound under
-[#133](https://github.com/TVJunkie724/master-thesis/issues/133). GCP still
-contains historical resource choices until
-[#120](https://github.com/TVJunkie724/master-thesis/issues/120) completes.
-Cross-provider translated variables are therefore not yet proof that every
-live resource consumes the selected value; the final credential-free drift gate is
+[#133](https://github.com/TVJunkie724/master-thesis/issues/133). GCP Function
+profiles, Firestore mode, storage classes, transition schedules, and runtime
+writers are specification-bound under
+[#120](https://github.com/TVJunkie724/master-thesis/issues/120). The final
+credential-free cross-stack drift gate remains
 [#128](https://github.com/TVJunkie724/master-thesis/issues/128).
 
 Azure Function Apps always require a host storage account. When Azure owns no

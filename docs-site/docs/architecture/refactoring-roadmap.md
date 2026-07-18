@@ -154,7 +154,7 @@ when work becomes actionable, then reference the issue here.
 | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Done | Both storage transition movers are source-owned, cross-cloud writers remain destination-owned, and cost/evidence/specification/runtime ownership is aligned |
 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Done | AWS Lambda memory, DynamoDB billing, S3 storage classes, mover schedules, runtime class propagation, and trigger-pricing semantics are specification-aligned |
 | [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Done | Azure IoT Hub, Function plans, Cosmos mode, Blob/storage tiers, mover timers, Grafana, and topology-owned L0 resources are specification-aligned |
-| [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Ready | Align GCP runtime profiles and archive storage model |
+| [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Done | GCP Function profiles/scaling, Firestore mode, Nearline/Archive classes, source-owned movers, Scheduler pricing/schedules, and cross-cloud writers are specification-aligned |
 | [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Ready | Reject the undeployed legacy error-handling topology at Optimizer, Management, Deployer, and Flutter boundaries |
 | [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Ready | Centralize and redact Azure Function HTTP error contracts before the final drift gate |
 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Blocked by #130 | Add compact read-only Flutter deployment review |
