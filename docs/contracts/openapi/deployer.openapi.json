@@ -2103,6 +2103,23 @@
               "title": "Detailed",
               "type": "boolean"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Operation-Package"
+            }
           }
         ],
         "responses": {

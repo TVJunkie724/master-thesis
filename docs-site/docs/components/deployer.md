@@ -15,6 +15,7 @@ Flutter-facing orchestration.
 | `src/core/` | context, paths, storage, registry, workspace, observability, secure files |
 | `src/providers/` | provider protocol and AWS/Azure/GCP implementations |
 | `src/providers/terraform/` | Terraform lifecycle, package builders, runtime outcomes |
+| `src/deployment_specification/` | Manifest v2 binding, generated contract validation, typed tfvars translation |
 | `src/configuration_validation/`, `src/validation/` | aggregate package/config validation |
 | `src/project_archive/` | archive extraction and security policy |
 | `src/operation_packages.py` | staged immutable package/token lifecycle |
@@ -26,18 +27,23 @@ Flutter-facing orchestration.
 ## Canonical Contract
 
 The Management API sends one validated ZIP containing `deployment_manifest.json`
-version `1.0` and the exact generated/project artifacts for an operation. The Deployer:
+version `2.0`, the frozen `ResolvedDeploymentSpecification v1`, and the exact
+generated/project artifacts for an operation. The Deployer:
 
 1. applies upload limits and safe archive policy;
-2. validates manifest and required content;
+2. validates the archive inventory, manifest/specification digest, provider
+   path, closed-world components, dimensions, and formula/evidence bindings;
 3. writes a runtime project definition;
 4. stages exact bytes as an operation package;
 5. returns a token and package metadata;
 6. requires the token for deploy/destroy;
-7. acquires it exclusively and invalidates it after use.
+7. acquires it exclusively and invalidates it after use;
+8. translates only allowlisted `deployable_selection` dimensions into typed,
+   collision-free Terraform variables.
 
 Legacy layer-specific endpoints and the interactive CLI are historical, not canonical
-application interfaces.
+application interfaces. Legacy manifests remain inspectable through diagnostic
+paths but are not deployable.
 
 ## Storage And Workspace Model
 
@@ -75,6 +81,12 @@ functions, variables, and glue artifacts.
 Terraform is retained because infrastructure state, planning, idempotence, and destroy
 semantics fit the problem. Files are an implementation artifact inside an isolated
 operation workspace, not the user-facing source of truth.
+
+Generated tfvars are private and deterministic. Usage tiers, account-scoped
+plans, and non-deployable formula assumptions never become Terraform
+variables. Unknown mappings, provider drift, digest drift, contradictory
+targets, or collisions with legacy configuration fail before package,
+workspace, or Terraform side effects.
 
 ## Five-Layer Mapping
 
@@ -143,6 +155,8 @@ layouts differ from AWS Lambda and GCP Cloud Functions; see
 - workspace sync failures are explicit and do not hide the original operation error;
 - deployment, destroy, cleanup, status, logs, simulator, and verification are distinct APIs;
 - project/package contention returns conflicts instead of concurrent mutation.
+- specification and manifest failures expose stable bounded codes without
+  archive paths, credential fields, or provider payloads.
 
 ## Preflight And Verification
 
@@ -150,6 +164,10 @@ Provider permission sets are versioned and can be checked before deployment. Dat
 verification runs explicit phases/probes with outcomes rather than treating logs as
 proof. Safe unit/integration tests mock cloud boundaries; real provider proof remains
 an opt-in supervised E2E activity.
+
+Detailed Terraform drift detection requires an `X-Operation-Package` token so
+it uses the same validated credential-bearing context as deployment. It never
+reconstructs credentials from the durable secret-free project.
 
 ## Tests
 
@@ -170,6 +188,8 @@ permission checks, logging/redaction, simulator sessions, status, and verificati
 - add a verification probe with typed phase output and side-effect bounds;
 - add durable workspace output only through the explicit sync allowlist;
 - evolve manifests with a new version and compatibility/validation tests.
+- extend a deployable dimension only through the canonical generated registry,
+  provider Terraform variable/resource contract, and cross-stack drift tests.
 
 ## Evolution And Gaps
 

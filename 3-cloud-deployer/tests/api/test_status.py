@@ -1,5 +1,6 @@
 """Status API regression tests."""
 
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -191,6 +192,57 @@ def test_drift_detection_uses_transient_tfvars_without_persisting_secrets(tmp_pa
     assert not generated_path.exists()
     assert f"-var-file={generated_path}" in command_args
     assert not (project / "terraform" / "generated.tfvars.json").exists()
+
+
+def test_detailed_status_requires_operation_package():
+    with (
+        patch.object(status, "_validate_request", return_value="aws"),
+        patch.object(status, "check_terraform_state", return_value={}),
+        patch.object(status, "check_function_artifacts", return_value={}),
+        patch.object(status, "check_sdk_managed", return_value={}),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        status.check_endpoint(
+            provider="aws",
+            project_name="factory",
+            detailed=True,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "X-Operation-Package" in exc_info.value.detail
+
+
+def test_detailed_status_uses_acquired_operation_workspace(tmp_path):
+    project_path = tmp_path / "operation"
+    project_path.mkdir()
+
+    @contextmanager
+    def operation_scope(project_name, token):
+        assert project_name == "factory"
+        assert token == "opaque-token"
+        yield project_path
+
+    with (
+        patch.object(status, "_validate_request", return_value="aws"),
+        patch.object(status, "check_terraform_state", return_value={}),
+        patch.object(status, "check_function_artifacts", return_value={}),
+        patch.object(status, "check_sdk_managed", return_value={}),
+        patch.object(status, "operation_project_path", operation_scope),
+        patch.object(
+            status,
+            "check_terraform_drift",
+            return_value={"status": "no_drift"},
+        ) as drift,
+    ):
+        result = status.check_endpoint(
+            provider="aws",
+            project_name="factory",
+            detailed=True,
+            operation_token="opaque-token",
+        )
+
+    assert result["drift_detection"] == {"status": "no_drift"}
+    drift.assert_called_once_with("factory", project_path)
 
 
 def test_drift_detection_redacts_terraform_diagnostics(tmp_path):

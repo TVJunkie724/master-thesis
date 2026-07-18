@@ -50,6 +50,10 @@ def check_endpoint(
     provider: str = Query(..., description="Cloud provider: aws, azure, or gcp"),
     project_name: str = Query(..., min_length=1, max_length=128),
     detailed: bool = Query(False, description="Include live drift detection"),
+    operation_token: Annotated[
+        str | None,
+        Header(alias="X-Operation-Package", min_length=1),
+    ] = None,
 ):
     normalized_provider = _validate_request(project_name, provider)
     try:
@@ -61,8 +65,22 @@ def check_endpoint(
             "sdk_managed": check_sdk_managed(project_name, normalized_provider),
         }
         if detailed:
-            result["drift_detection"] = check_terraform_drift(project_name)
+            if operation_token is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "X-Operation-Package is required for credential-backed "
+                        "drift detection"
+                    ),
+                )
+            with operation_project_path(project_name, operation_token) as project_path:
+                result["drift_detection"] = check_terraform_drift(
+                    project_name,
+                    project_path,
+                )
         return result
+    except HTTPException:
+        raise
     except Exception as exc:
         raise internal_server_error(
             "Read infrastructure status",

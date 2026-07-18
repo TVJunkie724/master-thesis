@@ -133,8 +133,10 @@ The Management API builds `deployment_manifest.json` version `2.0`, embedding th
 exact calculation run ID, specification object, and digest. It submits exact archive
 bytes to the Deployer, receives an operation-package token, and uses that token for
 the deploy/destroy operation. It does not write into Deployer templates directly.
-Deployer-side v2 preflight and typed tfvars translation are the next contract phase;
-until both services support the same version, the integration fails closed.
+The Deployer revalidates Manifest v2, the specification digest, provider path,
+components, dimensions, and formula/evidence bindings before staging runtime
+state. It translates only allowlisted deployment selections into typed tfvars;
+unknown or drifting contracts fail closed.
 
 ## Database Startup And Migrations
 

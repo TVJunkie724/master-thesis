@@ -1,7 +1,7 @@
 # Phase 4: Deployer Preflight and Typed tfvars
 
 **Issue:** [#131](https://github.com/TVJunkie724/master-thesis/issues/131)  
-**Status:** Reviewed and implementation-ready  
+**Status:** Done
 **Blocked by:** #127, #130
 
 ## Target
@@ -76,9 +76,40 @@ credentials, Terraform command lines, or provider payloads.
 
 ## Definition of Done
 
-- [ ] Validation finishes before workspace or Terraform side effects.
-- [ ] Every canonical negative fixture returns a stable redacted failure.
-- [ ] Every deployable dimension maps to exactly one typed tfvar.
-- [ ] Non-deployable dimensions map to no tfvar.
-- [ ] Deployer full safe tests, Ruff, Bandit, compile, and Terraform validate pass.
-- [ ] #131 is closed with commit and verification evidence.
+- [x] Validation finishes before workspace or Terraform side effects.
+- [x] Every canonical negative fixture returns a stable redacted failure.
+- [x] Every deployable dimension maps to exactly one typed tfvar.
+- [x] Non-deployable dimensions map to no tfvar.
+- [x] Deployer full safe tests, Ruff, Bandit, compile, and contract synchronization pass.
+- [x] #131 is closed with commit and verification evidence.
+
+## Implemented State
+
+- `src/deployment_specification/` owns generated-contract loading, canonical
+  digest verification, closed-world semantic validation, and pure tfvars
+  translation.
+- Operation package staging requires `DeploymentManifest 2.0` and validates
+  the exact archive before creating the private package root.
+- Deployment, destruction, and detailed drift checks use the validated
+  credential-bearing operation package. Durable project definitions remain
+  secret-free.
+- `tfvars_generator.py` merges only collision-free, allowlisted
+  `deployable_selection` targets and writes the generated file atomically with
+  owner-only permissions.
+- Invalid versions, package inventories, specification digests, provider
+  bindings, components, dimensions, and targets fail with stable bounded error
+  codes that do not expose archive or credential content.
+
+## Verification Evidence
+
+```text
+service quality gate: passed
+pytest: 1551 passed, 1 skipped
+ruff: passed
+bandit: passed
+compileall: passed
+pip check: passed
+contract sync: generated copies valid and byte-identical
+MkDocs strict build: passed
+OpenAPI snapshot export: passed
+```

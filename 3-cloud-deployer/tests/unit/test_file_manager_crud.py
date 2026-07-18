@@ -13,6 +13,7 @@ import zipfile
 
 import file_manager
 import constants as CONSTANTS
+from tests.utils.deployment_specification import deployment_manifest
 
 
 # ==========================================
@@ -108,32 +109,27 @@ def _valid_zip_with_manifest(resource_name: str) -> bytes:
                 "layer_1_provider": "aws",
                 "layer_2_provider": "aws",
                 "layer_3_hot_provider": "aws",
+                "layer_3_cold_provider": "aws",
+                "layer_3_archive_provider": "aws",
                 "layer_4_provider": "aws",
+                "layer_5_provider": "aws",
             }
         ),
         CONSTANTS.CONFIG_OPTIMIZATION_FILE: json.dumps({"result": {}}),
+        "config_user.json": json.dumps(
+            {
+                "admin_email": "admin@example.com",
+                "admin_first_name": "Platform",
+                "admin_last_name": "Admin",
+            }
+        ),
         "twin_hierarchy/aws_hierarchy.json": "[]",
         "lambda_functions/placeholder.txt": "placeholder",
     }
-    manifest = {
-        "manifest_version": CONSTANTS.DEPLOYMENT_MANIFEST_VERSION,
-        "producer": "twin2multicloud_backend",
-        "package": {
-            "format": "deployer-project-zip",
-            "files": sorted(files.keys()),
-            "required_files": CONSTANTS.REQUIRED_CONFIG_FILES,
-        },
-        "twin": {
-            "id": "twin-123",
-            "name": resource_name,
-            "resource_name": resource_name,
-        },
-        "credentials": {
-            "providers": ["aws"],
-            "sources": {"aws": "cloud_connection"},
-            "contains_secret_payloads": False,
-        },
-    }
+    manifest = deployment_manifest(
+        package_files=sorted(files),
+        resource_name=resource_name,
+    )
 
     bio = io.BytesIO()
     with zipfile.ZipFile(bio, "w") as zf:

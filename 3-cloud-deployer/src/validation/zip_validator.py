@@ -14,7 +14,11 @@ from src.validation.accessors import ZipFileAccessor
 from src.project_archive.policy import validate_archive
 
 
-def validate_project_zip(zip_source: Union[str, bytes, io.BytesIO]) -> None:
+def validate_project_zip(
+    zip_source: Union[str, bytes, io.BytesIO],
+    *,
+    require_deployment_manifest: bool = False,
+) -> None:
     """
     Validates a project zip file for upload.
     
@@ -36,4 +40,7 @@ def validate_project_zip(zip_source: Union[str, bytes, io.BytesIO]) -> None:
         
         # Delegate to shared core
         accessor = ZipFileAccessor(zf)
-        run_all_checks(accessor)
+        run_all_checks(
+            accessor,
+            require_deployment_manifest=require_deployment_manifest,
+        )

@@ -21,9 +21,9 @@ Flutter
        -> Deployer API
             -> consumes the package through an opaque one-shot token
             -> restores protected Terraform/runtime state
-            -> validates project + provider preflight
+            -> validates Manifest v2 + frozen deployment specification
             -> builds provider function packages
-            -> generates Terraform variables
+            -> generates allowlisted typed Terraform variables
             -> runs Terraform through TerraformRunner
             -> persists allowlisted runtime outputs outside project storage
             -> destroys the credential-bearing operation package
@@ -38,6 +38,7 @@ Flutter
 | User and Twin configuration | Management API database |
 | Reusable cloud credentials | Encrypted Management API CloudConnections |
 | Deployment intent | Versioned `DeploymentManifest` |
+| Deployable service settings | Frozen `ResolvedDeploymentSpecification v1` |
 | Read-only project template | `templates/digital-twin/` |
 | Durable secret-free project definition | `upload/<project>/` |
 | Credential-bearing operation package | Private temporary package store |
@@ -52,6 +53,13 @@ required as `X-Operation-Package` for deployment, destruction, verification,
 logs, and simulator operations. Tokens are project-bound, expire, and are
 consumed once. Request-body permission checks remain the canonical provider
 validation path.
+
+Deployment and destruction require `DeploymentManifest 2.0`. The Deployer
+recomputes the canonical specification digest, verifies the selected provider
+path and every registered component/dimension, and rejects legacy, incomplete,
+stale, or contradictory packages before runtime side effects. Only dimensions
+classified as `deployable_selection` may become Terraform variables; usage
+tiers, account-level state, and formula assumptions remain evidence only.
 
 ## Runtime Architecture
 

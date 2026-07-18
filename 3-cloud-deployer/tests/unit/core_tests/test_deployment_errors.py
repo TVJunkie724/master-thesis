@@ -8,6 +8,7 @@ from src.core.deployment_errors import (
     client_error_payload,
 )
 from src.core.observability import OperationContext
+from src.deployment_specification.errors import DeploymentSpecificationError
 from src.terraform_runner import TerraformError
 
 
@@ -30,6 +31,20 @@ def test_validation_error_maps_to_400_payload_with_redaction():
     assert payload["operation_id"] == "op-123"
     assert "/app/upload/factory" not in payload["message"]
     assert "<project-path>" in payload["message"]
+
+
+def test_deployment_specification_error_preserves_stable_reason_code():
+    error = DeploymentSpecificationError(
+        "DEPLOYMENT_SPECIFICATION_DIGEST_MISMATCH",
+        "resolved_deployment_specification.digest",
+        "Resolved deployment specification digest does not match its content",
+    )
+
+    payload = client_error_payload(error, _operation())
+
+    assert payload["error_code"] == "DEPLOYMENT_SPECIFICATION_DIGEST_MISMATCH"
+    assert payload["http_status"] == 400
+    assert "sha256:" not in payload["message"]
 
 
 def test_terraform_error_maps_to_stable_safe_message():

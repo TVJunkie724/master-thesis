@@ -18,6 +18,7 @@ import rest_api
 from src.api import deployment
 from src.api.dependencies import validate_provider
 from src.api.operation_context import operation_project_path as real_operation_project_path
+from src.deployment_specification.errors import DeploymentSpecificationError
 
 
 OPERATION_TOKEN = "test-operation-token"
@@ -119,7 +120,10 @@ def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
     mock_template_guard.assert_called_once_with("test_api_project", "deploy")
     mock_validate_provider.assert_called_once_with("aws")
     mock_storage.assert_not_called()
-    mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
+    mock_validate_directory.assert_called_once_with(
+        Path("/projects/test_api_project"),
+        require_deployment_manifest=True,
+    )
     assert mock_deploy_all.call_args.args == (context, "aws")
     operation_context = mock_deploy_all.call_args.kwargs["operation_context"]
     mock_create_context.assert_called_once_with(
@@ -171,7 +175,10 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
     mock_template_guard.assert_called_once_with("test_api_project", "destroy")
     mock_validate_provider.assert_called_once_with("aws")
     mock_storage.assert_not_called()
-    mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
+    mock_validate_directory.assert_called_once_with(
+        Path("/projects/test_api_project"),
+        require_deployment_manifest=True,
+    )
     assert mock_destroy_all.call_args.args == (context, "aws")
     operation_context = mock_destroy_all.call_args.kwargs["operation_context"]
     mock_create_context.assert_called_once_with(
@@ -587,7 +594,47 @@ def test_directory_validation_failure_maps_to_400_before_deploy():
         in exc_info.value.detail["message"]
     )
     assert exc_info.value.detail["operation_id"]
-    mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
+    mock_validate_directory.assert_called_once_with(
+        Path("/projects/test_api_project"),
+        require_deployment_manifest=True,
+    )
+    mock_create_context.assert_not_called()
+    mock_deploy_all.assert_not_called()
+
+
+def test_deployment_specification_failure_exposes_only_stable_safe_contract():
+    error = DeploymentSpecificationError(
+        "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+        "deployment_manifest.package.files",
+        "Deployment package inventory differs from the archive",
+    )
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(
+            deployment,
+            "validate_project_directory",
+            side_effect=error,
+        ),
+        patch.object(deployment, "create_context") as mock_create_context,
+        patch.object(deployment.core_deployer, "deploy_all") as mock_deploy_all,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            deployment.deploy_all(
+                OPERATION_TOKEN,
+                provider="aws",
+                project_name="test_api_project",
+            )
+
+    assert exc_info.value.status_code == 400
+    assert (
+        exc_info.value.detail["error_code"]
+        == "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH"
+    )
+    assert exc_info.value.detail["message"] == (
+        "Validation failed: DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH "
+        "[deployment_manifest.package.files]: "
+        "Deployment package inventory differs from the archive"
+    )
     mock_create_context.assert_not_called()
     mock_deploy_all.assert_not_called()
 

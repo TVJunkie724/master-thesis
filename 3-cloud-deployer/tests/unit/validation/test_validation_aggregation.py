@@ -13,6 +13,10 @@ from src.validation.core import (
     check_deployment_manifest,
     check_required_files,
 )
+from tests.utils.deployment_specification import (
+    deployment_manifest,
+    provider_config_for_specification,
+)
 
 
 class MockAccessor:
@@ -87,32 +91,15 @@ class TestDeploymentManifestValidation:
         return files
 
     def _valid_manifest(self, package_files: list[str] = None) -> dict:
-        files = package_files or [
-            "config.json",
-            "config_iot_devices.json",
-            "config_events.json",
-            "config_credentials.json",
-            "config_providers.json",
-        ]
-        return {
-            "manifest_version": "1.0",
-            "package": {
-                "format": "deployer-project-zip",
-                "files": files,
-                "required_files": [
-                    "config.json",
-                    "config_iot_devices.json",
-                    "config_events.json",
-                    "config_credentials.json",
-                    "config_providers.json",
-                ],
-            },
-            "credentials": {
-                "providers": ["aws"],
-                "sources": {"aws": "cloud_connection"},
-                "contains_secret_payloads": False,
-            },
-        }
+        return deployment_manifest(package_files=package_files)
+
+    @staticmethod
+    def _context(manifest: dict) -> ValidationContext:
+        ctx = ValidationContext()
+        ctx.prov_config = provider_config_for_specification(
+            manifest["resolved_deployment_specification"]
+        )
+        return ctx
 
     def test_missing_manifest_is_allowed_for_legacy_projects(self):
         accessor = MockAccessor({})
@@ -122,30 +109,31 @@ class TestDeploymentManifestValidation:
 
     def test_valid_manifest_is_allowed(self):
         accessor = MockAccessor(self._base_project_files(self._valid_manifest()))
-        ctx = ValidationContext()
+        ctx = self._context(self._valid_manifest())
         ctx.all_files = accessor.list_files()
 
         check_deployment_manifest(accessor, ctx)
 
     def test_manifest_rejects_file_list_mismatch(self):
-        accessor = MockAccessor(self._base_project_files(
-            self._valid_manifest(package_files=[
+        manifest = self._valid_manifest(package_files=[
                 "config.json",
                 "config_iot_devices.json",
                 "config_events.json",
                 "config_credentials.json",
                 "unexpected.json",
             ])
-        ))
-        ctx = ValidationContext()
+        accessor = MockAccessor(self._base_project_files(manifest))
+        ctx = self._context(manifest)
         ctx.all_files = accessor.list_files()
 
-        with pytest.raises(ValueError, match="package.files mismatch"):
+        with pytest.raises(
+            ValueError,
+            match="DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+        ):
             check_deployment_manifest(accessor, ctx)
 
     def test_manifest_rejects_duplicate_file_entries(self):
-        accessor = MockAccessor(self._base_project_files(
-            self._valid_manifest(package_files=[
+        manifest = self._valid_manifest(package_files=[
                 "config.json",
                 "config.json",
                 "config_iot_devices.json",
@@ -153,21 +141,26 @@ class TestDeploymentManifestValidation:
                 "config_credentials.json",
                 "config_providers.json",
             ])
-        ))
-        ctx = ValidationContext()
+        accessor = MockAccessor(self._base_project_files(manifest))
+        ctx = self._context(manifest)
         ctx.all_files = accessor.list_files()
 
-        with pytest.raises(ValueError, match="duplicate paths: config.json"):
+        with pytest.raises(ValueError) as exc_info:
             check_deployment_manifest(accessor, ctx)
+        assert "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH" in str(exc_info.value)
+        assert "config.json" not in str(exc_info.value)
 
     def test_manifest_rejects_required_file_contract_mismatch(self):
         manifest = self._valid_manifest()
         manifest["package"]["required_files"] = ["config.json"]
         accessor = MockAccessor(self._base_project_files(manifest))
-        ctx = ValidationContext()
+        ctx = self._context(manifest)
         ctx.all_files = accessor.list_files()
 
-        with pytest.raises(ValueError, match="required_files does not match"):
+        with pytest.raises(
+            ValueError,
+            match="DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+        ):
             check_deployment_manifest(accessor, ctx)
 
     def test_manifest_rejects_duplicate_required_files(self):
@@ -181,10 +174,13 @@ class TestDeploymentManifestValidation:
             "config_providers.json",
         ]
         accessor = MockAccessor(self._base_project_files(manifest))
-        ctx = ValidationContext()
+        ctx = self._context(manifest)
         ctx.all_files = accessor.list_files()
 
-        with pytest.raises(ValueError, match="required_files contains duplicate paths"):
+        with pytest.raises(
+            ValueError,
+            match="DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+        ):
             check_deployment_manifest(accessor, ctx)
 
 
@@ -192,20 +188,26 @@ class TestDeploymentManifestValidation:
         manifest = self._valid_manifest()
         manifest["credentials"]["sources"]["aws_secret_access_key"] = "do-not-report-value"
         accessor = MockAccessor(self._base_project_files(manifest))
-        ctx = ValidationContext()
+        ctx = self._context(manifest)
         ctx.all_files = accessor.list_files()
 
-        with pytest.raises(ValueError, match="aws_secret_access_key"):
+        with pytest.raises(ValueError) as exc_info:
             check_deployment_manifest(accessor, ctx)
+        assert "DEPLOYMENT_MANIFEST_SECRET_PAYLOAD" in str(exc_info.value)
+        assert "aws_secret_access_key" not in str(exc_info.value)
+        assert "do-not-report-value" not in str(exc_info.value)
 
     def test_manifest_requires_secret_payload_flag(self):
         manifest = self._valid_manifest()
         del manifest["credentials"]["contains_secret_payloads"]
         accessor = MockAccessor(self._base_project_files(manifest))
-        ctx = ValidationContext()
+        ctx = self._context(manifest)
         ctx.all_files = accessor.list_files()
 
-        with pytest.raises(ValueError, match="contains_secret_payloads=false"):
+        with pytest.raises(
+            ValueError,
+            match="DEPLOYMENT_MANIFEST_SECRET_PAYLOAD",
+        ):
             check_deployment_manifest(accessor, ctx)
 
     def test_manifest_errors_are_aggregated(self):
@@ -219,7 +221,10 @@ class TestDeploymentManifestValidation:
         result = run_all_checks_aggregated(accessor)
 
         assert not result.is_valid
-        assert any("deployment_manifest.json" in error for error in result.errors)
+        assert any(
+            "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED" in error
+            for error in result.errors
+        )
     
     def test_context_skips_credentials_check(self):
         """When skip_credentials=True, credential errors are not reported."""

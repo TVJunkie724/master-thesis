@@ -77,6 +77,7 @@ class OperationPackageStore:
     def stage(self, project_name: str, archive: bytes) -> StagedOperationPackage:
         """Extract one validated package and return an opaque operation token."""
         safe_name = self.project_storage.context(project_name).project_name
+        warnings = file_manager.validate_deployment_operation_archive(archive)
         self._ensure_root()
         self.cleanup_expired()
         token = secrets.token_urlsafe(32)
@@ -85,10 +86,11 @@ class OperationPackageStore:
         now = datetime.now(timezone.utc)
         expires_at = now + self.ttl
         try:
-            warnings = file_manager.extract_operation_archive(
+            file_manager.extract_operation_archive(
                 safe_name,
                 archive,
                 package_path,
+                prevalidated=True,
             )
             metadata = {
                 "project_name": safe_name,

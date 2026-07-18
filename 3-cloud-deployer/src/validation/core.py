@@ -21,6 +21,10 @@ from dataclasses import dataclass, field
 
 from logger import logger
 import constants as CONSTANTS
+from src.deployment_specification import (
+    DeploymentSpecificationError,
+    validate_deployment_manifest,
+)
 
 
 # ==========================================
@@ -291,7 +295,12 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
             raise ValueError("Config file validation errors:\n  ◦ " + "\n  ◦ ".join(all_errors))
 
 
-def check_deployment_manifest(accessor: FileAccessor, ctx: ValidationContext) -> None:
+def check_deployment_manifest(
+    accessor: FileAccessor,
+    ctx: ValidationContext,
+    *,
+    required: bool = False,
+) -> None:
     """
     Validate optional deployment_manifest.json without requiring it for legacy ZIPs.
 
@@ -300,82 +309,128 @@ def check_deployment_manifest(accessor: FileAccessor, ctx: ValidationContext) ->
     """
     manifest_path = ctx.project_root + CONSTANTS.DEPLOYMENT_MANIFEST_FILE
     if not accessor.file_exists(manifest_path):
+        if required:
+            raise DeploymentSpecificationError(
+                "DEPLOYMENT_MANIFEST_REQUIRED",
+                "deployment_manifest",
+                "DeploymentManifest v2 is required for deployment operations",
+            )
         return
 
     try:
         manifest = json.loads(accessor.read_text(manifest_path))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"deployment_manifest.json is invalid JSON: {exc.msg}") from exc
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest",
+            "Deployment manifest contains invalid JSON",
+        ) from exc
 
     if not isinstance(manifest, dict):
-        raise ValueError("deployment_manifest.json must contain a JSON object")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest",
+            "Deployment manifest must contain a JSON object",
+        )
 
     version = manifest.get("manifest_version")
     if version != CONSTANTS.DEPLOYMENT_MANIFEST_VERSION:
-        raise ValueError(
-            "deployment_manifest.json has unsupported manifest_version "
-            f"'{version}'. Expected '{CONSTANTS.DEPLOYMENT_MANIFEST_VERSION}'."
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
+            "deployment_manifest.manifest_version",
+            "DeploymentManifest version is unsupported",
         )
 
     package = manifest.get("package")
     if not isinstance(package, dict):
-        raise ValueError("deployment_manifest.json package must be a JSON object")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest.package",
+            "Deployment package metadata must contain a JSON object",
+        )
     if package.get("format") != "deployer-project-zip":
-        raise ValueError("deployment_manifest.json package.format must be 'deployer-project-zip'")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest.package.format",
+            "Deployment package format is unsupported",
+        )
 
     package_files = package.get("files")
     if not _is_string_list(package_files):
-        raise ValueError("deployment_manifest.json package.files must be a list of file paths")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest.package.files",
+            "Deployment package inventory must be a list of paths",
+        )
     duplicate_package_files = _duplicate_strings(package_files)
     if duplicate_package_files:
-        raise ValueError(
-            "deployment_manifest.json package.files contains duplicate paths: "
-            + ", ".join(duplicate_package_files)
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+            "deployment_manifest.package.files",
+            "Deployment package inventory contains duplicate paths",
         )
 
     required_files = package.get("required_files")
     if not _is_string_list(required_files):
-        raise ValueError("deployment_manifest.json package.required_files must be a list of file paths")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest.package.required_files",
+            "Deployment required-file inventory must be a list of paths",
+        )
     duplicate_required_files = _duplicate_strings(required_files)
     if duplicate_required_files:
-        raise ValueError(
-            "deployment_manifest.json package.required_files contains duplicate paths: "
-            + ", ".join(duplicate_required_files)
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+            "deployment_manifest.package.required_files",
+            "Deployment required-file inventory contains duplicate paths",
         )
     if set(required_files) != set(CONSTANTS.REQUIRED_CONFIG_FILES):
-        raise ValueError("deployment_manifest.json package.required_files does not match Deployer required files")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+            "deployment_manifest.package.required_files",
+            "Deployment required-file inventory differs from the Deployer contract",
+        )
 
     actual_files = _manifest_relative_files(ctx)
     listed_files = sorted(package_files)
     if listed_files != actual_files:
-        missing = sorted(set(actual_files) - set(listed_files))
-        extra = sorted(set(listed_files) - set(actual_files))
-        details = []
-        if missing:
-            details.append(f"missing from manifest: {', '.join(missing)}")
-        if extra:
-            details.append(f"not present in package: {', '.join(extra)}")
-        raise ValueError("deployment_manifest.json package.files mismatch (" + "; ".join(details) + ")")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+            "deployment_manifest.package.files",
+            "Deployment package inventory differs from the archive",
+        )
 
     missing_required_files = sorted(set(CONSTANTS.REQUIRED_CONFIG_FILES) - set(listed_files))
     if missing_required_files:
-        raise ValueError(
-            "deployment_manifest.json package.files is missing required files: "
-            + ", ".join(missing_required_files)
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
+            "deployment_manifest.package.files",
+            "Deployment package inventory is incomplete",
         )
 
     credentials = manifest.get("credentials", {})
     if credentials and not isinstance(credentials, dict):
-        raise ValueError("deployment_manifest.json credentials must be a JSON object")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest.credentials",
+            "Deployment credential metadata must contain a JSON object",
+        )
     if credentials.get("contains_secret_payloads") is not False:
-        raise ValueError("deployment_manifest.json must declare contains_secret_payloads=false")
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_SECRET_PAYLOAD",
+            "deployment_manifest.credentials",
+            "Deployment manifest must declare that it contains no secret payloads",
+        )
 
     forbidden_key = _find_forbidden_manifest_credential_key(manifest)
     if forbidden_key:
-        raise ValueError(
-            "deployment_manifest.json must not contain credential payload key "
-            f"'{forbidden_key}'"
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_MANIFEST_SECRET_PAYLOAD",
+            "deployment_manifest",
+            "Deployment manifest contains forbidden credential payload fields",
         )
+
+    validate_deployment_manifest(manifest, ctx.prov_config)
 
 
 def _is_string_list(value: Any) -> bool:
@@ -938,7 +993,11 @@ def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) 
 # 6. Main Orchestrator
 # ==========================================
 
-def run_all_checks(accessor: FileAccessor) -> None:
+def run_all_checks(
+    accessor: FileAccessor,
+    *,
+    require_deployment_manifest: bool = False,
+) -> None:
     """
     Run all validation checks.
     
@@ -956,7 +1015,11 @@ def run_all_checks(accessor: FileAccessor) -> None:
     # Phase 2: Schema validation (populates ctx.prov_config)
     check_required_files(accessor, ctx)
     check_config_schemas(accessor, ctx)
-    check_deployment_manifest(accessor, ctx)
+    check_deployment_manifest(
+        accessor,
+        ctx,
+        required=require_deployment_manifest,
+    )
     
     # Phase 3: Get provider for provider-specific checks (fail-fast)
     l2_provider = ctx.prov_config.get("layer_2_provider")
@@ -986,7 +1049,9 @@ def run_all_checks(accessor: FileAccessor) -> None:
 
 def run_all_checks_aggregated(
     accessor: FileAccessor,
-    ctx: ValidationContext = None
+    ctx: ValidationContext = None,
+    *,
+    require_deployment_manifest: bool = False,
 ) -> ValidationResult:
     """
     Run all validation checks, aggregating errors instead of failing fast.
@@ -1028,7 +1093,11 @@ def run_all_checks_aggregated(
         result.add_error(str(e))
 
     try:
-        check_deployment_manifest(accessor, ctx)
+        check_deployment_manifest(
+            accessor,
+            ctx,
+            required=require_deployment_manifest,
+        )
     except ValueError as e:
         result.add_error(str(e))
     

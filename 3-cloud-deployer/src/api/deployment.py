@@ -50,7 +50,10 @@ def _prepare_deployment_context(
     project_dir = (
         project_path or get_project_storage().context(project_name).project_path
     )
-    validate_project_directory(project_dir)
+    validate_project_directory(
+        project_dir,
+        require_deployment_manifest=True,
+    )
     if project_path is None:
         context = create_context(
             project_name,

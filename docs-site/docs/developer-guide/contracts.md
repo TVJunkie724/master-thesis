@@ -111,12 +111,14 @@ without v1 remain inspectable but have compatibility status
 `legacy_not_deployable`.
 
 `DeploymentManifest 2.0` binds the selected run ID, exact specification object,
-and digest. The Deployer must validate the same generated contract and translate
-only allowlisted `terraform_target` dimensions; that translation is delivered by
-the next child phase of
-[#118](https://github.com/TVJunkie724/master-thesis/issues/118). No downstream
-component may synthesize missing dimensions from calculator or Terraform
-defaults.
+and digest. The Deployer validates the same generated contract before creating
+an operation workspace, verifies the exact provider/component/dimension
+binding, and translates only allowlisted `deployable_selection`
+`terraform_target` dimensions. The translation is pure and deterministic;
+usage tiers, account-scope state, and non-deployable assumptions produce no
+Terraform variables. Missing, stale, conflicting, or unknown mappings fail
+with stable redacted errors. No downstream component may synthesize missing
+dimensions from calculator or Terraform defaults.
 
 ### Transfer Pricing Catalog
 

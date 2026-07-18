@@ -1,5 +1,10 @@
 import json
 import pytest
+from tests.utils.deployment_specification import (
+    deployment_manifest,
+    load_specification,
+    provider_config_for_specification,
+)
 from src.core.config_loader import (
     ProjectConfigLoader,
     load_project_config,
@@ -177,6 +182,12 @@ def test_load_project_config_normalizes_google_provider(sample_project_dir):
 
 
 def test_project_config_loader_loads_bundle_through_project_storage(tmp_path):
+    specification = load_specification("mixed-providers.json")
+    providers = provider_config_for_specification(specification)
+    providers = {
+        key: "google" if value == "gcp" else value
+        for key, value in providers.items()
+    }
     project_dir = tmp_path / "upload" / "factory"
     project_dir.mkdir(parents=True)
     (project_dir / "config.json").write_text(json.dumps({
@@ -186,23 +197,25 @@ def test_project_config_loader_loads_bundle_through_project_storage(tmp_path):
         "mode": "DEBUG",
     }))
     (project_dir / "config_iot_devices.json").write_text("[]")
-    (project_dir / "config_providers.json").write_text(json.dumps({
-        "layer_1_provider": "aws",
-        "layer_2_provider": "google",
-        "layer_4_provider": "none",
-    }))
+    (project_dir / "config_providers.json").write_text(json.dumps(providers))
     (project_dir / "config_credentials.json").write_text(json.dumps({
         "aws": {"aws_access_key_id": "key"},
     }))
-    (project_dir / "deployment_manifest.json").write_text(json.dumps({
-        "manifest_version": "1.0",
-        "twin": {"resource_name": "factory"},
-    }))
+    (project_dir / "deployment_manifest.json").write_text(
+        json.dumps(
+            deployment_manifest(
+                specification,
+                providers=providers,
+                resource_name="factory",
+            )
+        )
+    )
 
     bundle = ProjectConfigLoader(ProjectStorage(tmp_path)).load_bundle("factory")
 
     assert bundle.project_name == "factory"
     assert bundle.project_path == project_dir
-    assert bundle.config.providers["layer_2_provider"] == "gcp"
+    assert "gcp" in bundle.config.providers.values()
     assert bundle.credentials["aws"]["aws_access_key_id"] == "key"
-    assert bundle.deployment_manifest["manifest_version"] == "1.0"
+    assert bundle.deployment_manifest["manifest_version"] == "2.0"
+    assert bundle.validated_deployment_manifest is not None

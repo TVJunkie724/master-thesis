@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any
 
 from src.core.observability import OperationContext, redact_sensitive
+from src.deployment_specification.errors import DeploymentSpecificationError
 from src.terraform_runner import TerraformError
 
 
@@ -68,8 +69,13 @@ def client_error_payload(
     """Build a safe, machine-readable error payload for HTTP and SSE clients."""
     code, status_code = classify_deployment_error(error, operation_context.operation)
     message = fallback_message or _client_message(error, code)
+    public_error_code = (
+        error.code
+        if isinstance(error, DeploymentSpecificationError)
+        else code.value
+    )
     return {
-        "error_code": code.value,
+        "error_code": public_error_code,
         "message": redact_sensitive(message),
         "operation_id": operation_context.operation_id,
         "operation": operation_context.operation,

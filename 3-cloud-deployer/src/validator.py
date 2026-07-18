@@ -750,7 +750,11 @@ def validate_state_machine_content(filename, content):
 # ==========================================
 # 3. Zip Archive Validation
 # ==========================================
-def validate_project_zip(zip_source):
+def validate_project_zip(
+    zip_source,
+    *,
+    require_deployment_manifest: bool = False,
+):
     """
     Validates that a zip file contains all required configuration files 
     AND validates their content against defined schemas.
@@ -774,7 +778,10 @@ def validate_project_zip(zip_source):
         or if any configuration file has invalid content/schema.
     """
     from src.validation.zip_validator import validate_project_zip as _validate_project_zip
-    return _validate_project_zip(zip_source)
+    return _validate_project_zip(
+        zip_source,
+        require_deployment_manifest=require_deployment_manifest,
+    )
 
 # ==========================================
 # 4. Function Code Validation (Syntax & Structure)

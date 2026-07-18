@@ -131,9 +131,12 @@ def check_terraform_state(
     }
 
 
-def check_terraform_drift(project_name: str) -> dict[str, Any]:
+def check_terraform_drift(
+    project_name: str,
+    project_path: Path | None = None,
+) -> dict[str, Any]:
     """Compare deployed resources to state using transient credential tfvars."""
-    project_path = resolve_project_context_path(project_name)
+    project_path = project_path or resolve_project_context_path(project_name)
     try:
         with tempfile.TemporaryDirectory(prefix="twin2multicloud-drift-") as temp_dir:
             var_file = Path(temp_dir) / "generated.tfvars.json"
@@ -146,6 +149,7 @@ def check_terraform_drift(project_name: str) -> dict[str, Any]:
                     f"-var-file={var_file}",
                 ],
                 project_name,
+                project_path,
             )
     except Exception as exc:
         logger.warning("Terraform drift check failed: %s", redact_sensitive(exc))
