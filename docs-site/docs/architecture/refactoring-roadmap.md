@@ -153,9 +153,10 @@ when work becomes actionable, then reference the issue here.
 | [#131](https://github.com/TVJunkie724/master-thesis/issues/131) | Done | Fail-closed DeploymentManifest v2/specification preflight, stable redacted errors, and allowlisted typed tfvars translation |
 | [#61](https://github.com/TVJunkie724/master-thesis/issues/61) | Done | Both storage transition movers are source-owned, cross-cloud writers remain destination-owned, and cost/evidence/specification/runtime ownership is aligned |
 | [#132](https://github.com/TVJunkie724/master-thesis/issues/132) | Done | AWS Lambda memory, DynamoDB billing, S3 storage classes, mover schedules, runtime class propagation, and trigger-pricing semantics are specification-aligned |
-| [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Ready | Align Azure IoT Hub and other modeled Azure resource values |
+| [#133](https://github.com/TVJunkie724/master-thesis/issues/133) | Done | Azure IoT Hub, Function plans, Cosmos mode, Blob/storage tiers, mover timers, Grafana, and topology-owned L0 resources are specification-aligned |
 | [#120](https://github.com/TVJunkie724/master-thesis/issues/120) | Ready | Align GCP runtime profiles and archive storage model |
 | [#135](https://github.com/TVJunkie724/master-thesis/issues/135) | Ready | Reject the undeployed legacy error-handling topology at Optimizer, Management, Deployer, and Flutter boundaries |
+| [#136](https://github.com/TVJunkie724/master-thesis/issues/136) | Ready | Centralize and redact Azure Function HTTP error contracts before the final drift gate |
 | [#134](https://github.com/TVJunkie724/master-thesis/issues/134) | Blocked by #130 | Add compact read-only Flutter deployment review |
 | [#128](https://github.com/TVJunkie724/master-thesis/issues/128) | Final gate | Prove Optimizer-to-Terraform continuity with credential-free drift tests |
 | [#117](https://github.com/TVJunkie724/master-thesis/issues/117) | Done | Removed the unreachable Azure ADT Updater path; Azure L4 now has one package-, Terraform-, runtime-, security-, and documentation-tested Persister-to-ADT-Pusher topology |

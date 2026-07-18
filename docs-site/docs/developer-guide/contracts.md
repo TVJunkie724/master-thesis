@@ -128,13 +128,14 @@ Terraform variables. Missing, stale, conflicting, or unknown mappings fail
 with stable redacted errors. No downstream component may synthesize missing
 dimensions from calculator or Terraform defaults.
 
-AWS is the first completed provider resource binding. Its deployable
-specification values reach Lambda memory, DynamoDB billing mode, S3 storage
-class, and storage-transition schedule attributes. Progressive IoT Core
-pricing, EventBridge event-bus metering, TwinMaker account plans, and Grafana
-user billing remain pricing evidence rather than Terraform variables. Source
-tests and credential-free Terraform plans assert this distinction. Azure and
-GCP resource bindings remain separate provider gates.
+AWS and Azure have completed provider resource binding. AWS deployable values
+reach Lambda memory, DynamoDB billing mode, S3 storage classes, and transition
+schedules. Azure deployable values reach IoT Hub SKU/capacity, Function plans,
+Cosmos mode, storage replication/access tiers, transition timers, and Managed
+Grafana. Progressive usage meters, account-scoped plans, and runtime values a
+provider cannot pin remain evidence rather than Terraform variables. Source
+tests and credential-free Terraform plans assert this distinction. GCP remains
+a separate provider gate.
 
 ### Transfer Pricing Catalog
 

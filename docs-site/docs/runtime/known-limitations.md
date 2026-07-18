@@ -88,19 +88,32 @@ before final thesis evaluation and supervised E2E.
 Storage mover runtime ownership is now explicit in calculation, evidence,
 resolved specification, Management validation, and Deployer tfvar translation.
 AWS resource values are specification-bound under
-[#132](https://github.com/TVJunkie724/master-thesis/issues/132). Azure and GCP
-still contain historical resource choices until
-[#133](https://github.com/TVJunkie724/master-thesis/issues/133) and
-[#120](https://github.com/TVJunkie724/master-thesis/issues/120) complete.
+[#132](https://github.com/TVJunkie724/master-thesis/issues/132), and Azure
+resource/runtime values are specification-bound under
+[#133](https://github.com/TVJunkie724/master-thesis/issues/133). GCP still
+contains historical resource choices until
+[#120](https://github.com/TVJunkie724/master-thesis/issues/120) completes.
 Cross-provider translated variables are therefore not yet proof that every
 live resource consumes the selected value; the final credential-free drift gate is
 [#128](https://github.com/TVJunkie724/master-thesis/issues/128).
+
+Azure Function Apps always require a host storage account. When Azure owns no
+cool/archive Blob slot, the Deployer retains Standard/LRS as an explicit
+support-resource invariant, but that account's actual operation/storage usage
+is not a separate selected cost component. Empirical reconciliation remains in
+[#42](https://github.com/TVJunkie724/master-thesis/issues/42).
 
 The legacy `integrateErrorHandling` field is not an executable capability of
 the current baseline. Flutter keeps it disabled, but canonical API and
 Deployer rejection of historical/direct `true` payloads is tracked as required
 pre-final-gate hardening in
 [#135](https://github.com/TVJunkie724/master-thesis/issues/135).
+
+Several historical Azure Function HTTP adapters still expose raw exception
+text in 5xx payloads. The Deployer API boundary itself is redacted, but the
+provider runtime contract must be centralized and hardened before the final
+drift gate under
+[#136](https://github.com/TVJunkie724/master-thesis/issues/136).
 
 Calculation traceability now connects the optimization profile and selected path to
 provider pricing contracts, source classifications, formula bindings, evidence

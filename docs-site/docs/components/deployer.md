@@ -97,9 +97,10 @@ targets, or collisions with legacy configuration fail before package,
 workspace, or Terraform side effects.
 
 The canonical transition variables are intentionally provider-specific. AWS
-resource binding is complete under #132; Azure and GCP remain governed by
-#133 and #120. Until all provider gates pass, the platform does not claim
-cross-provider end-to-end Terraform continuity for the resolved specification.
+and Azure resource binding is complete under #132 and #133; GCP remains
+governed by #120. Until the remaining provider gate passes, the platform does
+not claim cross-provider end-to-end Terraform continuity for the resolved
+specification.
 
 ### AWS Deployment Specification Binding
 
@@ -123,6 +124,32 @@ EventBridge Scheduler would require a distinct pricing and deployment
 contract. TwinMaker account pricing plans remain account-scoped evidence, and
 Managed Grafana configuration remains a tested baseline invariant rather than
 a per-twin pricing selection.
+
+### Azure Deployment Specification Binding
+
+Azure Terraform consumes the specification-selected IoT Hub SKU and capacity,
+the Consumption/Y1 Function plan selections, Cosmos DB serverless mode, Blob
+account tier and replication, cool/archive access tiers, both transition
+NCRONTAB schedules, and the Managed Grafana SKU. IoT Hub combination guards
+enforce F1/S1/S2/S3 capacity limits before provider execution.
+
+Blob writers and source-owned movers consume access tiers through Function App
+settings. Timer decorators reference the specification-backed app settings;
+hot-to-cool runs daily and cool-to-archive runs weekly under the baseline
+contract. A source mover requires a local destination tier only when Azure owns
+that destination.
+
+The shared Azure L0 Function App exists only when the static function registry
+requires an Azure cross-cloud receiver or when Azure owns L4 and therefore the
+ADT Pusher. Its plan comes from the L4 pusher and/or glue component, whose
+values must agree when they share the app. Merely selecting Azure for an
+unrelated source slot does not provision an empty L0 runtime.
+
+Azure Function Apps require a host storage account even when Azure owns no
+costed cool/archive Blob slot. In that support-only case, Standard/LRS remains
+an explicit infrastructure invariant. Its small provider-billed usage is not
+misrepresented as a selected storage component and remains part of empirical
+formula validation under #42.
 
 ## Five-Layer Mapping
 
