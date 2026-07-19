@@ -1,0 +1,36 @@
+# Current architecture inventory v1
+
+`current-graph.json` is the audit source of truth for the deployable
+five-layer baseline. It records current implementation evidence; it does not
+approve inherited components or make Phase 8.1 retain/replace/remove decisions.
+
+## Canonical form
+
+- JSON object keys are sorted lexicographically and serialized with two-space
+  indentation plus one final newline.
+- Entity arrays are sorted by their primary stable ID. Other arrays are sorted
+  unless their order is itself a contract, such as the Optimizer slot order.
+- `content_digest` is `sha256:` plus the SHA-256 of compact, sorted JSON after
+  removing `generated_at` and `content_digest`.
+- `audited_source_tree_digest` hashes a sorted list of repository-relative
+  path/content-SHA pairs. Inventory files, generated documentation, Git data,
+  ignored files, credentials, runtime state, and caches are outside that input.
+- `source_commit` is provenance for the audited tree and is intentionally not
+  compared with `HEAD`.
+
+Run the non-mutating drift gate from the repository root:
+
+```bash
+python3 scripts/check_architecture_inventory.py
+```
+
+Regeneration is an explicit reviewer action:
+
+```bash
+python3 scripts/check_architecture_inventory.py --write
+python3 scripts/check_architecture_inventory.py
+```
+
+The checker emits only bounded IDs and repository-relative paths. It never
+prints file contents, payloads, credentials, endpoints, or physical resource
+identifiers.

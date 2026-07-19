@@ -53,6 +53,7 @@ nav:
       - End-to-End Flows: architecture/end-to-end-flows.md
       - Security & Trust Boundaries: architecture/security-boundaries.md
       - Provider Capabilities: architecture/provider-capabilities.md
+      - Current Deployment Graph: architecture/current-deployment-graph.md
       - Engineering Decisions: architecture/engineering-decisions.md
       - Original to Current State: architecture/evolution.md
       - Project Background: architecture/project-background.md

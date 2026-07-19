@@ -3,7 +3,7 @@ title: "Phase 8.0: Current Graph Reconstruction"
 description: "Implementation plan for a code-verified Function-and-Edge Matrix of the currently deployable Twin architecture."
 tags: [architecture, inventory, graph, contracts, evidence, issue-144]
 lastUpdated: "2026-07-19"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.1"
 - docs/plans/resolved_deployment_specification/README.md
 - 2-twin2clouds, twin2multicloud_backend, 3-cloud-deployer, and twin2multicloud_flutter current source trees
 - docs/research/digital_twin_architecture_and_eventing_layer.md
-EXTRACTED: 2026-07-19 | VERSION: 1.1
+EXTRACTED: 2026-07-19 | VERSION: 1.2
 -->
 
 # Phase 8.0: Current Graph Reconstruction
@@ -96,7 +96,8 @@ docs-site/docs/architecture/current-deployment-graph.md
 ```
 
 `current-graph.json` is the machine-readable audit SSOT.
-`phase_08_current_function_edge_matrix.md` adds audit interpretation,
+[`phase_08_current_function_edge_matrix.md`](../../research/phase_08_current_function_edge_matrix.md)
+adds audit interpretation,
 unresolved evidence, predecessor debt, and Phase 8.1 decision inputs.
 `current-deployment-graph.md` documents implemented behavior only and must not
 contain future-profile claims.
@@ -531,14 +532,19 @@ Add focused tests for:
 Safe verification:
 
 ```bash
-python scripts/check_architecture_inventory.py
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-  python -m pytest tests/unit/architecture_inventory/ -v
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 \
+python3 scripts/check_architecture_inventory.py
+docker compose run --rm --no-deps \
+  -v "$PWD:/workspace:ro" \
+  -e PYTHONPATH=/app \
+  -e ARCHITECTURE_INVENTORY_REPO_ROOT=/workspace \
+  3cloud-deployer python -m pytest \
+  /workspace/3-cloud-deployer/tests/unit/architecture_inventory/ \
+  -p no:cacheprovider -v
+docker compose exec -T -e PYTHONPATH=/app 2twin2clouds \
   python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-management-api-1 \
+docker compose exec -T -e PYTHONPATH=/app management-api \
   python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
+docker compose exec -T -e PYTHONPATH=/app 3cloud-deployer \
   python -m pytest tests/ --ignore=tests/e2e -v
 cd twin2multicloud_flutter
 flutter analyze
@@ -573,28 +579,28 @@ false drift.
 
 ## 15. Definition Of Done
 
-- [ ] The JSON Schema and canonical `current-graph.json` are committed.
-- [ ] Every Optimizer slot, baseline edge, transition runtime, and emitted
+- [x] The JSON Schema and canonical `current-graph.json` are committed.
+- [x] Every Optimizer slot, baseline edge, transition runtime, and emitted
       deployment component is represented.
-- [ ] Every Management fixed-field consumer and API/DB projection is listed.
-- [ ] Every Deployer static/user function, package/template, Terraform object,
+- [x] Every Management fixed-field consumer and API/DB projection is listed.
+- [x] Every Deployer static/user function, package/template, Terraform object,
       output, and binding is represented.
-- [ ] Every Flutter fixed-slot and architecture presentation assumption is
+- [x] Every Flutter fixed-slot and architecture presentation assumption is
       represented.
-- [ ] AWS, Azure, GCP, and required mixed-provider paths reconcile across
+- [x] AWS, Azure, GCP, and required mixed-provider paths reconcile across
       projects.
-- [ ] Every edge records semantics, delivery, trust, transfer, cost,
+- [x] Every edge records semantics, delivery, trust, transfer, cost,
       observability, reference mechanism, classification, and evidence status.
-- [ ] Every provider implementation, artifact, Terraform object, trust
+- [x] Every provider implementation, artifact, Terraform object, trust
       boundary, and cost owner has an explicit, uniquely checkable record.
-- [ ] Paper, historical L0, five scientific layers, and seven Optimizer slots
+- [x] Paper, historical L0, five scientific layers, and seven Optimizer slots
       are clearly distinguished.
-- [ ] The checker detects missing and stale entities without reading secrets.
-- [ ] Research and current-product diagrams are complete and context-correct.
-- [ ] Focused checker tests and all relevant safe project suites pass.
-- [ ] Strict MkDocs succeeds.
-- [ ] No runtime behavior, database data, Terraform state, or cloud resource is
+- [x] The checker detects missing and stale entities without reading secrets.
+- [x] Research and current-product diagrams are complete and context-correct.
+- [x] Focused checker tests and all relevant safe project suites pass.
+- [x] Strict MkDocs succeeds.
+- [x] No runtime behavior, database data, Terraform state, or cloud resource is
       changed.
-- [ ] Two reviews find no unresolved plan/implementation issue.
-- [ ] Roadmap and #144 are updated with named evidence.
-- [ ] The structured commit references #144.
+- [x] Two reviews find no unresolved plan/implementation issue.
+- [x] Roadmap and #144 are updated with named evidence.
+- [x] The structured commit references #144.

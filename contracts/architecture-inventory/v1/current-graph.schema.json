@@ -1,0 +1,769 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.dev/contracts/architecture-inventory/v1/current-graph.schema.json",
+  "title": "Twin2MultiCloud current deployment graph inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inventory_id",
+    "source_commit",
+    "audited_source_paths",
+    "audited_source_tree_digest",
+    "generated_at",
+    "paper_model_references",
+    "responsibilities",
+    "components",
+    "artifacts",
+    "terraform_objects",
+    "edges",
+    "cost_owners",
+    "trust_boundaries",
+    "fixed_assumptions",
+    "unresolved_findings",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "architecture-inventory.v1"
+    },
+    "inventory_id": {
+      "const": "current-five-layer-implementation"
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "audited_source_paths": {
+      "$ref": "#/$defs/pathArray"
+    },
+    "audited_source_tree_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "paper_model_references": {
+      "$ref": "#/$defs/pathArray"
+    },
+    "responsibilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/responsibility"
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "terraform_objects": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/terraformObject"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "cost_owners": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/costOwner"
+      }
+    },
+    "trust_boundaries": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/trustBoundary"
+      }
+    },
+    "fixed_assumptions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/fixedAssumption"
+      }
+    },
+    "unresolved_findings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "content_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "maxLength": 180
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "boundedString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "reference": {
+      "type": "string",
+      "pattern": "^[^/].+#[^\\r\\n]+$",
+      "maxLength": 500
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/boundedString"
+      }
+    },
+    "idArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "referenceArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/reference"
+      }
+    },
+    "pathArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[^/].+",
+        "maxLength": 500
+      }
+    },
+    "evidenceStatus": {
+      "enum": [
+        "verified",
+        "partial",
+        "unresolved"
+      ]
+    },
+    "responsibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility_id",
+        "name",
+        "paper_layer_reference",
+        "optimizer_slot_ids",
+        "required_capability_ids",
+        "cost_owner_ids",
+        "description",
+        "source_references"
+      ],
+      "properties": {
+        "responsibility_id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "paper_layer_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "optimizer_slot_ids": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "required_capability_ids": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "cost_owner_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "description": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "implementation_id",
+        "responsibility_id",
+        "provider",
+        "kind",
+        "deployment_lifecycle",
+        "package_artifact_ids",
+        "terraform_object_ids",
+        "runtime_entrypoint",
+        "platform_owned_fields",
+        "user_owned_fields",
+        "required_permission_capabilities",
+        "observable_signals",
+        "source_references"
+      ],
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/id"
+        },
+        "implementation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "responsibility_id": {
+          "$ref": "#/$defs/id"
+        },
+        "provider": {
+          "enum": [
+            "platform",
+            "aws",
+            "azure",
+            "gcp"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "api",
+            "function",
+            "workflow",
+            "storage",
+            "twin-service",
+            "visualization",
+            "bridge",
+            "scheduler",
+            "user-extension"
+          ]
+        },
+        "deployment_lifecycle": {
+          "enum": [
+            "always",
+            "provider-selected",
+            "cross-provider-only",
+            "feature-gated",
+            "unsupported"
+          ]
+        },
+        "package_artifact_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "terraform_object_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "runtime_entrypoint": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "platform_owned_fields": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "user_owned_fields": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "required_permission_capabilities": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "observable_signals": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "provider",
+        "artifact_kind",
+        "repository_paths",
+        "builder_adapter_id",
+        "runtime_handler",
+        "included_path_rules",
+        "excluded_path_rules",
+        "owning_implementation_ids",
+        "evidence_status",
+        "source_references"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "provider": {
+          "enum": [
+            "platform",
+            "aws",
+            "azure",
+            "gcp"
+          ]
+        },
+        "artifact_kind": {
+          "enum": [
+            "template",
+            "static-package",
+            "user-package",
+            "wrapper-library",
+            "source"
+          ]
+        },
+        "repository_paths": {
+          "$ref": "#/$defs/pathArray"
+        },
+        "builder_adapter_id": {
+          "$ref": "#/$defs/id"
+        },
+        "runtime_handler": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "included_path_rules": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "excluded_path_rules": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "owning_implementation_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "terraformObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "terraform_object_id",
+        "provider",
+        "object_kind",
+        "terraform_address",
+        "module_path",
+        "owning_implementation_ids",
+        "binding_role",
+        "sensitive",
+        "evidence_status",
+        "source_references"
+      ],
+      "properties": {
+        "terraform_object_id": {
+          "$ref": "#/$defs/id"
+        },
+        "provider": {
+          "enum": [
+            "platform",
+            "aws",
+            "azure",
+            "gcp"
+          ]
+        },
+        "object_kind": {
+          "enum": [
+            "resource",
+            "data",
+            "output",
+            "module",
+            "variable",
+            "local"
+          ]
+        },
+        "terraform_address": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "module_path": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "owning_implementation_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "binding_role": {
+          "enum": [
+            "resource",
+            "input",
+            "output",
+            "dependency",
+            "calculation"
+          ]
+        },
+        "sensitive": {
+          "type": "boolean"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_id",
+        "source_component_id",
+        "destination_component_id",
+        "source_implementation_id",
+        "destination_implementation_id",
+        "phase",
+        "edge_kind",
+        "protocol",
+        "payload_contract",
+        "invocation_semantics",
+        "delivery_guarantee",
+        "retry_policy",
+        "dead_letter_policy",
+        "idempotency_scope",
+        "ordering_scope",
+        "trust_boundary_id",
+        "authentication",
+        "transfer_route_id",
+        "cost_owner_ids",
+        "observability",
+        "reference_mechanism",
+        "classification",
+        "evidence_status",
+        "source_references"
+      ],
+      "properties": {
+        "edge_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_component_id": {
+          "$ref": "#/$defs/id"
+        },
+        "destination_component_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_implementation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "destination_implementation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "phase": {
+          "enum": [
+            "deployment",
+            "runtime"
+          ]
+        },
+        "edge_kind": {
+          "enum": [
+            "in_process",
+            "http",
+            "provider_trigger",
+            "schedule",
+            "storage_lifecycle",
+            "queue",
+            "topic",
+            "workflow",
+            "terraform_reference",
+            "environment_binding",
+            "package_binding"
+          ]
+        },
+        "protocol": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "payload_contract": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "invocation_semantics": {
+          "enum": [
+            "synchronous",
+            "asynchronous",
+            "scheduled",
+            "lifecycle",
+            "deployment_only"
+          ]
+        },
+        "delivery_guarantee": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "retry_policy": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "dead_letter_policy": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "idempotency_scope": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "ordering_scope": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "trust_boundary_id": {
+          "$ref": "#/$defs/id"
+        },
+        "authentication": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "transfer_route_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "cost_owner_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "observability": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "reference_mechanism": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "classification": {
+          "enum": [
+            "baseline_required",
+            "implementation_internal",
+            "unsafe_debt",
+            "eventing_candidate"
+          ]
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "costOwner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cost_owner_id",
+        "cost_kind",
+        "responsibility_ids",
+        "owning_implementation_ids",
+        "pricing_intent_ids",
+        "formula_ids",
+        "transfer_route_ids",
+        "evidence_status",
+        "source_references"
+      ],
+      "properties": {
+        "cost_owner_id": {
+          "$ref": "#/$defs/id"
+        },
+        "cost_kind": {
+          "enum": [
+            "service",
+            "request",
+            "function",
+            "workflow",
+            "trigger",
+            "storage",
+            "transfer",
+            "observability",
+            "account"
+          ]
+        },
+        "responsibility_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "owning_implementation_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "pricing_intent_ids": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "formula_ids": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "transfer_route_ids": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "trustBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trust_boundary_id",
+        "source_scope",
+        "destination_scope",
+        "boundary_kind",
+        "authentication",
+        "identity_owner",
+        "credential_owner",
+        "encryption",
+        "evidence_status",
+        "source_references"
+      ],
+      "properties": {
+        "trust_boundary_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_scope": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "destination_scope": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "boundary_kind": {
+          "enum": [
+            "process",
+            "service",
+            "provider",
+            "cloud-account",
+            "user-code",
+            "management"
+          ]
+        },
+        "authentication": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "identity_owner": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "credential_owner": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "encryption": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "fixedAssumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assumption_id",
+        "affected_projects",
+        "convention",
+        "current_consumers",
+        "failure_mode",
+        "automated_drift_test",
+        "phase_8_owner",
+        "source_references"
+      ],
+      "properties": {
+        "assumption_id": {
+          "$ref": "#/$defs/id"
+        },
+        "affected_projects": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "convention": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "current_consumers": {
+          "$ref": "#/$defs/referenceArray"
+        },
+        "failure_mode": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "automated_drift_test": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "phase_8_owner": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "category",
+        "summary",
+        "affected_entity_ids",
+        "missing_evidence",
+        "risk",
+        "phase_8_owner",
+        "source_references"
+      ],
+      "properties": {
+        "finding_id": {
+          "$ref": "#/$defs/id"
+        },
+        "category": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "summary": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "affected_entity_ids": {
+          "$ref": "#/$defs/idArray"
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "risk": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "phase_8_owner": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "source_references": {
+          "$ref": "#/$defs/referenceArray"
+        }
+      }
+    }
+  }
+}
