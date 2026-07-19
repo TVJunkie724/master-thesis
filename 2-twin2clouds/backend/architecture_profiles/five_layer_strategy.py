@@ -24,6 +24,28 @@ from .strategy import (
     ArchitectureProfileRef,
     ArchitectureResolutionContext,
     ArchitectureStrategyRegistry,
+    OptimizationBundleRef,
+)
+
+FIVE_LAYER_PROFILE_REF = ArchitectureProfileRef(
+    profile_id="five-layer-baseline",
+    profile_version="1",
+    content_digest=(
+        "sha256:dcac9d4c519c7624b74ba6f9e5b878b17553c828b6d6d8583754c34c6a2e4807"
+    ),
+)
+FIVE_LAYER_BUNDLE_REF = OptimizationBundleRef(
+    optimization_strategy_id="cost_minimization_v1",
+    optimization_strategy_version="1",
+    calculation_strategy_id="cost_calculation_v2",
+    calculation_strategy_version="2",
+    formula_set_id="cost_formula_set_v1",
+    formula_set_version="1",
+    scoring_strategy_id="min_total_cost_v1",
+    scoring_strategy_version="1",
+    compatibility_digest=(
+        "sha256:0f53f6a7ed48dd7a7765b52479dfd428a58f448d4f11d477ff9adb8439d63499"
+    ),
 )
 
 
@@ -33,9 +55,16 @@ class FiveLayerCompletePathStrategy:
     strategy_id = "five-layer-complete-path.v1"
 
     def __init__(self, profile: Mapping[str, Any]):
-        self.supported_profile_refs = frozenset(
-            {ArchitectureProfileRef.from_profile(profile)}
-        )
+        if (
+            ArchitectureProfileRef.from_profile(profile)
+            != FIVE_LAYER_PROFILE_REF
+            or OptimizationBundleRef.from_profile(profile)
+            != FIVE_LAYER_BUNDLE_REF
+        ):
+            raise RuntimeError(
+                "Five-layer strategy profile or optimization bundle drifted"
+            )
+        self.supported_profile_refs = frozenset({FIVE_LAYER_PROFILE_REF})
 
     def validate_request(self, context: ArchitectureResolutionContext) -> None:
         if context.profile_ref not in self.supported_profile_refs:
@@ -121,10 +150,29 @@ class FiveLayerCompletePathStrategy:
 def build_default_strategy_registry(
     context: ArchitectureResolutionContext,
 ) -> ArchitectureStrategyRegistry:
+    return _build_strategy_registry(context.profile)
+
+
+def validate_architecture_strategy_readiness(
+    registry=None,
+) -> ArchitectureStrategyRegistry:
+    """Load and resolve the exact reviewed strategy during API startup."""
+
+    if registry is None:
+        from .registry import ArchitectureProfileRegistry
+
+        registry = ArchitectureProfileRegistry()
+    return _build_strategy_registry(registry.profile)
+
+
+def _build_strategy_registry(
+    profile: Mapping[str, Any],
+) -> ArchitectureStrategyRegistry:
     registry = ArchitectureStrategyRegistry()
     registry.register(
-        context.profile,
-        FiveLayerCompletePathStrategy(context.profile),
+        profile,
+        FiveLayerCompletePathStrategy(profile),
     )
     registry.freeze()
+    registry.resolve(profile)
     return registry

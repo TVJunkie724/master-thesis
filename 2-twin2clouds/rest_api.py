@@ -11,6 +11,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.logger import logger
+from backend.architecture_profiles import (
+    validate_architecture_strategy_readiness,
+)
 from backend.config_loader import load_config_file
 from backend.pricing_catalog_repository import get_pricing_catalog_repository
 
@@ -29,6 +32,7 @@ async def lifespan(app: FastAPI):
         logger.info("🚀 Starting Twin2Clouds API...")
         load_config_file()
         get_pricing_catalog_repository().verify_readiness()
+        validate_architecture_strategy_readiness()
         logger.info("✅ API ready.")
     except Exception:
         logger.exception("Optimizer startup readiness failed")

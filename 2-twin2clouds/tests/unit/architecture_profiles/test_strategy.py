@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 
@@ -17,6 +18,10 @@ from backend.architecture_profiles.strategy import (
     ArchitectureProfileRef,
     ArchitectureStrategyRegistry,
     build_resolution_context,
+)
+from backend.architecture_profiles.five_layer_strategy import (
+    FiveLayerCompletePathStrategy,
+    validate_architecture_strategy_readiness,
 )
 
 
@@ -190,3 +195,32 @@ def test_rejection_diagnostics_are_bounded_and_code_only():
     assert diagnostics.to_dict()["rejectedByErrorCode"] == {
         "ARCH_EDGE_IMPLEMENTATION_MISSING": 40
     }
+
+
+def test_startup_readiness_resolves_only_the_reviewed_strategy_bundle():
+    strategies = validate_architecture_strategy_readiness(
+        _supported_fixture_registry()
+    )
+
+    assert strategies.resolve(
+        _supported_fixture_registry().profile
+    ).strategy_id == "five-layer-complete-path.v1"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda profile: profile.update(
+            {"content_digest": "sha256:" + ("0" * 64)}
+        ),
+        lambda profile: profile["optimization_bundle"].update(
+            {"formula_set_version": "2"}
+        ),
+    ),
+)
+def test_five_layer_strategy_rejects_unreviewed_startup_drift(mutation):
+    profile = copy.deepcopy(_read("five-layer-baseline-profile.json"))
+    mutation(profile)
+
+    with pytest.raises(RuntimeError, match="drifted"):
+        FiveLayerCompletePathStrategy(profile)

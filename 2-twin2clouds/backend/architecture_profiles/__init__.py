@@ -4,6 +4,7 @@ from .capability_resolver import CapabilityReport, resolve_provider_capabilities
 from .five_layer_strategy import (
     FiveLayerCompletePathStrategy,
     build_default_strategy_registry,
+    validate_architecture_strategy_readiness,
 )
 from .registry import ArchitectureProfileRegistry
 from .strategy import (
@@ -29,4 +30,5 @@ __all__ = [
     "build_default_strategy_registry",
     "build_resolution_context",
     "resolve_provider_capabilities",
+    "validate_architecture_strategy_readiness",
 ]
