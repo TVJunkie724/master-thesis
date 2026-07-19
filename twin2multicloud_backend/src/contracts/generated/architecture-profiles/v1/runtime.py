@@ -1471,6 +1471,19 @@ def _check_resolved(
         item["edge_id"]: Decimal(item["cost_contribution"]["monthly_amount"])
         for item in document["resolved_edges"]
     }
+    cost_currency = document["cost_summary"]["currency"]
+    if any(
+        item["cost_contribution"]["currency"] != cost_currency
+        for item in (
+            *document["component_assignments"],
+            *document["resolved_edges"],
+        )
+    ):
+        _fail(
+            "ARCH_SCHEMA_INVALID",
+            "cost_summary.currency",
+            "Assignment and edge cost currencies must match the cost summary",
+        )
     expected_responsibility_amounts = {
         responsibility_id: sum(
             (

@@ -123,6 +123,49 @@ class ArchitectureProfileContractSyncTests(unittest.TestCase):
             "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a02",
         )
 
+    def test_resolution_cost_currency_matches_the_management_run_currency(
+        self,
+    ) -> None:
+        resolution = next(
+            copy.deepcopy(document)
+            for document in self.valid_documents
+            if document["schema_version"] == "resolved-twin-architecture.v1"
+        )
+        resolution["cost_summary"]["currency"] = "EUR"
+        for item in (
+            *resolution["component_assignments"],
+            *resolution["resolved_edges"],
+        ):
+            item["cost_contribution"]["currency"] = "EUR"
+        resolution["resolution_id"] = (
+            contract_sync.runtime.calculate_resolution_id(resolution)
+        )
+        contract_sync._redigest(resolution)
+
+        validated = contract_sync.runtime.validate_document(
+            resolution,
+            bundle_root=contract_sync.SOURCE_V1,
+            linked_documents=self.valid_documents,
+        )
+
+        self.assertEqual(validated.document["cost_summary"]["currency"], "EUR")
+
+        invalid = copy.deepcopy(resolution)
+        invalid["component_assignments"][0]["cost_contribution"]["currency"] = (
+            "USD"
+        )
+        invalid["resolution_id"] = (
+            contract_sync.runtime.calculate_resolution_id(invalid)
+        )
+        contract_sync._redigest(invalid)
+        with self.assertRaises(contract_sync.runtime.ContractError) as raised:
+            contract_sync.runtime.validate_document(
+                invalid,
+                bundle_root=contract_sync.SOURCE_V1,
+                linked_documents=self.valid_documents,
+            )
+        self.assertEqual(raised.exception.code, "ARCH_SCHEMA_INVALID")
+
     def test_negative_fixtures_fail_with_stable_codes(self) -> None:
         for path in sorted(contract_sync.INVALID_ROOT.glob("*.json")):
             wrapper = contract_sync._read_json(path)

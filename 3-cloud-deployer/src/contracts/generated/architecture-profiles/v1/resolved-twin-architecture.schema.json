@@ -239,7 +239,10 @@
       ],
       "properties": {
         "currency": {
-          "const": "USD"
+          "enum": [
+            "USD",
+            "EUR"
+          ]
         },
         "monthly_amount": {
           "$ref": "semantic-registry.schema.json#/$defs/decimal"
@@ -555,8 +558,11 @@
         "monthly_total"
       ],
       "properties": {
-        "currency": {
-          "const": "USD"
+      "currency": {
+        "enum": [
+          "USD",
+          "EUR"
+        ]
         },
         "responsibility_totals": {
           "type": "array",
