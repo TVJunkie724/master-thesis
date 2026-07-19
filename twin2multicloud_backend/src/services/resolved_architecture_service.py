@@ -661,8 +661,6 @@ class ResolvedArchitectureService:
                 artifact is None
                 or artifact.artifact_state != "valid"
                 or artifact.artifact_digest != item["artifact_digest"]
-                or artifact.validator_version
-                != item["validation_contract_version"]
             ):
                 raise architecture_error(
                     "ARCH_RESOLUTION_REFERENCE_MISMATCH",

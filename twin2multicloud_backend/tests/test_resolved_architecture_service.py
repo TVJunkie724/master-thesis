@@ -75,7 +75,7 @@ def _state(db_session, provider: str | None = None):
         runtime_id="python311",
         configuration_json="{}",
         declared_capabilities_json="[]",
-        validator_version="1",
+        validator_version="user-function-validator.v1",
         created_by=user.id,
     )
     binding = TwinExtensionBinding(
