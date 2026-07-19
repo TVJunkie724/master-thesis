@@ -812,6 +812,7 @@ def calculate_cheapest_costs(
                     for assignment in evaluation.assignments
                 },
                 metrics={"cost": metric_result},
+                exact_metric_values={"cost": evaluation.total_cost},
                 canonical_tie_break_key=(
                     tuple(
                         part
