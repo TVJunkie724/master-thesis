@@ -1244,20 +1244,21 @@ def _check_resolved(
                     f"component_assignments[{index}].deployment_component_id",
                     "Assignment differs from its catalog component",
                 )
-            expected_spec_components = {
+            catalog_spec_components = {
                 binding["component_id"]
                 for binding in catalog_component["deployment_specification_bindings"]
             }
-            if expected_spec_components != set(
+            selected_spec_components = set(
                 assignment["deployment_specification_component_ids"]
-            ):
+            )
+            if not selected_spec_components.issubset(catalog_spec_components):
                 _fail(
                     "ARCH_DEPLOYMENT_SPEC_INCOMPATIBLE",
                     (
                         f"component_assignments[{index}]."
                         "deployment_specification_component_ids"
                     ),
-                    "Assignment deployment components differ from the catalog",
+                    "Assignment deployment components are not catalog bindings",
                 )
     if used_provider_refs != set(top_provider_refs):
         _fail(

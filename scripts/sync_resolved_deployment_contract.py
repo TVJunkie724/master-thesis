@@ -43,7 +43,7 @@ BASELINE_SLOTS = (
     "l5_visualization",
 )
 PROVIDERS = ("aws", "azure", "gcp")
-VALID_FIXTURE_COUNT = 3
+VALID_FIXTURE_COUNT = 4
 INVALID_FIXTURE_COUNT = 20
 VERIFICATION_MATRIX_VERSION = "resolved-deployment-verification-matrix.v1"
 SECRET_KEY_FRAGMENTS = (
@@ -1021,6 +1021,42 @@ def _build_specification(
     return specification
 
 
+def _build_architecture_profile_specification(
+    registry: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the exact deployment selection referenced by the architecture fixture."""
+
+    specification = _build_specification(
+        registry,
+        {
+            "l1_ingestion": "aws",
+            "l2_processing": "azure",
+            "l3_hot_storage": "azure",
+            "l3_cool_storage": "azure",
+            "l3_archive_storage": "azure",
+            "l4_twin_state": "azure",
+            "l5_visualization": "azure",
+        },
+    )
+    optimization_context = specification["optimization_context"]
+    optional_ids = (
+        "l2.azure.logic_apps",
+        "l2.azure.event_grid",
+    )
+    components = specification["components"]
+    insertion_index = next(
+        index
+        for index, component in enumerate(components)
+        if component["slot_id"] == "l3_hot_storage"
+    )
+    components[insertion_index:insertion_index] = [
+        _build_component(component_id, registry, optimization_context)
+        for component_id in optional_ids
+    ]
+    specification["digest"] = calculate_digest(specification)
+    return specification
+
+
 def _redigest(specification: dict[str, Any]) -> dict[str, Any]:
     specification["digest"] = calculate_digest(specification)
     return specification
@@ -1056,6 +1092,9 @@ def generate_fixtures(registry: dict[str, Any]) -> None:
             "l5_visualization": "aws",
         },
     )
+    architecture_profile_mixed = _build_architecture_profile_specification(
+        registry
+    )
     valid_root = SOURCE_V1 / "fixtures" / "valid"
     invalid_root = SOURCE_V1 / "fixtures" / "invalid"
     for fixture_root in (valid_root, invalid_root):
@@ -1064,6 +1103,10 @@ def generate_fixtures(registry: dict[str, Any]) -> None:
     _write_json(valid_root / "all-aws.json", all_aws)
     _write_json(valid_root / "all-azure.json", all_azure)
     _write_json(valid_root / "mixed-providers.json", mixed)
+    _write_json(
+        valid_root / "architecture-profile-mixed.json",
+        architecture_profile_mixed,
+    )
 
     invalid: dict[str, tuple[str, dict[str, Any]]] = {}
 
