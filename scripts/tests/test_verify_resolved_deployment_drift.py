@@ -106,6 +106,14 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
             rendered,
         )
+        self.assertIn(
+            "scripts/sync_architecture_profile_contracts.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts.tests.test_architecture_profile_contract_sync",
+            rendered,
+        )
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
         self.assertIn(
             "tests/unit/terraform/test_native_mock_plans.py",

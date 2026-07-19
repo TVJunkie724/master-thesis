@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-07-19"
-version: "1.3"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.3"
 - docs/plans/resolved_deployment_specification/README.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, and #153
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-07-19 | VERSION: 1.3
+EXTRACTED: 2026-07-19 | VERSION: 1.4
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -24,7 +24,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.3
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Status | Phases 8.0 and 8.1 implemented and reviewed; Phase 8.2 is next |
+| Status | Phases 8.0 through 8.2 implemented and reviewed; #113 is next before Phase 8.3 |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -104,7 +104,7 @@ until #113 passes its complete offline gate.
 |---|---|---|---|---|
 | 8.0 | [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | [`phase_08_0_current_graph_reconstruction.md`](phase_08_0_current_graph_reconstruction.md) | Implemented code-verified [Function-and-Edge Matrix](../../research/phase_08_current_function_edge_matrix.md) | None |
 | 8.1 | [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | [`phase_08_1_five_layer_baseline.md`](phase_08_1_five_layer_baseline.md) | Implemented [five-layer target decision](../../research/five_layer_baseline_target_decision.md) with 114 component and 90 edge decisions | #144 |
-| 8.2 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | [`phase_08_2_profile_contracts.md`](phase_08_2_profile_contracts.md) | Shared versioned architecture contracts | #139 |
+| 8.2 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | [`phase_08_2_profile_contracts.md`](phase_08_2_profile_contracts.md) | Implemented four versioned contracts, semantic registry, fixtures, dark readers, and drift gates | #139 |
 | 8.3 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | [`phase_08_3_provider_profiles_component_catalog.md`](phase_08_3_provider_profiles_component_catalog.md) | Explicit provider profiles and component catalog | #149, #113 |
 | 8.4 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | [`phase_08_4_management_persistence_migration.md`](phase_08_4_management_persistence_migration.md) | Immutable normalized persistence and API projection | #150 |
 | 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md) | Profile-bounded, complete-path optimization | #142 |

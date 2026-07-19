@@ -1,0 +1,620 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/architecture-profiles/v1/resolved-twin-architecture.schema.json",
+  "title": "ResolvedTwinArchitecture v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "resolution_id",
+    "calculation_run_id",
+    "architecture_profile_ref",
+    "optimization_bundle_ref",
+    "provider_profile_refs",
+    "workload_contract_ref",
+    "pricing_evidence_refs",
+    "component_assignments",
+    "resolved_edges",
+    "extension_bindings",
+    "deployment_specification_ref",
+    "cost_summary",
+    "functional_completeness",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "resolved-twin-architecture.v1"
+    },
+    "resolution_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "calculation_run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "architecture_profile_ref": {
+      "$ref": "semantic-registry.schema.json#/$defs/pinned_ref"
+    },
+    "optimization_bundle_ref": {
+      "$ref": "#/$defs/optimization_bundle_ref"
+    },
+    "provider_profile_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/provider_profile_ref"
+      }
+    },
+    "workload_contract_ref": {
+      "$ref": "semantic-registry.schema.json#/$defs/pinned_ref"
+    },
+    "pricing_evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/pricing_evidence_ref"
+      }
+    },
+    "component_assignments": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/component_assignment"
+      }
+    },
+    "resolved_edges": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/resolved_edge"
+      }
+    },
+    "extension_bindings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/extension_binding"
+      }
+    },
+    "deployment_specification_ref": {
+      "$ref": "#/$defs/deployment_specification_ref"
+    },
+    "cost_summary": {
+      "$ref": "#/$defs/cost_summary"
+    },
+    "functional_completeness": {
+      "$ref": "#/$defs/functional_completeness"
+    },
+    "content_digest": {
+      "$ref": "semantic-registry.schema.json#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "stable_id_array": {
+      "type": "array",
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+      }
+    },
+    "non_empty_stable_id_array": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+      }
+    },
+    "optimization_bundle_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "optimization_strategy_id",
+        "optimization_strategy_version",
+        "calculation_strategy_id",
+        "calculation_strategy_version",
+        "formula_set_id",
+        "formula_set_version",
+        "scoring_strategy_id",
+        "scoring_strategy_version",
+        "compatibility_digest"
+      ],
+      "properties": {
+        "optimization_strategy_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "optimization_strategy_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "calculation_strategy_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "calculation_strategy_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "formula_set_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "formula_set_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "scoring_strategy_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "scoring_strategy_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "compatibility_digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "provider_profile_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "digest",
+        "provider"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        },
+        "provider": {
+          "$ref": "semantic-registry.schema.json#/$defs/provider"
+        }
+      }
+    },
+    "pricing_evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "digest",
+        "provider",
+        "currency"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        },
+        "provider": {
+          "$ref": "semantic-registry.schema.json#/$defs/provider"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "const": "USD"
+        }
+      }
+    },
+    "provider_implementation_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "cost_contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "monthly_amount"
+      ],
+      "properties": {
+        "currency": {
+          "const": "USD"
+        },
+        "monthly_amount": {
+          "$ref": "semantic-registry.schema.json#/$defs/decimal"
+        }
+      }
+    },
+    "component_assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assignment_id",
+        "responsibility_id",
+        "logical_component_id",
+        "provider",
+        "provider_implementation_profile_ref",
+        "deployment_component_id",
+        "deployment_component_version",
+        "service_id",
+        "region",
+        "capability_evidence",
+        "pricing_model_refs",
+        "formula_refs",
+        "deployment_specification_component_ids",
+        "cost_contribution",
+        "required"
+      ],
+      "properties": {
+        "assignment_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "responsibility_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "logical_component_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "provider": {
+          "$ref": "semantic-registry.schema.json#/$defs/provider"
+        },
+        "provider_implementation_profile_ref": {
+          "$ref": "#/$defs/provider_implementation_ref"
+        },
+        "deployment_component_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "deployment_component_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "service_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "region": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "capability_evidence": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "pricing_model_refs": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "formula_refs": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "deployment_specification_component_ids": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "cost_contribution": {
+          "$ref": "#/$defs/cost_contribution"
+        },
+        "required": {
+          "const": true
+        }
+      }
+    },
+    "delivery_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "timeout_policy",
+        "retry_policy",
+        "dead_letter_policy",
+        "idempotency",
+        "ordering",
+        "replay"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "synchronous",
+            "asynchronous"
+          ]
+        },
+        "timeout_policy": {
+          "enum": [
+            "bounded",
+            "not_applicable"
+          ]
+        },
+        "retry_policy": {
+          "enum": [
+            "bounded_backoff",
+            "provider_managed_bounded",
+            "none"
+          ]
+        },
+        "dead_letter_policy": {
+          "enum": [
+            "required",
+            "provider_managed",
+            "not_applicable"
+          ]
+        },
+        "idempotency": {
+          "enum": [
+            "required",
+            "consumer_deduplicated",
+            "not_required"
+          ]
+        },
+        "ordering": {
+          "enum": [
+            "per_entity",
+            "best_effort",
+            "not_required"
+          ]
+        },
+        "replay": {
+          "enum": [
+            "required",
+            "bounded",
+            "not_supported"
+          ]
+        }
+      }
+    },
+    "resolved_edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolved_edge_id",
+        "edge_id",
+        "source_assignment_id",
+        "source_port_id",
+        "destination_assignment_id",
+        "destination_port_id",
+        "edge_implementation_id",
+        "mechanism",
+        "delivery_semantics",
+        "transfer_route_class",
+        "transfer_evidence_refs",
+        "formula_refs",
+        "cost_contribution",
+        "trust_contract_ref",
+        "observability_contract_ref",
+        "deployment_input_binding_ids",
+        "deployment_output_binding_ids"
+      ],
+      "properties": {
+        "resolved_edge_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "edge_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "source_assignment_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "source_port_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "destination_assignment_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "destination_port_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "edge_implementation_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "mechanism": {
+          "enum": [
+            "provider_native_trigger",
+            "source_owned_transition_runtime",
+            "typed_synchronous_api",
+            "cross_provider_adapter"
+          ]
+        },
+        "delivery_semantics": {
+          "$ref": "#/$defs/delivery_semantics"
+        },
+        "transfer_route_class": {
+          "enum": [
+            "same_provider_same_region",
+            "same_provider_cross_region",
+            "cross_provider"
+          ]
+        },
+        "transfer_evidence_refs": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "formula_refs": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "cost_contribution": {
+          "$ref": "#/$defs/cost_contribution"
+        },
+        "trust_contract_ref": {
+          "$ref": "semantic-registry.schema.json#/$defs/versioned_ref"
+        },
+        "observability_contract_ref": {
+          "$ref": "semantic-registry.schema.json#/$defs/versioned_ref"
+        },
+        "deployment_input_binding_ids": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "deployment_output_binding_ids": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        }
+      }
+    },
+    "extension_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot_id",
+        "slot_version",
+        "artifact_id",
+        "artifact_digest",
+        "logical_component_id",
+        "configuration_digest",
+        "validation_contract_version"
+      ],
+      "properties": {
+        "slot_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "slot_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "artifact_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "artifact_digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        },
+        "logical_component_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "configuration_digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        },
+        "validation_contract_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        }
+      }
+    },
+    "deployment_specification_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "digest",
+        "calculation_run_id"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "resolved-deployment-specification.v1"
+        },
+        "digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        },
+        "calculation_run_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "cost_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id",
+        "monthly_amount"
+      ],
+      "properties": {
+        "item_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "monthly_amount": {
+          "$ref": "semantic-registry.schema.json#/$defs/decimal"
+        }
+      }
+    },
+    "cost_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "responsibility_totals",
+        "component_totals",
+        "edge_totals",
+        "monthly_total"
+      ],
+      "properties": {
+        "currency": {
+          "const": "USD"
+        },
+        "responsibility_totals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/cost_item"
+          }
+        },
+        "component_totals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/cost_item"
+          }
+        },
+        "edge_totals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/cost_item"
+          }
+        },
+        "monthly_total": {
+          "$ref": "semantic-registry.schema.json#/$defs/decimal"
+        }
+      }
+    },
+    "functional_completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "required_capability_ids",
+        "provided_capability_ids",
+        "provider_extra_capability_ids",
+        "missing_capability_ids",
+        "validator_version",
+        "validation_digest"
+      ],
+      "properties": {
+        "status": {
+          "const": "complete"
+        },
+        "required_capability_ids": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "provided_capability_ids": {
+          "$ref": "#/$defs/non_empty_stable_id_array"
+        },
+        "provider_extra_capability_ids": {
+          "$ref": "#/$defs/stable_id_array"
+        },
+        "missing_capability_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "validator_version": {
+          "$ref": "semantic-registry.schema.json#/$defs/version"
+        },
+        "validation_digest": {
+          "$ref": "semantic-registry.schema.json#/$defs/digest"
+        }
+      }
+    }
+  }
+}

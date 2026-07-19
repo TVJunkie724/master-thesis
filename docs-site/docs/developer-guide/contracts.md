@@ -138,6 +138,33 @@ Terraform variables. Missing, stale, conflicting, or unknown mappings fail
 with stable redacted errors. No downstream component may synthesize missing
 dimensions from calculator or Terraform defaults.
 
+### Architecture Profile Contracts
+
+The repository also contains the Phase 8 architecture-profile v1 bundle:
+
+```text
+contracts/architecture-profiles/v1/
+```
+
+It separates logical `ArchitectureProfile`, provider-specific
+`ProviderImplementationProfile`, deployable `DeploymentComponentCatalog`, and
+immutable `ResolvedTwinArchitecture` records. In Phase 8.2 all three backend
+services expose read-only validators only; no calculation, persistence,
+deployment, Terraform, or Flutter path selects the new contracts yet.
+
+The shared local-only validator enforces canonical digests, closed versions,
+reference and cycle integrity, capability completeness, size bounds, and
+secret-like data rejection with stable `ARCH_*` codes. Generated service
+copies are byte-identical and drift-gated:
+
+```bash
+python scripts/sync_architecture_profile_contracts.py --check
+```
+
+See
+[Architecture Contract Development](architecture-profile-contracts.md) before
+changing a schema, profile version, provider mapping, or catalog entry.
+
 AWS, Azure, and GCP have completed provider resource binding. AWS deployable values
 reach Lambda memory, DynamoDB billing mode, S3 storage classes, and transition
 schedules. Azure deployable values reach IoT Hub SKU/capacity, Function plans,

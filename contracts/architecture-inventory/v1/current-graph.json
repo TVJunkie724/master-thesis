@@ -1573,7 +1573,7 @@
     "twin2multicloud_flutter/lib/widgets/architecture_graph.dart",
     "twin2multicloud_flutter/lib/widgets/file_inputs/config_visualization_block.dart"
   ],
-  "audited_source_tree_digest": "sha256:22193db047e9fb030bb75f2cdb9d216ff4a937d7d37ba14abbe3462ccefb77a8",
+  "audited_source_tree_digest": "sha256:02565e7a8d3d7f288f75454766ba1fce771808074a0f1b9ec4f645bf0b0d6c29",
   "components": [
     {
       "component_id": "component.function.archive-writer",
@@ -6118,7 +6118,7 @@
       ]
     }
   ],
-  "content_digest": "sha256:02a97aa7acff6382f51527012df85a7b0c3680d715c3c89edef0792e6775a5c2",
+  "content_digest": "sha256:b11fabe4ad114aa8df7304c4a9128f6467113283a2f515aed61522b05f33d2b5",
   "cost_owners": [
     {
       "cost_kind": "transfer",
@@ -9892,7 +9892,7 @@
       ]
     }
   ],
-  "generated_at": "2026-07-19T00:33:22Z",
+  "generated_at": "2026-07-19T15:30:06Z",
   "inventory_id": "current-five-layer-implementation",
   "paper_model_references": [
     "docs/research/digital_twin_architecture_and_eventing_layer.md",
@@ -10089,7 +10089,7 @@
     }
   ],
   "schema_version": "architecture-inventory.v1",
-  "source_commit": "8a0e99821b4c299c8c63c3a3a1d7bce56749e51c",
+  "source_commit": "7ba914bfb086e9c2b268a5f2a4cada4286cee3bc",
   "terraform_objects": [
     {
       "binding_role": "dependency",

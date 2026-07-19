@@ -64,6 +64,7 @@ nav:
       - Overview: contracts-and-data-flow/index.md
       - System Boundaries: contracts-and-data-flow/system-boundaries.md
       - Cross-Project Contract Map: contracts-and-data-flow/contract-map.md
+      - Architecture Profiles: contracts-and-data-flow/architecture-profiles.md
       - Pricing & Optimization: contracts-and-data-flow/pricing-optimization.md
       - Deployment Lifecycle: contracts-and-data-flow/deployment-lifecycle.md
       - Credentials & Trust: contracts-and-data-flow/credentials-and-trust.md
@@ -88,6 +89,7 @@ nav:
       - Project Setup: developer-guide/setup.md
       - Project Structure: developer-guide/project-structure.md
       - API & Contracts: developer-guide/contracts.md
+      - Architecture Contract Development: developer-guide/architecture-profile-contracts.md
       - Extension Points: developer-guide/extension-points.md
       - Testing: developer-guide/testing.md
   - User Guide:

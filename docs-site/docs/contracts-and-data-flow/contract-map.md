@@ -40,6 +40,7 @@ versioned contracts inside those payloads are listed below.
 | `cost-result.v1` and intent traces | Optimizer | Management API | persisted run and Flutter read model |
 | complete-path transfer and optimization contracts | Optimizer | Management API transfer/path validators | persisted result items and Flutter |
 | `resolved-deployment-specification.v1` | repository root schema/registry; object emitted by Optimizer | Optimizer, Management API, and Deployer | manifest builder and typed tfvars translator |
+| architecture-profile contract bundle v1 | repository root schemas/semantic registry | dark readers in Optimizer, Management API, and Deployer | later profile resolution, persistence, and graph compilation phases |
 | `DeploymentManifest 2.0` | Management API | Deployer | operation package and execution |
 | one-use operation package | Deployer package store | Deployer | one deployment or destroy acquisition |
 | deployment status, logs, outputs | Deployer execution boundary | Management API | Flutter REST/SSE read models |
@@ -48,8 +49,8 @@ versioned contracts inside those payloads are listed below.
 
 ```mermaid
 flowchart LR
-    Canonical["Repository canonical contract<br/>contracts/resolved-deployment-specification/v1"]
-    Sync["sync_resolved_deployment_contract.py"]
+    Canonical["Repository canonical contracts<br/>resolved deployment + architecture profiles"]
+    Sync["deterministic contract sync scripts"]
     OptimizerCopy["Optimizer generated copy"]
     ManagementCopy["Management generated copy"]
     DeployerCopy["Deployer generated copy"]
@@ -71,6 +72,9 @@ deployment drift gate is:
 ```bash
 ./thesis.sh test deployment-contract
 ```
+
+Architecture-profile boundaries, version rules, and current dark-reader status
+are documented in [Architecture Profile Contracts](architecture-profiles.md).
 
 ## Versioning Rule
 

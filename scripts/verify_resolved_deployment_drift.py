@@ -196,8 +196,10 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "-lc",
                 (
                     "python scripts/sync_resolved_deployment_contract.py --check "
+                    "&& python scripts/sync_architecture_profile_contracts.py --check "
                     "&& python -m unittest "
                     "scripts.tests.test_resolved_deployment_contract_sync "
+                    "scripts.tests.test_architecture_profile_contract_sync "
                     "scripts.tests.test_verify_resolved_deployment_drift "
                     "scripts.tests.test_thesis_entrypoint"
                 ),

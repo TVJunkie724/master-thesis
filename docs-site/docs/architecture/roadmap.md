@@ -20,13 +20,15 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 
 ## Current Workstreams
 
-Phase 8 has started. The source-backed current deployment graph in #144 and the
-complete `five-layer-baseline@1` target decision in #139 are implemented and
-reviewed. Phase 8.2 shared architecture-profile contracts are next. The
-user-function prerequisite #113 must complete before Phase 8.3 binds extension
-slots. Credential, remaining Optimizer coverage, manual UI audit, and external
-authentication work remain independently tracked in their GitHub milestones
-rather than inferred from one global "current phase" label.
+Phase 8 has started. The source-backed current deployment graph in #144, the
+complete `five-layer-baseline@1` target decision in #139, and the four
+drift-gated architecture-profile contracts in #149 are implemented and
+reviewed. Their Optimizer, Management API, and Deployer readers remain dark and
+do not change runtime behavior. The user-function prerequisite #113 is next and
+must complete before Phase 8.3 binds extension slots. Credential, remaining
+Optimizer coverage, manual UI audit, and external authentication work remain
+independently tracked in their GitHub milestones rather than inferred from one
+global "current phase" label.
 
 ## Backlog Rule
 

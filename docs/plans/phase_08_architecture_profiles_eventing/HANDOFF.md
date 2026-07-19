@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-19"
-version: "2.2"
+version: "2.3"
 ---
 
 <!-- SOURCES:
@@ -12,9 +12,10 @@ version: "2.2"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/research/related_work_multicloud_cost_comparability_eventing.md
 - docs-site/docs/architecture/refactoring-roadmap.md
-- Phase 8.0 current graph and Phase 8.1 five-layer baseline decision artifacts
+- Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, and Phase
+  8.2 architecture-profile contract artifacts
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-19 | VERSION: 2.2
+EXTRACTED: 2026-07-19 | VERSION: 2.3
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -27,12 +28,12 @@ EXTRACTED: 2026-07-19 | VERSION: 2.2
 | Integration branch | `master` |
 | Planning base | `5e675e77` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Completed implementation | Phase 8.0 / #144 and Phase 8.1 / #139 |
+| Completed implementation | Phase 8.0 / #144, Phase 8.1 / #139, and Phase 8.2 / #149 |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Active prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.1 target decision complete; proceed to Phase 8.2 |
-| Next implementation phase | Phase 8.2 / [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) |
+| Implementation status | Phase 8.2 shared contracts and dark readers complete; resolve #113 before Phase 8.3 |
+| Next implementation phase | Prerequisite [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -41,30 +42,33 @@ Phase 8.0 reconstructed the current deployment graph and closed #144. Phase
 implementation records and all 90 current edges. The baseline contains no
 general Eventing responsibility. The current direct L3-hot-to-Grafana shortcut
 is removed from the target and replaced by a typed L4-to-L5 contract owned by
-Phase 8.6.
+Phase 8.6. Phase 8.2 now provides all four Draft 2020-12 contracts, the semantic
+registry, deterministic fixtures and digests, byte-identical service copies,
+and read-only validators with stable cross-service error codes. The readers
+remain dark and change no runtime selection or deployment behavior.
 
 ## Immediate Next Action
 
-The next implementation step is Phase 8.2 only:
+The next implementation step is prerequisite #113 only:
 
-1. confirm #139 is complete and #149 has no remaining native blocker;
-2. branch from the reviewed Phase 8.1 commit;
+1. confirm #149 is complete and #113 is still required by #150;
+2. branch from the reviewed Phase 8.2 commit;
 3. read
-   [`phase_08_2_profile_contracts.md`](phase_08_2_profile_contracts.md)
+   [`prerequisite_user_function_extension_contract.md`](prerequisite_user_function_extension_contract.md)
    in full;
 4. read
-   [`five_layer_baseline_target_decision.md`](../../research/five_layer_baseline_target_decision.md)
-   and its machine-readable decision contract;
-5. implement the shared versioned architecture-profile contracts exactly as
-   planned;
+   [`architecture-profile-contracts.md`](../../../docs-site/docs/developer-guide/architecture-profile-contracts.md)
+   and the generated component/extension-slot contract boundaries;
+5. implement the deterministic non-secret Python 3.11 extension boundary
+   exactly as planned;
 6. run its safe verification gates;
 7. review the implementation twice and fix every finding;
-8. update the roadmap, documentation, and issue #149;
-9. create a structured commit that references #149;
-10. do not start Phase 8.3 while #113 remains open.
+8. update the roadmap, documentation, and issue #113;
+9. create a structured commit that references #113;
+10. start Phase 8.3 only after #113 is closed.
 
-The user-function prerequisite #113 does not block Phase 8.2. It must complete
-before Phase 8.3 finalizes extension-slot catalog bindings.
+The Phase 8.2 fixture intentionally has no executable extension slot. Phase 8.3
+must not add one until #113 proves the packaging boundary.
 
 ## Required Reading Order
 
@@ -178,7 +182,7 @@ string conventions or user functions constructing another resource's identity.
 | Prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Deterministic v1 extension boundary with typed non-secret configuration |
 | 8.0 | [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Code-verified Function-and-Edge Matrix |
 | 8.1 | [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Normative `five-layer-baseline@1` decision |
-| 8.2 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Shared schemas and semantic validators |
+| 8.2 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Implemented shared schemas, semantic registry, fixtures, dark readers, and drift gates |
 | 8.3 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Explicit provider and deployer realization |
 | 8.4 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Runtime SSOT and migration |
 | 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Functional-total path optimization |
@@ -491,10 +495,9 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Ich habe den finalen Phase-8-Handoff, die Mini-Roadmap, den GitHub-
-> Blockergraph und den Plan fuer Phase 8.0 geprueft. Die Planung ist als
-> begrenztes Closed-World-Modell mit einer gehaerteten
-> `five-layer-baseline@1` und einem spaeteren, evidenz-gegateten
-> `six-layer-eventing@1` abgeschlossen. Ich starte jetzt ausschliesslich mit
-> der code-verifizierten Rekonstruktion des bestehenden Function-and-Edge-
-> Graphen in #144. Live-Cloud-E2E und LaTeX bleiben unangetastet.
+> Phase 8.0 bis 8.2 sind implementiert und reviewt: aktueller Graph,
+> gehaertetes `five-layer-baseline@1` und die vier drift-gegateten
+> Architekturvertraege mit identischen Dark-Readern. Ich starte jetzt
+> ausschliesslich mit dem noch offenen User-Function-Prerequisite #113, bevor
+> Phase 8.3 Extension-Slots an Providerkomponenten bindet. Live-Cloud-E2E und
+> LaTeX bleiben unangetastet.

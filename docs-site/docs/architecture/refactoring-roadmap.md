@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Phase 8 | Twin Architecture Profiles & Eventing | Active | Current graph and five-layer target decision complete; shared profile contracts are next |
+| Phase 8 | Twin Architecture Profiles & Eventing | Active | Current graph, five-layer target, and shared profile contracts complete; user-function prerequisite is next |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -194,7 +194,7 @@ when work becomes actionable, then reference the issue here.
 | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Planned prerequisite | Deterministic Python 3.11 extension boundary with typed non-secret configuration. Provider-managed user-function secrets are intentionally separate hardening work |
 | [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Implemented, review complete | Code-verified current graph: 114 implementations, 64 artifacts, 659 parsed Terraform objects, 90 edges, and one explicit predecessor finding (`finding.l5-reader-binding-divergence`); no runtime behavior change. Evidence: [current Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/blob/master/docs/research/phase_08_current_function_edge_matrix.md) |
 | [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Implemented, review complete | Target decision covers all 114 current implementations and all 90 current edges, preserves five scientific responsibilities and seven costed slots, excludes a general Eventing layer, and replaces the unsafe L3-to-Grafana shortcut with a typed L4-to-L5 target. Evidence: [Five-Layer Baseline Target](five-layer-baseline.md) |
-| [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Planned | Shared `ArchitectureProfile`, provider, component-catalog, and resolved-architecture contracts |
+| [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Implemented, review complete | Four Draft 2020-12 contracts, semantic registry, canonical fixtures/digests, byte-identical service copies, stable cross-service errors, and dark readers. Evidence: [Architecture Profile Contracts](../contracts-and-data-flow/architecture-profiles.md) |
 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Planned | Registered AWS/Azure/GCP baseline implementations and deterministic deployer ownership |
 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Planned | Normalized profile selection, immutable resolved architecture, migration, and server-derived invalidation preview |
 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Planned | Functional-completeness gate before profile-local cost ranking |
@@ -227,8 +227,8 @@ when work becomes actionable, then reference the issue here.
 ## Next Recommended Sequence
 
 1. Continue Phase 8 with
-   [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149)
-   from the reviewed #139 decision.
+   [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113)
+   from the reviewed #149 contract boundary, then begin Phase 8.3.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
