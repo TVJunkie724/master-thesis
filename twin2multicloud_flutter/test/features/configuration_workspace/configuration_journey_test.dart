@@ -5,6 +5,7 @@ import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
+import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 
 import '../../fixtures/typed_api_fixtures.dart';
 
@@ -154,6 +155,46 @@ void main() {
             .isConfigurationReadyForFinish,
         isFalse,
       );
+
+      final extensionRequired = ready.copyWith(
+        extensionSlots: const [_extensionSlot],
+      );
+      expect(extensionRequired.isConfigurationReadyForFinish, isFalse);
+      expect(
+        ConfigurationJourney.fromWizardState(
+          extensionRequired,
+        ).task(ConfigurationTaskId.userLogic).status,
+        ConfigurationTaskStatus.available,
+      );
+
+      final binding = TwinExtensionBinding(
+        bindingId: '10000000-0000-4000-8000-000000000001',
+        twinId: 'twin-1',
+        slotId: _extensionSlot.slotId,
+        slotVersion: _extensionSlot.slotVersion,
+        artifactId: '20000000-0000-4000-8000-000000000001',
+        artifactDigest:
+            'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        bindingDigest:
+            'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        active: true,
+        revision: 1,
+        createdAt: DateTime.utc(2026, 7, 19),
+        unboundAt: null,
+      );
+      final bound = extensionRequired.copyWith(
+        extensionBindings: [binding],
+        extensionPhases: const {
+          'processor.telemetry': UserFunctionWorkflowPhase.bound,
+        },
+      );
+      expect(bound.isConfigurationReadyForFinish, isTrue);
+      expect(
+        ConfigurationJourney.fromWizardState(
+          bound,
+        ).task(ConfigurationTaskId.userLogic).status,
+        ConfigurationTaskStatus.complete,
+      );
     });
 
     test('blocks deployment tasks until the latest run is selected', () {
@@ -187,6 +228,16 @@ void main() {
     });
   });
 }
+
+const _extensionSlot = ExtensionSlot(
+  slotId: 'processor.telemetry',
+  slotVersion: '1',
+  displayName: 'Telemetry processor',
+  runtimeId: 'python311',
+  configurationFields: [],
+  resourceLimits: {'timeout_seconds': 30, 'memory_mb': 256},
+  permissionCapabilities: ['capability.telemetry.process'],
+);
 
 PricingHealthResponse _healthyPricing() => PricingHealthResponse.fromJson({
   'schema_version': PricingHealthResponse.supportedSchemaVersion,

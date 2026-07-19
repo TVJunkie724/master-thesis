@@ -107,6 +107,9 @@ abstract class AppSpacing {
   /// Resolved deployment rows use fixed metadata columns from this width.
   static const double resolvedDeploymentWideBreakpoint = 720;
 
+  /// User-function slot actions stack below this width.
+  static const double userFunctionCompactBreakpoint = 620;
+
   /// Stable slot column width in resolved deployment rows.
   static const double resolvedDeploymentSlotColumnWidth = 112;
 

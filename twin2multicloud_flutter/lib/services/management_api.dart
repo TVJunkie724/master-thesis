@@ -18,6 +18,7 @@ import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/user_function_extension.dart';
 import '../models/wizard_config_requests.dart';
 
 abstract interface class SessionApi {
@@ -192,6 +193,35 @@ abstract interface class DeploymentConfigurationApi {
   );
 }
 
+abstract interface class UserFunctionExtensionApi {
+  Future<List<ExtensionSlot>> listExtensionSlots();
+
+  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  );
+
+  Future<UserFunctionArtifact> createUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  );
+
+  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts();
+
+  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(String twinId);
+
+  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot,
+    String artifactId, {
+    int? expectedRevision,
+  });
+
+  Future<void> unbindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot, {
+    int? expectedRevision,
+  });
+}
+
 abstract interface class DeploymentLifecycleApi {
   Future<DeploymentReadinessSnapshot> getDeploymentReadiness(String twinId);
 
@@ -244,5 +274,6 @@ abstract interface class ManagementApi
         PlatformCapabilityApi,
         OptimizationApi,
         DeploymentConfigurationApi,
+        UserFunctionExtensionApi,
         DeploymentLifecycleApi,
         VerificationApi {}

@@ -1,0 +1,49 @@
+{
+  "schema_version": "user-function-artifact.v1",
+  "artifact_id": "11111111-1111-4111-8111-111111111111",
+  "artifact_digest": "sha256:5b67706381aabed09f225f8a832d59e55c864e9602e967cb70110dd0e59b85b1",
+  "slot_id": "processor.telemetry",
+  "slot_version": "1",
+  "runtime_id": "python311",
+  "source": {
+    "module_path": "process.py",
+    "entrypoint": "process",
+    "files": [
+      {
+        "relative_path": "process.py",
+        "content_digest": "sha256:e78589aa492e322186febe7a48fd609a5bfea4a82dd3509ffda59ab05d617559",
+        "size_bytes": 158
+      },
+      {
+        "relative_path": "requirements.lock",
+        "content_digest": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "size_bytes": 1
+      }
+    ],
+    "payload_digest": "sha256:4260d6ab46b7153b64cd0eb5a460459d15560d6d643a9f7898ac57c30237d2d1"
+  },
+  "dependencies": [],
+  "configuration": {
+    "scale_factor": 1
+  },
+  "declared_capabilities": [
+    "capability.telemetry.process"
+  ],
+  "created_by": "22222222-2222-4222-8222-222222222222",
+  "created_at": "2026-07-19T00:00:00Z",
+  "validation": {
+    "validator_version": "user-function-validator.v1",
+    "checks": [
+      "archive_safe",
+      "schema_valid",
+      "entrypoint_valid",
+      "dependencies_valid",
+      "secret_scan_passed",
+      "configuration_valid",
+      "runtime_compatible",
+      "capabilities_authorized",
+      "package_deterministic",
+      "binding_compatible"
+    ]
+  }
+}

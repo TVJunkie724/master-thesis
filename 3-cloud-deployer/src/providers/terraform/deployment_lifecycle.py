@@ -26,6 +26,7 @@ class DeploymentLifecycleMixin:
             self._validate_credentials()
         self._initialize_providers(context)
         self._validate_project()
+        self._extension_operation_id = context.operation_id
         self._build_packages()
         self._generate_tfvars()
 
@@ -75,6 +76,7 @@ class DeploymentLifecycleMixin:
         self._initialize_providers(context)
         yield "[3/7] Validating project and building packages"
         self._validate_project()
+        self._extension_operation_id = context.operation_id
         self._build_packages()
         self._generate_tfvars()
 

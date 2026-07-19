@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-19"
-version: "2.3"
+version: "2.4"
 ---
 
 <!-- SOURCES:
@@ -12,10 +12,10 @@ version: "2.3"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/research/related_work_multicloud_cost_comparability_eventing.md
 - docs-site/docs/architecture/refactoring-roadmap.md
-- Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, and Phase
-  8.2 architecture-profile contract artifacts
+- Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
+  architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-19 | VERSION: 2.3
+EXTRACTED: 2026-07-19 | VERSION: 2.4
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,12 +28,12 @@ EXTRACTED: 2026-07-19 | VERSION: 2.3
 | Integration branch | `master` |
 | Planning base | `5e675e77` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Completed implementation | Phase 8.0 / #144, Phase 8.1 / #139, and Phase 8.2 / #149 |
+| Completed implementation | Phase 8.0 / #144, Phase 8.1 / #139, Phase 8.2 / #149, and local prerequisite #113 |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
-| Active prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
+| Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.2 shared contracts and dark readers complete; resolve #113 before Phase 8.3 |
-| Next implementation phase | Prerequisite [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
+| Implementation status | Phase 8.2 contracts and the locally reviewed #113 execution boundary are complete |
+| Next implementation phase | Phase 8.3 / [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -47,28 +47,31 @@ registry, deterministic fixtures and digests, byte-identical service copies,
 and read-only validators with stable cross-service error codes. The readers
 remain dark and change no runtime selection or deployment behavior.
 
+Prerequisite #113 now supplies the canonical Python 3.11 slot/artifact/envelope
+contracts, immutable owner-scoped artifacts and bindings, deterministic
+AWS/Azure/GCP packages, shared runtime adapters, a compact Flutter workflow,
+and fail-closed deployment handoff. A bound package deliberately stops before
+Terraform until Phase 8.3 maps the reviewed slot to an exact catalog resource.
+This is an execution extension inside the five-layer baseline, not an Event
+Layer.
+
 ## Immediate Next Action
 
-The next implementation step is prerequisite #113 only:
+The next implementation step is Phase 8.3:
 
-1. confirm #149 is complete and #113 is still required by #150;
-2. branch from the reviewed Phase 8.2 commit;
-3. read
-   [`prerequisite_user_function_extension_contract.md`](prerequisite_user_function_extension_contract.md)
+1. create the Phase 8.3 branch from the reviewed #113 commit;
+2. read
+   [`phase_08_3_provider_profiles_component_catalog.md`](phase_08_3_provider_profiles_component_catalog.md)
    in full;
-4. read
-   [`architecture-profile-contracts.md`](../../../docs-site/docs/developer-guide/architecture-profile-contracts.md)
-   and the generated component/extension-slot contract boundaries;
-5. implement the deterministic non-secret Python 3.11 extension boundary
-   exactly as planned;
-6. run its safe verification gates;
-7. review the implementation twice and fix every finding;
-8. update the roadmap, documentation, and issue #113;
-9. create a structured commit that references #113;
-10. start Phase 8.3 only after #113 is closed.
-
-The Phase 8.2 fixture intentionally has no executable extension slot. Phase 8.3
-must not add one until #113 proves the packaging boundary.
+3. verify the Phase 8.1 inventory/decision and Phase 8.2 contract digests;
+4. register complete provider implementation profiles and the deployment
+   component catalog;
+5. map `processor.telemetry@1` only through its reviewed component, ports,
+   permissions, resource limits, adapter, package, and Terraform references;
+6. keep unsupported provider paths explicit and fail closed;
+7. run the named safe gates and two zero-finding reviews;
+8. update current docs, evidence, roadmap, and issue #150;
+9. commit the complete Phase 8.3 boundary before starting Phase 8.4.
 
 ## Required Reading Order
 
@@ -495,9 +498,10 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Phase 8.0 bis 8.2 sind implementiert und reviewt: aktueller Graph,
-> gehaertetes `five-layer-baseline@1` und die vier drift-gegateten
-> Architekturvertraege mit identischen Dark-Readern. Ich starte jetzt
-> ausschliesslich mit dem noch offenen User-Function-Prerequisite #113, bevor
-> Phase 8.3 Extension-Slots an Providerkomponenten bindet. Live-Cloud-E2E und
-> LaTeX bleiben unangetastet.
+> Phase 8.0 bis 8.2 und das User-Function-Prerequisite #113 sind implementiert
+> und reviewt: aktueller Graph,
+> gehaertetes `five-layer-baseline@1`, vier drift-gegatete
+> Architekturvertraege und die deterministische, nicht-geheime
+> User-Function-v1-Grenze. Ich starte Phase 8.3 und binde den reviewten Slot
+> erstmals an exakte Providerkomponenten. Live-Cloud-E2E und LaTeX bleiben
+> unangetastet.

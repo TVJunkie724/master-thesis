@@ -1,5 +1,6 @@
 import '../../../bloc/wizard/wizard_state.dart';
 import '../../../models/deployer_config.dart';
+import '../../../models/user_function_extension.dart';
 
 enum ConfigurationPhaseId {
   defineTwin,
@@ -312,10 +313,28 @@ class ConfigurationJourney {
           : ConfigurationTaskStatus.available;
     }
 
+    final extensionNeedsAttention =
+        state.extensionErrors.containsKey('_catalog') ||
+        state.extensionSlots.any((slot) {
+          final phase = state.extensionPhase(slot.slotId);
+          return phase == UserFunctionWorkflowPhase.invalid ||
+              phase == UserFunctionWorkflowPhase.stale ||
+              phase == UserFunctionWorkflowPhase.error;
+        });
+    final userLogicStatus = !deploymentSelectionReady
+        ? ConfigurationTaskStatus.blocked
+        : state.extensionContractActive
+        ? state.extensionBindingsReady
+              ? ConfigurationTaskStatus.complete
+              : extensionNeedsAttention
+              ? ConfigurationTaskStatus.attention
+              : ConfigurationTaskStatus.available
+        : deploymentStatus(logic);
     final allReady =
         deploymentSelectionReady &&
         requiredProvidersConfigured &&
         readiness.ready &&
+        (!state.extensionContractActive || state.extensionBindingsReady) &&
         !state.step3Invalidated;
     final reviewStatus = !architectureReady
         ? ConfigurationTaskStatus.blocked
@@ -419,7 +438,7 @@ class ConfigurationJourney {
         ConfigurationTaskId.userLogic,
         deployment,
         'User logic',
-        deploymentStatus(logic),
+        userLogicStatus,
         blocker: deploymentBlocker,
       ),
       ConfigurationTaskId.twinAssets: task(

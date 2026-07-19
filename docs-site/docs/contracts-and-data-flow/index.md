@@ -14,9 +14,12 @@ a proposed architecture and not a thesis evaluation.
    from acquisition through formulas, scoring, and deployment selection.
 4. [Deployment Lifecycle](deployment-lifecycle.md) follows the selected optimizer
    run through the operation package, Terraform, status, logs, and outputs.
-5. [Credentials And Trust](credentials-and-trust.md) shows how bootstrap,
+5. [User-Function Extension Contract](user-function-extensions.md) follows
+   owner-scoped source through validation, binding, packaging, wrappers, and
+   Terraform reference.
+6. [Credentials And Trust](credentials-and-trust.md) shows how bootstrap,
    pricing, and deployment credentials cross trust boundaries.
-6. [State Ownership](state-ownership.md) identifies the system of record for
+7. [State Ownership](state-ownership.md) identifies the system of record for
    editable definitions, durable application state, and generated runtime state.
 
 ## Diagram Conventions

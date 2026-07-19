@@ -11,6 +11,7 @@ from src.api.routes import (
     optimizer_runs,
     pricing_refresh,
     pricing_review,
+    user_function_extensions,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "optimizer_runs",
     "pricing_refresh",
     "pricing_review",
+    "user_function_extensions",
 ]

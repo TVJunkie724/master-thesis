@@ -57,6 +57,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
   ConfigurationTaskId? _currentTaskId;
   _WorkspaceExitDestination? _pendingExitDestination;
   Timer? _notificationTimer;
+  bool _extensionCatalogRequested = false;
 
   @override
   void dispose() {
@@ -73,6 +74,16 @@ class _WizardViewState extends ConsumerState<WizardView> {
           previous.errorMessage != current.errorMessage,
       listener: _handleStateSideEffects,
       builder: (context, state) {
+        if (!_extensionCatalogRequested && state.status == WizardStatus.ready) {
+          _extensionCatalogRequested = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              context.read<WizardBloc>().add(
+                const WizardExtensionCatalogLoadRequested(),
+              );
+            }
+          });
+        }
         final commandInProgress = _commandInProgress(state);
         final appBar = ConfigurationWorkspaceAppBar(
           isDarkMode: ref.watch(themeProvider) == ThemeMode.dark,

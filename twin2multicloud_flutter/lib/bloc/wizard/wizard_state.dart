@@ -13,6 +13,7 @@ import '../../models/optimizer_config.dart';
 import '../../models/pricing_health.dart';
 import '../../models/provider_capability.dart';
 import '../../models/resolved_deployment_specification.dart';
+import '../../models/user_function_extension.dart';
 import '../../utils/twin_state_utils.dart';
 
 // ============================================================
@@ -175,6 +176,14 @@ class WizardState extends Equatable {
   eventActionRequirements; // functionName -> requirements.txt
   final String? stateMachineContent; // AWS/Azure/GCP workflow JSON/YAML
   final bool stateMachineValidated;
+  final bool extensionCatalogLoading;
+  final List<ExtensionSlot> extensionSlots;
+  final List<UserFunctionArtifact> extensionArtifacts;
+  final List<TwinExtensionBinding> extensionBindings;
+  final Map<String, UserFunctionSourceDraft> extensionDrafts;
+  final Map<String, UserFunctionValidationResult> extensionValidationResults;
+  final Map<String, UserFunctionWorkflowPhase> extensionPhases;
+  final Map<String, String> extensionErrors;
 
   // === Persistent Data: Step 3 Section 2 (L4 Hierarchy) ===
   final String? hierarchyContent; // aws_hierarchy.json or azure_hierarchy.json
@@ -260,6 +269,14 @@ class WizardState extends Equatable {
     this.eventActionRequirements = const {},
     this.stateMachineContent,
     this.stateMachineValidated = false,
+    this.extensionCatalogLoading = false,
+    this.extensionSlots = const [],
+    this.extensionArtifacts = const [],
+    this.extensionBindings = const [],
+    this.extensionDrafts = const {},
+    this.extensionValidationResults = const {},
+    this.extensionPhases = const {},
+    this.extensionErrors = const {},
     // L4/L5 fields
     this.hierarchyContent,
     this.hierarchyValidated = false,
@@ -306,6 +323,45 @@ class WizardState extends Equatable {
 
   DeployerArtifactValidationFeedback? artifactFeedback(String artifactId) =>
       artifactValidationFeedback[artifactId];
+
+  ExtensionSlot? extensionSlot(String slotId) {
+    for (final slot in extensionSlots) {
+      if (slot.slotId == slotId) return slot;
+    }
+    return null;
+  }
+
+  UserFunctionSourceDraft? extensionDraft(String slotId) =>
+      extensionDrafts[slotId];
+
+  UserFunctionValidationResult? extensionValidation(String slotId) =>
+      extensionValidationResults[slotId];
+
+  UserFunctionWorkflowPhase extensionPhase(String slotId) =>
+      extensionPhases[slotId] ??
+      (extensionBinding(slotId) == null
+          ? UserFunctionWorkflowPhase.draft
+          : UserFunctionWorkflowPhase.bound);
+
+  TwinExtensionBinding? extensionBinding(String slotId) {
+    for (final binding in extensionBindings) {
+      if (binding.slotId == slotId && binding.active) return binding;
+    }
+    return null;
+  }
+
+  bool get extensionContractActive =>
+      extensionCatalogLoading ||
+      extensionErrors.containsKey('_catalog') ||
+      extensionSlots.isNotEmpty;
+
+  bool get extensionBindingsReady =>
+      extensionSlots.isNotEmpty &&
+      extensionSlots.every(
+        (slot) =>
+            extensionPhase(slot.slotId) == UserFunctionWorkflowPhase.bound &&
+            extensionBinding(slot.slotId) != null,
+      );
 
   Map<String, DeployerArtifactValidationFeedback> feedbackWithout(
     String artifactId,
@@ -390,6 +446,7 @@ class WizardState extends Equatable {
       deploymentReview.ready &&
       unconfiguredProviders.isEmpty &&
       deployerReadiness.ready &&
+      (!extensionContractActive || extensionBindingsReady) &&
       !step3Invalidated;
 
   DeployerConfigData get deployerConfigData => DeployerConfigData(
@@ -620,6 +677,14 @@ class WizardState extends Equatable {
     Map<String, String>? eventActionRequirements,
     String? stateMachineContent,
     bool? stateMachineValidated,
+    bool? extensionCatalogLoading,
+    List<ExtensionSlot>? extensionSlots,
+    List<UserFunctionArtifact>? extensionArtifacts,
+    List<TwinExtensionBinding>? extensionBindings,
+    Map<String, UserFunctionSourceDraft>? extensionDrafts,
+    Map<String, UserFunctionValidationResult>? extensionValidationResults,
+    Map<String, UserFunctionWorkflowPhase>? extensionPhases,
+    Map<String, String>? extensionErrors,
     // L4/L5 fields
     String? hierarchyContent,
     bool? hierarchyValidated,
@@ -744,6 +809,16 @@ class WizardState extends Equatable {
       stateMachineContent: stateMachineContent ?? this.stateMachineContent,
       stateMachineValidated:
           stateMachineValidated ?? this.stateMachineValidated,
+      extensionCatalogLoading:
+          extensionCatalogLoading ?? this.extensionCatalogLoading,
+      extensionSlots: extensionSlots ?? this.extensionSlots,
+      extensionArtifacts: extensionArtifacts ?? this.extensionArtifacts,
+      extensionBindings: extensionBindings ?? this.extensionBindings,
+      extensionDrafts: extensionDrafts ?? this.extensionDrafts,
+      extensionValidationResults:
+          extensionValidationResults ?? this.extensionValidationResults,
+      extensionPhases: extensionPhases ?? this.extensionPhases,
+      extensionErrors: extensionErrors ?? this.extensionErrors,
       // L4/L5 fields
       hierarchyContent: clearHierarchyContent
           ? null
@@ -833,6 +908,14 @@ class WizardState extends Equatable {
     eventActionRequirements,
     stateMachineContent,
     stateMachineValidated,
+    extensionCatalogLoading,
+    extensionSlots,
+    extensionArtifacts,
+    extensionBindings,
+    extensionDrafts,
+    extensionValidationResults,
+    extensionPhases,
+    extensionErrors,
     // L4/L5 fields
     hierarchyContent,
     hierarchyValidated,

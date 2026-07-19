@@ -29,6 +29,9 @@ from src.main import app
 from src.models.database import Base, create_database_engine, get_db
 from src.security.rate_limit import reset_rate_limiter_for_tests
 from src.security.auth_rate_limit import reset_auth_rate_limiter_for_tests
+from src.security.user_function_rate_limit import (
+    reset_user_function_rate_limiter_for_tests,
+)
 
 
 # Test database (separate from production)
@@ -41,9 +44,11 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_
 def isolate_credential_rate_limiter():
     asyncio.run(reset_rate_limiter_for_tests())
     asyncio.run(reset_auth_rate_limiter_for_tests())
+    asyncio.run(reset_user_function_rate_limiter_for_tests())
     yield
     asyncio.run(reset_rate_limiter_for_tests())
     asyncio.run(reset_auth_rate_limiter_for_tests())
+    asyncio.run(reset_user_function_rate_limiter_for_tests())
 
 
 def override_get_db():

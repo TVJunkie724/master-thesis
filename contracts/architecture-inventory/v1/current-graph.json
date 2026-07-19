@@ -1573,7 +1573,7 @@
     "twin2multicloud_flutter/lib/widgets/architecture_graph.dart",
     "twin2multicloud_flutter/lib/widgets/file_inputs/config_visualization_block.dart"
   ],
-  "audited_source_tree_digest": "sha256:02565e7a8d3d7f288f75454766ba1fce771808074a0f1b9ec4f645bf0b0d6c29",
+  "audited_source_tree_digest": "sha256:7c4a23477cd63269ac5280017ae9b8c2c50c89fd825748c70a67fa884608860a",
   "components": [
     {
       "component_id": "component.function.archive-writer",
@@ -5838,6 +5838,7 @@
         "terraform.output.output-inter-cloud-token",
         "terraform.resource.random-id-deployment-suffix",
         "terraform.resource.random-password-inter-cloud-token",
+        "terraform.resource.terraform-data-validated-extension-package",
         "terraform.variable.variable-aws-access-key-id",
         "terraform.variable.variable-aws-cool-to-archive-mover-memory-mb",
         "terraform.variable.variable-aws-cool-to-archive-schedule-expression",
@@ -5945,7 +5946,8 @@
         "terraform.variable.variable-scene-assets-path",
         "terraform.variable.variable-step-function-definition-file",
         "terraform.variable.variable-trigger-notification-workflow",
-        "terraform.variable.variable-use-event-checking"
+        "terraform.variable.variable-use-event-checking",
+        "terraform.variable.variable-validated-extension-packages"
       ],
       "user_owned_fields": []
     },
@@ -6118,7 +6120,7 @@
       ]
     }
   ],
-  "content_digest": "sha256:b11fabe4ad114aa8df7304c4a9128f6467113283a2f515aed61522b05f33d2b5",
+  "content_digest": "sha256:f9695a4f7c9cb268ce0584f7c5d5ca743fca041092db84070b303d1ff175e836",
   "cost_owners": [
     {
       "cost_kind": "transfer",
@@ -9892,7 +9894,7 @@
       ]
     }
   ],
-  "generated_at": "2026-07-19T15:30:06Z",
+  "generated_at": "2026-07-19T17:25:24Z",
   "inventory_id": "current-five-layer-implementation",
   "paper_model_references": [
     "docs/research/digital_twin_architecture_and_eventing_layer.md",
@@ -10089,7 +10091,7 @@
     }
   ],
   "schema_version": "architecture-inventory.v1",
-  "source_commit": "7ba914bfb086e9c2b268a5f2a4cada4286cee3bc",
+  "source_commit": "7d9b07fa35a074d9d678f427f30171353ffb110e",
   "terraform_objects": [
     {
       "binding_role": "dependency",
@@ -19739,6 +19741,22 @@
       "module_path": "3-cloud-deployer/src/terraform",
       "object_kind": "resource",
       "owning_implementation_ids": [
+        "implementation.platform.terraform-root"
+      ],
+      "provider": "platform",
+      "sensitive": false,
+      "source_references": [
+        "3-cloud-deployer/src/terraform/extension_packages.tf#terraform_data.validated_extension_package"
+      ],
+      "terraform_address": "terraform_data.validated_extension_package",
+      "terraform_object_id": "terraform.resource.terraform-data-validated-extension-package"
+    },
+    {
+      "binding_role": "resource",
+      "evidence_status": "verified",
+      "module_path": "3-cloud-deployer/src/terraform",
+      "object_kind": "resource",
+      "owning_implementation_ids": [
         "implementation.aws.terraform-root",
         "implementation.catalog.l4-aws-connector-lambda",
         "implementation.catalog.l4-aws-twinmaker"
@@ -21558,6 +21576,22 @@
       ],
       "terraform_address": "variable.use_event_checking",
       "terraform_object_id": "terraform.variable.variable-use-event-checking"
+    },
+    {
+      "binding_role": "input",
+      "evidence_status": "verified",
+      "module_path": "3-cloud-deployer/src/terraform",
+      "object_kind": "variable",
+      "owning_implementation_ids": [
+        "implementation.platform.terraform-root"
+      ],
+      "provider": "platform",
+      "sensitive": false,
+      "source_references": [
+        "3-cloud-deployer/src/terraform/variables.tf#variable.validated_extension_packages"
+      ],
+      "terraform_address": "variable.validated_extension_packages",
+      "terraform_object_id": "terraform.variable.variable-validated-extension-packages"
     }
   ],
   "trust_boundaries": [

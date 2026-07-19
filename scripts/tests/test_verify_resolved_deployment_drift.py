@@ -114,9 +114,25 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts.tests.test_architecture_profile_contract_sync",
             rendered,
         )
+        self.assertIn(
+            "scripts/sync_user_function_extension_contracts.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts.tests.test_user_function_extension_contract_sync",
+            rendered,
+        )
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
         self.assertIn(
+            "tests/test_user_function_extension_contract.py",
+            rendered,
+        )
+        self.assertIn(
             "tests/unit/terraform/test_native_mock_plans.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/unit/test_user_function_extensions.py",
             rendered,
         )
         self.assertNotIn("flutter build", rendered)

@@ -197,9 +197,11 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 (
                     "python scripts/sync_resolved_deployment_contract.py --check "
                     "&& python scripts/sync_architecture_profile_contracts.py --check "
+                    "&& python scripts/sync_user_function_extension_contracts.py --check "
                     "&& python -m unittest "
                     "scripts.tests.test_resolved_deployment_contract_sync "
                     "scripts.tests.test_architecture_profile_contract_sync "
+                    "scripts.tests.test_user_function_extension_contract_sync "
                     "scripts.tests.test_verify_resolved_deployment_drift "
                     "scripts.tests.test_thesis_entrypoint"
                 ),
@@ -234,6 +236,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "tests/test_deployment_drift_matrix.py",
                 "tests/test_resolved_deployment_contract.py",
                 "tests/test_resolved_deployment_specification_service.py",
+                "tests/test_user_function_extension_contract.py",
                 environment=(
                     "APP_ENV=test",
                     "DEBUG=false",
@@ -259,7 +262,8 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "test_deployment_drift_matrix.py "
                     "tests/unit/terraform/test_deployment_target_bindings.py "
                     "tests/unit/terraform/test_native_mock_plans.py "
-                    "tests/unit/test_resolved_deployment_contract.py"
+                    "tests/unit/test_resolved_deployment_contract.py "
+                    "tests/unit/test_user_function_extensions.py"
                 ),
                 environment=(
                     "DEPLOYER_RUNTIME_STATE_ROOT=/tmp/deployment-contract-state",

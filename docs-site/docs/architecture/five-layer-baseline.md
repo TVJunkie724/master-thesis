@@ -8,8 +8,9 @@ lastUpdated: "2026-07-19"
 # Five-Layer Baseline Target
 
 !!! warning "Target design — not yet current runtime behavior"
-    Phase 8.1 has approved this architecture decision, but Phases 8.2-8.7
-    still have to implement it. See
+    Phase 8.1 approved this architecture decision and Phase 8.2 plus the
+    user-function prerequisite provide its shared contracts. Phases 8.3-8.7
+    still have to make the complete baseline the runtime path. See
     [Current Deployment Graph](current-deployment-graph.md) for behavior that
     exists today.
 
@@ -64,8 +65,9 @@ formula reference.
 
 Existing seven provider selections and resolved-deployment specifications
 remain readable while later phases migrate to profile-aware contracts. User
-processors remain behind platform-owned wrappers; new extension bindings stay
-blocked until issue #113 is complete.
+processors remain behind platform-owned wrappers. New extension artifacts and
+bindings now use the reviewed #113 contract, but remain non-executable until
+Phase 8.3 maps their slot to an exact provider component.
 
 The machine-readable target and research rationale are maintained in:
 

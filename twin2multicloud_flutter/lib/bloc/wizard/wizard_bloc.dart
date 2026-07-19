@@ -12,6 +12,7 @@ import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/optimizer_config.dart';
 import '../../models/resolved_deployment_specification.dart';
+import '../../models/user_function_extension.dart';
 import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
@@ -26,6 +27,7 @@ part 'handlers/wizard_artifact_content_handlers.dart';
 part 'handlers/wizard_initialization_cloud_access_handlers.dart';
 part 'handlers/wizard_optimization_persistence_handlers.dart';
 part 'handlers/wizard_transfer_command_handlers.dart';
+part 'handlers/wizard_user_function_extension_handlers.dart';
 
 /// WizardBloc - State machine for the multi-step wizard
 ///
@@ -151,5 +153,12 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
     // === Step 3: Zip Upload ===
     on<WizardZipUploadRequested>(_onZipUploadRequested);
+
+    // === User-function extension contract ===
+    on<WizardExtensionCatalogLoadRequested>(_onExtensionCatalogLoadRequested);
+    on<WizardExtensionSourceSelected>(_onExtensionSourceSelected);
+    on<WizardExtensionConfigurationChanged>(_onExtensionConfigurationChanged);
+    on<WizardExtensionValidationRequested>(_onExtensionValidationRequested);
+    on<WizardExtensionBindRequested>(_onExtensionBindRequested);
   }
 }

@@ -54,6 +54,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "020_resolved_deployment_specification",
         "migrations.add_resolved_deployment_specification",
     ),
+    Migration(
+        "021_user_function_extension_contract",
+        "migrations.add_user_function_extension_contract",
+    ),
 )
 
 

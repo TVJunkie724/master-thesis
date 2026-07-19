@@ -536,6 +536,11 @@ run_frontend_integration_tests() {
     -d "$host_device" \
     --dart-define-from-file=config/dev.json \
     --dart-define="TEST_OPTIMIZER_API_BASE_URL=http://localhost:${THESIS_OPTIMIZER_PORT}")
+  info "Running the user-function extension contract on $host_device."
+  (cd "$FLUTTER_DIR" && flutter test \
+    integration_test/user_function_extension_contract_test.dart \
+    -d "$host_device" \
+    --dart-define-from-file=config/dev.json)
 }
 
 run_deployment_contract_tests() {

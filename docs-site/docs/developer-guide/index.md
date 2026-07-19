@@ -17,5 +17,6 @@ an internal service.
 - [Project Setup](setup.md)
 - [Project Structure](project-structure.md)
 - [API and Contracts](contracts.md)
+- [User-Function Extension Development](user-function-extensions.md)
 - [Extension Points](extension-points.md)
 - [Testing](testing.md)

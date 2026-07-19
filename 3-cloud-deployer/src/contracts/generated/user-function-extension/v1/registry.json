@@ -1,0 +1,197 @@
+{
+  "schema_version": "user-function-extension-registry.v1",
+  "registry_version": "1",
+  "runtime": {
+    "runtime_id": "python311",
+    "language": "python",
+    "language_version": "3.11",
+    "provider_values": {
+      "aws": "python3.11",
+      "azure": "3.11",
+      "gcp": "python311"
+    }
+  },
+  "dependency_policies": [
+    {
+      "policy_id": "dependency-policy.python311.v1",
+      "index_url": "https://pypi.org/simple",
+      "allowed_redirect_hosts": [
+        "files.pythonhosted.org"
+      ],
+      "forbidden_packages": [
+        "awscli",
+        "azure-cli",
+        "google-cloud-sdk",
+        "pip",
+        "setuptools"
+      ],
+      "wheel_only": true,
+      "hashes_required": true
+    }
+  ],
+  "provider_adapters": [
+    {
+      "adapter_id": "adapter.aws.python311",
+      "adapter_version": "1",
+      "provider": "aws",
+      "handler": "lambda_function.lambda_handler",
+      "wrapper_version": "wrapper.aws.v1"
+    },
+    {
+      "adapter_id": "adapter.azure.python311",
+      "adapter_version": "1",
+      "provider": "azure",
+      "handler": "function_app.main",
+      "wrapper_version": "wrapper.azure.v1"
+    },
+    {
+      "adapter_id": "adapter.gcp.python311",
+      "adapter_version": "1",
+      "provider": "gcp",
+      "handler": "main.main",
+      "wrapper_version": "wrapper.gcp.v1"
+    }
+  ],
+  "error_codes": [
+    "EXTENSION_ARCHIVE_UNSAFE",
+    "EXTENSION_SCHEMA_INVALID",
+    "EXTENSION_VERSION_UNSUPPORTED",
+    "EXTENSION_ENTRYPOINT_INVALID",
+    "EXTENSION_DEPENDENCY_UNPINNED",
+    "EXTENSION_DEPENDENCY_FORBIDDEN",
+    "EXTENSION_SECRET_MATERIAL_DETECTED",
+    "EXTENSION_CONFIG_INVALID",
+    "EXTENSION_RUNTIME_UNSUPPORTED",
+    "EXTENSION_CAPABILITY_UNAUTHORIZED",
+    "EXTENSION_BINDING_UNRESOLVED",
+    "EXTENSION_PACKAGE_NONDETERMINISTIC",
+    "EXTENSION_VALIDATION_TIMEOUT",
+    "EXTENSION_BUILD_TIMEOUT"
+  ],
+  "slots": [
+    {
+      "schema_version": "user-function-extension-slot.v1",
+      "slot_id": "processor.telemetry",
+      "slot_version": "1",
+      "display_name": "Telemetry processor",
+      "responsibility_id": "responsibility.processing",
+      "component_id": "component.processing",
+      "entrypoint": "process",
+      "runtime_contract": {
+        "runtime_ids": [
+          "python311"
+        ],
+        "provider_adapters": [
+          {
+            "provider": "aws",
+            "adapter_id": "adapter.aws.python311",
+            "adapter_version": "1",
+            "provider_runtime": "python3.11"
+          },
+          {
+            "provider": "azure",
+            "adapter_id": "adapter.azure.python311",
+            "adapter_version": "1",
+            "provider_runtime": "3.11"
+          },
+          {
+            "provider": "gcp",
+            "adapter_id": "adapter.gcp.python311",
+            "adapter_version": "1",
+            "provider_runtime": "python311"
+          }
+        ]
+      },
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Telemetry value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "output_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Processed telemetry value"
+          },
+          "quality": {
+            "type": "string",
+            "title": "Quality classification",
+            "enum": [
+              "accepted",
+              "suspect"
+            ]
+          }
+        },
+        "required": [
+          "value",
+          "quality"
+        ]
+      },
+      "configuration_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scale_factor": {
+            "type": "number",
+            "title": "Scale factor",
+            "minimum": 0,
+            "maximum": 1000,
+            "user_editable": true,
+            "secret": false
+          }
+        },
+        "required": [
+          "scale_factor"
+        ]
+      },
+      "secret_policy": "forbidden",
+      "dependency_policy_id": "dependency-policy.python311.v1",
+      "resource_limits": {
+        "timeout_seconds": 30,
+        "memory_mb": 256,
+        "artifact_bytes": 10485760,
+        "source_bytes": 2097152,
+        "response_bytes": 1048576,
+        "file_count": 64,
+        "dependency_count": 64
+      },
+      "network_policy": {
+        "egress_capability_ids": []
+      },
+      "permission_capabilities": [
+        "capability.telemetry.process"
+      ],
+      "error_contract_id": "error-contract.extension.v1",
+      "observability_contract_id": "observability-contract.extension.v1",
+      "compatibility": {
+        "artifact_schema_versions": [
+          "user-function-artifact.v1"
+        ],
+        "provider_adapter_versions": [
+          "adapter.aws.python311.v1",
+          "adapter.azure.python311.v1",
+          "adapter.gcp.python311.v1"
+        ]
+      }
+    }
+  ]
+}

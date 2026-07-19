@@ -3700,7 +3700,7 @@
         "failure_isolation": true,
         "independent_consumer": true,
         "lifecycle": true,
-        "ownership": "platform implementation ownership with 0 package and 224 Terraform records.",
+        "ownership": "platform implementation ownership with 0 package and 226 Terraform records.",
         "scaling": true,
         "summary": "Retained because evidence records explicit Terraform ownership, provider permission scope, independent runtime or service scaling, always-on platform lifecycle.",
         "trust": true
@@ -4008,7 +4008,7 @@
       "target_responsibility_id": "responsibility.processing"
     }
   ],
-  "content_digest": "sha256:dc8456e807f523c8de964e519c8a49a51b9e5f549cd0a60ddecccecd1f1c8e62",
+  "content_digest": "sha256:0928d9b4759e2620e5e7e673f1d1f2c6416b27ac56e50f104788d250fd3e63e7",
   "cost_ownership_rules": [
     {
       "current_cost_owner_id": "cost.cross-cloud-glue",
@@ -8457,5 +8457,5 @@
     }
   ],
   "schema_version": "five-layer-baseline-decision.v1",
-  "source_inventory_digest": "sha256:b11fabe4ad114aa8df7304c4a9128f6467113283a2f515aed61522b05f33d2b5"
+  "source_inventory_digest": "sha256:f9695a4f7c9cb268ce0584f7c5d5ca743fca041092db84070b303d1ff175e836"
 }

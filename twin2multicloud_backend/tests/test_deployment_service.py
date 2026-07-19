@@ -144,9 +144,9 @@ def _all_aws_specification() -> dict:
         cheapest_l4="aws",
         cheapest_l5="aws",
     )
-    return _deployment_run_contract(
-        SimpleNamespace(optimizer_config=optimizer_config)
-    )["specification"]
+    return _deployment_run_contract(SimpleNamespace(optimizer_config=optimizer_config))[
+        "specification"
+    ]
 
 
 class _FakeDeployerClient:
@@ -1019,10 +1019,6 @@ class TestBuildProjectZip:
                     config_iot_devices_json='[{"id":"device-1"}]',
                     config_events_json="[]",
                     payloads_json='{"device-1":{"temperature":21}}',
-                    processor_contents=json.dumps(
-                        {"device-1": "def handler(event, context): pass"}
-                    ),
-                    processor_requirements=json.dumps({"device-1": "requests==2.32.3"}),
                     scene_config_content="{}",
                 ),
             ]
@@ -1053,9 +1049,7 @@ class TestBuildProjectZip:
                     sort_keys=True,
                     separators=(",", ":"),
                 ),
-                deployment_specification_digest=(
-                    contract["specification"]["digest"]
-                ),
+                deployment_specification_digest=(contract["specification"]["digest"]),
                 deployment_specification_version=(
                     contract["specification"]["schema_version"]
                 ),
@@ -1077,8 +1071,7 @@ class TestBuildProjectZip:
             manifest = json.loads(zf.read(DEPLOYMENT_MANIFEST_FILE))
             manifest_text = json.dumps(manifest)
 
-        assert "cloud_functions/processors/device-1/main.py" in names
-        assert "cloud_functions/processors/device-1/requirements.txt" in names
+        assert not any(path.startswith("cloud_functions/processors/") for path in names)
         assert "scene_assets/aws/scene.json" in names
         assert "iot_device_simulator/payloads.json" in names
         assert credentials["aws"] == aws_payload
@@ -1097,8 +1090,8 @@ class TestBuildProjectZip:
         assert "cloud-connection-secret" not in manifest_text
         assert "private_key" not in manifest_text
 
-    def test_package_materialization_fails_closed_on_invalid_function_json(self):
-        """Invalid persisted JSON artifacts must not be silently omitted."""
+    def test_package_materialization_blocks_unvalidated_legacy_function_json(self):
+        """Unvalidated legacy user logic must fail before artifact parsing."""
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "aws"
         twin.deployer_config.processor_contents = "{not-json"
@@ -1108,9 +1101,12 @@ class TestBuildProjectZip:
 
         assert exc_info.value.errors == [
             {
-                "code": "INVALID_JSON",
-                "field": "deployer_config.processor_contents",
-                "message": "Deployment artifact contains invalid JSON",
+                "code": "EXTENSION_BINDING_UNRESOLVED",
+                "field": "extension_bindings",
+                "message": (
+                    "Legacy unvalidated user logic cannot be selected for a "
+                    "new deployment."
+                ),
             }
         ]
 
@@ -1155,6 +1151,8 @@ class TestBuildProjectZip:
         twin = Mock()
         twin.id = "twin-123"
         twin.name = "test-twin"
+        twin.user_id = "user-123"
+        twin.extension_bindings = []
 
         # Deployer config
         twin.deployer_config = Mock()

@@ -13,6 +13,13 @@ from src.models.cost_calculation import CostCalculationRun, CostCalculationResul
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.pricing_review import PricingCandidateReport, PricingReviewDecision
 from src.models.credential_security_event import CredentialSecurityEvent
+from src.models.user_function_extension import (
+    TwinExtensionBinding,
+    UserFunctionArtifact,
+    UserFunctionArtifactDependency,
+    UserFunctionArtifactFile,
+    UserFunctionAuditEvent,
+)
 from src.models.authentication import (
     AuthenticationEvent,
     AuthLoginTransaction,
@@ -28,5 +35,8 @@ __all__ = [
     "CostCalculationRun", "CostCalculationResultItem", "PricingRefreshRun",
     "PricingCandidateReport", "PricingReviewDecision",
     "CredentialSecurityEvent",
+    "UserFunctionArtifact", "UserFunctionArtifactFile",
+    "UserFunctionArtifactDependency", "TwinExtensionBinding",
+    "UserFunctionAuditEvent",
     "AuthenticationEvent", "AuthLoginTransaction", "AuthSession", "ExternalIdentity",
 ]

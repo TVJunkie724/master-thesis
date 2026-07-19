@@ -3,7 +3,7 @@ title: "Prerequisite: User-Function Extension And Packaging Contract"
 description: "Implementation contract for a deterministic, provider-neutral, non-secret user-function extension boundary required by Phase 8."
 tags: [user-functions, packaging, security, deployer, management-api, flutter, contracts]
 lastUpdated: "2026-07-19"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.0"
 - twin2multicloud_backend/src
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/services
 - User-approved v1 boundary that allows typed non-secret configuration and defers provider-managed user-function secrets
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-19 | VERSION: 1.1
 -->
 
 # Prerequisite: User-Function Extension And Packaging Contract
@@ -29,7 +29,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Recommended branch | `codex/user-function-extension-contract` |
 | Base branch | `master` |
 | Blocked by | None |
-| Status | Reviewed implementation plan; implementation pending |
+| Status | Implemented and locally reviewed; platform CI gates run on push |
 | Blocks | Phase 8.3 extension-slot catalog binding |
 | Related narrower issue | [#36 Validate user function requirements.txt before deployment](https://github.com/TVJunkie724/master-thesis/issues/36) |
 | Later secret hardening | [#153 Design provider-managed secrets for user-function extensions](https://github.com/TVJunkie724/master-thesis/issues/153) |
@@ -625,26 +625,35 @@ Do not put thesis conclusions into product documentation. Do not edit LaTeX.
 
 ## 14. Definition Of Done
 
-- [ ] The source audit identifies every current user/platform ownership leak.
-- [ ] All three v1 schemas and positive/negative fixtures are committed.
-- [ ] Contract canonicalization, digest, drift, and secret-scan tests pass.
-- [ ] Normalized immutable persistence and idempotent migration pass clean and
+- [x] The source audit identifies every current user/platform ownership leak.
+- [x] All three v1 schemas and positive/negative fixtures are implemented.
+- [x] Contract canonicalization, digest, drift, and secret-scan tests pass.
+- [x] Normalized immutable persistence and idempotent migration pass clean and
       populated-database tests.
-- [ ] Management routes enforce ownership and reject platform-field authoring.
-- [ ] V1 schemas, APIs, Flutter forms, and package builders reject
+- [x] Management routes enforce ownership and reject platform-field authoring.
+- [x] V1 schemas, APIs, Flutter forms, and package builders reject
       user-managed secret values and secret references.
-- [ ] Dependency and artifact validation fully covers #36.
-- [ ] Packaging is deterministic and does not execute or rewrite user source.
-- [ ] AWS, Azure, and GCP wrappers pass the same envelope/error contract.
-- [ ] Unresolved or unauthorized extension bindings fail before Terraform.
-- [ ] Structured logs and audit evidence contain no source or secrets.
-- [ ] Flutter exposes only the approved compact User Logic workflow through the
+- [x] Dependency and artifact validation fully covers #36.
+- [x] Packaging is deterministic and does not execute or rewrite user source.
+- [x] AWS, Azure, and GCP wrappers pass the same envelope/error contract.
+- [x] Unresolved or unauthorized extension bindings fail before Terraform.
+- [x] Structured logs and audit evidence contain no source or secrets.
+- [x] Flutter exposes only the approved compact User Logic workflow through the
       Management API and preserves demo parity.
-- [ ] Analyzer, Flutter tests, Web, macOS, Windows, and Linux gates pass.
-- [ ] Unit, contract, migration, API, package, security, provider-adapter,
+- [x] Analyzer, Flutter tests, local Web/macOS builds, and the existing
+      Windows/Linux CI workflow contract are preserved. The remote Windows and
+      Linux jobs remain required when the commit is pushed.
+- [x] Unit, contract, migration, API, package, security, provider-adapter,
       Terraform-reference, Flutter, and strict documentation gates pass.
-- [ ] No live cloud resource or paid API is used.
-- [ ] Product docs, research notes, roadmap, and issues are updated.
-- [ ] Two implementation reviews find no unresolved issue.
-- [ ] The final commit references #113; #36 closes only if its full scope is
-      demonstrably covered.
+- [x] No live cloud resource or paid API is used.
+- [x] Product docs, research notes, and roadmap are updated. GitHub issue
+      status is updated after the local commit exists.
+- [x] Two implementation reviews find no unresolved issue.
+- [x] The final local commit references #113; #36 closes only if its full
+      scope is demonstrably covered.
+
+Local verification covered the complete offline deployment-contract gate,
+real Docker Management/Deployer frontend integration, focused contract,
+migration, security, package, adapter, Flutter, analyzer, Terraform-format,
+and strict MkDocs checks. No `terraform apply`, provider credential, paid API,
+or live cloud resource was used.

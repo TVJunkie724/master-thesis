@@ -479,3 +479,59 @@ class WizardZipUploadFailure extends WizardEvent {
   @override
   List<Object?> get props => [errors, warnings];
 }
+
+// ============================================================
+// USER-FUNCTION EXTENSION EVENTS
+// ============================================================
+
+class WizardExtensionCatalogLoadRequested extends WizardEvent {
+  const WizardExtensionCatalogLoadRequested();
+}
+
+class WizardExtensionSourceSelected extends WizardEvent {
+  final String slotId;
+  final Uint8List fileBytes;
+  final String fileName;
+
+  const WizardExtensionSourceSelected({
+    required this.slotId,
+    required this.fileBytes,
+    required this.fileName,
+  });
+
+  @override
+  List<Object?> get props => [slotId, fileName, fileBytes.length];
+}
+
+class WizardExtensionConfigurationChanged extends WizardEvent {
+  final String slotId;
+  final String field;
+  final Object? value;
+
+  const WizardExtensionConfigurationChanged({
+    required this.slotId,
+    required this.field,
+    required this.value,
+  });
+
+  @override
+  List<Object?> get props => [slotId, field, value];
+}
+
+class WizardExtensionValidationRequested extends WizardEvent {
+  final String slotId;
+
+  const WizardExtensionValidationRequested(this.slotId);
+
+  @override
+  List<Object?> get props => [slotId];
+}
+
+class WizardExtensionBindRequested extends WizardEvent {
+  final String slotId;
+
+  const WizardExtensionBindRequested(this.slotId);
+
+  @override
+  List<Object?> get props => [slotId];
+}

@@ -20,6 +20,7 @@ Config Files Read:
     - config_inter_cloud.json: Cross-cloud token (if exists)
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -174,6 +175,9 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Build AWS user function variables if AWS is used as a provider
     tfvars.update(_get_aws_user_function_vars(project_dir, providers))
 
+    # Bind only contract-validated extension packages into Terraform evidence.
+    tfvars.update(_load_validated_extension_packages(project_dir))
+
     collisions = sorted(set(tfvars).intersection(deployment_tfvars))
     if collisions:
         raise ConfigurationError(
@@ -193,6 +197,61 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     
     logger.info(f"✓ Generated tfvars: {output_path}")
     return tfvars
+
+
+def _load_validated_extension_packages(project_dir: Path) -> dict:
+    """Load redacted package evidence written before tfvars generation."""
+    from src.user_function_extensions.package_builder import load_package_evidence
+
+    packages = []
+    for item in load_package_evidence(project_dir):
+        package_path = project_dir / item["package_path"]
+        try:
+            package_path.resolve().relative_to(project_dir.resolve())
+        except (OSError, ValueError) as exc:
+            raise ConfigurationError(
+                "Validated extension package path escaped the project boundary."
+            ) from exc
+        if not package_path.is_file() or package_path.is_symlink():
+            raise ConfigurationError(
+                "Validated extension package is unavailable."
+            )
+        current = project_dir
+        for part in package_path.relative_to(project_dir).parts:
+            current = current / part
+            if current.is_symlink():
+                raise ConfigurationError(
+                    "Validated extension package path contains a symbolic link."
+                )
+        try:
+            package_bytes = package_path.read_bytes()
+        except OSError as exc:
+            raise ConfigurationError(
+                "Validated extension package is unavailable."
+            ) from exc
+        actual_digest = f"sha256:{hashlib.sha256(package_bytes).hexdigest()}"
+        if actual_digest != item["package_digest"]:
+            raise ConfigurationError(
+                "Validated extension package digest does not match evidence."
+            )
+        packages.append(
+            {
+                "slot_id": item["slot_id"],
+                "slot_version": item["slot_version"],
+                "artifact_id": item["artifact_id"],
+                "artifact_digest": item["artifact_digest"],
+                "package_path": str(package_path.resolve()),
+                "package_digest": item["package_digest"],
+                "adapter_id": item["adapter_id"],
+                "adapter_version": item["adapter_version"],
+            }
+        )
+    return {
+        "validated_extension_packages": sorted(
+            packages,
+            key=lambda item: (item["slot_id"], item["slot_version"]),
+        )
+    }
 
 
 def _build_azure_function_zips(project_dir: Path, providers: dict, optimization_flags: dict) -> dict:

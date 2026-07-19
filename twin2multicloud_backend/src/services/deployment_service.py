@@ -20,7 +20,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, Sequence, TYPE_CHECKING
 
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
@@ -684,12 +684,14 @@ def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
     secret_bearing_files = sorted(
         file.path for file in files if file.contains_secret_payloads
     )
+    extension_references = _extension_manifest_references(files)
     manifest = _build_deployment_manifest(
         twin,
         providers,
         deployment_credentials,
         file_names,
         secret_bearing_files,
+        extension_references=extension_references,
         deployment_specification=deployment_specification.specification,
     )
     files = files + (
@@ -765,7 +767,25 @@ def _materialize_deployment_files(
             )
         )
     if dc:
-        files.extend(_materialize_deployer_artifacts(dc, oc, providers))
+        extension_files = _materialize_extension_bindings(twin)
+        has_validated_extensions = bool(extension_files)
+        if _has_legacy_user_functions(dc) and not has_validated_extensions:
+            _raise_package_error(
+                "extension_bindings",
+                "EXTENSION_BINDING_UNRESOLVED",
+                (
+                    "Legacy unvalidated user logic cannot be selected for a "
+                    "new deployment."
+                ),
+            )
+        files.extend(
+            _materialize_deployer_artifacts(
+                dc,
+                oc,
+                providers,
+                include_user_functions=not has_validated_extensions,
+            )
+        )
         if dc.payloads_json:
             files.append(
                 DeploymentPackageFile(
@@ -777,13 +797,162 @@ def _materialize_deployment_files(
                     ),
                 )
             )
+        files.extend(extension_files)
+    else:
+        files.extend(_materialize_extension_bindings(twin))
     return tuple(files)
+
+
+def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
+    """Materialize active validated extension bindings without source rewrites."""
+    from src.services.user_function_extension_service import (  # noqa: PLC0415
+        ExtensionContractError,
+        runtime,
+    )
+
+    bindings = sorted(
+        (
+            binding
+            for binding in (getattr(twin, "extension_bindings", None) or ())
+            if bool(getattr(binding, "active", False))
+        ),
+        key=lambda binding: (binding.slot_id, binding.slot_version),
+    )
+    if not bindings:
+        return ()
+
+    files: list[DeploymentPackageFile] = []
+    index_bindings: list[dict[str, str]] = []
+    identities: set[tuple[str, str]] = set()
+    for binding in bindings:
+        identity = (binding.slot_id, binding.slot_version)
+        if identity in identities:
+            _raise_package_error(
+                "extension_bindings",
+                "EXTENSION_BINDING_UNRESOLVED",
+                "The Twin contains duplicate active extension bindings.",
+            )
+        identities.add(identity)
+        artifact = binding.artifact
+        if (
+            artifact is None
+            or artifact.user_id != getattr(twin, "user_id", None)
+            or binding.user_id != getattr(twin, "user_id", None)
+            or binding.twin_id != getattr(twin, "id", None)
+            or artifact.artifact_state != "valid"
+            or not artifact.manifest_json
+        ):
+            _raise_package_error(
+                "extension_bindings",
+                "EXTENSION_BINDING_UNRESOLVED",
+                "An active extension binding is unauthorized or unresolved.",
+            )
+        try:
+            manifest = runtime.load_json_bytes(
+                artifact.manifest_json.encode("utf-8"),
+                field="extension manifest",
+            )
+            source_files = {
+                item.relative_path: item.content_text for item in artifact.files
+            }
+            runtime.validate_artifact_manifest(manifest, files=source_files)
+            expected_binding_digest = runtime.binding_digest(
+                twin_id=binding.twin_id,
+                slot_id=binding.slot_id,
+                slot_version=binding.slot_version,
+                artifact_id=artifact.id,
+                artifact_digest=artifact.artifact_digest,
+            )
+        except ExtensionContractError as exc:
+            _raise_package_error(
+                "extension_bindings",
+                exc.code,
+                "An active extension artifact failed contract validation.",
+            )
+        if (
+            manifest["artifact_id"] != artifact.id
+            or manifest["artifact_digest"] != artifact.artifact_digest
+            or manifest["slot_id"] != binding.slot_id
+            or manifest["slot_version"] != binding.slot_version
+            or binding.binding_digest != expected_binding_digest
+        ):
+            _raise_package_error(
+                "extension_bindings",
+                "EXTENSION_BINDING_UNRESOLVED",
+                "An active extension binding does not match its immutable artifact.",
+            )
+
+        artifact_root = (
+            f".twin2multicloud/extensions/artifacts/{artifact.id}"
+        )
+        manifest_path = f"{artifact_root}/manifest.json"
+        source_root = f"{artifact_root}/source"
+        files.append(
+            DeploymentPackageFile(
+                manifest_path,
+                runtime.canonical_json(manifest),
+            )
+        )
+        files.extend(
+            DeploymentPackageFile(
+                f"{source_root}/{relative_path}",
+                content,
+            )
+            for relative_path, content in sorted(source_files.items())
+        )
+        index_bindings.append(
+            {
+                "slot_id": binding.slot_id,
+                "slot_version": binding.slot_version,
+                "artifact_id": artifact.id,
+                "artifact_digest": artifact.artifact_digest,
+                "binding_digest": binding.binding_digest,
+                "manifest_path": manifest_path,
+                "source_root": source_root,
+            }
+        )
+
+    files.append(
+        DeploymentPackageFile(
+            ".twin2multicloud/extensions/bindings.json",
+            runtime.canonical_json(
+                {
+                    "schema_version": "twin-extension-binding-index.v1",
+                    "twin_id": str(twin.id),
+                    "bindings": index_bindings,
+                }
+            ),
+        )
+    )
+    return tuple(files)
+
+
+def _extension_manifest_references(
+    files: tuple[DeploymentPackageFile, ...],
+) -> list[dict[str, str]]:
+    index_path = ".twin2multicloud/extensions/bindings.json"
+    index = next((file for file in files if file.path == index_path), None)
+    if index is None:
+        return []
+    document = _load_json_document(index.content, "extension_bindings")
+    return [
+        {
+            "slot_id": item["slot_id"],
+            "slot_version": item["slot_version"],
+            "artifact_id": item["artifact_id"],
+            "artifact_digest": item["artifact_digest"],
+            "binding_digest": item["binding_digest"],
+        }
+        for item in document["bindings"]
+    ]
 
 
 def _materialize_deployer_artifacts(
     dc: "DeployerConfiguration",
     oc: Optional["OptimizerConfiguration"],
     providers: dict,
+    *,
+    include_user_functions: bool = True,
 ) -> tuple[DeploymentPackageFile, ...]:
     files: list[DeploymentPackageFile] = []
     if dc.user_config_content:
@@ -815,9 +984,24 @@ def _materialize_deployer_artifacts(
         if l2 in filenames:
             files.append(DeploymentPackageFile(filenames[l2], dc.state_machine_content))
 
-    files.extend(_materialize_user_functions(dc, providers))
+    if include_user_functions:
+        files.extend(_materialize_user_functions(dc, providers))
     files.extend(_materialize_scene_config(dc, providers))
     return tuple(files)
+
+
+def _has_legacy_user_functions(dc: "DeployerConfiguration") -> bool:
+    return any(
+        bool(value)
+        for value in (
+            dc.processor_contents,
+            dc.processor_requirements,
+            dc.event_action_contents,
+            dc.event_action_requirements,
+            dc.event_feedback_content,
+            dc.event_feedback_requirements,
+        )
+    )
 
 
 def _materialize_user_functions(
@@ -1111,6 +1295,7 @@ def _build_deployment_manifest(
     file_names: list[str],
     secret_bearing_files: list[str] | None = None,
     *,
+    extension_references: Sequence[dict[str, str]] = (),
     deployment_specification: dict[str, Any],
 ) -> dict[str, Any]:
     """
@@ -1119,6 +1304,7 @@ def _build_deployment_manifest(
     The manifest describes package provenance and credential sources only. It
     must never contain credential payloads or decrypted secret values.
     """
+    normalized_extension_references = list(extension_references)
     return {
         "manifest_version": DEPLOYMENT_MANIFEST_VERSION,
         "generated_at": datetime.now(timezone.utc)
@@ -1146,6 +1332,14 @@ def _build_deployment_manifest(
             "providers": list(deployment_credentials.providers),
             "sources": dict(deployment_credentials.sources),
             "contains_secret_payloads": _manifest_contains_secret_payloads(),
+        },
+        "extensions": {
+            "binding_index": (
+                ".twin2multicloud/extensions/bindings.json"
+                if normalized_extension_references
+                else None
+            ),
+            "bindings": normalized_extension_references,
         },
     }
 

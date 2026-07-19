@@ -45,6 +45,10 @@ from src.providers.terraform.package_builders.user import (
     get_user_package_path,
 )
 from src.provider_capabilities import validate_terraform_provider_capabilities
+from src.user_function_extensions.package_builder import (
+    build_bound_extension_packages,
+)
+from src.user_function_extensions.contracts import ExtensionContractError
 
 logger = logging.getLogger(__name__)
 BUILD_DIR = ".build"
@@ -54,6 +58,8 @@ def build_all_packages(
     terraform_dir: Path,
     project_path: Path,
     providers_config: dict,
+    *,
+    operation_id: str | None = None,
 ) -> Dict[str, Path]:
     """Build every provider and user-function package required by one deployment."""
     terraform_dir = Path(terraform_dir)
@@ -61,6 +67,22 @@ def build_all_packages(
     validate_terraform_provider_capabilities(providers_config)
 
     packages: Dict[str, Path] = {}
+    extension_packages = build_bound_extension_packages(
+        project_path,
+        providers_config,
+        correlation_id=operation_id,
+    )
+    packages.update(extension_packages)
+    if extension_packages:
+        raise ExtensionContractError(
+            "EXTENSION_BINDING_UNRESOLVED",
+            "deployment_component_catalog",
+            (
+                "The validated extension has no reviewed executable "
+                "deployment-component mapping."
+            ),
+            correlation_id=operation_id,
+        )
     packages.update(build_aws_lambda_packages(terraform_dir, project_path, providers_config))
     packages.update(build_azure_function_packages(terraform_dir, project_path, providers_config))
     packages.update(build_gcp_cloud_function_packages(terraform_dir, project_path, providers_config))

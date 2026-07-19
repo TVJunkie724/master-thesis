@@ -16,6 +16,7 @@ from src.api.routes import (
     provider_capabilities,
     twin_operations,
     twins,
+    user_function_extensions,
 )
 from src.api.routes.config import router as config_router, inline_router as config_inline_router
 from src.api.routes.optimizer import router as optimizer_router
@@ -37,6 +38,10 @@ from src.services.credential_security_audit_service import CredentialAuditWriteF
 from src.security.auth_rate_limit import (
     AuthRateLimitExceeded,
     AuthSecurityControlUnavailable,
+)
+from src.security.user_function_rate_limit import (
+    UserFunctionRateLimitExceeded,
+    UserFunctionSecurityControlUnavailable,
 )
 from src.services.auth_flow_service import AuthFlowError
 
@@ -155,6 +160,41 @@ async def auth_security_unavailable_handler(
         },
     )
 
+
+@app.exception_handler(UserFunctionRateLimitExceeded)
+async def user_function_rate_limit_handler(
+    _request: Request,
+    exc: UserFunctionRateLimitExceeded,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        headers=exc.headers,
+        content={
+            "error_code": "RATE_LIMITED",
+            "message": "Too many user-function source downloads were requested.",
+            "fix_suggestion": "Wait for the Retry-After interval before retrying.",
+            "http_status": 429,
+            "request_id": current_request_id(),
+        },
+    )
+
+
+@app.exception_handler(UserFunctionSecurityControlUnavailable)
+async def user_function_security_unavailable_handler(
+    _request: Request,
+    _exc: UserFunctionSecurityControlUnavailable,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error_code": "SECURITY_CONTROL_UNAVAILABLE",
+            "message": "A required user-function security control is unavailable.",
+            "fix_suggestion": "Retry after the service operator restores the security control.",
+            "http_status": 503,
+            "request_id": current_request_id(),
+        },
+    )
+
 # CORS
 # In DEBUG mode Flutter Web picks a random localhost port per session, so
 # we accept any localhost/127.0.0.1 origin via a regex. In production we
@@ -196,6 +236,7 @@ app.include_router(pricing_review_router)
 app.include_router(dashboard_router)
 app.include_router(deployer_router)
 app.include_router(sse_router)
+app.include_router(user_function_extensions.router)
 if settings.ENABLE_TEST_ENDPOINTS:
     from src.api.routes.test_endpoints import router as test_endpoints_router
     app.include_router(test_endpoints_router)

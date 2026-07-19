@@ -1,0 +1,124 @@
+{
+  "schema_version": "user-function-extension-slot.v1",
+  "slot_id": "processor.telemetry",
+  "slot_version": "1",
+  "display_name": "Telemetry processor",
+  "responsibility_id": "responsibility.processing",
+  "component_id": "component.processing",
+  "entrypoint": "process",
+  "runtime_contract": {
+    "runtime_ids": [
+      "python311"
+    ],
+    "provider_adapters": [
+      {
+        "provider": "aws",
+        "adapter_id": "adapter.aws.python311",
+        "adapter_version": "1",
+        "provider_runtime": "python3.11"
+      },
+      {
+        "provider": "azure",
+        "adapter_id": "adapter.azure.python311",
+        "adapter_version": "1",
+        "provider_runtime": "3.11"
+      },
+      {
+        "provider": "gcp",
+        "adapter_id": "adapter.gcp.python311",
+        "adapter_version": "1",
+        "provider_runtime": "python311"
+      }
+    ]
+  },
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "value": {
+        "type": "number",
+        "title": "Telemetry value"
+      },
+      "unit": {
+        "type": "string",
+        "title": "Unit",
+        "minLength": 1,
+        "maxLength": 32
+      }
+    },
+    "required": [
+      "value"
+    ]
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "value": {
+        "type": "number",
+        "title": "Processed telemetry value"
+      },
+      "quality": {
+        "type": "string",
+        "title": "Quality classification",
+        "enum": [
+          "accepted",
+          "suspect"
+        ]
+      }
+    },
+    "required": [
+      "value",
+      "quality"
+    ]
+  },
+  "configuration_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "scale_factor": {
+        "type": "number",
+        "title": "Scale factor",
+        "minimum": 0,
+        "maximum": 1000,
+        "user_editable": true,
+        "secret": false
+      }
+    },
+    "required": [
+      "scale_factor"
+    ]
+  },
+  "secret_policy": "forbidden",
+  "dependency_policy_id": "dependency-policy.python311.v1",
+  "resource_limits": {
+    "timeout_seconds": 30,
+    "memory_mb": 256,
+    "artifact_bytes": 10485760,
+    "source_bytes": 2097152,
+    "response_bytes": 1048576,
+    "file_count": 64,
+    "dependency_count": 64
+  },
+  "network_policy": {
+    "egress_capability_ids": []
+  },
+  "permission_capabilities": [
+    "capability.telemetry.process"
+  ],
+  "error_contract_id": "error-contract.extension.v1",
+  "observability_contract_id": "observability-contract.extension.v1",
+  "compatibility": {
+    "artifact_schema_versions": [
+      "user-function-artifact.v1"
+    ],
+    "provider_adapter_versions": [
+      "adapter.aws.python311.v1",
+      "adapter.azure.python311.v1",
+      "adapter.gcp.python311.v1"
+    ]
+  }
+}

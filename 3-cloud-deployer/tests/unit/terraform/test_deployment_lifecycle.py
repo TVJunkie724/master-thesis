@@ -57,10 +57,14 @@ def _strategy(tmp_path, events):
     return strategy
 
 
+def _context():
+    return SimpleNamespace(operation_id="op-test-terraform-lifecycle")
+
+
 def test_sync_deployment_records_packages_after_apply_before_post_deployment(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)
-    context = SimpleNamespace()
+    context = _context()
 
     outputs = strategy.deploy_all(context)
 
@@ -84,7 +88,7 @@ def test_sync_deployment_does_not_advance_metadata_when_apply_fails(tmp_path):
     strategy._runner.fail_apply = True
 
     with pytest.raises(RuntimeError, match="apply failed"):
-        strategy.deploy_all(SimpleNamespace())
+        strategy.deploy_all(_context())
 
     assert "metadata" not in events
     assert "post" not in events
@@ -95,7 +99,7 @@ def test_streaming_deployment_uses_same_canonical_order(tmp_path):
     strategy = _strategy(tmp_path, events)
 
     async def collect():
-        return [line async for line in strategy.deploy_all_async(SimpleNamespace())]
+        return [line async for line in strategy.deploy_all_async(_context())]
 
     lines = asyncio.run(collect())
 

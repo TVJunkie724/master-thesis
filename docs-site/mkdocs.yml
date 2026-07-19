@@ -65,6 +65,7 @@ nav:
       - System Boundaries: contracts-and-data-flow/system-boundaries.md
       - Cross-Project Contract Map: contracts-and-data-flow/contract-map.md
       - Architecture Profiles: contracts-and-data-flow/architecture-profiles.md
+      - User-Function Extensions: contracts-and-data-flow/user-function-extensions.md
       - Pricing & Optimization: contracts-and-data-flow/pricing-optimization.md
       - Deployment Lifecycle: contracts-and-data-flow/deployment-lifecycle.md
       - Credentials & Trust: contracts-and-data-flow/credentials-and-trust.md
@@ -90,6 +91,7 @@ nav:
       - Project Structure: developer-guide/project-structure.md
       - API & Contracts: developer-guide/contracts.md
       - Architecture Contract Development: developer-guide/architecture-profile-contracts.md
+      - User-Function Extension Development: developer-guide/user-function-extensions.md
       - Extension Points: developer-guide/extension-points.md
       - Testing: developer-guide/testing.md
   - User Guide:
@@ -98,6 +100,7 @@ nav:
       - Dashboard & Twins: user-guide/dashboard-and-twins.md
       - Cloud Accounts: user-guide/cloud-accounts.md
       - Configuration Workspace: user-guide/configuration-workspace.md
+      - User-Function Extensions: user-guide/user-function-extensions.md
       - Pricing Review: user-guide/pricing-review.md
       - Deployment & Verification: user-guide/deployment.md
       - Multi-Cloud Walkthrough: user-guide/multi-cloud-walkthrough.md

@@ -996,6 +996,27 @@ variable "azure_user_zip_path" {
 }
 
 # ==============================================================================
+# Validated User-Function Extension Packages
+# Phase 8.3 provider catalogs bind these reviewed packages to executable slots.
+# This prerequisite records and verifies immutable package references only.
+# ==============================================================================
+
+variable "validated_extension_packages" {
+  description = "Contract-validated immutable extension package evidence"
+  type = list(object({
+    slot_id         = string
+    slot_version    = string
+    artifact_id     = string
+    artifact_digest = string
+    package_path    = string
+    package_digest  = string
+    adapter_id      = string
+    adapter_version = string
+  }))
+  default = []
+}
+
+# ==============================================================================
 # Observability Configuration
 # ==============================================================================
 

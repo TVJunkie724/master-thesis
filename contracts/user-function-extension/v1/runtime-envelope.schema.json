@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/user-function-extension/v1/runtime-envelope.schema.json",
+  "title": "RuntimeEnvelope v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/input"
+    },
+    {
+      "$ref": "#/$defs/success"
+    },
+    {
+      "$ref": "#/$defs/rejected"
+    },
+    {
+      "$ref": "#/$defs/failed"
+    }
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "invocation_id",
+        "correlation_id",
+        "slot_id"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "user-function-runtime-envelope.v1"
+        },
+        "invocation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "correlation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "slot_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+          "maxLength": 128
+        }
+      }
+    },
+    "input": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "invocation_id",
+            "correlation_id",
+            "occurred_at",
+            "slot_id",
+            "payload",
+            "context"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "user-function-runtime-envelope.v1"
+            },
+            "invocation_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "correlation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "slot_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+              "maxLength": 128
+            },
+            "payload": {
+              "type": "object",
+              "maxProperties": 256
+            },
+            "context": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "twin_id",
+                "device_id"
+              ],
+              "properties": {
+                "twin_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+                },
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "success": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "invocation_id",
+            "correlation_id",
+            "slot_id",
+            "status",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "user-function-runtime-envelope.v1"
+            },
+            "invocation_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "correlation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            },
+            "slot_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+              "maxLength": 128
+            },
+            "status": {
+              "const": "success"
+            },
+            "payload": {
+              "type": "object",
+              "maxProperties": 256
+            }
+          }
+        }
+      ]
+    },
+    "rejected": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "invocation_id",
+            "correlation_id",
+            "slot_id",
+            "status",
+            "code",
+            "message"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "user-function-runtime-envelope.v1"
+            },
+            "invocation_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "correlation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            },
+            "slot_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+              "maxLength": 128
+            },
+            "status": {
+              "const": "rejected"
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^DOMAIN_[A-Z0-9_]{1,56}$"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      ]
+    },
+    "failed": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "invocation_id",
+            "correlation_id",
+            "slot_id",
+            "status",
+            "code",
+            "message",
+            "retryable"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "user-function-runtime-envelope.v1"
+            },
+            "invocation_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "correlation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            },
+            "slot_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+              "maxLength": 128
+            },
+            "status": {
+              "const": "failed"
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^PLATFORM_[A-Z0-9_]{1,54}$"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

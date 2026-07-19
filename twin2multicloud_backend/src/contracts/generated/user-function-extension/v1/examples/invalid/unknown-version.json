@@ -1,0 +1,11 @@
+{
+  "slot_id": "processor.telemetry",
+  "slot_version": "1",
+  "runtime_id": "python312",
+  "configuration": {
+    "scale_factor": 1
+  },
+  "declared_capabilities": [
+    "capability.telemetry.process"
+  ]
+}

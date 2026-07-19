@@ -21,6 +21,7 @@ import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/user_function_extension.dart';
 import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
 import '../services/management_api.dart';
@@ -32,6 +33,8 @@ class DemoManagementApi implements ManagementApi {
   String? _token = 'demo-token';
   final List<Map<String, dynamic>> _decisions = [];
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
+  final List<UserFunctionArtifact> _extensionArtifacts = [];
+  final Map<String, TwinExtensionBinding> _extensionBindings = {};
 
   DemoManagementApi({
     required this.store,
@@ -84,6 +87,231 @@ class DemoManagementApi implements ManagementApi {
       if (themePreference != null) 'theme_preference': themePreference,
     });
     return store.user;
+  }
+
+  @override
+  Future<List<ExtensionSlot>> listExtensionSlots() async {
+    await _pause();
+    return const [
+      ExtensionSlot(
+        slotId: 'processor.telemetry',
+        slotVersion: '1',
+        displayName: 'Telemetry processor',
+        runtimeId: 'python311',
+        configurationFields: [
+          ExtensionConfigurationField(
+            name: 'scale_factor',
+            type: 'number',
+            title: 'Scale factor',
+            required: true,
+            minimum: 0,
+            maximum: 1000,
+          ),
+        ],
+        resourceLimits: {
+          'timeout_seconds': 30,
+          'memory_mb': 256,
+          'artifact_bytes': 10485760,
+          'source_bytes': 2097152,
+          'response_bytes': 1048576,
+          'file_count': 64,
+          'dependency_count': 64,
+        },
+        permissionCapabilities: ['capability.telemetry.process'],
+      ),
+    ];
+  }
+
+  @override
+  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  ) async {
+    await _pause();
+    _validateExtensionUpload(upload);
+    return _extensionValidation(upload);
+  }
+
+  @override
+  Future<UserFunctionArtifact> createUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  ) async {
+    await _pause();
+    _validateExtensionUpload(upload);
+    final validation = _extensionValidation(upload);
+    final existing = _extensionArtifacts
+        .where((item) => item.artifactDigest == validation.artifactDigest)
+        .firstOrNull;
+    if (existing != null) return existing;
+    final sequence = _extensionArtifacts.length + 1;
+    final artifact = UserFunctionArtifact(
+      schemaVersion: 'user-function-artifact.v1',
+      artifactId:
+          '00000000-0000-4000-8000-${sequence.toString().padLeft(12, '0')}',
+      artifactState: 'valid',
+      artifactDigest: validation.artifactDigest,
+      slotId: upload.slot.slotId,
+      slotVersion: upload.slot.slotVersion,
+      runtimeId: upload.slot.runtimeId,
+      configuration: upload.draft.configuration,
+      declaredCapabilities: upload.slot.permissionCapabilities,
+      validatorVersion: 'user-function-validator.v1',
+      sourceFiles: validation.sourceFiles,
+      dependencyCount: validation.dependencies.length,
+      createdAt: store.clock().toUtc(),
+    );
+    _extensionArtifacts.add(artifact);
+    return artifact;
+  }
+
+  @override
+  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts() async {
+    await _pause();
+    return List.unmodifiable(_extensionArtifacts);
+  }
+
+  @override
+  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(
+    String twinId,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    return List.unmodifiable(
+      _extensionBindings.values.where(
+        (binding) => binding.twinId == twinId && binding.active,
+      ),
+    );
+  }
+
+  @override
+  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot,
+    String artifactId, {
+    int? expectedRevision,
+  }) async {
+    await _pause();
+    store.twin(twinId);
+    final artifact = _extensionArtifacts
+        .where(
+          (item) =>
+              item.artifactId == artifactId &&
+              item.slotId == slot.slotId &&
+              item.slotVersion == slot.slotVersion &&
+              item.isValid,
+        )
+        .firstOrNull;
+    if (artifact == null) {
+      throw const DemoApiException(
+        'EXTENSION_BINDING_UNRESOLVED',
+        'The validated artifact is unavailable for this slot.',
+      );
+    }
+    final key = '$twinId:${slot.slotId}:${slot.slotVersion}';
+    final current = _extensionBindings[key];
+    if (expectedRevision != null && current?.revision != expectedRevision) {
+      throw const DemoApiException(
+        'EXTENSION_BINDING_UNRESOLVED',
+        'The extension binding revision is stale.',
+      );
+    }
+    final revision = (current?.revision ?? 0) + 1;
+    final binding = TwinExtensionBinding(
+      bindingId:
+          '10000000-0000-4000-8000-${revision.toString().padLeft(12, '0')}',
+      twinId: twinId,
+      slotId: slot.slotId,
+      slotVersion: slot.slotVersion,
+      artifactId: artifact.artifactId,
+      artifactDigest: artifact.artifactDigest,
+      bindingDigest:
+          'sha256:${sha256.convert(utf8.encode('$key:${artifact.artifactDigest}'))}',
+      active: true,
+      revision: revision,
+      createdAt: store.clock().toUtc(),
+      unboundAt: null,
+    );
+    _extensionBindings[key] = binding;
+    return binding;
+  }
+
+  @override
+  Future<void> unbindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot, {
+    int? expectedRevision,
+  }) async {
+    await _pause();
+    final key = '$twinId:${slot.slotId}:${slot.slotVersion}';
+    final current = _extensionBindings[key];
+    if (current == null ||
+        (expectedRevision != null && current.revision != expectedRevision)) {
+      throw const DemoApiException(
+        'EXTENSION_BINDING_UNRESOLVED',
+        'The extension binding revision is stale.',
+      );
+    }
+    _extensionBindings.remove(key);
+  }
+
+  UserFunctionValidationResult _extensionValidation(
+    UserFunctionArtifactUpload upload,
+  ) {
+    final digest = sha256.convert([
+      ...upload.metadataBytes,
+      ...upload.draft.bytes,
+    ]);
+    return UserFunctionValidationResult(
+      artifactDigest: 'sha256:$digest',
+      slotId: upload.slot.slotId,
+      slotVersion: upload.slot.slotVersion,
+      runtimeId: upload.slot.runtimeId,
+      sourceFiles: const ['process.py', 'requirements.lock'],
+      dependencies: const [],
+      checks: const [
+        'archive_safe',
+        'schema_valid',
+        'entrypoint_valid',
+        'dependencies_valid',
+        'secret_scan_passed',
+        'configuration_valid',
+        'runtime_compatible',
+        'capabilities_authorized',
+        'package_deterministic',
+        'binding_compatible',
+      ],
+    );
+  }
+
+  void _validateExtensionUpload(UserFunctionArtifactUpload upload) {
+    if (!upload.draft.filename.toLowerCase().endsWith('.zip') ||
+        upload.draft.bytes.isEmpty ||
+        upload.draft.bytes.length > 10 * 1024 * 1024) {
+      throw const DemoApiException(
+        'EXTENSION_ARCHIVE_UNSAFE',
+        'Choose a non-empty source ZIP within the v1 size limit.',
+      );
+    }
+    final fields = upload.slot.configurationFields;
+    final allowed = fields.map((field) => field.name).toSet();
+    final configuration = upload.draft.configuration;
+    if (configuration.keys.toSet().difference(allowed).isNotEmpty ||
+        fields.any(
+          (field) => field.required && !configuration.containsKey(field.name),
+        )) {
+      throw const DemoApiException(
+        'EXTENSION_CONFIG_INVALID',
+        'Complete only the approved non-secret configuration fields.',
+      );
+    }
+    final serialized = jsonEncode(configuration).toLowerCase();
+    if (RegExp(
+      r'(secret|password|token|credential|private_key|api_key)',
+    ).hasMatch(serialized)) {
+      throw const DemoApiException(
+        'EXTENSION_SECRET_MATERIAL_DETECTED',
+        'Secret material is forbidden in user-function v1.',
+      );
+    }
   }
 
   @override

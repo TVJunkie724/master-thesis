@@ -68,3 +68,8 @@ class DigitalTwin(Base):
         back_populates="twin",
         cascade="all, delete-orphan",
     )
+    extension_bindings = relationship(
+        "TwinExtensionBinding",
+        back_populates="twin",
+        order_by="TwinExtensionBinding.created_at.asc()",
+    )

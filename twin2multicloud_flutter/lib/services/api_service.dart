@@ -18,6 +18,7 @@ import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/user_function_extension.dart';
 import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
@@ -241,6 +242,158 @@ class ApiService implements ManagementApi {
     if (themePreference != null) data['theme_preference'] = themePreference;
     final response = await _dio.patch('/auth/me', data: data);
     return response.data;
+  }
+
+  @override
+  Future<List<ExtensionSlot>> listExtensionSlots() async {
+    final response = await _dio.get('/architecture/extension-slots');
+    final body = _contractMap(response.data, 'extension slots');
+    _requireContractFields(body, const {
+      'schema_version',
+      'slots',
+    }, 'extension slots');
+    if (body['schema_version'] != 'user-function-extension-slot-list.v1') {
+      throw const FormatException(
+        'Unsupported extension-slot list schema version.',
+      );
+    }
+    final slots = body['slots'];
+    if (slots is! List) {
+      throw const FormatException(
+        'Invalid API contract: extension slots must be an array.',
+      );
+    }
+    return List.unmodifiable(
+      slots.indexed.map(
+        (entry) => ExtensionSlot.fromJson(
+          _contractMap(entry.$2, 'extension slots[${entry.$1}]'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  ) async {
+    final response = await _dio.post(
+      '/user-function-artifacts/validate',
+      data: _extensionMultipart(upload),
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return UserFunctionValidationResult.fromJson(
+      _contractMap(response.data, 'user-function validation'),
+    );
+  }
+
+  @override
+  Future<UserFunctionArtifact> createUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  ) async {
+    final response = await _dio.post(
+      '/user-function-artifacts',
+      data: _extensionMultipart(upload),
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return UserFunctionArtifact.fromJson(
+      _contractMap(response.data, 'user-function artifact'),
+    );
+  }
+
+  @override
+  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts() async {
+    final response = await _dio.get('/user-function-artifacts');
+    final body = _contractMap(response.data, 'user-function artifacts');
+    _requireContractFields(body, const {
+      'schema_version',
+      'items',
+      'total',
+      'limit',
+      'offset',
+    }, 'user-function artifacts');
+    if (body['schema_version'] != 'user-function-artifact-list.v1') {
+      throw const FormatException(
+        'Unsupported user-function artifact list schema version.',
+      );
+    }
+    final items = body['items'];
+    if (items is! List) {
+      throw const FormatException(
+        'Invalid API contract: user-function artifacts must be an array.',
+      );
+    }
+    return List.unmodifiable(
+      items.indexed.map(
+        (entry) => UserFunctionArtifact.fromJson(
+          _contractMap(entry.$2, 'user-function artifacts[${entry.$1}]'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/extension-bindings');
+    final body = _contractMap(response.data, 'extension bindings');
+    _requireContractFields(body, const {
+      'schema_version',
+      'items',
+    }, 'extension bindings');
+    if (body['schema_version'] != 'twin-extension-binding-list.v1') {
+      throw const FormatException(
+        'Unsupported extension-binding list schema version.',
+      );
+    }
+    final items = body['items'];
+    if (items is! List) {
+      throw const FormatException(
+        'Invalid API contract: extension bindings must be an array.',
+      );
+    }
+    return List.unmodifiable(
+      items.indexed.map(
+        (entry) => TwinExtensionBinding.fromJson(
+          _contractMap(entry.$2, 'extension bindings[${entry.$1}]'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot,
+    String artifactId, {
+    int? expectedRevision,
+  }) async {
+    final response = await _dio.put(
+      '/twins/$twinId/extension-bindings/${slot.slotId}',
+      data: {
+        'artifact_id': artifactId,
+        'slot_version': slot.slotVersion,
+        if (expectedRevision != null) 'expected_revision': expectedRevision,
+      },
+    );
+    return TwinExtensionBinding.fromJson(
+      _contractMap(response.data, 'extension binding'),
+    );
+  }
+
+  @override
+  Future<void> unbindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot, {
+    int? expectedRevision,
+  }) async {
+    await _dio.delete(
+      '/twins/$twinId/extension-bindings/${slot.slotId}',
+      queryParameters: {
+        'slot_version': slot.slotVersion,
+        if (expectedRevision != null) 'expected_revision': expectedRevision,
+      },
+    );
   }
 
   @override
@@ -933,11 +1086,37 @@ Map<String, dynamic> _responseMap(Object? value) {
   return Map<String, dynamic>.from(value);
 }
 
+FormData _extensionMultipart(UserFunctionArtifactUpload upload) {
+  return FormData.fromMap({
+    'metadata': MultipartFile.fromBytes(
+      upload.metadataBytes,
+      filename: 'metadata.json',
+    ),
+    'source_archive': MultipartFile.fromBytes(
+      upload.draft.bytes,
+      filename: upload.draft.filename,
+    ),
+  });
+}
+
 Map<String, dynamic> _contractMap(Object? value, String field) {
   if (value is! Map) {
     throw FormatException('Invalid API contract: $field must be an object.');
   }
   return Map<String, dynamic>.from(value);
+}
+
+void _requireContractFields(
+  Map<String, dynamic> value,
+  Set<String> expected,
+  String contract,
+) {
+  if (value.keys.toSet().difference(expected).isNotEmpty ||
+      expected.difference(value.keys.toSet()).isNotEmpty) {
+    throw FormatException(
+      'Invalid API contract: $contract fields do not match v1.',
+    );
+  }
 }
 
 String _attachmentFilename(String? contentDisposition) {

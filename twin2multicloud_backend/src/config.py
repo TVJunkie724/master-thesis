@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     CREDENTIAL_VALIDATION_RATE_LIMIT: str = "6/minute"
     CREDENTIAL_BOOTSTRAP_RATE_LIMIT: str = "5/minute"
 
+    # Sensitive immutable source reads share the production credential limiter
+    # storage while retaining a separate actor namespace and quota.
+    USER_FUNCTION_RATE_LIMIT_ENABLED: bool = True
+    USER_FUNCTION_SOURCE_DOWNLOAD_RATE_LIMIT: str = "5/minute"
+
     # TLS is terminated by the deployment edge. Forwarded scheme information
     # is accepted only from these direct peer networks.
     REQUIRE_HTTPS: bool | None = None
@@ -205,6 +210,15 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "AUTH_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
                 )
+            if not self.USER_FUNCTION_RATE_LIMIT_ENABLED:
+                raise ValueError("USER_FUNCTION_RATE_LIMIT_ENABLED must be true in production")
+            if not self.user_function_rate_limit_storage_uri.startswith(
+                ("redis://", "rediss://")
+            ):
+                raise ValueError(
+                    "User-function rate-limit storage must use redis:// or rediss:// "
+                    "in production"
+                )
             if all(google_values) and urlparse(self.GOOGLE_REDIRECT_URI).scheme != "https":
                 raise ValueError("GOOGLE_REDIRECT_URI must use HTTPS in production")
             if self.SAML_ENABLED and urlparse(self.SAML_ACS_URL).scheme != "https":
@@ -221,6 +235,7 @@ class Settings(BaseSettings):
             "CREDENTIAL_BOOTSTRAP_RATE_LIMIT",
             "AUTH_LOGIN_RATE_LIMIT",
             "AUTH_EXCHANGE_RATE_LIMIT",
+            "USER_FUNCTION_SOURCE_DOWNLOAD_RATE_LIMIT",
         ):
             if re.fullmatch(r"[1-9][0-9]*/(second|minute|hour|day)s?", getattr(self, field_name)) is None:
                 raise ValueError(f"{field_name} must use '<positive integer>/<time unit>' format")
@@ -259,6 +274,10 @@ class Settings(BaseSettings):
     @property
     def auth_rate_limit_storage_uri(self) -> str:
         return self.AUTH_RATE_LIMIT_STORAGE_URI or self.CREDENTIAL_RATE_LIMIT_STORAGE_URI
+
+    @property
+    def user_function_rate_limit_storage_uri(self) -> str:
+        return self.CREDENTIAL_RATE_LIMIT_STORAGE_URI
 
 
 settings = Settings()
