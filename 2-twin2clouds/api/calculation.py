@@ -27,6 +27,16 @@ from backend.executable_topology import (
     UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
     ensure_executable_error_handling_topology,
 )
+from backend.architecture_profiles import (
+    ArchitectureProfileRegistry,
+    build_resolution_context,
+)
+from backend.architecture_profiles.activation import (
+    architecture_profile_resolution_enabled,
+)
+from backend.architecture_profiles.diagnostics import (
+    ArchitectureResolutionError,
+)
 from backend.logger import logger
 from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.utils import print_stack_trace
@@ -141,6 +151,28 @@ class ProviderPricingContexts(BaseModel):
     )
 
 
+class ArchitectureProfileRequestRef(BaseModel):
+    """Management-owned exact architecture profile reference."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    profileId: str = Field(min_length=1, max_length=160)
+    profileVersion: str = Field(min_length=1, max_length=32)
+    contentDigest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class ExtensionBindingRequestRef(BaseModel):
+    """Management-owned immutable extension binding reference."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    slotId: str = Field(min_length=1, max_length=160)
+    slotVersion: str = Field(min_length=1, max_length=32)
+    artifactId: str = Field(min_length=1, max_length=160)
+    artifactDigest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    configurationDigest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
 # --------------------------------------------------
 # Input model for calculation
 # --------------------------------------------------
@@ -239,6 +271,21 @@ class CalcParams(BaseModel):
         description=(
             "Management-injected provider account pricing observations. "
             "Clients cannot infer an AWS TwinMaker plan."
+        ),
+    )
+    architectureProfile: ArchitectureProfileRequestRef | None = Field(
+        default=None,
+        description=(
+            "Management-injected exact profile reference. Rejected unless the "
+            "default-off architecture resolution gate is enabled."
+        ),
+    )
+    extensionBindings: list[ExtensionBindingRequestRef] | None = Field(
+        default=None,
+        max_length=64,
+        description=(
+            "Management-injected immutable extension references. Rejected "
+            "unless the default-off architecture resolution gate is enabled."
         ),
     )
 
@@ -383,7 +430,11 @@ def calc(params: CalcParams):
         
         # Convert Pydantic model to dict
         params_dict = params.model_dump(
-            exclude={"providerPricingCatalogs"},
+            exclude={
+                "architectureProfile",
+                "extensionBindings",
+                "providerPricingCatalogs",
+            },
         )
         params_dict["calculationRunId"] = str(params.calculationRunId)
         optimization_profile_id = params_dict.pop("optimizationProfileId")
@@ -398,6 +449,7 @@ def calc(params: CalcParams):
                 "averageDigitalTwinQueryResponseSizeInKb",
             )
         }
+        architecture_context = _resolve_architecture_context(params)
         
         resolved_catalogs = PricingCatalogResolver(
             get_pricing_catalog_repository()
@@ -405,11 +457,16 @@ def calc(params: CalcParams):
             params.providerPricingCatalogs,
             require_fresh=True,
         )
+        calculation_kwargs = {
+            "pricing": resolved_catalogs.detached_pricing(),
+            "pricing_catalog_context": resolved_catalogs.context,
+            "optimization_profile_id": optimization_profile_id,
+        }
+        if architecture_context is not None:
+            calculation_kwargs["architecture_context"] = architecture_context
         result = calculate_cheapest_costs(
             params_dict,
-            pricing=resolved_catalogs.detached_pricing(),
-            pricing_catalog_context=resolved_catalogs.context,
-            optimization_profile_id=optimization_profile_id,
+            **calculation_kwargs,
         )
         result["pricingCatalogs"] = resolved_catalogs.context.to_http_dict()
         
@@ -458,6 +515,19 @@ def calc(params: CalcParams):
                 "http_status": 500,
             },
         ) from e
+    except ArchitectureResolutionError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error_code": e.code,
+                "message": e.message,
+                "fix_suggestion": (
+                    "Use the exact active Management-owned architecture "
+                    "profile and extension references, then retry."
+                ),
+                "http_status": 409,
+            },
+        ) from e
     except TransferPricingContractError as e:
         raise HTTPException(
             status_code=409,
@@ -478,3 +548,36 @@ def calc(params: CalcParams):
         logger.error(f"Error during calculation: {e}")
         print_stack_trace()
         raise HTTPException(status_code=500, detail="Calculation failed. Check server logs.")
+
+
+def _resolve_architecture_context(params: CalcParams):
+    requested = (
+        params.architectureProfile is not None
+        or params.extensionBindings is not None
+    )
+    if not architecture_profile_resolution_enabled():
+        if requested:
+            raise ArchitectureResolutionError(
+                "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
+                "architectureProfile",
+                "Architecture profile resolution is not enabled",
+            )
+        return None
+    if (
+        params.architectureProfile is None
+        or params.extensionBindings is None
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
+            "architectureProfile",
+            "Enabled architecture resolution requires all trusted references",
+        )
+    return build_resolution_context(
+        registry=ArchitectureProfileRegistry(),
+        calculation_run_id=str(params.calculationRunId),
+        architecture_profile=params.architectureProfile.model_dump(),
+        extension_bindings=[
+            item.model_dump()
+            for item in params.extensionBindings
+        ],
+    )

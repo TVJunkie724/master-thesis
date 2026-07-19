@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 from rest_api import app
 from api.calculation import CalcParams
+from backend.architecture_profiles.diagnostics import ArchitectureResolutionError
+from backend.architecture_profiles.registry import ArchitectureProfileRegistry
 from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_catalog_repository import (
@@ -51,6 +53,26 @@ def _valid_payload():
         "dashboardRefreshesPerHour": 0,
         "dashboardActiveHoursPerDay": 0,
         "providerPricingCatalogs": _catalog_context().to_http_dict(),
+    }
+
+
+def _architecture_fields() -> dict:
+    registry = ArchitectureProfileRegistry()
+    return {
+        "architectureProfile": {
+            "profileId": registry.profile["profile_id"],
+            "profileVersion": registry.profile["profile_version"],
+            "contentDigest": registry.profile["content_digest"],
+        },
+        "extensionBindings": [
+            {
+                "slotId": "processor.telemetry",
+                "slotVersion": "1",
+                "artifactId": "artifact.user.processor.example",
+                "artifactDigest": "sha256:" + ("1" * 64),
+                "configurationDigest": "sha256:" + ("2" * 64),
+            }
+        ],
     }
 
 
@@ -304,6 +326,108 @@ def test_calculate_returns_structured_transfer_contract_conflict(
 # -----------------------------------------------------------------------------
 
 @patch("api.calculation.PricingCatalogResolver.resolve_context")
+def test_architecture_resolution_gate_off_rejects_profile_fields(
+    mock_resolve_pricing,
+    monkeypatch,
+):
+    monkeypatch.delenv(
+        "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
+        raising=False,
+    )
+
+    response = client.put(
+        "/calculate",
+        json={**_valid_payload(), **_architecture_fields()},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_code"] == (
+        "ARCH_PROFILE_BUNDLE_INCOMPATIBLE"
+    )
+    mock_resolve_pricing.assert_not_called()
+
+
+def test_architecture_resolution_gate_on_never_falls_back_to_legacy(
+    monkeypatch,
+):
+    monkeypatch.setenv(
+        "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
+        "true",
+    )
+
+    response = client.put("/calculate", json=_valid_payload())
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_code"] == (
+        "ARCH_PROFILE_BUNDLE_INCOMPATIBLE"
+    )
+
+
+@patch("backend.calculation_v2.engine.calculate_cheapest_costs")
+@patch("api.calculation.PricingCatalogResolver.resolve_context")
+def test_architecture_resolution_gate_on_passes_trusted_context_only(
+    mock_resolve_pricing,
+    mock_engine,
+    monkeypatch,
+):
+    monkeypatch.setenv(
+        "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
+        "true",
+    )
+    mock_resolve_pricing.return_value = _resolved_catalogs({})
+    mock_engine.return_value = {}
+
+    response = client.put(
+        "/calculate",
+        json={**_valid_payload(), **_architecture_fields()},
+    )
+
+    assert response.status_code == 200
+    params_arg = mock_engine.call_args.args[0]
+    kwargs = mock_engine.call_args.kwargs
+    assert "architectureProfile" not in params_arg
+    assert "extensionBindings" not in params_arg
+    assert kwargs["architecture_context"].profile_ref.profile_id == (
+        "five-layer-baseline"
+    )
+
+
+@patch("backend.calculation_v2.engine.calculate_cheapest_costs")
+@patch("api.calculation.PricingCatalogResolver.resolve_context")
+def test_architecture_resolution_errors_use_stable_conflict_envelope(
+    mock_resolve_pricing,
+    mock_engine,
+    monkeypatch,
+):
+    monkeypatch.setenv(
+        "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
+        "true",
+    )
+    mock_resolve_pricing.return_value = _resolved_catalogs({})
+    mock_engine.side_effect = ArchitectureResolutionError(
+        "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+        "providerProfiles",
+        "No active supported provider profile is available",
+    )
+
+    response = client.put(
+        "/calculate",
+        json={**_valid_payload(), **_architecture_fields()},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "error_code": "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+        "message": "No active supported provider profile is available",
+        "fix_suggestion": (
+            "Use the exact active Management-owned architecture profile and "
+            "extension references, then retry."
+        ),
+        "http_status": 409,
+    }
+
+
+@patch("api.calculation.PricingCatalogResolver.resolve_context")
 def test_feature_toggle_gcp_l4_disabled(mock_resolve_pricing):
     """Verify that disabling 'allowGcpSelfHostedL4' in params passes correct flag to engine."""
     
@@ -340,6 +464,7 @@ def test_feature_toggle_gcp_l4_disabled(mock_resolve_pricing):
         assert params_arg["allowGcpSelfHostedL4"] is False
         assert params_arg["allowGcpSelfHostedL5"] is False
         assert kwargs["pricing_catalog_context"] == _catalog_context()
+        assert "architecture_context" not in kwargs
 
 
 @patch("api.calculation.PricingCatalogResolver.resolve_context")
