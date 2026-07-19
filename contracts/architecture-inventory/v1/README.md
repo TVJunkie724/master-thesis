@@ -4,6 +4,12 @@
 five-layer baseline. It records current implementation evidence; it does not
 approve inherited components or make Phase 8.1 retain/replace/remove decisions.
 
+`five-layer-baseline-v1-decision.json` is the Phase 8.1 target-decision source
+of truth. It covers every current component and edge, but does not claim that
+the target is implemented. `baseline-decision.schema.json` and the semantic
+checker enforce its closed-world coverage, proofs, provider admissibility,
+binding sources, scope, and digest.
+
 ## Canonical form
 
 - JSON object keys are sorted lexicographically and serialized with two-space
@@ -28,6 +34,7 @@ Regeneration is an explicit reviewer action:
 
 ```bash
 python3 scripts/check_architecture_inventory.py --write
+python3 scripts/check_architecture_inventory.py --write-baseline-decision
 python3 scripts/check_architecture_inventory.py
 ```
 

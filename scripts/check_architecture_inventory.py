@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
+from architecture_inventory.baseline import write_baseline_decision
 from architecture_inventory.canonical import pretty_json
 from architecture_inventory.checker import (
     InventoryCheckError,
@@ -24,6 +26,14 @@ def main() -> int:
         action="store_true",
         help="Explicitly regenerate current-graph.json from audited sources.",
     )
+    parser.add_argument(
+        "--write-baseline-decision",
+        action="store_true",
+        help=(
+            "Explicitly regenerate the Phase 8.1 baseline decision from the "
+            "committed current graph."
+        ),
+    )
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     inventory_path = root / "contracts/architecture-inventory/v1/current-graph.json"
@@ -34,6 +44,13 @@ def main() -> int:
                 encoding="utf-8",
             )
             print("architecture-inventory: regenerated current-graph.json")
+        if args.write_baseline_decision:
+            inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+            write_baseline_decision(root, inventory)
+            print(
+                "architecture-inventory: regenerated "
+                "five-layer-baseline-v1-decision.json"
+            )
         counts = check_inventory(root)
     except InventoryCheckError as exc:
         print(f"architecture-inventory: {exc.category} ({exc.total})", file=sys.stderr)

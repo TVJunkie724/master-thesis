@@ -10,6 +10,10 @@ import re
 import subprocess
 from typing import Any, Iterable
 
+from .baseline import (
+    BaselineDecisionError,
+    check_baseline_decision,
+)
 from .canonical import content_digest, pretty_json, source_tree_digest
 from .extractors import (
     ALLOWLISTED_ANCHORS,
@@ -1655,13 +1659,17 @@ def build_inventory(
     return inventory
 
 
-def _schema_validate(root: Path, inventory: dict[str, Any]) -> None:
+def _schema_validate_document(
+    root: Path,
+    schema_path: Path,
+    instance: dict[str, Any],
+    *,
+    category: str,
+) -> None:
     schema = json.loads(
-        (
-            root / "contracts/architecture-inventory/v1/current-graph.schema.json"
-        ).read_text(encoding="utf-8")
+        (root / schema_path).read_text(encoding="utf-8")
     )
-    payload = json.dumps({"schema": schema, "instance": inventory})
+    payload = json.dumps({"schema": schema, "instance": instance})
     script = r"""
 import json, sys
 from jsonschema import Draft202012Validator, FormatChecker
@@ -1691,14 +1699,23 @@ print(json.dumps([
     )
     if completed.returncode:
         raise InventoryCheckError(
-            "SCHEMA_INVALID", ["JSON Schema validator unavailable"]
+            category, ["JSON Schema validator unavailable"]
         )
     errors = json.loads(completed.stdout)
     if errors:
         raise InventoryCheckError(
-            "SCHEMA_INVALID",
+            category,
             [f"{item['path']}: {item['message']}" for item in errors],
         )
+
+
+def _schema_validate(root: Path, inventory: dict[str, Any]) -> None:
+    _schema_validate_document(
+        root,
+        Path("contracts/architecture-inventory/v1/current-graph.schema.json"),
+        inventory,
+        category="SCHEMA_INVALID",
+    )
 
 
 def _check_ids_and_references(inventory: dict[str, Any]) -> None:
@@ -2171,7 +2188,7 @@ def check_inventory(root: Path | None = None) -> dict[str, int]:
     _check_source_reconciliation(root, inventory)
     _check_evidence(root, inventory)
     _check_diagram_manifests(root)
-    return {
+    counts = {
         "responsibilities": len(inventory["responsibilities"]),
         "components": len(inventory["components"]),
         "artifacts": len(inventory["artifacts"]),
@@ -2185,3 +2202,19 @@ def check_inventory(root: Path | None = None) -> dict[str, int]:
             len(item["anchors"]) for item in ALLOWLISTED_ANCHORS
         ),
     }
+    try:
+        counts.update(
+            check_baseline_decision(
+                root,
+                inventory,
+                lambda schema_path, instance: _schema_validate_document(
+                    root,
+                    schema_path,
+                    instance,
+                    category="SCHEMA_INVALID",
+                ),
+            )
+        )
+    except BaselineDecisionError as exc:
+        raise InventoryCheckError(exc.category, exc.findings) from exc
+    return counts

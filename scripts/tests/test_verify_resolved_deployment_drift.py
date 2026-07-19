@@ -155,6 +155,15 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         self.assertIn("--ignore=tests/e2e", rendered)
         self.assertIn("thesis.sh test frontend", rendered)
         self.assertIn("mkdocs build --strict", rendered)
+        deployer = next(
+            stage for stage in stages if stage.name == "Deployer full quality gate"
+        )
+        self.assertIn(f"{verification.ROOT}:/workspace:ro", deployer.command)
+        self.assertIn(
+            "ARCHITECTURE_INVENTORY_REPO_ROOT=/workspace",
+            deployer.command,
+        )
+        self.assertIn("cd /app && ./run_tests.sh", deployer.command)
         self.assertNotIn("terraform apply", rendered)
 
     @patch.object(verification.subprocess, "run")

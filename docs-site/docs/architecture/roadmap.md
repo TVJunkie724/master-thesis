@@ -20,15 +20,13 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 
 ## Current Workstreams
 
-The latest Optimizer architecture slice is
-[#68 Standardize optimizer LayerResult and layer calculator contracts](https://github.com/TVJunkie724/master-thesis/issues/68).
-It establishes one validated result model, one calculator/capability boundary,
-fail-closed unsupported-provider selection, and a complete provider-layer test
-matrix. Phase 6 continues with provider capability modeling, traceability, and
-expanded service/tier coverage. Phase 8 is planned, but starts only after the
-remaining current-system hardening and manual UI audit. Credential, deployment,
-UI, and external authentication work remains independently tracked in its
-GitHub milestone rather than inferred from one global "current phase" label.
+Phase 8 has started. The source-backed current deployment graph in #144 and the
+complete `five-layer-baseline@1` target decision in #139 are implemented and
+reviewed. Phase 8.2 shared architecture-profile contracts are next. The
+user-function prerequisite #113 must complete before Phase 8.3 binds extension
+slots. Credential, remaining Optimizer coverage, manual UI audit, and external
+authentication work remain independently tracked in their GitHub milestones
+rather than inferred from one global "current phase" label.
 
 ## Backlog Rule
 

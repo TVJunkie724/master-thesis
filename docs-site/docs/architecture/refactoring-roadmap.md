@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Phase 8 | Twin Architecture Profiles & Eventing | Planned | Freeze the hardened five-layer baseline, introduce closed-world architecture profiles, and evaluate one bounded Eventing extension |
+| Phase 8 | Twin Architecture Profiles & Eventing | Active | Current graph and five-layer target decision complete; shared profile contracts are next |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -193,7 +193,7 @@ when work becomes actionable, then reference the issue here.
 | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned epic | Closed-world architecture-profile program. Reviewed mini-roadmap: `docs/plans/phase_08_architecture_profiles_eventing/README.md`; agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
 | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Planned prerequisite | Deterministic Python 3.11 extension boundary with typed non-secret configuration. Provider-managed user-function secrets are intentionally separate hardening work |
 | [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Implemented, review complete | Code-verified current graph: 114 implementations, 64 artifacts, 659 parsed Terraform objects, 90 edges, and one explicit predecessor finding (`finding.l5-reader-binding-divergence`); no runtime behavior change. Evidence: [current Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/blob/master/docs/research/phase_08_current_function_edge_matrix.md) |
-| [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Planned | Explicit executable `five-layer-baseline@1` decision contract |
+| [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Implemented, review complete | Target decision covers all 114 current implementations and all 90 current edges, preserves five scientific responsibilities and seven costed slots, excludes a general Eventing layer, and replaces the unsafe L3-to-Grafana shortcut with a typed L4-to-L5 target. Evidence: [Five-Layer Baseline Target](five-layer-baseline.md) |
 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Planned | Shared `ArchitectureProfile`, provider, component-catalog, and resolved-architecture contracts |
 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Planned | Registered AWS/Azure/GCP baseline implementations and deterministic deployer ownership |
 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Planned | Normalized profile selection, immutable resolved architecture, migration, and server-derived invalidation preview |
@@ -226,15 +226,14 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Start Phase 8 with the code-verifiable graph reconstruction in
-   [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144).
-   GitHub records no native blocker for #144.
+1. Continue Phase 8 with
+   [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149)
+   from the reviewed #139 decision.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
-   backlog work. They are not native blockers for the read-only Phase 8.0
-   inventory; any covered source change must make the inventory drift gate fail
-   and be reconciled before Phase 8.1 freezes the baseline.
+   backlog work. Any covered source change must make the Phase 8.0 inventory
+   drift gate fail and requires a reconciled Phase 8.1 decision digest.
 3. Complete the user-function boundary in
    [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113)
    before Phase 8.3 finalizes extension-slot catalog bindings.

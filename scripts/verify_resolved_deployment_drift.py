@@ -330,8 +330,12 @@ def full_stages(project: str) -> tuple[Stage, ...]:
             _compose_run(
                 project,
                 "3cloud-deployer",
-                "./run_tests.sh",
+                "sh",
+                "-lc",
+                "cd /app && ./run_tests.sh",
+                root_mount=True,
                 environment=(
+                    "ARCHITECTURE_INVENTORY_REPO_ROOT=/workspace",
                     "DEPLOYER_RUNTIME_STATE_ROOT=/tmp/deployment-contract-state",
                 ),
             ),

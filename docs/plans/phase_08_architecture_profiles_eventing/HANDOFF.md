@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-19"
-version: "2.1"
+version: "2.2"
 ---
 
 <!-- SOURCES:
@@ -12,9 +12,9 @@ version: "2.1"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/research/related_work_multicloud_cost_comparability_eventing.md
 - docs-site/docs/architecture/refactoring-roadmap.md
-- Current repository code, contracts, tests, migrations, and Git history at master commit 5e675e77
+- Phase 8.0 current graph and Phase 8.1 five-layer baseline decision artifacts
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-19 | VERSION: 2.1
+EXTRACTED: 2026-07-19 | VERSION: 2.2
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -27,40 +27,44 @@ EXTRACTED: 2026-07-19 | VERSION: 2.1
 | Integration branch | `master` |
 | Planning base | `5e675e77` |
 | Planning branch | `codex/phase-8-implementation-plans` |
+| Completed implementation | Phase 8.0 / #144 and Phase 8.1 / #139 |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Active prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Planning status | Complete and reviewed; implementation has not started |
-| First implementation phase | Phase 8.0 / [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) |
+| Implementation status | Phase 8.1 target decision complete; proceed to Phase 8.2 |
+| Next implementation phase | Phase 8.2 / [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
-This document replaces the earlier pre-planning snapshot. The Phase 8 scope,
-subphases, contract boundaries, blocker graph, verification gates, and
-documentation ownership are now explicit. A future agent must start from the
-reviewed plan for the current issue, not recreate a plan from chat history.
+Phase 8.0 reconstructed the current deployment graph and closed #144. Phase
+8.1 froze the five-layer target with complete decisions for all 114 current
+implementation records and all 90 current edges. The baseline contains no
+general Eventing responsibility. The current direct L3-hot-to-Grafana shortcut
+is removed from the target and replaced by a typed L4-to-L5 contract owned by
+Phase 8.6.
 
 ## Immediate Next Action
 
-The next agent must begin with Phase 8.0 only:
+The next implementation step is Phase 8.2 only:
 
-1. verify that `master` contains this planning package;
-2. confirm issue #144 is open and has no native blocker;
-3. create `codex/phase-8-current-graph` from current `master`;
-4. read
-   [`phase_08_0_current_graph_reconstruction.md`](phase_08_0_current_graph_reconstruction.md)
+1. confirm #139 is complete and #149 has no remaining native blocker;
+2. branch from the reviewed Phase 8.1 commit;
+3. read
+   [`phase_08_2_profile_contracts.md`](phase_08_2_profile_contracts.md)
    in full;
-5. implement the source-backed inventory and checker exactly as planned;
+4. read
+   [`five_layer_baseline_target_decision.md`](../../research/five_layer_baseline_target_decision.md)
+   and its machine-readable decision contract;
+5. implement the shared versioned architecture-profile contracts exactly as
+   planned;
 6. run its safe verification gates;
 7. review the implementation twice and fix every finding;
-8. update the roadmap, current-system documentation, research evidence, and
-   issue #144;
-9. create a structured commit that references #144;
-10. do not start Phase 8.1 while any Phase 8.0 finding remains.
+8. update the roadmap, documentation, and issue #149;
+9. create a structured commit that references #149;
+10. do not start Phase 8.3 while #113 remains open.
 
-The user-function prerequisite #113 can be implemented in parallel at the
-project level, but Phase 8.3 must not finalize extension-slot catalog bindings
-until #113 is complete.
+The user-function prerequisite #113 does not block Phase 8.2. It must complete
+before Phase 8.3 finalizes extension-slot catalog bindings.
 
 ## Required Reading Order
 

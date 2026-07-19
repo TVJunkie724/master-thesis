@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 from pathlib import Path
 import sys
@@ -31,7 +32,12 @@ def _repository_root() -> Path:
 
 
 REPOSITORY_ROOT = _repository_root()
-sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
+_SCRIPTS_PATH = str(REPOSITORY_ROOT / "scripts")
+sys.path.insert(0, _SCRIPTS_PATH)
+try:
+    importlib.import_module("architecture_inventory")
+finally:
+    sys.path.remove(_SCRIPTS_PATH)
 
 
 @pytest.fixture(scope="session")
