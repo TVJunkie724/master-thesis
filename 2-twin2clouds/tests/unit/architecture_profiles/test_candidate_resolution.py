@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import json
-from typing import Any
+from typing import Any, Mapping
 
 import pytest
 
@@ -85,6 +86,20 @@ def _context(
             "gcp": "europe-west1",
         },
     )
+
+
+def _thaw(value):
+    if isinstance(value, Mapping):
+        return {key: _thaw(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw(item) for item in value]
+    return copy.deepcopy(value)
+
+
+def _catalog_context_with_mutation(context, mutation):
+    catalog = _thaw(context.catalog)
+    mutation(catalog)
+    return replace(context, catalog=catalog)
 
 
 def test_enumeration_is_deterministic_and_component_complete():
@@ -194,3 +209,118 @@ def test_repository_profiles_cannot_bypass_unsupported_state():
         strategy.validate_request(context)
 
     assert raised.value.code == "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
+
+
+def test_missing_layer_execution_input_has_stable_workload_code():
+    context = _context(_registry())
+    incomplete = dict(context.layer_options)
+    incomplete.pop("L5")
+
+    with pytest.raises(ArchitectureResolutionError) as raised:
+        FiveLayerCompletePathStrategy(
+            context.profile
+        ).enumerate_candidates(
+            replace(context, layer_options=incomplete)
+        )
+
+    assert raised.value.code == "ARCH_WORKLOAD_INCOMPATIBLE"
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement", "code"),
+    (
+        ("formula_refs", [], "ARCH_FORMULA_MISSING"),
+        ("pricing_model_refs", [], "ARCH_PRICING_EVIDENCE_MISSING"),
+        (
+            "deployment_specification_bindings",
+            [],
+            "ARCH_DEPLOYMENT_MAPPING_MISSING",
+        ),
+    ),
+)
+def test_component_contract_gaps_use_specific_fail_closed_codes(
+    field,
+    replacement,
+    code,
+):
+    context = _context(_registry())
+
+    def mutate(catalog):
+        for component in catalog["components"]:
+            if component["logical_component_ids"] == ["component.processing"]:
+                component[field] = replacement
+
+    mutated = _catalog_context_with_mutation(context, mutate)
+
+    with pytest.raises(ArchitectureResolutionError) as raised:
+        FiveLayerCompletePathStrategy(
+            mutated.profile
+        ).enumerate_candidates(mutated)
+
+    assert raised.value.code == code
+
+
+@pytest.mark.parametrize(
+    ("mutation", "code"),
+    (
+        (
+            lambda edge: edge.update({"formula_refs": []}),
+            "ARCH_FORMULA_MISSING",
+        ),
+        (
+            lambda edge: edge.update({"pricing_model_refs": []}),
+            "ARCH_PRICING_EVIDENCE_MISSING",
+        ),
+        (
+            lambda edge: edge["terraform_binding"].update(
+                {"destination_input_id": ""}
+            ),
+            "ARCH_DEPLOYMENT_MAPPING_MISSING",
+        ),
+        (
+            lambda edge: edge.update(
+                {"source_output_port_id": "catalog.invalid.port"}
+            ),
+            "ARCH_EDGE_IMPLEMENTATION_MISSING",
+        ),
+    ),
+)
+def test_edge_contract_gaps_fail_before_ranking(mutation, code):
+    context = _context(_registry())
+    first_edge_id = context.profile["edges"][0]["edge_id"]
+    edge_implementation_id = next(
+        item["edge_implementation_id"]
+        for item in context.provider_profiles["aws"]["edge_mappings"]
+        if item["edge_id"] == first_edge_id
+    )
+
+    def mutate_catalog(catalog):
+        edge = next(
+            item
+            for item in catalog["edge_implementations"]
+            if item["edge_implementation_id"] == edge_implementation_id
+        )
+        mutation(edge)
+
+    mutated = _catalog_context_with_mutation(context, mutate_catalog)
+    strategy = FiveLayerCompletePathStrategy(mutated.profile)
+    candidate = strategy.enumerate_candidates(mutated)[0]
+
+    with pytest.raises(ArchitectureResolutionError) as raised:
+        strategy.validate_functional_completeness(candidate, mutated)
+
+    assert raised.value.code == code
+
+
+def test_resolution_builder_maps_inconsistent_internal_input_to_stable_code():
+    from backend.architecture_profiles.resolution_builder import (
+        ResolvedTwinArchitectureBuilder,
+    )
+
+    with pytest.raises(ArchitectureResolutionError) as raised:
+        ResolvedTwinArchitectureBuilder().build(
+            winner=object(),
+            context=_context(_registry()),
+        )
+
+    assert raised.value.code == "ARCH_RESOLUTION_BUILD_FAILED"

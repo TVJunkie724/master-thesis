@@ -26,6 +26,14 @@ _PROVIDER_LABELS = {
     "Azure": "azure",
     "GCP": "gcp",
 }
+_INCOMPATIBILITY_PRIORITY = (
+    "ARCH_FORMULA_MISSING",
+    "ARCH_PRICING_EVIDENCE_MISSING",
+    "ARCH_DEPLOYMENT_MAPPING_MISSING",
+    "ARCH_FUNCTIONAL_INCOMPLETE",
+    "ARCH_COMPONENT_CANDIDATE_MISSING",
+    "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+)
 
 
 @dataclass(frozen=True)
@@ -130,30 +138,31 @@ def enumerate_component_candidates(
             _provider_key(label): cost
             for label, cost in context.layer_options[layer_key]
         }
-        options = tuple(
-            option
-            for provider in _PROVIDER_ORDER
-            if (
-                option := _build_component_option(
-                    context=context,
-                    layer_key=layer_key,
-                    slot_id=slot_id,
-                    logical=logical,
-                    provider=provider,
-                    cost=costs.get(provider),
-                    catalog_components=catalog_components,
-                    profile_slots=profile_slots,
-                )
+        options = []
+        incompatibilities = []
+        for provider in _PROVIDER_ORDER:
+            option, incompatibility = _build_component_option(
+                context=context,
+                layer_key=layer_key,
+                slot_id=slot_id,
+                logical=logical,
+                provider=provider,
+                cost=costs.get(provider),
+                catalog_components=catalog_components,
+                profile_slots=profile_slots,
             )
-            is not None
-        )
+            if option is not None:
+                options.append(option)
+            elif incompatibility is not None:
+                incompatibilities.append(incompatibility)
         if not options:
+            code = _highest_priority_incompatibility(incompatibilities)
             raise ArchitectureResolutionError(
-                "ARCH_COMPONENT_CANDIDATE_MISSING",
+                code,
                 logical_component_id,
-                "No supported provider has a complete component mapping",
+                "No supported provider has a complete component option",
             )
-        option_matrix.append(options)
+        option_matrix.append(tuple(options))
 
     candidates = []
     for selected in product(*option_matrix):
@@ -177,7 +186,7 @@ def _build_component_option(
     cost: Decimal | None,
     catalog_components: Mapping[str, Mapping[str, Any]],
     profile_slots: Mapping[str, Mapping[str, Any]],
-) -> ComponentOption | None:
+) -> tuple[ComponentOption | None, str | None]:
     profile = context.provider_profiles.get(provider)
     region = context.provider_regions.get(provider) if context.provider_regions else None
     if (
@@ -187,7 +196,7 @@ def _build_component_option(
         or profile["supported"] is not True
         or not isinstance(region, str)
     ):
-        return None
+        return None, "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
     mapping = next(
         (
             item
@@ -197,25 +206,25 @@ def _build_component_option(
         None,
     )
     if mapping is None:
-        return None
+        return None, "ARCH_COMPONENT_CANDIDATE_MISSING"
     if not _provider_profile_is_compatible(
         context=context,
         provider_profile=profile,
     ):
-        return None
+        return None, "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
     required_capabilities = set(logical["required_capability_ids"])
     if not required_capabilities.issubset(
         set(mapping["provided_capability_ids"])
     ):
-        return None
+        return None, "ARCH_FUNCTIONAL_INCOMPLETE"
     expected_region_id = f"region.{provider}.{region}"
     if expected_region_id not in mapping["supported_region_ids"]:
-        return None
+        return None, "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
     candidates = tuple(mapping["deployment_component_candidates"])
     if len(candidates) != 1:
-        return None
+        return None, "ARCH_COMPONENT_CANDIDATE_MISSING"
     component = catalog_components.get(candidates[0])
-    if not _component_is_complete(
+    incompatibility = _component_incompatibility(
         component=component,
         provider=provider,
         logical_component_id=str(logical["component_id"]),
@@ -237,23 +246,27 @@ def _build_component_option(
             str(profile["implementation_profile_id"]),
             str(profile["implementation_profile_version"]),
         ),
-    ):
-        return None
-    return ComponentOption(
-        layer_key=layer_key,
-        slot_id=slot_id,
-        logical_component_id=str(logical["component_id"]),
-        responsibility_id=str(logical["responsibility_id"]),
-        provider=provider,
-        region=region,
-        provider_profile=profile,
-        provider_mapping=mapping,
-        catalog_component=component,
-        cost=cost,
+    )
+    if incompatibility is not None:
+        return None, incompatibility
+    return (
+        ComponentOption(
+            layer_key=layer_key,
+            slot_id=slot_id,
+            logical_component_id=str(logical["component_id"]),
+            responsibility_id=str(logical["responsibility_id"]),
+            provider=provider,
+            region=region,
+            provider_profile=profile,
+            provider_mapping=mapping,
+            catalog_component=component,
+            cost=cost,
+        ),
+        None,
     )
 
 
-def _component_is_complete(
+def _component_incompatibility(
     *,
     component: Mapping[str, Any] | None,
     provider: str,
@@ -263,20 +276,33 @@ def _component_is_complete(
     required_extension_slots: set[tuple[str, str]],
     architecture_profile_ref: tuple[str, str],
     provider_profile_ref: tuple[str, str],
-) -> bool:
+) -> str | None:
     if (
         component is None
         or component["provider"] != provider
         or logical_component_id not in component["logical_component_ids"]
-        or not component["service_id"]
-        or not component["formula_refs"]
-        or not component["pricing_model_refs"]
-        or not component["required_permission_capabilities"]
-        or not component["package_artifact_ref"]
-        or not mapping["formula_refs"]
-        or not mapping["service_model_refs"]
     ):
-        return False
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    if (
+        not mapping["formula_refs"]
+        or not component["formula_refs"]
+        or not set(mapping["formula_refs"]).issubset(
+            set(component["formula_refs"])
+        )
+    ):
+        return "ARCH_FORMULA_MISSING"
+    if (
+        not mapping["service_model_refs"]
+        or not component["pricing_model_refs"]
+    ):
+        return "ARCH_PRICING_EVIDENCE_MISSING"
+    if not component["service_id"]:
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    if (
+        not component["required_permission_capabilities"]
+        or not component["package_artifact_ref"]
+    ):
+        return "ARCH_DEPLOYMENT_MAPPING_MISSING"
     catalog_bindings = {
         binding["component_id"]
         for binding in component["deployment_specification_bindings"]
@@ -286,17 +312,13 @@ def _component_is_complete(
     }
     mapped_bindings = set(mapping["deployment_specification_component_ids"])
     if not mapped_bindings or not mapped_bindings.issubset(catalog_bindings):
-        return False
-    if not set(mapping["formula_refs"]).issubset(
-        set(component["formula_refs"])
-    ):
-        return False
+        return "ARCH_DEPLOYMENT_MAPPING_MISSING"
     catalog_extension_slots = {
         (str(reference["id"]), str(reference["version"]))
         for reference in component["extension_slot_refs"]
     }
     if not required_extension_slots.issubset(catalog_extension_slots):
-        return False
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
     compatibility = component["compatibility"]
     if (
         architecture_profile_ref
@@ -312,8 +334,8 @@ def _component_is_complete(
         or "resolved-deployment-specification.v1"
         not in compatibility["deployment_specification_versions"]
     ):
-        return False
-    return True
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    return None
 
 
 def _provider_profile_is_compatible(
@@ -347,3 +369,12 @@ def _provider_key(label: str) -> str:
             "layerOptions",
             "Calculation result contains an unknown provider label",
         ) from exc
+
+
+def _highest_priority_incompatibility(codes: list[str]) -> str:
+    if not codes:
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    return min(
+        codes,
+        key=lambda code: _INCOMPATIBILITY_PRIORITY.index(code),
+    )

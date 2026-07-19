@@ -56,7 +56,7 @@ class ResolvedTwinArchitectureBuilder:
                 exc.path,
                 str(exc),
             ) from exc
-        except (KeyError, TypeError, ValueError) as exc:
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise ArchitectureResolutionError(
                 "ARCH_RESOLUTION_BUILD_FAILED",
                 "resolvedTwinArchitecture",
