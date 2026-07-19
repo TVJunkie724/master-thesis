@@ -1116,6 +1116,27 @@ def _check_resolved(
             "architecture_profile_ref.digest",
             "Linked architecture profile digest differs",
         )
+    resolution_bundle = document["optimization_bundle_ref"]
+    expected_bundle = {
+        field: profile["optimization_bundle"][field]
+        for field in (
+            "optimization_strategy_id",
+            "optimization_strategy_version",
+            "calculation_strategy_id",
+            "calculation_strategy_version",
+            "formula_set_id",
+            "formula_set_version",
+            "scoring_strategy_id",
+            "scoring_strategy_version",
+            "compatibility_digest",
+        )
+    }
+    if resolution_bundle != expected_bundle:
+        _fail(
+            "ARCH_BUNDLE_INCOMPATIBLE",
+            "optimization_bundle_ref",
+            "Resolution optimization bundle differs from the linked profile",
+        )
     provider_profiles = {
         (candidate["implementation_profile_id"], candidate["provider"]): candidate
         for candidate in linked.get("provider-implementation-profile.v1", [])

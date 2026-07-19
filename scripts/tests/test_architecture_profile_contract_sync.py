@@ -454,6 +454,27 @@ class ArchitectureProfileContractSyncTests(unittest.TestCase):
             )
         self.assertEqual(raised.exception.code, "ARCH_REFERENCE_UNRESOLVED")
 
+    def test_resolution_optimization_bundle_must_match_profile(self) -> None:
+        resolution = next(
+            document
+            for document in self.valid_documents
+            if document["schema_version"] == "resolved-twin-architecture.v1"
+        )
+        mutated = copy.deepcopy(resolution)
+        mutated["optimization_bundle_ref"]["formula_set_version"] = "2"
+        mutated["resolution_id"] = (
+            contract_sync.runtime.calculate_resolution_id(mutated)
+        )
+        contract_sync._redigest(mutated)
+
+        with self.assertRaises(contract_sync.runtime.ContractError) as raised:
+            contract_sync.runtime.validate_document(
+                mutated,
+                bundle_root=contract_sync.SOURCE_V1,
+                linked_documents=self.valid_documents,
+            )
+        self.assertEqual(raised.exception.code, "ARCH_BUNDLE_INCOMPATIBLE")
+
     def test_allowlisted_cycle_requires_exact_registered_scc(self) -> None:
         cycle_profile = copy.deepcopy(self.profile)
         cycle_profile["edges"].append(
