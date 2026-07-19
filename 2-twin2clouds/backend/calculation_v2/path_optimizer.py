@@ -286,6 +286,7 @@ def evaluate_complete_paths(
     pricing_registry: PricingRegistry,
     glue_cost_resolver: GlueCostResolver,
     transition_runtime_resolver: TransitionRuntimeCostResolver,
+    admissible_candidate_ids: frozenset[str] | None = None,
 ) -> CompletePathEvaluationSet:
     """Enumerate and evaluate every executable baseline architecture path."""
 
@@ -339,6 +340,15 @@ def evaluate_complete_paths(
                 strict=True,
             )
         )
+        candidate_id = "|".join(
+            assignment.provider.value for assignment in assignments
+        )
+        if (
+            admissible_candidate_ids is not None
+            and candidate_id not in admissible_candidate_ids
+        ):
+            rejected_codes["ARCH_FUNCTIONAL_INCOMPLETE"] += 1
+            continue
         try:
             evaluations.append(
                 _evaluate_path(

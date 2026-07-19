@@ -59,6 +59,22 @@ from backend.optimization.scoring import OptimizationCandidate
 from backend.deployment_specification import (
     build_resolved_deployment_specification,
 )
+from backend.architecture_profiles.completeness import (
+    CompleteArchitectureCandidate,
+)
+from backend.architecture_profiles.diagnostics import (
+    ArchitectureResolutionError,
+    RejectionCollector,
+)
+from backend.architecture_profiles.five_layer_strategy import (
+    build_default_strategy_registry,
+)
+from backend.architecture_profiles.resolution_builder import (
+    ArchitectureResolutionWinner,
+)
+from backend.architecture_profiles.strategy import (
+    ArchitectureResolutionContext,
+)
 from backend.executable_topology import ensure_executable_error_handling_topology
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_registry_service import PricingRegistryService
@@ -583,6 +599,7 @@ def calculate_cheapest_costs(
     pricing_catalog_context: PricingCatalogContext,
     optimization_profile_id: str | None = None,
     pricing_registry_service: PricingRegistryService | None = None,
+    architecture_context: ArchitectureResolutionContext | None = None,
 ) -> Dict[str, Any]:
     """
     Orchestrate cost calculation and find the cheapest path across providers.
@@ -674,6 +691,54 @@ def calculate_cheapest_costs(
         layer_key: _supported_provider_options(provider_costs, layer_key)
         for layer_key, _ in LAYER_ORDER
     }
+    architecture_strategy = None
+    complete_architecture_candidates: dict[
+        str,
+        CompleteArchitectureCandidate,
+    ] = {}
+    architecture_rejections = RejectionCollector()
+    bound_architecture_context = architecture_context
+    if architecture_context is not None:
+        bound_architecture_context = architecture_context.with_execution_inputs(
+            layer_options=layer_options,
+            provider_regions={
+                provider: pricing_catalog_context.catalogs[
+                    provider
+                ].pricing_region
+                for provider in ("aws", "azure", "gcp")
+            },
+        )
+        strategy_registry = build_default_strategy_registry(
+            bound_architecture_context
+        )
+        architecture_strategy = strategy_registry.resolve(
+            bound_architecture_context.profile
+        )
+        architecture_strategy.validate_request(bound_architecture_context)
+        architecture_candidates = architecture_strategy.enumerate_candidates(
+            bound_architecture_context
+        )
+        for candidate in architecture_candidates:
+            try:
+                complete = (
+                    architecture_strategy.validate_functional_completeness(
+                        candidate,
+                        bound_architecture_context,
+                    )
+                )
+            except ArchitectureResolutionError as exc:
+                architecture_rejections.record(
+                    exc.code,
+                    candidate.candidate_id,
+                )
+                continue
+            complete_architecture_candidates[complete.candidate_id] = complete
+        if not complete_architecture_candidates:
+            raise ArchitectureResolutionError(
+                "ARCH_NO_ADMISSIBLE_CANDIDATE",
+                "architectureProfile",
+                "No functionally complete architecture candidate is admissible",
+            )
 
     def resolve_glue_cost(provider, invocations):
         label = {
@@ -711,6 +776,11 @@ def calculate_cheapest_costs(
         pricing_registry=pricing_registry,
         glue_cost_resolver=resolve_glue_cost,
         transition_runtime_resolver=resolve_transition_runtime,
+        admissible_candidate_ids=(
+            frozenset(complete_architecture_candidates)
+            if architecture_context is not None
+            else None
+        ),
     )
     snapshot_references = tuple(
         f"pricing_catalog:{pricing_catalog_context.catalogs[provider].snapshot_id}"
@@ -742,10 +812,28 @@ def calculate_cheapest_costs(
                     for assignment in evaluation.assignments
                 },
                 metrics={"cost": metric_result},
+                canonical_tie_break_key=(
+                    tuple(
+                        part
+                        for assignment in complete_architecture_candidates[
+                            evaluation.candidate_id
+                        ].canonical_assignment_key
+                        for part in assignment
+                    )
+                    if architecture_context is not None
+                    else ()
+                ),
             )
         )
     best_candidate = scoring_strategy.select_best(candidates)
     winner = evaluations_by_id[best_candidate.candidate_id]
+    if architecture_strategy is not None:
+        if bound_architecture_context is None:
+            raise RuntimeError("Architecture context binding was lost")
+        winner = architecture_strategy.calculate_candidate(
+            winner,
+            bound_architecture_context,
+        )
 
     provider_labels = {
         "aws": "AWS",
@@ -822,6 +910,26 @@ def calculate_cheapest_costs(
         "cheapestPath": cheapest_path,
         "totalCost": round(float(winner.total_cost), 2),
     }
+    if architecture_context is not None:
+        result_payload["optimizationDiagnostics"]["tieBreakPolicy"] = (
+            "canonical_logical_provider_deployment_tuple"
+        )
+        frozen_rejections = architecture_rejections.freeze()
+        result_payload["architectureResolutionDiagnostics"] = {
+            "schemaVersion": "architecture-resolution-diagnostics.v1",
+            "profileId": architecture_context.profile_ref.profile_id,
+            "profileVersion": architecture_context.profile_ref.profile_version,
+            "enumeratedCandidateCount": (
+                len(complete_architecture_candidates)
+                + frozen_rejections.rejected_candidate_count
+            ),
+            "admissibleCandidateCount": len(
+                complete_architecture_candidates
+            ),
+            **frozen_rejections.to_dict(),
+            "winningCandidateId": winner.candidate_id,
+            "tieBreakPolicy": "canonical_logical_provider_deployment_tuple",
+        }
     result_payload["resolvedDeploymentSpecification"] = (
         build_resolved_deployment_specification(
             calculation_run_id=str(params.get("calculationRunId") or ""),
@@ -866,7 +974,39 @@ def calculate_cheapest_costs(
         derived_params=derived,
         result_payload=result_payload,
     )
-    return apply_result_currency(
+    converted_result = apply_result_currency(
         result_payload,
         str(params.get("currency") or "USD"),
     )
+    if architecture_strategy is not None:
+        if bound_architecture_context is None:
+            raise RuntimeError("Architecture context binding was lost")
+        complete_winner = complete_architecture_candidates.get(
+            winner.candidate_id
+        )
+        if complete_winner is None:
+            raise ArchitectureResolutionError(
+                "ARCH_RESOLUTION_BUILD_FAILED",
+                winner.candidate_id,
+                "Winning path has no complete architecture candidate",
+            )
+        resolved_architecture = architecture_strategy.build_resolution(
+            ArchitectureResolutionWinner(
+                candidate=complete_winner,
+                evaluation=winner,
+                deployment_specification=converted_result[
+                    "resolvedDeploymentSpecification"
+                ],
+                pricing_catalog_context=pricing_catalog_context,
+                currency=converted_result["currency"],
+                currency_rate=Decimal(
+                    str(converted_result["currencyConversion"]["rate"])
+                ),
+            ),
+            bound_architecture_context,
+        )
+        converted_result["resolvedTwinArchitecture"] = resolved_architecture
+        converted_result["totalCostExact"] = resolved_architecture[
+            "cost_summary"
+        ]["monthly_total"]
+    return converted_result

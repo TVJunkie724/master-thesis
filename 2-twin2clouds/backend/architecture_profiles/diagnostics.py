@@ -27,7 +27,7 @@ ARCHITECTURE_ERROR_CODES = frozenset(
     }
 )
 MAX_REPRESENTATIVE_CANDIDATES = 25
-_SAFE_CANDIDATE_ID = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,159}$")
+_SAFE_CANDIDATE_ID = re.compile(r"^[a-z0-9][a-z0-9._:|-]{0,159}$")
 
 
 class ArchitectureResolutionError(ValueError):

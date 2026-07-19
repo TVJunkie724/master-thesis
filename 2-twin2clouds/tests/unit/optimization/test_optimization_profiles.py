@@ -283,6 +283,27 @@ def test_cost_only_strategy_uses_candidate_id_as_deterministic_tie_break():
     ] == ["aws|aws", "azure|aws", "gcp|aws"]
 
 
+def test_cost_only_strategy_prefers_explicit_architecture_assignment_tie_break():
+    from backend.optimization.metrics import MetricResult
+    from backend.optimization.scoring import OptimizationCandidate
+
+    metric = MetricResult("cost", 10.0, "USD/month", "api_backed")
+    legacy_first = OptimizationCandidate(
+        candidate_id="aws|aws",
+        metrics={"cost": metric},
+        canonical_tie_break_key=("component.ingestion", "azure", "deployment.z"),
+    )
+    architecture_first = OptimizationCandidate(
+        candidate_id="azure|azure",
+        metrics={"cost": metric},
+        canonical_tie_break_key=("component.ingestion", "aws", "deployment.a"),
+    )
+
+    assert CostOnlyScoringStrategy().select_best(
+        [legacy_first, architecture_first]
+    ) is architecture_first
+
+
 def test_result_metadata_is_management_api_serializable_and_uses_pricing_service():
     service = FakePricingRegistryService()
     registry = build_default_profile_registry(service)

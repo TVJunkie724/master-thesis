@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from decimal import Decimal
 import re
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol, runtime_checkable
@@ -106,6 +107,11 @@ class ArchitectureResolutionContext:
     catalog: Mapping[str, Any]
     provider_profiles: Mapping[str, Mapping[str, Any]]
     extension_bindings: tuple[ExtensionBindingRef, ...]
+    layer_options: Mapping[
+        str,
+        tuple[tuple[str, Decimal], ...],
+    ] | None = None
+    provider_regions: Mapping[str, str] | None = None
 
     @property
     def linked_documents(self) -> tuple[Mapping[str, Any], ...]:
@@ -113,6 +119,27 @@ class ArchitectureResolutionContext:
             self.profile,
             *self.provider_profiles.values(),
             self.catalog,
+        )
+
+    def with_execution_inputs(
+        self,
+        *,
+        layer_options: Mapping[str, tuple[tuple[str, float], ...]],
+        provider_regions: Mapping[str, str],
+    ) -> "ArchitectureResolutionContext":
+        normalized_options = MappingProxyType(
+            {
+                layer_key: tuple(
+                    (provider, Decimal(str(cost)))
+                    for provider, cost in options
+                )
+                for layer_key, options in layer_options.items()
+            }
+        )
+        return replace(
+            self,
+            layer_options=normalized_options,
+            provider_regions=MappingProxyType(dict(provider_regions)),
         )
 
 

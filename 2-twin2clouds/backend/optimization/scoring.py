@@ -12,6 +12,7 @@ class OptimizationCandidate:
     candidate_id: str
     metrics: dict[str, MetricResult]
     dimensions: dict[str, str] = field(default_factory=dict)
+    canonical_tie_break_key: tuple[str, ...] = ()
 
     def metric_value(self, metric_id: str) -> float:
         try:
@@ -61,7 +62,8 @@ class CostOnlyScoringStrategy:
             candidates,
             key=lambda candidate: (
                 candidate.metric_value(self.primary_metric_id),
-                candidate.candidate_id,
+                candidate.canonical_tie_break_key
+                or (candidate.candidate_id,),
             ),
         )
 
