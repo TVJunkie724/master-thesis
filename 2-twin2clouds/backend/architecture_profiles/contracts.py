@@ -41,6 +41,7 @@ _runtime = _load_runtime()
 ContractError = _runtime.ContractError
 ValidatedContract = _runtime.ValidatedContract
 calculate_digest = _runtime.calculate_digest
+calculate_resolution_id = _runtime.calculate_resolution_id
 canonical_json = _runtime.canonical_json
 
 

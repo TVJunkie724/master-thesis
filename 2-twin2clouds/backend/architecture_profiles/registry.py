@@ -33,34 +33,55 @@ def _freeze(value: Any) -> Any:
 
 
 class ArchitectureProfileRegistry:
-    """Load the sole repository-owned profile/catalog bundle by fixed path."""
+    """Load and expose one immutable, validated profile/catalog bundle."""
 
-    def __init__(self) -> None:
-        profile = _read(
+    def __init__(
+        self,
+        *,
+        profile: Mapping[str, Any] | None = None,
+        catalog: Mapping[str, Any] | None = None,
+        providers: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> None:
+        profile = dict(profile) if profile is not None else _read(
             DEFINITIONS_ROOT
             / "profiles"
             / "five-layer-baseline"
             / "1"
             / "profile.json"
         )
-        catalog = _read(
+        catalog = dict(catalog) if catalog is not None else _read(
             DEFINITIONS_ROOT
             / "component-catalogs"
             / "baseline"
             / "1"
             / "catalog.json"
         )
-        providers = {
-            provider: _read(
-                DEFINITIONS_ROOT
-                / "provider-implementations"
-                / "five-layer-baseline"
-                / "1"
-                / provider
-                / "1.json"
+        providers = (
+            {
+                provider: dict(document)
+                for provider, document in providers.items()
+            }
+            if providers is not None
+            else {
+                provider: _read(
+                    DEFINITIONS_ROOT
+                    / "provider-implementations"
+                    / "five-layer-baseline"
+                    / "1"
+                    / provider
+                    / "1.json"
+                )
+                for provider in ("aws", "azure", "gcp")
+            }
+        )
+        if set(providers) != {
+            document["provider"] for document in providers.values()
+        }:
+            raise contracts.ContractError(
+                "ARCH_REFERENCE_UNRESOLVED",
+                "providers",
+                "Provider registry keys must match provider profile identities",
             )
-            for provider in ("aws", "azure", "gcp")
-        }
         documents = (profile, *providers.values(), catalog)
         contracts.read_contract_bundle(documents)
         self._profile = _freeze(
@@ -105,3 +126,29 @@ class ArchitectureProfileRegistry:
                 "provider",
                 "Unknown architecture provider",
             ) from exc
+
+    def require_profile(
+        self,
+        *,
+        profile_id: str,
+        profile_version: str,
+        content_digest: str,
+    ) -> Mapping[str, Any]:
+        """Resolve the sole profile by an exact immutable reference."""
+
+        if (
+            profile_id != self._profile["profile_id"]
+            or profile_version != self._profile["profile_version"]
+        ):
+            raise contracts.ContractError(
+                "ARCH_PROFILE_NOT_FOUND",
+                "architectureProfile",
+                "Unknown architecture profile reference",
+            )
+        if content_digest != self._profile["content_digest"]:
+            raise contracts.ContractError(
+                "ARCH_PROFILE_DIGEST_MISMATCH",
+                "architectureProfile.contentDigest",
+                "Architecture profile digest differs from the repository definition",
+            )
+        return self._profile
