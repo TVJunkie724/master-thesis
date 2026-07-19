@@ -9,6 +9,7 @@ import httpx
 
 from src.clients.base import ExternalServiceClient
 from src.config import settings
+from src.security.request_context import current_request_id
 from src.services.errors import ExternalServiceError
 
 
@@ -76,6 +77,7 @@ class OptimizerClient(ExternalServiceClient):
             "PUT",
             "/calculate",
             json=params,
+            headers={"X-Request-ID": current_request_id()},
             timeout=60.0,
         )
         if response.status_code >= 400:

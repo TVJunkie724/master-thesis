@@ -7,10 +7,12 @@ layers based on exact pricing catalogs, route costs, and user-defined scenario
 parameters.
 """
 from datetime import datetime
+import re
+from time import perf_counter
 from typing import Annotated, Literal, Union
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -54,6 +56,7 @@ from backend.pricing_catalog_resolver import PricingCatalogResolver
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Calculation"])
+_SAFE_CORRELATION_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
 AwsTwinMakerBundleName = Annotated[
@@ -420,10 +423,36 @@ class CalcParams(BaseModel):
         500: ERROR_RESPONSES[500],
     },
 )
-def calc(params: CalcParams):
+def calc(params: CalcParams, request: Request):
     """
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
     """
+    resolution_started_at = perf_counter()
+    architecture_context = None
+    architecture_requested = (
+        architecture_profile_resolution_enabled()
+        or params.architectureProfile is not None
+        or params.extensionBindings is not None
+    )
+    correlation_id = _correlation_id(
+        request.headers.get("x-request-id"),
+        fallback=str(params.calculationRunId),
+    )
+    architecture_log_emitted = False
+
+    def log_architecture_failure(error_code: str) -> None:
+        nonlocal architecture_log_emitted
+        if not architecture_requested or architecture_log_emitted:
+            return
+        _log_architecture_resolution_failure(
+            params=params,
+            context=architecture_context,
+            correlation_id=correlation_id,
+            error_code=error_code,
+            started_at=resolution_started_at,
+        )
+        architecture_log_emitted = True
+
     try:
         # Use new component-level calculation engine (v2)
         from backend.calculation_v2.engine import calculate_cheapest_costs
@@ -469,9 +498,18 @@ def calc(params: CalcParams):
             **calculation_kwargs,
         )
         result["pricingCatalogs"] = resolved_catalogs.context.to_http_dict()
+        if architecture_context is not None:
+            _log_architecture_resolution_success(
+                context=architecture_context,
+                diagnostics=result.get("architectureResolutionDiagnostics"),
+                correlation_id=correlation_id,
+                started_at=resolution_started_at,
+            )
+            architecture_log_emitted = True
         
         return {"result": result}
     except PricingCatalogStaleError as e:
+        log_architecture_failure(e.code)
         raise HTTPException(
             status_code=409,
             detail={
@@ -489,6 +527,7 @@ def calc(params: CalcParams):
         PricingCatalogRegionMismatchError,
         PricingCatalogUnreviewedError,
     ) as e:
+        log_architecture_failure(e.code)
         raise HTTPException(
             status_code=409,
             detail={
@@ -502,6 +541,7 @@ def calc(params: CalcParams):
             },
         ) from e
     except (PricingCatalogTamperedError, PricingCatalogStorageError) as e:
+        log_architecture_failure(e.code)
         logger.error("Pricing catalog resolution failed: %s", e.code)
         raise HTTPException(
             status_code=500,
@@ -516,6 +556,7 @@ def calc(params: CalcParams):
             },
         ) from e
     except ArchitectureResolutionError as e:
+        log_architecture_failure(e.code)
         raise HTTPException(
             status_code=409,
             detail={
@@ -529,6 +570,7 @@ def calc(params: CalcParams):
             },
         ) from e
     except TransferPricingContractError as e:
+        log_architecture_failure(e.code)
         raise HTTPException(
             status_code=409,
             detail={
@@ -542,9 +584,11 @@ def calc(params: CalcParams):
             },
         ) from e
     except ValueError as e:
+        log_architecture_failure("ARCH_WORKLOAD_INCOMPATIBLE")
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        log_architecture_failure("ARCH_RESOLUTION_BUILD_FAILED")
         logger.error(f"Error during calculation: {e}")
         print_stack_trace()
         raise HTTPException(status_code=500, detail="Calculation failed. Check server logs.")
@@ -580,4 +624,94 @@ def _resolve_architecture_context(params: CalcParams):
             item.model_dump()
             for item in params.extensionBindings
         ],
+    )
+
+
+def _correlation_id(value: str | None, *, fallback: str) -> str:
+    if value is not None and _SAFE_CORRELATION_ID.fullmatch(value):
+        return value
+    return fallback
+
+
+def _log_architecture_resolution_success(
+    *,
+    context,
+    diagnostics: object,
+    correlation_id: str,
+    started_at: float,
+) -> None:
+    safe_diagnostics = diagnostics if isinstance(diagnostics, dict) else {}
+    logger.info(
+        "architecture_resolution outcome=success run_id=%s "
+        "correlation_id=%s profile_id=%s profile_version=%s "
+        "profile_digest=%s bundle_id=%s bundle_version=%s "
+        "bundle_digest=%s enumerated_candidate_count=%s "
+        "admissible_candidate_count=%s rejected_candidate_count=%s "
+        "winner_candidate_id=%s duration_ms=%.3f",
+        context.calculation_run_id,
+        correlation_id,
+        context.profile_ref.profile_id,
+        context.profile_ref.profile_version,
+        context.profile_ref.content_digest,
+        context.bundle_ref.optimization_strategy_id,
+        context.bundle_ref.optimization_strategy_version,
+        context.bundle_ref.compatibility_digest,
+        safe_diagnostics.get("enumeratedCandidateCount", 0),
+        safe_diagnostics.get("admissibleCandidateCount", 0),
+        safe_diagnostics.get("rejectedCandidateCount", 0),
+        safe_diagnostics.get("winningCandidateId", "unavailable"),
+        (perf_counter() - started_at) * 1000,
+    )
+
+
+def _log_architecture_resolution_failure(
+    *,
+    params: CalcParams,
+    context,
+    correlation_id: str,
+    error_code: str,
+    started_at: float,
+) -> None:
+    profile = params.architectureProfile
+    logger.warning(
+        "architecture_resolution outcome=failure run_id=%s "
+        "correlation_id=%s profile_id=%s profile_version=%s "
+        "profile_digest=%s bundle_id=%s bundle_version=%s "
+        "bundle_digest=%s enumerated_candidate_count=0 "
+        "admissible_candidate_count=0 rejected_candidate_count=0 "
+        "winner_candidate_id=none error_code=%s duration_ms=%.3f",
+        str(params.calculationRunId),
+        correlation_id,
+        (
+            context.profile_ref.profile_id
+            if context is not None
+            else profile.profileId if profile is not None else "unresolved"
+        ),
+        (
+            context.profile_ref.profile_version
+            if context is not None
+            else profile.profileVersion if profile is not None else "unresolved"
+        ),
+        (
+            context.profile_ref.content_digest
+            if context is not None
+            else profile.contentDigest if profile is not None else "unresolved"
+        ),
+        (
+            context.bundle_ref.optimization_strategy_id
+            if context is not None
+            else "unresolved"
+        ),
+        (
+            context.bundle_ref.optimization_strategy_version
+            if context is not None
+            else "unresolved"
+        ),
+        (
+            context.bundle_ref.compatibility_digest
+            if context is not None
+            else "unresolved"
+        ),
+        error_code,
+        (perf_counter() - started_at) * 1000,
     )

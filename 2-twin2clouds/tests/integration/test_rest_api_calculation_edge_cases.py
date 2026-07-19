@@ -369,18 +369,28 @@ def test_architecture_resolution_gate_on_passes_trusted_context_only(
     mock_resolve_pricing,
     mock_engine,
     monkeypatch,
+    caplog,
 ):
     monkeypatch.setenv(
         "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
         "true",
     )
     mock_resolve_pricing.return_value = _resolved_catalogs({})
-    mock_engine.return_value = {}
+    mock_engine.return_value = {
+        "architectureResolutionDiagnostics": {
+            "enumeratedCandidateCount": 128,
+            "admissibleCandidateCount": 3,
+            "rejectedCandidateCount": 125,
+            "winningCandidateId": "aws|aws|aws|aws|aws|aws|aws",
+        }
+    }
 
-    response = client.put(
-        "/calculate",
-        json={**_valid_payload(), **_architecture_fields()},
-    )
+    with caplog.at_level("INFO", logger="digital_twin"):
+        response = client.put(
+            "/calculate",
+            json={**_valid_payload(), **_architecture_fields()},
+            headers={"X-Request-ID": "phase-8.5-request"},
+        )
 
     assert response.status_code == 200
     params_arg = mock_engine.call_args.args[0]
@@ -390,6 +400,14 @@ def test_architecture_resolution_gate_on_passes_trusted_context_only(
     assert kwargs["architecture_context"].profile_ref.profile_id == (
         "five-layer-baseline"
     )
+    assert "architecture_resolution outcome=success" in caplog.text
+    assert "correlation_id=phase-8.5-request" in caplog.text
+    assert "enumerated_candidate_count=128" in caplog.text
+    assert "admissible_candidate_count=3" in caplog.text
+    assert "rejected_candidate_count=125" in caplog.text
+    assert "winner_candidate_id=aws|aws|aws|aws|aws|aws|aws" in caplog.text
+    assert "numberOfDevices" not in caplog.text
+    assert "providerPricingCatalogs" not in caplog.text
 
 
 @patch("backend.calculation_v2.engine.calculate_cheapest_costs")
@@ -398,6 +416,7 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
     mock_resolve_pricing,
     mock_engine,
     monkeypatch,
+    caplog,
 ):
     monkeypatch.setenv(
         "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
@@ -410,10 +429,12 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
         "No active supported provider profile is available",
     )
 
-    response = client.put(
-        "/calculate",
-        json={**_valid_payload(), **_architecture_fields()},
-    )
+    with caplog.at_level("WARNING", logger="digital_twin"):
+        response = client.put(
+            "/calculate",
+            json={**_valid_payload(), **_architecture_fields()},
+            headers={"X-Request-ID": "phase-8.5-error"},
+        )
 
     assert response.status_code == 409
     assert response.json()["detail"] == {
@@ -425,6 +446,10 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
         ),
         "http_status": 409,
     }
+    assert "architecture_resolution outcome=failure" in caplog.text
+    assert "correlation_id=phase-8.5-error" in caplog.text
+    assert "error_code=ARCH_PROVIDER_IMPLEMENTATION_MISSING" in caplog.text
+    assert "No active supported provider profile is available" not in caplog.text
 
 
 @patch("api.calculation.PricingCatalogResolver.resolve_context")

@@ -83,13 +83,20 @@ async def test_validate_optimizer_config_maps_request_error_to_unavailable():
 
 
 @pytest.mark.asyncio
-async def test_calculate_puts_exact_endpoint_and_payload():
+async def test_calculate_puts_exact_endpoint_payload_and_correlation(
+    monkeypatch,
+):
     seen = {}
+    monkeypatch.setattr(
+        "src.clients.optimizer_client.current_request_id",
+        lambda: "management-request-123",
+    )
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["method"] = request.method
         seen["url"] = str(request.url)
         seen["payload"] = request.read().decode()
+        seen["request_id"] = request.headers["X-Request-ID"]
         return httpx.Response(200, json={"result": {"totalCost": 1.23}})
 
     client = OptimizerClient(
@@ -103,6 +110,7 @@ async def test_calculate_puts_exact_endpoint_and_payload():
     assert seen["method"] == "PUT"
     assert seen["url"] == "http://optimizer.test/calculate"
     assert seen["payload"] == '{"numberOfDevices":10}'
+    assert seen["request_id"] == "management-request-123"
 
 
 @pytest.mark.asyncio
