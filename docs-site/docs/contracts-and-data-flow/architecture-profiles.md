@@ -1,11 +1,12 @@
 # Architecture Profile Contracts
 
-Phases 8.2 through 8.4 provide a versioned, closed-world contract boundary,
-repository-owned production definitions, and Management-owned persistence for
-reviewed Twin architectures. Profile list/detail/select/preview APIs and
-owner-scoped resolved-architecture reads are active. Optimizer emission,
-Deployer graph execution, Terraform, and Flutter presentation remain staged
-for later phases.
+Phases 8.2 through 8.5 provide a versioned, closed-world contract boundary,
+repository-owned production definitions, profile-bounded Optimizer resolution,
+and Management-owned persistence for reviewed Twin architectures. Profile
+list/detail/select/preview APIs and owner-scoped resolved-architecture reads
+are active. Optimizer emission and Management admission are implemented behind
+a default-off gate. Deployer graph execution, runtime activation, Terraform,
+and Flutter presentation remain staged for later phases.
 
 ## Four Separate Records
 
@@ -36,6 +37,28 @@ Authenticated Management clients can select only reviewed profile IDs and
 versions using a server-derived invalidation preview, revision, and digest.
 They cannot author components, edges, provider mappings, service IDs, evidence,
 costs, digests, or Terraform values.
+
+## Dark Calculation And Admission
+
+The public Management workload schema contains neither `architectureProfile`
+nor `extensionBindings`. When the Phase 8.5 gate is enabled for canonical
+offline fixtures, Management reads the selected profile and current active
+bindings from owner-scoped persistence, computes the canonical configuration
+digests, and sends only immutable references to the Optimizer. The Optimizer
+admits candidates only after component, capability, port, edge, region,
+pricing/formula, deployment-mapping, and extension completeness checks.
+
+The winning complete path produces the legacy five-layer compatibility fields,
+the existing `ResolvedDeploymentSpecification v1`, and one deterministic
+`ResolvedTwinArchitecture v1` from the same candidate. Management validates
+their run, profile, optimization-bundle, pricing, deployment, cost, extension,
+and digest cross-links before one atomic commit. A malformed response persists
+only bounded failed-run metadata and never becomes a legacy success.
+
+`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` defaults to `false` in both services.
+The repository provider profiles remain unsupported until Phase 8.6. The
+supported fixtures prove the resolver and persistence path without bypassing
+that runtime state.
 
 ## Management Persistence
 
@@ -84,8 +107,9 @@ complete baseline because L4/L5 are absent.
 The catalog binds `processor.telemetry@1` inside the processing responsibility
 to the reviewed Python 3.11 provider adapters. Its catalog-completeness
 scenario is supported now that #113 is complete, while profile selection
-remains dark. This is a user-function extension point, not an Eventing
-responsibility or layer.
+and read APIs are active and architecture-aware calculation admission remains
+dark. This is a user-function extension point, not an Eventing responsibility
+or layer.
 
 ## Compatibility
 

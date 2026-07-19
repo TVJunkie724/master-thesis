@@ -14,6 +14,8 @@ The Optimizer owns:
 - pricing-source and normalization contracts,
 - monthly cost calculation,
 - complete-path cost optimization across layers L1-L5,
+- profile-bounded candidate construction and functional-completeness admission,
+- deterministic `ResolvedTwinArchitecture v1` construction,
 - bounded intent-to-result traceability,
 - pricing readiness and credential preflight contracts.
 
@@ -28,7 +30,9 @@ Management API
        -> provider fetchers
        -> normalized pricing snapshots
        -> calculation strategy + formulas
+       -> architecture profile strategy + completeness gate
        -> cost result + trace evidence
+       -> resolved deployment specification + resolved architecture
 ```
 
 The canonical layer model is:
@@ -131,6 +135,33 @@ source-provider billing pool, and passes those totals to the active scoring
 strategy. Unsupported routes and capabilities fail closed rather than entering
 selection as zero-cost alternatives.
 
+### Dark Architecture-Profile Resolution
+
+Phase 8.5 adds a closed strategy registry under
+`backend/architecture_profiles/`. When
+`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=true`, `PUT /calculate` additionally
+requires the exact Management-owned `architectureProfile` reference and the
+complete immutable `extensionBindings` set. The Optimizer:
+
+1. resolves only the exact repository profile digest;
+2. constructs the bounded provider/component candidates;
+3. rejects incomplete components, capabilities, ports, edges, regions,
+   pricing/formula evidence, deployment mappings, or extension coverage before
+   cost ranking;
+4. ranks only admissible complete paths with exact decimal totals and a
+   canonical tie-break key;
+5. emits one contract-validated `ResolvedTwinArchitecture v1` linked to the
+   already-built deployment specification.
+
+The gate defaults to `false`. With the gate off, the audited legacy request and
+response path is unchanged and architecture fields are rejected. With the gate
+on, missing architecture fields never fall back to a legacy result. Repository
+AWS and Azure provider profiles deliberately remain `supported: false`, so the
+production definition bundle still fails closed until the Phase 8.6 Deployer
+graph compiler promotes support and both services are activated together.
+Canonical supported fixtures exercise the complete resolver offline; this does
+not claim runtime provider activation or Eventing support.
+
 Azure IoT Hub sizing returns the selected F1/S1/S2/S3 SKU and unit capacity
 rather than only a cost. Physical workload messages are normalized to the
 provider billing blocks first: 0.5 KB for F1 and 4 KB for paid Standard tiers.
@@ -143,6 +174,7 @@ formula and deployable selection directly auditable.
 | Path | Purpose |
 |---|---|
 | `api/` | FastAPI transport adapters |
+| `backend/architecture_profiles/` | Closed profile registry, candidate/completeness strategy, diagnostics, and resolution builder |
 | `backend/calculation_v2/` | Calculation engine, formulas, layer contracts, traceability |
 | `backend/optimization/` | Metrics, profiles, scoring, and extension points |
 | `backend/fetch_data/` | Provider pricing adapters and refresh orchestration |

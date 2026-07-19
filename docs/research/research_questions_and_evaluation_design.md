@@ -190,6 +190,17 @@ explicit reason     validation
 The gate must be deterministic and explainable. Cost cannot compensate for a
 missing mandatory capability.
 
+Phase 8.5 operationalizes this method for the five-layer profile through a
+profile-bounded strategy registry and a pre-ranking completeness gate. In the
+canonical supported AWS/Azure contract fixture, the resolver enumerates all
+128 closed seven-slot assignments deterministically, admits only the three
+assignments whose component and edge mappings are complete, and excludes the
+remaining 125 before path-cost evaluation with stable reason codes. The same
+winner produces the compatibility path, deployment specification, exact cost,
+and immutable resolved architecture. This is offline method evidence: the
+repository provider profiles remain runtime-unsupported until the independent
+Deployer graph gate in Phase 8.6.
+
 #### Required Evidence
 
 - Versioned functional contracts.

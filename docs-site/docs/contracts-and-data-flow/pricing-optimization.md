@@ -89,10 +89,10 @@ flowchart TD
     ProviderContracts --> Calculators
     Scoring --> Result
     Scoring --> Specification
-    Scoring -. "profile resolver" .-> Architecture
+    Scoring -->|"profile resolver when dark gate is enabled"| Architecture
     Result --> Management
     Specification --> Management --> Flutter
-    Architecture -. "Phase 8.4 admission is fixture-gated" .-> Management
+    Architecture -->|"default-off Phase 8.5 admission"| Management
 ```
 
 Provider-native billing quantities are not forced into one raw input unit. Contracts
@@ -147,12 +147,14 @@ The Optimizer owns registry definitions and immutable catalogs. The Management A
 owns durable owner-scoped refresh history, review decisions, calculation runs, result
 items, exact catalog references, paths, traces, and resolved deployment
 specifications. It also owns the selected architecture-profile reference and
-immutable resolved-architecture persistence. Phase 8.5 integrates architecture
-emission behind a default-off gate because the repository AWS/Azure provider
-profiles remain unsupported until the Phase 8.6 graph compiler passes. Phase
-8.4 validates the atomic boundary with canonical fixtures; Phase 8.6 promotes
-the profiles and activates calculation plus deployment together. Flutter
-cannot author or overwrite these artifacts.
+immutable resolved-architecture persistence. Phase 8.5 implements architecture
+emission, trusted Management enrichment, shared-contract validation, and
+atomic result/specification/architecture persistence behind a default-off
+gate. The public Management calculation schema cannot author the profile or
+extension references. Repository AWS/Azure provider profiles remain
+unsupported until the Phase 8.6 graph compiler passes; Phase 8.6 promotes the
+profiles and activates calculation plus deployment together. Flutter cannot
+author or overwrite these artifacts.
 
 See [Optimizer](../components/optimizer.md) and
 [Pricing Review](../user-guide/pricing-review.md) for operational detail.
