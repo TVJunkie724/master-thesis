@@ -483,7 +483,15 @@
           "$ref": "semantic-registry.schema.json#/$defs/version"
         },
         "artifact_id": {
-          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+          "anyOf": [
+            {
+              "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+            },
+            {
+              "type": "string",
+              "format": "uuid"
+            }
+          ]
         },
         "artifact_digest": {
           "$ref": "semantic-registry.schema.json#/$defs/digest"

@@ -98,6 +98,31 @@ class ArchitectureProfileContractSyncTests(unittest.TestCase):
         )
         self.assertEqual(len(validated_bundle), len(self.valid_documents))
 
+    def test_resolution_accepts_management_owned_uuid_artifact_ids(self) -> None:
+        resolution = next(
+            copy.deepcopy(document)
+            for document in self.valid_documents
+            if document["schema_version"] == "resolved-twin-architecture.v1"
+        )
+        resolution["extension_bindings"][0]["artifact_id"] = (
+            "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a02"
+        )
+        resolution["resolution_id"] = (
+            contract_sync.runtime.calculate_resolution_id(resolution)
+        )
+        contract_sync._redigest(resolution)
+
+        validated = contract_sync.runtime.validate_document(
+            resolution,
+            bundle_root=contract_sync.SOURCE_V1,
+            linked_documents=self.valid_documents,
+        )
+
+        self.assertEqual(
+            validated.document["extension_bindings"][0]["artifact_id"],
+            "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a02",
+        )
+
     def test_negative_fixtures_fail_with_stable_codes(self) -> None:
         for path in sorted(contract_sync.INVALID_ROOT.glob("*.json")):
             wrapper = contract_sync._read_json(path)
