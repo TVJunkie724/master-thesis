@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
+import copy
 import json
 import pytest
 
@@ -903,6 +904,159 @@ class TestEngineIntegration:
         assert eur["resolvedDeploymentSpecification"] == usd[
             "resolvedDeploymentSpecification"
         ]
+
+    def test_architecture_golden_scenarios_match_legacy_exactly(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _context,
+            _registry,
+        )
+
+        def scale_price_fields(node, factor):
+            for key, value in node.items():
+                if isinstance(value, dict):
+                    scale_price_fields(value, factor)
+                elif (
+                    isinstance(value, (int, float))
+                    and not isinstance(value, bool)
+                    and "price" in key.lower()
+                ):
+                    node[key] = value * factor
+
+        def without_observation_age(value):
+            if isinstance(value, dict):
+                return {
+                    key: without_observation_age(item)
+                    for key, item in value.items()
+                    if key != "observationAgeSeconds"
+                }
+            if isinstance(value, list):
+                return [without_observation_age(item) for item in value]
+            return value
+
+        scenarios = (
+            ("all-azure", "azure|azure|azure|azure|azure|azure|azure"),
+            ("all-aws", "aws|aws|aws|aws|aws|aws|aws"),
+            ("mixed", "aws|azure|azure|azure|azure|azure|azure"),
+            ("edge-heavy", "azure|azure|azure|azure|azure|azure|azure"),
+        )
+        for scenario, expected_winner in scenarios:
+            params = copy.deepcopy(sample_params)
+            pricing = copy.deepcopy(sample_pricing)
+            scale_price_fields(pricing["gcp"], 1_000_000)
+            if scenario == "all-aws":
+                scale_price_fields(pricing["azure"], 1_000_000)
+            else:
+                scale_price_fields(pricing["aws"]["iotTwinMaker"], 1_000_000)
+                scale_price_fields(
+                    pricing["aws"]["awsManagedGrafana"],
+                    1_000_000,
+                )
+                scale_price_fields(pricing["aws"]["stepFunctions"], 100)
+            if scenario == "mixed":
+                pricing["aws"]["iotCore"][
+                    "pricePerDeviceAndMonth"
+                ] = 0
+            if scenario == "edge-heavy":
+                params.update(
+                    numberOfDevices=10_000,
+                    averageSizeOfMessageInKb=256.0,
+                    deviceSendingIntervalInMinutes=1.0,
+                )
+
+            catalog_context = pricing_catalog_context_for(pricing)
+            legacy = calculate_cheapest_costs(
+                params,
+                pricing,
+                pricing_catalog_context=catalog_context,
+            )
+            resolved = calculate_cheapest_costs(
+                params,
+                pricing,
+                pricing_catalog_context=catalog_context,
+                architecture_context=_context(_registry()),
+            )
+
+            assert legacy["optimizationDiagnostics"][
+                "winningCandidateId"
+            ] == expected_winner
+            assert resolved["architectureResolutionDiagnostics"][
+                "winningCandidateId"
+            ] == expected_winner
+            for key in (
+                "awsCosts",
+                "azureCosts",
+                "gcpCosts",
+                "calculationResult",
+                "cheapestPath",
+                "transferPricingContext",
+                "transitionRuntimeContext",
+                "resolvedDeploymentSpecification",
+                "intentTrace",
+                "resultTrace",
+                "totalCostExact",
+            ):
+                assert without_observation_age(legacy[key]) == (
+                    without_observation_age(resolved[key])
+                ), f"{scenario}: {key}"
+            assert resolved["resolvedTwinArchitecture"]["cost_summary"][
+                "monthly_total"
+            ] == legacy["totalCostExact"]
+            assert resolved["gcpCosts"]["L4"]["supported"] is False
+            assert resolved["gcpCosts"]["L4"]["unsupportedReason"]
+            assert resolved["gcpCosts"]["L5"]["supported"] is False
+            assert resolved["gcpCosts"]["L5"]["unsupportedReason"]
+
+    def test_architecture_total_must_match_exact_winning_path(
+        self,
+        sample_params,
+        sample_pricing,
+        monkeypatch,
+    ):
+        from backend.architecture_profiles.diagnostics import (
+            ArchitectureResolutionError,
+        )
+        from backend.architecture_profiles.resolution_builder import (
+            ResolvedTwinArchitectureBuilder,
+        )
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _context,
+            _registry,
+        )
+
+        original = ResolvedTwinArchitectureBuilder.build
+
+        def tampered_build(builder, *, winner, context):
+            resolution = original(
+                builder,
+                winner=winner,
+                context=context,
+            )
+            resolution["cost_summary"]["monthly_total"] = "0"
+            return resolution
+
+        monkeypatch.setattr(
+            ResolvedTwinArchitectureBuilder,
+            "build",
+            tampered_build,
+        )
+
+        with pytest.raises(ArchitectureResolutionError) as raised:
+            calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
+                architecture_context=_context(_registry()),
+            )
+
+        assert raised.value.code == "ARCH_RESOLUTION_BUILD_FAILED"
 
     def test_scoring_strategy_does_not_receive_provider_pricing_payload(
         self,

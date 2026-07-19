@@ -979,6 +979,13 @@ def calculate_cheapest_costs(
         result_payload,
         str(params.get("currency") or "USD"),
     )
+    currency_rate = Decimal(
+        str(converted_result["currencyConversion"]["rate"])
+    )
+    exact_winner_total = winner.total_cost * currency_rate
+    converted_result["totalCostExact"] = _exact_decimal_text(
+        exact_winner_total
+    )
     if architecture_strategy is not None:
         if bound_architecture_context is None:
             raise RuntimeError("Architecture context binding was lost")
@@ -1000,14 +1007,29 @@ def calculate_cheapest_costs(
                 ],
                 pricing_catalog_context=pricing_catalog_context,
                 currency=converted_result["currency"],
-                currency_rate=Decimal(
-                    str(converted_result["currencyConversion"]["rate"])
-                ),
+                currency_rate=currency_rate,
             ),
             bound_architecture_context,
         )
+        if (
+            Decimal(
+                resolved_architecture["cost_summary"]["monthly_total"]
+            )
+            != exact_winner_total
+        ):
+            raise ArchitectureResolutionError(
+                "ARCH_RESOLUTION_BUILD_FAILED",
+                "resolvedTwinArchitecture.cost_summary.monthly_total",
+                "Resolved architecture total differs from the winning path",
+            )
         converted_result["resolvedTwinArchitecture"] = resolved_architecture
-        converted_result["totalCostExact"] = resolved_architecture[
-            "cost_summary"
-        ]["monthly_total"]
     return converted_result
+
+
+def _exact_decimal_text(value: Decimal) -> str:
+    if not value.is_finite() or value < 0:
+        raise ValueError("Exact result cost must be finite and non-negative")
+    text = format(value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return "0" if text in {"-0", ""} else text
