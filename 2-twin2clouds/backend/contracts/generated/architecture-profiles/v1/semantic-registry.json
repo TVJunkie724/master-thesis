@@ -1,27 +1,27 @@
 {
   "compatible_optimization_bundles": [
     {
-      "calculation_strategy_id": "cost-calculation",
+      "calculation_strategy_id": "cost_calculation_v2",
       "calculation_strategy_version": "2",
-      "compatibility_digest": "sha256:29658c03000864f2e25f521a96e6b473b0caaccd2ed6a66f91e7a32efafafc36",
+      "compatibility_digest": "sha256:0f53f6a7ed48dd7a7765b52479dfd428a58f448d4f11d477ff9adb8439d63499",
       "deployment_specification_versions": [
         "resolved-deployment-specification.v1"
       ],
-      "formula_set_id": "cost-formula-set",
+      "formula_set_id": "cost_formula_set_v1",
       "formula_set_version": "1",
-      "optimization_strategy_id": "cost-minimization",
+      "optimization_strategy_id": "cost_minimization_v1",
       "optimization_strategy_version": "1",
-      "pricing_registry_id": "provider-catalog",
+      "pricing_registry_id": "pricing-registry",
       "pricing_registry_versions": [
         "1"
       ],
-      "scoring_strategy_id": "monthly-cost",
+      "scoring_strategy_id": "min_total_cost_v1",
       "scoring_strategy_version": "1",
-      "workload_contract_id": "digital-twin-workload",
+      "workload_contract_id": "digital_twin_workload_v1",
       "workload_contract_version": "1"
     }
   ],
-  "content_digest": "sha256:fb014f9406b0e5b3ad172987ea1c7e4b2ab92b5c64c8f421f3155d7c105f4229",
+  "content_digest": "sha256:529ee08e1835a873408b476926375b9b3bc8cf4665b1a42d591dfdd605c4026c",
   "cycle_contracts": [
     {
       "compatibility_version": "1",
@@ -176,84 +176,84 @@
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.archive-storage.write-in",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "storage-transition-record.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.cool-storage.transition-out",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "storage-transition-record.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.cool-storage.write-in",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "storage-transition-record.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.hot-storage.transition-out",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "storage-transition-record.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.hot-storage.twin-update-out",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "telemetry-to-twin-state.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.hot-storage.write-in",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "telemetry-envelope.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.ingestion.telemetry-out",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "telemetry-envelope.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.processing.telemetry-in",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "telemetry-envelope.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.processing.telemetry-out",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "telemetry-envelope.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.twin-state.query-out",
-      "schema_ref": "twin-query-result",
+      "schema_ref": "twin-query-result.v1",
       "semantics": "Typed query request or correlated response."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.twin-state.update-in",
-      "schema_ref": "normalized-telemetry",
+      "schema_ref": "telemetry-to-twin-state.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.visualization.query-in",
-      "schema_ref": "twin-query-result",
+      "schema_ref": "twin-query-result.v1",
       "semantics": "Typed query request or correlated response."
     }
   ],

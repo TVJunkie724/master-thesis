@@ -1,0 +1,41 @@
+{
+  "counts": {
+    "deployment_components": 22,
+    "edge_implementations": 33,
+    "logical_components": 7,
+    "logical_edges": 6,
+    "package_artifacts": 43,
+    "provider_profiles": 3
+  },
+  "definition_digests": {
+    "catalog": "sha256:000a3ccf540634808a2e6dbb0e424db1810babf71ab2165049a2fe664d626477",
+    "profile": "sha256:dcac9d4c519c7624b74ba6f9e5b878b17553c828b6d6d8583754c34c6a2e4807",
+    "providers": {
+      "aws": "sha256:6fd35a6e0376afdd922c8f087808247d396c8b7e819c00dfbb2fd3114de1fddb",
+      "azure": "sha256:8e1813352edd464e494975ac2e7a704e52b932665ec709ae60822c987e4ac1aa",
+      "gcp": "sha256:167d71a1d17e04ada641cfda97c611ed4becd2f0601dd03b5cb5e95bfcc6408c"
+    }
+  },
+  "manifest_version": "architecture-profile-definitions.v1",
+  "source_digests": {
+    "architecture_inventory": "sha256:193c297df3cfe9c15cd03544fede3270aa8f448a2ef385b68dc40b47638b1a10",
+    "baseline_decision": "sha256:b5bf5e6a57e0e889f5ef93960e8f5676d3e9bbe496f7857bb28fc2da7d3c2392",
+    "deployment_dimensions": "sha256:16b5212542f3e0a7805ea4a270df542dbfe135624efc3acafb5c9664d805aeac",
+    "package_builders": {
+      "aws": "sha256:1e627fb6d81fbf21790ee6d07438748a248b42984ea357561f44b28840765c19",
+      "azure": "sha256:b1b08f9126fe514b35fcad83b7a56a55ac186d431486f1ff80cddc8661a8c656",
+      "common": "sha256:78e8ea9d3dbee830bfb577586284d9266c037a412a963b83b265c1fde0a404a4",
+      "gcp": "sha256:736d6d531ba5fcf2553ad082771d06ca5e49f4af5a90bce05dbaf922b738f81c",
+      "user": "sha256:521c92c3fc7f3ec052346ca6bd4ec9b9236a734dc5a98f1f3a0fad4dde9f36fe"
+    },
+    "pricing_registries": {
+      "calculation_strategies": "sha256:5597f9902302a57300e8cc0472d58f5f6cf969e86a2d5547d7e285ada5d74405",
+      "formula_sets": "sha256:4102fee9c08bbb7fc3e7ed26ab2c084bc20b32f6c140e7658560c31fbfa8708f",
+      "intents": "sha256:bba875fb514c97d75419c5ccf0f4b0ca088f06395d245d1fd89e7889d6e81216",
+      "optimization_bundles": "sha256:f6077a8538c48d019de02aa69d2e254e2ce46c33982dffcaaeb512bbde386bc7",
+      "service_models": "sha256:cbf09578c9c635cfd6179bb75561338f71f3c6d33b809cedfdf78781be0d05de",
+      "workload_contracts": "sha256:76c5f4c8e91e3a301d93aff59a8364233f1888bd876f7c73f88f9439f40b8b7d"
+    },
+    "user_function_extension": "sha256:235a6d36cb5003e53107cab9b3b01dbe55aa0c329994762d5bea5043dd287513"
+  }
+}

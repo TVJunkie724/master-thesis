@@ -40,7 +40,7 @@ versioned contracts inside those payloads are listed below.
 | `cost-result.v1` and intent traces | Optimizer | Management API | persisted run and Flutter read model |
 | complete-path transfer and optimization contracts | Optimizer | Management API transfer/path validators | persisted result items and Flutter |
 | `resolved-deployment-specification.v1` | repository root schema/registry; object emitted by Optimizer | Optimizer, Management API, and Deployer | manifest builder and typed tfvars translator |
-| architecture-profile contract bundle v1 | repository root schemas/semantic registry | dark readers in Optimizer, Management API, and Deployer | later profile resolution, persistence, and graph compilation phases |
+| architecture-profile contract bundle v1 | repository root schemas, semantic registry, and generated Phase 8.3 definitions | dark registries in Optimizer, Management API, and Deployer | later profile resolution, persistence, and graph compilation phases |
 | `DeploymentManifest 2.0` | Management API | Deployer | operation package and execution |
 | one-use operation package | Deployer package store | Deployer | one deployment or destroy acquisition |
 | deployment status, logs, outputs | Deployer execution boundary | Management API | Flutter REST/SSE read models |

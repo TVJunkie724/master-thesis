@@ -81,7 +81,7 @@ trust.user-code
 | Logical responsibilities | 11 |
 | Provider/platform implementations | 114 |
 | Package, template, wrapper, and source artifacts | 64 |
-| Terraform resources, data sources, outputs, variables, and locals | 659 |
+| Terraform resources, data sources, outputs, variables, and locals | 661 |
 | Runtime and deployment binding edges | 90 |
 | Cost owners | 12 |
 | Trust boundaries | 6 |
@@ -267,7 +267,7 @@ flowchart LR
   M -->|calculation JSON| O["implementation.platform.optimizer"]
   M -->|private one-use operation package| D["implementation.platform.deployer"]
   D -->|package binding| P["provider static/user packages"]
-  D -->|single root module| TF["659 Terraform objects"]
+  D -->|single root module| TF["661 Terraform objects"]
   TF --> C["selected provider implementations"]
 ```
 
@@ -368,7 +368,7 @@ are expressly forbidden.
 
 The drift gate validates Draft 2020-12 schema closure, canonical and source-tree
 digests, global IDs, logical/provider identity agreement, references, all 20
-registry functions, all 659 parsed HCL objects, package/template sources, 42
+registry functions, all 661 parsed HCL objects, package/template sources, 42
 deployment catalog components, seven Optimizer slots, six baseline edges, and
 93 bounded Management/Flutter fixed-field anchors across 19 source consumers.
 

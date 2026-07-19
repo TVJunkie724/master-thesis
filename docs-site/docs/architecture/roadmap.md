@@ -21,12 +21,12 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 ## Current Workstreams
 
 Phase 8 has started. The source-backed current deployment graph in #144, the
-complete `five-layer-baseline@1` target decision in #139, and the four
-drift-gated architecture-profile contracts in #149 are implemented and
-reviewed. Their Optimizer, Management API, and Deployer readers remain dark and
-do not change runtime behavior. The deterministic user-function prerequisite
-#113 is locally implemented and reviewed; Phase 8.3 is next and owns the exact
-provider-component binding. Credential, remaining
+complete `five-layer-baseline@1` target decision in #139, the four drift-gated
+architecture-profile contracts in #149, the deterministic user-function
+prerequisite #113, and the exact provider/component catalog in #150 are locally
+implemented and reviewed. The Phase 8.3 registries remain dark and do not
+change runtime behavior. Phase 8.4 is next and owns immutable Management
+persistence and migration. Credential, remaining
 Optimizer coverage, manual UI audit, and external authentication work remain
 independently tracked in their GitHub milestones rather than inferred from one
 global "current phase" label.

@@ -1,6 +1,6 @@
 {
   "architecture_profile_ref": {
-    "digest": "sha256:84e6b836e2cdb7a1fb8a35f822848242337ce24ac21ab256cb1a19560470bc0f",
+    "digest": "sha256:dcac9d4c519c7624b74ba6f9e5b878b17553c828b6d6d8583754c34c6a2e4807",
     "id": "five-layer-baseline",
     "version": "1"
   },
@@ -29,7 +29,7 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:af65b4fb8423649c0c22e55a9006b493b6a27882fb373fd041fc56958be6c7a6",
+        "digest": "sha256:2ba5943a139f846d25e2f4974051fa20775b6a096beda87fd3fc8cb44f1ce614",
         "id": "provider-profile.azure.baseline",
         "version": "1"
       },
@@ -61,7 +61,7 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:af65b4fb8423649c0c22e55a9006b493b6a27882fb373fd041fc56958be6c7a6",
+        "digest": "sha256:2ba5943a139f846d25e2f4974051fa20775b6a096beda87fd3fc8cb44f1ce614",
         "id": "provider-profile.azure.baseline",
         "version": "1"
       },
@@ -94,7 +94,7 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:af65b4fb8423649c0c22e55a9006b493b6a27882fb373fd041fc56958be6c7a6",
+        "digest": "sha256:2ba5943a139f846d25e2f4974051fa20775b6a096beda87fd3fc8cb44f1ce614",
         "id": "provider-profile.azure.baseline",
         "version": "1"
       },
@@ -127,7 +127,7 @@
       ],
       "provider": "aws",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:5cceae9f1d3bcbf6e243474bf5521413def677c7e80909237ea122b9f24f4065",
+        "digest": "sha256:ca59551b7a6240a31fe400853d4761d12650ca1a6e28cedd0b6bc3cc8af49a77",
         "id": "provider-profile.aws.baseline",
         "version": "1"
       },
@@ -161,7 +161,7 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:af65b4fb8423649c0c22e55a9006b493b6a27882fb373fd041fc56958be6c7a6",
+        "digest": "sha256:2ba5943a139f846d25e2f4974051fa20775b6a096beda87fd3fc8cb44f1ce614",
         "id": "provider-profile.azure.baseline",
         "version": "1"
       },
@@ -194,7 +194,7 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:af65b4fb8423649c0c22e55a9006b493b6a27882fb373fd041fc56958be6c7a6",
+        "digest": "sha256:2ba5943a139f846d25e2f4974051fa20775b6a096beda87fd3fc8cb44f1ce614",
         "id": "provider-profile.azure.baseline",
         "version": "1"
       },
@@ -226,7 +226,7 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:af65b4fb8423649c0c22e55a9006b493b6a27882fb373fd041fc56958be6c7a6",
+        "digest": "sha256:2ba5943a139f846d25e2f4974051fa20775b6a096beda87fd3fc8cb44f1ce614",
         "id": "provider-profile.azure.baseline",
         "version": "1"
       },
@@ -236,7 +236,7 @@
       "service_id": "azure.visualization"
     }
   ],
-  "content_digest": "sha256:1a8c6ff4c99b3c51bcff7e39ba29c8592f63fd20b535440f7faadf332f3350b4",
+  "content_digest": "sha256:af28a6e106a49964a344ae1bfd5ae2b5835d796200b78146c38fc1dfee764660",
   "cost_summary": {
     "component_totals": [
       {
@@ -324,7 +324,17 @@
     "digest": "sha256:564cc36f02af12b7e2833ab0c679ecf295e820f700021000c906eb5eb8609bc4",
     "schema_version": "resolved-deployment-specification.v1"
   },
-  "extension_bindings": [],
+  "extension_bindings": [
+    {
+      "artifact_digest": "sha256:cd6107c2e04d7004ff8ade6c6c82f2e0272264dc556e05b46a00fd47269e8fef",
+      "artifact_id": "artifact.user.processor.example",
+      "configuration_digest": "sha256:98e82d959490e2177f447fa4d41ca273efcab2f2866b281f820a88b394584517",
+      "logical_component_id": "component.processing",
+      "slot_id": "processor.telemetry",
+      "slot_version": "1",
+      "validation_contract_version": "1"
+    }
+  ],
   "functional_completeness": {
     "missing_capability_ids": [],
     "provided_capability_ids": [
@@ -347,18 +357,18 @@
       "capability.visualization"
     ],
     "status": "complete",
-    "validation_digest": "sha256:685952c189cef5516fddb260df4729a305fbc6126353a622cab5d9e5b6486010",
+    "validation_digest": "sha256:4d68f547f62b695f14801f46ad5ed20cd329c88151a115a3966c3fecba61a12a",
     "validator_version": "1"
   },
   "optimization_bundle_ref": {
-    "calculation_strategy_id": "cost-calculation",
+    "calculation_strategy_id": "cost_calculation_v2",
     "calculation_strategy_version": "2",
-    "compatibility_digest": "sha256:29658c03000864f2e25f521a96e6b473b0caaccd2ed6a66f91e7a32efafafc36",
-    "formula_set_id": "cost-formula-set",
+    "compatibility_digest": "sha256:0f53f6a7ed48dd7a7765b52479dfd428a58f448d4f11d477ff9adb8439d63499",
+    "formula_set_id": "cost_formula_set_v1",
     "formula_set_version": "1",
-    "optimization_strategy_id": "cost-minimization",
+    "optimization_strategy_id": "cost_minimization_v1",
     "optimization_strategy_version": "1",
-    "scoring_strategy_id": "monthly-cost",
+    "scoring_strategy_id": "min_total_cost_v1",
     "scoring_strategy_version": "1"
   },
   "pricing_evidence_refs": [
@@ -379,19 +389,19 @@
   ],
   "provider_profile_refs": [
     {
-      "digest": "sha256:5cceae9f1d3bcbf6e243474bf5521413def677c7e80909237ea122b9f24f4065",
+      "digest": "sha256:ca59551b7a6240a31fe400853d4761d12650ca1a6e28cedd0b6bc3cc8af49a77",
       "id": "provider-profile.aws.baseline",
       "provider": "aws",
       "version": "1"
     },
     {
-      "digest": "sha256:af65b4fb8423649c0c22e55a9006b493b6a27882fb373fd041fc56958be6c7a6",
+      "digest": "sha256:2ba5943a139f846d25e2f4974051fa20775b6a096beda87fd3fc8cb44f1ce614",
       "id": "provider-profile.azure.baseline",
       "provider": "azure",
       "version": "1"
     }
   ],
-  "resolution_id": "8088db84-69b4-57ec-8892-e5ec90598b88",
+  "resolution_id": "335a40b6-9745-5f25-923d-707c348dce7e",
   "resolved_edges": [
     {
       "cost_contribution": {
@@ -661,7 +671,7 @@
   "schema_version": "resolved-twin-architecture.v1",
   "workload_contract_ref": {
     "digest": "sha256:76c5f4c8e91e3a301d93aff59a8364233f1888bd876f7c73f88f9439f40b8b7d",
-    "id": "digital-twin-workload",
+    "id": "digital_twin_workload_v1",
     "version": "1"
   }
 }

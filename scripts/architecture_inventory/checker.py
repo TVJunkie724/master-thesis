@@ -54,7 +54,12 @@ AUDITED_SOURCE_PATHS = (
     "3-cloud-deployer/src/terraform",
     "3-cloud-deployer/templates/digital-twin/cloud_functions",
     "contracts/resolved-deployment-specification/v1",
-    "twin2multicloud_backend/src/contracts",
+    "twin2multicloud_backend/src/contracts/executable_topology.py",
+    (
+        "twin2multicloud_backend/src/contracts/generated/"
+        "resolved-deployment-specification"
+    ),
+    "twin2multicloud_backend/src/contracts/generated/user-function-extension",
     "twin2multicloud_backend/src/api/routes/twin_operations.py",
     "twin2multicloud_backend/src/models/cost_calculation.py",
     "twin2multicloud_backend/src/models/optimizer_config.py",

@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-07-19"
-version: "1.5"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -24,7 +24,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.5
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Status | Phases 8.0 through 8.2 and prerequisite #113 implemented and reviewed; Phase 8.3 is next |
+| Status | Phases 8.0 through 8.3 and prerequisite #113 implemented and reviewed; Phase 8.4 is next |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -106,8 +106,8 @@ component catalog entries still own the exact executable resource mapping.
 | 8.0 | [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | [`phase_08_0_current_graph_reconstruction.md`](phase_08_0_current_graph_reconstruction.md) | Implemented code-verified [Function-and-Edge Matrix](../../research/phase_08_current_function_edge_matrix.md) | None |
 | 8.1 | [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | [`phase_08_1_five_layer_baseline.md`](phase_08_1_five_layer_baseline.md) | Implemented [five-layer target decision](../../research/five_layer_baseline_target_decision.md) with 114 component and 90 edge decisions | #144 |
 | 8.2 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | [`phase_08_2_profile_contracts.md`](phase_08_2_profile_contracts.md) | Implemented four versioned contracts, semantic registry, fixtures, dark readers, and drift gates | #139 |
-| 8.3 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | [`phase_08_3_provider_profiles_component_catalog.md`](phase_08_3_provider_profiles_component_catalog.md) | Next: explicit provider profiles and component catalog | #149, #113 |
-| 8.4 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | [`phase_08_4_management_persistence_migration.md`](phase_08_4_management_persistence_migration.md) | Immutable normalized persistence and API projection | #150 |
+| 8.3 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | [`phase_08_3_provider_profiles_component_catalog.md`](phase_08_3_provider_profiles_component_catalog.md) | Implemented dark/read-only provider profiles, exact component/edge/package/Terraform registries, unsupported fixtures, and #113 slot mapping | #149, #113 |
+| 8.4 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | [`phase_08_4_management_persistence_migration.md`](phase_08_4_management_persistence_migration.md) | Next: immutable normalized persistence and API projection | #150 |
 | 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md) | Profile-bounded, complete-path optimization | #142 |
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Deterministic deployment graph and preflight | #151 |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Compact profile selection and read-only review | #152 |

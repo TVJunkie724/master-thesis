@@ -1550,7 +1550,9 @@
     "3-cloud-deployer/templates/digital-twin/cloud_functions",
     "contracts/resolved-deployment-specification/v1",
     "twin2multicloud_backend/src/api/routes/twin_operations.py",
-    "twin2multicloud_backend/src/contracts",
+    "twin2multicloud_backend/src/contracts/executable_topology.py",
+    "twin2multicloud_backend/src/contracts/generated/resolved-deployment-specification",
+    "twin2multicloud_backend/src/contracts/generated/user-function-extension",
     "twin2multicloud_backend/src/models/cost_calculation.py",
     "twin2multicloud_backend/src/models/optimizer_config.py",
     "twin2multicloud_backend/src/services/cost_calculation_run_service.py",
@@ -1573,7 +1575,7 @@
     "twin2multicloud_flutter/lib/widgets/architecture_graph.dart",
     "twin2multicloud_flutter/lib/widgets/file_inputs/config_visualization_block.dart"
   ],
-  "audited_source_tree_digest": "sha256:7c4a23477cd63269ac5280017ae9b8c2c50c89fd825748c70a67fa884608860a",
+  "audited_source_tree_digest": "sha256:734ca2a0962979d1594f924276adf8b3b6b7d2aa66c40281fbfa2ab2cd86fcc2",
   "components": [
     {
       "component_id": "component.function.archive-writer",
@@ -6120,7 +6122,7 @@
       ]
     }
   ],
-  "content_digest": "sha256:f9695a4f7c9cb268ce0584f7c5d5ca743fca041092db84070b303d1ff175e836",
+  "content_digest": "sha256:193c297df3cfe9c15cd03544fede3270aa8f448a2ef385b68dc40b47638b1a10",
   "cost_owners": [
     {
       "cost_kind": "transfer",
@@ -9894,7 +9896,7 @@
       ]
     }
   ],
-  "generated_at": "2026-07-19T17:25:24Z",
+  "generated_at": "2026-07-19T19:53:13Z",
   "inventory_id": "current-five-layer-implementation",
   "paper_model_references": [
     "docs/research/digital_twin_architecture_and_eventing_layer.md",
@@ -10091,7 +10093,7 @@
     }
   ],
   "schema_version": "architecture-inventory.v1",
-  "source_commit": "7d9b07fa35a074d9d678f427f30171353ffb110e",
+  "source_commit": "a865811d45cc5a620391c912191e5e6606a8f79d",
   "terraform_objects": [
     {
       "binding_role": "dependency",

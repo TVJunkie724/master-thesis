@@ -149,8 +149,9 @@ contracts/architecture-profiles/v1/
 It separates logical `ArchitectureProfile`, provider-specific
 `ProviderImplementationProfile`, deployable `DeploymentComponentCatalog`, and
 immutable `ResolvedTwinArchitecture` records. In Phase 8.2 all three backend
-services expose read-only validators only; no calculation, persistence,
-deployment, Terraform, or Flutter path selects the new contracts yet.
+services expose read-only validators. Phase 8.3 adds exact generated
+AWS/Azure/GCP definitions and immutable registries/summaries; no calculation,
+persistence, deployment, Terraform, or Flutter path selects them yet.
 
 The shared local-only validator enforces canonical digests, closed versions,
 reference and cycle integrity, capability completeness, size bounds, and
@@ -159,6 +160,7 @@ copies are byte-identical and drift-gated:
 
 ```bash
 python scripts/sync_architecture_profile_contracts.py --check
+python scripts/check_architecture_profile_catalog.py
 ```
 
 See

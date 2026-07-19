@@ -192,10 +192,10 @@ when work becomes actionable, then reference the issue here.
 |-------|--------|-------|
 | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned epic | Closed-world architecture-profile program. Reviewed mini-roadmap: `docs/plans/phase_08_architecture_profiles_eventing/README.md`; agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
 | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Implemented, local review complete | Deterministic Python 3.11 extension boundary with typed non-secret configuration, immutable artifacts/bindings, equivalent provider adapters, and fail-closed package evidence. Provider-managed secrets remain separate |
-| [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Implemented, review complete | Code-verified current graph: 114 implementations, 64 artifacts, 659 parsed Terraform objects, 90 edges, and one explicit predecessor finding (`finding.l5-reader-binding-divergence`); no runtime behavior change. Evidence: [current Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/blob/master/docs/research/phase_08_current_function_edge_matrix.md) |
+| [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Implemented, review complete | Code-verified current graph: 114 implementations, 64 artifacts, 661 parsed Terraform objects, 90 edges, and one explicit predecessor finding (`finding.l5-reader-binding-divergence`); no runtime behavior change. Evidence: [current Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/blob/master/docs/research/phase_08_current_function_edge_matrix.md) |
 | [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Implemented, review complete | Target decision covers all 114 current implementations and all 90 current edges, preserves five scientific responsibilities and seven costed slots, excludes a general Eventing layer, and replaces the unsafe L3-to-Grafana shortcut with a typed L4-to-L5 target. Evidence: [Five-Layer Baseline Target](five-layer-baseline.md) |
 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Implemented, review complete | Four Draft 2020-12 contracts, semantic registry, canonical fixtures/digests, byte-identical service copies, stable cross-service errors, and dark readers. Evidence: [Architecture Profile Contracts](../contracts-and-data-flow/architecture-profiles.md) |
-| [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Planned | Registered AWS/Azure/GCP baseline implementations and deterministic deployer ownership |
+| [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Implemented locally, review complete | Dark/read-only AWS/Azure/GCP profiles; 22 reviewed deployment bundles covering all 42 deployment-dimension components, 33 decision-traced edges, 43 deterministic artifacts, 51 parser-verified Terraform resources, explicit unsupported states, and #113 slot binding |
 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Planned | Normalized profile selection, immutable resolved architecture, migration, and server-derived invalidation preview |
 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Planned | Functional-completeness gate before profile-local cost ranking |
 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Planned | Deterministic component/binding graph before package and Terraform side effects |
@@ -227,15 +227,15 @@ when work becomes actionable, then reference the issue here.
 ## Next Recommended Sequence
 
 1. Continue Phase 8 with
-   [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150)
-   from the reviewed #149 and #113 contract boundaries.
+   [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142)
+   from the reviewed #150 provider/component catalog boundary.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
    backlog work. Any covered source change must make the Phase 8.0 inventory
    drift gate fail and requires a reconciled Phase 8.1 decision digest.
-3. Keep the #113 user-function execution contract immutable while Phase 8.3
-   adds only reviewed catalog/resource bindings for its slot.
+3. Keep the #113 user-function execution contract and Phase 8.3 slot mappings
+   immutable while Phase 8.4 adds normalized architecture persistence.
 4. Follow the reviewed
    `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
    skipping its baseline, contract, migration, functional-completeness,

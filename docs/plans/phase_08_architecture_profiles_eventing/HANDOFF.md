@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-19"
-version: "2.4"
+version: "2.5"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.4"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-19 | VERSION: 2.4
+EXTRACTED: 2026-07-19 | VERSION: 2.5
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,12 +28,12 @@ EXTRACTED: 2026-07-19 | VERSION: 2.4
 | Integration branch | `master` |
 | Planning base | `5e675e77` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Completed implementation | Phase 8.0 / #144, Phase 8.1 / #139, Phase 8.2 / #149, and local prerequisite #113 |
+| Completed implementation | Phase 8.0 / #144 through Phase 8.3 / #150, plus local prerequisite #113 |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.2 contracts and the locally reviewed #113 execution boundary are complete |
-| Next implementation phase | Phase 8.3 / [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) |
+| Implementation status | Phase 8.3 provider profiles and component catalog are locally complete and reviewed |
+| Next implementation phase | Phase 8.4 / [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -50,28 +50,39 @@ remain dark and change no runtime selection or deployment behavior.
 Prerequisite #113 now supplies the canonical Python 3.11 slot/artifact/envelope
 contracts, immutable owner-scoped artifacts and bindings, deterministic
 AWS/Azure/GCP packages, shared runtime adapters, a compact Flutter workflow,
-and fail-closed deployment handoff. A bound package deliberately stops before
-Terraform until Phase 8.3 maps the reviewed slot to an exact catalog resource.
-This is an execution extension inside the five-layer baseline, not an Event
-Layer.
+and fail-closed deployment handoff. Phase 8.3 maps the reviewed slot to exact
+AWS, Azure, and GCP processing catalog entries while keeping runtime activation
+dark until the later resolver phases. This is an execution extension inside
+the five-layer baseline, not an Event Layer.
+
+Phase 8.3 now provides one generated baseline profile, three provider profiles,
+22 reviewed deployment bundles covering all 42 deployment-dimension
+components, 33 Phase 8.1 decision-traced edge implementations, 43
+content-addressed platform/shared artifacts, 51 parser-verified Terraform
+resources, exact coverage of all 51 Phase 8.3/#113 retained component
+decisions, exact variable/output/dimension/permission/pricing/formula
+references, and deterministic supported/blocked fixtures. The completed #113
+user-processor scenario is supported at the catalog-binding boundary without
+activating profile selection. AWS and Azure remain blocked on the Phase 8.6
+L4-to-L5 compiler; GCP remains unsupported for a complete baseline because
+L4/L5 are absent.
 
 ## Immediate Next Action
 
-The next implementation step is Phase 8.3:
+The next implementation step is Phase 8.4:
 
-1. create the Phase 8.3 branch from the reviewed #113 commit;
+1. create the Phase 8.4 branch from the reviewed Phase 8.3 commit;
 2. read
-   [`phase_08_3_provider_profiles_component_catalog.md`](phase_08_3_provider_profiles_component_catalog.md)
+   [`phase_08_4_management_persistence_migration.md`](phase_08_4_management_persistence_migration.md)
    in full;
-3. verify the Phase 8.1 inventory/decision and Phase 8.2 contract digests;
-4. register complete provider implementation profiles and the deployment
-   component catalog;
-5. map `processor.telemetry@1` only through its reviewed component, ports,
-   permissions, resource limits, adapter, package, and Terraform references;
-6. keep unsupported provider paths explicit and fail closed;
-7. run the named safe gates and two zero-finding reviews;
-8. update current docs, evidence, roadmap, and issue #150;
-9. commit the complete Phase 8.3 boundary before starting Phase 8.4.
+3. verify the Phase 8.3 definition and catalog digests;
+4. add normalized immutable architecture persistence and migration without
+   activating Optimizer selection or Deployer graph execution;
+5. preserve historical fixed layer assignments and owner-scoped access;
+6. run the named migration, API, contract, security, and compatibility gates;
+7. run two zero-finding reviews;
+8. update current docs, evidence, roadmap, and issue #142;
+9. commit the complete Phase 8.4 boundary before starting Phase 8.5.
 
 ## Required Reading Order
 
@@ -498,10 +509,10 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Phase 8.0 bis 8.2 und das User-Function-Prerequisite #113 sind implementiert
-> und reviewt: aktueller Graph,
-> gehaertetes `five-layer-baseline@1`, vier drift-gegatete
-> Architekturvertraege und die deterministische, nicht-geheime
-> User-Function-v1-Grenze. Ich starte Phase 8.3 und binde den reviewten Slot
-> erstmals an exakte Providerkomponenten. Live-Cloud-E2E und LaTeX bleiben
+> Phase 8.0 bis 8.3 und das User-Function-Prerequisite #113 sind implementiert
+> und reviewt: aktueller Graph, gehaertetes `five-layer-baseline@1`, vier
+> drift-gegatete Architekturvertraege sowie exakte Provider-, Komponenten-,
+> Edge-, Paket- und Terraform-Registries. Der Processor-Slot ist katalogisiert,
+> aber die Runtime bleibt absichtlich dunkel. Ich starte Phase 8.4 mit der
+> normalisierten Management-Persistenz. Live-Cloud-E2E und LaTeX bleiben
 > unangetastet.

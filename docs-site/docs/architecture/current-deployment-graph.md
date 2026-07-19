@@ -131,7 +131,7 @@ boundary and are used for provider API authorization.
   from L3 hot lacks a current remote reader binding and is explicit unsafe debt.
 
 The code-verified inventory contains 114 implementations, 64 package/template
-artifacts, 659 Terraform objects, and 90 runtime/deployment edges. It contains
+artifacts, 661 Terraform objects, and 90 runtime/deployment edges. It contains
 one fully evidenced predecessor finding:
 `finding.l5-reader-binding-divergence`.
 

@@ -13,10 +13,12 @@
     "description",
     "workload_contract_ref",
     "optimization_bundle",
+    "optimization_slot_ids",
     "responsibilities",
     "components",
     "edges",
     "extension_slots",
+    "functional_completeness_rules",
     "graph_policy",
     "compatibility",
     "content_digest"
@@ -50,6 +52,9 @@
     "optimization_bundle": {
       "$ref": "semantic-registry.schema.json#/$defs/optimization_bundle"
     },
+    "optimization_slot_ids": {
+      "$ref": "#/$defs/non_empty_stable_id_array"
+    },
     "responsibilities": {
       "type": "array",
       "minItems": 1,
@@ -79,6 +84,14 @@
       "maxItems": 64,
       "items": {
         "$ref": "#/$defs/extension_slot"
+      }
+    },
+    "functional_completeness_rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/functional_completeness_rule"
       }
     },
     "graph_policy": {
@@ -115,6 +128,28 @@
       "uniqueItems": true,
       "items": {
         "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+      }
+    },
+    "functional_completeness_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_id",
+        "evidence",
+        "required"
+      ],
+      "properties": {
+        "capability_id": {
+          "$ref": "semantic-registry.schema.json#/$defs/stable_id"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "required": {
+          "const": true
+        }
       }
     },
     "responsibility": {

@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+from types import MappingProxyType
 
 import pytest
 
 from backend.architecture_profiles import contracts
+from backend.architecture_profiles.capability_resolver import (
+    resolve_provider_capabilities,
+)
+from backend.architecture_profiles.registry import ArchitectureProfileRegistry
 
 
 def _read(path):
@@ -32,3 +37,30 @@ def test_optimizer_rejects_tampered_profile():
     with pytest.raises(contracts.ContractError) as raised:
         contracts.read_contract(wrapper["document"])
     assert raised.value.code == "ARCH_DIGEST_MISMATCH"
+
+
+def test_optimizer_registry_projects_fail_closed_provider_capabilities():
+    registry = ArchitectureProfileRegistry()
+    aws = resolve_provider_capabilities("aws", registry=registry)
+    gcp = resolve_provider_capabilities("gcp", registry=registry)
+
+    assert registry.profile["profile_id"] == "five-layer-baseline"
+    assert len(registry.profile["optimization_slot_ids"]) == 7
+    assert len(registry.profile["functional_completeness_rules"]) == 12
+    assert aws.supported is False
+    assert aws.missing_capability_ids == ()
+    assert aws.reason_codes == ("profile-target-not-implemented",)
+    assert gcp.missing_capability_ids == (
+        "capability.twin-state",
+        "capability.visualization",
+    )
+
+
+def test_optimizer_registry_definitions_are_deeply_immutable():
+    registry = ArchitectureProfileRegistry()
+
+    assert isinstance(registry.profile, MappingProxyType)
+    assert isinstance(registry.profile["components"], tuple)
+    assert isinstance(registry.profile["components"][0], MappingProxyType)
+    with pytest.raises(TypeError):
+        registry.profile["components"][0]["component_id"] = "component.changed"

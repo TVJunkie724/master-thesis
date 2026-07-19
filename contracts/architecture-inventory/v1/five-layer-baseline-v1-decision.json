@@ -4008,7 +4008,7 @@
       "target_responsibility_id": "responsibility.processing"
     }
   ],
-  "content_digest": "sha256:0928d9b4759e2620e5e7e673f1d1f2c6416b27ac56e50f104788d250fd3e63e7",
+  "content_digest": "sha256:b5bf5e6a57e0e889f5ef93960e8f5676d3e9bbe496f7857bb28fc2da7d3c2392",
   "cost_ownership_rules": [
     {
       "current_cost_owner_id": "cost.cross-cloud-glue",
@@ -8423,14 +8423,14 @@
       "status": "blocked_until_target_implementation"
     },
     {
-      "reason_code": "EXTENSION_BINDING_PREREQUISITE_OPEN",
+      "reason_code": "EXTENSION_BINDING_COMPLETE",
       "required_edge_ids": [
         "edge.runtime.aws.function-dispatcher-to-processor-wrapper",
         "edge.runtime.azure.function-dispatcher-to-processor-wrapper",
         "edge.runtime.gcp.function-dispatcher-to-processor-wrapper"
       ],
       "scenario_id": "scenario.user-processor",
-      "status": "blocked_by_issue"
+      "status": "supported"
     },
     {
       "reason_code": "PROFILE_OPTIONAL_TOPOLOGY_UNSUPPORTED",
@@ -8457,5 +8457,5 @@
     }
   ],
   "schema_version": "five-layer-baseline-decision.v1",
-  "source_inventory_digest": "sha256:f9695a4f7c9cb268ce0584f7c5d5ca743fca041092db84070b303d1ff175e836"
+  "source_inventory_digest": "sha256:193c297df3cfe9c15cd03544fede3270aa8f448a2ef385b68dc40b47638b1a10"
 }

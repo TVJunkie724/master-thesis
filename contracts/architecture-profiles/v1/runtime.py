@@ -828,17 +828,29 @@ def _check_provider_profile(
         item["component_id"] for item in document["component_mappings"]
     }
     mapped_edges = {item["edge_id"] for item in document["edge_mappings"]}
-    if component_ids != mapped_components:
+    if document["supported"] and component_ids != mapped_components:
         _fail(
             "ARCH_COMPONENT_UNAVAILABLE",
             "component_mappings",
             "Provider mappings do not cover every logical component",
         )
-    if edge_ids != mapped_edges:
+    if not mapped_components.issubset(component_ids):
+        _fail(
+            "ARCH_REFERENCE_UNRESOLVED",
+            "component_mappings",
+            "Provider mappings contain an unknown logical component",
+        )
+    if document["supported"] and edge_ids != mapped_edges:
         _fail(
             "ARCH_EDGE_UNAVAILABLE",
             "edge_mappings",
             "Provider mappings do not cover every logical edge",
+        )
+    if not mapped_edges.issubset(edge_ids):
+        _fail(
+            "ARCH_REFERENCE_UNRESOLVED",
+            "edge_mappings",
+            "Provider mappings contain an unknown logical edge",
         )
     required_capabilities = {
         capability
@@ -847,15 +859,26 @@ def _check_provider_profile(
     }
     provided = set(document["capability_claims"]["provided_capability_ids"])
     missing = sorted(required_capabilities - provided)
-    if (
-        missing
-        or document["capability_claims"]["missing_capability_ids"]
-        or not document["supported"]
-    ):
+    declared_missing = sorted(
+        document["capability_claims"]["missing_capability_ids"]
+    )
+    if missing != declared_missing:
         _fail(
             "ARCH_CAPABILITY_INCOMPLETE",
             "capability_claims",
-            "Provider profile does not prove complete required capabilities",
+            "Declared missing capabilities differ from mapped evidence",
+        )
+    if document["supported"] and (missing or document["unsupported_reasons"]):
+        _fail(
+            "ARCH_CAPABILITY_INCOMPLETE",
+            "capability_claims",
+            "Supported provider profile is not functionally complete",
+        )
+    if not document["supported"] and not document["unsupported_reasons"]:
+        _fail(
+            "ARCH_CAPABILITY_INCOMPLETE",
+            "unsupported_reasons",
+            "Unsupported provider profile requires a stable reason",
         )
     component_by_id = _by_id(matching_profile["components"], "component_id")
     for index, mapping in enumerate(document["component_mappings"]):
@@ -957,6 +980,14 @@ def _check_catalog(
         (item["artifact_id"], item["artifact_version"])
         for item in document["package_artifacts"]
     }
+    for index, artifact in enumerate(document["package_artifacts"]):
+        for reference in artifact["dependency_artifact_refs"]:
+            if (reference["id"], reference["version"]) not in artifacts:
+                _fail(
+                    "ARCH_REFERENCE_UNRESOLVED",
+                    f"package_artifacts[{index}].dependency_artifact_refs",
+                    "Unknown package artifact dependency",
+                )
     for index, component in enumerate(document["components"]):
         reference = component["package_artifact_ref"]
         if (reference["id"], reference["version"]) not in artifacts:
@@ -993,6 +1024,12 @@ def _check_catalog(
     logical_edge_ids = {
         item["edge_id"] for profile in profiles for item in profile["edges"]
     }
+    logical_edges = {
+        item["edge_id"]: item for profile in profiles for item in profile["edges"]
+    }
+    deployment_component_ids = {
+        item["deployment_component_id"] for item in document["components"]
+    }
     extension_slots = {
         item["slot_id"]: item
         for profile in profiles
@@ -1021,6 +1058,25 @@ def _check_catalog(
             edge["logical_edge_ids"],
             logical_edge_ids,
             f"edge_implementations[{index}].logical_edge_ids",
+        )
+        for logical_edge_id in edge["logical_edge_ids"]:
+            logical_edge = logical_edges[logical_edge_id]
+            payload_ref = edge["payload_contract_ref"]
+            if (
+                payload_ref["id"] != logical_edge["edge_contract_id"]
+                or payload_ref["version"] != logical_edge["edge_contract_version"]
+                or canonical_json(edge["delivery_requirements"])
+                != canonical_json(logical_edge["delivery_requirements"])
+            ):
+                _fail(
+                    "ARCH_EDGE_UNAVAILABLE",
+                    f"edge_implementations[{index}]",
+                    "Catalog edge payload or delivery contract differs",
+                )
+        _require_refs(
+            edge["glue_component_ids"],
+            deployment_component_ids,
+            f"edge_implementations[{index}].glue_component_ids",
         )
 
 

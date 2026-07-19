@@ -778,8 +778,8 @@ def _required_scenarios() -> list[dict[str, Any]]:
         },
         {
             "scenario_id": "scenario.user-processor",
-            "status": "blocked_by_issue",
-            "reason_code": "EXTENSION_BINDING_PREREQUISITE_OPEN",
+            "status": "supported",
+            "reason_code": "EXTENSION_BINDING_COMPLETE",
             "required_edge_ids": [
                 "edge.runtime.aws.function-dispatcher-to-processor-wrapper",
                 "edge.runtime.azure.function-dispatcher-to-processor-wrapper",

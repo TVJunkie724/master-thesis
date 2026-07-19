@@ -116,10 +116,11 @@ secrets, environment values, or local absolute paths. Terraform receives a
 validated operational package path only after evidence has been read back
 inside the project boundary.
 
-The current prerequisite deliberately stops a real deployment before Terraform
-when a bound package has no reviewed deployment-component catalog mapping.
-Phase 8.3 owns that executable mapping. This prevents a validated but unconnected
-package from being silently treated as active user logic.
+The deployment boundary deliberately stops before Terraform unless a bound
+package has a reviewed deployment-component catalog mapping. Phase 8.3 now
+provides that mapping for `processor.telemetry@1` on AWS, Azure, and GCP. The
+runtime path remains inactive until the later profile resolver phases, so a
+validated but unresolved package still cannot be treated as active user logic.
 
 ## Limits
 

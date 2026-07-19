@@ -23,6 +23,7 @@ SOURCE_ROOT = ROOT / "contracts" / CONTRACT_NAME
 SOURCE_V1 = SOURCE_ROOT / "v1"
 VALID_ROOT = SOURCE_V1 / "fixtures" / "valid"
 INVALID_ROOT = SOURCE_V1 / "fixtures" / "invalid"
+DEFINITIONS_ROOT = SOURCE_ROOT / "definitions"
 GENERATED_TARGETS = (
     ROOT / "2-twin2clouds" / "backend" / "contracts" / "generated" / CONTRACT_NAME,
     ROOT
@@ -185,6 +186,20 @@ PORTS_BY_COMPONENT = {
         (),
     ),
 }
+PORT_SCHEMA_REFS = {
+    "port.ingestion.telemetry-out": "telemetry-envelope.v1",
+    "port.processing.telemetry-in": "telemetry-envelope.v1",
+    "port.processing.telemetry-out": "telemetry-envelope.v1",
+    "port.hot-storage.write-in": "telemetry-envelope.v1",
+    "port.hot-storage.transition-out": "storage-transition-record.v1",
+    "port.cool-storage.write-in": "storage-transition-record.v1",
+    "port.cool-storage.transition-out": "storage-transition-record.v1",
+    "port.archive-storage.write-in": "storage-transition-record.v1",
+    "port.hot-storage.twin-update-out": "telemetry-to-twin-state.v1",
+    "port.twin-state.update-in": "telemetry-to-twin-state.v1",
+    "port.twin-state.query-out": "twin-query-result.v1",
+    "port.visualization.query-in": "twin-query-result.v1",
+}
 RESPONSIBILITIES = (
     (
         "responsibility.ingestion",
@@ -324,6 +339,18 @@ def _file_digest(path: Path) -> str:
     return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
 
 
+def _source_manifest_digest(paths: list[Path]) -> str:
+    entries = []
+    for path in sorted(paths):
+        entries.append(
+            {
+                "path": path.relative_to(ROOT).as_posix(),
+                "digest": _file_digest(path),
+            }
+        )
+    return _sha256(entries)
+
+
 def _redigest(document: dict[str, Any]) -> dict[str, Any]:
     document["content_digest"] = runtime.calculate_digest(document)
     return document
@@ -331,17 +358,17 @@ def _redigest(document: dict[str, Any]) -> dict[str, Any]:
 
 def _optimization_bundle() -> dict[str, Any]:
     bundle: dict[str, Any] = {
-        "optimization_strategy_id": "cost-minimization",
+        "optimization_strategy_id": "cost_minimization_v1",
         "optimization_strategy_version": "1",
-        "calculation_strategy_id": "cost-calculation",
+        "calculation_strategy_id": "cost_calculation_v2",
         "calculation_strategy_version": "2",
-        "formula_set_id": "cost-formula-set",
+        "formula_set_id": "cost_formula_set_v1",
         "formula_set_version": "1",
-        "scoring_strategy_id": "monthly-cost",
+        "scoring_strategy_id": "min_total_cost_v1",
         "scoring_strategy_version": "1",
-        "pricing_registry_id": "provider-catalog",
+        "pricing_registry_id": "pricing-registry",
         "pricing_registry_versions": ["1"],
-        "workload_contract_id": "digital-twin-workload",
+        "workload_contract_id": "digital_twin_workload_v1",
         "workload_contract_version": "1",
         "deployment_specification_versions": ["resolved-deployment-specification.v1"],
     }
@@ -353,9 +380,7 @@ def _semantic_registry() -> dict[str, Any]:
     port_contracts = [
         {
             "port_id": port_id,
-            "schema_ref": (
-                "twin-query-result" if "query" in port_id else "normalized-telemetry"
-            ),
+            "schema_ref": PORT_SCHEMA_REFS[port_id],
             "envelope_ref": "contract-envelope",
             "semantics": (
                 "Typed query request or correlated response."
@@ -482,6 +507,13 @@ def _delivery_requirements(mode: str) -> dict[str, str]:
 
 
 def _architecture_profile() -> dict[str, Any]:
+    decision = _read_json(
+        ROOT
+        / "contracts"
+        / "architecture-inventory"
+        / "v1"
+        / "five-layer-baseline-v1-decision.json"
+    )
     workload_path = (
         ROOT / "2-twin2clouds" / "pricing_registry" / "workload_contracts.yaml"
     )
@@ -526,7 +558,11 @@ def _architecture_profile() -> dict[str, Any]:
                 "required_capability_ids": [f"capability.{capability_suffix}"],
                 "input_port_ids": list(input_ports),
                 "output_port_ids": list(output_ports),
-                "extension_slot_ids": [],
+                "extension_slot_ids": (
+                    ["processor.telemetry"]
+                    if component_id == "component.processing"
+                    else []
+                ),
                 "cost_owner_ids": [f"cost.{capability_suffix}"],
                 "observability_contract_id": "observability.baseline",
             }
@@ -548,11 +584,7 @@ def _architecture_profile() -> dict[str, Any]:
                 "source_port_id": source_port_id,
                 "destination_component_id": destination_component_id,
                 "destination_port_id": destination_port_id,
-                "edge_contract_id": (
-                    "twin-query-result"
-                    if mode == "synchronous"
-                    else "normalized-telemetry"
-                ),
+                "edge_contract_id": PORT_SCHEMA_REFS[source_port_id],
                 "edge_contract_version": "1",
                 "required": True,
                 "delivery_requirements": _delivery_requirements(mode),
@@ -589,15 +621,38 @@ def _architecture_profile() -> dict[str, Any]:
             "behind reviewed mappings."
         ),
         "workload_contract_ref": {
-            "id": "digital-twin-workload",
+            "id": "digital_twin_workload_v1",
             "version": "1",
             "digest": _file_digest(workload_path),
         },
         "optimization_bundle": _optimization_bundle(),
+        "optimization_slot_ids": list(decision["optimization_slots"]),
         "responsibilities": responsibilities,
         "components": components,
         "edges": edges,
-        "extension_slots": [],
+        "extension_slots": [
+            {
+                "slot_id": "processor.telemetry",
+                "slot_version": "1",
+                "component_id": "component.processing",
+                "input_contract_ref": {
+                    "id": "normalized-telemetry",
+                    "version": "1",
+                },
+                "output_contract_ref": {
+                    "id": "processed-telemetry",
+                    "version": "1",
+                },
+                "configuration_contract_ref": {
+                    "id": "processor-configuration",
+                    "version": "1",
+                },
+                "artifact_policy_id": "artifact-policy.user-function.v1",
+            }
+        ],
+        "functional_completeness_rules": list(
+            decision["functional_completeness_rules"]
+        ),
         "graph_policy": {
             "cycle_policy": "acyclic",
             "allowed_cycle_ids": [],
@@ -606,7 +661,7 @@ def _architecture_profile() -> dict[str, Any]:
         },
         "compatibility": {
             "supported_contract_versions": [
-                "digital-twin-workload.v1",
+                "pricing-registry-workload-contracts.v1",
                 "resolved-deployment-specification.v1",
             ],
             "provider_implementation_schema_versions": [
@@ -743,7 +798,7 @@ def _catalog_port(provider: str, port_id: str, phase: str) -> dict[str, Any]:
     return {
         "port_id": f"catalog.{provider}.{port_id}",
         "schema_ref": {
-            "id": "twin-query-result" if "query" in port_id else "normalized-telemetry",
+            "id": PORT_SCHEMA_REFS[port_id],
             "version": "1",
         },
         "envelope_ref": {"id": "contract-envelope", "version": "1"},
@@ -769,11 +824,24 @@ def _catalog(
             {
                 "artifact_id": artifact_id,
                 "artifact_version": "1",
+                "decision_implementation_ids": [],
                 "repository_source_path": "3-cloud-deployer/src",
                 "platform_handler": f"handler.{provider}.platform",
                 "digest_policy": "sha256.canonical-source.v1",
+                "source_digest": _source_manifest_digest(
+                    [
+                        ROOT
+                        / "3-cloud-deployer"
+                        / "src"
+                        / "providers"
+                        / "terraform"
+                        / "package_builders"
+                        / f"{provider}.py"
+                    ]
+                ),
                 "included_paths": ["**/*.py"],
                 "excluded_paths": ["**/__pycache__/**"],
+                "dependency_artifact_refs": [],
                 "builder_adapter_id": f"builder.{provider}.baseline",
                 "supported_runtimes": [f"runtime.{provider}.managed"],
                 "user_source_policy": "platform_only",
@@ -798,7 +866,11 @@ def _catalog(
                     "component_version": "1",
                     "provider": provider,
                     "logical_component_ids": [component_id],
+                    "decision_implementation_ids": [
+                        f"implementation.fixture.{provider}.{component_suffix}"
+                    ],
                     "service_id": f"{provider}.{component_suffix}",
+                    "service_ids": [f"{provider}.{component_suffix}"],
                     "component_kind": (
                         "storage_service"
                         if component_kind == "storage"
@@ -821,10 +893,26 @@ def _catalog(
                         "allowed_input_variable_ids": [
                             f"input.{provider}.{component_suffix}.selection"
                         ],
+                        "input_bindings": [
+                            {
+                                "input_id": (
+                                    f"input.{provider}.{component_suffix}.selection"
+                                ),
+                                "terraform_variable": (
+                                    f"{provider}_{component_suffix.replace('-', '_')}"
+                                    "_selection"
+                                ),
+                                "sensitive": False,
+                            }
+                        ],
                         "outputs": [
                             {
                                 "output_id": (
                                     f"output.{provider}.{component_suffix}.binding"
+                                ),
+                                "terraform_output": (
+                                    f"{provider}_{component_suffix.replace('-', '_')}"
+                                    "_binding"
                                 ),
                                 "sensitive": False,
                             }
@@ -873,7 +961,11 @@ def _catalog(
                             component_id
                         ]
                     ],
-                    "extension_slot_refs": [],
+                    "extension_slot_refs": (
+                        [{"id": "processor.telemetry", "version": "1"}]
+                        if component_id == "component.processing"
+                        else []
+                    ),
                     "error_contract_ref": {
                         "id": "architecture-runtime-errors",
                         "version": "1",
@@ -911,6 +1003,10 @@ def _catalog(
                     ),
                     "edge_implementation_version": "1",
                     "provider": provider,
+                    "decision_edge_ids": [
+                        f"target.edge.fixture.{provider}."
+                        f"{edge['edge_id'].removeprefix('edge.')}"
+                    ],
                     "logical_edge_ids": [edge["edge_id"]],
                     "mechanism": edge_tuple[5],
                     "source_component_ids": [
@@ -925,12 +1021,40 @@ def _catalog(
                     "destination_input_port_id": (
                         f"catalog.{provider}.{edge['destination_port_id']}"
                     ),
+                    "terraform_binding": {
+                        "source_output_id": (
+                            f"output.{provider}."
+                            f"{source_component_id.removeprefix('component.')}."
+                            "binding"
+                        ),
+                        "destination_input_id": (
+                            f"input.{provider}."
+                            f"{destination_component_id.removeprefix('component.')}."
+                            "selection"
+                        ),
+                        "dependency_keys": [],
+                    },
                     "transfer_route_class": "same_provider_same_region",
+                    "payload_contract_ref": {
+                        "id": edge["edge_contract_id"],
+                        "version": edge["edge_contract_version"],
+                    },
+                    "delivery_requirements": edge["delivery_requirements"],
+                    "trust_contract_ref": {"id": "trust.baseline", "version": "1"},
                     "pricing_model_refs": [f"pricing.{provider}.transfer"],
                     "formula_refs": ["formula.transfer"],
                     "required_permission_capabilities": [
                         f"permission.{provider}.edge-runtime"
                     ],
+                    "glue_component_ids": [],
+                    "error_contract_ref": {
+                        "id": "architecture-runtime-errors",
+                        "version": "1",
+                    },
+                    "observability_contract_ref": {
+                        "id": "observability.baseline",
+                        "version": "1",
+                    },
                     "compatibility": {
                         "architecture_profile_versions": [
                             {"id": "five-layer-baseline", "version": "1"}
@@ -950,6 +1074,9 @@ def _catalog(
             ),
             "edge_implementation_version": "1",
             "provider": "aws",
+            "decision_edge_ids": [
+                "target.edge.fixture.aws-to-azure.ingestion-to-processing"
+            ],
             "logical_edge_ids": [mixed_edge[0]],
             "mechanism": "cross_provider_adapter",
             "source_component_ids": [_deployment_id("aws", "component.ingestion")],
@@ -958,10 +1085,33 @@ def _catalog(
             ],
             "source_output_port_id": ("catalog.aws.port.ingestion.telemetry-out"),
             "destination_input_port_id": ("catalog.azure.port.processing.telemetry-in"),
+            "terraform_binding": {
+                "source_output_id": "output.aws.ingestion.binding",
+                "destination_input_id": "input.azure.processing.selection",
+                "dependency_keys": ["dependency.cross-provider.adapter"],
+            },
             "transfer_route_class": "cross_provider",
+            "payload_contract_ref": {
+                "id": "telemetry-envelope.v1",
+                "version": "1",
+            },
+            "delivery_requirements": profile["edges"][0]["delivery_requirements"],
+            "trust_contract_ref": {
+                "id": "trust.cross-provider",
+                "version": "1",
+            },
             "pricing_model_refs": ["pricing.cross-provider.transfer"],
             "formula_refs": ["formula.transfer"],
             "required_permission_capabilities": ["permission.cross-provider.adapter"],
+            "glue_component_ids": [],
+            "error_contract_ref": {
+                "id": "architecture-runtime-errors",
+                "version": "1",
+            },
+            "observability_contract_ref": {
+                "id": "observability.baseline",
+                "version": "1",
+            },
             "compatibility": {
                 "architecture_profile_versions": [
                     {"id": "five-layer-baseline", "version": "1"}
@@ -1185,7 +1335,23 @@ def _resolved_architecture(
         ],
         "component_assignments": assignments,
         "resolved_edges": resolved_edges,
-        "extension_bindings": [],
+        "extension_bindings": [
+            {
+                "slot_id": "processor.telemetry",
+                "slot_version": "1",
+                "artifact_id": "artifact.user.processor.example",
+                "artifact_digest": _sha256(
+                    {
+                        "fixture": "user-processor",
+                        "runtime": "python311",
+                        "version": "1",
+                    }
+                ),
+                "logical_component_id": "component.processing",
+                "configuration_digest": _sha256({"scale_factor": 1}),
+                "validation_contract_version": "1",
+            }
+        ],
         "deployment_specification_ref": {
             "schema_version": existing_spec["schema_version"],
             "digest": existing_spec["digest"],
@@ -1337,6 +1503,12 @@ def generate_contract_data() -> None:
                 "document": document,
             },
         )
+    try:
+        from scripts.architecture_profile_catalog import write_definitions
+    except ModuleNotFoundError:
+        from architecture_profile_catalog import write_definitions
+
+    write_definitions(ROOT, sys.modules[__name__])
 
 
 def _source_files() -> list[Path]:
@@ -1363,6 +1535,32 @@ def load_valid_documents() -> list[dict[str, Any]]:
     return [_read_json(path) for path in sorted(VALID_ROOT.glob("*.json"))]
 
 
+def load_definition_documents() -> list[dict[str, Any]]:
+    paths = [
+        DEFINITIONS_ROOT
+        / "profiles"
+        / "five-layer-baseline"
+        / "1"
+        / "profile.json",
+        *sorted(
+            (
+                DEFINITIONS_ROOT
+                / "provider-implementations"
+                / "five-layer-baseline"
+                / "1"
+            ).glob("*/1.json")
+        ),
+        DEFINITIONS_ROOT
+        / "component-catalogs"
+        / "baseline"
+        / "1"
+        / "catalog.json",
+    ]
+    if not all(path.is_file() for path in paths) or len(paths) != 5:
+        raise RuntimeError("Phase 8.3 architecture definitions are incomplete")
+    return [_read_json(path) for path in paths]
+
+
 def validate_source() -> None:
     for filename in SCHEMA_FILES:
         schema = _read_json(SOURCE_V1 / filename)
@@ -1385,6 +1583,62 @@ def validate_source() -> None:
             linked_documents=valid_documents,
         )
     runtime.validate_bundle(valid_documents, bundle_root=SOURCE_V1)
+
+    definition_documents = load_definition_documents()
+    for document in definition_documents:
+        runtime.validate_document(
+            document,
+            bundle_root=SOURCE_V1,
+            linked_documents=definition_documents,
+        )
+    runtime.validate_bundle(definition_documents, bundle_root=SOURCE_V1)
+    fixture_paths = sorted((DEFINITIONS_ROOT / "fixtures").rglob("*.json"))
+    if {path.name for path in fixture_paths} != {
+        "all-aws.json",
+        "all-azure.json",
+        "mixed-providers.json",
+        "all-gcp.json",
+        "user-processor.json",
+    }:
+        raise RuntimeError("Phase 8.3 completeness fixture matrix is incomplete")
+    profile = next(
+        item
+        for item in definition_documents
+        if item["schema_version"] == "architecture-profile.v1"
+    )
+    catalog = next(
+        item
+        for item in definition_documents
+        if item["schema_version"] == "deployment-component-catalog.v1"
+    )
+    for path in fixture_paths:
+        fixture = _read_json(path)
+        if (
+            fixture.get("architecture_profile_ref", {}).get("digest")
+            != profile["content_digest"]
+            or fixture.get("catalog_ref", {}).get("digest")
+            != catalog["content_digest"]
+        ):
+            raise RuntimeError(f"Stale Phase 8.3 completeness fixture: {path}")
+    manifest = _read_json(DEFINITIONS_ROOT / "manifest.json")
+    if (
+        manifest.get("definition_digests", {}).get("profile")
+        != profile["content_digest"]
+        or manifest.get("definition_digests", {}).get("catalog")
+        != catalog["content_digest"]
+    ):
+        raise RuntimeError("Phase 8.3 definition manifest is stale")
+    decision = _read_json(
+        ROOT
+        / "contracts"
+        / "architecture-inventory"
+        / "v1"
+        / "five-layer-baseline-v1-decision.json"
+    )
+    if manifest.get("source_digests", {}).get("baseline_decision") != decision.get(
+        "content_digest"
+    ):
+        raise RuntimeError("Phase 8.3 baseline decision digest is stale")
 
     for path in invalid_paths:
         wrapper = _read_json(path)

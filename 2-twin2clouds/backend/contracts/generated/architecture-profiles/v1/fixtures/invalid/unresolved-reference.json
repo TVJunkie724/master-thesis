@@ -11,7 +11,7 @@
         "resolved-twin-architecture.v1"
       ],
       "supported_contract_versions": [
-        "digital-twin-workload.v1",
+        "pricing-registry-workload-contracts.v1",
         "resolved-deployment-specification.v1"
       ]
     },
@@ -99,7 +99,9 @@
         "cost_owner_ids": [
           "cost.processing"
         ],
-        "extension_slot_ids": [],
+        "extension_slot_ids": [
+          "processor.telemetry"
+        ],
         "input_port_ids": [
           "port.processing.telemetry-in"
         ],
@@ -152,7 +154,7 @@
         "responsibility_id": "responsibility.visualization"
       }
     ],
-    "content_digest": "sha256:5f04f61de8ce0bc1f3c21560dee10da333c3d853eb0069dba8816d9112d8cb1b",
+    "content_digest": "sha256:2761a6cfd21f0aa3049db48a0ad85cd16f69e81f21a3768c6d2ed48ece9a7564",
     "description": "Paper-compatible ingestion, processing, storage, Twin-state, and visualization responsibilities with provider implementation hidden behind reviewed mappings.",
     "display_name": "Five-layer baseline",
     "edges": [
@@ -171,7 +173,7 @@
         },
         "destination_component_id": "component.archive-storage",
         "destination_port_id": "port.archive-storage.write-in",
-        "edge_contract_id": "normalized-telemetry",
+        "edge_contract_id": "storage-transition-record.v1",
         "edge_contract_version": "1",
         "edge_id": "edge.cool-to-archive-storage",
         "observability_requirements": {
@@ -207,7 +209,7 @@
         },
         "destination_component_id": "component.twin-state",
         "destination_port_id": "port.twin-state.update-in",
-        "edge_contract_id": "normalized-telemetry",
+        "edge_contract_id": "telemetry-to-twin-state.v1",
         "edge_contract_version": "1",
         "edge_id": "edge.hot-storage-to-twin-state",
         "observability_requirements": {
@@ -243,7 +245,7 @@
         },
         "destination_component_id": "component.cool-storage",
         "destination_port_id": "port.cool-storage.write-in",
-        "edge_contract_id": "normalized-telemetry",
+        "edge_contract_id": "storage-transition-record.v1",
         "edge_contract_version": "1",
         "edge_id": "edge.hot-to-cool-storage",
         "observability_requirements": {
@@ -279,7 +281,7 @@
         },
         "destination_component_id": "component.missing",
         "destination_port_id": "port.processing.telemetry-in",
-        "edge_contract_id": "normalized-telemetry",
+        "edge_contract_id": "telemetry-envelope.v1",
         "edge_contract_version": "1",
         "edge_id": "edge.ingestion-to-processing",
         "observability_requirements": {
@@ -315,7 +317,7 @@
         },
         "destination_component_id": "component.hot-storage",
         "destination_port_id": "port.hot-storage.write-in",
-        "edge_contract_id": "normalized-telemetry",
+        "edge_contract_id": "telemetry-envelope.v1",
         "edge_contract_version": "1",
         "edge_id": "edge.processing-to-hot-storage",
         "observability_requirements": {
@@ -351,7 +353,7 @@
         },
         "destination_component_id": "component.visualization",
         "destination_port_id": "port.visualization.query-in",
-        "edge_contract_id": "twin-query-result",
+        "edge_contract_id": "twin-query-result.v1",
         "edge_contract_version": "1",
         "edge_id": "edge.twin-state-to-visualization",
         "observability_requirements": {
@@ -373,7 +375,88 @@
         }
       }
     ],
-    "extension_slots": [],
+    "extension_slots": [
+      {
+        "artifact_policy_id": "artifact-policy.user-function.v1",
+        "component_id": "component.processing",
+        "configuration_contract_ref": {
+          "id": "processor-configuration",
+          "version": "1"
+        },
+        "input_contract_ref": {
+          "id": "normalized-telemetry",
+          "version": "1"
+        },
+        "output_contract_ref": {
+          "id": "processed-telemetry",
+          "version": "1"
+        },
+        "slot_id": "processor.telemetry",
+        "slot_version": "1"
+      }
+    ],
+    "functional_completeness_rules": [
+      {
+        "capability_id": "capability.ingestion",
+        "evidence": "responsibility.ingestion and target L1-to-L2 edge",
+        "required": true
+      },
+      {
+        "capability_id": "capability.processing",
+        "evidence": "responsibility.processing and target L2-to-L3-hot edge",
+        "required": true
+      },
+      {
+        "capability_id": "capability.hot-storage",
+        "evidence": "l3_hot_storage optimization slot",
+        "required": true
+      },
+      {
+        "capability_id": "capability.cool-storage",
+        "evidence": "l3_cool_storage optimization slot",
+        "required": true
+      },
+      {
+        "capability_id": "capability.archive-storage",
+        "evidence": "l3_archive_storage optimization slot",
+        "required": true
+      },
+      {
+        "capability_id": "capability.twin-state",
+        "evidence": "responsibility.twin-state and target L3-hot-to-L4 edge",
+        "required": true
+      },
+      {
+        "capability_id": "capability.visualization",
+        "evidence": "responsibility.visualization and target L4-to-L5 edge",
+        "required": true
+      },
+      {
+        "capability_id": "capability.five-scientific-responsibilities",
+        "evidence": "required_responsibilities",
+        "required": true
+      },
+      {
+        "capability_id": "capability.seven-costed-optimization-slots",
+        "evidence": "optimization_slots",
+        "required": true
+      },
+      {
+        "capability_id": "capability.six-baseline-flows",
+        "evidence": "required_scenarios",
+        "required": true
+      },
+      {
+        "capability_id": "capability.explicit-component-bindings",
+        "evidence": "edge_decisions.resource_binding_source",
+        "required": true
+      },
+      {
+        "capability_id": "capability.fail-closed-provider-admissibility",
+        "evidence": "provider_admissibility",
+        "required": true
+      }
+    ],
     "graph_policy": {
       "allowed_cycle_ids": [],
       "cycle_policy": "acyclic",
@@ -382,25 +465,34 @@
     },
     "lifecycle_status": "active",
     "optimization_bundle": {
-      "calculation_strategy_id": "cost-calculation",
+      "calculation_strategy_id": "cost_calculation_v2",
       "calculation_strategy_version": "2",
-      "compatibility_digest": "sha256:29658c03000864f2e25f521a96e6b473b0caaccd2ed6a66f91e7a32efafafc36",
+      "compatibility_digest": "sha256:0f53f6a7ed48dd7a7765b52479dfd428a58f448d4f11d477ff9adb8439d63499",
       "deployment_specification_versions": [
         "resolved-deployment-specification.v1"
       ],
-      "formula_set_id": "cost-formula-set",
+      "formula_set_id": "cost_formula_set_v1",
       "formula_set_version": "1",
-      "optimization_strategy_id": "cost-minimization",
+      "optimization_strategy_id": "cost_minimization_v1",
       "optimization_strategy_version": "1",
-      "pricing_registry_id": "provider-catalog",
+      "pricing_registry_id": "pricing-registry",
       "pricing_registry_versions": [
         "1"
       ],
-      "scoring_strategy_id": "monthly-cost",
+      "scoring_strategy_id": "min_total_cost_v1",
       "scoring_strategy_version": "1",
-      "workload_contract_id": "digital-twin-workload",
+      "workload_contract_id": "digital_twin_workload_v1",
       "workload_contract_version": "1"
     },
+    "optimization_slot_ids": [
+      "l1_ingestion",
+      "l2_processing",
+      "l3_hot_storage",
+      "l3_cool_storage",
+      "l3_archive_storage",
+      "l4_twin_state",
+      "l5_visualization"
+    ],
     "profile_id": "five-layer-baseline",
     "profile_version": "1",
     "responsibilities": [
@@ -500,7 +592,7 @@
     "schema_version": "architecture-profile.v1",
     "workload_contract_ref": {
       "digest": "sha256:76c5f4c8e91e3a301d93aff59a8364233f1888bd876f7c73f88f9439f40b8b7d",
-      "id": "digital-twin-workload",
+      "id": "digital_twin_workload_v1",
       "version": "1"
     }
   },
