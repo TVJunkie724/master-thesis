@@ -64,10 +64,12 @@ class ExternalServiceError(DomainError):
         *,
         upstream_status_code: int | None = None,
         public_detail: str | None = None,
+        error_code: str | None = None,
     ):
         super().__init__(message)
         self.upstream_status_code = upstream_status_code
         self.public_detail = public_detail or message
+        self.error_code = error_code
 
 
 class OptimizerContractError(DomainError):

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
+import hashlib
+import hmac
 import json
 from math import isfinite
 import re
@@ -12,9 +14,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.clients.optimizer_client import OptimizerClient
+from src.config import settings
 from src.models.architecture_profile import ArchitectureAuditEvent
 from src.models.cost_calculation import CostCalculationResultItem, CostCalculationRun
 from src.models.optimizer_config import OptimizerConfiguration
+from src.models.user_function_extension import TwinExtensionBinding
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.schemas.pricing_catalog import PricingCatalogContext
@@ -56,6 +60,10 @@ from src.services.resolved_architecture_service import (
     ResolvedArchitectureService,
 )
 from src.services.architecture_errors import ArchitectureDomainError
+from src.services.architecture_profile_service import ArchitectureProfileService
+from src.services.user_function_extension_service import (
+    runtime as extension_contract,
+)
 from src.security.request_context import current_request_id
 
 
@@ -75,6 +83,8 @@ class CostCalculationRunService:
         optimizer_client: OptimizerClient | None = None,
         aws_twinmaker_contexts: AwsTwinMakerPricingContextService | None = None,
         pricing_catalog_contexts: PricingCatalogContextService | None = None,
+        architecture_resolution_enabled: bool | None = None,
+        linked_architecture_documents: tuple[Mapping[str, Any], ...] | None = None,
     ):
         self.db = db
         self.optimizer_client = optimizer_client or OptimizerClient()
@@ -89,6 +99,12 @@ class CostCalculationRunService:
                 optimizer_client=self.optimizer_client,
             )
         )
+        self.architecture_resolution_enabled = (
+            settings.ARCHITECTURE_PROFILE_RESOLUTION_ENABLED
+            if architecture_resolution_enabled is None
+            else architecture_resolution_enabled
+        )
+        self.linked_architecture_documents = linked_architecture_documents
 
     async def create_run(
         self,
@@ -115,35 +131,164 @@ class CostCalculationRunService:
         optimizer_params["providerPricingContexts"] = {
             "awsTwinMaker": aws_context.payload
         }
+        failed_run = None
+        if self.architecture_resolution_enabled:
+            optimizer_params.update(
+                self._trusted_architecture_request(
+                    twin_id=twin_id,
+                    user_id=user_id,
+                )
+            )
+            failed_run = self._build_failed_run_source(
+                twin=twin,
+                run_id=run_id,
+                user_id=user_id,
+                persisted_params=persisted_params,
+                catalog_context=catalog_context,
+                aws_context=aws_context,
+                pricing_evidence_version=pricing_evidence_version,
+            )
 
         try:
             optimizer_payload = await self.optimizer_client.calculate(optimizer_params)
-        except (ExternalServiceUnavailable, ExternalServiceError):
+        except (ExternalServiceUnavailable, ExternalServiceError) as exc:
+            if failed_run is not None:
+                self._persist_failed_run(
+                    failed_run,
+                    (
+                        "OPTIMIZER_UNAVAILABLE"
+                        if isinstance(exc, ExternalServiceUnavailable)
+                        else exc.error_code or "OPTIMIZER_ERROR"
+                    ),
+                )
+            raise
+        except Exception as exc:
+            if failed_run is None:
+                raise
+            self._persist_failed_run(failed_run, "OPTIMIZER_ERROR")
+            raise ExternalServiceError(
+                "Optimizer calculation failed",
+                public_detail="Optimizer service returned an error.",
+            ) from exc
+
+        try:
+            result = self._extract_optimizer_result(optimizer_payload)
+            contract = self._validate_optimizer_result(result)
+            _validate_optimizer_pricing_catalog_context(result, catalog_context)
+            transfer_pricing = validate_optimizer_transfer_pricing_result(
+                result,
+                catalog_context,
+            )
+            _validate_optimizer_aws_selection_context(result, aws_context)
+            cheapest_path = self._extract_cheapest_path(result)
+            deployment_specification = (
+                _validate_optimizer_deployment_specification(
+                    result,
+                    run_id=run_id,
+                    cheapest_path=cheapest_path,
+                    catalog_context=catalog_context,
+                )
+            )
+            result_items = self._build_result_items(
+                result,
+                cheapest_path,
+                contract["currency"],
+                transfer_pricing,
+            )
+            resolved_architecture = (
+                self._require_optimizer_resolved_architecture(result)
+                if self.architecture_resolution_enabled
+                else None
+            )
+        except Exception as exc:
+            if failed_run is not None:
+                self._persist_failed_run(
+                    failed_run,
+                    getattr(exc, "code", "OPTIMIZER_CONTRACT_INVALID"),
+                )
+                if not isinstance(exc, OptimizerContractError):
+                    raise OptimizerContractError(
+                        "Optimizer response contract is invalid",
+                        [
+                            {
+                                "field": "result",
+                                "message": "Response validation failed",
+                            }
+                        ],
+                    ) from exc
             raise
 
-        result = self._extract_optimizer_result(optimizer_payload)
-        contract = self._validate_optimizer_result(result)
-        _validate_optimizer_pricing_catalog_context(result, catalog_context)
-        transfer_pricing = validate_optimizer_transfer_pricing_result(
-            result,
-            catalog_context,
-        )
-        _validate_optimizer_aws_selection_context(result, aws_context)
-        cheapest_path = self._extract_cheapest_path(result)
-        deployment_specification = _validate_optimizer_deployment_specification(
-            result,
-            run_id=run_id,
-            cheapest_path=cheapest_path,
-            catalog_context=catalog_context,
-        )
-        result_items = self._build_result_items(
-            result,
-            cheapest_path,
-            contract["currency"],
-            transfer_pricing,
-        )
-
         now = datetime.now(timezone.utc)
+        if self.architecture_resolution_enabled:
+            config = twin.optimizer_config or OptimizerConfiguration(
+                id=str(uuid.uuid4()),
+                twin_id=twin_id,
+            )
+            self.db.add(config)
+            run = CostCalculationRun(
+                id=run_id,
+                twin_id=twin_id,
+                user_id=user_id,
+                optimizer_config_id=config.id,
+                optimizer_config=config,
+                status=SUCCESS,
+                params_json=_json_dumps(persisted_params),
+                total_monthly_cost=contract["total_monthly_cost"],
+                currency=contract["currency"],
+                optimization_profile_id=contract["optimization_profile_id"],
+                optimization_profile_version=(
+                    contract["optimization_profile_version"]
+                ),
+                scoring_strategy_id=contract["scoring_strategy_id"],
+                calculation_model_version=contract[
+                    "calculation_model_version"
+                ],
+                pricing_registry_version=contract[
+                    "pricing_registry_version"
+                ],
+                pricing_evidence_version=pricing_evidence_version,
+                pricing_run_reference=aws_context.source_refresh_run_id,
+                pricing_catalog_context_json=catalog_context.canonical_json(),
+                created_at=now,
+            )
+            self._update_optimizer_config_projection(
+                config,
+                params=persisted_params,
+                result=result,
+                cheapest_path=cheapest_path,
+                pricing_catalog_context=catalog_context,
+                calculated_at=now,
+            )
+            try:
+                return self.persist_successful_run(
+                    result,
+                    deployment_specification.specification,
+                    resolved_architecture,
+                    run=run,
+                    catalog_context=catalog_context,
+                    result_items=result_items,
+                    linked_architecture_documents=(
+                        self.linked_architecture_documents
+                    ),
+                )
+            except (
+                ArchitectureDomainError,
+                ResolvedDeploymentSpecificationError,
+            ) as exc:
+                raise OptimizerContractError(
+                    "Optimizer architecture resolution is invalid",
+                    [
+                        {
+                            "field": getattr(
+                                exc,
+                                "field",
+                                "resolvedTwinArchitecture",
+                            ),
+                            "message": str(exc),
+                        }
+                    ],
+                ) from exc
+
         try:
             config = twin.optimizer_config or OptimizerConfiguration(twin_id=twin_id)
             self.db.add(config)
@@ -263,7 +408,7 @@ class CostCalculationRunService:
                     else "ARCH_RESOLUTION_INVALID"
                 ),
             )
-            self._persist_failed_fixture_run(run, str(error_code))
+            self._persist_failed_run(run, str(error_code))
             if isinstance(exc, (
                 ArchitectureDomainError,
                 ResolvedDeploymentSpecificationError,
@@ -273,18 +418,31 @@ class CostCalculationRunService:
         self.db.refresh(run)
         return run
 
-    def _persist_failed_fixture_run(
+    def _persist_failed_run(
         self,
         source: CostCalculationRun,
         error_code: str,
     ) -> None:
         """Persist only bounded failed-run metadata after atomic rollback."""
 
+        if re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", error_code) is None:
+            error_code = "OPTIMIZER_CONTRACT_INVALID"
+        optimizer_config_id = None
+        if source.optimizer_config_id:
+            with self.db.no_autoflush:
+                optimizer_config_id = (
+                    self.db.query(OptimizerConfiguration.id)
+                    .filter(
+                        OptimizerConfiguration.id
+                        == source.optimizer_config_id
+                    )
+                    .scalar()
+                )
         failed = CostCalculationRun(
             id=source.id,
             twin_id=source.twin_id,
             user_id=source.user_id,
-            optimizer_config_id=source.optimizer_config_id,
+            optimizer_config_id=optimizer_config_id,
             status=FAILED,
             params_json=source.params_json or "{}",
             result_summary_json=None,
@@ -319,6 +477,180 @@ class CostCalculationRunService:
             )
         )
         self.db.commit()
+
+    def _trusted_architecture_request(
+        self,
+        *,
+        twin_id: str,
+        user_id: str,
+    ) -> dict[str, Any]:
+        architecture_service = ResolvedArchitectureService(self.db)
+        selection = architecture_service.repository.get_selection(
+            twin_id,
+            user_id,
+        )
+        if selection is None:
+            raise ArchitectureDomainError(
+                "ARCH_PROFILE_NOT_FOUND",
+                "The Twin architecture selection is missing.",
+                http_status=409,
+            )
+        profile = ArchitectureProfileService.get_definition(
+            selection.profile_id,
+            selection.profile_version,
+        )
+        if not hmac.compare_digest(
+            selection.profile_digest,
+            profile["content_digest"],
+        ):
+            raise ArchitectureDomainError(
+                "ARCH_PROFILE_DIGEST_MISMATCH",
+                "The selected architecture profile digest is stale.",
+                http_status=409,
+            )
+        slots = {
+            (item["slot_id"], item["slot_version"]): item
+            for item in profile["extension_slots"]
+        }
+        bindings = (
+            self.db.query(TwinExtensionBinding)
+            .filter(
+                TwinExtensionBinding.twin_id == twin_id,
+                TwinExtensionBinding.user_id == user_id,
+                TwinExtensionBinding.active.is_(True),
+            )
+            .all()
+        )
+        active = {
+            (item.slot_id, item.slot_version): item
+            for item in bindings
+            if item.active
+        }
+        if set(active) != set(slots):
+            raise ArchitectureDomainError(
+                "ARCH_EXTENSION_BINDING_INVALID",
+                "Every selected architecture extension slot requires one "
+                "current binding.",
+                http_status=422,
+            )
+        projected_bindings = []
+        for identity in sorted(active):
+            binding = active[identity]
+            artifact = binding.artifact
+            expected_binding_digest = extension_contract.binding_digest(
+                twin_id=binding.twin_id,
+                slot_id=binding.slot_id,
+                slot_version=binding.slot_version,
+                artifact_id=binding.artifact_id,
+                artifact_digest=(
+                    artifact.artifact_digest if artifact is not None else ""
+                ),
+            )
+            if (
+                artifact is None
+                or artifact.user_id != user_id
+                or artifact.artifact_state != "valid"
+                or (artifact.slot_id, artifact.slot_version) != identity
+                or not hmac.compare_digest(
+                    binding.binding_digest,
+                    expected_binding_digest,
+                )
+            ):
+                raise ArchitectureDomainError(
+                    "ARCH_EXTENSION_BINDING_INVALID",
+                    "An architecture extension binding is not valid.",
+                    http_status=422,
+                )
+            try:
+                configuration = json.loads(artifact.configuration_json)
+            except json.JSONDecodeError as exc:
+                raise ArchitectureDomainError(
+                    "ARCH_EXTENSION_BINDING_INVALID",
+                    "An architecture extension configuration is invalid.",
+                    http_status=422,
+                ) from exc
+            configuration_digest = "sha256:" + hashlib.sha256(
+                canonical_json(configuration).encode("utf-8")
+            ).hexdigest()
+            projected_bindings.append(
+                {
+                    "slotId": binding.slot_id,
+                    "slotVersion": binding.slot_version,
+                    "artifactId": binding.artifact_id,
+                    "artifactDigest": artifact.artifact_digest,
+                    "configurationDigest": configuration_digest,
+                }
+            )
+        return {
+            "architectureProfile": {
+                "profileId": selection.profile_id,
+                "profileVersion": selection.profile_version,
+                "contentDigest": selection.profile_digest,
+            },
+            "extensionBindings": projected_bindings,
+        }
+
+    def _build_failed_run_source(
+        self,
+        *,
+        twin,
+        run_id: str,
+        user_id: str,
+        persisted_params: dict[str, Any],
+        catalog_context: PricingCatalogContext,
+        aws_context: ResolvedAwsTwinMakerPricingContext,
+        pricing_evidence_version: str | None,
+    ) -> CostCalculationRun:
+        selection = ResolvedArchitectureService(
+            self.db
+        ).repository.get_selection(twin.id, user_id)
+        profile = ArchitectureProfileService.get_definition(
+            selection.profile_id,
+            selection.profile_version,
+        )
+        bundle = profile["optimization_bundle"]
+        return CostCalculationRun(
+            id=run_id,
+            twin_id=twin.id,
+            user_id=user_id,
+            optimizer_config_id=(
+                twin.optimizer_config.id
+                if twin.optimizer_config is not None
+                else None
+            ),
+            status=FAILED,
+            params_json=_json_dumps(persisted_params),
+            currency=persisted_params.get("currency", "USD"),
+            optimization_profile_id=bundle["optimization_strategy_id"],
+            optimization_profile_version=bundle[
+                "optimization_strategy_version"
+            ],
+            scoring_strategy_id=bundle["scoring_strategy_id"],
+            calculation_model_version=bundle[
+                "calculation_strategy_version"
+            ],
+            pricing_evidence_version=pricing_evidence_version,
+            pricing_run_reference=aws_context.source_refresh_run_id,
+            pricing_catalog_context_json=catalog_context.canonical_json(),
+            created_at=datetime.now(timezone.utc),
+        )
+
+    @staticmethod
+    def _require_optimizer_resolved_architecture(
+        result: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        architecture = result.get("resolvedTwinArchitecture")
+        if not isinstance(architecture, Mapping):
+            raise OptimizerContractError(
+                "Optimizer response did not contain a resolved architecture",
+                [
+                    {
+                        "field": "resolvedTwinArchitecture",
+                        "message": "Expected object",
+                    }
+                ],
+            )
+        return architecture
 
     def list_runs(self, twin_id: str, user_id: str) -> list[CostCalculationRun]:
         twin = self.twin_repository.get_for_user(twin_id, user_id)

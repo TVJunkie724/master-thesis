@@ -38,6 +38,9 @@ from src.services.architecture_profile_service import (
     _catalog_documents,
     _provider_documents,
 )
+from src.services.user_function_extension_service import (
+    runtime as extension_contract,
+)
 
 
 SCHEMA_VERSION = "resolved-twin-architecture.v1"
@@ -603,7 +606,14 @@ class ResolvedArchitectureService:
             )
         if run.total_monthly_cost is not None:
             try:
-                run_total = Decimal(str(run.total_monthly_cost))
+                expected_total = Decimal(
+                    str(
+                        result.get(
+                            "totalCostExact",
+                            run.total_monthly_cost,
+                        )
+                    )
+                )
                 architecture_total = Decimal(
                     architecture["cost_summary"]["monthly_total"]
                 )
@@ -612,7 +622,11 @@ class ResolvedArchitectureService:
                     "ARCH_RESOLUTION_INVALID",
                     "The resolved architecture cost is invalid.",
                 ) from exc
-            if run_total != architecture_total:
+            if (
+                not expected_total.is_finite()
+                or expected_total < 0
+                or expected_total != architecture_total
+            ):
                 raise architecture_error(
                     "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                     "The resolved architecture cost does not match the run.",
@@ -657,10 +671,23 @@ class ResolvedArchitectureService:
                 (item["slot_id"], item["slot_version"], item["artifact_id"])
             ]
             artifact = binding.artifact
+            expected_binding_digest = extension_contract.binding_digest(
+                twin_id=binding.twin_id,
+                slot_id=binding.slot_id,
+                slot_version=binding.slot_version,
+                artifact_id=binding.artifact_id,
+                artifact_digest=(
+                    artifact.artifact_digest if artifact is not None else ""
+                ),
+            )
             if (
                 artifact is None
                 or artifact.artifact_state != "valid"
                 or artifact.artifact_digest != item["artifact_digest"]
+                or not hmac.compare_digest(
+                    binding.binding_digest,
+                    expected_binding_digest,
+                )
             ):
                 raise architecture_error(
                     "ARCH_RESOLUTION_REFERENCE_MISMATCH",

@@ -82,7 +82,15 @@ async def create_optimizer_run(
             status_code=503,
             detail=_error_detail("OPTIMIZER_UNAVAILABLE", "Optimizer service is unavailable."),
         )
-    except ExternalServiceError:
+    except ExternalServiceError as exc:
+        if exc.error_code is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=_error_detail(
+                    exc.error_code,
+                    "Optimizer rejected architecture profile resolution.",
+                ),
+            )
         raise HTTPException(
             status_code=502,
             detail=_error_detail("OPTIMIZER_ERROR", "Optimizer service returned an error."),

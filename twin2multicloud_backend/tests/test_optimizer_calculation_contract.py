@@ -164,6 +164,59 @@ def test_optimizer_params_accept_false_or_omitted_error_handling(
     assert omitted.integrateErrorHandling is False
 
 
+@pytest.mark.parametrize(
+    ("method", "path", "body_factory"),
+    [
+        ("put", "/optimizer/calculate", lambda params: params),
+        (
+            "put",
+            "/twins/unused/optimizer-config/params",
+            lambda params: {"params": params},
+        ),
+        (
+            "post",
+            "/twins/unused/optimizer-runs",
+            lambda params: {"params": params},
+        ),
+        (
+            "put",
+            "/twins/unused/config",
+            lambda params: {"optimizer_params": params},
+        ),
+    ],
+)
+def test_architecture_request_enrichment_cannot_be_client_authored(
+    authenticated_client,
+    sample_calc_params,
+    method,
+    path,
+    body_factory,
+):
+    client, headers = authenticated_client
+    params = deepcopy(sample_calc_params)
+    params["architectureProfile"] = {
+        "profileId": "five-layer-baseline",
+        "profileVersion": "1",
+        "contentDigest": "sha256:" + ("0" * 64),
+    }
+    params["extensionBindings"] = []
+
+    response = getattr(client, method)(
+        path,
+        json=body_factory(params),
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    rejected_fields = {
+        error["loc"][-1] for error in response.json()["detail"]
+    }
+    assert rejected_fields == {
+        "architectureProfile",
+        "extensionBindings",
+    }
+
+
 def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
     authenticated_client,
 ):
@@ -198,6 +251,8 @@ def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
         == 0
     )
     assert component["properties"]["integrateErrorHandling"]["const"] is False
+    assert "architectureProfile" not in component["properties"]
+    assert "extensionBindings" not in component["properties"]
 
 
 def test_openapi_exposes_only_server_owned_optimizer_result_writes(

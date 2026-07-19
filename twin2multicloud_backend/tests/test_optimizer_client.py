@@ -106,6 +106,34 @@ async def test_calculate_puts_exact_endpoint_and_payload():
 
 
 @pytest.mark.asyncio
+async def test_calculate_maps_known_architecture_error_to_bounded_code():
+    client = OptimizerClient(
+        base_url="http://optimizer.test",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                409,
+                json={
+                    "detail": {
+                        "error_code": "ARCH_NO_ADMISSIBLE_CANDIDATE",
+                        "message": "unsafe upstream detail",
+                    }
+                },
+            )
+        ),
+    )
+
+    with pytest.raises(ExternalServiceError) as exc_info:
+        await client.calculate({"numberOfDevices": 10})
+
+    assert exc_info.value.upstream_status_code == 409
+    assert exc_info.value.error_code == "ARCH_NO_ADMISSIBLE_CANDIDATE"
+    assert exc_info.value.public_detail == (
+        "Optimizer rejected architecture profile resolution."
+    )
+    assert "unsafe upstream detail" not in exc_info.value.message
+
+
+@pytest.mark.asyncio
 async def test_get_provider_capabilities_uses_read_only_contract_endpoint():
     seen = {}
 

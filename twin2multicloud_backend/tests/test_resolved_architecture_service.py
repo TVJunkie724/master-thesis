@@ -30,6 +30,9 @@ from src.services.resolved_architecture_service import (
     ARCHITECTURE_METRICS,
     ResolvedArchitectureService,
 )
+from src.services.user_function_extension_service import (
+    runtime as extension_contract,
+)
 from src.services.cost_calculation_run_service import CostCalculationRunService
 from tests.pricing_catalog_test_data import catalog_context
 from tests.architecture_test_data import (
@@ -85,7 +88,13 @@ def _state(db_session, provider: str | None = None):
         slot_id="processor.telemetry",
         slot_version="1",
         artifact_id=artifact.id,
-        binding_digest="sha256:" + ("4" * 64),
+        binding_digest=extension_contract.binding_digest(
+            twin_id=twin.id,
+            slot_id="processor.telemetry",
+            slot_version="1",
+            artifact_id=artifact.id,
+            artifact_digest=artifact.artifact_digest,
+        ),
         active=True,
         revision=1,
     )
@@ -429,6 +438,16 @@ def test_incomplete_capabilities_and_stale_extension_binding_are_rejected(
             linked_documents=linked_architecture_fixture_documents(),
         )
     assert binding_error.value.code == "ARCH_RESOLUTION_REFERENCE_MISMATCH"
+
+    binding.active = True
+    binding.binding_digest = "sha256:" + ("0" * 64)
+    with pytest.raises(ArchitectureDomainError) as digest_error:
+        ResolvedArchitectureService(db_session).persist(
+            run=run,
+            raw_architecture=architecture,
+            linked_documents=linked_architecture_fixture_documents(),
+        )
+    assert digest_error.value.code == "ARCH_RESOLUTION_REFERENCE_MISMATCH"
 
 
 def test_fixture_gated_successful_run_ingestion_is_atomic(db_session):

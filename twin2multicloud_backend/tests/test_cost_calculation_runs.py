@@ -5,11 +5,25 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from src.api.routes.optimizer_runs import get_optimizer_client
-from src.models.cost_calculation import CostCalculationRun
+from src.models.architecture_profile import ResolvedTwinArchitectureRecord
+from src.models.cost_calculation import (
+    CostCalculationResultItem,
+    CostCalculationRun,
+)
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
+from src.models.user_function_extension import (
+    TwinExtensionBinding,
+    UserFunctionArtifact,
+)
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.services.architecture_contract_service import (
+    calculate_digest as calculate_architecture_digest,
+    calculate_resolution_id,
+)
+from src.services.architecture_errors import ArchitectureDomainError
+from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.aws_twinmaker_pricing_context_service import (
     ResolvedAwsTwinMakerPricingContext,
 )
@@ -18,9 +32,17 @@ from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
     ExternalServiceUnavailable,
+    OptimizerContractError,
 )
 from src.services.resolved_deployment_specification_service import (
     calculate_digest,
+)
+from src.services.user_function_extension_service import (
+    runtime as extension_contract,
+)
+from tests.architecture_test_data import (
+    calculation_result_and_contracts,
+    linked_architecture_fixture_documents,
 )
 from tests.conftest import create_test_twin
 from tests.optimizer_transfer_pricing_test_data import (
@@ -99,6 +121,66 @@ class FakeOptimizerClient:
         return {"reference": reference.to_http_dict(), "isFresh": True}
 
 
+class FakeArchitectureOptimizerClient(FakeOptimizerClient):
+    def __init__(self, *, architecture_mutator=None):
+        super().__init__()
+        self.architecture_mutator = architecture_mutator
+
+    async def calculate(self, params):
+        self.calls.append(params)
+        _fixture_result, specification, architecture = (
+            calculation_result_and_contracts()
+        )
+        result = _optimizer_payload()["result"]
+        result["calculationResult"] = {
+            "L1": "AWS",
+            "L2": "Azure",
+            "L3": {
+                "Hot": "Azure",
+                "Cool": "Azure",
+                "Archive": "Azure",
+            },
+            "L4": "Azure",
+            "L5": "Azure",
+        }
+        result["cheapestPath"] = [
+            "L1_AWS",
+            "L2_Azure",
+            "L3_hot_Azure",
+            "L3_cool_Azure",
+            "L3_archive_Azure",
+            "L4_Azure",
+            "L5_Azure",
+        ]
+        result["totalCost"] = 7.6
+        result["totalCostExact"] = "7.6"
+        result["optimizationProfile"]["profile_version"] = "1"
+        result["optimizationProfile"]["pricing_registry_version"] = (
+            "2026.07.17"
+        )
+        result["pricingCatalogs"] = params["providerPricingCatalogs"]
+        _sync_transfer_pricing(result)
+
+        specification["calculation_run_id"] = params["calculationRunId"]
+        specification["digest"] = calculate_digest(specification)
+        architecture["calculation_run_id"] = params["calculationRunId"]
+        architecture["deployment_specification_ref"][
+            "calculation_run_id"
+        ] = params["calculationRunId"]
+        architecture["deployment_specification_ref"]["digest"] = (
+            specification["digest"]
+        )
+        architecture["resolution_id"] = calculate_resolution_id(architecture)
+        architecture["content_digest"] = calculate_architecture_digest(
+            architecture
+        )
+        if self.architecture_mutator is not None:
+            self.architecture_mutator(architecture)
+        result["resolvedDeploymentSpecification"] = specification
+        result["resolvedTwinArchitecture"] = architecture
+        return {"result": result}
+
+
 class FakeAwsTwinMakerContextService:
     def __init__(self, payload, source_refresh_run_id):
         self.payload = payload
@@ -133,6 +215,66 @@ def _available_aws_context(source_refresh_run_id="aws-refresh-1"):
         },
         "pendingPlan": None,
     }
+
+
+def _architecture_twin_state(db_session):
+    user = User(
+        email="architecture-run@example.test",
+        name="Architecture Run",
+    )
+    db_session.add(user)
+    db_session.flush()
+    twin = DigitalTwin(
+        name="Architecture Run Twin",
+        user_id=user.id,
+        state=TwinState.DRAFT,
+    )
+    db_session.add(twin)
+    db_session.flush()
+    db_session.add(
+        ArchitectureProfileService.build_default_selection(
+            twin_id=twin.id,
+            user_id=user.id,
+        )
+    )
+    artifact = UserFunctionArtifact(
+        id="artifact.user.processor.example",
+        user_id=user.id,
+        schema_version="user-function-artifact.v1",
+        artifact_state="valid",
+        artifact_digest=(
+            "sha256:"
+            "cd6107c2e04d7004ff8ade6c6c82f2e0272264dc556e05b46a00"
+            "fd47269e8fef"
+        ),
+        slot_id="processor.telemetry",
+        slot_version="1",
+        runtime_id="python311",
+        configuration_json="{}",
+        declared_capabilities_json="[]",
+        validator_version="user-function-validator.v1",
+        created_by=user.id,
+    )
+    binding = TwinExtensionBinding(
+        id="architecture-run-binding",
+        user_id=user.id,
+        twin_id=twin.id,
+        slot_id="processor.telemetry",
+        slot_version="1",
+        artifact_id=artifact.id,
+        binding_digest=extension_contract.binding_digest(
+            twin_id=twin.id,
+            slot_id="processor.telemetry",
+            slot_version="1",
+            artifact_id=artifact.id,
+            artifact_digest=artifact.artifact_digest,
+        ),
+        active=True,
+        revision=1,
+    )
+    db_session.add_all([artifact, binding])
+    db_session.commit()
+    return user, twin, artifact
 
 
 def _optimizer_payload_with_compatible_aws_context(context):
@@ -432,6 +574,244 @@ def test_create_run_persists_history_items_and_compatibility_state(
             }
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_architecture_gate_enriches_and_atomically_persists_resolution(
+    db_session,
+    sample_calc_params,
+):
+    user, twin, artifact = _architecture_twin_state(db_session)
+    optimizer = FakeArchitectureOptimizerClient()
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        aws_twinmaker_contexts=FakeAwsTwinMakerContextService(
+            _available_aws_context(),
+            "aws-refresh-1",
+        ),
+        architecture_resolution_enabled=True,
+        linked_architecture_documents=(
+            linked_architecture_fixture_documents()
+        ),
+    )
+
+    run = await service.create_run(
+        twin.id,
+        user.id,
+        OptimizerCalculationParams.model_validate(sample_calc_params),
+    )
+
+    assert run.status == "succeeded"
+    assert run.deployment_compatibility_status == "ready"
+    assert run.architecture_compatibility_status == "ready"
+    assert run.resolved_architecture is not None
+    assert run.total_monthly_cost == 7.6
+    assert db_session.query(ResolvedTwinArchitectureRecord).count() == 1
+    optimizer_call = optimizer.calls[0]
+    assert optimizer_call["architectureProfile"] == {
+        "profileId": "five-layer-baseline",
+        "profileVersion": "1",
+        "contentDigest": (
+            ArchitectureProfileService.default_reference().digest
+        ),
+    }
+    assert optimizer_call["extensionBindings"] == [
+        {
+            "slotId": "processor.telemetry",
+            "slotVersion": "1",
+            "artifactId": artifact.id,
+            "artifactDigest": artifact.artifact_digest,
+            "configurationDigest": (
+                "sha256:"
+                "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310"
+                "c060f61caaff8a"
+            ),
+        }
+    ]
+    config = db_session.get(
+        OptimizerConfiguration,
+        run.optimizer_config_id,
+    )
+    assignments = {
+        item.logical_component_id: item.provider
+        for item in run.resolved_architecture.components
+    }
+    assert config.cheapest_l1.lower() == assignments["component.ingestion"]
+    assert config.cheapest_l2.lower() == assignments["component.processing"]
+    assert config.cheapest_l5.lower() == assignments[
+        "component.visualization"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_architecture_gate_rejects_incomplete_trusted_enrichment(
+    db_session,
+    sample_calc_params,
+):
+    user, twin, _artifact = _architecture_twin_state(db_session)
+    binding = db_session.query(TwinExtensionBinding).one()
+    binding.active = False
+    db_session.commit()
+    optimizer = FakeArchitectureOptimizerClient()
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        architecture_resolution_enabled=True,
+    )
+
+    with pytest.raises(ArchitectureDomainError) as raised:
+        await service.create_run(
+            twin.id,
+            user.id,
+            OptimizerCalculationParams.model_validate(sample_calc_params),
+        )
+
+    assert raised.value.code == "ARCH_EXTENSION_BINDING_INVALID"
+    assert optimizer.calls == []
+    assert db_session.query(CostCalculationRun).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_architecture_gate_rejects_tampered_binding_digest(
+    db_session,
+    sample_calc_params,
+):
+    user, twin, _artifact = _architecture_twin_state(db_session)
+    binding = db_session.query(TwinExtensionBinding).one()
+    binding.binding_digest = "sha256:" + ("0" * 64)
+    db_session.commit()
+    optimizer = FakeArchitectureOptimizerClient()
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        architecture_resolution_enabled=True,
+    )
+
+    with pytest.raises(ArchitectureDomainError) as raised:
+        await service.create_run(
+            twin.id,
+            user.id,
+            OptimizerCalculationParams.model_validate(sample_calc_params),
+        )
+
+    assert raised.value.code == "ARCH_EXTENSION_BINDING_INVALID"
+    assert optimizer.calls == []
+
+
+@pytest.mark.asyncio
+async def test_architecture_gate_invalid_response_persists_failed_run_only(
+    db_session,
+    sample_calc_params,
+):
+    user, twin, _artifact = _architecture_twin_state(db_session)
+
+    def tamper_digest(architecture):
+        architecture["content_digest"] = "sha256:" + ("0" * 64)
+
+    optimizer = FakeArchitectureOptimizerClient(
+        architecture_mutator=tamper_digest,
+    )
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        aws_twinmaker_contexts=FakeAwsTwinMakerContextService(
+            _available_aws_context(),
+            "aws-refresh-1",
+        ),
+        architecture_resolution_enabled=True,
+        linked_architecture_documents=(
+            linked_architecture_fixture_documents()
+        ),
+    )
+
+    with pytest.raises(OptimizerContractError):
+        await service.create_run(
+            twin.id,
+            user.id,
+            OptimizerCalculationParams.model_validate(sample_calc_params),
+        )
+
+    failed = db_session.query(CostCalculationRun).one()
+    assert failed.status == "failed"
+    assert failed.error_code == "ARCH_RESOLUTION_DIGEST_MISMATCH"
+    assert failed.result_summary_json is None
+    assert failed.deployment_specification_json is None
+    assert failed.resolved_architecture is None
+    assert db_session.query(ResolvedTwinArchitectureRecord).count() == 0
+    assert db_session.query(CostCalculationResultItem).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_architecture_gate_persists_bounded_upstream_rejection(
+    db_session,
+    sample_calc_params,
+):
+    user, twin, _artifact = _architecture_twin_state(db_session)
+    optimizer = FakeOptimizerClient(
+        exc=ExternalServiceError(
+            "private upstream architecture detail",
+            upstream_status_code=409,
+            public_detail=(
+                "Optimizer rejected architecture profile resolution."
+            ),
+            error_code="ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+        )
+    )
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        aws_twinmaker_contexts=FakeAwsTwinMakerContextService(
+            _available_aws_context(),
+            "aws-refresh-1",
+        ),
+        architecture_resolution_enabled=True,
+    )
+
+    with pytest.raises(ExternalServiceError):
+        await service.create_run(
+            twin.id,
+            user.id,
+            OptimizerCalculationParams.model_validate(sample_calc_params),
+        )
+
+    failed = db_session.query(CostCalculationRun).one()
+    assert failed.status == "failed"
+    assert failed.error_code == "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
+    assert "private upstream" not in failed.error_message
+
+
+@pytest.mark.asyncio
+async def test_architecture_gate_maps_unexpected_upstream_failure(
+    db_session,
+    sample_calc_params,
+):
+    user, twin, _artifact = _architecture_twin_state(db_session)
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=FakeOptimizerClient(
+            exc=RuntimeError("private unexpected failure")
+        ),
+        aws_twinmaker_contexts=FakeAwsTwinMakerContextService(
+            _available_aws_context(),
+            "aws-refresh-1",
+        ),
+        architecture_resolution_enabled=True,
+    )
+
+    with pytest.raises(ExternalServiceError) as raised:
+        await service.create_run(
+            twin.id,
+            user.id,
+            OptimizerCalculationParams.model_validate(sample_calc_params),
+        )
+
+    assert raised.value.public_detail == "Optimizer service returned an error."
+    assert "private unexpected" not in raised.value.public_detail
+    failed = db_session.query(CostCalculationRun).one()
+    assert failed.status == "failed"
+    assert failed.error_code == "OPTIMIZER_ERROR"
+    assert "private unexpected" not in failed.error_message
 
 
 def test_create_run_rejects_unsupported_error_handling_without_side_effects(
@@ -1283,6 +1663,41 @@ def test_optimizer_error_response_does_not_echo_raw_downstream_body(
     payload = response.json()
     assert payload["detail"]["error_code"] == "OPTIMIZER_ERROR"
     assert "SHOULD_NOT_LEAK" not in str(payload)
+    assert db_session.query(CostCalculationRun).count() == 0
+
+
+def test_optimizer_architecture_rejection_maps_known_code_only(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    _override_optimizer(
+        client,
+        FakeOptimizerClient(
+            exc=ExternalServiceError(
+                "private upstream architecture detail",
+                upstream_status_code=409,
+                public_detail=(
+                    "Optimizer rejected architecture profile resolution."
+                ),
+                error_code="ARCH_NO_ADMISSIBLE_CANDIDATE",
+            )
+        ),
+    )
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_code"] == (
+        "ARCH_NO_ADMISSIBLE_CANDIDATE"
+    )
+    assert "private upstream" not in str(response.json())
     assert db_session.query(CostCalculationRun).count() == 0
 
 
