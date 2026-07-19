@@ -26,7 +26,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Recommended branch | `codex/phase-8-optimizer-resolution` |
 | Base branch | `master` |
 | Blocked by | Phase 8.4 / #142 |
-| Produces | Complete `ResolvedTwinArchitecture v1` for Phase 8.6 |
+| Produces | Complete, dark-integrated `ResolvedTwinArchitecture v1` for Phase 8.6 activation |
 | Live cloud E2E | Forbidden |
 
 The existing `five-layer-baseline@1` cost behavior must remain golden-tested.
@@ -50,7 +50,22 @@ edges, Terraform, or provider services.
 
 | Included | Excluded |
 |---|---|
-| Profile-bounded strategy registry, candidate construction, functional-completeness gate, whole-path ranking, exact cost ownership, immutable resolution builder, compatibility projection, and Management integration | Pricing-source refresh redesign, provider catalog authoring, DB migration, deployment graph/Terraform execution, Flutter workflow, Eventing profile implementation, and live provider execution |
+| Profile-bounded strategy registry, candidate construction, functional-completeness gate, whole-path ranking, exact cost ownership, immutable resolution builder, compatibility projection, and default-off Management integration | Pricing-source refresh redesign, provider catalog authoring or support-state promotion, DB migration, deployment graph/Terraform execution, runtime activation, Flutter workflow, Eventing profile implementation, and live provider execution |
+
+### Activation Boundary
+
+Phase 8.3 intentionally publishes AWS and Azure provider profiles as
+`supported: false` until the Phase 8.6 typed L4-to-L5 graph compiler exists.
+The shared semantic validator therefore must not admit a repository-backed
+publishable resolution during Phase 8.5.
+
+Phase 8.5 implements and fully tests resolution with the canonical supported
+contract fixtures, integrates the Management request/response path behind a
+default-off activation gate, and keeps the existing audited legacy path
+unchanged while that gate is off. Phase 8.6 proves the deployment compiler,
+promotes the reviewed AWS/Azure provider profiles to supported, enables the
+gate, and removes legacy run selection. No service may bypass or reinterpret
+the provider-profile `supported` field to activate earlier.
 
 ## 2. Internal Request Contract
 
@@ -306,7 +321,9 @@ The Management service must:
 - atomically persist result, deployment specification, and architecture through
   the Phase 8.4 service;
 - map Optimizer error codes to bounded stable Management errors;
-- never fall back to a legacy result if resolution validation fails.
+- never fall back to a legacy result if resolution validation fails;
+- keep architecture request enrichment and admission default-off until the
+  repository provider profiles are supported by Phase 8.6.
 
 ## 11. Implementation Slices
 
@@ -330,10 +347,11 @@ produce bounded diagnostics.
 Must emit deterministic `ResolvedTwinArchitecture v1` and verify exact
 cross-contract invariants with deployment specification v1.
 
-### Slice E: Management Integration
+### Slice E: Dark Management Integration
 
-Must activate the preallocated run request, trusted response validation, atomic
-persistence, and fail-closed error mapping.
+Must implement the preallocated run request, trusted response validation,
+atomic persistence, fail-closed error mapping, and the default-off activation
+gate. Tests enable the gate only with canonical supported fixtures.
 
 ### Slice F: Compatibility And Golden Gate
 
@@ -433,18 +451,20 @@ Do not claim Eventing support. Do not edit LaTeX.
 
 ## 15. Rollout And Rollback
 
-Roll out only `five-layer-baseline@1`.
+Stage only `five-layer-baseline@1`.
 
 1. deploy synchronized profile/catalog contracts;
-2. enable Optimizer profile request validation;
-3. enable Management request enrichment and response validation;
-4. persist new native v1 resolutions;
-5. retain legacy response projections;
-6. monitor resolution failure and candidate rejection codes.
+2. ship Optimizer profile request validation and resolution dark;
+3. ship Management enrichment, response validation, and persistence dark;
+4. retain legacy response projections and selection while the gate is off;
+5. let Phase 8.6 promote supported profiles and enable both sides atomically;
+6. monitor resolution failure and candidate rejection codes in fixture and
+   offline integration gates.
 
-Rollback disables new profile resolution and run creation, but preserves
-already persisted immutable resolutions. It must not silently create legacy
-runs without architecture evidence.
+Rollback leaves the activation gate off. After Phase 8.6 activation, rollback
+disables new architecture-aware run creation but preserves already persisted
+immutable resolutions. An enabled path must not silently create legacy runs
+without architecture evidence.
 
 ## 16. Definition Of Done
 
@@ -457,11 +477,14 @@ runs without architecture evidence.
       pricing, formula, evidence, deployment, and extension coverage.
 - [ ] Ranking uses exact decimals and deterministic tie-breaking.
 - [ ] One deterministic, valid resolved architecture and matching deployment
-      specification are emitted per successful run.
+      specification are emitted per architecture-aware successful fixture run.
 - [ ] Legacy baseline costs, winners, traces, and deployment selections match
       golden fixtures.
 - [ ] Unsupported and incomplete candidates remain visible and cannot win.
-- [ ] Management validates and persists run/spec/architecture atomically.
+- [ ] Management validates and persists run/spec/architecture atomically when
+      the test activation gate is enabled with supported fixtures.
+- [ ] Runtime activation remains default-off while repository provider
+      profiles are unsupported; no validator bypass is introduced.
 - [ ] Invalid Optimizer responses fail closed with no fallback resolution.
 - [ ] Unit, property, exhaustive candidate, golden regression, Management
       integration, full safe suites, and deployment drift gates pass.

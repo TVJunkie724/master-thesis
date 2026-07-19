@@ -1575,7 +1575,7 @@
     "twin2multicloud_flutter/lib/widgets/architecture_graph.dart",
     "twin2multicloud_flutter/lib/widgets/file_inputs/config_visualization_block.dart"
   ],
-  "audited_source_tree_digest": "sha256:734ca2a0962979d1594f924276adf8b3b6b7d2aa66c40281fbfa2ab2cd86fcc2",
+  "audited_source_tree_digest": "sha256:fda8a979a07af032e660304be3af092d05d98b63c8bcd0e37d1a99575ae234d7",
   "components": [
     {
       "component_id": "component.function.archive-writer",
@@ -6122,7 +6122,7 @@
       ]
     }
   ],
-  "content_digest": "sha256:193c297df3cfe9c15cd03544fede3270aa8f448a2ef385b68dc40b47638b1a10",
+  "content_digest": "sha256:cca05fd1fe5e838f1a1568ec64adc89888e4545331919cecb476fec6cbcd607a",
   "cost_owners": [
     {
       "cost_kind": "transfer",
@@ -9743,12 +9743,13 @@
         "twin2multicloud_backend/src/services/optimizer_config_projection.py#cheapest_l1",
         "twin2multicloud_backend/src/services/optimizer_configuration_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/project_zip_extraction_service.py#cheapest_l2",
+        "twin2multicloud_backend/src/services/resolved_architecture_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/simulator_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/test_deployment_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/verification_service.py#cheapest_l1"
       ],
       "failure_mode": "Selected-run persistence and deployment projection diverge.",
-      "phase_8_owner": "Phase 8.4",
+      "phase_8_owner": "Phase 8.4 through 8.7 compatibility migration",
       "source_references": [
         "twin2multicloud_backend/src/api/routes/twin_operations.py#cheapest_l1",
         "twin2multicloud_backend/src/models/optimizer_config.py#cheapest_l1",
@@ -9760,6 +9761,7 @@
         "twin2multicloud_backend/src/services/optimizer_config_projection.py#cheapest_l1",
         "twin2multicloud_backend/src/services/optimizer_configuration_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/project_zip_extraction_service.py#cheapest_l2",
+        "twin2multicloud_backend/src/services/resolved_architecture_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/simulator_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/test_deployment_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/verification_service.py#cheapest_l1"
@@ -9896,7 +9898,7 @@
       ]
     }
   ],
-  "generated_at": "2026-07-19T19:53:13Z",
+  "generated_at": "2026-07-19T21:50:12Z",
   "inventory_id": "current-five-layer-implementation",
   "paper_model_references": [
     "docs/research/digital_twin_architecture_and_eventing_layer.md",
@@ -10093,7 +10095,7 @@
     }
   ],
   "schema_version": "architecture-inventory.v1",
-  "source_commit": "a865811d45cc5a620391c912191e5e6606a8f79d",
+  "source_commit": "7f32071241638c7c101a2c7523b44ce8f014ad9b",
   "terraform_objects": [
     {
       "binding_role": "dependency",

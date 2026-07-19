@@ -29,6 +29,11 @@ class CostCalculationRun(Base):
             "('ready', 'legacy_not_deployable')",
             name="ck_cost_runs_deployment_compatibility_status",
         ),
+        CheckConstraint(
+            "architecture_compatibility_status IN "
+            "('ready', 'legacy_not_resolvable')",
+            name="ck_cost_runs_architecture_compatibility_status",
+        ),
         Index(
             "ix_cost_runs_deployment_specification_digest",
             "deployment_specification_digest",
@@ -75,6 +80,14 @@ class CostCalculationRun(Base):
         default="legacy_not_deployable",
         server_default="legacy_not_deployable",
     )
+    architecture_compatibility_status = Column(
+        String(32),
+        nullable=False,
+        default="legacy_not_resolvable",
+        server_default="legacy_not_resolvable",
+    )
+    resolved_architecture_version = Column(String(64), nullable=True)
+    resolved_architecture_digest = Column(String(71), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     selected_for_deployment_at = Column(DateTime(timezone=True), nullable=True)
@@ -88,6 +101,12 @@ class CostCalculationRun(Base):
         back_populates="run",
         cascade="all, delete-orphan",
         order_by="CostCalculationResultItem.created_at.asc()",
+    )
+    resolved_architecture = relationship(
+        "ResolvedTwinArchitectureRecord",
+        back_populates="calculation_run",
+        cascade="all, delete-orphan",
+        uselist=False,
     )
 
 
@@ -128,6 +147,12 @@ _IMMUTABLE_DEPLOYMENT_SPECIFICATION_FIELDS = (
     "deployment_compatibility_status",
 )
 
+_IMMUTABLE_RESOLVED_ARCHITECTURE_FIELDS = (
+    "architecture_compatibility_status",
+    "resolved_architecture_version",
+    "resolved_architecture_digest",
+)
+
 
 @event.listens_for(CostCalculationRun, "before_update")
 def _prevent_deployment_specification_mutation(_mapper, _connection, target) -> None:
@@ -142,4 +167,20 @@ def _prevent_deployment_specification_mutation(_mapper, _connection, target) -> 
     if changed:
         raise ValueError(
             "Resolved deployment specification fields are immutable after creation"
+        )
+
+
+@event.listens_for(CostCalculationRun, "before_update")
+def _prevent_resolved_architecture_mutation(_mapper, _connection, target) -> None:
+    """Keep architecture evidence immutable after the run row is inserted."""
+
+    state = inspect(target)
+    changed = [
+        field
+        for field in _IMMUTABLE_RESOLVED_ARCHITECTURE_FIELDS
+        if state.attrs[field].history.has_changes()
+    ]
+    if changed:
+        raise ValueError(
+            "Resolved architecture fields are immutable after creation"
         )

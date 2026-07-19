@@ -73,3 +73,9 @@ class DigitalTwin(Base):
         back_populates="twin",
         order_by="TwinExtensionBinding.created_at.asc()",
     )
+    architecture_selection = relationship(
+        "TwinArchitectureSelection",
+        back_populates="twin",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )

@@ -9,9 +9,12 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from src.config import settings
+from src.models.architecture_profile import ArchitectureAuditEvent
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
+from src.security.request_context import current_request_id
 from src.services.errors import InvalidTwinStateTransition, OperationAlreadyInProgress
+from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
 
 ConfiguredTransitionValidator = Callable[[DigitalTwin, Session], Awaitable[None]]
@@ -56,6 +59,7 @@ class TwinLifecycleService:
         existing = self.twin_repository.find_active_by_name(user_id, name)
         if existing:
             raise ConflictError(f"A twin with the name '{name}' already exists")
+        default_profile = ArchitectureProfileService.default_reference()
 
         twin = DigitalTwin(
             name=name,
@@ -63,7 +67,30 @@ class TwinLifecycleService:
             state=TwinState.DRAFT,
         )
         self.twin_repository.add(twin)
-        self.db.commit()
+        try:
+            self.db.flush()
+            selection = ArchitectureProfileService.build_default_selection(
+                twin_id=twin.id,
+                user_id=user_id,
+                reference=default_profile,
+            )
+            self.db.add(selection)
+            self.db.add(
+                ArchitectureAuditEvent(
+                    user_id=user_id,
+                    action="profile.select",
+                    outcome="defaulted",
+                    profile_id=default_profile.id,
+                    profile_version=default_profile.version,
+                    profile_digest=default_profile.digest,
+                    twin_id=twin.id,
+                    correlation_id=current_request_id(),
+                )
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
         self.twin_repository.refresh(twin)
         return twin
 

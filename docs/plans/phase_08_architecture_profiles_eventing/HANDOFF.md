@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-19"
-version: "2.5"
+version: "2.6"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.5"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-19 | VERSION: 2.5
+EXTRACTED: 2026-07-19 | VERSION: 2.6
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,12 +28,12 @@ EXTRACTED: 2026-07-19 | VERSION: 2.5
 | Integration branch | `master` |
 | Planning base | `5e675e77` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Completed implementation | Phase 8.0 / #144 through Phase 8.3 / #150, plus local prerequisite #113 |
+| Completed implementation | Phase 8.0 / #144 through Phase 8.4 / #142, plus local prerequisite #113 |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.3 provider profiles and component catalog are locally complete and reviewed |
-| Next implementation phase | Phase 8.4 / [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) |
+| Implementation status | Phase 8.4 Management persistence, migration, and APIs are locally complete and reviewed |
+| Next implementation phase | Phase 8.5 / [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -42,10 +42,9 @@ Phase 8.0 reconstructed the current deployment graph and closed #144. Phase
 implementation records and all 90 current edges. The baseline contains no
 general Eventing responsibility. The current direct L3-hot-to-Grafana shortcut
 is removed from the target and replaced by a typed L4-to-L5 contract owned by
-Phase 8.6. Phase 8.2 now provides all four Draft 2020-12 contracts, the semantic
+Phase 8.6. Phase 8.2 provides all four Draft 2020-12 contracts, the semantic
 registry, deterministic fixtures and digests, byte-identical service copies,
-and read-only validators with stable cross-service error codes. The readers
-remain dark and change no runtime selection or deployment behavior.
+and validators with stable cross-service error codes.
 
 Prerequisite #113 now supplies the canonical Python 3.11 slot/artifact/envelope
 contracts, immutable owner-scoped artifacts and bindings, deterministic
@@ -67,22 +66,36 @@ activating profile selection. AWS and Azure remain blocked on the Phase 8.6
 L4-to-L5 compiler; GCP remains unsupported for a complete baseline because
 L4/L5 are absent.
 
+Phase 8.4 adds transactional migration 022, one pinned baseline profile per
+Twin, optimistic profile selection with server-derived invalidation previews,
+immutable canonical resolutions and query projections, owner-scoped read APIs,
+append-only audit evidence, and a fixture-gated atomic Optimizer admission
+boundary. Historical runs are reconstructed only from complete matching
+evidence; all others are `legacy_not_resolvable` and deselected. The old seven
+fields are now a tracked baseline compatibility projection, not a generic
+architecture model.
+
 ## Immediate Next Action
 
-The next implementation step is Phase 8.4:
+The next implementation step is Phase 8.5:
 
-1. create the Phase 8.4 branch from the reviewed Phase 8.3 commit;
+1. create the Phase 8.5 branch from the reviewed Phase 8.4 commit;
 2. read
-   [`phase_08_4_management_persistence_migration.md`](phase_08_4_management_persistence_migration.md)
+   [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md)
    in full;
-3. verify the Phase 8.3 definition and catalog digests;
-4. add normalized immutable architecture persistence and migration without
-   activating Optimizer selection or Deployer graph execution;
-5. preserve historical fixed layer assignments and owner-scoped access;
-6. run the named migration, API, contract, security, and compatibility gates;
-7. run two zero-finding reviews;
-8. update current docs, evidence, roadmap, and issue #142;
-9. commit the complete Phase 8.4 boundary before starting Phase 8.5.
+3. verify the Phase 8.4 Management models, migration, API DTOs, and admission
+   invariants;
+4. implement profile-bounded functional-completeness resolution in the
+   Optimizer without activating Deployer graph execution;
+5. emit the exact immutable architecture contract and preserve the frozen
+   five-layer golden behavior;
+6. integrate Management admission behind a default-off gate; do not bypass
+   the still-unsupported repository provider profiles;
+7. run the named Optimizer, Management, contract, security, and compatibility
+   gates;
+8. run two zero-finding reviews;
+9. update current docs, evidence, roadmap, and issue #151;
+10. commit the complete Phase 8.5 boundary before starting Phase 8.6.
 
 ## Required Reading Order
 
@@ -509,10 +522,10 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Phase 8.0 bis 8.3 und das User-Function-Prerequisite #113 sind implementiert
+> Phase 8.0 bis 8.4 und das User-Function-Prerequisite #113 sind implementiert
 > und reviewt: aktueller Graph, gehaertetes `five-layer-baseline@1`, vier
-> drift-gegatete Architekturvertraege sowie exakte Provider-, Komponenten-,
-> Edge-, Paket- und Terraform-Registries. Der Processor-Slot ist katalogisiert,
-> aber die Runtime bleibt absichtlich dunkel. Ich starte Phase 8.4 mit der
-> normalisierten Management-Persistenz. Live-Cloud-E2E und LaTeX bleiben
-> unangetastet.
+> drift-gegatete Architekturvertraege, exakte Provider-/Komponentenregistries
+> sowie normalisierte Management-Persistenz und APIs. Ich starte Phase 8.5 mit
+> der funktional vollstaendigen, zunaechst dunkel integrierten
+> Optimizer-Aufloesung. Aktivierung folgt erst gemeinsam mit Phase 8.6;
+> Deployer-Ausfuehrung, Live-Cloud-E2E und LaTeX bleiben unangetastet.

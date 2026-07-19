@@ -236,7 +236,7 @@
       "service_id": "azure.visualization"
     }
   ],
-  "content_digest": "sha256:d0b18dd31a420d6b791e81cd10bbe39f3134e9934032d61f8f2ebddf1b795451",
+  "content_digest": "sha256:af28a6e106a49964a344ae1bfd5ae2b5835d796200b78146c38fc1dfee764660",
   "cost_summary": {
     "component_totals": [
       {
@@ -321,14 +321,14 @@
   },
   "deployment_specification_ref": {
     "calculation_run_id": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
-    "digest": "sha256:4a14692a592b549a6f25d8fceaffc9ab06b774ea430aa4b6682c8c00d9790aca",
+    "digest": "sha256:564cc36f02af12b7e2833ab0c679ecf295e820f700021000c906eb5eb8609bc4",
     "schema_version": "resolved-deployment-specification.v1"
   },
   "extension_bindings": [
     {
       "artifact_digest": "sha256:cd6107c2e04d7004ff8ade6c6c82f2e0272264dc556e05b46a00fd47269e8fef",
       "artifact_id": "artifact.user.processor.example",
-      "configuration_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "configuration_digest": "sha256:98e82d959490e2177f447fa4d41ca273efcab2f2866b281f820a88b394584517",
       "logical_component_id": "component.processing",
       "slot_id": "processor.telemetry",
       "slot_version": "1",

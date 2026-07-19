@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Phase 8 | Twin Architecture Profiles & Eventing | Active | Current graph, five-layer target, shared profile contracts, and user-function prerequisite complete; provider/component catalog is next |
+| Phase 8 | Twin Architecture Profiles & Eventing | Active | Current graph through Management profile selection and immutable persistence complete; Optimizer resolution is next |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -196,7 +196,7 @@ when work becomes actionable, then reference the issue here.
 | [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Implemented, review complete | Target decision covers all 114 current implementations and all 90 current edges, preserves five scientific responsibilities and seven costed slots, excludes a general Eventing layer, and replaces the unsafe L3-to-Grafana shortcut with a typed L4-to-L5 target. Evidence: [Five-Layer Baseline Target](five-layer-baseline.md) |
 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Implemented, review complete | Four Draft 2020-12 contracts, semantic registry, canonical fixtures/digests, byte-identical service copies, stable cross-service errors, and dark readers. Evidence: [Architecture Profile Contracts](../contracts-and-data-flow/architecture-profiles.md) |
 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Implemented locally, review complete | Dark/read-only AWS/Azure/GCP profiles; 22 reviewed deployment bundles covering all 42 deployment-dimension components, 33 decision-traced edges, 43 deterministic artifacts, 51 parser-verified Terraform resources, explicit unsupported states, and #113 slot binding |
-| [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Planned | Normalized profile selection, immutable resolved architecture, migration, and server-derived invalidation preview |
+| [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Implemented locally, review complete | Migration 022, revisioned profile selection/invalidation, immutable canonical resolution plus component/edge projections, owner-scoped read APIs, audit evidence, and fixed-field transition inventory |
 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Planned | Functional-completeness gate before profile-local cost ranking |
 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Planned | Deterministic component/binding graph before package and Terraform side effects |
 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Planned | Compact Management-API-only profile workflow for Web, macOS, Windows, and Linux |
@@ -227,15 +227,16 @@ when work becomes actionable, then reference the issue here.
 ## Next Recommended Sequence
 
 1. Continue Phase 8 with
-   [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142)
-   from the reviewed #150 provider/component catalog boundary.
+   [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151)
+   from the reviewed #142 Management persistence boundary.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
    backlog work. Any covered source change must make the Phase 8.0 inventory
    drift gate fail and requires a reconciled Phase 8.1 decision digest.
-3. Keep the #113 user-function execution contract and Phase 8.3 slot mappings
-   immutable while Phase 8.4 adds normalized architecture persistence.
+3. Keep the #113 user-function execution contract, Phase 8.3 slot mappings,
+   and Phase 8.4 persistence/admission boundary immutable while Phase 8.5 adds
+   functional-total Optimizer resolution.
 4. Follow the reviewed
    `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
    skipping its baseline, contract, migration, functional-completeness,

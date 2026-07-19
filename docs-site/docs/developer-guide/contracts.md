@@ -148,10 +148,11 @@ contracts/architecture-profiles/v1/
 
 It separates logical `ArchitectureProfile`, provider-specific
 `ProviderImplementationProfile`, deployable `DeploymentComponentCatalog`, and
-immutable `ResolvedTwinArchitecture` records. In Phase 8.2 all three backend
-services expose read-only validators. Phase 8.3 adds exact generated
-AWS/Azure/GCP definitions and immutable registries/summaries; no calculation,
-persistence, deployment, Terraform, or Flutter path selects them yet.
+immutable `ResolvedTwinArchitecture` records. All three backend services expose
+the same validator. Phase 8.3 adds exact generated AWS/Azure/GCP definitions;
+Phase 8.4 adds Management profile selection, migration, immutable persistence,
+and safe read APIs. Optimizer calculation output, deployment, Terraform, and
+Flutter activation remain later phase boundaries.
 
 The shared local-only validator enforces canonical digests, closed versions,
 reference and cycle integrity, capability completeness, size bounds, and

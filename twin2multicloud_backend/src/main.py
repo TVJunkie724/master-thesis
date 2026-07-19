@@ -8,6 +8,7 @@ from src.models.database import engine
 from src.database_startup import initialize_database_schema
 from src.api.routes import (
     auth,
+    architecture_profiles,
     cloud_access,
     cloud_bootstrap,
     cloud_connections,
@@ -44,6 +45,7 @@ from src.security.user_function_rate_limit import (
     UserFunctionSecurityControlUnavailable,
 )
 from src.services.auth_flow_service import AuthFlowError
+from src.services.architecture_errors import ArchitectureDomainError
 
 initialize_database_schema(engine, settings.DATABASE_URL)
 
@@ -74,6 +76,26 @@ app.add_middleware(
     trusted_proxy_cidrs=settings.trusted_proxy_cidrs,
 )
 app.add_middleware(RequestContextMiddleware)
+
+
+@app.exception_handler(ArchitectureDomainError)
+async def architecture_domain_error_handler(
+    _request: Request,
+    exc: ArchitectureDomainError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.http_status,
+        content={
+            "error_code": exc.code,
+            "message": exc.message,
+            "fix_suggestion": (
+                "Reload the architecture state, review the active profile, "
+                "and retry with current references."
+            ),
+            "http_status": exc.http_status,
+            "request_id": current_request_id(),
+        },
+    )
 
 
 @app.exception_handler(CredentialRateLimitExceeded)
@@ -218,6 +240,7 @@ else:
 
 # Routes
 app.include_router(auth.router)
+app.include_router(architecture_profiles.router)
 app.include_router(twins.router)
 app.include_router(twin_operations.router)
 app.include_router(health.router)

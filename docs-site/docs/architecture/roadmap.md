@@ -24,9 +24,11 @@ Phase 8 has started. The source-backed current deployment graph in #144, the
 complete `five-layer-baseline@1` target decision in #139, the four drift-gated
 architecture-profile contracts in #149, the deterministic user-function
 prerequisite #113, and the exact provider/component catalog in #150 are locally
-implemented and reviewed. The Phase 8.3 registries remain dark and do not
-change runtime behavior. Phase 8.4 is next and owns immutable Management
-persistence and migration. Credential, remaining
+implemented and reviewed. Phase 8.4 adds migration 022, revisioned Management
+profile selection/invalidation, immutable resolved-architecture persistence,
+owner-scoped APIs, and audited compatibility projections. Optimizer resolution
+in Phase 8.5 is next and remains dark until joint Phase 8.6 activation;
+Deployer and Flutter activation also remain dark. Credential, remaining
 Optimizer coverage, manual UI audit, and external authentication work remain
 independently tracked in their GitHub milestones rather than inferred from one
 global "current phase" label.

@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.clients.optimizer_client import OptimizerClient
+from src.models.architecture_profile import ArchitectureAuditEvent
 from src.models.cost_calculation import CostCalculationResultItem, CostCalculationRun
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
@@ -50,6 +51,12 @@ from src.services.resolved_deployment_specification_service import (
     validate_resolved_deployment_specification,
 )
 from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
+from src.services.resolved_architecture_service import (
+    READY as ARCHITECTURE_READY,
+    ResolvedArchitectureService,
+)
+from src.services.architecture_errors import ArchitectureDomainError
+from src.security.request_context import current_request_id
 
 
 SUCCESS = "succeeded"
@@ -194,6 +201,124 @@ class CostCalculationRunService:
 
         self.db.refresh(run)
         return run
+
+    def persist_successful_run(
+        self,
+        calculation_result: Mapping[str, Any],
+        resolved_deployment_specification: Mapping[str, Any],
+        resolved_twin_architecture: Mapping[str, Any],
+        *,
+        run: CostCalculationRun,
+        catalog_context: PricingCatalogContext,
+        result_items: list[dict[str, Any]] | None = None,
+        linked_architecture_documents: tuple[Mapping[str, Any], ...] | None = None,
+    ) -> CostCalculationRun:
+        """Fixture-gated Phase 8.4 atomic ingestion boundary.
+
+        Phase 8.5 calls this boundary from the live Optimizer response path.
+        Phase 8.4 deliberately exercises it only with canonical fixtures.
+        """
+
+        result = dict(calculation_result)
+        cheapest_path = self._extract_cheapest_path(result)
+        try:
+            deployment = validate_resolved_deployment_specification(
+                resolved_deployment_specification,
+                expected_run_id=run.id,
+                expected_cheapest_path=cheapest_path,
+                expected_catalog_context=catalog_context,
+                expected_result=result,
+            )
+            result["resolvedDeploymentSpecification"] = (
+                deployment.specification
+            )
+            run.result_summary_json = _json_dumps(result)
+            run.cheapest_path_json = _json_dumps(cheapest_path)
+            run.deployment_specification_json = deployment.canonical_json
+            run.deployment_specification_digest = deployment.digest
+            run.deployment_specification_version = deployment.schema_version
+            run.deployment_compatibility_status = READY
+            run.status = SUCCESS
+            run.completed_at = datetime.now(timezone.utc)
+            self.db.add(run)
+            for item in result_items or []:
+                self.db.add(
+                    CostCalculationResultItem(run_id=run.id, **item)
+                )
+            ResolvedArchitectureService(self.db).persist(
+                run=run,
+                raw_architecture=resolved_twin_architecture,
+                linked_documents=linked_architecture_documents,
+            )
+            self._before_commit()
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            error_code = getattr(
+                exc,
+                "code",
+                (
+                    "DEPLOYMENT_SPECIFICATION_INVALID"
+                    if isinstance(exc, ResolvedDeploymentSpecificationError)
+                    else "ARCH_RESOLUTION_INVALID"
+                ),
+            )
+            self._persist_failed_fixture_run(run, str(error_code))
+            if isinstance(exc, (
+                ArchitectureDomainError,
+                ResolvedDeploymentSpecificationError,
+            )):
+                raise
+            raise
+        self.db.refresh(run)
+        return run
+
+    def _persist_failed_fixture_run(
+        self,
+        source: CostCalculationRun,
+        error_code: str,
+    ) -> None:
+        """Persist only bounded failed-run metadata after atomic rollback."""
+
+        failed = CostCalculationRun(
+            id=source.id,
+            twin_id=source.twin_id,
+            user_id=source.user_id,
+            optimizer_config_id=source.optimizer_config_id,
+            status=FAILED,
+            params_json=source.params_json or "{}",
+            result_summary_json=None,
+            cheapest_path_json=None,
+            total_monthly_cost=None,
+            currency=source.currency or "USD",
+            optimization_profile_id=source.optimization_profile_id,
+            optimization_profile_version=source.optimization_profile_version,
+            scoring_strategy_id=source.scoring_strategy_id,
+            calculation_model_version=source.calculation_model_version,
+            pricing_registry_version=source.pricing_registry_version,
+            pricing_evidence_version=source.pricing_evidence_version,
+            pricing_run_reference=source.pricing_run_reference,
+            pricing_catalog_context_json=source.pricing_catalog_context_json,
+            deployment_compatibility_status=LEGACY_NOT_DEPLOYABLE,
+            architecture_compatibility_status="legacy_not_resolvable",
+            created_at=source.created_at or datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            error_code=error_code,
+            error_message="Optimizer contract validation failed.",
+        )
+        self.db.add(failed)
+        self.db.add(
+            ArchitectureAuditEvent(
+                user_id=failed.user_id,
+                action="resolution.persistence",
+                outcome="rejected",
+                twin_id=failed.twin_id,
+                calculation_run_id=failed.id,
+                result_code=error_code,
+                correlation_id=current_request_id(),
+            )
+        )
+        self.db.commit()
 
     def list_runs(self, twin_id: str, user_id: str) -> list[CostCalculationRun]:
         twin = self.twin_repository.get_for_user(twin_id, user_id)
@@ -373,6 +498,9 @@ class CostCalculationRunService:
                 verified_catalog_context.catalogs["aws"],
             )
             _validate_selected_aws_context(run, result, current_context)
+        architecture_service = ResolvedArchitectureService(self.db)
+        if run.architecture_compatibility_status == ARCHITECTURE_READY:
+            architecture_service.require_selectable(run)
         now = datetime.now(timezone.utc)
         (
             self.db.query(CostCalculationRun)
@@ -388,6 +516,41 @@ class CostCalculationRunService:
         if config:
             cheapest_path = _json_loads(run.cheapest_path_json) or {}
             self._apply_cheapest_path(config, cheapest_path)
+        selection = architecture_service.repository.get_selection(
+            twin_id,
+            user_id,
+        )
+        self.db.add(
+            ArchitectureAuditEvent(
+                user_id=user_id,
+                action="run.selection",
+                outcome=(
+                    "succeeded"
+                    if run.architecture_compatibility_status
+                    == ARCHITECTURE_READY
+                    else "legacy-compatibility"
+                ),
+                profile_id=(
+                    selection.profile_id if selection is not None else None
+                ),
+                profile_version=(
+                    selection.profile_version if selection is not None else None
+                ),
+                profile_digest=(
+                    selection.profile_digest if selection is not None else None
+                ),
+                twin_id=twin_id,
+                calculation_run_id=run.id,
+                resolution_digest=run.resolved_architecture_digest,
+                result_code=(
+                    None
+                    if run.architecture_compatibility_status
+                    == ARCHITECTURE_READY
+                    else "ARCH_LEGACY_NOT_RESOLVABLE"
+                ),
+                correlation_id=current_request_id(),
+            )
+        )
 
         try:
             self.db.commit()

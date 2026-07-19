@@ -8,6 +8,7 @@ history, CloudConnections, and lifecycle transitions.
 
 - authenticate users and enforce owner scope;
 - persist twins, configuration, file versions, calculation runs, reviews, deployments, and logs;
+- persist revisioned architecture-profile selections and immutable resolved architectures;
 - encrypt and manage reusable CloudConnections;
 - validate configuration and deployment readiness;
 - call Optimizer and Deployer through typed clients;
@@ -46,6 +47,10 @@ FastAPI route
 | `/twins/{id}/config` | configuration workspace persistence and validation |
 | `/twins/{id}/optimizer-config` | typed optimization inputs and projections |
 | `/twins/{id}/optimizer-runs` | durable calculation execution/results |
+| `/architecture-profiles` | active reviewed profile summaries and detail |
+| `/twins/{id}/architecture-profile` | pinned selection, invalidation preview, and revisioned profile change |
+| `/twins/{id}/resolved-architecture` | immutable architecture of the selected run |
+| `/optimizer-runs/{run_id}/resolved-architecture` | owner-scoped immutable run architecture |
 | `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
@@ -70,6 +75,8 @@ User
   +-- DigitalTwin
   |     +-- TwinConfiguration
   |     +-- OptimizerConfiguration -- CostCalculationRun -- ResultItem
+  |     |                              +-- ResolvedTwinArchitecture
+  |     +-- TwinArchitectureSelection
   |     +-- DeployerConfiguration
   |     +-- FileVersion
   |     +-- Deployment -- DeploymentLog
@@ -150,6 +157,10 @@ contains a complete, internally valid exact reference set.
 Migration `020` adds the immutable resolved-deployment columns, classifies existing
 runs as `legacy_not_deployable`, normalizes any historical duplicate selections, and
 adds digest, status, immutability, and single-selection database guards.
+Migration `022` adds pinned Twin architecture selections, immutable canonical
+run resolutions and derived component/edge projections, conservatively
+classifies legacy runs, deselects non-resolvable history, and installs
+immutability and append-only audit guards.
 
 SQLite is the local single-node storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.

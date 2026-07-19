@@ -6,6 +6,7 @@
 flowchart LR
     subgraph Editable["Editable definitions"]
         Registry["Optimizer pricing_registry/*.yaml"]
+        Profiles["Repository architecture profiles<br/>and component catalog"]
         TwinConfig["Management twin configuration"]
         Template["Versioned Deployer template"]
         UserAssets["Versioned user artifacts and assets"]
@@ -13,7 +14,8 @@ flowchart LR
 
     subgraph Durable["Durable generated state"]
         Catalogs[("Immutable regional catalogs")]
-        Runs[("Calculation runs, items,<br/>paths, traces, specifications")]
+        Runs[("Calculation runs, items, paths,<br/>specifications, architectures")]
+        Selections[("Twin profile selections")]
         Operations[("Deployment lifecycle,<br/>history, logs, outputs")]
         Runtime[("Deployer runtime project state")]
     end
@@ -25,6 +27,8 @@ flowchart LR
     end
 
     Registry --> Catalogs
+    Profiles --> Selections
+    Profiles --> Runs
     Catalogs --> Runs
     TwinConfig --> Runs
     Runs --> Package
@@ -48,6 +52,9 @@ flowchart LR
 | regional pricing catalogs | Optimizer immutable catalog store | append-only snapshots plus atomic active pointer | Management context resolution, calculation |
 | pricing refresh/review history | Management database | append/update by workflow | Flutter pricing review |
 | calculation results and specifications | Management database | immutable after successful run creation | Flutter, deployment selection |
+| reviewed architecture definitions | repository `contracts/architecture-profiles/` | reviewed source change | all three backend validators |
+| Twin architecture profile selection | Management database | owner-scoped, revisioned, invalidating | Management API; Flutter in Phase 8.7 |
+| resolved Twin architecture | Management database canonical JSON plus derived component/edge rows | immutable per calculation run | Management reads; Optimizer/Deployer activation in Phases 8.5/8.6 |
 | operation package | Deployer package store | immutable, one acquisition | deploy/destroy operation |
 | operation workspace | Deployer temporary storage | mutable only during one operation | Terraform and provider adapters |
 | runtime project state and allowlisted outputs | Deployer runtime store | operation-controlled | destroy, status, verification |
@@ -108,6 +115,12 @@ Historical successful runs remain inspectable. A run becomes deployable only whe
 its schema, catalog/account context, path evidence, and resolved specification remain
 valid. Creating a newer run does not automatically select it; selecting another run
 clears the previous run's selection timestamp.
+
+Migration 022 additionally deselects every historical run that cannot be
+reconstructed from complete matching architecture evidence. The Phase 8.4
+fixture-gated admission boundary persists a failed run plus payload-free audit
+evidence when architecture validation fails; it never commits a partial
+resolution.
 
 ## Deployment State Transition
 

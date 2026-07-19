@@ -262,6 +262,11 @@ def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryR
         deployment_compatibility_status=(
             run.deployment_compatibility_status or "legacy_not_deployable"
         ),
+        architecture_compatibility_status=(
+            run.architecture_compatibility_status or "legacy_not_resolvable"
+        ),
+        resolved_architecture_version=run.resolved_architecture_version,
+        resolved_architecture_digest=run.resolved_architecture_digest,
         created_at=run.created_at,
         completed_at=run.completed_at,
         selected_for_deployment_at=run.selected_for_deployment_at,

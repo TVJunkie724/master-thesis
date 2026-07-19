@@ -58,6 +58,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "021_user_function_extension_contract",
         "migrations.add_user_function_extension_contract",
     ),
+    Migration(
+        "022_resolved_twin_architecture",
+        "migrations.add_resolved_twin_architecture",
+    ),
 )
 
 

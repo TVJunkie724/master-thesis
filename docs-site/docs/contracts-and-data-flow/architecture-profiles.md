@@ -1,10 +1,11 @@
 # Architecture Profile Contracts
 
-Phases 8.2 and 8.3 provide a versioned, closed-world contract boundary plus
-repository-owned production definitions for reviewed Twin architectures. The
-registries are currently dark infrastructure: they validate and summarize the
-definitions but do not change profile selection, calculation, persistence,
-deployment, Terraform, or Flutter behavior.
+Phases 8.2 through 8.4 provide a versioned, closed-world contract boundary,
+repository-owned production definitions, and Management-owned persistence for
+reviewed Twin architectures. Profile list/detail/select/preview APIs and
+owner-scoped resolved-architecture reads are active. Optimizer emission,
+Deployer graph execution, Terraform, and Flutter presentation remain staged
+for later phases.
 
 ## Four Separate Records
 
@@ -26,14 +27,29 @@ capacity, memory, storage class, schedule, and billing-mode values.
 flowchart LR
     Developers["Repository developers"] -->|"review inventory and bindings"| Contracts["Generated profile + provider + catalog definitions"]
     Optimizer["Optimizer"] -->|"derives complete immutable resolution"| Resolution["ResolvedTwinArchitecture"]
-    Management["Management API"] -->|"owns run ID and later persistence"| Resolution
+    Management["Management API"] -->|"validates and persists immutable run evidence"| Resolution
     Resolution -->|"read-only validation"| Deployer["Deployer"]
-    Flutter["Flutter"] -.->|"no raw contract access in Phase 8.3"| Management
+    Flutter["Flutter"] -.->|"Management API only; workflow arrives in Phase 8.7"| Management
 ```
 
-Runtime users will select reviewed profile IDs in a later phase. They cannot
-author components, edges, provider mappings, service IDs, evidence, costs,
-digests, or Terraform values.
+Authenticated Management clients can select only reviewed profile IDs and
+versions using a server-derived invalidation preview, revision, and digest.
+They cannot author components, edges, provider mappings, service IDs, evidence,
+costs, digests, or Terraform values.
+
+## Management Persistence
+
+Migration `022_resolved_twin_architecture` creates one pinned profile selection
+per Twin and classifies historical runs conservatively. A historical run is
+reconstructed only when its embedded architecture, calculation result,
+deployment specification, profile, extension bindings, costs, and digests all
+match. Otherwise it becomes `legacy_not_resolvable`, receives no fabricated
+resolution, and is deselected.
+
+One immutable canonical resolution belongs to one calculation run. Queryable
+component and edge rows are server-derived projections and must reproduce its
+canonical JSON exactly. The seven `cheapest_l*` fields remain only a
+round-trip-checked projection for `five-layer-baseline@1`.
 
 ## Canonicalization And Failure Behavior
 

@@ -1472,7 +1472,7 @@ def _build_fixed_assumptions() -> list[dict[str, Any]]:
             cheapest_consumers,
             "Selected-run persistence and deployment projection diverge.",
             "allowlisted Management fixed-field anchors",
-            "Phase 8.4",
+            "Phase 8.4 through 8.7 compatibility migration",
         ),
         (
             "assumption.deployer-provider-keys",

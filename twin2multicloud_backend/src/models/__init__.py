@@ -20,6 +20,13 @@ from src.models.user_function_extension import (
     UserFunctionArtifactFile,
     UserFunctionAuditEvent,
 )
+from src.models.architecture_profile import (
+    ArchitectureAuditEvent,
+    ResolvedArchitectureComponentAssignment,
+    ResolvedArchitectureEdge,
+    ResolvedTwinArchitectureRecord,
+    TwinArchitectureSelection,
+)
 from src.models.authentication import (
     AuthenticationEvent,
     AuthLoginTransaction,
@@ -38,5 +45,8 @@ __all__ = [
     "UserFunctionArtifact", "UserFunctionArtifactFile",
     "UserFunctionArtifactDependency", "TwinExtensionBinding",
     "UserFunctionAuditEvent",
+    "TwinArchitectureSelection", "ResolvedTwinArchitectureRecord",
+    "ResolvedArchitectureComponentAssignment", "ResolvedArchitectureEdge",
+    "ArchitectureAuditEvent",
     "AuthenticationEvent", "AuthLoginTransaction", "AuthSession", "ExternalIdentity",
 ]

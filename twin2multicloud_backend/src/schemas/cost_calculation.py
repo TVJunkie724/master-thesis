@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -64,6 +64,12 @@ class CostCalculationRunSummaryResponse(BaseModel):
     deployment_specification_digest: Optional[str] = None
     deployment_specification_version: Optional[str] = None
     deployment_compatibility_status: DeploymentCompatibilityStatus
+    architecture_compatibility_status: Literal[
+        "ready",
+        "legacy_not_resolvable",
+    ]
+    resolved_architecture_version: Optional[str] = None
+    resolved_architecture_digest: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
     selected_for_deployment_at: Optional[datetime] = None

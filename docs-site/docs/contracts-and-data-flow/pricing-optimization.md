@@ -77,6 +77,7 @@ flowchart TD
         direction LR
         Result["cost-result.v1<br/>and traces"]
         Specification["Resolved deployment<br/>specification v1"]
+        Architecture["Resolved Twin architecture v1<br/>(dark in Phase 8.5; activated in Phase 8.6)"]
         Management["Management validation<br/>and atomic persistence"]
         Flutter["Read-only Flutter review"]
     end
@@ -88,8 +89,10 @@ flowchart TD
     ProviderContracts --> Calculators
     Scoring --> Result
     Scoring --> Specification
+    Scoring -. "profile resolver" .-> Architecture
     Result --> Management
     Specification --> Management --> Flutter
+    Architecture -. "Phase 8.4 admission is fixture-gated" .-> Management
 ```
 
 Provider-native billing quantities are not forced into one raw input unit. Contracts
@@ -143,7 +146,13 @@ and cross-provider calculation tests must change together.
 The Optimizer owns registry definitions and immutable catalogs. The Management API
 owns durable owner-scoped refresh history, review decisions, calculation runs, result
 items, exact catalog references, paths, traces, and resolved deployment
-specifications. Flutter cannot author or overwrite these artifacts.
+specifications. It also owns the selected architecture-profile reference and
+immutable resolved-architecture persistence. Phase 8.5 integrates architecture
+emission behind a default-off gate because the repository AWS/Azure provider
+profiles remain unsupported until the Phase 8.6 graph compiler passes. Phase
+8.4 validates the atomic boundary with canonical fixtures; Phase 8.6 promotes
+the profiles and activates calculation plus deployment together. Flutter
+cannot author or overwrite these artifacts.
 
 See [Optimizer](../components/optimizer.md) and
 [Pricing Review](../user-guide/pricing-review.md) for operational detail.

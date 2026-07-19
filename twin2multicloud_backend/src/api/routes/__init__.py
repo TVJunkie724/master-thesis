@@ -1,5 +1,6 @@
 from src.api.routes import (
     auth,
+    architecture_profiles,
     twins,
     twin_operations,
     health,
@@ -16,6 +17,7 @@ from src.api.routes import (
 
 __all__ = [
     "auth",
+    "architecture_profiles",
     "twins",
     "twin_operations",
     "health",

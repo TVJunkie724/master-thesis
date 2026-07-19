@@ -50,7 +50,7 @@ concrete run/Twin resolution evidence.
 
 | Included | Excluded |
 |---|---|
-| Normalized models, migration 021, repositories/services, profile list/detail/select/preview APIs, immutable resolution ingestion, compatibility projection, ownership/audit/error handling, and OpenAPI | Optimizer candidate logic, provider catalog authoring, Deployer graph/package/Terraform execution, Flutter rendering, Eventing implementation, and live cloud execution |
+| Normalized models, migration 022, repositories/services, profile list/detail/select/preview APIs, immutable resolution ingestion, compatibility projection, ownership/audit/error handling, and OpenAPI | Optimizer candidate logic, provider catalog authoring, Deployer graph/package/Terraform execution, Flutter rendering, Eventing implementation, and live cloud execution |
 
 ## 2. Current State
 
@@ -72,8 +72,16 @@ result JSON, while deployment, simulator, verification, export, credential
 selection, and Flutter projections still read fixed fields.
 
 This phase adds the normalized architecture model and API compatibility layer.
-The actual Optimizer emission switches in Phase 8.5; deployment consumption
-switches in Phase 8.6.
+Phase 8.5 implements Optimizer emission dark; architecture-aware calculation
+and deployment consumption activate together in Phase 8.6.
+
+Phase 8.4 stages the `ready` selected-run invariant and enforces it whenever a
+run already carries architecture metadata. The existing live Optimizer path
+still creates `legacy_not_resolvable` runs while Phase 8.5 integrates the
+atomic ingestion boundary dark. Phase 8.6 activates that boundary only after
+the AWS/Azure provider profiles and the typed Deployer graph compiler are
+jointly supported. The temporary compatibility path is audited and is not an
+architecture-ready deployment claim.
 
 ## 3. Persistence Model
 
@@ -89,10 +97,10 @@ twin2multicloud_backend/src/api/routes/architecture_profiles.py
 twin2multicloud_backend/migrations/add_resolved_twin_architecture.py
 ```
 
-Register migration:
+Register migration (the earlier #113 prerequisite already owns migration 021):
 
 ```text
-021_resolved_twin_architecture
+022_resolved_twin_architecture
 ```
 
 ### 3.1 `TwinArchitectureSelection`
@@ -210,8 +218,9 @@ Do not create a second mutable extension-binding table.
   submit projection row IDs or ordinals.
 - Persisting the resolution and all child rows is one transaction.
 - Selecting a run does not mutate the resolution.
-- A selected run must own one `complete` resolution and matching deployment
-  specification digest.
+- A selected `ready` run must own one `complete` resolution and matching
+  deployment specification digest. Phase 8.6 removes the temporary legacy
+  selection compatibility path when it activates architecture output.
 - Delete occurs only through calculation-run/Twin cascade or explicit
   retention policy outside this phase.
 
@@ -350,12 +359,13 @@ The Management API must:
 
 The public calculation-create request never accepts a resolved architecture.
 
-Phase 8.4 implements the method and tests with fixtures; Phase 8.5 activates
-the Optimizer output.
+Phase 8.4 implements the method and tests with fixtures. Phase 8.5 integrates
+the Optimizer output behind a default-off activation gate; Phase 8.6 enables
+the path after provider-profile deployment support exists.
 
 ## 7. Legacy Migration
 
-Migration 021 must:
+Migration 022 must:
 
 1. create all new tables, constraints, and indexes idempotently;
 2. create a `TwinArchitectureSelection` for every existing Twin, pinned to
@@ -367,7 +377,8 @@ Migration 021 must:
    specification, complete cheapest path, compatible profile, and all catalog
    references required for deterministic reconstruction;
 6. verify reconstructed cost, provider assignments, deployment component refs,
-   and digests before insert;
+   digests, and the still-executable fixed-field provider projection before
+   insert;
 7. mark all other runs `legacy_not_resolvable` without creating a resolution
    row or inventing data;
 8. preserve every fixed `cheapest_l*` column and historical JSON field.
@@ -393,12 +404,18 @@ Until Phase 8.6 completes:
 
 - existing `cheapest_l*` columns remain a derived compatibility projection for
   `five-layer-baseline@1`;
-- only `ResolvedArchitectureService` may write them;
-- values are derived from component assignments, never independently;
+- for architecture-ready runs, only `ResolvedArchitectureService` may write
+  them and values are derived from component assignments;
+- the pre-8.5 live calculation/selection path remains an explicitly
+  inventoried legacy writer until Optimizer architecture output is activated;
+  those writes never create architecture evidence;
 - a round-trip invariant proves projection equals resolution;
 - non-baseline profiles cannot be projected and return
   `ARCH_LEGACY_PROJECTION_UNSUPPORTED`;
 - all direct readers are inventoried and migrated in their owning later phase.
+
+The tracked ownership and removal list is
+[`phase_08_4_fixed_field_reader_inventory.md`](phase_08_4_fixed_field_reader_inventory.md).
 
 After Phase 8.6, fixed fields remain physically for non-destructive history but
 are no longer an executable source.
@@ -432,8 +449,10 @@ logged or returned.
 - Every Twin/run read or write verifies `user_id` ownership.
 - Profile definitions are globally readable only after authentication and only
   when active.
-- Profile select/change uses existing mutation rate-limit and correlation
-  middleware.
+- Profile select/change uses the existing authenticated request and correlation
+  middleware. The codebase has no generic mutation limiter; the
+  credential-specific limiter does not apply because this path accepts no
+  credentials or secret material.
 - Emit append-only audit events for profile select/change, run invalidation,
   native resolution persistence, reconstruction, legacy rejection, selection,
   and digest/reference failure.
@@ -447,7 +466,7 @@ logged or returned.
 ### Slice A: Models And Migration
 
 Must add models, relationships, constraints, indexes, immutable listeners,
-migration 021, and clean/populated/idempotent migration tests.
+migration 022, and clean/populated/idempotent migration tests.
 
 ### Slice B: Repository And Services
 
@@ -482,6 +501,7 @@ tracked inventory for readers migrated in Phases 8.5-8.7.
 - incomplete cheapest path;
 - invalid/missing deployment specification;
 - digest mismatch;
+- fixed-field projection mismatch or missing Optimizer configuration;
 - unsupported GCP L4 fixture;
 - already-applied idempotence;
 - failure rollback without partial rows;
@@ -564,7 +584,7 @@ Research interpretation stays in `docs/research/`. Do not edit LaTeX.
 Rollout:
 
 1. deploy contract/catalog definitions;
-2. run migration 021;
+2. run migration 022;
 3. keep profile ingestion fixture-gated;
 4. verify reconstruction counts and selected-run validity;
 5. enable read APIs;
@@ -580,31 +600,61 @@ Rollback:
 
 ## 15. Definition Of Done
 
-- [ ] Repository definitions remain SSOT; DB stores only selections and
+- [x] Repository definitions remain SSOT; DB stores only selections and
       concrete resolutions.
-- [ ] Migration 021 is idempotent, transactional, and non-destructive.
-- [ ] Every migrated and newly created Twin has one pinned baseline profile
+- [x] Migration 022 is idempotent, transactional, and non-destructive.
+- [x] Every migrated and newly created Twin has one pinned baseline profile
       selection.
-- [ ] Profile selection uses optimistic concurrency and atomically invalidates
+- [x] Profile selection uses optimistic concurrency and atomically invalidates
       stale deployment selection.
-- [ ] Profile changes require a server-derived invalidation preview and matching
+- [x] Profile changes require a server-derived invalidation preview and matching
       digest; stale previews fail without mutation.
-- [ ] Profile changes clear only incompatible Twin-scoped fields/bindings and
+- [x] Profile changes clear only incompatible Twin-scoped fields/bindings and
       never delete CloudConnections, artifacts, or credentials.
-- [ ] One immutable, complete, digest-verified resolution can be stored per
+- [x] One immutable, complete, digest-verified resolution can be stored per
       calculation run.
-- [ ] Component and edge projections reproduce canonical JSON exactly.
-- [ ] API clients cannot author assignments, provider services, edges,
+- [x] Component and edge projections reproduce canonical JSON exactly.
+- [x] API clients cannot author assignments, provider services, edges,
       infrastructure values, evidence, or digests.
-- [ ] Every read/write path enforces ownership and safe errors.
-- [ ] Legacy runs are reconstructed only from sufficient evidence or explicitly
+- [x] Every read/write path enforces ownership and safe errors.
+- [x] Legacy runs are reconstructed only from sufficient evidence or explicitly
       classified `legacy_not_resolvable` without a resolution row.
-- [ ] Fixed fields are derived baseline projections, not independent writes.
-- [ ] Selected runs require matching architecture and deployment specification.
-- [ ] Migration, model, repository, service, API, OpenAPI, security, redaction,
+- [x] Fixed fields on architecture-ready runs are derived baseline
+      projections; the inventoried live legacy writers are removed by their
+      owning Phases 8.6-8.7.
+- [x] Architecture-ready selected runs require matching architecture and
+      deployment specification; Phase 8.6 owns removal of the explicitly
+      audited legacy-selection compatibility path at runtime activation.
+- [x] Migration, model, repository, service, API, OpenAPI, security, redaction,
       and compatibility tests pass.
-- [ ] The full safe Management suite and contract sync gate pass.
-- [ ] No cloud, Terraform, downstream runtime, or live E2E action occurs.
-- [ ] Product docs, migration docs, roadmap, and #142 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #142.
+- [x] The full safe Management suite and contract sync gate pass.
+- [x] No cloud, Terraform, downstream runtime, or live E2E action occurs.
+- [x] Product docs, migration docs, roadmap, and #142 are updated.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commit references #142.
+
+## 16. Completion Evidence
+
+- Focused Management gate: 116 migration, profile, resolution, route,
+  calculation-run, and Twin-lifecycle tests passed.
+- Full Management regression: 994 tests passed in 206.55 seconds.
+- Root contract/catalog gate: 50 tests and 488 subtests passed.
+- Generated contract synchronization:
+  `sha256:a832312a9cbb5381f4a1d714b6743c4164a1c76e38535bbbc46cbd905c81d766`
+  across three service copies.
+- Optimizer and Deployer generated-contract readers: 4 tests passed in each
+  service.
+- Catalog completeness: 22 components, 33 edges, 43 artifacts, and 51
+  Terraform resource declarations.
+- Architecture inventory: 11 responsibilities, 114 components, 64 artifacts,
+  661 Terraform objects, 90 edges, 100 allowlisted compatibility anchors, and
+  the one already-reviewed predecessor finding.
+- Migration fixture matrix proves transactional rerun, all-AWS, all-Azure,
+  mixed-provider reconstruction, conservative legacy classification,
+  fixed-field mismatch rejection, rollback, and append-only triggers.
+- `mkdocs build --strict`, Ruff, contract sync, catalog completeness, inventory,
+  and `git diff --check` passed.
+- Review 1 and Review 2 closed all findings. The remaining legacy selection
+  path is intentional, audited, and owned by the joint Phase 8.6 activation;
+  Phase 8.5 integrates architecture emission dark and cannot bypass
+  unsupported provider profiles.

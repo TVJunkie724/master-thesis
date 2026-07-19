@@ -104,9 +104,27 @@ MANAGEMENT_CHEAPEST_CONSUMERS = {
         "cheapest_l2",
         "cheapest_l4",
     ),
+    "twin2multicloud_backend/src/services/resolved_architecture_service.py": (
+        "cheapest_l1",
+        "cheapest_l2",
+        "cheapest_l3_archive",
+        "cheapest_l3_cool",
+        "cheapest_l3_hot",
+        "cheapest_l4",
+        "cheapest_l5",
+    ),
     "twin2multicloud_backend/src/services/simulator_service.py": ("cheapest_l1",),
     "twin2multicloud_backend/src/services/test_deployment_service.py": ("cheapest_l1",),
     "twin2multicloud_backend/src/services/verification_service.py": ("cheapest_l1",),
+}
+MANAGEMENT_CHEAPEST_EXPIRY = {
+    "twin2multicloud_backend/src/models/optimizer_config.py": "retained-history",
+    "twin2multicloud_backend/src/services/resolved_architecture_service.py": (
+        "retained-history"
+    ),
+    "twin2multicloud_backend/src/services/cost_calculation_run_service.py": "8.6",
+    "twin2multicloud_backend/src/api/routes/twin_operations.py": "8.7",
+    "twin2multicloud_backend/src/services/optimizer_config_projection.py": "8.7",
 }
 PROVIDER_KEY_CONSUMERS = {
     "twin2multicloud_backend/src/services/deployment_read_service.py": (
@@ -576,7 +594,7 @@ ALLOWLISTED_ANCHORS = (
             "rationale": (
                 "Read/write consumer of persisted seven-slot cheapest_l* fields."
             ),
-            "expiry_phase": "8.4",
+            "expiry_phase": MANAGEMENT_CHEAPEST_EXPIRY.get(path, "8.6"),
         }
         for path, anchors in MANAGEMENT_CHEAPEST_CONSUMERS.items()
     ),

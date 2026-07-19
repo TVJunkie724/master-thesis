@@ -25,8 +25,9 @@
 
 SQLite holds application truth: users, twins, configurations, file versions,
 CloudConnections, calculation runs/results, pricing refresh/review records, deployment
-preflight/history/logs, and credential security events. Startup creates missing tables
-and applies explicit idempotent migrations to existing databases.
+preflight/history/logs, architecture selections/resolutions, and security audit
+events. Startup creates missing tables and applies explicit idempotent
+migrations to existing databases.
 
 Calculation runs and optimizer projections persist only
 `provider-pricing-catalog-context.v1`: one exact immutable reference for AWS,
@@ -44,6 +45,14 @@ the explicitly selected compatible run through `DeploymentManifest v2`.
 Flutter snapshots workload inputs, the result projection, and deployment run as one
 unit. Input changes invalidate that unit; discard restores the complete saved unit,
 so the UI cannot combine values from different calculations.
+
+Migration `022_resolved_twin_architecture` adds one revisioned
+`five-layer-baseline@1` selection per existing Twin, immutable canonical
+resolved-architecture rows, query projections for components and edges, and
+append-only architecture audit evidence. It is idempotent and transactional.
+It reconstructs a historical resolution only from a fully valid embedded
+contract with matching run/profile/specification/extension/cost evidence;
+every other run is explicitly `legacy_not_resolvable` and deselected.
 
 Deleting the database deletes durable application history and encrypted credentials.
 Deleting the encryption key without first re-encrypting CloudConnections makes those

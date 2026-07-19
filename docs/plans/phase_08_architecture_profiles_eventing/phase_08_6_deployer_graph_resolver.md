@@ -458,10 +458,12 @@ Rollout:
 
 1. ship v3 readers/writers dark;
 2. run cross-stack no-apply gates;
-3. enable v3 for new deployments;
-4. keep v2 historical read/destroy support;
-5. monitor graph/preflight codes;
-6. remove executable reads of fixed provider fields.
+3. promote the reviewed AWS/Azure baseline provider profiles to `supported`
+   only after their graph/package/Terraform compiler gates pass;
+4. enable Phase 8.5 architecture-aware calculation admission and v3 together;
+5. remove legacy run selection and keep v2 historical read/destroy support;
+6. monitor graph/preflight codes;
+7. remove executable reads of fixed provider fields.
 
 Rollback disables new deployment creation rather than silently using v2 or
 fixed fields. Existing v3 operations remain inspectable/destroyable using
@@ -483,6 +485,9 @@ frozen evidence.
 - [ ] Retry, recovery, destroy, state, logs, redaction, and ephemeral cleanup
       are bound to frozen graph evidence.
 - [ ] v2 remains historical only; invalid v3 never falls back.
+- [ ] AWS/Azure provider-profile support and architecture-aware calculation
+      admission activate only after the typed graph compiler passes.
+- [ ] Legacy calculation-run selection is removed when activation succeeds.
 - [ ] All-AWS, all-Azure, mixed, unsupported, negative graph/package, and
       offline Terraform fixtures pass.
 - [ ] Full safe Management and Deployer suites plus deployment drift pass.

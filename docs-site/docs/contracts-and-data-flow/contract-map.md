@@ -6,7 +6,7 @@
 flowchart TB
     Flutter["Flutter<br/>typed public commands and read models"]
     Management["Management API<br/>public trust boundary and durable orchestration"]
-    ManagementState[("Users, twins, configuration,<br/>runs, specifications, operations")]
+    ManagementState[("Users, twins, profile selections,<br/>runs, architectures, operations")]
     Optimizer["Optimizer<br/>pricing, calculation, path selection"]
     OptimizerState[("Pricing registry and<br/>immutable regional catalogs")]
     Deployer["Deployer<br/>package validation and execution"]
@@ -40,7 +40,7 @@ versioned contracts inside those payloads are listed below.
 | `cost-result.v1` and intent traces | Optimizer | Management API | persisted run and Flutter read model |
 | complete-path transfer and optimization contracts | Optimizer | Management API transfer/path validators | persisted result items and Flutter |
 | `resolved-deployment-specification.v1` | repository root schema/registry; object emitted by Optimizer | Optimizer, Management API, and Deployer | manifest builder and typed tfvars translator |
-| architecture-profile contract bundle v1 | repository root schemas, semantic registry, and generated Phase 8.3 definitions | dark registries in Optimizer, Management API, and Deployer | later profile resolution, persistence, and graph compilation phases |
+| architecture-profile contract bundle v1 | repository root schemas, semantic registry, and generated definitions | all three service validators; Management owns profile selections and immutable resolution persistence | Management profile/read APIs now; Optimizer resolution and Deployer compilation in Phases 8.5/8.6 |
 | `DeploymentManifest 2.0` | Management API | Deployer | operation package and execution |
 | one-use operation package | Deployer package store | Deployer | one deployment or destroy acquisition |
 | deployment status, logs, outputs | Deployer execution boundary | Management API | Flutter REST/SSE read models |

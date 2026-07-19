@@ -91,10 +91,14 @@ entries reference the #113 AWS, Azure, and GCP Python 3.11 adapters and
 platform wrappers. The catalog never stores user source, configuration values,
 resource names, endpoints, or user-supplied permissions.
 
-## Safe Reader Boundary
+## Safe Runtime Boundary
 
-Phase 8.3 registries validate production definitions and return immutable
-views/summaries only. They are not wired
-to Optimizer calculation, Management persistence/API routes, Deployer
-package/Terraform execution, or Flutter. Those integrations belong to later
-reviewed phases.
+Management Phase 8.4 now uses the generated definitions for authenticated
+profile list/detail/select/preview APIs, pinned Twin selections, migration 022,
+fixture-gated atomic resolution admission, and owner-scoped immutable reads.
+The public API accepts only profile ID/version, revision, and a server-derived
+invalidation digest; assignments and infrastructure evidence remain
+server-owned.
+
+Optimizer calculation output, Deployer package/Terraform execution, and
+Flutter presentation remain staged for their reviewed later phases.
