@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/scenario-inputs.schema.json",
+  "title": "Phase 8 eventing scenario collection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "scenario_set_id",
+    "workload_schema_ref",
+    "shared_assumptions",
+    "provider_regions",
+    "scenarios"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "scenario-inputs.v1"},
+    "scenario_set_id": {"const": "phase-08-eventing-scenarios@1"},
+    "workload_schema_ref": {"const": "eventing-workload.schema.json"},
+    "shared_assumptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "average_envelope_overhead_bytes",
+        "average_match_payload_bytes",
+        "average_notification_payload_bytes",
+        "average_device_command_payload_bytes",
+        "average_outcome_payload_bytes",
+        "extension_actions_per_match",
+        "workflow_actions_per_execution",
+        "workflow_internal_actions_per_execution",
+        "workflow_external_actions_per_execution",
+        "terminal_outcome_events_per_invocation",
+        "component_compute_assumptions",
+        "observability_assumptions"
+      ],
+      "properties": {
+        "average_envelope_overhead_bytes": {"const": 1024},
+        "average_match_payload_bytes": {"const": 1024},
+        "average_notification_payload_bytes": {"const": 1024},
+        "average_device_command_payload_bytes": {"const": 1024},
+        "average_outcome_payload_bytes": {"const": 512},
+        "extension_actions_per_match": {"const": 1},
+        "workflow_actions_per_execution": {"const": 4},
+        "workflow_internal_actions_per_execution": {"const": 3},
+        "workflow_external_actions_per_execution": {"const": 1},
+        "terminal_outcome_events_per_invocation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["extension_action", "workflow", "device_command"],
+          "properties": {
+            "extension_action": {"const": 1},
+            "workflow": {"const": 1},
+            "device_command": {"const": 1}
+          }
+        },
+        "component_compute_assumptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rule_evaluator",
+            "extension_action",
+            "workflow_adapter",
+            "device_command_adapter",
+            "bridge"
+          ],
+          "properties": {
+            "rule_evaluator": {"$ref": "#/$defs/compute"},
+            "extension_action": {"$ref": "#/$defs/compute"},
+            "workflow_adapter": {"$ref": "#/$defs/compute"},
+            "device_command_adapter": {"$ref": "#/$defs/compute"},
+            "bridge": {
+              "allOf": [
+                {"$ref": "#/$defs/compute"},
+                {
+                  "type": "object",
+                  "required": ["max_batch_events"],
+                  "properties": {"max_batch_events": {"const": 10}}
+                }
+              ]
+            }
+          }
+        },
+        "observability_assumptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "telemetry_sample_share",
+            "fully_captured_record_classes",
+            "average_record_bytes",
+            "retention_days"
+          ],
+          "properties": {
+            "telemetry_sample_share": {"const": 0.01},
+            "fully_captured_record_classes": {
+              "const": [
+                "match",
+                "notification_request",
+                "device_command_request",
+                "terminal_outcome",
+                "retry",
+                "dead_letter",
+                "replay",
+                "bridge_terminal_failure"
+              ]
+            },
+            "average_record_bytes": {"const": 1024},
+            "retention_days": {"const": 30}
+          }
+        }
+      }
+    },
+    "provider_regions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aws", "azure", "gcp"],
+      "properties": {
+        "aws": {"const": "eu-central-1"},
+        "azure": {"const": "westeurope"},
+        "gcp": {"const": "europe-west1"}
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "https://twin2multicloud.local/schemas/phase-08-eventing/eventing-workload.schema.json"
+      }
+    }
+  },
+  "$defs": {
+    "compute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["duration_ms", "memory_mib"],
+      "properties": {
+        "duration_ms": {"type": "integer", "minimum": 1},
+        "memory_mib": {"type": "integer", "minimum": 128},
+        "max_batch_events": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

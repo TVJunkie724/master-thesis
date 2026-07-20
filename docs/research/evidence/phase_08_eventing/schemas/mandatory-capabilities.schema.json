@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/mandatory-capabilities.schema.json",
+  "title": "Phase 8 mandatory capability registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "registry_id",
+    "embedded_capabilities",
+    "event_layer_capabilities",
+    "admissible_statuses"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "mandatory-capabilities.v1"},
+    "registry_id": {"const": "phase-08-eventing-capabilities@1"},
+    "embedded_capabilities": {"$ref": "#/$defs/capabilities"},
+    "event_layer_capabilities": {"$ref": "#/$defs/capabilities"},
+    "admissible_statuses": {
+      "const": ["native", "composed", "platform_adapter"]
+    }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability_id", "requirement"],
+        "properties": {
+          "capability_id": {"type": "string", "pattern": "^capability\\."},
+          "requirement": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

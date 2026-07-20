@@ -1,0 +1,124 @@
+{
+  "$schema": "schemas/domain-event-flow-contract.schema.json",
+  "schema_version": "domain-event-flow.v1",
+  "contract_id": "domain-event-flow@1",
+  "profiles": [
+    "five-layer-baseline@2",
+    "six-layer-eventing@1"
+  ],
+  "components": [
+    {
+      "component_id": "component.device-ingress",
+      "responsibility": "authenticate device telemetry and emit canonical receipt",
+      "presence": "mandatory"
+    },
+    {
+      "component_id": "component.telemetry-processor",
+      "responsibility": "validate and transform telemetry",
+      "presence": "mandatory"
+    },
+    {
+      "component_id": "component.historical-persistence",
+      "responsibility": "persist processed telemetry",
+      "presence": "mandatory"
+    },
+    {
+      "component_id": "component.twin-state-update",
+      "responsibility": "update operational Twin state",
+      "presence": "mandatory"
+    },
+    {
+      "component_id": "component.rule-evaluator",
+      "responsibility": "evaluate every processed telemetry event against typed rules",
+      "presence": "mandatory"
+    },
+    {
+      "component_id": "component.action-dispatcher",
+      "responsibility": "invoke extension action and issue typed notification and command requests on match",
+      "presence": "mandatory"
+    },
+    {
+      "component_id": "component.notification-workflow",
+      "responsibility": "execute stateful notification workflow and report terminal outcome",
+      "presence": "mandatory"
+    },
+    {
+      "component_id": "component.device-command-adapter",
+      "responsibility": "deliver command through the provider device boundary and report terminal outcome",
+      "presence": "mandatory"
+    }
+  ],
+  "channels": [
+    {
+      "channel_id": "telemetry.received.v1",
+      "producer": "component.device-ingress",
+      "consumers": ["component.telemetry-processor"],
+      "payload_class": "telemetry",
+      "ordering_key": "device_id"
+    },
+    {
+      "channel_id": "telemetry.processed.v1",
+      "producer": "component.telemetry-processor",
+      "consumers": [
+        "component.historical-persistence",
+        "component.twin-state-update",
+        "component.rule-evaluator"
+      ],
+      "payload_class": "telemetry",
+      "ordering_key": "device_id"
+    },
+    {
+      "channel_id": "event.matched.v1",
+      "producer": "component.rule-evaluator",
+      "consumers": ["component.action-dispatcher"],
+      "payload_class": "match",
+      "ordering_key": "device_id"
+    },
+    {
+      "channel_id": "notification.requested.v1",
+      "producer": "component.action-dispatcher",
+      "consumers": ["component.notification-workflow"],
+      "payload_class": "notification",
+      "ordering_key": "device_id"
+    },
+    {
+      "channel_id": "device.command.requested.v1",
+      "producer": "component.action-dispatcher",
+      "consumers": ["component.device-command-adapter"],
+      "payload_class": "device_command",
+      "ordering_key": "device_id"
+    },
+    {
+      "channel_id": "extension.action.outcome.v1",
+      "producer": "component.action-dispatcher",
+      "consumers": ["component.historical-persistence"],
+      "payload_class": "outcome",
+      "ordering_key": "device_id"
+    },
+    {
+      "channel_id": "notification.workflow.outcome.v1",
+      "producer": "component.notification-workflow",
+      "consumers": ["component.historical-persistence"],
+      "payload_class": "outcome",
+      "ordering_key": "device_id"
+    },
+    {
+      "channel_id": "device.command.outcome.v1",
+      "producer": "component.device-command-adapter",
+      "consumers": ["component.historical-persistence"],
+      "payload_class": "outcome",
+      "ordering_key": "device_id"
+    }
+  ],
+  "rules": {
+    "evaluation_presence": "always",
+    "invocation_condition": "typed_rule_match",
+    "terminal_outcomes": "one_per_action_workflow_and_command",
+    "consumer_idempotency_key": "event_id_and_invocation_id"
+  },
+  "excluded_flows": [
+    "storage_object_payload_via_event_broker",
+    "l4_to_l5_asynchronous_event_query",
+    "arbitrary_wrapper_to_user_function_remote_call"
+  ]
+}
