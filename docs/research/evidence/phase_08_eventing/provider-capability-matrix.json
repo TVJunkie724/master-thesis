@@ -8,7 +8,7 @@
       "bundle_id": "bundle.aws.embedded@1",
       "provider": "aws",
       "profile_scope": "embedded",
-      "members": ["AWS IoT Core", "AWS Lambda", "AWS Step Functions Standard", "AWS IoT Commands", "Amazon CloudWatch"],
+      "members": ["AWS IoT Core", "AWS Lambda", "AWS Step Functions Standard", "AWS IoT Commands", "Amazon SQS FIFO", "Amazon CloudWatch"],
       "decision": "selected",
       "implementation_status": "planned_phase_8_9"
     },
@@ -16,7 +16,7 @@
       "bundle_id": "bundle.azure.embedded@1",
       "provider": "azure",
       "profile_scope": "embedded",
-      "members": ["Azure IoT Hub", "Azure Functions Flex Consumption", "Azure Logic Apps Consumption", "Azure Monitor"],
+      "members": ["Azure IoT Hub", "Azure Functions Flex Consumption", "Azure Logic Apps Consumption", "Azure Service Bus Standard", "Azure Monitor"],
       "decision": "selected",
       "implementation_status": "planned_phase_8_9"
     },
@@ -24,7 +24,7 @@
       "bundle_id": "bundle.gcp.embedded@1",
       "provider": "gcp",
       "profile_scope": "embedded",
-      "members": ["Google Cloud Pub/Sub", "Google Cloud Run", "Google Cloud Workflows", "GKE Standard", "Apache BifroMQ 4.0.0-incubating", "Google Cloud Logging"],
+      "members": ["Google Cloud Pub/Sub", "Google Cloud Run", "Google Cloud Workflows", "GKE Standard", "Apache BifroMQ 4.0.0-incubating", "Google Cloud Load Balancing", "Google Cloud Logging"],
       "decision": "selected",
       "implementation_status": "planned_phase_8_9"
     },
@@ -32,7 +32,7 @@
       "bundle_id": "bundle.aws.event-layer@1",
       "provider": "aws",
       "profile_scope": "event_layer",
-      "members": ["Amazon Kinesis Data Streams", "Amazon SNS FIFO", "Amazon SQS FIFO", "AWS Lambda", "Amazon CloudWatch"],
+      "members": ["Amazon Kinesis Data Streams", "Amazon SNS FIFO", "Amazon SQS FIFO", "Amazon S3", "AWS Lambda", "Amazon CloudWatch"],
       "decision": "selected",
       "implementation_status": "planned_phase_8_9"
     },

@@ -6,11 +6,11 @@
     "domain_event_flow_contract": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590",
     "formula_and_unit_ledger": "sha256:97ff2c1bedebfc648df96c1b2e1c03c0d1f477528da6b073f1b270de0b811f1f",
     "pricing_model_matrix": "sha256:79ba91ada73d75eefddee7bd0720c173f46cf27c3070d1c4d7d08c8bd6b72863",
-    "provider_capability_matrix": "sha256:278cc811c9835c9409fa123e2dac20b211b89943fab70106f4d4961d39a2bdc1",
+    "provider_capability_matrix": "sha256:68028349334b06da081397f8b5ad98ff5b72dca04c157d48adcd318100ff7c87",
     "scenario_inputs": "sha256:3d43153f7ccd6b99916902a1ec99881602650df463da2c2c33858f66d746d8ec",
     "source_ledger": "sha256:b23edbd441224d8ae7fd5c39844c135208b26309a6ceb1dd4e0d16c8309092a7"
   },
-  "result_digest": "sha256:1b4a774ac3af58ee66e1bff412b8f5e321211fc96d37ca0278e5548adf261beb",
+  "result_digest": "sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5",
   "result_set_id": "phase-08-eventing-cost-results@1",
   "scenarios": [
     {

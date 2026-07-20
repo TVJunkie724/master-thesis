@@ -470,7 +470,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:1b4a774ac3af58ee66e1bff412b8f5e321211fc96d37ca0278e5548adf261beb`.
+`sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the
