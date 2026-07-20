@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/provider-capability-matrix.schema.json",
+  "title": "Phase 8 provider capability matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "matrix_id",
+    "capability_registry_ref",
+    "bundle_selections",
+    "capability_rows",
+    "capacity_allocations",
+    "single_cloud_cases",
+    "directed_pair_cases",
+    "three_provider_cases",
+    "rejected_alternatives"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "provider-capability-matrix.v1"},
+    "matrix_id": {"const": "phase-08-provider-capabilities@1"},
+    "capability_registry_ref": {"const": "phase-08-eventing-capabilities@1"},
+    "bundle_selections": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/bundle"}
+    },
+    "capability_rows": {
+      "type": "array",
+      "minItems": 23,
+      "items": {"$ref": "#/$defs/row"}
+    },
+    "capacity_allocations": {
+      "type": "array",
+      "minItems": 9,
+      "items": {"$ref": "#/$defs/capacity"}
+    },
+    "single_cloud_cases": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/single"}
+    },
+    "directed_pair_cases": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/pair"}
+    },
+    "three_provider_cases": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/triple"}
+    },
+    "rejected_alternatives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/rejected"}
+    }
+  },
+  "$defs": {
+    "provider": {"enum": ["aws", "azure", "gcp"]},
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_id",
+        "provider",
+        "profile_scope",
+        "members",
+        "decision",
+        "implementation_status"
+      ],
+      "properties": {
+        "bundle_id": {"type": "string", "pattern": "^bundle\\."},
+        "provider": {"$ref": "#/$defs/provider"},
+        "profile_scope": {"enum": ["embedded", "event_layer"]},
+        "members": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "decision": {"const": "selected"},
+        "implementation_status": {"const": "planned_phase_8_9"}
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_id", "profile_scope", "cells"],
+      "properties": {
+        "capability_id": {"type": "string", "pattern": "^capability\\."},
+        "profile_scope": {"enum": ["embedded", "event_layer"]},
+        "cells": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/cell"}
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "status",
+        "responsible_members",
+        "source_ids",
+        "limitation",
+        "implementation_status"
+      ],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "status": {"enum": ["native", "composed", "platform_adapter", "unsupported", "unverified"]},
+        "responsible_members": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "source_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^source\\."}, "uniqueItems": true},
+        "limitation": {"type": "string", "minLength": 1},
+        "implementation_status": {"const": "planned_phase_8_9"}
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "scenario_id", "dimensions", "headroom_result", "source_ids"],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "scenario_id": {"type": "string", "pattern": "^eventing-(small|medium|large)-v1$"},
+        "dimensions": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "headroom_result": {"const": "pass"},
+        "source_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^source\\."}}
+      }
+    },
+    "single": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "event_scope_status", "whole_profile_status", "reason"],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "event_scope_status": {"const": "capability_admissible_live_pending"},
+        "whole_profile_status": {
+          "enum": ["profile_target_not_implemented", "unsupported_missing_l4_l5"]
+        },
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_provider", "destination_provider", "status", "trust_pattern", "source_ids"],
+      "properties": {
+        "source_provider": {"$ref": "#/$defs/provider"},
+        "destination_provider": {"$ref": "#/$defs/provider"},
+        "status": {"const": "capability_admissible_live_pending"},
+        "trust_pattern": {"type": "string", "minLength": 1},
+        "source_ids": {"type": "array", "minItems": 2, "items": {"type": "string", "pattern": "^source\\."}}
+      }
+    },
+    "triple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ingress_provider", "eventing_provider", "processing_provider", "status", "topology"],
+      "properties": {
+        "ingress_provider": {"$ref": "#/$defs/provider"},
+        "eventing_provider": {"$ref": "#/$defs/provider"},
+        "processing_provider": {"$ref": "#/$defs/provider"},
+        "status": {"const": "capability_admissible_live_pending"},
+        "topology": {"const": "hub_and_spoke"}
+      }
+    },
+    "rejected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alternative_id", "provider", "service", "scope", "reason", "source_ids"],
+      "properties": {
+        "alternative_id": {"type": "string", "pattern": "^alternative\\."},
+        "provider": {"$ref": "#/$defs/provider"},
+        "service": {"type": "string", "minLength": 1},
+        "scope": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "source_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^source\\."}}
+      }
+    }
+  }
+}

@@ -9,13 +9,13 @@ This directory is the working evidence package for Phase 8.8 and GitHub issue
 
 **Regions:** AWS `eu-central-1`, Azure `westeurope`, GCP `europe-west1`
 
-**Current decision status:** `draft-capability-pass-with-conditions`
+**Current decision status:** `draft-calculation-pending`
 
-The capability, compatibility, and theoretical capacity review below is
-complete enough to nominate provider bundles. It is not the final Phase 8.8
-approval. Pricing normalization, immutable source captures/digests, JSON
-schemas, offline calculation, the implementation-component manifest, and the
-independent approval review are still required.
+The capability, compatibility, theoretical-capacity, source, and normalized
+pricing reviews below are complete enough to nominate provider bundles. It is
+not the final Phase 8.8 approval. Offline scenario calculation, the bridge
+decision, the implementation-component manifest, the complete package
+validator, and the independent approval reviews are still required.
 
 No runtime code or cloud resource is changed by this evidence.
 
@@ -106,7 +106,7 @@ create an independently selectable Eventing layer.
 |---|---|---|---|---|---|
 | AWS | AWS IoT Core MQTT/HTTPS plus an IoT rule | Lambda processor, rule evaluator, extension adapter, and bounded asynchronous Lambda delivery with failure destinations | Step Functions Standard | AWS IoT Commands over reserved MQTT topics | Capability-admissible; live verification pending |
 | Azure | IoT Hub; Event Hubs-compatible route to the processor avoids the Event Grid Basic throughput ceiling | Azure Functions processor, rule evaluator, extension adapter, and bounded direct delivery | Logic Apps Consumption (stateful multitenant) | IoT Hub cloud-to-device per-device queue | Capability-admissible; live verification pending |
-| GCP | Pub/Sub HTTPS/gRPC publisher boundary with per-device ordering key | Cloud Run functions/services for processor, rule evaluator, extension adapter, and authenticated direct delivery | Google Cloud Workflows | Pub/Sub command outbox plus EMQX Open Source 5.8.8 delivery cluster on GKE Standard | Capability-admissible with explicit hosted-boundary and failover caveats |
+| GCP | Pub/Sub HTTPS/gRPC publisher boundary with per-device ordering key | Cloud Run functions/services for processor, rule evaluator, extension adapter, and authenticated direct delivery | Google Cloud Workflows | Pub/Sub command outbox plus Apache BifroMQ 4.0.0-incubating delivery cluster on GKE Standard | Capability-admissible for the PoC with explicit hosted-boundary and incubation-risk caveats |
 
 Cross-cloud direct responsibility edges do not fall back to public
 function-to-function invocation. A remote edge adds the same source-owned
@@ -127,16 +127,16 @@ telemetry:
   device/gateway -> Pub/Sub over HTTPS or gRPC
 
 commands:
-  device-command adapter -> EMQX MQTT topic -> connected device
+  device-command adapter -> BifroMQ MQTT topic -> connected device
 ```
 
 The hosted command boundary is deliberately limited to commands and command
 outcomes; the 166.4 MB/s Large telemetry stream does not need to traverse the
 MQTT broker. The selected reference deployment is:
 
-- EMQX Open Source `5.8.8`, pinned for `linux/amd64` to
-  `sha256:4c8880d1b0769baffcd85cccc9ec45f0bcd192e841f79bff90084dd571f86997`;
-- three Core nodes on a regional GKE Standard cluster;
+- Apache BifroMQ `4.0.0-incubating`, pinned to
+  `sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924`;
+- three all-in-one cluster nodes on a regional GKE Standard cluster;
 - one `e2-standard-8` node per broker pod/zone as the initial capacity
   dimension;
 - an external passthrough Network Load Balancer;
@@ -152,20 +152,21 @@ GKE or Compute Engine for this type of bidirectional device flow. This is a
 provider-hosted software component, not a managed GCP IoT service. Its resource,
 license, maintenance, and observability costs must remain visible.
 
-EMQX Open Source 5.8 does not provide the Enterprise-only replicated Raft
-durable-storage backend. The command adapter therefore keeps the ordered
-Pub/Sub command delivery unacknowledged until a correlated terminal device
-outcome arrives. Broker or node loss causes redelivery with the same command
-ID; the device must deduplicate that ID. MQTT persistent sessions reduce
-offline-device latency but are not treated as the durable acknowledgement
-boundary. This avoids falsely claiming replicated broker-session durability.
+The command adapter keeps the ordered Pub/Sub command delivery unacknowledged
+until a correlated terminal device outcome arrives. Broker or node loss causes
+redelivery with the same command ID; the device must deduplicate that ID.
+MQTT persistent sessions reduce offline-device latency but are not treated as
+the end-to-end durable acknowledgement boundary.
 
-EMQX's published single-node benchmark uses an 8-vCPU/16-GB server for one
-million connections, and its throughput example is far above the 6.25 command
-messages/s required here. The Large scenario conservatively contains 100,000
-concurrent device connections. The three-node dimension and the immutable
-image are a theoretical capacity qualification, not a substitute for the
-supervised Phase 8 live load and node-failure tests.
+BifroMQ's published persistent-session benchmark reports one million
+connections on one node at about 18 GB of memory. The Large scenario contains
+100,000 concurrent device connections and only 6.25 command messages/s. Three
+`e2-standard-8` nodes therefore provide theoretical headroom, but the dimension
+and immutable image are not substitutes for the supervised Phase 8 load,
+partition, and node-failure tests. BifroMQ is an Apache Incubator project. Its
+Apache-2.0 license avoids an unpriced software subscription, but incubation is
+an explicit operational-maturity risk that is acceptable only for this PoC
+decision and must be reassessed before production use.
 
 ## Selected Event-Layer Bundles: `six-layer-eventing@1`
 
@@ -177,7 +178,7 @@ supervised Phase 8 live load and node-failure tests.
 | Retry and terminal failure | Lambda event-source retry/bisect plus S3 full-record failure destination; SQS DLQs for control | Functions Event Hubs retry policy plus explicit dead-letter Event Hub; Service Bus DLQs | Subscription retry policy and dead-letter topic |
 | Retention and replay | Kinesis retention; SNS FIFO archive/replay for control | Event Hubs retention and checkpoint replay; explicit redrive processor | Topic retention plus subscription Seek/snapshot |
 | Workflow | Step Functions Standard | Logic Apps Consumption (stateful multitenant) | Workflows |
-| Device command | AWS IoT Commands | IoT Hub cloud-to-device queue | Hosted EMQX/GKE command boundary |
+| Device command | AWS IoT Commands | IoT Hub cloud-to-device queue | Hosted BifroMQ/GKE command boundary |
 | Consumers and bridges | Lambda/KCL adapters | Azure Functions Event Hubs/Service Bus adapters | Cloud Run push for Small/Medium; StreamingPull worker pools for Large |
 | Observability | CloudWatch metrics/logs and bounded failure destinations | Azure Monitor/Application Insights and broker metrics | Cloud Monitoring/Logging and subscription backlog/DLQ metrics |
 
@@ -380,7 +381,7 @@ capture the real token claims and execute all six directions.
   IoT Commands. No bridge or inter-cloud egress exists.
 - Azure uses IoT Hub, the Azure embedded/Event-Layer bundle, Logic Apps, and
   IoT Hub C2D. No bridge or inter-cloud egress exists.
-- GCP uses Pub/Sub and Cloud Run/Workflows plus the explicitly hosted EMQX/GKE
+- GCP uses Pub/Sub and Cloud Run/Workflows plus the explicitly hosted BifroMQ/GKE
   command boundary. No bridge or inter-cloud egress exists, but GKE, load
   balancer, persistent disk, and broker operations still have cost owners.
 
@@ -422,25 +423,25 @@ because fan-out occurs after the landing broker.
 | Direct Pub/Sub credentials on every heterogeneous device | Rejected | Google's direct pattern is aimed at controlled aggregation devices/gateways and does not replace a bidirectional MQTT fleet boundary. |
 | Retired GCP Cloud IoT Core command API | Rejected | It is not a current deployable service; the repository's inherited `iot_v1` command client is architecture debt. |
 | Public function-to-function bridge | Rejected | It couples domain functions to remote endpoints and lacks the selected durable acknowledgement, backpressure, DLQ, replay, and trust boundary. |
-| EMQX Open Source replicated durable storage | Rejected | The replicated Raft backend in 5.8 is Enterprise-only; Pub/Sub remains the durable command owner and the broker is not the acknowledgement boundary. |
+| EMQX Open Source 5.8.8 | Rejected | The selected version reached end of life in February 2026 and no longer meets the security-maintenance gate. |
+| EMQX 6 clustered Community license | Rejected | Current clustered deployment requires a commercial license with quote-based pricing; it cannot produce the required reproducible public cost evidence. |
+| BifroMQ broker-session state as the end-to-end command owner | Rejected | Pub/Sub remains the durable owner until the correlated device outcome; broker state is a delivery optimization rather than the acknowledgement boundary. |
 | Long-lived cross-cloud keys/secrets | Rejected | Every candidate direction has a short-lived federation primitive; exact claim mappings must still pass their explicit gates. |
 
 ## Remaining Approval Work
 
 The provider bundles pass the current functional and theoretical-capacity
-review with the explicit trust and hosted-broker conditions above. Phase 8.8
-is not yet `approved` because the following evidence is still missing:
+review with the explicit trust and hosted-broker conditions above. Source
+captures and digests, the Apache license/incubation record, normalized pricing,
+formula and unit rules, and schemas for the current artifacts now exist and
+pass their current offline checks. Phase 8.8 is not yet `approved` because the
+following evidence is still missing:
 
-1. immutable source-ledger capture and license record for the selected EMQX
-   digest;
-2. normalized provider pricing and transfer formulas for every selected and
-   rejected member;
-3. immutable source-ledger captures and content digests;
-4. scenario JSON, formulas, calculated totals, and byte-identical offline
-   reproduction;
-5. exact Terraform/provider/runtime/permission component manifest;
-6. schema and referential-integrity validation;
-7. two independent zero-finding reviews of the complete package.
+1. calculated scenario totals with byte-identical offline reproduction;
+2. the canonical envelope and selected bridge decision;
+3. the exact Terraform/provider/runtime/permission component manifest;
+4. the complete-package validator and negative fixtures; and
+5. two zero-finding reviews of the complete package.
 
 No selected bundle may enter optimizer ranking before those gates pass.
 
@@ -500,12 +501,11 @@ No selected bundle may enter optimizer ranking before those gates pass.
 - [Google standalone MQTT broker architecture](https://docs.cloud.google.com/architecture/connected-devices/mqtt-broker-architecture)
 - [Google device-on-Pub/Sub architecture](https://docs.cloud.google.com/architecture/connected-devices/device-pubsub-architecture)
 - [GKE modes](https://docs.cloud.google.com/kubernetes-engine/docs/concepts/choose-cluster-mode)
-- [EMQX repository and license boundary](https://github.com/emqx/emqx)
-- [EMQX 5.8 Open Source image](https://hub.docker.com/_/emqx/tags?name=5.8.8)
-- [EMQX 5.8 durable-storage edition boundary](https://docs.emqx.com/en/emqx/latest/changes/breaking-changes-ee-5.8.html)
-- [EMQX clustering](https://docs.emqx.com/en/emqx/latest/deploy/cluster/introduction.html)
-- [EMQX performance benchmark](https://docs.emqx.com/en/emqx/latest/performance/benchmark-emqtt-bench.html)
-- [EMQX X.509 device authentication](https://docs.emqx.com/en/emqx/latest/access-control/authn/x509.html)
-- [EMQX authorization placeholders](https://docs.emqx.com/en/emqx/latest/access-control/authz/authz.html)
+- [Apache BifroMQ repository, release, and license](https://github.com/apache/bifromq)
+- [BifroMQ cluster architecture](https://bifromq.apache.org/docs/cluster/intro/)
+- [BifroMQ security and mutual TLS](https://bifromq.apache.org/docs/3.0.x/admin_guide/security/intro/)
+- [BifroMQ connection benchmark](https://bifromq.apache.org/docs/3.0.x/test_report/report/)
+- [EMQX 5.8 Open Source end-of-life notice](https://www.emqx.com/en/news/a-notice-on-the-emqx-5-8-open-source-version)
+- [Current EMQX clustered license boundary](https://docs.emqx.com/en/emqx/latest/deploy/license.html)
 - [GCP Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation)
 - [GCP federation with AWS and Azure](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-other-clouds)

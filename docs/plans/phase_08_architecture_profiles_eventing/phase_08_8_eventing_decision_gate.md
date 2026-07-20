@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.4"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.4"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.4
+EXTRACTED: 2026-07-20 | VERSION: 1.5
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -184,7 +184,6 @@ docs/research/evidence/phase_08_eventing/
   decision.json
   profile-parity-decision.json
   domain-event-flow-contract.json
-  eventing-workload.schema.json
   mandatory-capabilities.json
   provider-capability-matrix.json
   pricing-model-matrix.json
@@ -195,13 +194,13 @@ docs/research/evidence/phase_08_eventing/
   bridge-decision.json
   implementation-component-manifest.json
   README.md
+  schemas/
+    eventing-workload.schema.json
+    <one schema for every remaining JSON artifact>
 ```
 
-All JSON files must have repository-owned Draft 2020-12 schemas under:
-
-```text
-docs/research/evidence/phase_08_eventing/schemas/
-```
+All JSON files must have repository-owned Draft 2020-12 schemas in that
+`schemas/` directory.
 
 Add:
 
