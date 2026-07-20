@@ -47,6 +47,71 @@ class DecisionPackageValidationTest(unittest.TestCase):
             any("manifest bridge route mismatch" in error for error in errors)
         )
 
+    def test_incomplete_bridge_profile_binding_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        manifest = artifacts["implementation-component-manifest.json"]
+        manifest["bridge_route_classes"][0]["profile_bindings"].pop()
+        errors: list[str] = []
+        VALIDATOR.validate_manifest(artifacts, errors)
+        self.assertTrue(
+            any(
+                "incomplete profile route bindings" in error
+                for error in errors
+            )
+        )
+
+    def test_wrong_bridge_profile_component_scope_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        manifest = artifacts["implementation-component-manifest.json"]
+        binding = manifest["bridge_route_classes"][0]["profile_bindings"][0]
+        binding["source_telemetry_component_ids"] = [
+            "deployment.aws.event.kinesis"
+        ]
+        errors: list[str] = []
+        VALIDATOR.validate_manifest(artifacts, errors)
+        self.assertTrue(
+            any(
+                "has the wrong provider or profile scope" in error
+                for error in errors
+            )
+        )
+
+    def test_wrong_same_scope_bridge_component_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        manifest = artifacts["implementation-component-manifest.json"]
+        binding = manifest["bridge_route_classes"][0]["profile_bindings"][0]
+        binding["source_telemetry_component_ids"] = [
+            "deployment.aws.embedded.device-ingress"
+        ]
+        errors: list[str] = []
+        VALIDATOR.validate_manifest(artifacts, errors)
+        self.assertTrue(
+            any(
+                "components differ from exact five-layer-baseline@2 binding"
+                in error
+                for error in errors
+            )
+        )
+
+    def test_bridge_source_component_without_adapter_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        manifest = artifacts["implementation-component-manifest.json"]
+        component = next(
+            row
+            for row in manifest["service_components"]
+            if row["deployment_component_id"]
+            == "deployment.azure.embedded.direct-edge-transport"
+        )
+        component["runtime_adapter_ids"].remove("adapter.azure.bridge@1")
+        errors: list[str] = []
+        VALIDATOR.validate_manifest(artifacts, errors)
+        self.assertTrue(
+            any(
+                "does not own the route bridge adapter" in error
+                for error in errors
+            )
+        )
+
     def test_stale_artifact_digest_is_rejected(self) -> None:
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
@@ -77,6 +142,81 @@ class DecisionPackageValidationTest(unittest.TestCase):
         VALIDATOR.validate_coverage(artifacts, errors)
         self.assertTrue(
             any("incomplete directed-pair results" in error for error in errors)
+        )
+
+    def test_missing_capability_row_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        matrix = artifacts["provider-capability-matrix.json"]
+        matrix["capability_rows"] = [
+            row
+            for row in matrix["capability_rows"]
+            if row["capability_id"]
+            != "capability.direct-edge.cross-cloud-transport"
+        ]
+        errors: list[str] = []
+        VALIDATOR.validate_coverage(artifacts, errors)
+        self.assertTrue(
+            any("embedded capability coverage mismatch" in error for error in errors)
+        )
+
+    def test_bifromq_formula_input_drift_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        ledger = artifacts["formula-and-unit-ledger.json"]
+        formula = next(
+            row
+            for row in ledger["formulas"]
+            if row["formula_id"] == "formula.gcp.bifromq-gke"
+        )
+        formula["inputs"].remove("lb_processing_gib_price")
+        errors: list[str] = []
+        VALIDATOR.validate_reference_integrity(artifacts, errors)
+        self.assertIn(
+            "BifroMQ formula input/expression contract mismatch",
+            errors,
+        )
+
+    def test_incomplete_capacity_allocation_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        matrix = artifacts["provider-capability-matrix.json"]
+        matrix["capacity_allocations"].pop()
+        errors: list[str] = []
+        VALIDATOR.validate_coverage(artifacts, errors)
+        self.assertTrue(
+            any("capacity allocation coverage mismatch" in error for error in errors)
+        )
+
+    def test_missing_aws_outbound_identity_preflight_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        manifest = artifacts["implementation-component-manifest.json"]
+        aws = next(
+            row
+            for row in manifest["provider_requirements"]
+            if row["provider"] == "aws"
+        )
+        aws["preflight_gates"].remove(
+            "regional_STS_endpoint_for_GetWebIdentityToken"
+        )
+        errors: list[str] = []
+        VALIDATOR.validate_coverage(artifacts, errors)
+        self.assertIn(
+            "AWS provider outbound identity preflight is incomplete",
+            errors,
+        )
+
+    def test_rejected_alternative_without_pricing_disposition_is_rejected(
+        self,
+    ) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        pricing = artifacts["pricing-model-matrix.json"]
+        pricing["rejected_member_dimensions"].pop()
+        errors: list[str] = []
+        VALIDATOR.validate_coverage(artifacts, errors)
+        self.assertTrue(
+            any(
+                "rejected alternative capability/pricing coverage mismatch"
+                in error
+                for error in errors
+            )
         )
 
     def test_unresolved_runtime_adapter_is_rejected(self) -> None:

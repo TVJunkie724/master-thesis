@@ -8,7 +8,7 @@
       "artifact_id": "bridge-decision",
       "path": "docs/research/evidence/phase_08_eventing/bridge-decision.json",
       "schema_version": "bridge-decision.v1",
-      "digest": "sha256:8641b652e2fbe50afd49dd6f815be07286915a700afac588d95c106d879dcb1d"
+      "digest": "sha256:5f666a39ed1bdbb6723e2af79357c86fc5570a13c4e2d2ce5ee0a25cd2351345"
     },
     {
       "artifact_id": "domain-event-flow-contract",
@@ -20,19 +20,19 @@
       "artifact_id": "formula-and-unit-ledger",
       "path": "docs/research/evidence/phase_08_eventing/formula-and-unit-ledger.json",
       "schema_version": "formula-and-unit-ledger.v1",
-      "digest": "sha256:97ff2c1bedebfc648df96c1b2e1c03c0d1f477528da6b073f1b270de0b811f1f"
+      "digest": "sha256:acf0b42bd2d2d5f0e8980f38f8ee03b5aa8661b07c5a96475406924fa315701a"
     },
     {
       "artifact_id": "mandatory-capabilities",
       "path": "docs/research/evidence/phase_08_eventing/mandatory-capabilities.json",
       "schema_version": "mandatory-capabilities.v1",
-      "digest": "sha256:3b63d82594f24a44240e8e45665ffdc7b81367384a74cea521829729545b2f6a"
+      "digest": "sha256:4f390a62c6e5f42d4f84be3e3dc6677b585f69b114b7e7078cdffc73859ab66f"
     },
     {
       "artifact_id": "pricing-model-matrix",
       "path": "docs/research/evidence/phase_08_eventing/pricing-model-matrix.json",
       "schema_version": "pricing-model-matrix.v1",
-      "digest": "sha256:b56a8f741133369140a76ef57f8acfe8fa094f2dc5efaf5820b9caa81d1621fc"
+      "digest": "sha256:9cb3ac4ea4a3ee690ae68131b7975c1cff43bbdf83435fea6020b45bf168e16b"
     },
     {
       "artifact_id": "profile-parity-decision",
@@ -44,13 +44,13 @@
       "artifact_id": "provider-capability-matrix",
       "path": "docs/research/evidence/phase_08_eventing/provider-capability-matrix.json",
       "schema_version": "provider-capability-matrix.v1",
-      "digest": "sha256:68028349334b06da081397f8b5ad98ff5b72dca04c157d48adcd318100ff7c87"
+      "digest": "sha256:45aeb0fcecfb03efd9677c15a4330b8dc9dae0d7547310049f62de329835e9b9"
     },
     {
       "artifact_id": "scenario-cost-results",
       "path": "docs/research/evidence/phase_08_eventing/scenario-cost-results.json",
       "schema_version": "scenario-cost-results.v1",
-      "digest": "sha256:1c5d023defe8375ae2beae1867749136b08dd3fe34891ec5bedf158061b6c460"
+      "digest": "sha256:d3c8ad970747793510ec9f2fd1a83eff756ecfe057391f052112f9a340b30650"
     },
     {
       "artifact_id": "scenario-inputs",
@@ -62,7 +62,7 @@
       "artifact_id": "source-ledger",
       "path": "docs/research/evidence/phase_08_eventing/source-ledger.json",
       "schema_version": "source-ledger.v1",
-      "digest": "sha256:4cc71c036ac100365af771426d995266f5869badf2b873196e30585a1c7212ee"
+      "digest": "sha256:1eac77342f4def391a6cb2071a87c57bad02d181eb1fc9503db59f52dc452a96"
     }
   ],
   "contract_targets": [
@@ -158,9 +158,11 @@
       ],
       "whole_profile_boundary": "AWS whole-profile fixtures are admissible when every non-Eventing responsibility also resolves.",
       "preflight_gates": [
-        "regional_Lambda_concurrency",
+        "regional_Lambda_concurrency_for_domain_delivery_and_bridge",
         "Kinesis_shards_and_EFO_consumers",
         "IoT_Command_resource_support",
+        "outbound_web_identity_federation_account_enabled",
+        "regional_STS_endpoint_for_GetWebIdentityToken",
         "all_directed_identity_claims"
       ]
     },
@@ -223,8 +225,11 @@
       "preflight_gates": [
         "Cloud_Run_CPU_and_memory_quota",
         "PubSub_pull_and_push_quota",
-        "126_large_worker_instances",
-        "three_node_BifroMQ_GKE_boundary",
+        "126_large_event_delivery_worker_instances",
+        "12_large_BifroMQ_broker_nodes",
+        "4_large_MQTT_integration_worker_nodes",
+        "300_large_ordered_shared_integration_clients",
+        "64_KiB_payload_throughput_ordering_and_failure_test",
         "all_directed_identity_claims"
       ]
     }
@@ -318,7 +323,8 @@
         ]
       },
       "runtime_adapter_ids": [
-        "adapter.aws.embedded-domain@1"
+        "adapter.aws.embedded-domain@1",
+        "adapter.aws.bridge@1"
       ],
       "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
@@ -440,7 +446,8 @@
         "responsibility.processing"
       ],
       "logical_component_ids": [
-        "component.embedded-direct-edge-transport"
+        "component.embedded-direct-edge-transport",
+        "component.embedded-cross-cloud-control-subscription"
       ],
       "deployment_component_id": "deployment.aws.embedded.direct-edge-transport",
       "catalog_entry_id": "catalog-entry.aws.embedded.direct-edge-transport@1",
@@ -463,7 +470,8 @@
         ]
       },
       "runtime_adapter_ids": [
-        "adapter.aws.embedded-domain@1"
+        "adapter.aws.embedded-domain@1",
+        "adapter.aws.bridge@1"
       ],
       "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
@@ -613,7 +621,8 @@
         ]
       },
       "runtime_adapter_ids": [
-        "adapter.azure.embedded-domain@1"
+        "adapter.azure.embedded-domain@1",
+        "adapter.azure.bridge@1"
       ],
       "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
@@ -714,7 +723,8 @@
         ]
       },
       "runtime_adapter_ids": [
-        "adapter.azure.embedded-domain@1"
+        "adapter.azure.embedded-domain@1",
+        "adapter.azure.bridge@1"
       ],
       "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
@@ -788,8 +798,9 @@
         "responsibility.processing"
       ],
       "logical_component_ids": [
-        "component.device-ingress",
-        "component.embedded-direct-edge-transport"
+        "component.embedded-cloud-event-backbone",
+        "component.embedded-direct-edge-transport",
+        "component.embedded-cross-cloud-outbox"
       ],
       "deployment_component_id": "deployment.gcp.embedded.pubsub",
       "catalog_entry_id": "catalog-entry.gcp.embedded.pubsub@1",
@@ -812,7 +823,9 @@
         ]
       },
       "runtime_adapter_ids": [
-        "adapter.gcp.embedded-domain@1"
+        "adapter.gcp.mqtt-ingress@1",
+        "adapter.gcp.embedded-domain@1",
+        "adapter.gcp.bridge@1"
       ],
       "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
@@ -866,7 +879,8 @@
         ]
       },
       "runtime_adapter_ids": [
-        "adapter.gcp.embedded-domain@1"
+        "adapter.gcp.embedded-domain@1",
+        "adapter.gcp.bridge@1"
       ],
       "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
@@ -943,7 +957,9 @@
         "responsibility.ingestion"
       ],
       "logical_component_ids": [
-        "component.device-command-adapter"
+        "component.device-ingress",
+        "component.device-command-adapter",
+        "component.mqtt-pubsub-integration"
       ],
       "deployment_component_id": "deployment.gcp.embedded.mqtt-cluster",
       "catalog_entry_id": "catalog-entry.gcp.embedded.mqtt-cluster@1",
@@ -952,22 +968,29 @@
         "owner_file": "3-cloud-deployer/src/terraform/gcp_embedded_events.tf",
         "resource_types": [
           "google_container_cluster",
-          "google_container_node_pool"
+          "google_container_node_pool",
+          "kubernetes_deployment_v1"
         ],
         "resource_ids": [
           "google_container_cluster.bifromq",
-          "google_container_node_pool.bifromq"
+          "google_container_node_pool.bifromq_broker",
+          "google_container_node_pool.bifromq_integration",
+          "kubernetes_deployment_v1.mqtt_pubsub_integration"
         ],
         "input_ids": [
-          "input.gcp.bifromq-node-count",
+          "input.gcp.bifromq-broker-node-count",
+          "input.gcp.bifromq-integration-node-count",
+          "input.gcp.bifromq-integration-client-count",
           "input.gcp.bifromq-machine-type",
           "input.gcp.bifromq-disk-gib"
         ],
         "output_ids": [
-          "output.gcp.bifromq-cluster-endpoint"
+          "output.gcp.bifromq-cluster-endpoint",
+          "output.gcp.mqtt-pubsub-integration-workload"
         ]
       },
       "runtime_adapter_ids": [
+        "adapter.gcp.mqtt-ingress@1",
         "adapter.gcp.embedded-domain@1"
       ],
       "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
@@ -997,7 +1020,9 @@
         "responsibility.ingestion"
       ],
       "logical_component_ids": [
-        "component.device-command-adapter"
+        "component.device-ingress",
+        "component.device-command-adapter",
+        "component.mqtt-pubsub-integration"
       ],
       "deployment_component_id": "deployment.gcp.embedded.bifromq",
       "catalog_entry_id": "catalog-entry.gcp.embedded.bifromq@1",
@@ -1012,13 +1037,17 @@
         ],
         "input_ids": [
           "input.gcp.bifromq-chart-digest",
-          "input.gcp.bifromq-replicas"
+          "input.gcp.bifromq-replicas",
+          "input.gcp.bifromq-inbox-replicas",
+          "input.gcp.bifromq-integration-bandwidth-mibps",
+          "input.gcp.bifromq-ordered-shared-group-size"
         ],
         "output_ids": [
           "output.gcp.bifromq-release"
         ]
       },
       "runtime_adapter_ids": [
+        "adapter.gcp.mqtt-ingress@1",
         "adapter.gcp.embedded-domain@1"
       ],
       "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
@@ -1046,7 +1075,9 @@
         "responsibility.ingestion"
       ],
       "logical_component_ids": [
-        "component.device-command-adapter"
+        "component.device-ingress",
+        "component.device-command-adapter",
+        "component.mqtt-pubsub-integration"
       ],
       "deployment_component_id": "deployment.gcp.embedded.mqtt-load-balancer",
       "catalog_entry_id": "catalog-entry.gcp.embedded.mqtt-load-balancer@1",
@@ -1067,6 +1098,7 @@
         ]
       },
       "runtime_adapter_ids": [
+        "adapter.gcp.mqtt-ingress@1",
         "adapter.gcp.embedded-domain@1"
       ],
       "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
@@ -1127,6 +1159,228 @@
       ],
       "region_constraint": "europe-west1",
       "implementation_status": "existing_extension_to_modify"
+    },
+    {
+      "component_manifest_id": "manifest-component.aws.embedded.bridge-kinesis",
+      "bundle_id": "bundle.aws.embedded@1",
+      "selected_member": "Amazon Kinesis Data Streams",
+      "provider": "aws",
+      "profile_scope": "embedded",
+      "responsibility_ids": [
+        "responsibility.ingestion"
+      ],
+      "logical_component_ids": [
+        "component.embedded-cross-cloud-telemetry-outbox"
+      ],
+      "deployment_component_id": "deployment.aws.embedded.bridge-kinesis",
+      "catalog_entry_id": "catalog-entry.aws.embedded.bridge-kinesis@1",
+      "service_id": "aws.kinesis_data_streams",
+      "terraform": {
+        "owner_file": "3-cloud-deployer/src/terraform/aws_embedded_events.tf",
+        "resource_types": [
+          "aws_kinesis_stream",
+          "aws_kinesis_stream_consumer"
+        ],
+        "resource_ids": [
+          "aws_kinesis_stream.embedded_bridge_telemetry",
+          "aws_kinesis_stream_consumer.embedded_bridge_consumers"
+        ],
+        "input_ids": [
+          "input.aws.embedded-bridge-kinesis-shards",
+          "input.aws.embedded-bridge-retention-hours"
+        ],
+        "output_ids": [
+          "output.aws.embedded-bridge-kinesis-arn"
+        ]
+      },
+      "runtime_adapter_ids": [
+        "adapter.aws.bridge@1"
+      ],
+      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
+      "pricing_intent_ids": [
+        "intent.aws.kinesis.shard-hour",
+        "intent.aws.kinesis.put-unit",
+        "intent.aws.kinesis.efo-consumer-hour",
+        "intent.aws.kinesis.efo-read",
+        "intent.aws.kinesis.extended-retention"
+      ],
+      "formula_ids": [
+        "formula.aws.kinesis-provisioned"
+      ],
+      "contract_refs": [
+        "eventing-envelope.v1",
+        "phase-08-cross-cloud-bridge@1",
+        "domain-event-flow@1"
+      ],
+      "region_constraint": "eu-central-1",
+      "implementation_status": "exact_new_phase_8_9_target"
+    },
+    {
+      "component_manifest_id": "manifest-component.aws.embedded.bridge-sns-fifo",
+      "bundle_id": "bundle.aws.embedded@1",
+      "selected_member": "Amazon SNS FIFO",
+      "provider": "aws",
+      "profile_scope": "embedded",
+      "responsibility_ids": [
+        "responsibility.processing"
+      ],
+      "logical_component_ids": [
+        "component.embedded-cross-cloud-control-outbox"
+      ],
+      "deployment_component_id": "deployment.aws.embedded.bridge-sns-fifo",
+      "catalog_entry_id": "catalog-entry.aws.embedded.bridge-sns-fifo@1",
+      "service_id": "aws.sns_fifo",
+      "terraform": {
+        "owner_file": "3-cloud-deployer/src/terraform/aws_embedded_events.tf",
+        "resource_types": [
+          "aws_sns_topic",
+          "aws_sns_topic_subscription"
+        ],
+        "resource_ids": [
+          "aws_sns_topic.embedded_bridge_control",
+          "aws_sns_topic_subscription.embedded_bridge_control"
+        ],
+        "input_ids": [
+          "input.aws.embedded-bridge-control-archive-hours"
+        ],
+        "output_ids": [
+          "output.aws.embedded-bridge-control-topic-arn"
+        ]
+      },
+      "runtime_adapter_ids": [
+        "adapter.aws.bridge@1"
+      ],
+      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
+      "pricing_intent_ids": [
+        "intent.aws.sns-fifo.publish",
+        "intent.aws.sns-fifo.ingress",
+        "intent.aws.sns-fifo.delivery",
+        "intent.aws.sns-fifo.egress",
+        "intent.aws.sns-fifo.archive-processing",
+        "intent.aws.sns-fifo.archive-storage"
+      ],
+      "formula_ids": [
+        "formula.aws.sns-sqs-fifo",
+        "formula.retention.average-storage"
+      ],
+      "contract_refs": [
+        "eventing-envelope.v1",
+        "phase-08-cross-cloud-bridge@1",
+        "domain-event-flow@1"
+      ],
+      "region_constraint": "eu-central-1",
+      "implementation_status": "exact_new_phase_8_9_target"
+    },
+    {
+      "component_manifest_id": "manifest-component.azure.embedded.bridge-event-hubs-standard",
+      "bundle_id": "bundle.azure.embedded@1",
+      "selected_member": "Azure Event Hubs Standard (Small/Medium)",
+      "provider": "azure",
+      "profile_scope": "embedded",
+      "responsibility_ids": [
+        "responsibility.ingestion"
+      ],
+      "logical_component_ids": [
+        "component.embedded-cross-cloud-telemetry-outbox"
+      ],
+      "deployment_component_id": "deployment.azure.embedded.bridge-event-hubs-standard",
+      "catalog_entry_id": "catalog-entry.azure.embedded.bridge-event-hubs-standard@1",
+      "service_id": "azure.event_hubs_standard",
+      "terraform": {
+        "owner_file": "3-cloud-deployer/src/terraform/azure_embedded_events.tf",
+        "resource_types": [
+          "azurerm_eventhub_namespace",
+          "azurerm_eventhub",
+          "azurerm_eventhub_consumer_group"
+        ],
+        "resource_ids": [
+          "azurerm_eventhub_namespace.embedded_bridge_standard",
+          "azurerm_eventhub.embedded_bridge_telemetry_standard",
+          "azurerm_eventhub_consumer_group.embedded_bridge_standard"
+        ],
+        "input_ids": [
+          "input.azure.embedded-bridge-hubs-throughput-units",
+          "input.azure.embedded-bridge-partitions",
+          "input.azure.embedded-bridge-retention-hours"
+        ],
+        "output_ids": [
+          "output.azure.embedded-bridge-hubs-standard-id"
+        ]
+      },
+      "runtime_adapter_ids": [
+        "adapter.azure.bridge@1"
+      ],
+      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
+      "pricing_intent_ids": [
+        "intent.azure.event-hubs.tu-hour",
+        "intent.azure.event-hubs.ingress"
+      ],
+      "formula_ids": [
+        "formula.azure.event-hubs-standard"
+      ],
+      "contract_refs": [
+        "eventing-envelope.v1",
+        "phase-08-cross-cloud-bridge@1",
+        "domain-event-flow@1"
+      ],
+      "region_constraint": "westeurope; small_and_medium_only",
+      "implementation_status": "exact_new_phase_8_9_target"
+    },
+    {
+      "component_manifest_id": "manifest-component.azure.embedded.bridge-event-hubs-dedicated",
+      "bundle_id": "bundle.azure.embedded@1",
+      "selected_member": "Azure Event Hubs Dedicated (Large)",
+      "provider": "azure",
+      "profile_scope": "embedded",
+      "responsibility_ids": [
+        "responsibility.ingestion"
+      ],
+      "logical_component_ids": [
+        "component.embedded-cross-cloud-telemetry-outbox"
+      ],
+      "deployment_component_id": "deployment.azure.embedded.bridge-event-hubs-dedicated",
+      "catalog_entry_id": "catalog-entry.azure.embedded.bridge-event-hubs-dedicated@1",
+      "service_id": "azure.event_hubs_dedicated",
+      "terraform": {
+        "owner_file": "3-cloud-deployer/src/terraform/azure_embedded_events.tf",
+        "resource_types": [
+          "azapi_resource",
+          "azurerm_eventhub_namespace",
+          "azurerm_eventhub",
+          "azurerm_eventhub_consumer_group"
+        ],
+        "resource_ids": [
+          "azapi_resource.embedded_bridge_event_hubs_dedicated_cluster",
+          "azurerm_eventhub_namespace.embedded_bridge_dedicated",
+          "azurerm_eventhub.embedded_bridge_telemetry_dedicated",
+          "azurerm_eventhub_consumer_group.embedded_bridge_dedicated"
+        ],
+        "input_ids": [
+          "input.azure.embedded-bridge-hubs-dedicated-capacity-units",
+          "input.azure.embedded-bridge-partitions",
+          "input.azure.embedded-bridge-retention-hours"
+        ],
+        "output_ids": [
+          "output.azure.embedded-bridge-hubs-dedicated-id"
+        ]
+      },
+      "runtime_adapter_ids": [
+        "adapter.azure.bridge@1"
+      ],
+      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
+      "pricing_intent_ids": [
+        "intent.azure.event-hubs-dedicated.cu-hour"
+      ],
+      "formula_ids": [
+        "formula.azure.event-hubs-dedicated"
+      ],
+      "contract_refs": [
+        "eventing-envelope.v1",
+        "phase-08-cross-cloud-bridge@1",
+        "domain-event-flow@1"
+      ],
+      "region_constraint": "westeurope; large_only; exactly_6_CU_and_200_partitions_per_event_hub",
+      "implementation_status": "exact_new_phase_8_9_target"
     },
     {
       "component_manifest_id": "manifest-component.aws.event.kinesis",
@@ -1970,6 +2224,20 @@
       "cleanup_contract_ref": "cleanup.eventing@1"
     },
     {
+      "adapter_id": "adapter.gcp.mqtt-ingress@1",
+      "provider": "gcp",
+      "role": "device_ingress",
+      "trigger": "persistent_QoS1_$oshare_subscription_with_manual_ACK_after_PubSub_publish_acceptance_and_reconnect_ordering_degradation_evidence",
+      "package_artifact_id": "artifact.gcp.mqtt-ingress@1",
+      "wrapper_id": "wrapper.gcp.mqtt-ingress@1",
+      "handler_id": "handler.gcp.mqtt-ingress@1",
+      "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/mqtt_ingress.py",
+      "envelope_ref": "eventing-envelope.v1",
+      "error_contract_ref": "bridge-validation-and-error@1",
+      "observability_contract_ref": "bridge-observability-and-lifecycle@1",
+      "cleanup_contract_ref": "cleanup.eventing@1"
+    },
+    {
       "adapter_id": "adapter.aws.event-delivery@1",
       "provider": "aws",
       "role": "event_delivery",
@@ -2226,11 +2494,6 @@
       "source_provider": "aws",
       "destination_provider": "azure",
       "source_adapter_id": "adapter.aws.bridge@1",
-      "destination_telemetry_component_ids": [
-        "deployment.azure.event.event-hubs-standard",
-        "deployment.azure.event.event-hubs-dedicated"
-      ],
-      "destination_control_component_id": "deployment.azure.event.service-bus",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#aws-to-azure",
       "permission_set_refs": [
         "permission.aws.thesis-demo-eventing-v1",
@@ -2241,17 +2504,49 @@
         "medium",
         "large"
       ],
-      "live_gate": "required_before_profile_activation"
+      "live_gate": "required_before_profile_activation",
+      "profile_bindings": [
+        {
+          "profile_id": "five-layer-baseline@2",
+          "source_telemetry_component_ids": [
+            "deployment.aws.embedded.bridge-kinesis"
+          ],
+          "source_control_component_ids": [
+            "deployment.aws.embedded.bridge-sns-fifo",
+            "deployment.aws.embedded.direct-edge-transport"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.azure.embedded.bridge-event-hubs-standard",
+            "deployment.azure.embedded.bridge-event-hubs-dedicated"
+          ],
+          "destination_control_component_ids": [
+            "deployment.azure.embedded.direct-edge-transport"
+          ]
+        },
+        {
+          "profile_id": "six-layer-eventing@1",
+          "source_telemetry_component_ids": [
+            "deployment.aws.event.kinesis"
+          ],
+          "source_control_component_ids": [
+            "deployment.aws.event.sns-fifo",
+            "deployment.aws.event.sqs-fifo"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.azure.event.event-hubs-standard",
+            "deployment.azure.event.event-hubs-dedicated"
+          ],
+          "destination_control_component_ids": [
+            "deployment.azure.event.service-bus"
+          ]
+        }
+      ]
     },
     {
       "route_class_id": "bridge-route.aws-to-gcp@1",
       "source_provider": "aws",
       "destination_provider": "gcp",
       "source_adapter_id": "adapter.aws.bridge@1",
-      "destination_telemetry_component_ids": [
-        "deployment.gcp.event.pubsub"
-      ],
-      "destination_control_component_id": "deployment.gcp.event.pubsub",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#aws-to-gcp",
       "permission_set_refs": [
         "permission.aws.thesis-demo-eventing-v1",
@@ -2262,17 +2557,47 @@
         "medium",
         "large"
       ],
-      "live_gate": "required_before_profile_activation"
+      "live_gate": "required_before_profile_activation",
+      "profile_bindings": [
+        {
+          "profile_id": "five-layer-baseline@2",
+          "source_telemetry_component_ids": [
+            "deployment.aws.embedded.bridge-kinesis"
+          ],
+          "source_control_component_ids": [
+            "deployment.aws.embedded.bridge-sns-fifo",
+            "deployment.aws.embedded.direct-edge-transport"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ],
+          "destination_control_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ]
+        },
+        {
+          "profile_id": "six-layer-eventing@1",
+          "source_telemetry_component_ids": [
+            "deployment.aws.event.kinesis"
+          ],
+          "source_control_component_ids": [
+            "deployment.aws.event.sns-fifo",
+            "deployment.aws.event.sqs-fifo"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ],
+          "destination_control_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ]
+        }
+      ]
     },
     {
       "route_class_id": "bridge-route.azure-to-aws@1",
       "source_provider": "azure",
       "destination_provider": "aws",
       "source_adapter_id": "adapter.azure.bridge@1",
-      "destination_telemetry_component_ids": [
-        "deployment.aws.event.kinesis"
-      ],
-      "destination_control_component_id": "deployment.aws.event.sns-fifo",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#azure-to-aws",
       "permission_set_refs": [
         "permission.azure.thesis-demo-eventing-v1",
@@ -2283,17 +2608,49 @@
         "medium",
         "large"
       ],
-      "live_gate": "required_before_profile_activation"
+      "live_gate": "required_before_profile_activation",
+      "profile_bindings": [
+        {
+          "profile_id": "five-layer-baseline@2",
+          "source_telemetry_component_ids": [
+            "deployment.azure.embedded.bridge-event-hubs-standard",
+            "deployment.azure.embedded.bridge-event-hubs-dedicated"
+          ],
+          "source_control_component_ids": [
+            "deployment.azure.embedded.direct-edge-transport"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.aws.embedded.bridge-kinesis"
+          ],
+          "destination_control_component_ids": [
+            "deployment.aws.embedded.bridge-sns-fifo",
+            "deployment.aws.embedded.direct-edge-transport"
+          ]
+        },
+        {
+          "profile_id": "six-layer-eventing@1",
+          "source_telemetry_component_ids": [
+            "deployment.azure.event.event-hubs-standard",
+            "deployment.azure.event.event-hubs-dedicated"
+          ],
+          "source_control_component_ids": [
+            "deployment.azure.event.service-bus"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.aws.event.kinesis"
+          ],
+          "destination_control_component_ids": [
+            "deployment.aws.event.sns-fifo",
+            "deployment.aws.event.sqs-fifo"
+          ]
+        }
+      ]
     },
     {
       "route_class_id": "bridge-route.azure-to-gcp@1",
       "source_provider": "azure",
       "destination_provider": "gcp",
       "source_adapter_id": "adapter.azure.bridge@1",
-      "destination_telemetry_component_ids": [
-        "deployment.gcp.event.pubsub"
-      ],
-      "destination_control_component_id": "deployment.gcp.event.pubsub",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#azure-to-gcp",
       "permission_set_refs": [
         "permission.azure.thesis-demo-eventing-v1",
@@ -2304,17 +2661,47 @@
         "medium",
         "large"
       ],
-      "live_gate": "required_before_profile_activation"
+      "live_gate": "required_before_profile_activation",
+      "profile_bindings": [
+        {
+          "profile_id": "five-layer-baseline@2",
+          "source_telemetry_component_ids": [
+            "deployment.azure.embedded.bridge-event-hubs-standard",
+            "deployment.azure.embedded.bridge-event-hubs-dedicated"
+          ],
+          "source_control_component_ids": [
+            "deployment.azure.embedded.direct-edge-transport"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ],
+          "destination_control_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ]
+        },
+        {
+          "profile_id": "six-layer-eventing@1",
+          "source_telemetry_component_ids": [
+            "deployment.azure.event.event-hubs-standard",
+            "deployment.azure.event.event-hubs-dedicated"
+          ],
+          "source_control_component_ids": [
+            "deployment.azure.event.service-bus"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ],
+          "destination_control_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ]
+        }
+      ]
     },
     {
       "route_class_id": "bridge-route.gcp-to-aws@1",
       "source_provider": "gcp",
       "destination_provider": "aws",
       "source_adapter_id": "adapter.gcp.bridge@1",
-      "destination_telemetry_component_ids": [
-        "deployment.aws.event.kinesis"
-      ],
-      "destination_control_component_id": "deployment.aws.event.sns-fifo",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#gcp-to-aws",
       "permission_set_refs": [
         "permission.gcp.thesis-demo-eventing-v1",
@@ -2325,18 +2712,47 @@
         "medium",
         "large"
       ],
-      "live_gate": "required_before_profile_activation"
+      "live_gate": "required_before_profile_activation",
+      "profile_bindings": [
+        {
+          "profile_id": "five-layer-baseline@2",
+          "source_telemetry_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ],
+          "source_control_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.aws.embedded.bridge-kinesis"
+          ],
+          "destination_control_component_ids": [
+            "deployment.aws.embedded.bridge-sns-fifo",
+            "deployment.aws.embedded.direct-edge-transport"
+          ]
+        },
+        {
+          "profile_id": "six-layer-eventing@1",
+          "source_telemetry_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ],
+          "source_control_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.aws.event.kinesis"
+          ],
+          "destination_control_component_ids": [
+            "deployment.aws.event.sns-fifo",
+            "deployment.aws.event.sqs-fifo"
+          ]
+        }
+      ]
     },
     {
       "route_class_id": "bridge-route.gcp-to-azure@1",
       "source_provider": "gcp",
       "destination_provider": "azure",
       "source_adapter_id": "adapter.gcp.bridge@1",
-      "destination_telemetry_component_ids": [
-        "deployment.azure.event.event-hubs-standard",
-        "deployment.azure.event.event-hubs-dedicated"
-      ],
-      "destination_control_component_id": "deployment.azure.event.service-bus",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#gcp-to-azure",
       "permission_set_refs": [
         "permission.gcp.thesis-demo-eventing-v1",
@@ -2347,7 +2763,41 @@
         "medium",
         "large"
       ],
-      "live_gate": "required_before_profile_activation"
+      "live_gate": "required_before_profile_activation",
+      "profile_bindings": [
+        {
+          "profile_id": "five-layer-baseline@2",
+          "source_telemetry_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ],
+          "source_control_component_ids": [
+            "deployment.gcp.embedded.pubsub"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.azure.embedded.bridge-event-hubs-standard",
+            "deployment.azure.embedded.bridge-event-hubs-dedicated"
+          ],
+          "destination_control_component_ids": [
+            "deployment.azure.embedded.direct-edge-transport"
+          ]
+        },
+        {
+          "profile_id": "six-layer-eventing@1",
+          "source_telemetry_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ],
+          "source_control_component_ids": [
+            "deployment.gcp.event.pubsub"
+          ],
+          "destination_telemetry_component_ids": [
+            "deployment.azure.event.event-hubs-standard",
+            "deployment.azure.event.event-hubs-dedicated"
+          ],
+          "destination_control_component_ids": [
+            "deployment.azure.event.service-bus"
+          ]
+        }
+      ]
     }
   ],
   "permission_sets": [
@@ -2673,23 +3123,23 @@
     {
       "path": "3-cloud-deployer/src/runtime/eventing/aws/bridge.py",
       "operation": "new",
-      "slice": "8.9B",
+      "slice": "8.9A",
       "owner": "deployer",
-      "purpose": "AWS source bridge adapter."
+      "purpose": "AWS source bridge adapter shared by both target profiles."
     },
     {
       "path": "3-cloud-deployer/src/runtime/eventing/azure/bridge.py",
       "operation": "new",
-      "slice": "8.9B",
+      "slice": "8.9A",
       "owner": "deployer",
-      "purpose": "Azure source bridge adapter."
+      "purpose": "Azure source bridge adapter shared by both target profiles."
     },
     {
       "path": "3-cloud-deployer/src/runtime/eventing/gcp/bridge.py",
       "operation": "new",
-      "slice": "8.9B",
+      "slice": "8.9A",
       "owner": "deployer",
-      "purpose": "GCP source bridge adapter."
+      "purpose": "GCP source bridge adapter shared by both target profiles."
     },
     {
       "path": "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_eventing_v1.json",
@@ -2746,6 +3196,13 @@
       "slice": "shared",
       "owner": "documentation",
       "purpose": "Document approved embedded and Event-Layer implementations without overstating live verification."
+    },
+    {
+      "path": "3-cloud-deployer/src/runtime/eventing/gcp/mqtt_ingress.py",
+      "operation": "new",
+      "slice": "8.9A",
+      "owner": "deployer",
+      "purpose": "Ordered QoS1 BifroMQ-to-Pub/Sub telemetry ingress adapter."
     }
   ]
 }

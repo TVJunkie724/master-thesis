@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-20"
-version: "2.8"
+version: "2.9"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.8"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-20 | VERSION: 2.8
+EXTRACTED: 2026-07-20 | VERSION: 2.9
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -85,8 +85,9 @@ profiles.
 Phase 8.8 is approved independently as an offline evidence gate. Its twelve
 schema-validated artifacts freeze `five-layer-baseline@2`,
 `six-layer-eventing@1`, all six selected AWS/Azure/GCP bundles, all eight domain
-channels, the exact source-owned bridge runtimes and destination broker APIs,
-60 reviewed primary sources, Small/Medium/Large calculations, an exact
+channels, the exact profile-bound source-owned bridge runtimes and destination
+broker APIs, a complete GCP BifroMQ/GKE-to-Pub/Sub device boundary,
+66 reviewed primary sources, Small/Medium/Large calculations, an exact
 non-executable Phase 8.9 component manifest, and two zero-finding review
 records. This approval does not bypass Phases 8.6 or 8.7 and does not claim
 live-cloud identity or capacity verification.
@@ -164,6 +165,8 @@ Phase 8 is a bounded architecture refactoring for the thesis. It must:
   historical evidence;
 - add `five-layer-baseline@2` with mandatory embedded rule evaluation,
   extension actions, notification workflows, and device-command feedback;
+- keep local direct-edge transport and topology-conditional cross-cloud
+  outboxes/forwarders owned by the five-layer L1/L2 responsibilities;
 - separate logical responsibilities from provider resources;
 - encode reviewed architectures as versioned closed-world profiles;
 - model provider implementations and deployment components explicitly;

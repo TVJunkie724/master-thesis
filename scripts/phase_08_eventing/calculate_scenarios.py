@@ -731,12 +731,28 @@ def embedded_result(
             * row["canonical_bytes_per_event"]
             for row in command_rows
         )
+        device_telemetry_bytes = (
+            scenario["events_per_month"]
+            * scenario["average_event_payload_bytes"]
+        )
+        broker_nodes, integration_nodes, integration_clients = {
+            "eventing-small-v1": (3, 0, 3),
+            "eventing-medium-v1": (3, 0, 6),
+            "eventing-large-v1": (12, 4, 300),
+        }[scenario["scenario_id"]]
+        total_nodes = broker_nodes + integration_nodes
+        device_telemetry_gib = Decimal(device_telemetry_bytes) / GIB
         command_gib = Decimal(command_bytes) / GIB
         amount = HOURS_PER_MONTH * price(intents, cluster_id)
-        amount += Decimal(3) * HOURS_PER_MONTH * price(intents, node_id)
-        amount += Decimal(3) * Decimal(100) * HOURS_PER_MONTH * price(intents, disk_id)
+        amount += Decimal(total_nodes) * HOURS_PER_MONTH * price(intents, node_id)
+        amount += (
+            Decimal(total_nodes)
+            * Decimal(100)
+            * HOURS_PER_MONTH
+            * price(intents, disk_id)
+        )
         amount += HOURS_PER_MONTH * price(intents, rule_id)
-        amount += command_gib * price(intents, lb_id)
+        amount += (device_telemetry_gib + command_gib) * price(intents, lb_id)
         items.append(
             contribution(
                 f"{prefix}.mqtt-boundary",
@@ -753,13 +769,25 @@ def embedded_result(
                 ["formula.gcp.bifromq-gke"],
                 {
                     "cluster_hours": 730,
-                    "nodes": 3,
-                    "node_hours": 2190,
-                    "disk_gib_hours": 219000,
+                    "broker_node_count": broker_nodes,
+                    "integration_node_count": integration_nodes,
+                    "total_nodes": total_nodes,
+                    "node_hours": total_nodes * 730,
+                    "disk_gib_per_node": 100,
+                    "disk_gib_hours": total_nodes * 100 * 730,
                     "forwarding_rule_hours": 730,
+                    "integration_clients": integration_clients,
+                    "configured_bandwidth_mib_per_second_per_client": 1,
+                    "device_telemetry_data_gib": device_telemetry_gib,
                     "command_data_gib": command_gib,
                 },
-                "Three-node PoC allocation; software license price is zero and operational labor is qualitative.",
+                (
+                    "Full bidirectional device boundary with ordered QoS1 "
+                    "MQTT-to-Pub/Sub integration; Large uses 12 broker nodes, "
+                    "four integration-worker nodes, and 300 configured 1-MiB/s "
+                    "clients. Software price is zero; operational labor is "
+                    "qualitative and live payload-size testing remains mandatory."
+                ),
             )
         )
     else:

@@ -206,6 +206,31 @@ class ScenarioCalculationTest(unittest.TestCase):
         )
         self.assertEqual(route_worker["normalized_quantities"]["instances"], 21)
 
+    def test_gcp_large_uses_full_bidirectional_mqtt_boundary(self) -> None:
+        result = self.build()
+        large = result["scenarios"][2]
+        gcp = next(
+            item
+            for item in large["embedded_bundle_results"]
+            if item["provider"] == "gcp"
+        )
+        mqtt = next(
+            item
+            for item in gcp["cost_contributions"]
+            if item["contribution_id"].endswith(".mqtt-boundary")
+        )
+        quantities = mqtt["normalized_quantities"]
+        self.assertEqual(quantities["broker_node_count"], 12)
+        self.assertEqual(quantities["integration_node_count"], 4)
+        self.assertEqual(quantities["total_nodes"], 16)
+        self.assertEqual(quantities["disk_gib_per_node"], 100)
+        self.assertEqual(quantities["integration_clients"], 300)
+        self.assertGreater(
+            Decimal(quantities["device_telemetry_data_gib"]),
+            Decimal(0),
+        )
+        self.assertIn("Full bidirectional device boundary", mqtt["notes"])
+
     def test_three_provider_routes_cover_all_domain_channels(self) -> None:
         result = self.build()
         placement = result["scenarios"][0]["three_provider_results"][0]

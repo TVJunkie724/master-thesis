@@ -3,7 +3,7 @@ title: "Phase 8.10: Evaluation Evidence And Final Documentation"
 description: "Implementation plan for reproducible profile evaluation evidence and complete current-system documentation without editing LaTeX."
 tags: [architecture, evaluation, reproducibility, documentation, thesis, issue-148]
 lastUpdated: "2026-07-20"
-version: "1.3"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.3"
 - User-approved separation between product documentation, research evidence, and LaTeX
 - User-approved historical @1 reproduction and fair five-layer @2 versus
   six-layer comparison boundary
-EXTRACTED: 2026-07-20 | VERSION: 1.3
+EXTRACTED: 2026-07-20 | VERSION: 1.4
 -->
 
 # Phase 8.10: Evaluation Evidence And Final Documentation
@@ -236,6 +236,8 @@ For each view include:
 
 - mandatory capabilities;
 - selected provider service bundle;
+- local-edge resources and topology-conditional cross-cloud outboxes;
+- complete bidirectional device-boundary and integration-adapter status;
 - extra functionality;
 - missing/unsupported functionality;
 - supporting resources;
@@ -300,6 +302,14 @@ same domain-event workload + same rule/action/workflow/command outcomes
 Attribute the remaining functional delta specifically to the Eventing
 responsibility's transport, failure, replay, ordering, observability, and
 decoupling semantics.
+
+The Phase 8.8 scenario totals are event-domain evidence only. Phase 8.10 may
+label a result as a single-cloud or federated whole-Twin total only after
+combining it with the remaining L1-L5 responsibilities and proving the complete
+resolved path admissible. In both profiles, same-provider responsibility edges
+create no bridge. Remote five-layer v2 edges include their embedded outbox,
+bridge compute, transfer, and destination landing costs even though those
+resources are owned by L1/L2 rather than by an Eventing responsibility.
 
 ### 8.2 Required Results
 

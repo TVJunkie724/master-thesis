@@ -115,15 +115,17 @@ create an independently selectable Eventing layer.
 
 | Provider | Device/telemetry boundary | Embedded processing and direct edges | Stateful notification | Device command | Result |
 |---|---|---|---|---|---|
-| AWS | AWS IoT Core MQTT/HTTPS plus an IoT rule | Lambda processor, rule evaluator, extension adapter, and bounded asynchronous Lambda delivery with failure destinations | Step Functions Standard | AWS IoT Commands over reserved MQTT topics | Capability-admissible; live verification pending |
-| Azure | IoT Hub; Event Hubs-compatible route to the processor avoids the Event Grid Basic throughput ceiling | Azure Functions processor, rule evaluator, extension adapter, and bounded direct delivery | Logic Apps Consumption (stateful multitenant) | IoT Hub cloud-to-device per-device queue | Capability-admissible; live verification pending |
-| GCP | Pub/Sub HTTPS/gRPC publisher boundary with per-device ordering key | Cloud Run functions/services for processor, rule evaluator, extension adapter, and authenticated direct delivery | Google Cloud Workflows | Pub/Sub command outbox plus Apache BifroMQ 4.0.0-incubating delivery cluster on GKE Standard | Capability-admissible for the PoC with explicit hosted-boundary and incubation-risk caveats |
+| AWS | AWS IoT Core MQTT/HTTPS plus an IoT rule | Lambda processor, rule evaluator, extension adapter, and SQS FIFO failure destinations; remote edges additionally use Kinesis/SNS FIFO outboxes | Step Functions Standard | AWS IoT Commands over reserved MQTT topics | Capability-admissible; live verification pending |
+| Azure | IoT Hub; Event Hubs-compatible route to the processor avoids the Event Grid Basic throughput ceiling | Azure Functions processor, rule evaluator, extension adapter, and Service Bus; remote telemetry edges additionally use Event Hubs Standard/Dedicated outboxes | Logic Apps Consumption (stateful multitenant) | IoT Hub cloud-to-device per-device queue | Capability-admissible; live verification pending |
+| GCP | Apache BifroMQ 4.0.0-incubating on GKE is the bidirectional MQTT boundary; an ordered QoS 1 adapter forwards telemetry to Pub/Sub | Cloud Run services for processor, rule evaluator, extension adapter, authenticated direct delivery, and source bridge; Pub/Sub is the durable cloud backbone | Google Cloud Workflows | Pub/Sub command outbox through BifroMQ, with the correlated outcome returning through BifroMQ to Pub/Sub | Capability-admissible for the PoC with explicit hosted-boundary, integration-adapter, load-test, and incubation-risk gates |
 
 Cross-cloud direct responsibility edges do not fall back to public
-function-to-function invocation. A remote edge adds the same source-owned
-durable outbox and bridge-forwarder pattern described below, but that resource
-is costed to the producing five-layer responsibility rather than to a separate
-Eventing responsibility.
+function-to-function invocation. A remote edge conditionally adds the same
+source-owned durable outbox and bridge-forwarder pattern described below, but
+that resource is costed to the producing five-layer responsibility rather than
+to a separate Eventing responsibility. The exact embedded outboxes are Kinesis
+plus SNS FIFO on AWS, Event Hubs plus Service Bus on Azure, and Pub/Sub on GCP.
+They are absent in the corresponding single-cloud placement.
 
 ### GCP Device-Boundary Qualification
 
@@ -135,24 +137,43 @@ The selected proof-of-concept boundary is:
 
 ```text
 telemetry:
-  device/gateway -> Pub/Sub over HTTPS or gRPC
+  device -> BifroMQ MQTT topic
+         -> ordered QoS 1 integration adapter
+         -> Pub/Sub durable cloud backbone
 
 commands:
-  device-command adapter -> BifroMQ MQTT topic -> connected device
+  device-command adapter -> Pub/Sub command outbox
+                         -> BifroMQ MQTT topic
+                         -> connected device
+  device outcome         -> BifroMQ
+                         -> Pub/Sub correlated outcome
 ```
 
-The hosted command boundary is deliberately limited to commands and command
-outcomes; the 166.4 MB/s Large telemetry stream does not need to traverse the
-MQTT broker. The selected reference deployment is:
+This replaces the earlier split boundary. Google's direct device-to-Pub/Sub
+pattern is described for tens to hundreds of controlled gateways and requires
+the device or gateway to implement the Pub/Sub API or SDK. It is not a closed
+100,000-device MQTT fleet boundary. Google's standalone MQTT architecture
+instead routes both incoming data and outgoing commands through the broker and
+connects the broker cluster to backend workloads such as Pub/Sub.
+
+The selected reference deployment is:
 
 - Apache BifroMQ `4.0.0-incubating`, pinned to
   `sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924`;
-- three all-in-one cluster nodes on a regional GKE Standard cluster;
-- one `e2-standard-8` node per broker pod/zone as the initial capacity
-  dimension;
+- three `e2-standard-8` broker nodes for Small/Medium;
+- twelve `e2-standard-8` broker nodes plus four `e2-standard-8` integration
+  worker nodes for Large;
 - an external passthrough Network Load Balancer;
-- MQTT QoS 1 persistent sessions, with the Pub/Sub command subscription—not
-  the broker session—as the end-to-end durable command owner;
+- a platform-owned MQTT-to-Pub/Sub adapter because BifroMQ deliberately has no
+  built-in data-integration/rule engine;
+- ordered shared subscriptions using
+  `$oshare/{group}/{topic}`, persistent QoS 1 sessions, and manual adapter
+  acknowledgement only after Pub/Sub accepts the publication;
+- three inbox replicas for persistent integration sessions;
+- three integration clients for Small, six for Medium, and 300 configured
+  1-MiB/s clients across 30 pods for Large;
+- the Pub/Sub command subscription—not the broker session—as the end-to-end
+  durable command owner;
 - device mTLS with certificate common name mapped to client ID;
 - an allow-by-client-ID command topic and deny-by-default authorization rule;
 - persistent volumes, Prometheus-compatible metrics, and explicit backup,
@@ -169,15 +190,29 @@ redelivery with the same command ID; the device must deduplicate that ID.
 MQTT persistent sessions reduce offline-device latency but are not treated as
 the end-to-end durable acknowledgement boundary.
 
-BifroMQ's published persistent-session benchmark reports one million
-connections on one node at about 18 GB of memory. The Large scenario contains
-100,000 concurrent device connections and only 6.25 command messages/s. Three
-`e2-standard-8` nodes therefore provide theoretical headroom, but the dimension
-and immutable image are not substitutes for the supervised Phase 8 load,
-partition, and node-failure tests. BifroMQ is an Apache Incubator project. Its
-Apache-2.0 license avoids an unpriced software subscription, but incubation is
-an explicit operational-maturity risk that is acceptable only for this PoC
-decision and must be reassessed before production use.
+`$oshare` binds order to the same MQTT client connection and topic. A device
+reconnect can therefore move that topic to another adapter subscriber and is
+recorded as an ordering-degradation boundary rather than silently claimed as
+strict order across connection epochs. Stable event IDs still support
+deduplication; the adapter emits the bounded reconnect/degradation evidence
+needed by the supervised ordering test.
+
+BifroMQ's published 3.0 benchmark uses a three-node cluster with 32 cores and
+128 GB RAM per node, predominantly 256-byte messages. The twelve Large broker
+nodes provide the same aggregate 96 vCPU and 384 GB RAM on the already priced
+`e2-standard-8` shape. That is a conservative theoretical hardware
+equivalence, not a claim that the old payload benchmark proves 4.0 behavior at
+64 KiB.
+
+The Large raw telemetry boundary is 163.84 MB/s, or 196.608 MB/s with 20%
+headroom. Three hundred integration clients configured for 1 MiB/s provide a
+300-MiB/s adapter-side ceiling. The GKE allocation and adapter count therefore
+pass the theoretical dimension, but Phase 8.9 must still test the selected
+image at 64 KiB for throughput, backpressure, ordering, broker/integration-node
+loss, and Pub/Sub rejection before activation. BifroMQ is an Apache Incubator
+project. Its Apache-2.0 license avoids an unpriced software subscription, but
+incubation is an explicit operational-maturity risk acceptable only for this
+PoC.
 
 ## Selected Event-Layer Bundles: `six-layer-eventing@1`
 
@@ -189,7 +224,7 @@ decision and must be reassessed before production use.
 | Retry and terminal failure | Lambda event-source retry/bisect plus S3 full-record failure destination; SQS DLQs for control | Functions Event Hubs retry policy plus explicit dead-letter Event Hub; Service Bus DLQs | Subscription retry policy and dead-letter topic |
 | Retention and replay | Kinesis retention; SNS FIFO archive/replay for control | Event Hubs retention and checkpoint replay; explicit redrive processor | Topic retention plus subscription Seek/snapshot |
 | Workflow | Step Functions Standard | Logic Apps Consumption (stateful multitenant) | Workflows |
-| Device command | AWS IoT Commands | IoT Hub cloud-to-device queue | Hosted BifroMQ/GKE command boundary |
+| Device command | AWS IoT Commands | IoT Hub cloud-to-device queue | Hosted BifroMQ/GKE bidirectional device boundary |
 | Consumers and bridges | Lambda event-source mappings | Azure Functions Event Hubs/Service Bus adapters | Cloud Run push for Small/Medium; StreamingPull worker pools for Large |
 | Observability | CloudWatch metrics/logs and bounded failure destinations | Azure Monitor/Application Insights and broker metrics | Cloud Monitoring/Logging and subscription backlog/DLQ metrics |
 
@@ -227,10 +262,11 @@ command requests per second. FIFO SNS/SQS and Step Functions Standard capacity
 are not the limiting dimensions. Large requires 6.25
 `StartCommandExecution` calls/s, below the documented 100/s default regional
 quota, and the commands/jobs data endpoint is available in `eu-central-1`.
-The 125 concurrent rule-evaluator executions implied by 2,500 events/s at
-50 ms fit inside Lambda's default 1,000 regional concurrency only if deployment
-preflight reserves the required concurrency and verifies remaining account
-capacity.
+The rule evaluator alone implies 125 concurrent executions at 2,500 events/s
+and 50 ms. Deployment preflight must account for domain adapters, Event-Layer
+delivery adapters, bridge forwarders, workflow/command adapters, and existing
+account workloads together; the 125 figure must not be mistaken for the whole
+Lambda concurrency requirement.
 
 ### Azure Capacity
 
@@ -315,8 +351,22 @@ messages for the same key, while forwarding to a dead-letter topic may break
 order; both behaviors must be represented in outcome and degradation evidence.
 
 Workflows permits 6,000 execution writes per minute. Large starts 375 workflows
-per minute and is below that quota. The hosted MQTT command boundary is sized
-separately as described above.
+per minute and is below that quota. The hosted bidirectional MQTT device
+boundary is sized separately as described above.
+
+The GCP device boundary is independent of the six-layer Event-Layer consumer
+runtime:
+
+| Scenario | BifroMQ broker nodes | Integration nodes / clients | Boundary result |
+|---|---:|---:|---|
+| Small | 3 × `e2-standard-8` | colocated / 3 | Pass; live gate pending |
+| Medium | 3 × `e2-standard-8` | colocated / 6 | Pass; live gate pending |
+| Large | 12 × `e2-standard-8` | 4 × `e2-standard-8` / 300 | Pass theoretically; 64-KiB load and failure test required |
+
+The Large adapter path must sustain the 199.68-MB/s canonical telemetry output
+target with headroom. Its 300-MiB/s configured client ceiling exceeds that
+target. Pub/Sub remains the durable cloud backbone after adapter acceptance;
+BifroMQ remains the device-facing boundary for both directions.
 
 ## Cross-Cloud Bridge Decision
 
@@ -401,7 +451,7 @@ silently suppressed. Consumers remain idempotent on the domain IDs.
 
 | Direction | Short-lived trust exchange | Destination authorization | Result |
 |---|---|---|---|
-| AWS → Azure | AWS STS `GetWebIdentityToken` produces an AWS-signed OIDC JWT trusted by an Entra federated identity credential | Event Hubs Data Sender or Service Bus Data Sender | Capability-admissible; exact claims and live exchange pending |
+| AWS → Azure | Account-enabled regional AWS STS `GetWebIdentityToken` produces an AWS-signed OIDC JWT trusted by an Entra federated identity credential; the global STS endpoint is forbidden | Event Hubs Data Sender or Service Bus Data Sender | Capability-admissible; account enablement, regional endpoint, exact claims, and live exchange pending |
 | AWS → GCP | GCP Workload Identity Federation uses its AWS provider and exchanges the AWS workload identity | `roles/pubsub.publisher` on the landing topic | Capability-admissible; live exchange pending |
 | Azure → AWS | A user-assigned managed identity requests an Entra JWT for a dedicated federation API audience; AWS trusts the tenant-specific Entra OIDC issuer and exchanges it with `AssumeRoleWithWebIdentity` | Narrow Kinesis put or SNS/SQS send role | Capability-admissible; exact claims and live exchange pending |
 | Azure → GCP | Entra token is exchanged through a GCP OIDC workload identity provider | `roles/pubsub.publisher` on the landing topic | Capability-admissible; live exchange pending |
@@ -419,6 +469,11 @@ the later live test records its pairwise `sub` claim. A generic bearer token,
 shared secret, cloud access key, SAS connection string, or long-lived
 service-account key is not an admissible bridge credential.
 
+AWS-to-Azure additionally fails preflight when outbound web identity federation
+is disabled for the AWS account or the SDK resolves the global STS endpoint.
+The bridge requests the token from regional STS, constrains its audience and
+duration, and records only bounded success/failure evidence.
+
 These rows establish supported identity primitives and exact construction
 rules, not observed live-cloud success. Phase 8.9 must generate each trust
 resource through the component catalog, and the later supervised E2E gate must
@@ -432,12 +487,16 @@ capture the real token claims and execute all six directions.
   IoT Commands. No bridge or inter-cloud egress exists.
 - Azure uses IoT Hub, the Azure embedded/Event-Layer bundle, Logic Apps, and
   IoT Hub C2D. No bridge or inter-cloud egress exists.
-- GCP uses Pub/Sub and Cloud Run/Workflows plus the explicitly hosted BifroMQ/GKE
-  command boundary. No bridge or inter-cloud egress exists, but GKE, load
-  balancer, persistent disk, and broker operations still have cost owners.
+- GCP uses the full bidirectional BifroMQ/GKE device boundary, its explicit
+  MQTT-to-Pub/Sub adapter, and Pub/Sub plus Cloud Run/Workflows. No cross-cloud
+  bridge or inter-cloud egress exists, but GKE, load balancer, persistent disk,
+  adapter, and broker operations still have cost owners.
 
-Same-cloud does not mean one service. It means the complete local bundle
-provides the required domain flow without a cross-cloud forwarder.
+Same-cloud does not mean one service. It means the complete local event-domain
+bundle provides the required domain flow without a cross-cloud forwarder. It
+does not claim a complete executable whole Twin: AWS and Azure target profiles
+remain unimplemented, and all-GCP additionally remains unsupported until the
+separately owned L4/L5 gap is closed.
 
 ### Three Providers
 
@@ -471,27 +530,34 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5`.
+`sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the
 result; a referenced price mutation does.
 
 These are separate event-scope estimates in USD/month, not complete Twin
-profile totals and not a ranking:
+profile totals and not a ranking. The embedded columns are the corresponding
+single-cloud event-domain bundles; topology-conditional Five-Layer outboxes,
+bridge compute, destination landing, and egress appear in the directed-pair
+and three-provider result sections rather than being charged to every local
+placement:
 
 | Scenario | AWS embedded | Azure embedded | GCP embedded | AWS Event Layer | Azure Event Layer | GCP Event Layer |
 |---|---:|---:|---:|---:|---:|---:|
-| Small | 0.572645 | 37.526536 | 708.274221 | 78.877579 | 50.156006 | 0.008512 |
-| Medium | 97.504650 | 1,296.531230 | 735.226836 | 704.792321 | 2,391.968290 | 87.531402 |
-| Large | 2,005.320312 | 7,949.465384 | 1,676.651157 | 28,947.778501 | 62,583.946130 | 6,678.069412 |
+| Small | 0.572645 | 37.526536 | 708.277272 | 78.877579 | 50.156006 | 0.008512 |
+| Medium | 97.504650 | 1,296.531230 | 736.447539 | 704.792321 | 2,391.968290 | 87.531402 |
+| Large | 2,005.320312 | 7,949.465384 | 4,399.232499 | 28,947.778501 | 62,583.946130 | 6,678.069412 |
 
-The GCP embedded fixed floor exposes the hosted three-node BifroMQ/GKE boundary.
-The Azure adapter estimate exposes Flex Consumption's one-second minimum
-billable execution. The Large GCP Event-Layer estimate includes 126 continuous
-StreamingPull worker-pool instances plus request-based control adapters. These
-differences are intentionally visible outcomes; none was used to select or
-reject a functionally admissible PoC bundle.
+The GCP embedded estimate now includes telemetry as well as commands at the
+hosted BifroMQ/GKE boundary. Its Large value includes twelve broker nodes, four
+integration-worker nodes, 300 integration clients, persistent disk, load
+balancing, and the full raw device data volume. The Azure adapter estimate
+exposes Flex Consumption's one-second minimum billable execution. The Large
+GCP Event-Layer estimate separately includes 126 continuous StreamingPull
+worker-pool instances plus request-based control adapters. These differences
+are intentionally visible outcomes; none was used to select or reject a
+functionally admissible PoC bundle.
 
 Every single-cloud case has zero bridge invocations and zero cross-cloud
 egress. All six directed pairs are calculated as one copy of every closed-world
@@ -519,19 +585,23 @@ them.
 | Public function-to-function bridge | Rejected | It couples domain functions to remote endpoints and lacks the selected durable acknowledgement, backpressure, DLQ, replay, and trust boundary. |
 | EMQX Open Source 5.8.8 | Rejected | The selected version reached end of life in February 2026 and no longer meets the security-maintenance gate. |
 | EMQX 6 clustered Community license | Rejected | Current clustered deployment requires a commercial license with quote-based pricing; it cannot produce the required reproducible public cost evidence. |
+| EMQX Cloud Dedicated Flex | Restricted alternative | It is functionally admissible and available on GCP, but the public self-service matrix ends at 10,000 sessions; Large needs 100,000 and therefore a non-reproducible sales quote. This is an optimizer-evidence limitation, not a claim that the service lacks the function. |
 | BifroMQ broker-session state as the end-to-end command owner | Rejected | Pub/Sub remains the durable owner until the correlated device outcome; broker state is a delivery optimization rather than the acknowledgement boundary. |
 | Long-lived cross-cloud keys/secrets | Rejected | Every candidate direction has a short-lived federation primitive; exact claim mappings must still pass their explicit gates. |
 
 ## Approval Outcome
 
-`implementation-component-manifest.json` maps all 33 selected service
-components, nine runtime adapters, eight logical edges, six directed bridge
-route classes, three permission sets, contract targets, provider-version
-requirements, and the exact Phase 8.9 file owners. The package validator checks
-every schema and digest, source/formula/price/capability reference, selected
-bundle member, contract and adapter reference, Terraform resource ID, file
-owner, profile/scenario/provider matrix, and the byte-identical calculator
-result.
+`implementation-component-manifest.json` maps all 37 selected service
+components, ten runtime adapters, eight logical edges, six directed bridge
+route classes with two explicit profile bindings each, three permission sets,
+contract targets, provider-version requirements, and the exact Phase 8.9 file
+owners. The package validator checks every schema and digest,
+source/formula/price/capability reference, selected bundle member, contract and
+adapter reference, Terraform resource ID, file owner,
+profile/scenario/provider matrix, profile-scoped bridge endpoints, and the
+byte-identical calculator result. Thirty focused tests cover both positive
+reproduction and negative formula, capacity, route, binding, ownership,
+identity-preflight, contract, digest, and secret cases.
 
 Two separate zero-finding passes are recorded in `decision.json`:
 
@@ -570,7 +640,7 @@ tests recorded as residual risks have passed.
 - [Step Functions quotas](https://docs.aws.amazon.com/step-functions/latest/dg/service-quotas.html)
 - [AWS IoT Commands](https://docs.aws.amazon.com/iot/latest/developerguide/iot-remote-command.html)
 - [AWS IoT Device Management endpoints and commands quotas](https://docs.aws.amazon.com/general/latest/gr/iot_device_management.html)
-- [AWS IAM outbound identity federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_outbound.html)
+- [AWS STS `GetWebIdentityToken`](https://docs.aws.amazon.com/STS/latest/APIReference/API_GetWebIdentityToken.html)
 - [AWS IAM OIDC providers](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
 - [AWS temporary credentials with web identity](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html)
 
@@ -613,7 +683,10 @@ tests recorded as residual risks have passed.
 - [BifroMQ cluster architecture](https://bifromq.apache.org/docs/cluster/intro/)
 - [BifroMQ security and mutual TLS](https://bifromq.apache.org/docs/3.0.x/admin_guide/security/intro/)
 - [BifroMQ connection benchmark](https://bifromq.apache.org/docs/3.0.x/test_report/report/)
+- [BifroMQ data-integration model](https://bifromq.apache.org/docs/user_guide/integration/intro/)
+- [BifroMQ ordered shared subscriptions](https://bifromq.apache.org/docs/user_guide/basic/shared_sub/)
 - [EMQX 5.8 Open Source end-of-life notice](https://www.emqx.com/en/news/a-notice-on-the-emqx-5-8-open-source-version)
 - [Current EMQX clustered license boundary](https://docs.emqx.com/en/emqx/latest/deploy/license.html)
+- [EMQX Cloud Dedicated Flex pricing boundary](https://docs.emqx.com/en/cloud/latest/price/pricing.html)
 - [GCP Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation)
 - [GCP federation with AWS and Azure](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-other-clouds)

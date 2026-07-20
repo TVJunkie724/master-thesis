@@ -415,7 +415,7 @@
     {
       "source_provider": "aws",
       "destination_provider": "azure",
-      "source_assertion": "AWS STS GetWebIdentityToken JWT with AzureADTokenExchange audience",
+      "source_assertion": "AWS regional STS GetWebIdentityToken JWT with AzureADTokenExchange audience after account-level outbound federation enablement",
       "exchange": "Microsoft Entra federated identity credential trusts the AWS account OIDC issuer and exact subject",
       "destination_credential": "short-lived Entra access token",
       "status": "capability_admissible_live_pending",
@@ -546,6 +546,7 @@
     "live_test_all_six_directed_identity_exchanges",
     "live_test_all_six_destination_data_plane_publishes",
     "capture_and_review_issuer_audience_subject_and_expiry_claims",
+    "preflight_aws_outbound_federation_enabled_and_regional_sts_endpoint",
     "load_test_aws_large_lambda_kinesis_bridge",
     "load_test_azure_large_dedicated_and_functions_bridge",
     "load_test_gcp_large_streaming_pull_worker_bridge",

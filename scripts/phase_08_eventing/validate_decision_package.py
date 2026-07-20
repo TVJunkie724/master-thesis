@@ -20,11 +20,56 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_ROOT = REPOSITORY_ROOT / "docs/research/evidence/phase_08_eventing"
 SCHEMA_ROOT = EVIDENCE_ROOT / "schemas"
 MANIFEST_PATH = EVIDENCE_ROOT / "implementation-component-manifest.json"
+DECISION_PATH = EVIDENCE_ROOT / "decision.json"
 README_PATH = EVIDENCE_ROOT / "README.md"
 PROVIDERS = {"aws", "azure", "gcp"}
 SCENARIOS = {"eventing-small-v1", "eventing-medium-v1", "eventing-large-v1"}
 PROFILE_TARGETS = {"five-layer-baseline@2", "six-layer-eventing@1"}
 HISTORICAL_PROFILE = "five-layer-baseline@1"
+EXPECTED_BRIDGE_COMPONENTS = {
+    "five-layer-baseline@2": {
+        "aws": {
+            "telemetry": {"deployment.aws.embedded.bridge-kinesis"},
+            "control": {
+                "deployment.aws.embedded.bridge-sns-fifo",
+                "deployment.aws.embedded.direct-edge-transport",
+            },
+        },
+        "azure": {
+            "telemetry": {
+                "deployment.azure.embedded.bridge-event-hubs-standard",
+                "deployment.azure.embedded.bridge-event-hubs-dedicated",
+            },
+            "control": {
+                "deployment.azure.embedded.direct-edge-transport",
+            },
+        },
+        "gcp": {
+            "telemetry": {"deployment.gcp.embedded.pubsub"},
+            "control": {"deployment.gcp.embedded.pubsub"},
+        },
+    },
+    "six-layer-eventing@1": {
+        "aws": {
+            "telemetry": {"deployment.aws.event.kinesis"},
+            "control": {
+                "deployment.aws.event.sns-fifo",
+                "deployment.aws.event.sqs-fifo",
+            },
+        },
+        "azure": {
+            "telemetry": {
+                "deployment.azure.event.event-hubs-standard",
+                "deployment.azure.event.event-hubs-dedicated",
+            },
+            "control": {"deployment.azure.event.service-bus"},
+        },
+        "gcp": {
+            "telemetry": {"deployment.gcp.event.pubsub"},
+            "control": {"deployment.gcp.event.pubsub"},
+        },
+    },
+}
 EXPECTED_ARTIFACT_IDS = {
     "bridge-decision",
     "domain-event-flow-contract",
@@ -219,12 +264,19 @@ def validate_reference_integrity(
     )
 
     capabilities = artifacts["mandatory-capabilities.json"]
-    capability_ids = {
-        row["capability_id"]
+    capability_rows = [
+        row
         for section in ("embedded_capabilities", "event_layer_capabilities")
         for row in capabilities[section]
+    ]
+    capability_ids = {
+        row["capability_id"] for row in capability_rows
     }
-    add_duplicates(errors, "capability_id", capability_ids)
+    add_duplicates(
+        errors,
+        "capability_id",
+        (row["capability_id"] for row in capability_rows),
+    )
 
     formulas = artifacts["formula-and-unit-ledger.json"]
     formula_ids = {row["formula_id"] for row in formulas["formulas"]}
@@ -252,6 +304,38 @@ def validate_reference_integrity(
         "conversion_id",
         (row["conversion_id"] for row in formulas["unit_conversions"]),
     )
+
+    bifromq_formula = next(
+        (
+            row
+            for row in formulas["formulas"]
+            if row["formula_id"] == "formula.gcp.bifromq-gke"
+        ),
+        None,
+    )
+    expected_bifromq_inputs = {
+        "cluster_hours",
+        "cluster_hour_price",
+        "broker_node_count",
+        "integration_node_count",
+        "node_hour_price",
+        "disk_gib_per_node",
+        "disk_gib_hour_price",
+        "forwarding_rule_hours",
+        "forwarding_rule_hour_price",
+        "device_telemetry_data_gib",
+        "command_data_gib",
+        "lb_processing_gib_price",
+    }
+    if (
+        bifromq_formula is None
+        or set(bifromq_formula["inputs"]) != expected_bifromq_inputs
+        or any(
+            identifier not in bifromq_formula["expression"]
+            for identifier in expected_bifromq_inputs
+        )
+    ):
+        errors.append("BifroMQ formula input/expression contract mismatch")
 
     pricing = artifacts["pricing-model-matrix.json"]
     intent_ids = {row["intent_id"] for row in pricing["price_intents"]}
@@ -333,6 +417,46 @@ def validate_coverage(
         errors.append("new profiles must reject all legacy event feature flags")
 
     capability = artifacts["provider-capability-matrix.json"]
+    registry = artifacts["mandatory-capabilities.json"]
+    expected_capabilities = {
+        "embedded": {
+            row["capability_id"]
+            for row in registry["embedded_capabilities"]
+        },
+        "event_layer": {
+            row["capability_id"]
+            for row in registry["event_layer_capabilities"]
+        },
+    }
+    actual_capabilities: dict[str, set[str]] = defaultdict(set)
+    add_duplicates(
+        errors,
+        "provider capability row",
+        (
+            f"{row['profile_scope']}:{row['capability_id']}"
+            for row in capability["capability_rows"]
+        ),
+    )
+    for row in capability["capability_rows"]:
+        actual_capabilities[row["profile_scope"]].add(row["capability_id"])
+        cell_providers = {cell["provider"] for cell in row["cells"]}
+        if cell_providers != PROVIDERS:
+            errors.append(
+                f"{row['capability_id']}: provider cell coverage mismatch"
+            )
+        for cell in row["cells"]:
+            if cell["status"] in {"unsupported", "unverified"}:
+                errors.append(
+                    f"{row['capability_id']}: {cell['provider']} is "
+                    f"{cell['status']}"
+                )
+    for scope, expected in expected_capabilities.items():
+        if actual_capabilities[scope] != expected:
+            errors.append(
+                f"{scope} capability coverage mismatch: "
+                f"{sorted(actual_capabilities[scope])}"
+            )
+
     bundles = capability["bundle_selections"]
     expected_bundles = {
         (provider, scope)
@@ -346,6 +470,23 @@ def validate_coverage(
     }
     if actual_bundles != expected_bundles:
         errors.append(f"selected bundle coverage mismatch: {sorted(actual_bundles)}")
+
+    capacity_cases = {
+        (row["provider"], row["scenario_id"])
+        for row in capability["capacity_allocations"]
+    }
+    expected_capacity_cases = {
+        (provider, scenario)
+        for provider in PROVIDERS
+        for scenario in SCENARIOS
+    }
+    if (
+        capacity_cases != expected_capacity_cases
+        or len(capability["capacity_allocations"]) != len(expected_capacity_cases)
+    ):
+        errors.append(
+            f"capacity allocation coverage mismatch: {sorted(capacity_cases)}"
+        )
 
     single = {row["provider"] for row in capability["single_cloud_cases"]}
     if single != PROVIDERS:
@@ -367,6 +508,37 @@ def validate_coverage(
     if triples != provider_permutations():
         errors.append(f"three-provider coverage mismatch: {sorted(triples)}")
 
+    rejected_ids = {
+        row["alternative_id"]
+        for row in capability["rejected_alternatives"]
+    }
+    pricing_rejected_ids = {
+        row["alternative_id"]
+        for row in artifacts["pricing-model-matrix.json"][
+            "rejected_member_dimensions"
+        ]
+    }
+    add_duplicates(
+        errors,
+        "rejected capability alternative",
+        (
+            row["alternative_id"]
+            for row in capability["rejected_alternatives"]
+        ),
+    )
+    add_duplicates(
+        errors,
+        "rejected pricing alternative",
+        (
+            row["alternative_id"]
+            for row in artifacts["pricing-model-matrix.json"][
+                "rejected_member_dimensions"
+            ]
+        ),
+    )
+    if rejected_ids != pricing_rejected_ids:
+        errors.append("rejected alternative capability/pricing coverage mismatch")
+
     bridge = artifacts["bridge-decision.json"]
     identity_pairs = {
         (row["source_provider"], row["destination_provider"])
@@ -374,6 +546,46 @@ def validate_coverage(
     }
     if identity_pairs != directed_pairs():
         errors.append(f"bridge identity coverage mismatch: {sorted(identity_pairs)}")
+    aws_to_azure = next(
+        (
+            row
+            for row in bridge["directed_identity_paths"]
+            if row["source_provider"] == "aws"
+            and row["destination_provider"] == "azure"
+        ),
+        None,
+    )
+    if (
+        aws_to_azure is None
+        or "regional STS" not in aws_to_azure["source_assertion"]
+        or (
+            "preflight_aws_outbound_federation_enabled_and_regional_sts_endpoint"
+            not in bridge["verification_gates"]
+        )
+    ):
+        errors.append("AWS-to-Azure outbound identity preflight is incomplete")
+
+    aws_requirement = next(
+        (
+            row
+            for row in artifacts["implementation-component-manifest.json"][
+                "provider_requirements"
+            ]
+            if row["provider"] == "aws"
+        ),
+        None,
+    )
+    required_aws_preflight = {
+        "outbound_web_identity_federation_account_enabled",
+        "regional_STS_endpoint_for_GetWebIdentityToken",
+    }
+    if (
+        aws_requirement is None
+        or not required_aws_preflight.issubset(
+            set(aws_requirement["preflight_gates"])
+        )
+    ):
+        errors.append("AWS provider outbound identity preflight is incomplete")
     runtime_providers = {
         row["provider"] for row in bridge["provider_source_runtimes"]
     }
@@ -458,6 +670,7 @@ def validate_manifest(
     }
     components_by_bundle: dict[str, list[dict[str, Any]]] = defaultdict(list)
     deployment_ids: set[str] = set()
+    deployment_metadata: dict[str, tuple[str, str, set[str]]] = {}
     resource_ids: list[str] = []
     component_ids: list[str] = []
     for component in manifest["service_components"]:
@@ -465,6 +678,11 @@ def validate_manifest(
         bundle_id = component["bundle_id"]
         components_by_bundle[bundle_id].append(component)
         deployment_ids.add(component["deployment_component_id"])
+        deployment_metadata[component["deployment_component_id"]] = (
+            component["provider"],
+            component["profile_scope"],
+            set(component["runtime_adapter_ids"]),
+        )
         resource_ids.extend(component["terraform"]["resource_ids"])
     add_duplicates(errors, "component_manifest_id", component_ids)
     add_duplicates(errors, "Terraform resource_id", resource_ids)
@@ -595,14 +813,98 @@ def validate_manifest(
             errors.append(
                 f"{route['route_class_id']}: unresolved source adapter"
             )
-        for destination in (
-            route["destination_telemetry_component_ids"]
-            + [route["destination_control_component_id"]]
+        source_adapter = next(
+            (
+                row
+                for row in manifest["runtime_adapters"]
+                if row["adapter_id"] == route["source_adapter_id"]
+            ),
+            None,
+        )
+        if (
+            source_adapter is not None
+            and source_adapter["provider"] != route["source_provider"]
         ):
-            if destination not in deployment_ids:
-                errors.append(
-                    f"{route['route_class_id']}: unresolved destination {destination}"
+            errors.append(
+                f"{route['route_class_id']}: source adapter provider differs"
+            )
+        bindings = route["profile_bindings"]
+        binding_profiles = {row["profile_id"] for row in bindings}
+        if binding_profiles != PROFILE_TARGETS or len(bindings) != len(PROFILE_TARGETS):
+            errors.append(
+                f"{route['route_class_id']}: incomplete profile route bindings"
+            )
+        for binding in bindings:
+            expected_scope = (
+                "embedded"
+                if binding["profile_id"] == "five-layer-baseline@2"
+                else "event_layer"
+            )
+            for side, provider in (
+                ("source", route["source_provider"]),
+                ("destination", route["destination_provider"]),
+            ):
+                expected = EXPECTED_BRIDGE_COMPONENTS[
+                    binding["profile_id"]
+                ][provider]
+                actual_telemetry = set(
+                    binding[f"{side}_telemetry_component_ids"]
                 )
+                actual_control = set(
+                    binding[f"{side}_control_component_ids"]
+                )
+                if (
+                    actual_telemetry != expected["telemetry"]
+                    or actual_control != expected["control"]
+                ):
+                    errors.append(
+                        f"{route['route_class_id']}: {side} components differ "
+                        f"from exact {binding['profile_id']} binding"
+                    )
+            checks = [
+                (
+                    component_id,
+                    route["source_provider"],
+                    "source",
+                )
+                for component_id in (
+                    binding["source_telemetry_component_ids"]
+                    + binding["source_control_component_ids"]
+                )
+            ]
+            checks.extend(
+                (
+                    component_id,
+                    route["destination_provider"],
+                    "destination",
+                )
+                for component_id in (
+                    binding["destination_telemetry_component_ids"]
+                    + binding["destination_control_component_ids"]
+                )
+            )
+            for component_id, expected_provider, side in checks:
+                metadata = deployment_metadata.get(component_id)
+                if metadata is None:
+                    errors.append(
+                        f"{route['route_class_id']}: unresolved {side} "
+                        f"{component_id}"
+                    )
+                    continue
+                provider, scope, runtime_adapter_ids = metadata
+                if provider != expected_provider or scope != expected_scope:
+                    errors.append(
+                        f"{route['route_class_id']}: {side} {component_id} "
+                        "has the wrong provider or profile scope"
+                    )
+                if (
+                    side == "source"
+                    and route["source_adapter_id"] not in runtime_adapter_ids
+                ):
+                    errors.append(
+                        f"{route['route_class_id']}: source {component_id} "
+                        "does not own the route bridge adapter"
+                    )
         for permission in route["permission_set_refs"]:
             if permission not in permission_ids:
                 errors.append(
@@ -773,6 +1075,33 @@ def refresh_artifact_digests() -> None:
     write_json(MANIFEST_PATH, manifest)
 
 
+def refresh_decision_digests() -> None:
+    decision = load_json(DECISION_PATH)
+    digest_inputs = {
+        "bridge_decision": "bridge-decision.json",
+        "domain_event_flow_contract": "domain-event-flow-contract.json",
+        "formula_and_unit_ledger": "formula-and-unit-ledger.json",
+        "implementation_component_manifest": (
+            "implementation-component-manifest.json"
+        ),
+        "mandatory_capabilities": "mandatory-capabilities.json",
+        "pricing_model_matrix": "pricing-model-matrix.json",
+        "profile_parity_decision": "profile-parity-decision.json",
+        "provider_capability_matrix": "provider-capability-matrix.json",
+        "scenario_cost_results": "scenario-cost-results.json",
+        "scenario_inputs": "scenario-inputs.json",
+        "source_ledger": "source-ledger.json",
+    }
+    for input_id, artifact_name in digest_inputs.items():
+        decision["input_digests"][input_id] = artifact_digest(
+            load_json(EVIDENCE_ROOT / artifact_name)
+        )
+    decision["scenario_result_digest"] = load_json(
+        EVIDENCE_ROOT / "scenario-cost-results.json"
+    )["result_digest"]
+    write_json(DECISION_PATH, decision)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict", action="store_true")
@@ -781,6 +1110,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Explicitly rewrite manifest dependency digests.",
     )
+    parser.add_argument(
+        "--refresh-decision-digests",
+        action="store_true",
+        help="Explicitly rewrite final-decision input and result digests.",
+    )
     return parser.parse_args()
 
 
@@ -788,6 +1122,8 @@ def main() -> int:
     args = parse_args()
     if args.refresh_artifact_digests:
         refresh_artifact_digests()
+    if args.refresh_decision_digests:
+        refresh_decision_digests()
     errors = validate(strict=args.strict)
     if errors:
         for error in errors:

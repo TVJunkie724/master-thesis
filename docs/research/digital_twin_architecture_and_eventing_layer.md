@@ -1142,6 +1142,11 @@ notification workflow, and device-command adapter are mandatory; a typed rule
 match determines invocation volume. The legacy booleans
 `useEventChecking`, `triggerNotificationWorkflow`, and
 `returnFeedbackToDevice` remain historical `five-layer-baseline@1` inputs only.
+When an L1/L2 responsibility edge crosses providers, the producing
+responsibility conditionally owns the reviewed durable source outbox and bridge
+forwarder. A same-provider placement has no bridge. This cross-cloud mechanism
+does not turn the support resource into an independently assignable sixth
+responsibility.
 
 `six-layer-eventing@1` is a separate experiment because it retains the same
 domain behavior while making routing, buffering, fan-out, retry/DLQ, replay,
@@ -1276,9 +1281,10 @@ subsequent Phase 8.0-8.8 work has now separated three exact profile roles:
 Phase 8.8 approved `phase-08-eventing-decision@1` as an offline evidence
 package and exact non-executable Phase 8.9 blueprint. It selects one embedded
 bundle and one Event-Layer bundle for each of AWS, Azure, and GCP, covers all
-three single-cloud cases, all six directed provider pairs, admissible
-three-provider placements, and Small/Medium/Large scenarios, and records cost
-as an evaluation result rather than a selection criterion.
+three single-cloud event-domain cases, all six directed provider pairs,
+admissible three-provider placements, and Small/Medium/Large scenarios, and
+records cost as an evaluation result rather than a service-bundle selection
+criterion. These Phase 8.8 totals do not claim a complete whole-Twin cost.
 
 The cross-cloud boundary is no longer unspecified glue. A source-owned durable
 outbox triggers a source-provider forwarder runtime; that runtime validates the
@@ -1286,7 +1292,18 @@ canonical envelope and route, obtains a short-lived destination credential,
 publishes through the destination broker's data-plane SDK, and acknowledges
 the source only after durable destination acceptance. Public
 function-to-function calls, a public ingestion endpoint, destination-owned
-pull, and static cloud keys are forbidden.
+pull, and static cloud keys are forbidden. The six route classes carry
+profile-specific bindings: embedded L1/L2 outboxes for
+`five-layer-baseline@2`, and independently owned Event-Layer brokers for
+`six-layer-eventing@1`.
+
+GCP uses one complete bidirectional provider-hosted boundary rather than a
+split telemetry/command design: Apache BifroMQ `4.0.0-incubating` on GKE
+terminates MQTT in both directions, a persistent QoS 1 ordered-shared adapter
+publishes accepted telemetry to Pub/Sub, and Pub/Sub remains the durable cloud
+backbone for commands and correlated outcomes. Reconnect ordering degradation,
+the selected image's 64-KiB capacity, and node/failure behavior remain explicit
+activation gates.
 
 This approval is deliberately not a claim that Eventing is implemented or
 live-verified. Phase 8.6 and Phase 8.7 still precede Phase 8.9 activation. All

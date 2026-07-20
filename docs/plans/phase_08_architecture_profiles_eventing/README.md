@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-07-20"
-version: "1.9"
+version: "2.0"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.9"
 - docs/plans/resolved_deployment_specification/README.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, and #153
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.9
+EXTRACTED: 2026-07-20 | VERSION: 2.0
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -40,7 +40,8 @@ functionally aligned profiles:
 
 - `five-layer-baseline@2`, with rule evaluation, event actions, notification
   workflows, and device feedback embedded in the existing L1/L2
-  responsibilities; and
+  responsibilities, including local direct-edge transport and
+  topology-conditional source-owned bridges for remote responsibility edges;
 - `six-layer-eventing@1`, with the same domain behavior plus an independent
   Eventing and Messaging responsibility for routing, buffering, fan-out,
   retry/DLQ, replay, and cross-cloud transport.

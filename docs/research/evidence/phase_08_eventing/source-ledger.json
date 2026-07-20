@@ -1175,7 +1175,7 @@
       ],
       "content_digest": "sha256:7d8b194ffd2388ec6723213cf2e8d65b7aade5eef4ee0917b07da2cb8e0287b6",
       "review_status": "reviewed",
-      "reviewer_note": "On-demand e2-standard-8 node price in europe-west1; three nodes are a scenario allocation, not a provider price fact."
+      "reviewer_note": "On-demand e2-standard-8 node price in europe-west1; the scenario-specific node count is an allocation, not a provider price fact."
     },
     {
       "source_id": "source.gcp.pd-balanced.pricing.2026-07-20",
@@ -1323,6 +1323,38 @@
       "reviewer_note": "GCP has no managed MQTT replacement; the hosted broker must remain explicit."
     },
     {
+      "source_id": "source.gcp.mqtt-broker-architecture.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud standalone MQTT broker architecture",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.cloud.google.com/architecture/connected-devices/mqtt-broker-architecture",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.mqtt.bidirectional-device-boundary",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.mqtt.routes-ingress-and-commands",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.mqtt.backend-pubsub-integration",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:ad4cee64623c2079eaf839c302bed78e3b69e30aad687076d8fabf2df7d28249",
+      "review_status": "reviewed",
+      "reviewer_note": "Google's reference architecture routes incoming telemetry and outgoing commands through a standalone MQTT broker and connects backend workloads through Pub/Sub or another integration."
+    },
+    {
       "source_id": "source.gcp.emqx-oss-eol.2026-07-20",
       "provider": "gcp",
       "service_family": "EMQX Open Source 5.8",
@@ -1458,10 +1490,10 @@
     {
       "source_id": "source.aws.outbound-identity-federation.2026-07-20",
       "provider": "aws",
-      "service_family": "AWS IAM outbound identity federation",
+      "service_family": "AWS STS GetWebIdentityToken outbound identity federation",
       "claim_type": "security",
       "source_type": "official_static_documentation",
-      "canonical_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_outbound.html",
+      "canonical_url": "https://docs.aws.amazon.com/STS/latest/APIReference/API_GetWebIdentityToken.html",
       "retrieved_at": "2026-07-20T12:00:00Z",
       "effective_at": "not_published",
       "region": "not_applicable",
@@ -1481,11 +1513,21 @@
           "fact_id": "fact.aws.outbound-identity.audience-bound",
           "value": true,
           "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.account-enable-required",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.regional-sts-required",
+          "value": true,
+          "unit": "boolean"
         }
       ],
-      "content_digest": "sha256:1212c11d6b97ff82bfd5f0edeb75384e9c76140d243ec0498d897328482b314f",
+      "content_digest": "sha256:bbb96ec5b62beff4b9b64fe52d6943a48082491df8aa4e97bc8a572fcd0cda45",
       "review_status": "reviewed",
-      "reviewer_note": "AWS sources use STS GetWebIdentityToken for Azure's generic OIDC exchange; the exact AWS principal and audience claims are deployment-bound."
+      "reviewer_note": "AWS uses STS GetWebIdentityToken for Azure's generic OIDC exchange. Outbound federation must be enabled for the account, the global STS endpoint is forbidden, and exact principal/audience claims remain deployment-bound."
     },
     {
       "source_id": "source.aws.lambda-kinesis-trigger.2026-07-20",
@@ -1953,6 +1995,166 @@
       "content_digest": "sha256:9289286042ce076b2f4c2ff08316fe1aa6b2742a735046179d05698e41e9c543",
       "review_status": "reviewed",
       "reviewer_note": "The AWS-to-GCP path gives GCP Workload Identity Federation a signed GetCallerIdentity request whose response identifies the temporary AWS role."
+    },
+    {
+      "source_id": "source.gcp.device-pubsub-architecture.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud direct device-to-Pub/Sub architecture",
+      "claim_type": "limitation",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.cloud.google.com/architecture/connected-devices/device-pubsub-architecture",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.direct-pubsub.typical-gateways-upper",
+          "value": 100,
+          "unit": "order-of-magnitude devices"
+        },
+        {
+          "fact_id": "fact.gcp.direct-pubsub.requires-api-or-sdk",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:217ab7c0414c25c331cc80e7c88ec2ecf9eb8044e0bffb052ddddf62e9eb23ef",
+      "review_status": "reviewed",
+      "reviewer_note": "The direct Pub/Sub pattern is for tens to hundreds of gateways and is not selected for the 100,000-device Large boundary."
+    },
+    {
+      "source_id": "source.gcp.bifromq-data-integration.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Apache BifroMQ 4.0 data integration",
+      "claim_type": "capability",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://bifromq.apache.org/docs/user_guide/integration/intro/",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.bifromq.integration-built-in",
+          "value": false,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.integration-pattern",
+          "value": "external MQTT clients with shared subscriptions",
+          "unit": "text"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.default-connection-bandwidth",
+          "value": 512,
+          "unit": "kb/s"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.connection-bandwidth-adjustable",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:07adc7df11e8aac77a38929b685b04f2807a5caa467fc18e709a6bddb6cad724",
+      "review_status": "reviewed",
+      "reviewer_note": "The selected bundle therefore includes an explicit MQTT-to-Pub/Sub integration adapter; it is not hidden broker functionality."
+    },
+    {
+      "source_id": "source.gcp.bifromq-ordered-shared.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Apache BifroMQ 4.0 ordered shared subscriptions",
+      "claim_type": "capability",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://bifromq.apache.org/docs/user_guide/basic/shared_sub/",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.bifromq.ordered-shared-prefix",
+          "value": "$oshare",
+          "unit": "MQTT topic prefix"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.ordered-shared-binding",
+          "value": "same client connection and topic to same subscriber",
+          "unit": "text"
+        }
+      ],
+      "content_digest": "sha256:22b8fd0c8f72c38133e6d206ec1db096a07868673b55c49cdf9883d7b172eb76",
+      "review_status": "reviewed",
+      "reviewer_note": "Ordered shared subscriptions preserve the required per-device publication order while distributing load across adapter clients."
+    },
+    {
+      "source_id": "source.gcp.bifromq-benchmark.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Apache BifroMQ 3.0 cluster benchmark",
+      "claim_type": "quota",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://bifromq.apache.org/docs/3.0.x/test_report/report/",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-node-cores",
+          "value": 32,
+          "unit": "vCPU-equivalent cores"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-node-memory",
+          "value": 128,
+          "unit": "GB"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-cluster-nodes",
+          "value": 3,
+          "unit": "nodes"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-payload",
+          "value": 256,
+          "unit": "bytes"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.persistence-replicas-ha",
+          "value": 3,
+          "unit": "replicas"
+        }
+      ],
+      "content_digest": "sha256:92f02ab086d740a059ccd3f2d9f9c585721651e25c3c98c8863a6e7c608e204a",
+      "review_status": "reviewed",
+      "reviewer_note": "The Large allocation matches the published aggregate CPU and memory with 12 e2-standard-8 broker nodes, but the payload and software version differ; live 64-KiB testing remains mandatory."
+    },
+    {
+      "source_id": "source.gcp.emqx-cloud-dedicated-flex.2026-07-20",
+      "provider": "gcp",
+      "service_family": "EMQX Cloud Dedicated Flex",
+      "claim_type": "price",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://docs.emqx.com/en/cloud/latest/price/pricing.html",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.emqx-cloud.public-session-tier-max",
+          "value": 10000,
+          "unit": "sessions"
+        },
+        {
+          "fact_id": "fact.gcp.emqx-cloud.above-tier-price",
+          "value": "contact sales",
+          "unit": "text"
+        }
+      ],
+      "content_digest": "sha256:86ca2dcc88afe172da7b774272c1330ae117b507d2442d1e8cb90e1ad89f25f8",
+      "review_status": "reviewed",
+      "reviewer_note": "Managed EMQX remains a valid functional alternative, but not a reproducibly priced Large optimizer input."
     }
   ]
 }

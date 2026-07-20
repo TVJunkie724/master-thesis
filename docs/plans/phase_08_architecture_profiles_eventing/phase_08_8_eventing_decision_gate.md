@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.7"
+version: "1.8"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.7"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.7
+EXTRACTED: 2026-07-20 | VERSION: 1.8
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -80,7 +80,7 @@ The decision package must encode these three distinct roles:
 | Profile | Status and purpose | Domain-event behavior | Eventing responsibility |
 |---|---|---|---|
 | `five-layer-baseline@1` | Immutable historical and paper-compatible profile | Preserves its reviewed omission of optional event-check/action/feedback paths | None |
-| `five-layer-baseline@2` | New fair-comparison baseline | Rule evaluation, extension action, notification workflow, and device-command feedback are mandatory embedded L1/L2 behavior | None; transport remains owned by the existing producer/consumer responsibilities |
+| `five-layer-baseline@2` | New fair-comparison baseline | Rule evaluation, extension action, notification workflow, and device-command feedback are mandatory embedded L1/L2 behavior | No independent Eventing responsibility; local direct-edge transport and topology-conditional cross-cloud outboxes/forwarders remain owned by the producing and consuming L1/L2 responsibilities |
 | `six-layer-eventing@1` | New treatment profile | Exactly the same mandatory domain-event behavior as `five-layer-baseline@2` | Adds independent routing, buffering, fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud transport ownership |
 
 “Exactly the same mandatory domain-event behavior” means the same event types,
@@ -269,8 +269,9 @@ requiring one service to satisfy the whole bundle:
   bus/Pipes, SNS, SQS, Lambda, and Step Functions;
 - Azure: IoT Hub/Event Grid ingress, Event Hubs, Service Bus, Functions, and
   Logic Apps or Durable Functions;
-- GCP: the currently executable device-ingress/command boundary, Pub/Sub,
-  Eventarc, Cloud Tasks, Cloud Run/Functions, and Workflows.
+- GCP: a complete bidirectional device/telemetry/command boundary, Pub/Sub,
+  standalone MQTT brokers on GKE or Compute Engine, Eventarc, Cloud Tasks,
+  Cloud Run/Functions, and Workflows.
 
 The matrix may reject all or part of a family. It may add another provider
 service only when a mandatory capability cannot otherwise be evaluated and the
@@ -391,13 +392,15 @@ multiplier or silently presented as part of the historical five-layer graph.
 
 Every embedded-event bundle must provide the shared domain behavior from
 Section 1.1, typed delivery outcomes, bounded retry/failure handling for its
-direct edges, provider-native workflow execution, and a provider-native or
-explicitly provider-hosted device-command boundary. A hosted device boundary
-must pin the software distribution/version/license, compute, load balancing,
-device identity, authorization, durable-session, observability, lifecycle, and
-cost owners; it cannot be described as though it were a managed provider
-service. The embedded profile is not required to pretend that it owns a
-general replay or fan-out layer.
+direct edges, provider-native workflow execution, a complete provider-native
+or explicitly provider-hosted bidirectional device boundary, and
+topology-conditional source-owned cross-cloud transport for remote
+responsibility edges. A hosted device boundary must pin the software
+distribution/version/license, compute, load balancing, device identity,
+authorization, durable-session, observability, lifecycle, integration adapter,
+and cost owners; it cannot be described as though it were a managed provider
+service. A same-provider placement creates no bridge. The embedded profile is
+not required to pretend that it owns a general replay or fan-out layer.
 
 Every selected Event-Layer bundle must additionally provide:
 
@@ -598,17 +601,19 @@ action. Each extension action, workflow, and command emits one typed terminal
 outcome. Device-boundary capacity must use `concurrent_device_connections`,
 not infer connection count from monthly event volume.
 
-Cross-cloud volume is calculated separately for every resolved placement:
+Cross-cloud volume is calculated separately for every resolved event-domain
+placement:
 
-- all admissible single-cloud AWS, Azure, and GCP whole paths;
+- the single-cloud AWS, Azure, and GCP event-domain cases;
 - every admissible directed AWS/Azure/GCP provider pair;
 - admissible three-provider placements; and
 - each possible Eventing-responsibility provider in the six-layer profile.
 
 Same-cloud edges create no bridge. A provider pair is not assumed symmetric:
 AWS-to-Azure and Azure-to-AWS are separate capacity, identity, egress, and
-failure cases. Unsupported whole paths remain visible and receive no fabricated
-total.
+failure cases. These Phase 8.8 totals cover the event-domain scope, not the
+complete Twin. Unsupported whole-Twin paths remain visible and receive no
+fabricated total in Phase 8.9/8.10 evaluation.
 
 For every admissible provider bundle and scenario, output:
 
@@ -831,7 +836,8 @@ committed decision record, not a chat statement.
 ### Scenario And Reproducibility
 
 - all three scenarios for all three providers;
-- all admissible single-cloud paths and all six directed provider pairs;
+- all three single-cloud event-domain cases and all six directed provider
+  pairs;
 - cross-cloud routes and fan-out derived from graph assignments;
 - same-cloud edges produce no bridge invocation or egress charge;
 - the Large peak proves each selected member's documented capacity or records
@@ -906,6 +912,12 @@ This phase is additive evidence only. Rollback means:
 - [x] Embedded-event and Event-Layer bundles are evaluated separately for
       single-cloud, all six directed provider pairs, and admissible
       three-provider paths.
+- [x] The embedded profile owns topology-conditional source outboxes and bridge
+      bindings for remote responsibility edges without introducing an
+      independent Eventing responsibility.
+- [x] GCP uses one complete bidirectional BifroMQ/GKE device boundary with an
+      explicit MQTT-to-Pub/Sub integration adapter; reconnect ordering
+      degradation and selected-version capacity remain activation gates.
 - [x] Small, Medium, and Large theoretical capacity is proven before cost is
       reported; supervised live capacity remains an activation gate.
 - [x] Cost is recorded as an outcome and is not used to reject an otherwise
@@ -930,32 +942,35 @@ This phase is additive evidence only. Rollback means:
       reproducibility, security, and documentation tests pass.
 - [x] No runtime code, Terraform, cloud credential, cloud resource, paid API,
       or live E2E operation is introduced.
-- [x] Research notes, source ledger, roadmap, and #146 are updated.
+- [x] Research notes, source ledger, and roadmap are updated; the revised
+      digests are queued for #146 when this local commit is published.
 - [x] Two reviews find no unresolved issue.
 - [x] The structured commit references #146.
 
 ## 19. Completion Evidence
 
 - Approved decision: `phase-08-eventing-decision@1`, normalized digest
-  `sha256:cf9a9bd7b9d385794747bd0b564a58019fb395b8daf128977aa728f6d84a7e6c`.
+  `sha256:22aec12d3e3915564d59d6d2ae00ce7fdce375b8d4bfc8c3880762697a02b2a6`.
 - Exact non-executable blueprint:
   `phase-08-eventing-implementation@1`, normalized digest
-  `sha256:cfaa4459f6d06ff920d5d1ed5295ee21448329754071d024753ef318dd0eb7eb`.
+  `sha256:7758a81f40d119fec8a61d03d3a8eb36c3825f732129a0edfcc925df26a85ab5`.
 - Scenario result digest:
-  `sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5`.
-- Strict offline verification covers 12 decision artifacts, 60 frozen
-  primary-source records, all three single-cloud cases, all six directed
-  pairs, six closed-world three-provider placements, three workloads, 33
-  selected service components, nine adapters, eight domain edges, six bridge
-  route classes, and exact file/test ownership.
-- Twenty focused calculator and package-validator tests pass, including
-  negative digest, route, ownership, contract, adapter, and secret cases.
+  `sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27`.
+- Strict offline verification covers 12 decision artifacts, 66 frozen
+  primary-source records, all three single-cloud event-domain cases, all six
+  directed pairs, six closed-world three-provider placements, three workloads,
+  37 selected service components, ten adapters, eight domain edges, six bridge
+  route classes with two profile bindings each, and exact file/test ownership.
+- Thirty focused calculator and package-validator tests pass, including
+  negative formula, digest, capacity, route, profile-binding, source-adapter,
+  identity-preflight, ownership, contract, and secret cases.
 - Two separate reviews recorded in `decision.json` report `zero_findings`:
   architecture/provider/security/ownership and
   pricing/reproducibility/thesis/documentation.
-- Commit `28a76ea6` approves the offline gate and references #146. Runtime,
-  Terraform, live identity exchange, and supervised capacity remain outside
-  this completed evidence phase.
-- GitHub issue #146 records the exact decision, blueprint, and scenario digests,
-  the strict OrbStack result, and the remaining Phase 8.6/8.7/8.9A runtime
-  gates; it remains open until the local evidence is published or merged.
+- Commit `28a76ea6` remains provenance for the earlier approval; this reviewed
+  revision supersedes its service-boundary, ownership, and digest details.
+  Runtime, Terraform, live identity exchange, and supervised capacity remain
+  outside this completed evidence phase.
+- GitHub issue #146 must receive the revised decision, blueprint, scenario, and
+  strict OrbStack evidence when this local commit is published; it remains open
+  until the evidence is published or merged.

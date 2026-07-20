@@ -104,7 +104,7 @@
       "properties": {
         "status": {"enum": ["passed", "failed"]},
         "providers": {"const": ["aws", "azure", "gcp"]},
-        "embedded_capability_count": {"const": 8},
+        "embedded_capability_count": {"const": 9},
         "event_layer_capability_count": {"const": 15},
         "whole_profile_limitations": {
           "type": "array",
@@ -145,15 +145,10 @@
       "minItems": 1,
       "items": {"$ref": "#/$defs/risk"}
     },
-    "approved_at": {
-      "oneOf": [
-        {"type": "string", "format": "date-time"},
-        {"const": "not_applicable"}
-      ]
-    },
+    "approved_at": {"type": "string"},
     "reviewers": {
       "type": "array",
-      "minItems": 2,
+      "minItems": 0,
       "items": {"$ref": "#/$defs/review"}
     }
   },
@@ -171,7 +166,19 @@
           "pricing_completeness_result": {
             "properties": {"status": {"const": "passed"}}
           },
-          "approved_at": {"type": "string", "format": "date-time"}
+          "approved_at": {"type": "string", "format": "date-time"},
+          "reviewers": {"minItems": 2}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"decision_status": {"const": "rejected"}},
+        "required": ["decision_status"]
+      },
+      "then": {
+        "properties": {
+          "approved_at": {"const": "not_applicable"}
         }
       }
     }

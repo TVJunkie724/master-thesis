@@ -3,7 +3,7 @@ title: "Phase 8.9: Implement The Event-Enabled Comparison Profiles"
 description: "Implementation plan for five-layer-baseline@2 and six-layer-eventing@1 using one approved domain-event contract and separate architecture ownership."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-07-20"
-version: "1.4"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.4"
 - User-approved bounded six-layer profile with no arbitrary graph editor
 - User-approved event-enabled five-layer @2 comparison profile, shared
   domain-event behavior, and separate 8.9A/8.9B implementation boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.4
+EXTRACTED: 2026-07-20 | VERSION: 1.5
 -->
 
 # Phase 8.9: Implement The Event-Enabled Comparison Profiles
@@ -112,9 +112,9 @@ The reviewed Phase 8.8 inputs are:
 
 | Artifact | Pinned value |
 |---|---|
-| Decision | `phase-08-eventing-decision@1`, normalized digest `sha256:cf9a9bd7b9d385794747bd0b564a58019fb395b8daf128977aa728f6d84a7e6c` |
-| Implementation blueprint | `phase-08-eventing-implementation@1`, normalized digest `sha256:cfaa4459f6d06ff920d5d1ed5295ee21448329754071d024753ef318dd0eb7eb` |
-| Scenario result | `sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5` |
+| Decision | `phase-08-eventing-decision@1`, normalized digest `sha256:22aec12d3e3915564d59d6d2ae00ce7fdce375b8d4bfc8c3880762697a02b2a6` |
+| Implementation blueprint | `phase-08-eventing-implementation@1`, normalized digest `sha256:7758a81f40d119fec8a61d03d3a8eb36c3825f732129a0edfcc925df26a85ab5` |
+| Scenario result | `sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27` |
 | Decision scope | Offline evidence and non-executable blueprint; live identity and capacity remain activation gates |
 
 ## 3. Fixed Architecture
@@ -146,6 +146,10 @@ Responsibilities:
 notification workflow to Data Processing and the device-command adapter to
 Data Acquisition. Direct/provider-native event transport remains supporting
 behavior of those responsibilities and is not mislabeled as a sixth layer.
+When a resolved responsibility edge crosses providers, the producing
+responsibility also owns the approved durable source outbox and shared bridge
+runtime. Same-provider placements contain neither bridge nor cross-cloud
+egress.
 
 Eventing components and edges come only from the approved decision package.
 Both profiles must preserve the semantic names of the baseline responsibilities;
@@ -210,8 +214,11 @@ implementation.
 
 The `five-layer-baseline@2` provider definitions contain the mandatory
 event-rule/action/workflow/command components without an Eventing
-responsibility. The `six-layer-eventing@1` definitions contain the same domain
-components plus the approved Eventing bundle and bridge components.
+responsibility, plus topology-conditional embedded outbox components and
+profile-specific bindings to the shared bridge runtimes. The
+`six-layer-eventing@1` definitions contain the same domain components plus the
+approved Eventing bundle and its own profile-specific bindings to those shared
+bridge runtimes.
 
 The positive fixture set must assign the Eventing responsibility to AWS,
 Azure, and GCP at least once within an otherwise functionally complete whole
@@ -437,7 +444,7 @@ The implementation must use these bundle members exactly:
 
 | Scope | AWS | Azure | GCP |
 |---|---|---|---|
-| Embedded `five-layer-baseline@2` | IoT Core, Lambda, Step Functions Standard, IoT Commands, SQS FIFO, CloudWatch | IoT Hub, Functions Flex Consumption, Logic Apps Consumption, Service Bus Standard, Azure Monitor | Pub/Sub, Cloud Run, Workflows, GKE Standard, Apache BifroMQ `4.0.0-incubating`, Cloud Load Balancing, Cloud Logging |
+| Embedded `five-layer-baseline@2` | IoT Core, Lambda, Step Functions Standard, IoT Commands, SQS FIFO, CloudWatch; Kinesis Data Streams and SNS FIFO only for remote responsibility edges | IoT Hub, Functions Flex Consumption, Logic Apps Consumption, Service Bus Standard, Azure Monitor; Event Hubs Standard for Small/Medium and Event Hubs Dedicated for Large only for remote telemetry edges | Pub/Sub, Cloud Run, Workflows, GKE Standard, Apache BifroMQ `4.0.0-incubating`, Cloud Load Balancing, Cloud Logging |
 | `six-layer-eventing@1` Event Layer | Kinesis Data Streams, SNS FIFO, SQS FIFO, S3 failure destination, Lambda, CloudWatch | Event Hubs Standard for Small/Medium, Event Hubs Dedicated for Large, Service Bus Standard, Functions Flex Consumption, Azure Monitor | Pub/Sub, Cloud Run services, Cloud Run worker pools, Cloud Logging |
 
 Provider plugins are pinned by the implementation manifest:
@@ -448,7 +455,7 @@ Provider plugins are pinned by the implementation manifest:
 | Azure | `hashicorp/azurerm = 4.81.0`, `Azure/azapi = 2.10.0` | The six-CU Dedicated Event Hubs cluster uses `azapi_resource`; `azurerm_eventhub_cluster` cannot express the reviewed capacity |
 | GCP | `hashicorp/google = 7.39.0`, `hashicorp/kubernetes = 3.2.1`, `hashicorp/helm = 3.2.0` | Cloud Run v2 worker pools and the explicit BifroMQ/GKE/Load-Balancer boundary are required |
 
-Every selected service-component instance maps to exactly one of the 33
+Every selected service-component instance maps to exactly one of the 37
 service-component records in `implementation-component-manifest.json`. A
 bundle member absent from that manifest is not an implementation option.
 
@@ -487,14 +494,37 @@ Producer code depends on one platform publisher interface. Consumer wrappers
 depend on one platform envelope interface. Provider SDK calls, physical names,
 and trigger shapes remain inside adapters.
 
+The GCP embedded implementation must realize one complete bidirectional device
+boundary:
+
+```text
+device <-> BifroMQ 4.0.0-incubating on GKE
+             |
+             +-> persistent QoS 1 $oshare integration adapter
+                    -> manual ACK only after ordered Pub/Sub acceptance
+```
+
+Small uses three `e2-standard-8` broker nodes and three integration clients;
+Medium uses three broker nodes and six clients; Large uses twelve broker nodes,
+four dedicated integration-worker nodes, and 30 pods with ten 1-MiB/s clients
+each. All scenarios use three inbox replicas. Activation requires the approved
+64-KiB throughput, backpressure, reconnect-ordering-degradation,
+broker/integration-node-loss, and Pub/Sub-rejection gate against the pinned
+BifroMQ image. Pub/Sub, not an MQTT session, remains the durable cloud backbone
+for telemetry and command outcomes.
+
 Internal helper functions belonging to one logical component must not be
 split into new broker hops. Existing user-function extension slots bind to
 approved consumer components through #113 contracts.
 
 ## 9. Multi-Cloud Bridge
 
-Implement the exact Phase 8.8 ownership decision as one registered bridge
-component per cross-provider route class.
+Implement the exact Phase 8.8 ownership decision as one registered shared
+bridge runtime per source provider and six registered directed route classes.
+Each route class has separate `five-layer-baseline@2` embedded-component and
+`six-layer-eventing@1` Event-Layer component bindings. The runtime mechanics
+are shared; ownership, source outbox, destination broker, and cost attribution
+remain profile-specific.
 
 The bridge is not a public function endpoint and is not destination-owned
 pulling. Its fixed flow is:
@@ -533,6 +563,8 @@ Every bridge runtime must:
 
 - validate the destination allowlist, region-pinned SDK endpoint, normal TLS
   certificate/hostname chain, envelope, schema, route, and size;
+- fail AWS-to-Azure preflight unless outbound web identity federation is
+  account-enabled and `GetWebIdentityToken` uses a regional STS endpoint;
 - cache only short-lived credentials in memory, discarding them at expiry
   minus five minutes or after one hour, whichever occurs first;
 - enforce retry, backoff, circuit-break, backpressure, terminal source DLQ,
@@ -720,6 +752,10 @@ evidence primitives.
 
 Implement shared contracts and the complete embedded-event profile across
 Optimizer, Management, Deployer, Terraform, Flutter, tests, and documentation.
+This includes all three shared bridge runtimes, the six directed route classes,
+and their `five-layer-baseline@2` embedded outbox/destination bindings because
+the five-layer profile must support remote responsibility edges independently
+of 8.9B.
 Run two reviews, fix every finding, and create the clean 8.9A commit before
 opening the 8.9B branch. Historical `five-layer-baseline@1` golden evidence
 must remain unchanged.
@@ -727,7 +763,8 @@ must remain unchanged.
 ### 8.9B Commit Boundary: `six-layer-eventing@1`
 
 Starting from the reviewed 8.9A commit, add only the independent Eventing
-responsibility, approved Event-Layer bundles, and bridge behavior. Run the same
+responsibility, approved Event-Layer bundles, and the Event-Layer profile
+bindings to the already implemented shared bridge runtimes. Run the same
 two-review/fix cycle before the 8.9B commit.
 
 ### Slice A: V2/V4 Contracts

@@ -2,15 +2,15 @@
   "$schema": "schemas/scenario-cost-results.schema.json",
   "calculation_scope": "embedded domain-event behavior and incremental Event-Layer/bridge costs only; no full-profile ranking",
   "input_digests": {
-    "bridge_decision": "sha256:8641b652e2fbe50afd49dd6f815be07286915a700afac588d95c106d879dcb1d",
+    "bridge_decision": "sha256:5f666a39ed1bdbb6723e2af79357c86fc5570a13c4e2d2ce5ee0a25cd2351345",
     "domain_event_flow_contract": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590",
-    "formula_and_unit_ledger": "sha256:97ff2c1bedebfc648df96c1b2e1c03c0d1f477528da6b073f1b270de0b811f1f",
-    "pricing_model_matrix": "sha256:79ba91ada73d75eefddee7bd0720c173f46cf27c3070d1c4d7d08c8bd6b72863",
-    "provider_capability_matrix": "sha256:68028349334b06da081397f8b5ad98ff5b72dca04c157d48adcd318100ff7c87",
+    "formula_and_unit_ledger": "sha256:acf0b42bd2d2d5f0e8980f38f8ee03b5aa8661b07c5a96475406924fa315701a",
+    "pricing_model_matrix": "sha256:827f68c0f55eeec1b79cfb20364f38d93349f70dbd37e208371935d908602954",
+    "provider_capability_matrix": "sha256:45aeb0fcecfb03efd9677c15a4330b8dc9dae0d7547310049f62de329835e9b9",
     "scenario_inputs": "sha256:3d43153f7ccd6b99916902a1ec99881602650df463da2c2c33858f66d746d8ec",
-    "source_ledger": "sha256:b23edbd441224d8ae7fd5c39844c135208b26309a6ceb1dd4e0d16c8309092a7"
+    "source_ledger": "sha256:d652fc3da7c8b3ee4bfcb48db30f896fecca9d48ef3541999a0a3818f19864c5"
   },
-  "result_digest": "sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5",
+  "result_digest": "sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27",
   "result_set_id": "phase-08-eventing-cost-results@1",
   "scenarios": [
     {
@@ -1568,21 +1568,27 @@
               ]
             },
             {
-              "amount_usd": "708.269979902",
+              "amount_usd": "708.273031660",
               "contribution_id": "embedded.gcp.eventing-small-v1.mqtt-boundary",
               "formula_ids": [
                 "formula.gcp.bifromq-gke"
               ],
               "member": "Apache BifroMQ 4.0.0-incubating on GKE Standard",
               "normalized_quantities": {
+                "broker_node_count": 3,
                 "cluster_hours": 730,
                 "command_data_gib": "0.000837802886962890625",
+                "configured_bandwidth_mib_per_second_per_client": 1,
+                "device_telemetry_data_gib": "0.3814697265625",
                 "disk_gib_hours": 219000,
+                "disk_gib_per_node": 100,
                 "forwarding_rule_hours": 730,
+                "integration_clients": 3,
+                "integration_node_count": 0,
                 "node_hours": 2190,
-                "nodes": 3
+                "total_nodes": 3
               },
-              "notes": "Three-node PoC allocation; software license price is zero and operational labor is qualitative.",
+              "notes": "Full bidirectional device boundary with ordered QoS1 MQTT-to-Pub/Sub integration; Large uses 12 broker nodes, four integration-worker nodes, and 300 configured 1-MiB/s clients. Software price is zero; operational labor is qualitative and live payload-size testing remains mandatory.",
               "pricing_intent_ids": [
                 "intent.gcp.gke.cluster",
                 "intent.gcp.compute.e2-standard-8",
@@ -1640,7 +1646,7 @@
             "source.gcp.workflows.pricing.2026-07-20"
           ],
           "status": "publishable_bounded_estimate",
-          "total_monthly_usd": "708.274220508"
+          "total_monthly_usd": "708.277272266"
         }
       ],
       "event_layer_bundle_results": [
@@ -2139,7 +2145,7 @@
           "bridge_invocations": 0,
           "cross_cloud_egress_bytes": 0,
           "embedded_bundle_ref": "bundle.gcp.embedded@1",
-          "embedded_event_cost_usd": "708.274220508",
+          "embedded_event_cost_usd": "708.277272266",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_cost_usd": "0.008511718",
           "event_scope_status": "capability_admissible_live_pending",
@@ -6780,21 +6786,27 @@
               ]
             },
             {
-              "amount_usd": "708.270644110",
+              "amount_usd": "709.491347235",
               "contribution_id": "embedded.gcp.eventing-medium-v1.mqtt-boundary",
               "formula_ids": [
                 "formula.gcp.bifromq-gke"
               ],
               "member": "Apache BifroMQ 4.0.0-incubating on GKE Standard",
               "normalized_quantities": {
+                "broker_node_count": 3,
                 "cluster_hours": 730,
                 "command_data_gib": "0.083863735198974609375",
+                "configured_bandwidth_mib_per_second_per_client": 1,
+                "device_telemetry_data_gib": "152.587890625",
                 "disk_gib_hours": 219000,
+                "disk_gib_per_node": 100,
                 "forwarding_rule_hours": 730,
+                "integration_clients": 6,
+                "integration_node_count": 0,
                 "node_hours": 2190,
-                "nodes": 3
+                "total_nodes": 3
               },
-              "notes": "Three-node PoC allocation; software license price is zero and operational labor is qualitative.",
+              "notes": "Full bidirectional device boundary with ordered QoS1 MQTT-to-Pub/Sub integration; Large uses 12 broker nodes, four integration-worker nodes, and 300 configured 1-MiB/s clients. Software price is zero; operational labor is qualitative and live payload-size testing remains mandatory.",
               "pricing_intent_ids": [
                 "intent.gcp.gke.cluster",
                 "intent.gcp.compute.e2-standard-8",
@@ -6852,7 +6864,7 @@
             "source.gcp.workflows.pricing.2026-07-20"
           ],
           "status": "publishable_bounded_estimate",
-          "total_monthly_usd": "735.226835768"
+          "total_monthly_usd": "736.447538893"
         }
       ],
       "event_layer_bundle_results": [
@@ -7351,7 +7363,7 @@
           "bridge_invocations": 0,
           "cross_cloud_egress_bytes": 0,
           "embedded_bundle_ref": "bundle.gcp.embedded@1",
-          "embedded_event_cost_usd": "735.226835768",
+          "embedded_event_cost_usd": "736.447538893",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_cost_usd": "87.531401934",
           "event_scope_status": "capability_admissible_live_pending",
@@ -12058,21 +12070,27 @@
               ]
             },
             {
-              "amount_usd": "708.276715677",
+              "amount_usd": "3430.858057877",
               "contribution_id": "embedded.gcp.eventing-large-v1.mqtt-boundary",
               "formula_ids": [
                 "formula.gcp.bifromq-gke"
               ],
               "member": "Apache BifroMQ 4.0.0-incubating on GKE Standard",
               "normalized_quantities": {
+                "broker_node_count": 12,
                 "cluster_hours": 730,
                 "command_data_gib": "0.8428096771240234375",
-                "disk_gib_hours": 219000,
+                "configured_bandwidth_mib_per_second_per_client": 1,
+                "device_telemetry_data_gib": "6103.515625",
+                "disk_gib_hours": 1168000,
+                "disk_gib_per_node": 100,
                 "forwarding_rule_hours": 730,
-                "node_hours": 2190,
-                "nodes": 3
+                "integration_clients": 300,
+                "integration_node_count": 4,
+                "node_hours": 11680,
+                "total_nodes": 16
               },
-              "notes": "Three-node PoC allocation; software license price is zero and operational labor is qualitative.",
+              "notes": "Full bidirectional device boundary with ordered QoS1 MQTT-to-Pub/Sub integration; Large uses 12 broker nodes, four integration-worker nodes, and 300 configured 1-MiB/s clients. Software price is zero; operational labor is qualitative and live payload-size testing remains mandatory.",
               "pricing_intent_ids": [
                 "intent.gcp.gke.cluster",
                 "intent.gcp.compute.e2-standard-8",
@@ -12130,7 +12148,7 @@
             "source.gcp.workflows.pricing.2026-07-20"
           ],
           "status": "publishable_bounded_estimate",
-          "total_monthly_usd": "1676.651157159"
+          "total_monthly_usd": "4399.232499359"
         }
       ],
       "event_layer_bundle_results": [
@@ -12653,7 +12671,7 @@
           "bridge_invocations": 0,
           "cross_cloud_egress_bytes": 0,
           "embedded_bundle_ref": "bundle.gcp.embedded@1",
-          "embedded_event_cost_usd": "1676.651157159",
+          "embedded_event_cost_usd": "4399.232499359",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_cost_usd": "6678.069412260",
           "event_scope_status": "capability_admissible_live_pending",

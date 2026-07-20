@@ -5,93 +5,2035 @@
   "source_ledger_ref": "phase-08-eventing-sources@1",
   "formula_ledger_ref": "phase-08-formulas@1",
   "price_intents": [
-    {"intent_id": "intent.aws.iot.connection", "provider": "aws", "service_or_bundle_member": "AWS IoT Core", "provider_meter_or_sku_id": "V6VBEE6463RGDJ67", "source_type": "dynamic_provider_api", "source_id": "source.aws.iot-core.pricing-api.2026-07-20", "raw_unit": "connection-minute", "normalized_unit": "connection-minute", "normalization_rule_id": "normalization.direct", "formula_id": "formula.aws.iot-core", "unit_price_usd": 0.000000096, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.000000096}], "rounding_rule": "whole connection minutes", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-05-28", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.iot.message", "provider": "aws", "service_or_bundle_member": "AWS IoT Core", "provider_meter_or_sku_id": "APS7CAA5XJVTFPQW", "source_type": "dynamic_provider_api", "source_id": "source.aws.iot-core.pricing-api.2026-07-20", "raw_unit": "message", "normalized_unit": "5-KB-message-chunk", "normalization_rule_id": "normalization.ceil-per-event-5120-bytes", "formula_id": "formula.aws.iot-core", "unit_price_usd": 0.0000012, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 1000000000, "unit_price_usd": 0.0000012}, {"from_quantity": 1000000000, "up_to_quantity": 5000000000, "unit_price_usd": 0.00000096}, {"from_quantity": 5000000000, "up_to_quantity": "unbounded", "unit_price_usd": 0.00000084}], "rounding_rule": "ceil each message payload to 5 KB", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-05-28", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.iot.rule", "provider": "aws", "service_or_bundle_member": "AWS IoT Core", "provider_meter_or_sku_id": "SFEUND8GX6YXGBUB", "source_type": "dynamic_provider_api", "source_id": "source.aws.iot-core.pricing-api.2026-07-20", "raw_unit": "rule-trigger", "normalized_unit": "rule-trigger", "normalization_rule_id": "normalization.direct", "formula_id": "formula.aws.iot-core", "unit_price_usd": 0.00000018, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.00000018}], "rounding_rule": "whole triggers", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-05-28", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.iot.action", "provider": "aws", "service_or_bundle_member": "AWS IoT Core", "provider_meter_or_sku_id": "2WW8WDFKJ2Z67HMU", "source_type": "dynamic_provider_api", "source_id": "source.aws.iot-core.pricing-api.2026-07-20", "raw_unit": "action", "normalized_unit": "action", "normalization_rule_id": "normalization.direct", "formula_id": "formula.aws.iot-core", "unit_price_usd": 0.00000018, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.00000018}], "rounding_rule": "whole actions", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-05-28", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.iot-command.execution", "provider": "aws", "service_or_bundle_member": "AWS IoT Commands", "provider_meter_or_sku_id": "48DCW3UM9Q764KPK", "source_type": "dynamic_provider_api", "source_id": "source.aws.iot-commands.pricing-api.2026-07-20", "raw_unit": "execution", "normalized_unit": "execution", "normalization_rule_id": "normalization.direct", "formula_id": "formula.workflow.four-step", "unit_price_usd": 0.0000065, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000065}], "rounding_rule": "whole executions", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-04-10", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.lambda.request", "provider": "aws", "service_or_bundle_member": "AWS Lambda", "provider_meter_or_sku_id": "CKZQ3D25MV9ET243", "source_type": "dynamic_provider_api", "source_id": "source.aws.lambda.pricing-api.2026-07-20", "raw_unit": "request", "normalized_unit": "request", "normalization_rule_id": "normalization.direct", "formula_id": "formula.compute.serverless", "unit_price_usd": 0.0000002, "free_quantity": 1000000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 1000000, "unit_price_usd": 0}, {"from_quantity": 1000000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000002}], "rounding_rule": "whole requests", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-17", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.lambda.compute", "provider": "aws", "service_or_bundle_member": "AWS Lambda", "provider_meter_or_sku_id": "S4ZKFHQ6B28FBYVW", "source_type": "dynamic_provider_api", "source_id": "source.aws.lambda.pricing-api.2026-07-20", "raw_unit": "GB-second", "normalized_unit": "GB-second", "normalization_rule_id": "normalization.provider-duration-and-memory", "formula_id": "formula.compute.serverless", "unit_price_usd": 0.0000166667, "free_quantity": 400000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 400000, "unit_price_usd": 0}, {"from_quantity": 400000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000166667}], "rounding_rule": "1-ms duration and configured 256/512 MiB", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-17", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.step-functions.transition", "provider": "aws", "service_or_bundle_member": "AWS Step Functions Standard", "provider_meter_or_sku_id": "58KUBWFAURJZRTNC", "source_type": "dynamic_provider_api", "source_id": "source.aws.step-functions.pricing-api.2026-07-20", "raw_unit": "state-transition", "normalized_unit": "state-transition", "normalization_rule_id": "normalization.direct", "formula_id": "formula.workflow.four-step", "unit_price_usd": 0.000025, "free_quantity": 4000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 4000, "unit_price_usd": 0}, {"from_quantity": 4000, "up_to_quantity": "unbounded", "unit_price_usd": 0.000025}], "rounding_rule": "whole transitions", "region": "eu-central-1", "currency": "USD", "effective_at": "2025-08-28", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.kinesis.shard-hour", "provider": "aws", "service_or_bundle_member": "Amazon Kinesis Data Streams", "provider_meter_or_sku_id": "XKZAKKF82BQA9AFM", "source_type": "dynamic_provider_api", "source_id": "source.aws.kinesis.pricing-api.2026-07-20", "raw_unit": "shard-hour", "normalized_unit": "shard-hour", "normalization_rule_id": "normalization.scenario-capacity-allocation", "formula_id": "formula.aws.kinesis-provisioned", "unit_price_usd": 0.018, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.018}], "rounding_rule": "whole shards for 730 hours", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-17", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.kinesis.put-unit", "provider": "aws", "service_or_bundle_member": "Amazon Kinesis Data Streams", "provider_meter_or_sku_id": "3UR7JSUYYMV3CMXZ", "source_type": "dynamic_provider_api", "source_id": "source.aws.kinesis.pricing-api.2026-07-20", "raw_unit": "record", "normalized_unit": "25-KB-payload-unit", "normalization_rule_id": "normalization.ceil-per-record-25600-bytes", "formula_id": "formula.aws.kinesis-provisioned", "unit_price_usd": 0.0000000175, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000000175}], "rounding_rule": "ceil each record to 25 KB", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-17", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.kinesis.efo-consumer-hour", "provider": "aws", "service_or_bundle_member": "Kinesis enhanced fan-out", "provider_meter_or_sku_id": "9TD8FCMMDJT864C8", "source_type": "dynamic_provider_api", "source_id": "source.aws.kinesis.pricing-api.2026-07-20", "raw_unit": "consumer-shard-hour", "normalized_unit": "consumer-shard-hour", "normalization_rule_id": "normalization.named-consumers-times-shards", "formula_id": "formula.aws.kinesis-provisioned", "unit_price_usd": 0.018, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.018}], "rounding_rule": "whole registered consumers and shards", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-17", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.kinesis.efo-read", "provider": "aws", "service_or_bundle_member": "Kinesis enhanced fan-out", "provider_meter_or_sku_id": "G9C7DVGXPQEH44WY", "source_type": "dynamic_provider_api", "source_id": "source.aws.kinesis.pricing-api.2026-07-20", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.aws.kinesis-provisioned", "unit_price_usd": 0.0156, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.0156}], "rounding_rule": "no intermediate rounding", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-17", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.kinesis.extended-retention", "provider": "aws", "service_or_bundle_member": "Amazon Kinesis Data Streams", "provider_meter_or_sku_id": "T4QNG294F9XWDPYW", "source_type": "dynamic_provider_api", "source_id": "source.aws.kinesis.pricing-api.2026-07-20", "raw_unit": "extended-shard-hour", "normalized_unit": "extended-shard-hour", "normalization_rule_id": "normalization.retention-over-24h", "formula_id": "formula.aws.kinesis-provisioned", "unit_price_usd": 0.024, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.024}], "rounding_rule": "all stream shard-hours when retention exceeds 24 hours", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-17", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.sns-fifo.publish", "provider": "aws", "service_or_bundle_member": "Amazon SNS FIFO", "provider_meter_or_sku_id": "8P9D4X8QP47XCQ6R", "source_type": "dynamic_provider_api", "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20", "raw_unit": "request", "normalized_unit": "64-KB-request", "normalization_rule_id": "normalization.ceil-per-message-65536-bytes", "formula_id": "formula.aws.sns-sqs-fifo", "unit_price_usd": 0.00000036, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.00000036}], "rounding_rule": "ceil message payload to 64 KB", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-02-11", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.sns-fifo.ingress", "provider": "aws", "service_or_bundle_member": "Amazon SNS FIFO", "provider_meter_or_sku_id": "WS7XFZUKF4C2FEFS", "source_type": "dynamic_provider_api", "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.aws.sns-sqs-fifo", "unit_price_usd": 0.0204, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.0204}], "rounding_rule": "no intermediate rounding", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-02-11", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.sns-fifo.delivery", "provider": "aws", "service_or_bundle_member": "Amazon SNS FIFO", "provider_meter_or_sku_id": "3TV8EY5Z4DY6HYDD", "source_type": "dynamic_provider_api", "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20", "raw_unit": "message", "normalized_unit": "message", "normalization_rule_id": "normalization.direct", "formula_id": "formula.aws.sns-sqs-fifo", "unit_price_usd": 0.000000012, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.000000012}], "rounding_rule": "whole deliveries", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-02-11", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.sns-fifo.egress", "provider": "aws", "service_or_bundle_member": "Amazon SNS FIFO", "provider_meter_or_sku_id": "ZRYC2KXNSJK4UF3B", "source_type": "dynamic_provider_api", "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.aws.sns-sqs-fifo", "unit_price_usd": 0.0012, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.0012}], "rounding_rule": "no intermediate rounding", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-02-11", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.sns-fifo.archive-processing", "provider": "aws", "service_or_bundle_member": "Amazon SNS FIFO archive", "provider_meter_or_sku_id": "K36QGH5NP9UNGGSD", "source_type": "dynamic_provider_api", "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.aws.sns-sqs-fifo", "unit_price_usd": 0.12, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.12}], "rounding_rule": "no intermediate rounding", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-02-11", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.sns-fifo.archive-storage", "provider": "aws", "service_or_bundle_member": "Amazon SNS FIFO archive", "provider_meter_or_sku_id": "PBXH9T5AM379JH8Q", "source_type": "dynamic_provider_api", "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20", "raw_unit": "GB-month", "normalized_unit": "decimal-GB-month", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.retention.average-storage", "unit_price_usd": 0.0245, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.0245}], "rounding_rule": "steady-state byte-month", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-02-11", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.sqs-fifo.request", "provider": "aws", "service_or_bundle_member": "Amazon SQS FIFO", "provider_meter_or_sku_id": "5H8P99CKXY68YUT5", "source_type": "dynamic_provider_api", "source_id": "source.aws.sqs-fifo.pricing-api.2026-07-20", "raw_unit": "request", "normalized_unit": "64-KB-request", "normalization_rule_id": "normalization.ceil-per-message-65536-bytes", "formula_id": "formula.aws.sns-sqs-fifo", "unit_price_usd": 0.0000005, "free_quantity": 1000000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 1000000, "unit_price_usd": 0}, {"from_quantity": 1000000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000005}], "rounding_rule": "three requests per successful delivery; 64-KB chunks", "region": "eu-central-1", "currency": "USD", "effective_at": "2025-08-28", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.s3.dlq-put", "provider": "aws", "service_or_bundle_member": "Amazon S3 Standard DLQ", "provider_meter_or_sku_id": "F5832W93RMW27RD7", "source_type": "dynamic_provider_api", "source_id": "source.aws.s3.pricing-api.2026-07-20", "raw_unit": "request", "normalized_unit": "request", "normalization_rule_id": "normalization.direct", "formula_id": "formula.aws.s3-dlq", "unit_price_usd": 0.0000054, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000054}], "rounding_rule": "one PUT per terminal telemetry failure", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-14", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.s3.dlq-storage", "provider": "aws", "service_or_bundle_member": "Amazon S3 Standard DLQ", "provider_meter_or_sku_id": "NRYRNCXF5TWHB476", "source_type": "dynamic_provider_api", "source_id": "source.aws.s3.pricing-api.2026-07-20", "raw_unit": "GB-month", "normalized_unit": "decimal-GB-month", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.aws.s3-dlq", "unit_price_usd": 0.0245, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 50000, "unit_price_usd": 0.0245}, {"from_quantity": 50000, "up_to_quantity": 500000, "unit_price_usd": 0.0235}, {"from_quantity": 500000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0225}], "rounding_rule": "steady-state byte-month", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-14", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.cloudwatch.ingestion", "provider": "aws", "service_or_bundle_member": "Amazon CloudWatch Logs", "provider_meter_or_sku_id": "XAE7GPNAZR6AWCQK", "source_type": "dynamic_provider_api", "source_id": "source.aws.cloudwatch.pricing-api.2026-07-20", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.observability.decimal-gb", "unit_price_usd": 0.63, "free_quantity": 5, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 5, "unit_price_usd": 0}, {"from_quantity": 5, "up_to_quantity": "unbounded", "unit_price_usd": 0.63}], "rounding_rule": "no intermediate rounding", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-16", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.cloudwatch.storage", "provider": "aws", "service_or_bundle_member": "Amazon CloudWatch Logs", "provider_meter_or_sku_id": "4V9YKJHUP3C55Q2R", "source_type": "dynamic_provider_api", "source_id": "source.aws.cloudwatch.pricing-api.2026-07-20", "raw_unit": "GB-month", "normalized_unit": "decimal-GB-month", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.observability.decimal-gb", "unit_price_usd": 0.0324, "free_quantity": 5, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 5, "unit_price_usd": 0}, {"from_quantity": 5, "up_to_quantity": "unbounded", "unit_price_usd": 0.0324}], "rounding_rule": "30-day retained byte-month", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-16", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.aws.transfer.internet-egress", "provider": "aws", "service_or_bundle_member": "AWS Data Transfer Out", "provider_meter_or_sku_id": "reviewed-catalog.aws.eu-central-1.internet-egress", "source_type": "reviewed_repository_catalog", "source_id": "source.aws.data-transfer.reviewed-catalog.2026-07-19", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.transfer.progressive-egress", "unit_price_usd": 0.09, "free_quantity": 100, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 100, "unit_price_usd": 0}, {"from_quantity": 100, "up_to_quantity": 10240, "unit_price_usd": 0.09}, {"from_quantity": 10240, "up_to_quantity": 51200, "unit_price_usd": 0.085}, {"from_quantity": 51200, "up_to_quantity": 153600, "unit_price_usd": 0.07}, {"from_quantity": 153600, "up_to_quantity": "unbounded", "unit_price_usd": 0.05}], "rounding_rule": "progressive decimal-GB tiers", "region": "eu-central-1", "currency": "USD", "effective_at": "2026-07-01", "fetchability": "derived_calculation", "publishability": "publishable"},
-
-    {"intent_id": "intent.azure.iot-hub.s1", "provider": "azure", "service_or_bundle_member": "Azure IoT Hub", "provider_meter_or_sku_id": "2885a6b2-5013-4fa9-8f3b-fc3ead8d136d", "source_type": "dynamic_provider_api", "source_id": "source.azure.iot-hub.retail-api.2026-07-20", "raw_unit": "unit-month", "normalized_unit": "unit-month", "normalization_rule_id": "normalization.scenario-capacity-allocation", "formula_id": "formula.azure.iot-hub-fixed", "unit_price_usd": 25, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 25}], "rounding_rule": "whole units", "region": "westeurope", "currency": "USD", "effective_at": "2018-04-02", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.iot-hub.s2", "provider": "azure", "service_or_bundle_member": "Azure IoT Hub", "provider_meter_or_sku_id": "a36d229a-595c-44ad-a66c-1287be4bf433", "source_type": "dynamic_provider_api", "source_id": "source.azure.iot-hub.retail-api.2026-07-20", "raw_unit": "unit-month", "normalized_unit": "unit-month", "normalization_rule_id": "normalization.scenario-capacity-allocation", "formula_id": "formula.azure.iot-hub-fixed", "unit_price_usd": 250, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 250}], "rounding_rule": "whole units", "region": "westeurope", "currency": "USD", "effective_at": "2018-04-02", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.iot-hub.s3", "provider": "azure", "service_or_bundle_member": "Azure IoT Hub", "provider_meter_or_sku_id": "b42f9a44-d1d2-4792-bc98-fdaa614bdeac", "source_type": "dynamic_provider_api", "source_id": "source.azure.iot-hub.retail-api.2026-07-20", "raw_unit": "unit-month", "normalized_unit": "unit-month", "normalization_rule_id": "normalization.scenario-capacity-allocation", "formula_id": "formula.azure.iot-hub-fixed", "unit_price_usd": 2500, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 2500}], "rounding_rule": "whole units", "region": "westeurope", "currency": "USD", "effective_at": "2018-04-02", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.functions.execution", "provider": "azure", "service_or_bundle_member": "Azure Functions Flex Consumption", "provider_meter_or_sku_id": "13bbc1e0-136c-573b-8c2b-bab44bbc2179", "source_type": "dynamic_provider_api", "source_id": "source.azure.functions-flex.retail-api.2026-07-20", "raw_unit": "10 executions", "normalized_unit": "execution", "normalization_rule_id": "normalization.divide-price-by-10", "formula_id": "formula.compute.serverless", "unit_price_usd": 0.0000004, "free_quantity": 250000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 250000, "unit_price_usd": 0}, {"from_quantity": 250000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000004}], "rounding_rule": "whole executions; compute duration uses a separate 1-second minimum", "region": "westeurope", "currency": "USD", "effective_at": "2025-06-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.functions.compute", "provider": "azure", "service_or_bundle_member": "Azure Functions Flex Consumption", "provider_meter_or_sku_id": "1b89c7d8-fbb8-528b-bcb8-8a439a637524", "source_type": "dynamic_provider_api", "source_id": "source.azure.functions-flex.retail-api.2026-07-20", "raw_unit": "GB-second", "normalized_unit": "GB-second", "normalization_rule_id": "normalization.provider-duration-and-2gib", "formula_id": "formula.compute.serverless", "unit_price_usd": 0.000026, "free_quantity": 100000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 100000, "unit_price_usd": 0}, {"from_quantity": 100000, "up_to_quantity": "unbounded", "unit_price_usd": 0.000026}], "rounding_rule": "configured 2-GiB instance; minimum 1 second then 100-ms blocks", "region": "westeurope", "currency": "USD", "effective_at": "2025-06-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.logic-apps.builtin", "provider": "azure", "service_or_bundle_member": "Azure Logic Apps Consumption", "provider_meter_or_sku_id": "155afecf-5804-4ca4-ae3d-2cff595ab8d4", "source_type": "dynamic_provider_api", "source_id": "source.azure.logic-apps.retail-api.2026-07-20", "raw_unit": "action", "normalized_unit": "internal-action", "normalization_rule_id": "normalization.three-internal-actions", "formula_id": "formula.workflow.four-step", "unit_price_usd": 0.000025, "free_quantity": 4000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 4000, "unit_price_usd": 0}, {"from_quantity": 4000, "up_to_quantity": "unbounded", "unit_price_usd": 0.000025}], "rounding_rule": "whole built-in actions", "region": "westeurope", "currency": "USD", "effective_at": "2021-06-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.logic-apps.connector", "provider": "azure", "service_or_bundle_member": "Azure Logic Apps Consumption", "provider_meter_or_sku_id": "3d2036fb-cad3-47cf-98cb-0a66f53be6cd", "source_type": "dynamic_provider_api", "source_id": "source.azure.logic-apps.retail-api.2026-07-20", "raw_unit": "connector call", "normalized_unit": "external-action", "normalization_rule_id": "normalization.one-external-action", "formula_id": "formula.workflow.four-step", "unit_price_usd": 0.000125, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.000125}], "rounding_rule": "whole connector calls", "region": "westeurope", "currency": "USD", "effective_at": "2017-11-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.event-hubs.tu-hour", "provider": "azure", "service_or_bundle_member": "Azure Event Hubs Standard", "provider_meter_or_sku_id": "62d94a65-9300-48a6-8c15-0e70fc41eb44", "source_type": "dynamic_provider_api", "source_id": "source.azure.event-hubs.retail-api.2026-07-20", "raw_unit": "TU-hour", "normalized_unit": "TU-hour", "normalization_rule_id": "normalization.scenario-capacity-allocation", "formula_id": "formula.azure.event-hubs-standard", "unit_price_usd": 0.03, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.03}], "rounding_rule": "whole throughput units per namespace for 730 hours", "region": "westeurope", "currency": "USD", "effective_at": "2014-12-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.event-hubs.ingress", "provider": "azure", "service_or_bundle_member": "Azure Event Hubs Standard", "provider_meter_or_sku_id": "d0a685ee-f093-4c5c-ba76-3ec342a75de7", "source_type": "dynamic_provider_api", "source_id": "source.azure.event-hubs.retail-api.2026-07-20", "raw_unit": "million ingress events", "normalized_unit": "64-KB-ingress-event", "normalization_rule_id": "normalization.ceil-per-event-65536-bytes", "formula_id": "formula.azure.event-hubs-standard", "unit_price_usd": 0.000000028, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.000000028}], "rounding_rule": "ceil each event to 64 KB", "region": "westeurope", "currency": "USD", "effective_at": "2014-12-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.event-hubs-dedicated.cu-hour", "provider": "azure", "service_or_bundle_member": "Azure Event Hubs Dedicated", "provider_meter_or_sku_id": "Dedicated Capacity Unit", "source_type": "dynamic_provider_api", "source_id": "source.azure.event-hubs-dedicated.retail-api.2026-07-20", "raw_unit": "CU-hour", "normalized_unit": "CU-hour", "normalization_rule_id": "normalization.scenario-capacity-allocation", "formula_id": "formula.azure.event-hubs-dedicated", "unit_price_usd": 6.849, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 6.849}], "rounding_rule": "whole capacity units for 730 hours", "region": "westeurope", "currency": "USD", "effective_at": "2019-06-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.service-bus.base-hour", "provider": "azure", "service_or_bundle_member": "Azure Service Bus Standard", "provider_meter_or_sku_id": "9d0c5c5c-f0ff-48c2-8c68-9ee7ffd306af", "source_type": "dynamic_provider_api", "source_id": "source.azure.service-bus.retail-api.2026-07-20", "raw_unit": "hour", "normalized_unit": "hour", "normalization_rule_id": "normalization.730-hours", "formula_id": "formula.azure.service-bus-standard", "unit_price_usd": 0.013441, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.013441}], "rounding_rule": "730 hours", "region": "westeurope", "currency": "USD", "effective_at": "2018-05-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.service-bus.operation", "provider": "azure", "service_or_bundle_member": "Azure Service Bus Standard", "provider_meter_or_sku_id": "2a9992f8-e914-490b-a7a6-6d21ba55acda", "source_type": "dynamic_provider_api", "source_id": "source.azure.service-bus.retail-api.2026-07-20", "raw_unit": "million operations", "normalized_unit": "operation", "normalization_rule_id": "normalization.divide-price-by-million", "formula_id": "formula.azure.service-bus-standard", "unit_price_usd": 0.0000008, "free_quantity": 13000000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 13000000, "unit_price_usd": 0}, {"from_quantity": 13000000, "up_to_quantity": 100000000, "unit_price_usd": 0.0000008}, {"from_quantity": 100000000, "up_to_quantity": 2500000000, "unit_price_usd": 0.0000005}, {"from_quantity": 2500000000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000002}], "rounding_rule": "progressive operation tiers", "region": "westeurope", "currency": "USD", "effective_at": "2017-08-15", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.monitor.ingestion", "provider": "azure", "service_or_bundle_member": "Azure Monitor Log Analytics", "provider_meter_or_sku_id": "Analytics Logs Data Ingestion", "source_type": "dynamic_provider_api", "source_id": "source.azure.monitor.retail-api.2026-07-20", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.observability.decimal-gb", "unit_price_usd": 2.99, "free_quantity": 5, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 5, "unit_price_usd": 0}, {"from_quantity": 5, "up_to_quantity": "unbounded", "unit_price_usd": 2.99}], "rounding_rule": "no intermediate rounding", "region": "westeurope", "currency": "USD", "effective_at": "2018-02-01", "fetchability": "dynamic_provider_api", "publishability": "publishable"},
-    {"intent_id": "intent.azure.transfer.internet-egress", "provider": "azure", "service_or_bundle_member": "Azure Bandwidth", "provider_meter_or_sku_id": "reviewed-catalog.azure.westeurope.internet-egress", "source_type": "reviewed_repository_catalog", "source_id": "source.azure.data-transfer.reviewed-catalog.2026-07-19", "raw_unit": "GB", "normalized_unit": "decimal-GB", "normalization_rule_id": "conversion.bytes-to-decimal-gb", "formula_id": "formula.transfer.progressive-egress", "unit_price_usd": 0.087, "free_quantity": 100, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 100, "unit_price_usd": 0}, {"from_quantity": 100, "up_to_quantity": 10335, "unit_price_usd": 0.087}, {"from_quantity": 10335, "up_to_quantity": 51295, "unit_price_usd": 0.083}, {"from_quantity": 51295, "up_to_quantity": 153695, "unit_price_usd": 0.07}, {"from_quantity": 153695, "up_to_quantity": "unbounded", "unit_price_usd": 0.05}], "rounding_rule": "progressive decimal-GB tiers", "region": "westeurope", "currency": "USD", "effective_at": "2026-07-01", "fetchability": "derived_calculation", "publishability": "publishable"},
-
-    {"intent_id": "intent.gcp.pubsub.throughput", "provider": "gcp", "service_or_bundle_member": "Google Cloud Pub/Sub", "provider_meter_or_sku_id": "Message Delivery Basic", "source_type": "official_static_documentation", "source_id": "source.gcp.pubsub.pricing.2026-07-20", "raw_unit": "GiB", "normalized_unit": "GiB", "normalization_rule_id": "conversion.bytes-to-gib", "formula_id": "formula.gcp.pubsub", "unit_price_usd": 0.0390625, "free_quantity": 10, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 10, "unit_price_usd": 0}, {"from_quantity": 10, "up_to_quantity": "unbounded", "unit_price_usd": 0.0390625}], "rounding_rule": "minimum 1000 bytes per request", "region": "global", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.pubsub.retention", "provider": "gcp", "service_or_bundle_member": "Google Cloud Pub/Sub", "provider_meter_or_sku_id": "Topic message retention", "source_type": "official_static_documentation", "source_id": "source.gcp.pubsub.pricing.2026-07-20", "raw_unit": "GiB-month", "normalized_unit": "GiB-month", "normalization_rule_id": "conversion.bytes-to-gib", "formula_id": "formula.retention.average-storage", "unit_price_usd": 0.27, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.27}], "rounding_rule": "steady-state topic byte-month", "region": "global", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.cloud-run.request", "provider": "gcp", "service_or_bundle_member": "Google Cloud Run services", "provider_meter_or_sku_id": "Cloud Run requests", "source_type": "official_static_documentation", "source_id": "source.gcp.cloud-run.pricing.2026-07-20", "raw_unit": "request", "normalized_unit": "request", "normalization_rule_id": "normalization.direct", "formula_id": "formula.gcp.cloud-run-request", "unit_price_usd": 0.0000004, "free_quantity": 2000000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 2000000, "unit_price_usd": 0}, {"from_quantity": 2000000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000004}], "rounding_rule": "whole requests", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.cloud-run.cpu", "provider": "gcp", "service_or_bundle_member": "Google Cloud Run services", "provider_meter_or_sku_id": "Tier 1 request-based CPU", "source_type": "official_static_documentation", "source_id": "source.gcp.cloud-run.pricing.2026-07-20", "raw_unit": "vCPU-second", "normalized_unit": "vCPU-second", "normalization_rule_id": "normalization.0.167-vcpu-and-100ms", "formula_id": "formula.gcp.cloud-run-request", "unit_price_usd": 0.000024, "free_quantity": 180000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 180000, "unit_price_usd": 0}, {"from_quantity": 180000, "up_to_quantity": "unbounded", "unit_price_usd": 0.000024}], "rounding_rule": "0.167 vCPU and 100-ms billable blocks", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.cloud-run.memory", "provider": "gcp", "service_or_bundle_member": "Google Cloud Run services", "provider_meter_or_sku_id": "Tier 1 request-based memory", "source_type": "official_static_documentation", "source_id": "source.gcp.cloud-run.pricing.2026-07-20", "raw_unit": "GiB-second", "normalized_unit": "GiB-second", "normalization_rule_id": "normalization.256mib-and-100ms", "formula_id": "formula.gcp.cloud-run-request", "unit_price_usd": 0.0000025, "free_quantity": 360000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 360000, "unit_price_usd": 0}, {"from_quantity": 360000, "up_to_quantity": "unbounded", "unit_price_usd": 0.0000025}], "rounding_rule": "256 MiB and 100-ms billable blocks", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.cloud-run-worker.cpu", "provider": "gcp", "service_or_bundle_member": "Google Cloud Run worker pools", "provider_meter_or_sku_id": "Tier 1 worker pool CPU", "source_type": "official_static_documentation", "source_id": "source.gcp.cloud-run.pricing.2026-07-20", "raw_unit": "vCPU-second", "normalized_unit": "vCPU-second", "normalization_rule_id": "normalization.continuous-instance-seconds", "formula_id": "formula.gcp.cloud-run-worker-pool", "unit_price_usd": 0.000011244, "free_quantity": 384204, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 384204, "unit_price_usd": 0}, {"from_quantity": 384204, "up_to_quantity": "unbounded", "unit_price_usd": 0.000011244}], "rounding_rule": "whole manually configured instances", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.cloud-run-worker.memory", "provider": "gcp", "service_or_bundle_member": "Google Cloud Run worker pools", "provider_meter_or_sku_id": "Tier 1 worker pool memory", "source_type": "official_static_documentation", "source_id": "source.gcp.cloud-run.pricing.2026-07-20", "raw_unit": "GiB-second", "normalized_unit": "GiB-second", "normalization_rule_id": "normalization.continuous-instance-seconds", "formula_id": "formula.gcp.cloud-run-worker-pool", "unit_price_usd": 0.000001235, "free_quantity": 728744, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 728744, "unit_price_usd": 0}, {"from_quantity": 728744, "up_to_quantity": "unbounded", "unit_price_usd": 0.000001235}], "rounding_rule": "whole manually configured instances", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.workflows.internal", "provider": "gcp", "service_or_bundle_member": "Google Cloud Workflows", "provider_meter_or_sku_id": "Internal steps", "source_type": "official_static_documentation", "source_id": "source.gcp.workflows.pricing.2026-07-20", "raw_unit": "1000 steps", "normalized_unit": "internal-step", "normalization_rule_id": "normalization.ceil-1000-step-block", "formula_id": "formula.workflow.four-step", "unit_price_usd": 0.00001, "free_quantity": 5000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 5000, "unit_price_usd": 0}, {"from_quantity": 5000, "up_to_quantity": "unbounded", "unit_price_usd": 0.00001}], "rounding_rule": "ceil paid usage to 1000-step block", "region": "global", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.workflows.external", "provider": "gcp", "service_or_bundle_member": "Google Cloud Workflows", "provider_meter_or_sku_id": "External steps", "source_type": "official_static_documentation", "source_id": "source.gcp.workflows.pricing.2026-07-20", "raw_unit": "1000 steps", "normalized_unit": "external-step", "normalization_rule_id": "normalization.ceil-1000-step-block", "formula_id": "formula.workflow.four-step", "unit_price_usd": 0.000025, "free_quantity": 2000, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 2000, "unit_price_usd": 0}, {"from_quantity": 2000, "up_to_quantity": "unbounded", "unit_price_usd": 0.000025}], "rounding_rule": "ceil paid usage to 1000-step block", "region": "global", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.gke.cluster", "provider": "gcp", "service_or_bundle_member": "GKE Standard", "provider_meter_or_sku_id": "GKE cluster management fee", "source_type": "official_static_documentation", "source_id": "source.gcp.gke.pricing.2026-07-20", "raw_unit": "cluster-hour", "normalized_unit": "cluster-hour", "normalization_rule_id": "normalization.730-hours", "formula_id": "formula.gcp.bifromq-gke", "unit_price_usd": 0.1, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.1}], "rounding_rule": "one regional cluster for 730 hours", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.compute.e2-standard-8", "provider": "gcp", "service_or_bundle_member": "Compute Engine", "provider_meter_or_sku_id": "e2-standard-8 on-demand", "source_type": "official_static_documentation", "source_id": "source.gcp.compute-e2.pricing.2026-07-20", "raw_unit": "node-hour", "normalized_unit": "node-hour", "normalization_rule_id": "normalization.three-nodes-730-hours", "formula_id": "formula.gcp.bifromq-gke", "unit_price_usd": 0.26804568, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.26804568}], "rounding_rule": "three whole nodes for 730 hours", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.pd-balanced", "provider": "gcp", "service_or_bundle_member": "Persistent Disk balanced", "provider_meter_or_sku_id": "Balanced PD capacity", "source_type": "official_static_documentation", "source_id": "source.gcp.pd-balanced.pricing.2026-07-20", "raw_unit": "GiB-hour", "normalized_unit": "GiB-hour", "normalization_rule_id": "normalization.100gib-per-node", "formula_id": "formula.gcp.bifromq-gke", "unit_price_usd": 0.000136986, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.000136986}], "rounding_rule": "100 GiB on each of three nodes", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.network.forwarding-rule", "provider": "gcp", "service_or_bundle_member": "External passthrough Network Load Balancer", "provider_meter_or_sku_id": "First five forwarding rules", "source_type": "official_static_documentation", "source_id": "source.gcp.network.pricing.2026-07-20", "raw_unit": "rule-hour", "normalized_unit": "rule-hour", "normalization_rule_id": "normalization.one-rule-730-hours", "formula_id": "formula.gcp.bifromq-gke", "unit_price_usd": 0.025, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.025}], "rounding_rule": "one forwarding rule for 730 hours", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.network.lb-processing", "provider": "gcp", "service_or_bundle_member": "External passthrough Network Load Balancer", "provider_meter_or_sku_id": "Load balancer data processing", "source_type": "official_static_documentation", "source_id": "source.gcp.network.pricing.2026-07-20", "raw_unit": "GiB", "normalized_unit": "GiB", "normalization_rule_id": "conversion.bytes-to-gib", "formula_id": "formula.gcp.bifromq-gke", "unit_price_usd": 0.008, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0.008}], "rounding_rule": "command request and outcome bytes only", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.bifromq.software", "provider": "gcp", "service_or_bundle_member": "Apache BifroMQ 4.0.0-incubating", "provider_meter_or_sku_id": "Apache-2.0", "source_type": "official_vendor_documentation", "source_id": "source.gcp.bifromq.2026-07-20", "raw_unit": "license-month", "normalized_unit": "license-month", "normalization_rule_id": "normalization.direct", "formula_id": "formula.gcp.bifromq-gke", "unit_price_usd": 0, "free_quantity": 0, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": "unbounded", "unit_price_usd": 0}], "rounding_rule": "no software license fee; operational labor excluded", "region": "europe-west1", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.logging.ingestion", "provider": "gcp", "service_or_bundle_member": "Google Cloud Logging", "provider_meter_or_sku_id": "Log bucket ingestion", "source_type": "official_static_documentation", "source_id": "source.gcp.logging.pricing.2026-07-20", "raw_unit": "GiB", "normalized_unit": "GiB", "normalization_rule_id": "conversion.bytes-to-gib", "formula_id": "formula.observability.binary-gib", "unit_price_usd": 0.5, "free_quantity": 50, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 50, "unit_price_usd": 0}, {"from_quantity": 50, "up_to_quantity": "unbounded", "unit_price_usd": 0.5}], "rounding_rule": "no intermediate rounding", "region": "global", "currency": "USD", "effective_at": "not_published", "fetchability": "official_static_documentation", "publishability": "publishable"},
-    {"intent_id": "intent.gcp.transfer.internet-egress", "provider": "gcp", "service_or_bundle_member": "Google Cloud Internet Data Transfer", "provider_meter_or_sku_id": "reviewed-catalog.gcp.europe-west1.internet-egress", "source_type": "reviewed_repository_catalog", "source_id": "source.gcp.data-transfer.reviewed-catalog.2026-07-19", "raw_unit": "GiB", "normalized_unit": "GiB", "normalization_rule_id": "conversion.bytes-to-gib", "formula_id": "formula.transfer.progressive-egress", "unit_price_usd": 0.12, "free_quantity": 1, "tier_schedule": [{"from_quantity": 0, "up_to_quantity": 1, "unit_price_usd": 0}, {"from_quantity": 1, "up_to_quantity": 1024, "unit_price_usd": 0.12}, {"from_quantity": 1024, "up_to_quantity": 10240, "unit_price_usd": 0.11}, {"from_quantity": 10240, "up_to_quantity": "unbounded", "unit_price_usd": 0.085}], "rounding_rule": "progressive GiB tiers", "region": "europe-west1", "currency": "USD", "effective_at": "2026-07-01", "fetchability": "derived_calculation", "publishability": "publishable"}
+    {
+      "intent_id": "intent.aws.iot.connection",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS IoT Core",
+      "provider_meter_or_sku_id": "V6VBEE6463RGDJ67",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.iot-core.pricing-api.2026-07-20",
+      "raw_unit": "connection-minute",
+      "normalized_unit": "connection-minute",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.aws.iot-core",
+      "unit_price_usd": 9.6e-08,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 9.6e-08
+        }
+      ],
+      "rounding_rule": "whole connection minutes",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-05-28",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.iot.message",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS IoT Core",
+      "provider_meter_or_sku_id": "APS7CAA5XJVTFPQW",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.iot-core.pricing-api.2026-07-20",
+      "raw_unit": "message",
+      "normalized_unit": "5-KB-message-chunk",
+      "normalization_rule_id": "normalization.ceil-per-event-5120-bytes",
+      "formula_id": "formula.aws.iot-core",
+      "unit_price_usd": 1.2e-06,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 1000000000,
+          "unit_price_usd": 1.2e-06
+        },
+        {
+          "from_quantity": 1000000000,
+          "up_to_quantity": 5000000000,
+          "unit_price_usd": 9.6e-07
+        },
+        {
+          "from_quantity": 5000000000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 8.4e-07
+        }
+      ],
+      "rounding_rule": "ceil each message payload to 5 KB",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-05-28",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.iot.rule",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS IoT Core",
+      "provider_meter_or_sku_id": "SFEUND8GX6YXGBUB",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.iot-core.pricing-api.2026-07-20",
+      "raw_unit": "rule-trigger",
+      "normalized_unit": "rule-trigger",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.aws.iot-core",
+      "unit_price_usd": 1.8e-07,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1.8e-07
+        }
+      ],
+      "rounding_rule": "whole triggers",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-05-28",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.iot.action",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS IoT Core",
+      "provider_meter_or_sku_id": "2WW8WDFKJ2Z67HMU",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.iot-core.pricing-api.2026-07-20",
+      "raw_unit": "action",
+      "normalized_unit": "action",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.aws.iot-core",
+      "unit_price_usd": 1.8e-07,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1.8e-07
+        }
+      ],
+      "rounding_rule": "whole actions",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-05-28",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.iot-command.execution",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS IoT Commands",
+      "provider_meter_or_sku_id": "48DCW3UM9Q764KPK",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.iot-commands.pricing-api.2026-07-20",
+      "raw_unit": "execution",
+      "normalized_unit": "execution",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.workflow.four-step",
+      "unit_price_usd": 6.5e-06,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 6.5e-06
+        }
+      ],
+      "rounding_rule": "whole executions",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-04-10",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.lambda.request",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS Lambda",
+      "provider_meter_or_sku_id": "CKZQ3D25MV9ET243",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.lambda.pricing-api.2026-07-20",
+      "raw_unit": "request",
+      "normalized_unit": "request",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.compute.serverless",
+      "unit_price_usd": 2e-07,
+      "free_quantity": 1000000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 1000000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 1000000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2e-07
+        }
+      ],
+      "rounding_rule": "whole requests",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-17",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.lambda.compute",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS Lambda",
+      "provider_meter_or_sku_id": "S4ZKFHQ6B28FBYVW",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.lambda.pricing-api.2026-07-20",
+      "raw_unit": "GB-second",
+      "normalized_unit": "GB-second",
+      "normalization_rule_id": "normalization.provider-duration-and-memory",
+      "formula_id": "formula.compute.serverless",
+      "unit_price_usd": 1.66667e-05,
+      "free_quantity": 400000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 400000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 400000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1.66667e-05
+        }
+      ],
+      "rounding_rule": "1-ms duration and configured 256/512 MiB",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-17",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.step-functions.transition",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS Step Functions Standard",
+      "provider_meter_or_sku_id": "58KUBWFAURJZRTNC",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.step-functions.pricing-api.2026-07-20",
+      "raw_unit": "state-transition",
+      "normalized_unit": "state-transition",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.workflow.four-step",
+      "unit_price_usd": 2.5e-05,
+      "free_quantity": 4000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 4000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 4000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.5e-05
+        }
+      ],
+      "rounding_rule": "whole transitions",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2025-08-28",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.kinesis.shard-hour",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon Kinesis Data Streams",
+      "provider_meter_or_sku_id": "XKZAKKF82BQA9AFM",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.kinesis.pricing-api.2026-07-20",
+      "raw_unit": "shard-hour",
+      "normalized_unit": "shard-hour",
+      "normalization_rule_id": "normalization.scenario-capacity-allocation",
+      "formula_id": "formula.aws.kinesis-provisioned",
+      "unit_price_usd": 0.018,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.018
+        }
+      ],
+      "rounding_rule": "whole shards for 730 hours",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-17",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.kinesis.put-unit",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon Kinesis Data Streams",
+      "provider_meter_or_sku_id": "3UR7JSUYYMV3CMXZ",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.kinesis.pricing-api.2026-07-20",
+      "raw_unit": "record",
+      "normalized_unit": "25-KB-payload-unit",
+      "normalization_rule_id": "normalization.ceil-per-record-25600-bytes",
+      "formula_id": "formula.aws.kinesis-provisioned",
+      "unit_price_usd": 1.75e-08,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1.75e-08
+        }
+      ],
+      "rounding_rule": "ceil each record to 25 KB",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-17",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.kinesis.efo-consumer-hour",
+      "provider": "aws",
+      "service_or_bundle_member": "Kinesis enhanced fan-out",
+      "provider_meter_or_sku_id": "9TD8FCMMDJT864C8",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.kinesis.pricing-api.2026-07-20",
+      "raw_unit": "consumer-shard-hour",
+      "normalized_unit": "consumer-shard-hour",
+      "normalization_rule_id": "normalization.named-consumers-times-shards",
+      "formula_id": "formula.aws.kinesis-provisioned",
+      "unit_price_usd": 0.018,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.018
+        }
+      ],
+      "rounding_rule": "whole registered consumers and shards",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-17",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.kinesis.efo-read",
+      "provider": "aws",
+      "service_or_bundle_member": "Kinesis enhanced fan-out",
+      "provider_meter_or_sku_id": "G9C7DVGXPQEH44WY",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.kinesis.pricing-api.2026-07-20",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.aws.kinesis-provisioned",
+      "unit_price_usd": 0.0156,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.0156
+        }
+      ],
+      "rounding_rule": "no intermediate rounding",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-17",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.kinesis.extended-retention",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon Kinesis Data Streams",
+      "provider_meter_or_sku_id": "T4QNG294F9XWDPYW",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.kinesis.pricing-api.2026-07-20",
+      "raw_unit": "extended-shard-hour",
+      "normalized_unit": "extended-shard-hour",
+      "normalization_rule_id": "normalization.retention-over-24h",
+      "formula_id": "formula.aws.kinesis-provisioned",
+      "unit_price_usd": 0.024,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.024
+        }
+      ],
+      "rounding_rule": "all stream shard-hours when retention exceeds 24 hours",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-17",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.sns-fifo.publish",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon SNS FIFO",
+      "provider_meter_or_sku_id": "8P9D4X8QP47XCQ6R",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20",
+      "raw_unit": "request",
+      "normalized_unit": "64-KB-request",
+      "normalization_rule_id": "normalization.ceil-per-message-65536-bytes",
+      "formula_id": "formula.aws.sns-sqs-fifo",
+      "unit_price_usd": 3.6e-07,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 3.6e-07
+        }
+      ],
+      "rounding_rule": "ceil message payload to 64 KB",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-02-11",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.sns-fifo.ingress",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon SNS FIFO",
+      "provider_meter_or_sku_id": "WS7XFZUKF4C2FEFS",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.aws.sns-sqs-fifo",
+      "unit_price_usd": 0.0204,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.0204
+        }
+      ],
+      "rounding_rule": "no intermediate rounding",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-02-11",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.sns-fifo.delivery",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon SNS FIFO",
+      "provider_meter_or_sku_id": "3TV8EY5Z4DY6HYDD",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20",
+      "raw_unit": "message",
+      "normalized_unit": "message",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.aws.sns-sqs-fifo",
+      "unit_price_usd": 1.2e-08,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1.2e-08
+        }
+      ],
+      "rounding_rule": "whole deliveries",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-02-11",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.sns-fifo.egress",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon SNS FIFO",
+      "provider_meter_or_sku_id": "ZRYC2KXNSJK4UF3B",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.aws.sns-sqs-fifo",
+      "unit_price_usd": 0.0012,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.0012
+        }
+      ],
+      "rounding_rule": "no intermediate rounding",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-02-11",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.sns-fifo.archive-processing",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon SNS FIFO archive",
+      "provider_meter_or_sku_id": "K36QGH5NP9UNGGSD",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.aws.sns-sqs-fifo",
+      "unit_price_usd": 0.12,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.12
+        }
+      ],
+      "rounding_rule": "no intermediate rounding",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-02-11",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.sns-fifo.archive-storage",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon SNS FIFO archive",
+      "provider_meter_or_sku_id": "PBXH9T5AM379JH8Q",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20",
+      "raw_unit": "GB-month",
+      "normalized_unit": "decimal-GB-month",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.retention.average-storage",
+      "unit_price_usd": 0.0245,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.0245
+        }
+      ],
+      "rounding_rule": "steady-state byte-month",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-02-11",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.sqs-fifo.request",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon SQS FIFO",
+      "provider_meter_or_sku_id": "5H8P99CKXY68YUT5",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.sqs-fifo.pricing-api.2026-07-20",
+      "raw_unit": "request",
+      "normalized_unit": "64-KB-request",
+      "normalization_rule_id": "normalization.ceil-per-message-65536-bytes",
+      "formula_id": "formula.aws.sns-sqs-fifo",
+      "unit_price_usd": 5e-07,
+      "free_quantity": 1000000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 1000000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 1000000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 5e-07
+        }
+      ],
+      "rounding_rule": "three requests per successful delivery; 64-KB chunks",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2025-08-28",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.s3.dlq-put",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon S3 Standard DLQ",
+      "provider_meter_or_sku_id": "F5832W93RMW27RD7",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.s3.pricing-api.2026-07-20",
+      "raw_unit": "request",
+      "normalized_unit": "request",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.aws.s3-dlq",
+      "unit_price_usd": 5.4e-06,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 5.4e-06
+        }
+      ],
+      "rounding_rule": "one PUT per terminal telemetry failure",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-14",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.s3.dlq-storage",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon S3 Standard DLQ",
+      "provider_meter_or_sku_id": "NRYRNCXF5TWHB476",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.s3.pricing-api.2026-07-20",
+      "raw_unit": "GB-month",
+      "normalized_unit": "decimal-GB-month",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.aws.s3-dlq",
+      "unit_price_usd": 0.0245,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 50000,
+          "unit_price_usd": 0.0245
+        },
+        {
+          "from_quantity": 50000,
+          "up_to_quantity": 500000,
+          "unit_price_usd": 0.0235
+        },
+        {
+          "from_quantity": 500000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.0225
+        }
+      ],
+      "rounding_rule": "steady-state byte-month",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-14",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.cloudwatch.ingestion",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon CloudWatch Logs",
+      "provider_meter_or_sku_id": "XAE7GPNAZR6AWCQK",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.cloudwatch.pricing-api.2026-07-20",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.observability.decimal-gb",
+      "unit_price_usd": 0.63,
+      "free_quantity": 5,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 5,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 5,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.63
+        }
+      ],
+      "rounding_rule": "no intermediate rounding",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-16",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.cloudwatch.storage",
+      "provider": "aws",
+      "service_or_bundle_member": "Amazon CloudWatch Logs",
+      "provider_meter_or_sku_id": "4V9YKJHUP3C55Q2R",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.aws.cloudwatch.pricing-api.2026-07-20",
+      "raw_unit": "GB-month",
+      "normalized_unit": "decimal-GB-month",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.observability.decimal-gb",
+      "unit_price_usd": 0.0324,
+      "free_quantity": 5,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 5,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 5,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.0324
+        }
+      ],
+      "rounding_rule": "30-day retained byte-month",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-16",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.aws.transfer.internet-egress",
+      "provider": "aws",
+      "service_or_bundle_member": "AWS Data Transfer Out",
+      "provider_meter_or_sku_id": "reviewed-catalog.aws.eu-central-1.internet-egress",
+      "source_type": "reviewed_repository_catalog",
+      "source_id": "source.aws.data-transfer.reviewed-catalog.2026-07-19",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.transfer.progressive-egress",
+      "unit_price_usd": 0.09,
+      "free_quantity": 100,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 100,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 100,
+          "up_to_quantity": 10240,
+          "unit_price_usd": 0.09
+        },
+        {
+          "from_quantity": 10240,
+          "up_to_quantity": 51200,
+          "unit_price_usd": 0.085
+        },
+        {
+          "from_quantity": 51200,
+          "up_to_quantity": 153600,
+          "unit_price_usd": 0.07
+        },
+        {
+          "from_quantity": 153600,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.05
+        }
+      ],
+      "rounding_rule": "progressive decimal-GB tiers",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "effective_at": "2026-07-01",
+      "fetchability": "derived_calculation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.iot-hub.s1",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure IoT Hub",
+      "provider_meter_or_sku_id": "2885a6b2-5013-4fa9-8f3b-fc3ead8d136d",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.iot-hub.retail-api.2026-07-20",
+      "raw_unit": "unit-month",
+      "normalized_unit": "unit-month",
+      "normalization_rule_id": "normalization.scenario-capacity-allocation",
+      "formula_id": "formula.azure.iot-hub-fixed",
+      "unit_price_usd": 25,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 25
+        }
+      ],
+      "rounding_rule": "whole units",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2018-04-02",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.iot-hub.s2",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure IoT Hub",
+      "provider_meter_or_sku_id": "a36d229a-595c-44ad-a66c-1287be4bf433",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.iot-hub.retail-api.2026-07-20",
+      "raw_unit": "unit-month",
+      "normalized_unit": "unit-month",
+      "normalization_rule_id": "normalization.scenario-capacity-allocation",
+      "formula_id": "formula.azure.iot-hub-fixed",
+      "unit_price_usd": 250,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 250
+        }
+      ],
+      "rounding_rule": "whole units",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2018-04-02",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.iot-hub.s3",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure IoT Hub",
+      "provider_meter_or_sku_id": "b42f9a44-d1d2-4792-bc98-fdaa614bdeac",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.iot-hub.retail-api.2026-07-20",
+      "raw_unit": "unit-month",
+      "normalized_unit": "unit-month",
+      "normalization_rule_id": "normalization.scenario-capacity-allocation",
+      "formula_id": "formula.azure.iot-hub-fixed",
+      "unit_price_usd": 2500,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2500
+        }
+      ],
+      "rounding_rule": "whole units",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2018-04-02",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.functions.execution",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Functions Flex Consumption",
+      "provider_meter_or_sku_id": "13bbc1e0-136c-573b-8c2b-bab44bbc2179",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.functions-flex.retail-api.2026-07-20",
+      "raw_unit": "10 executions",
+      "normalized_unit": "execution",
+      "normalization_rule_id": "normalization.divide-price-by-10",
+      "formula_id": "formula.compute.serverless",
+      "unit_price_usd": 4e-07,
+      "free_quantity": 250000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 250000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 250000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 4e-07
+        }
+      ],
+      "rounding_rule": "whole executions; compute duration uses a separate 1-second minimum",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2025-06-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.functions.compute",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Functions Flex Consumption",
+      "provider_meter_or_sku_id": "1b89c7d8-fbb8-528b-bcb8-8a439a637524",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.functions-flex.retail-api.2026-07-20",
+      "raw_unit": "GB-second",
+      "normalized_unit": "GB-second",
+      "normalization_rule_id": "normalization.provider-duration-and-2gib",
+      "formula_id": "formula.compute.serverless",
+      "unit_price_usd": 2.6e-05,
+      "free_quantity": 100000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 100000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 100000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.6e-05
+        }
+      ],
+      "rounding_rule": "configured 2-GiB instance; minimum 1 second then 100-ms blocks",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2025-06-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.logic-apps.builtin",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Logic Apps Consumption",
+      "provider_meter_or_sku_id": "155afecf-5804-4ca4-ae3d-2cff595ab8d4",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.logic-apps.retail-api.2026-07-20",
+      "raw_unit": "action",
+      "normalized_unit": "internal-action",
+      "normalization_rule_id": "normalization.three-internal-actions",
+      "formula_id": "formula.workflow.four-step",
+      "unit_price_usd": 2.5e-05,
+      "free_quantity": 4000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 4000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 4000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.5e-05
+        }
+      ],
+      "rounding_rule": "whole built-in actions",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2021-06-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.logic-apps.connector",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Logic Apps Consumption",
+      "provider_meter_or_sku_id": "3d2036fb-cad3-47cf-98cb-0a66f53be6cd",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.logic-apps.retail-api.2026-07-20",
+      "raw_unit": "connector call",
+      "normalized_unit": "external-action",
+      "normalization_rule_id": "normalization.one-external-action",
+      "formula_id": "formula.workflow.four-step",
+      "unit_price_usd": 0.000125,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.000125
+        }
+      ],
+      "rounding_rule": "whole connector calls",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2017-11-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.event-hubs.tu-hour",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Event Hubs Standard",
+      "provider_meter_or_sku_id": "62d94a65-9300-48a6-8c15-0e70fc41eb44",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.event-hubs.retail-api.2026-07-20",
+      "raw_unit": "TU-hour",
+      "normalized_unit": "TU-hour",
+      "normalization_rule_id": "normalization.scenario-capacity-allocation",
+      "formula_id": "formula.azure.event-hubs-standard",
+      "unit_price_usd": 0.03,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.03
+        }
+      ],
+      "rounding_rule": "whole throughput units per namespace for 730 hours",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2014-12-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.event-hubs.ingress",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Event Hubs Standard",
+      "provider_meter_or_sku_id": "d0a685ee-f093-4c5c-ba76-3ec342a75de7",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.event-hubs.retail-api.2026-07-20",
+      "raw_unit": "million ingress events",
+      "normalized_unit": "64-KB-ingress-event",
+      "normalization_rule_id": "normalization.ceil-per-event-65536-bytes",
+      "formula_id": "formula.azure.event-hubs-standard",
+      "unit_price_usd": 2.8e-08,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.8e-08
+        }
+      ],
+      "rounding_rule": "ceil each event to 64 KB",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2014-12-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.event-hubs-dedicated.cu-hour",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Event Hubs Dedicated",
+      "provider_meter_or_sku_id": "Dedicated Capacity Unit",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
+      "raw_unit": "CU-hour",
+      "normalized_unit": "CU-hour",
+      "normalization_rule_id": "normalization.scenario-capacity-allocation",
+      "formula_id": "formula.azure.event-hubs-dedicated",
+      "unit_price_usd": 6.849,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 6.849
+        }
+      ],
+      "rounding_rule": "whole capacity units for 730 hours",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2019-06-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.service-bus.base-hour",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Service Bus Standard",
+      "provider_meter_or_sku_id": "9d0c5c5c-f0ff-48c2-8c68-9ee7ffd306af",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.service-bus.retail-api.2026-07-20",
+      "raw_unit": "hour",
+      "normalized_unit": "hour",
+      "normalization_rule_id": "normalization.730-hours",
+      "formula_id": "formula.azure.service-bus-standard",
+      "unit_price_usd": 0.013441,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.013441
+        }
+      ],
+      "rounding_rule": "730 hours",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2018-05-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.service-bus.operation",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Service Bus Standard",
+      "provider_meter_or_sku_id": "2a9992f8-e914-490b-a7a6-6d21ba55acda",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.service-bus.retail-api.2026-07-20",
+      "raw_unit": "million operations",
+      "normalized_unit": "operation",
+      "normalization_rule_id": "normalization.divide-price-by-million",
+      "formula_id": "formula.azure.service-bus-standard",
+      "unit_price_usd": 8e-07,
+      "free_quantity": 13000000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 13000000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 13000000,
+          "up_to_quantity": 100000000,
+          "unit_price_usd": 8e-07
+        },
+        {
+          "from_quantity": 100000000,
+          "up_to_quantity": 2500000000,
+          "unit_price_usd": 5e-07
+        },
+        {
+          "from_quantity": 2500000000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2e-07
+        }
+      ],
+      "rounding_rule": "progressive operation tiers",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2017-08-15",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.monitor.ingestion",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Monitor Log Analytics",
+      "provider_meter_or_sku_id": "Analytics Logs Data Ingestion",
+      "source_type": "dynamic_provider_api",
+      "source_id": "source.azure.monitor.retail-api.2026-07-20",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.observability.decimal-gb",
+      "unit_price_usd": 2.99,
+      "free_quantity": 5,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 5,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 5,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.99
+        }
+      ],
+      "rounding_rule": "no intermediate rounding",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2018-02-01",
+      "fetchability": "dynamic_provider_api",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.azure.transfer.internet-egress",
+      "provider": "azure",
+      "service_or_bundle_member": "Azure Bandwidth",
+      "provider_meter_or_sku_id": "reviewed-catalog.azure.westeurope.internet-egress",
+      "source_type": "reviewed_repository_catalog",
+      "source_id": "source.azure.data-transfer.reviewed-catalog.2026-07-19",
+      "raw_unit": "GB",
+      "normalized_unit": "decimal-GB",
+      "normalization_rule_id": "conversion.bytes-to-decimal-gb",
+      "formula_id": "formula.transfer.progressive-egress",
+      "unit_price_usd": 0.087,
+      "free_quantity": 100,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 100,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 100,
+          "up_to_quantity": 10335,
+          "unit_price_usd": 0.087
+        },
+        {
+          "from_quantity": 10335,
+          "up_to_quantity": 51295,
+          "unit_price_usd": 0.083
+        },
+        {
+          "from_quantity": 51295,
+          "up_to_quantity": 153695,
+          "unit_price_usd": 0.07
+        },
+        {
+          "from_quantity": 153695,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.05
+        }
+      ],
+      "rounding_rule": "progressive decimal-GB tiers",
+      "region": "westeurope",
+      "currency": "USD",
+      "effective_at": "2026-07-01",
+      "fetchability": "derived_calculation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.pubsub.throughput",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Pub/Sub",
+      "provider_meter_or_sku_id": "Message Delivery Basic",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.pubsub.pricing.2026-07-20",
+      "raw_unit": "GiB",
+      "normalized_unit": "GiB",
+      "normalization_rule_id": "conversion.bytes-to-gib",
+      "formula_id": "formula.gcp.pubsub",
+      "unit_price_usd": 0.0390625,
+      "free_quantity": 10,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 10,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 10,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.0390625
+        }
+      ],
+      "rounding_rule": "minimum 1000 bytes per request",
+      "region": "global",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.pubsub.retention",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Pub/Sub",
+      "provider_meter_or_sku_id": "Topic message retention",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.pubsub.pricing.2026-07-20",
+      "raw_unit": "GiB-month",
+      "normalized_unit": "GiB-month",
+      "normalization_rule_id": "conversion.bytes-to-gib",
+      "formula_id": "formula.retention.average-storage",
+      "unit_price_usd": 0.27,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.27
+        }
+      ],
+      "rounding_rule": "steady-state topic byte-month",
+      "region": "global",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.cloud-run.request",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Run services",
+      "provider_meter_or_sku_id": "Cloud Run requests",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.cloud-run.pricing.2026-07-20",
+      "raw_unit": "request",
+      "normalized_unit": "request",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.gcp.cloud-run-request",
+      "unit_price_usd": 4e-07,
+      "free_quantity": 2000000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 2000000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 2000000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 4e-07
+        }
+      ],
+      "rounding_rule": "whole requests",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.cloud-run.cpu",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Run services",
+      "provider_meter_or_sku_id": "Tier 1 request-based CPU",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.cloud-run.pricing.2026-07-20",
+      "raw_unit": "vCPU-second",
+      "normalized_unit": "vCPU-second",
+      "normalization_rule_id": "normalization.0.167-vcpu-and-100ms",
+      "formula_id": "formula.gcp.cloud-run-request",
+      "unit_price_usd": 2.4e-05,
+      "free_quantity": 180000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 180000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 180000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.4e-05
+        }
+      ],
+      "rounding_rule": "0.167 vCPU and 100-ms billable blocks",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.cloud-run.memory",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Run services",
+      "provider_meter_or_sku_id": "Tier 1 request-based memory",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.cloud-run.pricing.2026-07-20",
+      "raw_unit": "GiB-second",
+      "normalized_unit": "GiB-second",
+      "normalization_rule_id": "normalization.256mib-and-100ms",
+      "formula_id": "formula.gcp.cloud-run-request",
+      "unit_price_usd": 2.5e-06,
+      "free_quantity": 360000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 360000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 360000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.5e-06
+        }
+      ],
+      "rounding_rule": "256 MiB and 100-ms billable blocks",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.cloud-run-worker.cpu",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Run worker pools",
+      "provider_meter_or_sku_id": "Tier 1 worker pool CPU",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.cloud-run.pricing.2026-07-20",
+      "raw_unit": "vCPU-second",
+      "normalized_unit": "vCPU-second",
+      "normalization_rule_id": "normalization.continuous-instance-seconds",
+      "formula_id": "formula.gcp.cloud-run-worker-pool",
+      "unit_price_usd": 1.1244e-05,
+      "free_quantity": 384204,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 384204,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 384204,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1.1244e-05
+        }
+      ],
+      "rounding_rule": "whole manually configured instances",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.cloud-run-worker.memory",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Run worker pools",
+      "provider_meter_or_sku_id": "Tier 1 worker pool memory",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.cloud-run.pricing.2026-07-20",
+      "raw_unit": "GiB-second",
+      "normalized_unit": "GiB-second",
+      "normalization_rule_id": "normalization.continuous-instance-seconds",
+      "formula_id": "formula.gcp.cloud-run-worker-pool",
+      "unit_price_usd": 1.235e-06,
+      "free_quantity": 728744,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 728744,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 728744,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1.235e-06
+        }
+      ],
+      "rounding_rule": "whole manually configured instances",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.workflows.internal",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Workflows",
+      "provider_meter_or_sku_id": "Internal steps",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.workflows.pricing.2026-07-20",
+      "raw_unit": "1000 steps",
+      "normalized_unit": "internal-step",
+      "normalization_rule_id": "normalization.ceil-1000-step-block",
+      "formula_id": "formula.workflow.four-step",
+      "unit_price_usd": 1e-05,
+      "free_quantity": 5000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 5000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 5000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 1e-05
+        }
+      ],
+      "rounding_rule": "ceil paid usage to 1000-step block",
+      "region": "global",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.workflows.external",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Workflows",
+      "provider_meter_or_sku_id": "External steps",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.workflows.pricing.2026-07-20",
+      "raw_unit": "1000 steps",
+      "normalized_unit": "external-step",
+      "normalization_rule_id": "normalization.ceil-1000-step-block",
+      "formula_id": "formula.workflow.four-step",
+      "unit_price_usd": 2.5e-05,
+      "free_quantity": 2000,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 2000,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 2000,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 2.5e-05
+        }
+      ],
+      "rounding_rule": "ceil paid usage to 1000-step block",
+      "region": "global",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.gke.cluster",
+      "provider": "gcp",
+      "service_or_bundle_member": "GKE Standard",
+      "provider_meter_or_sku_id": "GKE cluster management fee",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.gke.pricing.2026-07-20",
+      "raw_unit": "cluster-hour",
+      "normalized_unit": "cluster-hour",
+      "normalization_rule_id": "normalization.730-hours",
+      "formula_id": "formula.gcp.bifromq-gke",
+      "unit_price_usd": 0.1,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.1
+        }
+      ],
+      "rounding_rule": "one regional cluster for 730 hours",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.compute.e2-standard-8",
+      "provider": "gcp",
+      "service_or_bundle_member": "Compute Engine",
+      "provider_meter_or_sku_id": "e2-standard-8 on-demand",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.compute-e2.pricing.2026-07-20",
+      "raw_unit": "node-hour",
+      "normalized_unit": "node-hour",
+      "normalization_rule_id": "normalization.whole-nodes-730-hours",
+      "formula_id": "formula.gcp.bifromq-gke",
+      "unit_price_usd": 0.26804568,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.26804568
+        }
+      ],
+      "rounding_rule": "three whole nodes for 730 hours",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.pd-balanced",
+      "provider": "gcp",
+      "service_or_bundle_member": "Persistent Disk balanced",
+      "provider_meter_or_sku_id": "Balanced PD capacity",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.pd-balanced.pricing.2026-07-20",
+      "raw_unit": "GiB-hour",
+      "normalized_unit": "GiB-hour",
+      "normalization_rule_id": "normalization.disk-gib-per-node-hours",
+      "formula_id": "formula.gcp.bifromq-gke",
+      "unit_price_usd": 0.000136986,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.000136986
+        }
+      ],
+      "rounding_rule": "100 GiB on each scenario-allocated whole node",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.network.forwarding-rule",
+      "provider": "gcp",
+      "service_or_bundle_member": "External passthrough Network Load Balancer",
+      "provider_meter_or_sku_id": "First five forwarding rules",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.network.pricing.2026-07-20",
+      "raw_unit": "rule-hour",
+      "normalized_unit": "rule-hour",
+      "normalization_rule_id": "normalization.one-rule-730-hours",
+      "formula_id": "formula.gcp.bifromq-gke",
+      "unit_price_usd": 0.025,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.025
+        }
+      ],
+      "rounding_rule": "one forwarding rule for 730 hours",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.network.lb-processing",
+      "provider": "gcp",
+      "service_or_bundle_member": "External passthrough Network Load Balancer",
+      "provider_meter_or_sku_id": "Load balancer data processing",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.network.pricing.2026-07-20",
+      "raw_unit": "GiB",
+      "normalized_unit": "GiB",
+      "normalization_rule_id": "conversion.bytes-to-gib",
+      "formula_id": "formula.gcp.bifromq-gke",
+      "unit_price_usd": 0.008,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.008
+        }
+      ],
+      "rounding_rule": "command request and outcome bytes only",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.bifromq.software",
+      "provider": "gcp",
+      "service_or_bundle_member": "Apache BifroMQ 4.0.0-incubating",
+      "provider_meter_or_sku_id": "Apache-2.0",
+      "source_type": "official_vendor_documentation",
+      "source_id": "source.gcp.bifromq.2026-07-20",
+      "raw_unit": "license-month",
+      "normalized_unit": "license-month",
+      "normalization_rule_id": "normalization.direct",
+      "formula_id": "formula.gcp.bifromq-gke",
+      "unit_price_usd": 0,
+      "free_quantity": 0,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0
+        }
+      ],
+      "rounding_rule": "no software license fee; operational labor excluded",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.logging.ingestion",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Logging",
+      "provider_meter_or_sku_id": "Log bucket ingestion",
+      "source_type": "official_static_documentation",
+      "source_id": "source.gcp.logging.pricing.2026-07-20",
+      "raw_unit": "GiB",
+      "normalized_unit": "GiB",
+      "normalization_rule_id": "conversion.bytes-to-gib",
+      "formula_id": "formula.observability.binary-gib",
+      "unit_price_usd": 0.5,
+      "free_quantity": 50,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 50,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 50,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.5
+        }
+      ],
+      "rounding_rule": "no intermediate rounding",
+      "region": "global",
+      "currency": "USD",
+      "effective_at": "not_published",
+      "fetchability": "official_static_documentation",
+      "publishability": "publishable"
+    },
+    {
+      "intent_id": "intent.gcp.transfer.internet-egress",
+      "provider": "gcp",
+      "service_or_bundle_member": "Google Cloud Internet Data Transfer",
+      "provider_meter_or_sku_id": "reviewed-catalog.gcp.europe-west1.internet-egress",
+      "source_type": "reviewed_repository_catalog",
+      "source_id": "source.gcp.data-transfer.reviewed-catalog.2026-07-19",
+      "raw_unit": "GiB",
+      "normalized_unit": "GiB",
+      "normalization_rule_id": "conversion.bytes-to-gib",
+      "formula_id": "formula.transfer.progressive-egress",
+      "unit_price_usd": 0.12,
+      "free_quantity": 1,
+      "tier_schedule": [
+        {
+          "from_quantity": 0,
+          "up_to_quantity": 1,
+          "unit_price_usd": 0
+        },
+        {
+          "from_quantity": 1,
+          "up_to_quantity": 1024,
+          "unit_price_usd": 0.12
+        },
+        {
+          "from_quantity": 1024,
+          "up_to_quantity": 10240,
+          "unit_price_usd": 0.11
+        },
+        {
+          "from_quantity": 10240,
+          "up_to_quantity": "unbounded",
+          "unit_price_usd": 0.085
+        }
+      ],
+      "rounding_rule": "progressive GiB tiers",
+      "region": "europe-west1",
+      "currency": "USD",
+      "effective_at": "2026-07-01",
+      "fetchability": "derived_calculation",
+      "publishability": "publishable"
+    }
   ],
   "selected_bundle_intents": [
-    {"bundle_id": "bundle.aws.embedded@1", "intent_ids": ["intent.aws.iot.connection", "intent.aws.iot.message", "intent.aws.iot.rule", "intent.aws.iot.action", "intent.aws.iot-command.execution", "intent.aws.lambda.request", "intent.aws.lambda.compute", "intent.aws.step-functions.transition", "intent.aws.sqs-fifo.request", "intent.aws.cloudwatch.ingestion", "intent.aws.cloudwatch.storage"]},
-    {"bundle_id": "bundle.azure.embedded@1", "intent_ids": ["intent.azure.iot-hub.s1", "intent.azure.iot-hub.s2", "intent.azure.iot-hub.s3", "intent.azure.functions.execution", "intent.azure.functions.compute", "intent.azure.logic-apps.builtin", "intent.azure.logic-apps.connector", "intent.azure.service-bus.base-hour", "intent.azure.service-bus.operation", "intent.azure.monitor.ingestion"]},
-    {"bundle_id": "bundle.gcp.embedded@1", "intent_ids": ["intent.gcp.pubsub.throughput", "intent.gcp.pubsub.retention", "intent.gcp.cloud-run.request", "intent.gcp.cloud-run.cpu", "intent.gcp.cloud-run.memory", "intent.gcp.workflows.internal", "intent.gcp.workflows.external", "intent.gcp.gke.cluster", "intent.gcp.compute.e2-standard-8", "intent.gcp.pd-balanced", "intent.gcp.network.forwarding-rule", "intent.gcp.network.lb-processing", "intent.gcp.bifromq.software", "intent.gcp.logging.ingestion"]},
-    {"bundle_id": "bundle.aws.event-layer@1", "intent_ids": ["intent.aws.kinesis.shard-hour", "intent.aws.kinesis.put-unit", "intent.aws.kinesis.efo-consumer-hour", "intent.aws.kinesis.efo-read", "intent.aws.kinesis.extended-retention", "intent.aws.sns-fifo.publish", "intent.aws.sns-fifo.ingress", "intent.aws.sns-fifo.delivery", "intent.aws.sns-fifo.egress", "intent.aws.sns-fifo.archive-processing", "intent.aws.sns-fifo.archive-storage", "intent.aws.sqs-fifo.request", "intent.aws.s3.dlq-put", "intent.aws.s3.dlq-storage", "intent.aws.lambda.request", "intent.aws.lambda.compute", "intent.aws.cloudwatch.ingestion", "intent.aws.cloudwatch.storage"]},
-    {"bundle_id": "bundle.azure.event-layer@1", "intent_ids": ["intent.azure.event-hubs.tu-hour", "intent.azure.event-hubs.ingress", "intent.azure.event-hubs-dedicated.cu-hour", "intent.azure.service-bus.base-hour", "intent.azure.service-bus.operation", "intent.azure.functions.execution", "intent.azure.functions.compute", "intent.azure.monitor.ingestion"]},
-    {"bundle_id": "bundle.gcp.event-layer@1", "intent_ids": ["intent.gcp.pubsub.throughput", "intent.gcp.pubsub.retention", "intent.gcp.cloud-run.request", "intent.gcp.cloud-run.cpu", "intent.gcp.cloud-run.memory", "intent.gcp.cloud-run-worker.cpu", "intent.gcp.cloud-run-worker.memory", "intent.gcp.logging.ingestion"]}
+    {
+      "bundle_id": "bundle.aws.embedded@1",
+      "intent_ids": [
+        "intent.aws.iot.connection",
+        "intent.aws.iot.message",
+        "intent.aws.iot.rule",
+        "intent.aws.iot.action",
+        "intent.aws.iot-command.execution",
+        "intent.aws.lambda.request",
+        "intent.aws.lambda.compute",
+        "intent.aws.step-functions.transition",
+        "intent.aws.sqs-fifo.request",
+        "intent.aws.cloudwatch.ingestion",
+        "intent.aws.cloudwatch.storage",
+        "intent.aws.kinesis.shard-hour",
+        "intent.aws.kinesis.put-unit",
+        "intent.aws.kinesis.efo-consumer-hour",
+        "intent.aws.kinesis.efo-read",
+        "intent.aws.kinesis.extended-retention",
+        "intent.aws.sns-fifo.publish",
+        "intent.aws.sns-fifo.ingress",
+        "intent.aws.sns-fifo.delivery",
+        "intent.aws.sns-fifo.egress",
+        "intent.aws.sns-fifo.archive-processing",
+        "intent.aws.sns-fifo.archive-storage"
+      ]
+    },
+    {
+      "bundle_id": "bundle.azure.embedded@1",
+      "intent_ids": [
+        "intent.azure.iot-hub.s1",
+        "intent.azure.iot-hub.s2",
+        "intent.azure.iot-hub.s3",
+        "intent.azure.functions.execution",
+        "intent.azure.functions.compute",
+        "intent.azure.logic-apps.builtin",
+        "intent.azure.logic-apps.connector",
+        "intent.azure.service-bus.base-hour",
+        "intent.azure.service-bus.operation",
+        "intent.azure.monitor.ingestion",
+        "intent.azure.event-hubs.tu-hour",
+        "intent.azure.event-hubs.ingress",
+        "intent.azure.event-hubs-dedicated.cu-hour"
+      ]
+    },
+    {
+      "bundle_id": "bundle.gcp.embedded@1",
+      "intent_ids": [
+        "intent.gcp.pubsub.throughput",
+        "intent.gcp.pubsub.retention",
+        "intent.gcp.cloud-run.request",
+        "intent.gcp.cloud-run.cpu",
+        "intent.gcp.cloud-run.memory",
+        "intent.gcp.workflows.internal",
+        "intent.gcp.workflows.external",
+        "intent.gcp.gke.cluster",
+        "intent.gcp.compute.e2-standard-8",
+        "intent.gcp.pd-balanced",
+        "intent.gcp.network.forwarding-rule",
+        "intent.gcp.network.lb-processing",
+        "intent.gcp.bifromq.software",
+        "intent.gcp.logging.ingestion"
+      ]
+    },
+    {
+      "bundle_id": "bundle.aws.event-layer@1",
+      "intent_ids": [
+        "intent.aws.kinesis.shard-hour",
+        "intent.aws.kinesis.put-unit",
+        "intent.aws.kinesis.efo-consumer-hour",
+        "intent.aws.kinesis.efo-read",
+        "intent.aws.kinesis.extended-retention",
+        "intent.aws.sns-fifo.publish",
+        "intent.aws.sns-fifo.ingress",
+        "intent.aws.sns-fifo.delivery",
+        "intent.aws.sns-fifo.egress",
+        "intent.aws.sns-fifo.archive-processing",
+        "intent.aws.sns-fifo.archive-storage",
+        "intent.aws.sqs-fifo.request",
+        "intent.aws.s3.dlq-put",
+        "intent.aws.s3.dlq-storage",
+        "intent.aws.lambda.request",
+        "intent.aws.lambda.compute",
+        "intent.aws.cloudwatch.ingestion",
+        "intent.aws.cloudwatch.storage"
+      ]
+    },
+    {
+      "bundle_id": "bundle.azure.event-layer@1",
+      "intent_ids": [
+        "intent.azure.event-hubs.tu-hour",
+        "intent.azure.event-hubs.ingress",
+        "intent.azure.event-hubs-dedicated.cu-hour",
+        "intent.azure.service-bus.base-hour",
+        "intent.azure.service-bus.operation",
+        "intent.azure.functions.execution",
+        "intent.azure.functions.compute",
+        "intent.azure.monitor.ingestion"
+      ]
+    },
+    {
+      "bundle_id": "bundle.gcp.event-layer@1",
+      "intent_ids": [
+        "intent.gcp.pubsub.throughput",
+        "intent.gcp.pubsub.retention",
+        "intent.gcp.cloud-run.request",
+        "intent.gcp.cloud-run.cpu",
+        "intent.gcp.cloud-run.memory",
+        "intent.gcp.cloud-run-worker.cpu",
+        "intent.gcp.cloud-run-worker.memory",
+        "intent.gcp.logging.ingestion"
+      ]
+    }
   ],
   "bridge_source_intents": [
-    {"source_provider": "aws", "intent_ids": ["intent.aws.kinesis.shard-hour", "intent.aws.kinesis.put-unit", "intent.aws.kinesis.efo-consumer-hour", "intent.aws.kinesis.efo-read", "intent.aws.kinesis.extended-retention", "intent.aws.sns-fifo.publish", "intent.aws.sns-fifo.ingress", "intent.aws.sns-fifo.delivery", "intent.aws.sns-fifo.egress", "intent.aws.sns-fifo.archive-processing", "intent.aws.sns-fifo.archive-storage", "intent.aws.sqs-fifo.request", "intent.aws.lambda.request", "intent.aws.lambda.compute", "intent.aws.cloudwatch.ingestion", "intent.aws.cloudwatch.storage", "intent.aws.transfer.internet-egress"]},
-    {"source_provider": "azure", "intent_ids": ["intent.azure.event-hubs.tu-hour", "intent.azure.event-hubs.ingress", "intent.azure.event-hubs-dedicated.cu-hour", "intent.azure.service-bus.base-hour", "intent.azure.service-bus.operation", "intent.azure.functions.execution", "intent.azure.functions.compute", "intent.azure.monitor.ingestion", "intent.azure.transfer.internet-egress"]},
-    {"source_provider": "gcp", "intent_ids": ["intent.gcp.pubsub.throughput", "intent.gcp.pubsub.retention", "intent.gcp.cloud-run.request", "intent.gcp.cloud-run.cpu", "intent.gcp.cloud-run.memory", "intent.gcp.cloud-run-worker.cpu", "intent.gcp.cloud-run-worker.memory", "intent.gcp.logging.ingestion", "intent.gcp.transfer.internet-egress"]}
+    {
+      "source_provider": "aws",
+      "intent_ids": [
+        "intent.aws.kinesis.shard-hour",
+        "intent.aws.kinesis.put-unit",
+        "intent.aws.kinesis.efo-consumer-hour",
+        "intent.aws.kinesis.efo-read",
+        "intent.aws.kinesis.extended-retention",
+        "intent.aws.sns-fifo.publish",
+        "intent.aws.sns-fifo.ingress",
+        "intent.aws.sns-fifo.delivery",
+        "intent.aws.sns-fifo.egress",
+        "intent.aws.sns-fifo.archive-processing",
+        "intent.aws.sns-fifo.archive-storage",
+        "intent.aws.sqs-fifo.request",
+        "intent.aws.lambda.request",
+        "intent.aws.lambda.compute",
+        "intent.aws.cloudwatch.ingestion",
+        "intent.aws.cloudwatch.storage",
+        "intent.aws.transfer.internet-egress"
+      ]
+    },
+    {
+      "source_provider": "azure",
+      "intent_ids": [
+        "intent.azure.event-hubs.tu-hour",
+        "intent.azure.event-hubs.ingress",
+        "intent.azure.event-hubs-dedicated.cu-hour",
+        "intent.azure.service-bus.base-hour",
+        "intent.azure.service-bus.operation",
+        "intent.azure.functions.execution",
+        "intent.azure.functions.compute",
+        "intent.azure.monitor.ingestion",
+        "intent.azure.transfer.internet-egress"
+      ]
+    },
+    {
+      "source_provider": "gcp",
+      "intent_ids": [
+        "intent.gcp.pubsub.throughput",
+        "intent.gcp.pubsub.retention",
+        "intent.gcp.cloud-run.request",
+        "intent.gcp.cloud-run.cpu",
+        "intent.gcp.cloud-run.memory",
+        "intent.gcp.cloud-run-worker.cpu",
+        "intent.gcp.cloud-run-worker.memory",
+        "intent.gcp.logging.ingestion",
+        "intent.gcp.transfer.internet-egress"
+      ]
+    }
   ],
   "bridge_destination_intents": [
-    {"destination_provider": "aws", "telemetry_intent_ids": ["intent.aws.kinesis.shard-hour", "intent.aws.kinesis.put-unit", "intent.aws.kinesis.extended-retention"], "control_intent_ids": ["intent.aws.sns-fifo.publish", "intent.aws.sns-fifo.ingress", "intent.aws.sns-fifo.delivery", "intent.aws.sns-fifo.egress", "intent.aws.sns-fifo.archive-processing", "intent.aws.sns-fifo.archive-storage", "intent.aws.sqs-fifo.request"]},
-    {"destination_provider": "azure", "telemetry_intent_ids": ["intent.azure.event-hubs.tu-hour", "intent.azure.event-hubs.ingress", "intent.azure.event-hubs-dedicated.cu-hour"], "control_intent_ids": ["intent.azure.service-bus.base-hour", "intent.azure.service-bus.operation"]},
-    {"destination_provider": "gcp", "telemetry_intent_ids": ["intent.gcp.pubsub.throughput", "intent.gcp.pubsub.retention"], "control_intent_ids": ["intent.gcp.pubsub.throughput", "intent.gcp.pubsub.retention"]}
+    {
+      "destination_provider": "aws",
+      "telemetry_intent_ids": [
+        "intent.aws.kinesis.shard-hour",
+        "intent.aws.kinesis.put-unit",
+        "intent.aws.kinesis.extended-retention"
+      ],
+      "control_intent_ids": [
+        "intent.aws.sns-fifo.publish",
+        "intent.aws.sns-fifo.ingress",
+        "intent.aws.sns-fifo.delivery",
+        "intent.aws.sns-fifo.egress",
+        "intent.aws.sns-fifo.archive-processing",
+        "intent.aws.sns-fifo.archive-storage",
+        "intent.aws.sqs-fifo.request"
+      ]
+    },
+    {
+      "destination_provider": "azure",
+      "telemetry_intent_ids": [
+        "intent.azure.event-hubs.tu-hour",
+        "intent.azure.event-hubs.ingress",
+        "intent.azure.event-hubs-dedicated.cu-hour"
+      ],
+      "control_intent_ids": [
+        "intent.azure.service-bus.base-hour",
+        "intent.azure.service-bus.operation"
+      ]
+    },
+    {
+      "destination_provider": "gcp",
+      "telemetry_intent_ids": [
+        "intent.gcp.pubsub.throughput",
+        "intent.gcp.pubsub.retention"
+      ],
+      "control_intent_ids": [
+        "intent.gcp.pubsub.throughput",
+        "intent.gcp.pubsub.retention"
+      ]
+    }
   ],
   "rejected_member_dimensions": [
-    {"alternative_id": "alternative.aws.eventbridge-telemetry", "pricing_status": "price_visible_not_calculated", "dimensions": [{"dimension": "custom event 64-KB chunks and cross-account invocation chunks", "source_id": "source.aws.eventbridge.pricing-api.2026-07-20"}], "reason": "Functional rejection precedes cost ranking."},
-    {"alternative_id": "alternative.aws.step-functions-express", "pricing_status": "price_visible_not_calculated", "dimensions": [{"dimension": "requests and GB-seconds", "source_id": "source.aws.step-functions.pricing-api.2026-07-20"}], "reason": "Functional workflow-semantic rejection precedes cost ranking."},
-    {"alternative_id": "alternative.azure.event-grid-basic-telemetry", "pricing_status": "price_visible_not_calculated", "dimensions": [{"dimension": "throughput-unit hours and event operations", "source_id": "source.azure.event-grid.retail-api.2026-07-20"}], "reason": "Functional and capacity rejection precedes cost ranking."},
-    {"alternative_id": "alternative.azure.event-hubs-standard-sharded-large", "pricing_status": "price_visible_not_calculated", "dimensions": [{"dimension": "multiple 40-TU Standard namespaces and ingress-event units", "source_id": "source.azure.event-hubs.retail-api.2026-07-20"}], "reason": "Functionally constructible but rejected because tier price is not the primary PoC selection criterion and cross-namespace routing adds custom complexity."},
-    {"alternative_id": "alternative.azure.iot-direct-method", "pricing_status": "price_visible_not_calculated", "dimensions": [{"dimension": "IoT Hub unit allocation", "source_id": "source.azure.iot-hub.retail-api.2026-07-20"}], "reason": "The alternative is included in the same IoT Hub unit but fails durable command semantics."},
-    {"alternative_id": "alternative.gcp.pubsub-push-large", "pricing_status": "price_visible_not_calculated", "dimensions": [{"dimension": "Pub/Sub delivery throughput and Cloud Run requests", "source_id": "source.gcp.pubsub.pricing.2026-07-20"}], "reason": "The price model is unchanged, but the documented capacity is insufficient."},
-    {"alternative_id": "alternative.gcp.cloud-iot-core", "pricing_status": "not_applicable_retired", "dimensions": [], "reason": "A retired service receives no fabricated current price."},
-    {"alternative_id": "alternative.gcp.emqx-oss-eol", "pricing_status": "not_applicable_retired", "dimensions": [], "reason": "An EOL software version receives no selected-bundle total."},
-    {"alternative_id": "alternative.gcp.emqx-enterprise-custom-price", "pricing_status": "unpublishable_custom_quote", "dimensions": [{"dimension": "custom annual software subscription plus GKE infrastructure", "source_id": "source.gcp.emqx-enterprise-license.2026-07-20"}], "reason": "Quote-only price evidence is not reproducible."},
-    {"alternative_id": "alternative.gcp.bifromq-durable-owner", "pricing_status": "price_visible_not_calculated", "dimensions": [{"dimension": "same BifroMQ/GKE infrastructure as selected boundary", "source_id": "source.gcp.bifromq.2026-07-20"}], "reason": "The alternative changes acknowledgement ownership, not resource price, and is functionally rejected."}
+    {
+      "alternative_id": "alternative.aws.eventbridge-telemetry",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "custom event 64-KB chunks and cross-account invocation chunks",
+          "source_id": "source.aws.eventbridge.pricing-api.2026-07-20"
+        }
+      ],
+      "reason": "Functional rejection precedes cost ranking."
+    },
+    {
+      "alternative_id": "alternative.aws.step-functions-express",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "requests and GB-seconds",
+          "source_id": "source.aws.step-functions.pricing-api.2026-07-20"
+        }
+      ],
+      "reason": "Functional workflow-semantic rejection precedes cost ranking."
+    },
+    {
+      "alternative_id": "alternative.azure.event-grid-basic-telemetry",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "throughput-unit hours and event operations",
+          "source_id": "source.azure.event-grid.retail-api.2026-07-20"
+        }
+      ],
+      "reason": "Functional and capacity rejection precedes cost ranking."
+    },
+    {
+      "alternative_id": "alternative.azure.event-hubs-standard-sharded-large",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "multiple 40-TU Standard namespaces and ingress-event units",
+          "source_id": "source.azure.event-hubs.retail-api.2026-07-20"
+        }
+      ],
+      "reason": "Functionally constructible but rejected because tier price is not the primary PoC selection criterion and cross-namespace routing adds custom complexity."
+    },
+    {
+      "alternative_id": "alternative.azure.iot-direct-method",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "IoT Hub unit allocation",
+          "source_id": "source.azure.iot-hub.retail-api.2026-07-20"
+        }
+      ],
+      "reason": "The alternative is included in the same IoT Hub unit but fails durable command semantics."
+    },
+    {
+      "alternative_id": "alternative.gcp.pubsub-push-large",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "Pub/Sub delivery throughput and Cloud Run requests",
+          "source_id": "source.gcp.pubsub.pricing.2026-07-20"
+        }
+      ],
+      "reason": "The price model is unchanged, but the documented capacity is insufficient."
+    },
+    {
+      "alternative_id": "alternative.gcp.cloud-iot-core",
+      "pricing_status": "not_applicable_retired",
+      "dimensions": [],
+      "reason": "A retired service receives no fabricated current price."
+    },
+    {
+      "alternative_id": "alternative.gcp.direct-device-pubsub",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "Pub/Sub throughput and retention",
+          "source_id": "source.gcp.pubsub.pricing.2026-07-20"
+        }
+      ],
+      "reason": "The service price is already visible, but the direct-device topology is functionally rejected for the Large fleet boundary before cost ranking."
+    },
+    {
+      "alternative_id": "alternative.gcp.emqx-oss-eol",
+      "pricing_status": "not_applicable_retired",
+      "dimensions": [],
+      "reason": "An EOL software version receives no selected-bundle total."
+    },
+    {
+      "alternative_id": "alternative.gcp.emqx-enterprise-custom-price",
+      "pricing_status": "unpublishable_custom_quote",
+      "dimensions": [
+        {
+          "dimension": "custom annual software subscription plus GKE infrastructure",
+          "source_id": "source.gcp.emqx-enterprise-license.2026-07-20"
+        }
+      ],
+      "reason": "Quote-only price evidence is not reproducible."
+    },
+    {
+      "alternative_id": "alternative.gcp.bifromq-durable-owner",
+      "pricing_status": "price_visible_not_calculated",
+      "dimensions": [
+        {
+          "dimension": "same BifroMQ/GKE infrastructure as selected boundary",
+          "source_id": "source.gcp.bifromq.2026-07-20"
+        }
+      ],
+      "reason": "The alternative changes acknowledgement ownership, not resource price, and is functionally rejected."
+    },
+    {
+      "alternative_id": "alternative.gcp.emqx-cloud-dedicated-flex",
+      "pricing_status": "unpublishable_custom_quote",
+      "dimensions": [
+        {
+          "dimension": "100,000 concurrent sessions plus throughput and egress",
+          "source_id": "source.gcp.emqx-cloud-dedicated-flex.2026-07-20"
+        }
+      ],
+      "reason": "The service is functionally admissible, but its public matrix ends at 10,000 sessions and Large requires a sales quote."
+    }
   ]
 }
