@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
-lastUpdated: "2026-07-19"
-version: "2.6"
+lastUpdated: "2026-07-20"
+version: "2.7"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.6"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-19 | VERSION: 2.6
+EXTRACTED: 2026-07-20 | VERSION: 2.7
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -32,7 +32,7 @@ EXTRACTED: 2026-07-19 | VERSION: 2.6
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.4 Management persistence, migration, and APIs are locally complete and reviewed |
+| Implementation status | Phase 8.4 is complete; Phase 8.5 Optimizer resolution is in progress; Eventing parity planning is reviewed before Phase 8.8 evaluation |
 | Next implementation phase | Phase 8.5 / [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
@@ -140,7 +140,10 @@ the implementation contract. Neither replaces the other.
 
 Phase 8 is a bounded architecture refactoring for the thesis. It must:
 
-- preserve an executable, paper-compatible `five-layer-baseline@1`;
+- preserve `five-layer-baseline@1` as executable, paper-compatible, immutable
+  historical evidence;
+- add `five-layer-baseline@2` with mandatory embedded rule evaluation,
+  extension actions, notification workflows, and device-command feedback;
 - separate logical responsibilities from provider resources;
 - encode reviewed architectures as versioned closed-world profiles;
 - model provider implementations and deployment components explicitly;
@@ -149,7 +152,10 @@ Phase 8 is a bounded architecture refactoring for the thesis. It must:
 - derive deployment packages and Terraform inputs from a validated graph;
 - keep platform wrappers, resource names, bindings, identities, permissions,
   and runtime policy out of user code;
-- support one later, evidence-gated `six-layer-eventing@1` profile;
+- support one later, evidence-gated `six-layer-eventing@1` profile with the
+  same domain-event behavior as `five-layer-baseline@2`;
+- remove the three legacy Eventing feature flags from both new profiles while
+  preserving historical read/destroy compatibility;
 - retain Web, macOS, Windows, and Linux Flutter support;
 - keep product documentation, research evidence, and LaTeX separate.
 
@@ -215,9 +221,10 @@ string conventions or user functions constructing another resource's identity.
 | 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Functional-total path optimization |
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Deterministic Deployer graph |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Compact profile workflow |
-| 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Approved or rejected Eventing decision package |
-| 8.9 | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Executable `six-layer-eventing@1` |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Evaluation package and final current docs |
+| 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Shared domain-event contract plus approved or rejected embedded/Event-Layer decision package |
+| 8.9A | New implementation issue required before execution | Executable `five-layer-baseline@2` |
+| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Executable `six-layer-eventing@1` |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Historical `@1` reproduction plus fair `@2` versus six-layer evaluation |
 
 Native dependency direction:
 
@@ -333,7 +340,13 @@ artifacts, or historical run evidence.
 
 Phase 8.8 is a decision gate, not implementation. It must establish:
 
+- the immutable role of `five-layer-baseline@1`;
+- one shared domain-event behavior contract for
+  `five-layer-baseline@2` and `six-layer-eventing@1`;
+- mandatory embedded rule/action/workflow/command components in both new
+  profiles without the legacy Eventing feature flags;
 - exact workload fields and normalized units;
+- graph-derived per-channel fan-out and directed cross-cloud routes;
 - mandatory and optional functional capabilities;
 - current primary-source evidence per provider;
 - complete provider bundles rather than false service equivalence;
@@ -344,6 +357,9 @@ Phase 8.8 is a decision gate, not implementation. It must establish:
   semantics;
 - one explicit multi-cloud bridge decision;
 - reproducible scenario calculations;
+- capacity evidence for Small, Medium, and Large before cost reporting;
+- same-cloud, all six directed provider-pair, and admissible three-provider
+  scenarios;
 - rejected alternatives and residual uncertainty.
 
 Official static provider prices are allowed when the provider offers no
@@ -351,10 +367,11 @@ machine-readable source, but they are reviewed, versioned evidence. They are
 never a silent fallback.
 
 Phase 8.9 may start only after `decision.json` is explicitly approved and all
-AWS, Azure, and GCP Eventing bundles satisfy the same mandatory capability
-contract. This does not imply that an all-GCP whole Twin path exists. Whole
-paths remain positive only where the full profile capability matrix supports
-every responsibility.
+AWS, Azure, and GCP embedded-event and Event-Layer bundles satisfy their
+applicable capability contracts. 8.9A and 8.9B use separate branches, reviews,
+and clean commits. This does not imply that an all-GCP whole Twin path exists.
+Whole paths remain positive only where the full profile capability matrix
+supports every responsibility.
 
 Phase 8.8 must also produce
 `implementation-component-manifest.json`. It pins every selected service,
@@ -498,6 +515,9 @@ The planning package is ready for implementation when:
 Phase 8 is complete only when:
 
 - `five-layer-baseline@1` is executable and hardened;
+- `five-layer-baseline@1` remains immutable historical evidence;
+- `five-layer-baseline@2` is executable with mandatory embedded domain-event
+  behavior;
 - all four architecture contracts are versioned and drift-gated;
 - provider implementations and deployment components are explicit;
 - the Management API is the normalized runtime SSOT;
@@ -511,6 +531,8 @@ Phase 8 is complete only when:
   cross-project implementation target and remains in the evaluation digest
   chain;
 - `six-layer-eventing@1` is executable through the same generic boundaries;
+- `five-layer-baseline@2` and `six-layer-eventing@1` implement the same
+  rule/action/workflow/command contract without legacy feature flags;
 - evaluation evidence maps RQ1, RQ2, RQ3, RQ3.1, and RQ3.2 to reproducible
   artifacts;
 - current product/developer documentation is complete;
@@ -523,9 +545,10 @@ Phase 8 is complete only when:
 The next agent can begin with:
 
 > Phase 8.0 bis 8.4 und das User-Function-Prerequisite #113 sind implementiert
-> und reviewt: aktueller Graph, gehaertetes `five-layer-baseline@1`, vier
-> drift-gegatete Architekturvertraege, exakte Provider-/Komponentenregistries
-> sowie normalisierte Management-Persistenz und APIs. Ich starte Phase 8.5 mit
-> der funktional vollstaendigen, zunaechst dunkel integrierten
-> Optimizer-Aufloesung. Aktivierung folgt erst gemeinsam mit Phase 8.6;
-> Deployer-Ausfuehrung, Live-Cloud-E2E und LaTeX bleiben unangetastet.
+> und reviewt; Phase 8.5 ist in Arbeit. Fuer Phase 8.8 ist jetzt fest geplant:
+> `five-layer-baseline@1` bleibt historische Evidenz,
+> `five-layer-baseline@2` und `six-layer-eventing@1` teilen dieselben
+> verpflichtenden Rule-/Action-/Workflow-/Feedback-Funktionen, und nur das
+> Six-Layer-Profil besitzt eine unabhaengige Eventing-Verantwortung. Als
+> naechstes folgt die Provider-, Kapazitaets- und Bridge-Evaluation; Runtime,
+> Live-Cloud-E2E und LaTeX bleiben unangetastet.

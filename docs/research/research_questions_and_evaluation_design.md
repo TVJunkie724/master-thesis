@@ -403,15 +403,21 @@ four separate primary research questions.
 |---|---|---|
 | 1. Functional total matrix | Capability coverage and admissible provider profiles, evaluated separately for each architecture profile | RQ2 |
 | 2. Single-provider total cost | AWS, Azure, and GCP baselines under identical inputs within one profile | RQ3.1 |
-| 3. Eventing deep dive | Functional and scenario cost matrices that define and validate `six-layer-eventing@1` | RQ3.2 |
+| 3. Eventing deep dive | Shared domain-event scenarios that compare embedded `five-layer-baseline@2` with `six-layer-eventing@1` | RQ3.2 |
 | 4. Overall optimization | Best admissible allocation within each profile, followed by an explicit functional, topology, and cost delta between profiles | RQ3 |
 
-The evaluation contains two separate experiment paths:
+The evaluation contains one historical reproduction and two separate,
+functionally aligned experiment paths:
 
 ```text
 five-layer-baseline@1
   |
+  +--> immutable historical/paper-compatible reproduction
+
+five-layer-baseline@2
+  |
   +--> functional-completeness gate
+  +--> mandatory embedded rule/action/workflow/command behavior
   |          |
   |          v
   |     single-cloud baselines
@@ -421,7 +427,8 @@ five-layer-baseline@1
   |
 six-layer-eventing@1
   |
-  +--> functional-completeness gate and Eventing matrices
+  +--> the same rule/action/workflow/command behavior
+  +--> functional-completeness gate and Event-Layer matrices
              |
              v
         single-cloud baselines
@@ -429,7 +436,7 @@ six-layer-eventing@1
              v
         multi-cloud optimum
 
-the two independently evaluated profiles
+the two new independently evaluated profiles
              |
              v
 functional delta + topology delta + estimated cost delta
@@ -438,20 +445,23 @@ functional delta + topology delta + estimated cost delta
 interpretation and threats to validity
 ```
 
-The five-layer result reproduces and extends the original Twin2Clouds result
-space. The Eventing-extended result is a second experiment with its own
-functional contract and admissible candidates.
+The v1 five-layer result reproduces the original Twin2Clouds result space. The
+v2 five-layer result is the fair counterfactual: it contains the domain-event
+features embedded in L1/L2. The six-layer result contains the same domain
+behavior and adds an independently owned Eventing and Messaging
+responsibility.
 
 The optimizer must not choose one global winner from a candidate pool that
 mixes both profiles. Such a ranking would be valid only if both profiles were
 shown to satisfy the same mandatory scenario contract despite their structural
 differences. The default thesis interpretation instead reports:
 
-- the best single-cloud and multi-cloud result for `five-layer-baseline@1`;
+- the historical reproduction for `five-layer-baseline@1`;
+- the best single-cloud and multi-cloud result for `five-layer-baseline@2`;
 - the best single-cloud and multi-cloud result for
   `six-layer-eventing@1`; and
-- the additional functionality, topology change, and estimated cost delta
-  introduced by `LE`.
+- the additional transport/failure semantics, topology change, and estimated
+  cost delta introduced by `LE` under the same domain-event workload.
 
 ## Evaluation Constructs
 
@@ -514,21 +524,35 @@ architecture-profile contract:
 ```text
 five-layer-baseline@1
   responsibilities: L1, L2, L3-hot, L3-cool, L3-archive, L4, L5
-  edges: baseline data flows
+  edges: historical baseline data flows
+  role: immutable paper-compatible reproduction
+
+five-layer-baseline@2
+  responsibilities: L1, L2, L3-hot, L3-cool, L3-archive, L4, L5
+  edges: baseline data flows plus mandatory embedded
+         rule/action/workflow/device-command behavior
+  role: fair Event-Layer counterfactual
 
 six-layer-eventing@1
   responsibilities: baseline responsibilities plus LE
-  edges: explicit eventing and messaging flows
+  edges: the same domain-event behavior plus explicit Event-Layer
+         routing, buffering, fan-out, retry/DLQ, replay, and bridge flows
 ```
 
-This contract should make the approved baseline and the separately gated
-Eventing profile candidate data-driven and iterable. `six-layer-eventing@1`
-becomes an approved selectable profile only if the Phase 8 Eventing decision
-gate and implementation gates pass.
+This contract should keep the approved historical baseline reproducible and
+make both new comparison profiles data-driven and iterable.
+`five-layer-baseline@2` and `six-layer-eventing@1` become approved selectable
+profiles only if the Phase 8 Eventing decision and their respective
+implementation gates pass.
 It must not become a general architecture editor or arbitrary topology engine.
 Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge
 different functional scopes into one ranking.
+
+`useEventChecking`, `triggerNotificationWorkflow`, and
+`returnFeedbackToDevice` remain historical input fields only. The two new
+profiles always contain the corresponding components; typed rule/action
+declarations determine whether a particular event invokes them.
 
 ## Contribution Mapping
 

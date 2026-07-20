@@ -904,19 +904,28 @@ The agreed target is a closed-world model: runtime users select one of a small
 set of reviewed architecture profiles, while developers can extend the catalog
 through versioned code and data contracts.
 
-The thesis implementation should initially expose exactly two profiles:
+The thesis implementation uses three versioned profile roles, of which the two
+new profiles form the fair Event-Layer comparison:
 
 ```text
 five-layer-baseline@1
-  original paper-compatible functional boundaries
+  immutable historical/paper-compatible evidence
+
+five-layer-baseline@2
+  five responsibilities with mandatory embedded
+  rule evaluation, event actions, notification workflows,
+  and device-command feedback
 
 six-layer-eventing@1
-  baseline responsibilities plus explicit Eventing and Messaging
+  the same domain-event behavior plus explicit Eventing and Messaging
 ```
 
-The second name is intentionally `six-layer-eventing@1`. Eventing is modeled as
-an additional logical responsibility even though its edges are not a linear
-sixth step after L5.
+The six-layer name is intentional. Eventing is modeled as an additional
+logical responsibility even though its edges are not a linear sixth step after
+L5. The scientific comparison is embedded event behavior in
+`five-layer-baseline@2` versus independently owned messaging behavior in
+`six-layer-eventing@1`; `five-layer-baseline@1` remains a separate historical
+reproduction.
 
 The user does not:
 
@@ -1125,10 +1134,17 @@ the five functional contracts, observable behavior, workload assumptions, and
 all resulting resource costs remain explicit.
 
 Any eventing infrastructure used only as a fixed internal support resource of
-the five-layer baseline is part of that provider implementation and is not an
-independently optimized layer. `six-layer-eventing@1` is a separate experiment
-because it makes Eventing and Messaging an explicit functional, deployable, and
-costed responsibility.
+`five-layer-baseline@2` is part of L1/L2 provider implementation and is not an
+independently optimized layer. Its rule evaluator, extension action,
+notification workflow, and device-command adapter are mandatory; a typed rule
+match determines invocation volume. The legacy booleans
+`useEventChecking`, `triggerNotificationWorkflow`, and
+`returnFeedbackToDevice` remain historical `five-layer-baseline@1` inputs only.
+
+`six-layer-eventing@1` is a separate experiment because it retains the same
+domain behavior while making routing, buffering, fan-out, retry/DLQ, replay,
+ordering, observability, and cross-cloud transport an explicit functional,
+deployable, and costed responsibility.
 
 ### Stage 1: Paper-Compatible Layer Cost Optimization
 

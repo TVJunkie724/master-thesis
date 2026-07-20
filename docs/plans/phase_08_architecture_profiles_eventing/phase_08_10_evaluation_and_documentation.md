@@ -2,8 +2,8 @@
 title: "Phase 8.10: Evaluation Evidence And Final Documentation"
 description: "Implementation plan for reproducible profile evaluation evidence and complete current-system documentation without editing LaTeX."
 tags: [architecture, evaluation, reproducibility, documentation, thesis, issue-148]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,9 @@ version: "1.0"
 - Completed Phase 8.0-8.9 contracts, evidence, and verification outputs
 - docs-site current user, operator, developer, setup, architecture, and contract documentation
 - User-approved separation between product documentation, research evidence, and LaTeX
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+- User-approved historical @1 reproduction and fair five-layer @2 versus
+  six-layer comparison boundary
+EXTRACTED: 2026-07-20 | VERSION: 1.1
 -->
 
 # Phase 8.10: Evaluation Evidence And Final Documentation
@@ -27,7 +29,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branch | `codex/phase-8-evaluation-package` |
 | Base branch | `master` |
-| Blocked by | Phase 8.9 / #140 |
+| Blocked by | Phase 8.9A implementation issue and Phase 8.9B / #140 |
 | Produces | Reproducible Phase 8 evaluation package and complete current docs |
 | Live cloud E2E | Prepared but not executed |
 | LaTeX | Must not be edited without separate approval |
@@ -70,7 +72,7 @@ Use the accepted working questions from
 | RQ2 | Functional-total matrix, provider bundle matrix, rejected candidates, capability gate results, architecture diagrams |
 | RQ3 | Frozen single-provider and multi-cloud totals within each profile |
 | RQ3.1 | Same-workload single-cloud versus federated comparison and deltas |
-| RQ3.2 | Separate baseline/Eventing functional, topology, component, transfer, and cost comparison |
+| RQ3.2 | Separate `five-layer-baseline@2`/Event-Layer functional, topology, component, transfer, and cost comparison, with `@1` retained as historical reproduction |
 
 Refactoring activity is engineering method and supporting contribution. It is
 not promoted to a new research question in this phase.
@@ -87,16 +89,19 @@ docs/research/evidence/phase_08_evaluation/
   architecture/
     predecessor-implemented-graph.json
     five-layer-baseline.1.json
+    five-layer-baseline.2.json
     six-layer-eventing.1.json
     architecture-deltas.json
   functional/
-    baseline-functional-total-matrix.json
+    historical-baseline-functional-total-matrix.json
+    event-enabled-five-layer-functional-total-matrix.json
     eventing-functional-total-matrix.json
     provider-bundle-differences.json
     rejected-candidates.json
   costs/
-    five-layer-single-provider-results.json
-    five-layer-multicloud-results.json
+    five-layer-v1-reproduction-results.json
+    five-layer-v2-single-provider-results.json
+    five-layer-v2-multicloud-results.json
     eventing-single-provider-results.json
     eventing-multicloud-results.json
     profile-delta-results.json
@@ -136,6 +141,7 @@ the generator version and input digest and must not be manually edited.
 - ArchitectureProfile, ProviderImplementationProfile, component catalog,
   formula, pricing registry, workload, permission, RTA, RDS, Manifest, graph,
   and Eventing decision versions/digests;
+- the Phase 8.8 profile-parity and shared domain-event flow decision digests;
 - the approved Eventing implementation-component-manifest version and digest;
 - scenario and source-ledger digests;
 - currency and price observation/effective dates;
@@ -155,7 +161,9 @@ The scenario index must include:
 
 1. the bounded baseline workloads already approved for five-layer
    cost/deployment verification;
-2. the Phase 8.8 Eventing small/medium/large sensitivity workloads;
+2. the Phase 8.8 channel-aware small/medium/large sensitivity workloads,
+   applied identically to `five-layer-baseline@2` and
+   `six-layer-eventing@1`;
 3. one explicitly selected representative thesis comparison workload;
 4. all provider region/currency assumptions;
 5. availability and evidence status for every candidate.
@@ -179,11 +187,12 @@ without recording that as an exploratory/post-hoc selection.
 
 ## 6. Architecture Evidence
 
-Produce three separate data-backed diagrams:
+Produce four separate data-backed diagrams:
 
 1. predecessor implemented graph reconstructed in Phase 8.0;
-2. hardened `five-layer-baseline@1`;
-3. `six-layer-eventing@1`.
+2. hardened historical `five-layer-baseline@1`;
+3. event-enabled `five-layer-baseline@2`; and
+4. `six-layer-eventing@1`.
 
 Each diagram must show:
 
@@ -213,9 +222,17 @@ Eventing additions, the Phase 8.8 decision.
 
 ## 7. Functional-Total Matrices
 
-### 7.1 Baseline Matrix
+### 7.1 Five-Layer Matrices
 
-Cover every five-layer responsibility across AWS, Azure, and GCP:
+Cover every five-layer responsibility across AWS, Azure, and GCP. Keep two
+separate views:
+
+- `five-layer-baseline@1` as the immutable historical/paper-compatible
+  functional total; and
+- `five-layer-baseline@2` with mandatory embedded rule evaluation, extension
+  action, notification workflow, and device-command feedback.
+
+For each view include:
 
 - mandatory capabilities;
 - selected provider service bundle;
@@ -254,9 +271,13 @@ The matrices must explicitly demonstrate that:
 
 ## 8. Cost Evaluation
 
-### 8.1 Per-Profile Isolation
+### 8.1 Per-Profile Isolation And Fair Comparison
 
-Evaluate `five-layer-baseline@1` and `six-layer-eventing@1` independently:
+Reproduce `five-layer-baseline@1` independently as historical evidence. Do not
+use it as the primary Event-Layer counterfactual because it intentionally omits
+the domain-event paths.
+
+Evaluate `five-layer-baseline@2` and `six-layer-eventing@1` independently:
 
 ```text
 same profile + same workload + same functional contract
@@ -265,7 +286,11 @@ same profile + same workload + same functional contract
   -> selected minimum and deltas
 ```
 
-Never rank candidates from different profiles in one optimizer run.
+Never rank candidates from different profiles in one optimizer run. Compare
+the reported profile totals only after proving that the two new profiles use
+the same domain-event workload and outcomes. Attribute the remaining
+functional delta specifically to the Eventing responsibility's transport,
+failure, replay, and decoupling semantics.
 
 ### 8.2 Required Results
 
@@ -289,7 +314,7 @@ it with an equivalent-looking partial total.
 
 For RQ3.2, show:
 
-- baseline direct-edge cost and behavior;
+- `five-layer-baseline@2` embedded/direct-edge cost and behavior;
 - Eventing component/adapter/bridge cost;
 - changed transfer routes;
 - changed function/workflow invocations;
@@ -297,6 +322,10 @@ For RQ3.2, show:
 - fixed-capacity effects;
 - functional gains and provider-specific extras;
 - total profile delta.
+
+Report the `five-layer-baseline@1` reproduction separately so the thesis can
+show historical continuity without presenting "events disabled" as a fair
+control.
 
 The result must not claim that the Eventing profile is "better" solely because
 it is cheaper or more expensive. It reports the functionality/cost tradeoff.
@@ -525,12 +554,17 @@ claims/evidence, and update roadmap/issues.
 
 ### Evaluation Logic
 
-- every admissible baseline/Eventing scenario;
+- every admissible historical-baseline, five-layer-v2, and Event-Layer
+  scenario;
 - all supported and unsupported provider paths;
 - single-provider versus federated deltas;
 - exact zero, positive, and negative delta;
 - provider tier/rounding boundary;
 - profile isolation;
+- historical `five-layer-baseline@1` is not used as the fair Event-Layer
+  counterfactual;
+- `five-layer-baseline@2` and `six-layer-eventing@1` use identical
+  rule/action/workflow/command workload assumptions;
 - Eventing incremental and total contributions;
 - no double-counted transfer, adapter, or fixed cost.
 
@@ -623,14 +657,18 @@ commit.
       workload, pricing, formula, permission, resolution, specification,
       implementation-component manifest, deployment manifest, graph, package,
       and result digest.
-- [ ] Predecessor, hardened baseline, and Eventing architecture diagrams and
-      deltas are data-backed and complete.
-- [ ] Baseline and Eventing functional-total matrices precede cost
-      interpretation.
+- [ ] Predecessor, historical baseline, event-enabled five-layer, and
+      six-layer Eventing architecture diagrams and deltas are data-backed and
+      complete.
+- [ ] Historical baseline, event-enabled five-layer, and Eventing
+      functional-total matrices precede cost interpretation.
 - [ ] Incomplete, unsupported, and unverified candidates remain visible and
       never receive fabricated totals.
 - [ ] Single-provider and federated results are profile-isolated,
       field-traceable, and reproducible.
+- [ ] The fair cross-profile comparison is
+      `five-layer-baseline@2` versus `six-layer-eventing@1`; `@1` is reported
+      only as immutable historical reproduction.
 - [ ] Eventing functionality/topology/cost effects are reported separately and
       as a total profile delta.
 - [ ] The full offline digest chain regenerates byte-identically.

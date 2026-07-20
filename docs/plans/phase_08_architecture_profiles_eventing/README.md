@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
-lastUpdated: "2026-07-19"
-version: "1.7"
+lastUpdated: "2026-07-20"
+version: "1.8"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.7"
 - docs/plans/resolved_deployment_specification/README.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, and #153
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-07-19 | VERSION: 1.5
+EXTRACTED: 2026-07-20 | VERSION: 1.8
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -34,8 +34,19 @@ templates, Terraform names, database columns, and Flutter models with a bounded
 closed-world profile model. It does not create a general topology engine.
 
 The phase preserves the executable, paper-compatible
-`five-layer-baseline@1`. It then evaluates and, only after a separate decision
-gate, implements one curated `six-layer-eventing@1` profile.
+`five-layer-baseline@1` as immutable historical evidence. The Eventing decision
+gate then freezes one shared domain-event contract and evaluates two new,
+functionally aligned profiles:
+
+- `five-layer-baseline@2`, with rule evaluation, event actions, notification
+  workflows, and device feedback embedded in the existing L1/L2
+  responsibilities; and
+- `six-layer-eventing@1`, with the same domain behavior plus an independent
+  Eventing and Messaging responsibility for routing, buffering, fan-out,
+  retry/DLQ, replay, and cross-cloud transport.
+
+The legacy Eventing feature booleans remain readable only for historical
+`five-layer-baseline@1` inputs. They are not part of either new profile.
 
 ```text
 current deployed graph
@@ -57,8 +68,12 @@ versioned profile + component + resolution contracts
         v
 Eventing decision gate
         |
+        +--> shared domain-event contract
+        +--> five-layer-baseline@2 decision
+        +--> provider/service/capacity evaluation
+        |
         v
-six-layer-eventing@1
+five-layer-baseline@2 + six-layer-eventing@1
         |
         v
 reproducible thesis evaluation evidence
@@ -74,7 +89,9 @@ Phase 8 must:
 - prove functional completeness before cost ranking;
 - resolve every deployment binding before Terraform;
 - expose only reviewed profiles and extension slots to runtime users;
-- retain separate five-layer and Eventing experiments;
+- retain `five-layer-baseline@1` as historical evidence and separate the
+  functionally aligned `five-layer-baseline@2` and
+  `six-layer-eventing@1` experiments;
 - keep product documentation and thesis reasoning separate.
 
 Phase 8 must not:
@@ -111,13 +128,18 @@ component catalog entries still own the exact executable resource mapping.
 | 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md) | Next: profile-bounded, complete-path optimization | #142 |
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Deterministic deployment graph and preflight | #151 |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Compact profile selection and read-only review | #152 |
-| 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Approved Eventing capability, cost, and bridge contract | #152 |
-| 8.9 | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable `six-layer-eventing@1` | #138, #146 |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Reproducible evaluation package and complete docs | #140 |
+| 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Shared domain-event contract plus approved or rejected embedded/Event-Layer provider, capacity, cost, and bridge decisions | #152 |
+| 8.9A | New implementation issue required before execution | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable `five-layer-baseline@2` with mandatory embedded domain-event behavior | #138, #146 |
+| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable `six-layer-eventing@1` with the same domain-event behavior and an independent Eventing responsibility | 8.9A, #146 |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Historical `@1` reproduction plus fair `five-layer-baseline@2` versus `six-layer-eventing@1` evaluation | #140 and the 8.9A implementation issue |
 
 Provider implementation work inside one phase may be parallelized only after
 the phase's shared contract is committed. AWS, Azure, and GCP must pass the same
 completion gate before the phase is closed.
+
+Phase 8.9A and 8.9B are separate implementation branches and commit series.
+The shared contract and `five-layer-baseline@2` gates must be committed and
+reviewed before the six-layer implementation begins.
 
 ## Native Dependency Graph
 
@@ -125,7 +147,7 @@ completion gate before the phase is closed.
 #144 -> #139 -> #149 -> #150 -> #142 -> #151 -> #152
                      ^                          |       |
                      |                          |       +-> #146 --+
-                    #113                        +-> #138 -----------+-> #140 -> #148 -> #112
+                    #113                        +-> #138 ----------+-> 8.9A -> #140 -> #148 -> #112
 ```
 
 The relationship direction is left-to-right: the issue on the right is blocked
@@ -191,8 +213,9 @@ The following properties are mandatory throughout Phase 8:
 
 ## Completion Gate
 
-Phase 8 is complete only when this chain is reproducible for both approved
-profiles:
+Phase 8 is complete only when this chain is reproducible for both new approved
+profiles, while historical `five-layer-baseline@1` remains byte-stable and
+readable:
 
 ```text
 reviewed ArchitectureProfile

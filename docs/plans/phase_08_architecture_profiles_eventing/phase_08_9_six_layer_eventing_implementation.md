@@ -1,9 +1,9 @@
 ---
-title: "Phase 8.9: Implement six-layer-eventing@1"
-description: "Implementation plan for one executable closed-world Eventing profile using the approved generic architecture extension points."
+title: "Phase 8.9: Implement The Event-Enabled Comparison Profiles"
+description: "Implementation plan for five-layer-baseline@2 and six-layer-eventing@1 using one approved domain-event contract and separate architecture ownership."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-07-19"
-version: "1.1"
+lastUpdated: "2026-07-20"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -13,21 +13,23 @@ version: "1.1"
 - docs/research/digital_twin_architecture_and_eventing_layer.md
 - Existing resolved-deployment-specification, DeploymentManifest, provider, Terraform, and Flutter extension points
 - User-approved bounded six-layer profile with no arbitrary graph editor
-EXTRACTED: 2026-07-19 | VERSION: 1.1
+- User-approved event-enabled five-layer @2 comparison profile, shared
+  domain-event behavior, and separate 8.9A/8.9B implementation boundaries
+EXTRACTED: 2026-07-20 | VERSION: 1.2
 -->
 
-# Phase 8.9: Implement `six-layer-eventing@1`
+# Phase 8.9: Implement The Event-Enabled Comparison Profiles
 
 ## 0. Metadata
 
 | Field | Value |
 |---|---|
-| Issue | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) |
+| Issues | New `five-layer-baseline@2` implementation issue required before execution; [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
-| Recommended branch | `codex/phase-8-six-layer-eventing` |
+| Recommended branches | 8.9A `codex/phase-8-five-layer-baseline-v2`; 8.9B `codex/phase-8-six-layer-eventing` |
 | Base branch | `master` |
 | Blocked by | Phase 8.7 / #138 and approved Phase 8.8 / #146 |
-| Produces | Executable closed-world `six-layer-eventing@1` |
+| Produces | Executable closed-world `five-layer-baseline@2` and `six-layer-eventing@1` |
 | Targets | AWS/Azure/GCP Eventing bundles, admissible whole paths, Web, macOS, Windows, Linux |
 | Live cloud E2E | Forbidden |
 
@@ -36,13 +38,21 @@ binding, API field, UI state, test, and Definition of Done item in this plan is
 mandatory. The phase must use the exact approved Phase 8.8 bundle and bridge
 IDs; it must not substitute another service during implementation.
 
+Phase 8.9 is executed as two independently reviewed branches and commit series.
+8.9A implements and closes `five-layer-baseline@2`. 8.9B starts only after
+8.9A is clean and implements `six-layer-eventing@1`.
+
 ## 1. Outcome
 
-Add one executable, versioned Eventing architecture profile through the same
-generic extension points used by the hardened five-layer baseline:
+Add two executable, versioned comparison profiles through the same generic
+extension points used by the hardened historical baseline:
 
 ```text
-six-layer-eventing@1
+shared domain-event contract
+  -> five-layer-baseline@2
+       event behavior embedded in L1/L2
+  -> six-layer-eventing@1
+       same event behavior through independent Eventing responsibility
   -> profile and provider catalogs
   -> functionally complete Optimizer candidates
   -> immutable Management resolution
@@ -52,31 +62,36 @@ six-layer-eventing@1
   -> compact Flutter selection and review
 ```
 
-The profile adds Eventing and Messaging as a nonlinear responsibility with
-explicit routing, buffering, fan-out, retry, DLQ, replay/redrive,
-observability, and cross-cloud transport. It does not add a broker between
-every function and does not create a general event-topology editor.
+Both profiles always include rule evaluation, extension actions, notification
+workflows, and device-command feedback. The six-layer profile additionally
+adds Eventing and Messaging as a nonlinear responsibility with explicit
+routing, buffering, fan-out, retry, DLQ, replay/redrive, observability, and
+cross-cloud transport. Neither profile adds a broker between every helper
+function or creates a general event-topology editor.
 
 ### Scope Boundary
 
 | Included | Excluded |
 |---|---|
-| The exact approved six-layer profile, RDS v2/Manifest v4, Eventing workload/pricing/formulas, normalized persistence, provider bundles, packages, permissions, static Terraform, bridge, failure semantics, compact Flutter workflow, and broad offline gates | Unapproved provider substitutions, arbitrary profiles/topologies, unrelated optimization strategies, dynamic Terraform, all-provider-path claims not proven by capabilities, and live provider execution |
+| The exact approved shared domain-event contract, five-layer v2 and six-layer profiles, RDS v2/Manifest v4, Eventing workload/pricing/formulas, normalized persistence, provider bundles, packages, permissions, static Terraform, bridge, failure semantics, compact Flutter workflow, and broad offline gates | Changes to historical `five-layer-baseline@1`, unapproved provider substitutions, arbitrary profiles/topologies, unrelated optimization strategies, dynamic Terraform, all-provider-path claims not proven by capabilities, and live provider execution |
 
 ## 2. Activation Preconditions
 
 Implementation may start only when:
 
 1. Phase 8.8 `decision.json` is `approved`;
-2. all three selected provider bundle refs resolve;
-3. every mandatory capability is complete;
-4. every pricing/formula field is publishable;
-5. the canonical envelope and bridge ownership are approved;
-6. the Phase 8.8 implementation component manifest resolves every exact
+2. the profile-parity and domain-event flow decisions resolve;
+3. all three selected embedded-event and Event-Layer provider bundle refs
+   resolve;
+4. every mandatory capability is complete;
+5. every pricing/formula field is publishable;
+6. the canonical envelope and bridge ownership are approved;
+7. the Phase 8.8 implementation component manifest resolves every exact
    cross-project ID, resource type, adapter, package, permission, port,
    binding, file target, and test owner without duplicates;
-7. Phase 8.7 all-platform and real-Management integration gates pass;
-8. no native blocker is open.
+8. the new 8.9A issue exists with reviewed native blockers;
+9. Phase 8.7 all-platform and real-Management integration gates pass;
+10. no native blocker is open.
 
 The implementation must verify these conditions through
 `scripts/phase_08_eventing/validate_decision_package.py --strict` before any
@@ -88,9 +103,18 @@ continues.
 
 ## 3. Fixed Architecture
 
-Add:
+Add both:
 
 ```text
+ArchitectureProfile: five-layer-baseline@2
+
+Responsibilities:
+  Data acquisition
+  Data processing
+  Historical storage
+  Digital Twin state
+  Visualization
+
 ArchitectureProfile: six-layer-eventing@1
 
 Responsibilities:
@@ -102,14 +126,27 @@ Responsibilities:
   Eventing and messaging
 ```
 
+`five-layer-baseline@2` assigns the event-rule evaluator, action dispatch, and
+notification workflow to Data Processing and the device-command adapter to
+Data Acquisition. Direct/provider-native event transport remains supporting
+behavior of those responsibilities and is not mislabeled as a sixth layer.
+
 Eventing components and edges come only from the approved decision package.
-The profile must preserve the semantic names of the baseline responsibilities;
+Both profiles must preserve the semantic names of the baseline responsibilities;
 numeric labels are display metadata, not primary IDs.
 
-Required topology properties:
+Required topology properties for both profiles:
 
 - producers publish canonical domain events through platform-owned adapters;
 - producers do not know consumer function identities or physical destinations;
+- the event-rule, action, workflow, and command components are always present;
+- runtime rules determine whether a specific message produces an action;
+- legacy Eventing feature flags are not accepted for new-profile operations;
+- storage lifecycle data movement remains storage-owned and L4-to-L5 reads
+  remain synchronous;
+
+Additional topology properties for `six-layer-eventing@1`:
+
 - independent consumers subscribe through cataloged edges;
 - required buffering, retry, DLQ, and replay/redrive are explicit components;
 - L1-L5 components may connect to Eventing where the approved graph requires;
@@ -127,6 +164,11 @@ Retain schema v1 and add new semantic definitions/fixtures:
 
 ```text
 contracts/architecture-profiles/definitions/
+  profiles/five-layer-baseline/2/profile.json
+  provider-implementations/five-layer-baseline/2/
+    aws/1.json
+    azure/1.json
+    gcp/1.json
   profiles/six-layer-eventing/1/profile.json
   provider-implementations/six-layer-eventing/1/
     aws/1.json
@@ -134,6 +176,9 @@ contracts/architecture-profiles/definitions/
     gcp/1.json
   component-catalogs/eventing/1/catalog.json
   fixtures/resolved/
+    all-aws-five-layer-v2-resolved-architecture.json
+    all-azure-five-layer-v2-resolved-architecture.json
+    mixed-five-layer-v2-resolved-architecture.json
     all-aws-eventing-resolved-architecture.json
     all-azure-eventing-resolved-architecture.json
     mixed-eventing-on-gcp-resolved-architecture.json
@@ -144,7 +189,13 @@ contracts/architecture-profiles/definitions/
 
 `ResolvedTwinArchitecture v1` is already responsibility/component based and
 remains valid. Its profile, provider profile, catalog, formula, evidence,
-extension, and graph refs pin the Eventing implementation.
+extension, and graph refs pin the embedded-event or Event-Layer
+implementation.
+
+The `five-layer-baseline@2` provider definitions contain the mandatory
+event-rule/action/workflow/command components without an Eventing
+responsibility. The `six-layer-eventing@1` definitions contain the same domain
+components plus the approved Eventing bundle and bridge components.
 
 The positive fixture set must assign the Eventing responsibility to AWS,
 Azure, and GCP at least once within an otherwise functionally complete whole
@@ -227,23 +278,30 @@ Compatibility tests must prove:
 ### 5.1 Workload Contract
 
 Add the approved `eventing-workload.v1` fields to the profile-bound workload
-bundle. The user-facing workload remains one typed object; Eventing fields are
-required only by `six-layer-eventing@1`.
+bundle. The user-facing workload remains one typed object. Shared
+domain-event traffic fields are required by both new profiles; fields that
+describe Event-Layer-only retention/replay policy are required only by
+`six-layer-eventing@1`.
 
 The Management API, Optimizer, and Flutter must share exact constraints for:
 
 - events/month and payload bytes;
-- consumers and fan-out deliveries;
+- closed-world event channel IDs;
+- rule-match, workflow-start, and device-command shares;
+- graph-derived per-channel consumers and fan-out deliveries;
 - retry, DLQ, replay shares;
 - retention;
 - ordering scope;
 - required delivery semantics;
 - peak throughput and partition-key count;
-- cross-cloud delivery share;
+- graph-derived directed cross-cloud routes;
 - exact provider-region pricing catalog references.
 
-Unknown, hidden, or stale Eventing fields fail validation. Switching back to
-the baseline uses the Phase 8.4 preview/digest flow to clear them atomically.
+`useEventChecking`, `triggerNotificationWorkflow`, and
+`returnFeedbackToDevice` are invalid for both new profiles. Unknown, hidden,
+or stale Eventing fields fail validation. Switching to historical
+`five-layer-baseline@1` is not a silent downgrade; only its historical
+read/destroy paths consume legacy records.
 
 ### 5.2 Pricing Registry
 
@@ -263,8 +321,9 @@ loaded through an emergency fallback or represented as fetched.
 
 ### 5.3 Formula Set And Strategy Bundle
 
-Add one versioned Eventing formula set and bind it into the
-`six-layer-eventing@1` optimization bundle:
+Add one shared domain-event formula set plus the approved transport-specific
+formula sets. Bind embedded-event formulas to `five-layer-baseline@2` and
+Event-Layer formulas to `six-layer-eventing@1`:
 
 ```text
 optimization strategy
@@ -295,7 +354,7 @@ endpoint.
 For each candidate:
 
 1. load approved provider profile/catalog versions;
-2. map every Eventing logical component and edge;
+2. map every shared domain-event component and edge;
 3. prove mandatory capabilities;
 4. validate pricing/formula/specification compatibility;
 5. calculate component/edge costs and transfer routes;
@@ -304,8 +363,10 @@ For each candidate:
 8. emit RTA v1 and RDS v2 with matching profile/run/digests.
 
 Single-cloud and mixed candidates stay in one result set only when they use the
-same `six-layer-eventing@1` functional contract. Baseline candidates remain a
-separate optimizer run/profile.
+same exact profile version. `five-layer-baseline@2` and
+`six-layer-eventing@1` share domain behavior but remain separate optimizer
+runs because the latter has additional mandatory transport semantics.
+Historical `five-layer-baseline@1` remains a third, frozen result space.
 
 ## 6. Management API And Persistence
 
@@ -522,13 +583,13 @@ Eventing workload task:
 +------------------------------------------+
 | Events / month                           |
 | [ 10,000,000                          ]  |
-| Payload [ 16 ] KiB   Consumers [ 3 ]     |
+| Payload [ 16 ] KiB   Rule matches [1]%   |
 | Peak    [ 250 ]/s    Retention [ 168 ]h  |
 | Ordering [ Per device                 v]  |
 | Retry [0.5]%  DLQ [0.05]%  Replay [1]%   |
-| Cross-cloud delivery [5]%                |
+| Workflow [25]%  Device command [25]%     |
 |                                          |
-| Derived quantities                 [v]   |
+| Derived channels, fan-out, routes   [v]  |
 +------------------------------------------+
 | Back                         Continue     |
 +------------------------------------------+
@@ -545,7 +606,7 @@ profile ID.
 WizardView [MODIFY]
 `-- ConfigurationWorkspaceShell [REUSE]
     `-- selected task child from WizardView [MODIFY]
-        |-- ArchitectureProfileTask [REUSE/MODIFY second profile]
+        |-- ArchitectureProfileTask [REUSE/MODIFY new profiles]
         |   `-- ArchitectureProfileGraph [REUSE]
         |-- WorkloadTasks [MODIFY]
         |   `-- EventingWorkloadSection [NEW]
@@ -576,6 +637,20 @@ evidence primitives.
 
 ## 13. Implementation Slices
 
+### 8.9A Commit Boundary: `five-layer-baseline@2`
+
+Implement shared contracts and the complete embedded-event profile across
+Optimizer, Management, Deployer, Terraform, Flutter, tests, and documentation.
+Run two reviews, fix every finding, and create the clean 8.9A commit before
+opening the 8.9B branch. Historical `five-layer-baseline@1` golden evidence
+must remain unchanged.
+
+### 8.9B Commit Boundary: `six-layer-eventing@1`
+
+Starting from the reviewed 8.9A commit, add only the independent Eventing
+responsibility, approved Event-Layer bundles, and bridge behavior. Run the same
+two-review/fix cycle before the 8.9B commit.
+
 ### Slice A: V2/V4 Contracts
 
 Must implement RDS v2, Manifest v4, new fixtures, byte-identical generated
@@ -583,7 +658,8 @@ copies, compatibility readers, sync gates, and negative cross-version tests.
 
 ### Slice B: Profile, Provider, And Catalog Definitions
 
-Must add the approved profile/provider bundles/component/edge definitions and
+Must add `five-layer-baseline@2` first and `six-layer-eventing@1` second,
+including their approved provider bundles/component/edge definitions, and
 prove every reference, capability, permission, package, Terraform, formula,
 and specification binding.
 
@@ -606,8 +682,10 @@ typed bindings, preflight, operation evidence, and offline provider tests.
 
 ### Slice F: Flutter
 
-Must add the second profile, Eventing workload fields, data-driven graph/review,
-profile invalidation, demo parity, accessibility, and all-platform gates.
+Must expose `five-layer-baseline@2` and `six-layer-eventing@1` as the two new
+selectable profiles, keep `five-layer-baseline@1` historical/read-only, and
+add shared Eventing workload fields, data-driven graph/review, profile
+invalidation, demo parity, accessibility, and all-platform gates.
 
 ### Slice G: Cross-Stack Offline Release Gate
 
@@ -630,7 +708,8 @@ historical v1/v3 compatibility.
 
 ### Optimizer
 
-- Phase 8.8 small/medium/large scenarios for each provider bundle;
+- Phase 8.8 small/medium/large scenarios for each embedded-event and
+  Event-Layer provider bundle;
 - every currently admissible single-provider whole path;
 - at least one complete whole path assigning Eventing to each of AWS, Azure,
   and GCP;
@@ -638,14 +717,17 @@ historical v1/v3 compatibility.
 - mandatory capability, ordering, pricing, region, permission, formula, and
   specification rejection;
 - exact provider chunk/tier/capacity/retention/transfer boundaries;
-- no Eventing field in baseline run;
-- no baseline/Eventing cross-ranking;
+- no legacy Eventing feature flag in either new profile;
+- shared domain-event paths execute for both new profiles;
+- no `five-layer-baseline@2`/`six-layer-eventing@1` cross-ranking;
+- historical `five-layer-baseline@1` golden cost/graph remains unchanged;
 - deterministic tie-break and trace.
 
 ### Management
 
 - migration from baseline-only database;
-- profile selection/change preview and Eventing field clearing;
+- profile selection/change preview and exact shared/layer-specific field
+  invalidation;
 - Eventing run/spec/resolution atomic persistence;
 - generic assignment/edge API projections;
 - selected-run readiness and invalidation;
@@ -737,20 +819,23 @@ Rollout:
 
 1. ship RDS v2/Manifest v4 readers and profile definitions dark;
 2. run all offline cross-stack gates;
-3. enable new five-layer v2/v4 runs;
-4. verify baseline compatibility;
-5. activate Eventing calculation/deployment server-side;
-6. expose Eventing through the Management profile list;
-7. enable Flutter/demo selection;
-8. monitor stable errors and operation evidence.
+3. enable `five-layer-baseline@2` v2/v4 runs;
+4. verify shared event behavior and historical `five-layer-baseline@1`
+   compatibility;
+5. commit and review the 8.9A boundary;
+6. activate `six-layer-eventing@1` calculation/deployment server-side;
+7. expose both new profiles through the Management profile list;
+8. enable Flutter/demo selection;
+9. monitor stable errors and operation evidence.
 
 Activation is atomic at the repository/server profile lifecycle boundary. Do
 not expose a profile whose provider bundles are only partially implemented.
 
 Rollback retires `six-layer-eventing@1` from new selection and blocks new
-Eventing operations. Existing resolutions and frozen operations remain
-readable/destroyable. It must not fall back to the baseline silently or rewrite
-an Eventing Twin's selected profile.
+Event-Layer operations. `five-layer-baseline@2` has an independent activation
+and rollback switch. Existing resolutions and frozen operations remain
+readable/destroyable. Neither rollback may silently fall back to another
+profile or rewrite a Twin's selected profile.
 
 ## 17. Definition Of Done
 
@@ -758,7 +843,12 @@ an Eventing Twin's selected profile.
 - [ ] Every implementation component manifest entry maps one-to-one to the
       implemented cross-project IDs, files, resources, packages, permissions,
       ports, bindings, and tests.
+- [ ] `five-layer-baseline@1` remains immutable and historical.
+- [ ] `five-layer-baseline@2` is a closed-world five-responsibility profile
+      with mandatory embedded rule/action/workflow/command behavior.
 - [ ] `six-layer-eventing@1` is a closed-world, nonlinear, versioned profile.
+- [ ] Both new profiles implement the same domain-event flow, and neither
+      accepts the three legacy Eventing feature flags.
 - [ ] RDS v2 and Manifest v4 represent generic components and remain
       cross-project drift-gated.
 - [ ] Historical RDS v1/Manifest v2 and v3 behavior remains read/destroy
@@ -788,6 +878,8 @@ an Eventing Twin's selected profile.
       documentation gates pass.
 - [ ] No live provider credential, resource, paid API, apply, destroy, or E2E
       action occurs.
-- [ ] Product/developer/research docs, roadmap, and #140 are updated.
+- [ ] 8.9A and 8.9B use separate branches, reviews, and clean commits.
+- [ ] Product/developer/research docs, roadmap, the new 8.9A issue, and #140
+      are updated.
 - [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #140.
+- [ ] Each structured commit references its own implementation issue.
