@@ -1,0 +1,131 @@
+{
+  "$schema": "schemas/decision.schema.json",
+  "schema_version": "phase-08-eventing-decision.v1",
+  "decision_id": "phase-08-eventing-decision@1",
+  "decision_status": "approved",
+  "approval_scope": "offline evidence and exact non-executable Phase 8.9 blueprint; no claim of deployed or live-cloud verification",
+  "profile_candidates": [
+    "five-layer-baseline@2",
+    "six-layer-eventing@1"
+  ],
+  "historical_profile": "five-layer-baseline@1",
+  "profile_parity_decision_ref": "phase-08-eventing-profile-parity@1",
+  "domain_event_flow_contract_ref": "domain-event-flow@1",
+  "input_digests": {
+    "bridge_decision": "sha256:8641b652e2fbe50afd49dd6f815be07286915a700afac588d95c106d879dcb1d",
+    "domain_event_flow_contract": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590",
+    "formula_and_unit_ledger": "sha256:97ff2c1bedebfc648df96c1b2e1c03c0d1f477528da6b073f1b270de0b811f1f",
+    "implementation_component_manifest": "sha256:cfaa4459f6d06ff920d5d1ed5295ee21448329754071d024753ef318dd0eb7eb",
+    "mandatory_capabilities": "sha256:3b63d82594f24a44240e8e45665ffdc7b81367384a74cea521829729545b2f6a",
+    "pricing_model_matrix": "sha256:b56a8f741133369140a76ef57f8acfe8fa094f2dc5efaf5820b9caa81d1621fc",
+    "profile_parity_decision": "sha256:14bfd44260c2be4e01e15f83c16d65a183d12ceaf12695dc7a156e53c338cdbb",
+    "provider_capability_matrix": "sha256:68028349334b06da081397f8b5ad98ff5b72dca04c157d48adcd318100ff7c87",
+    "scenario_cost_results": "sha256:1c5d023defe8375ae2beae1867749136b08dd3fe34891ec5bedf158061b6c460",
+    "scenario_inputs": "sha256:1391c4463df31027e6f08bc67c538669a7b18777a9e42136af9d3f79db1f327b",
+    "source_ledger": "sha256:4cc71c036ac100365af771426d995266f5869badf2b873196e30585a1c7212ee"
+  },
+  "selected_embedded_event_bundle_refs": [
+    "bundle.aws.embedded@1",
+    "bundle.azure.embedded@1",
+    "bundle.gcp.embedded@1"
+  ],
+  "selected_event_layer_bundle_refs": [
+    "bundle.aws.event-layer@1",
+    "bundle.azure.event-layer@1",
+    "bundle.gcp.event-layer@1"
+  ],
+  "bridge_decision_ref": "phase-08-cross-cloud-bridge@1",
+  "implementation_component_manifest_ref": "phase-08-eventing-implementation@1",
+  "mandatory_capability_result": {
+    "status": "passed",
+    "providers": [
+      "aws",
+      "azure",
+      "gcp"
+    ],
+    "embedded_capability_count": 8,
+    "event_layer_capability_count": 15,
+    "whole_profile_limitations": [
+      "An all-GCP whole Twin remains unsupported until the separately owned L4/L5 capability gap is closed; the GCP embedded-event and Event-Layer scopes remain admissible.",
+      "All six directed workload-identity exchanges remain live activation gates rather than observed cloud evidence."
+    ]
+  },
+  "pricing_completeness_result": {
+    "status": "passed",
+    "selected_bundle_count": 6,
+    "price_intent_count": 56,
+    "selection_used_cost": false,
+    "scope": "incremental embedded domain-event, Event-Layer, bridge, landing, transfer, retention, workflow, device boundary, and observability costs; not full-profile totals"
+  },
+  "scenario_result_digest": "sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5",
+  "known_differences": [
+    "five-layer-baseline@2 embeds mandatory domain-event behavior in ingestion and processing responsibilities; six-layer-eventing@1 owns transport semantics in an independent Eventing responsibility.",
+    "Provider bundles are functionally aligned compositions, not one-to-one service equivalents.",
+    "Single-cloud paths use the complete local bundle and no bridge; cross-cloud paths use source-owned durable forwarding to the destination broker data plane.",
+    "The published cost results are separate event-scope estimates and intentionally do not rank full Twin profiles."
+  ],
+  "residual_risks": [
+    {
+      "risk_id": "risk.cross-cloud-federation-live",
+      "status": "open_activation_gate",
+      "gate": "Execute and capture issuer, audience, subject, expiry, destination authorization, and negative-claim tests for all six directed provider pairs.",
+      "consequence": "A failing direction is unsupported and must block any profile placement that requires it."
+    },
+    {
+      "risk_id": "risk.large-capacity-live",
+      "status": "open_activation_gate",
+      "gate": "Run supervised throughput, backlog, retry, ordering, and failure tests for AWS 400-shard Kinesis, Azure six-CU Dedicated Event Hubs, and GCP 126-worker Large allocations.",
+      "consequence": "Theoretical capacity is not sufficient to activate a Large deployment."
+    },
+    {
+      "risk_id": "risk.gcp-bifromq-incubation",
+      "status": "accepted_poc_limitation",
+      "gate": "Pin the reviewed image digest, chart, mTLS/authorization policy, three-node topology, persistence, backup, upgrade, and cleanup ownership in Phase 8.9.",
+      "consequence": "The provider-hosted MQTT boundary is acceptable for this PoC but is not represented as a managed or production-qualified GCP IoT service."
+    },
+    {
+      "risk_id": "risk.whole-profile-gcp-gap",
+      "status": "open_activation_gate",
+      "gate": "Keep all-GCP whole-profile resolution fail-closed until the separately owned L4/L5 capability gap has an approved implementation.",
+      "consequence": "GCP Eventing evidence must not be misreported as an executable all-GCP Twin."
+    }
+  ],
+  "approved_at": "2026-07-20T16:26:42Z",
+  "reviewers": [
+    {
+      "review_id": "review.phase-08-eventing.architecture-security@1",
+      "reviewer": "codex-local-review-pass-1",
+      "perspectives": [
+        "architecture",
+        "provider compatibility",
+        "security",
+        "implementation ownership"
+      ],
+      "completed_at": "2026-07-20T16:26:42Z",
+      "result": "zero_findings",
+      "evidence": [
+        "Exact three-profile boundary and legacy-flag rejection inspected.",
+        "Eight domain channels, three single-cloud cases, six directed identity paths, six bridge route classes, and six three-provider placements checked.",
+        "Short-lived identity, destination broker data-plane authorization, forbidden public function bridge, activation gates, and 33 component owners checked."
+      ]
+    },
+    {
+      "review_id": "review.phase-08-eventing.reproducibility-thesis@1",
+      "reviewer": "codex-local-review-pass-2",
+      "perspectives": [
+        "pricing completeness",
+        "reproducibility",
+        "thesis validity",
+        "documentation scope"
+      ],
+      "completed_at": "2026-07-20T16:26:42Z",
+      "result": "zero_findings",
+      "evidence": [
+        "All 60 frozen sources and references passed strict offline verification.",
+        "Scenario results reproduced byte-identically with the committed digest.",
+        "Twenty calculation and decision-package tests passed, including negative digest, route, ownership, contract, adapter, and secret checks.",
+        "Cost remains a visible result and not an admissibility criterion; full-profile ranking remains Phase 8.10."
+      ]
+    }
+  ]
+}

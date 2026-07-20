@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/decision.schema.json",
+  "title": "Phase 8 Eventing decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "decision_id",
+    "decision_status",
+    "approval_scope",
+    "profile_candidates",
+    "historical_profile",
+    "profile_parity_decision_ref",
+    "domain_event_flow_contract_ref",
+    "input_digests",
+    "selected_embedded_event_bundle_refs",
+    "selected_event_layer_bundle_refs",
+    "bridge_decision_ref",
+    "implementation_component_manifest_ref",
+    "mandatory_capability_result",
+    "pricing_completeness_result",
+    "scenario_result_digest",
+    "known_differences",
+    "residual_risks",
+    "approved_at",
+    "reviewers"
+  ],
+  "properties": {
+    "$schema": {"const": "schemas/decision.schema.json"},
+    "schema_version": {"const": "phase-08-eventing-decision.v1"},
+    "decision_id": {"const": "phase-08-eventing-decision@1"},
+    "decision_status": {"enum": ["approved", "rejected"]},
+    "approval_scope": {
+      "const": "offline evidence and exact non-executable Phase 8.9 blueprint; no claim of deployed or live-cloud verification"
+    },
+    "profile_candidates": {
+      "const": ["five-layer-baseline@2", "six-layer-eventing@1"]
+    },
+    "historical_profile": {"const": "five-layer-baseline@1"},
+    "profile_parity_decision_ref": {
+      "const": "phase-08-eventing-profile-parity@1"
+    },
+    "domain_event_flow_contract_ref": {"const": "domain-event-flow@1"},
+    "input_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bridge_decision",
+        "domain_event_flow_contract",
+        "formula_and_unit_ledger",
+        "implementation_component_manifest",
+        "mandatory_capabilities",
+        "pricing_model_matrix",
+        "profile_parity_decision",
+        "provider_capability_matrix",
+        "scenario_cost_results",
+        "scenario_inputs",
+        "source_ledger"
+      ],
+      "properties": {
+        "bridge_decision": {"$ref": "#/$defs/digest"},
+        "domain_event_flow_contract": {"$ref": "#/$defs/digest"},
+        "formula_and_unit_ledger": {"$ref": "#/$defs/digest"},
+        "implementation_component_manifest": {"$ref": "#/$defs/digest"},
+        "mandatory_capabilities": {"$ref": "#/$defs/digest"},
+        "pricing_model_matrix": {"$ref": "#/$defs/digest"},
+        "profile_parity_decision": {"$ref": "#/$defs/digest"},
+        "provider_capability_matrix": {"$ref": "#/$defs/digest"},
+        "scenario_cost_results": {"$ref": "#/$defs/digest"},
+        "scenario_inputs": {"$ref": "#/$defs/digest"},
+        "source_ledger": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "selected_embedded_event_bundle_refs": {
+      "const": [
+        "bundle.aws.embedded@1",
+        "bundle.azure.embedded@1",
+        "bundle.gcp.embedded@1"
+      ]
+    },
+    "selected_event_layer_bundle_refs": {
+      "const": [
+        "bundle.aws.event-layer@1",
+        "bundle.azure.event-layer@1",
+        "bundle.gcp.event-layer@1"
+      ]
+    },
+    "bridge_decision_ref": {"const": "phase-08-cross-cloud-bridge@1"},
+    "implementation_component_manifest_ref": {
+      "const": "phase-08-eventing-implementation@1"
+    },
+    "mandatory_capability_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "providers",
+        "embedded_capability_count",
+        "event_layer_capability_count",
+        "whole_profile_limitations"
+      ],
+      "properties": {
+        "status": {"enum": ["passed", "failed"]},
+        "providers": {"const": ["aws", "azure", "gcp"]},
+        "embedded_capability_count": {"const": 8},
+        "event_layer_capability_count": {"const": 15},
+        "whole_profile_limitations": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "pricing_completeness_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "selected_bundle_count",
+        "price_intent_count",
+        "selection_used_cost",
+        "scope"
+      ],
+      "properties": {
+        "status": {"enum": ["passed", "failed"]},
+        "selected_bundle_count": {"const": 6},
+        "price_intent_count": {"const": 56},
+        "selection_used_cost": {"const": false},
+        "scope": {
+          "const": "incremental embedded domain-event, Event-Layer, bridge, landing, transfer, retention, workflow, device boundary, and observability costs; not full-profile totals"
+        }
+      }
+    },
+    "scenario_result_digest": {"$ref": "#/$defs/digest"},
+    "known_differences": {
+      "type": "array",
+      "minItems": 3,
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "residual_risks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/risk"}
+    },
+    "approved_at": {
+      "oneOf": [
+        {"type": "string", "format": "date-time"},
+        {"const": "not_applicable"}
+      ]
+    },
+    "reviewers": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/review"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"decision_status": {"const": "approved"}},
+        "required": ["decision_status"]
+      },
+      "then": {
+        "properties": {
+          "mandatory_capability_result": {
+            "properties": {"status": {"const": "passed"}}
+          },
+          "pricing_completeness_result": {
+            "properties": {"status": {"const": "passed"}}
+          },
+          "approved_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk_id", "status", "gate", "consequence"],
+      "properties": {
+        "risk_id": {"type": "string", "pattern": "^risk\\."},
+        "status": {
+          "enum": ["open_activation_gate", "accepted_poc_limitation"]
+        },
+        "gate": {"type": "string", "minLength": 1},
+        "consequence": {"type": "string", "minLength": 1}
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_id",
+        "reviewer",
+        "perspectives",
+        "completed_at",
+        "result",
+        "evidence"
+      ],
+      "properties": {
+        "review_id": {"type": "string", "pattern": "^review\\."},
+        "reviewer": {"type": "string", "minLength": 1},
+        "perspectives": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "completed_at": {"type": "string", "format": "date-time"},
+        "result": {"const": "zero_findings"},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

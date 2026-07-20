@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/implementation-component-manifest.schema.json",
+  "title": "Phase 8.9 implementation component manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "manifest_id",
+    "status",
+    "artifact_refs",
+    "contract_targets",
+    "profile_targets",
+    "provider_requirements",
+    "service_components",
+    "runtime_adapters",
+    "logical_edges",
+    "bridge_route_classes",
+    "permission_sets",
+    "file_ownership"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "schemas/implementation-component-manifest.schema.json"
+    },
+    "schema_version": {"const": "implementation-component-manifest.v1"},
+    "manifest_id": {"const": "phase-08-eventing-implementation@1"},
+    "status": {"const": "exact_non_executable_phase_8_9_blueprint"},
+    "artifact_refs": {
+      "type": "array",
+      "minItems": 9,
+      "items": {"$ref": "#/$defs/artifactRef"}
+    },
+    "contract_targets": {
+      "type": "array",
+      "minItems": 10,
+      "items": {"$ref": "#/$defs/contractTarget"}
+    },
+    "profile_targets": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/profileTarget"}
+    },
+    "provider_requirements": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/providerRequirement"}
+    },
+    "service_components": {
+      "type": "array",
+      "minItems": 30,
+      "items": {"$ref": "#/$defs/serviceComponent"}
+    },
+    "runtime_adapters": {
+      "type": "array",
+      "minItems": 9,
+      "items": {"$ref": "#/$defs/runtimeAdapter"}
+    },
+    "logical_edges": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {"$ref": "#/$defs/logicalEdge"}
+    },
+    "bridge_route_classes": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/bridgeRoute"}
+    },
+    "permission_sets": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/permissionSet"}
+    },
+    "file_ownership": {
+      "type": "array",
+      "minItems": 25,
+      "items": {"$ref": "#/$defs/fileOwnership"}
+    }
+  },
+  "$defs": {
+    "provider": {"enum": ["aws", "azure", "gcp"]},
+    "nonEmptyString": {"type": "string", "minLength": 1},
+    "stringArray": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/nonEmptyString"},
+      "uniqueItems": true
+    },
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/nonEmptyString"},
+      "uniqueItems": true
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "path", "schema_version", "digest"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/nonEmptyString"},
+        "path": {
+          "type": "string",
+          "pattern": "^docs/research/evidence/phase_08_eventing/[A-Za-z0-9._/-]+\\.json$"
+        },
+        "schema_version": {"$ref": "#/$defs/nonEmptyString"},
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "contractTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_id", "status", "owner_path"],
+      "properties": {
+        "contract_id": {"$ref": "#/$defs/nonEmptyString"},
+        "status": {
+          "enum": [
+            "evidence_alias",
+            "existing_repository_contract",
+            "planned_phase_8_9_contract"
+          ]
+        },
+        "owner_path": {
+          "type": "string",
+          "pattern": "^(contracts|docs)/[A-Za-z0-9._/-]+$"
+        }
+      }
+    },
+    "profileTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "architecture_definition_path",
+        "deployment_specification_version",
+        "deployment_manifest_version",
+        "legacy_flags",
+        "activation"
+      ],
+      "properties": {
+        "profile_id": {
+          "enum": ["five-layer-baseline@2", "six-layer-eventing@1"]
+        },
+        "architecture_definition_path": {"$ref": "#/$defs/nonEmptyString"},
+        "deployment_specification_version": {
+          "const": "resolved-deployment-specification.v2"
+        },
+        "deployment_manifest_version": {"const": "deployment-manifest.v4"},
+        "legacy_flags": {"const": "rejected"},
+        "activation": {"const": "after_phase_8_8_approval_and_phase_8_9_gates"}
+      }
+    },
+    "terraformProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "version_constraint", "reason"],
+      "properties": {
+        "source": {"$ref": "#/$defs/nonEmptyString"},
+        "version_constraint": {"$ref": "#/$defs/nonEmptyString"},
+        "reason": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "providerRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "region",
+        "terraform_providers",
+        "scenario_modes",
+        "whole_profile_boundary",
+        "preflight_gates"
+      ],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "region": {"$ref": "#/$defs/nonEmptyString"},
+        "terraform_providers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/terraformProvider"}
+        },
+        "scenario_modes": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "whole_profile_boundary": {"$ref": "#/$defs/nonEmptyString"},
+        "preflight_gates": {"$ref": "#/$defs/nonEmptyStringArray"}
+      }
+    },
+    "terraformBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_file",
+        "resource_types",
+        "resource_ids",
+        "input_ids",
+        "output_ids"
+      ],
+      "properties": {
+        "owner_file": {
+          "type": "string",
+          "pattern": "^3-cloud-deployer/src/terraform/[A-Za-z0-9_/-]+\\.tf$"
+        },
+        "resource_types": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "resource_ids": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "input_ids": {"$ref": "#/$defs/stringArray"},
+        "output_ids": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "serviceComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_manifest_id",
+        "bundle_id",
+        "selected_member",
+        "provider",
+        "profile_scope",
+        "responsibility_ids",
+        "logical_component_ids",
+        "deployment_component_id",
+        "catalog_entry_id",
+        "service_id",
+        "terraform",
+        "runtime_adapter_ids",
+        "permission_set_ref",
+        "pricing_intent_ids",
+        "formula_ids",
+        "contract_refs",
+        "region_constraint",
+        "implementation_status"
+      ],
+      "properties": {
+        "component_manifest_id": {
+          "type": "string",
+          "pattern": "^manifest-component\\."
+        },
+        "bundle_id": {"type": "string", "pattern": "^bundle\\."},
+        "selected_member": {"$ref": "#/$defs/nonEmptyString"},
+        "provider": {"$ref": "#/$defs/provider"},
+        "profile_scope": {"enum": ["embedded", "event_layer"]},
+        "responsibility_ids": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "logical_component_ids": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "deployment_component_id": {
+          "type": "string",
+          "pattern": "^deployment\\."
+        },
+        "catalog_entry_id": {
+          "type": "string",
+          "pattern": "^catalog-entry\\."
+        },
+        "service_id": {"$ref": "#/$defs/nonEmptyString"},
+        "terraform": {"$ref": "#/$defs/terraformBinding"},
+        "runtime_adapter_ids": {"$ref": "#/$defs/stringArray"},
+        "permission_set_ref": {
+          "type": "string",
+          "pattern": "^permission\\."
+        },
+        "pricing_intent_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^intent\\."},
+          "uniqueItems": true
+        },
+        "formula_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^formula\\."},
+          "uniqueItems": true
+        },
+        "contract_refs": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "region_constraint": {"$ref": "#/$defs/nonEmptyString"},
+        "implementation_status": {
+          "enum": ["existing_extension_to_modify", "exact_new_phase_8_9_target"]
+        }
+      }
+    },
+    "runtimeAdapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_id",
+        "provider",
+        "role",
+        "trigger",
+        "package_artifact_id",
+        "wrapper_id",
+        "handler_id",
+        "source_path",
+        "envelope_ref",
+        "error_contract_ref",
+        "observability_contract_ref",
+        "cleanup_contract_ref"
+      ],
+      "properties": {
+        "adapter_id": {"type": "string", "pattern": "^adapter\\."},
+        "provider": {"$ref": "#/$defs/provider"},
+        "role": {"enum": ["embedded_domain", "event_delivery", "bridge"]},
+        "trigger": {"$ref": "#/$defs/nonEmptyString"},
+        "package_artifact_id": {"type": "string", "pattern": "^artifact\\."},
+        "wrapper_id": {"type": "string", "pattern": "^wrapper\\."},
+        "handler_id": {"type": "string", "pattern": "^handler\\."},
+        "source_path": {"$ref": "#/$defs/nonEmptyString"},
+        "envelope_ref": {"const": "eventing-envelope.v1"},
+        "error_contract_ref": {"$ref": "#/$defs/nonEmptyString"},
+        "observability_contract_ref": {"$ref": "#/$defs/nonEmptyString"},
+        "cleanup_contract_ref": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "logicalEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_id",
+        "channel_id",
+        "producer_component_id",
+        "consumer_component_ids",
+        "producer_port_id",
+        "consumer_port_ids",
+        "profiles",
+        "five_layer_owner",
+        "six_layer_owner",
+        "envelope_ref",
+        "delivery_contract_ref"
+      ],
+      "properties": {
+        "edge_id": {"type": "string", "pattern": "^edge\\.domain-event\\."},
+        "channel_id": {"$ref": "#/$defs/nonEmptyString"},
+        "producer_component_id": {
+          "type": "string",
+          "pattern": "^component\\."
+        },
+        "consumer_component_ids": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "producer_port_id": {"type": "string", "pattern": "^port\\."},
+        "consumer_port_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^port\\."},
+          "uniqueItems": true
+        },
+        "profiles": {
+          "const": ["five-layer-baseline@2", "six-layer-eventing@1"]
+        },
+        "five_layer_owner": {"enum": ["responsibility.ingestion", "responsibility.processing"]},
+        "six_layer_owner": {"const": "responsibility.eventing"},
+        "envelope_ref": {"const": "eventing-envelope.v1"},
+        "delivery_contract_ref": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "bridgeRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_class_id",
+        "source_provider",
+        "destination_provider",
+        "source_adapter_id",
+        "destination_telemetry_component_ids",
+        "destination_control_component_id",
+        "trust_path_ref",
+        "permission_set_refs",
+        "supported_scenarios",
+        "live_gate"
+      ],
+      "properties": {
+        "route_class_id": {
+          "type": "string",
+          "pattern": "^bridge-route\\."
+        },
+        "source_provider": {"$ref": "#/$defs/provider"},
+        "destination_provider": {"$ref": "#/$defs/provider"},
+        "source_adapter_id": {"type": "string", "pattern": "^adapter\\."},
+        "destination_telemetry_component_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^deployment\\."},
+          "uniqueItems": true
+        },
+        "destination_control_component_id": {
+          "type": "string",
+          "pattern": "^deployment\\."
+        },
+        "trust_path_ref": {"$ref": "#/$defs/nonEmptyString"},
+        "permission_set_refs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"type": "string", "pattern": "^permission\\."},
+          "uniqueItems": true
+        },
+        "supported_scenarios": {
+          "const": ["small", "medium", "large"]
+        },
+        "live_gate": {"const": "required_before_profile_activation"}
+      }
+    },
+    "permissionSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permission_set_id",
+        "provider",
+        "version",
+        "path",
+        "capability_ids",
+        "scope_rule",
+        "credential_rule"
+      ],
+      "properties": {
+        "permission_set_id": {"type": "string", "pattern": "^permission\\."},
+        "provider": {"$ref": "#/$defs/provider"},
+        "version": {"const": "1"},
+        "path": {
+          "type": "string",
+          "pattern": "^3-cloud-deployer/docs/references/permission_sets/[A-Za-z0-9_.-]+\\.json$"
+        },
+        "capability_ids": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "scope_rule": {"const": "exact_resources_no_wildcard_management_plane"},
+        "credential_rule": {"const": "short_lived_workload_identity_only"}
+      }
+    },
+    "fileOwnership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "operation", "slice", "owner", "purpose"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(contracts|scripts|2-twin2clouds|twin2multicloud_backend|3-cloud-deployer|twin2multicloud_flutter|docs)/"
+        },
+        "operation": {"enum": ["new", "modify"]},
+        "slice": {"enum": ["8.9A", "8.9B", "shared"]},
+        "owner": {
+          "enum": [
+            "contracts",
+            "optimizer",
+            "management",
+            "deployer",
+            "terraform",
+            "flutter",
+            "tests",
+            "documentation"
+          ]
+        },
+        "purpose": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    }
+  }
+}

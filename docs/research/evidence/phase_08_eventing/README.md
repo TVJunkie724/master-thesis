@@ -9,13 +9,14 @@ This directory is the working evidence package for Phase 8.8 and GitHub issue
 
 **Regions:** AWS `eu-central-1`, Azure `westeurope`, GCP `europe-west1`
 
-**Current decision status:** `bridge-selected-manifest-and-review-pending`
+**Current decision status:** `approved`
 
-The capability, compatibility, theoretical-capacity, source, and normalized
-pricing reviews below are complete enough to nominate provider bundles. It is
-not the final Phase 8.8 approval. The bridge/envelope decision is now frozen in
-`bridge-decision.json`; the implementation-component manifest, the complete
-package validator, and the independent approval reviews are still required.
+The capability, compatibility, theoretical-capacity, source, normalized
+pricing, bridge, implementation-blueprint, and reproducibility reviews are
+complete. `decision.json` approves the offline evidence package and exact
+non-executable Phase 8.9 blueprint. It does not claim that runtime code,
+Terraform, provider identity exchange, or live capacity has been implemented
+or verified.
 
 No runtime code or cloud resource is changed by this evidence.
 
@@ -521,20 +522,36 @@ them.
 | BifroMQ broker-session state as the end-to-end command owner | Rejected | Pub/Sub remains the durable owner until the correlated device outcome; broker state is a delivery optimization rather than the acknowledgement boundary. |
 | Long-lived cross-cloud keys/secrets | Rejected | Every candidate direction has a short-lived federation primitive; exact claim mappings must still pass their explicit gates. |
 
-## Remaining Approval Work
+## Approval Outcome
 
-The provider bundles pass the current functional and theoretical-capacity
-review with the explicit trust and hosted-broker conditions above. Source
-captures and digests, the Apache license/incubation record, normalized pricing,
-formula and unit rules, and schemas for the current artifacts now exist and
-pass their current offline checks. Phase 8.8 is not yet `approved` because the
-following evidence is still missing:
+`implementation-component-manifest.json` maps all 33 selected service
+components, nine runtime adapters, eight logical edges, six directed bridge
+route classes, three permission sets, contract targets, provider-version
+requirements, and the exact Phase 8.9 file owners. The package validator checks
+every schema and digest, source/formula/price/capability reference, selected
+bundle member, contract and adapter reference, Terraform resource ID, file
+owner, profile/scenario/provider matrix, and the byte-identical calculator
+result.
 
-1. the exact Terraform/provider/runtime/permission component manifest;
-2. the complete-package validator; and
-3. two zero-finding reviews of the complete package.
+Two separate zero-finding passes are recorded in `decision.json`:
 
-No selected bundle may enter optimizer ranking before those gates pass.
+1. architecture, provider compatibility, security, and implementation
+   ownership;
+2. pricing completeness, reproducibility, thesis validity, and documentation
+   scope.
+
+The reproducible offline gate is:
+
+```bash
+docker run --rm -i -v "$PWD:/workspace" -w /workspace \
+  2twin2clouds:latest \
+  python scripts/phase_08_eventing/validate_decision_package.py --strict
+```
+
+Approval allows Phase 8.9 implementation planning to be consumed. Profile
+activation remains fail-closed until the six directed live identity exchanges,
+provider preflight, ordering/failure tests, and supervised Large-capacity
+tests recorded as residual risks have passed.
 
 ## Primary Sources
 
