@@ -2,8 +2,8 @@
 title: "Phase 8.3: Provider Profiles And Deployment Component Catalog"
 description: "Implementation plan for explicit AWS, Azure, and GCP baseline implementations and a deterministic deployment component catalog."
 tags: [architecture, provider-profiles, component-catalog, deployer, optimizer, issue-150]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.0"
 - GitHub issue #113 user-function extension prerequisite
 - Current provider capability, package registry, Terraform, permission, and resolved-deployment-specification matrices
 - 2-twin2clouds and 3-cloud-deployer provider implementations
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-20 | VERSION: 1.1
 -->
 
 # Phase 8.3: Provider Profiles And Deployment Component Catalog
@@ -204,7 +204,7 @@ For every retained Phase 8.1 edge/provider combination, register:
 - trust/auth capability;
 - transfer route class and formula/evidence refs;
 - operation correlation and log/metric contract;
-- required glue/adapter component IDs;
+- required transition-adapter/bridge component IDs;
 - source/destination provider constraints.
 
 An edge implementation must not contain a formatted resource name, URL,

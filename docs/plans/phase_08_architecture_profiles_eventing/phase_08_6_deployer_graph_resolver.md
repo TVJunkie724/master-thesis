@@ -2,8 +2,8 @@
 title: "Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight"
 description: "Implementation plan for deterministic graph resolution, package binding, and fail-closed Terraform preflight."
 tags: [architecture, deployer, graph, manifest, terraform, preflight, issue-152]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - Phase 8.5 ResolvedTwinArchitecture output
 - contracts/deployment-manifest and contracts/resolved-deployment-specification
 - Current Deployer package, operation-state, Terraform, logging, and ephemeral-workspace boundaries
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-20 | VERSION: 1.1
 -->
 
 # Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight
@@ -25,9 +25,9 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Issue | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branch | `codex/phase-8-deployer-graph-resolver` |
-| Base branch | `master` |
+| Branch base | Reviewed Phase 8.5 implementation plus the approved Phase 8.8 planning/evidence commit; the branch ultimately targets `master` |
 | Blocked by | Phase 8.5 / #151 |
-| Produces | Executable profile-driven baseline for Flutter and Eventing gate |
+| Produces | Executable profile-driven baseline for Flutter and the later Eventing implementation |
 | Live cloud E2E | Forbidden |
 
 All graph, manifest, binding, package, Terraform, state, error, security, and

@@ -23,15 +23,17 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 Phase 8 has started. The source-backed current deployment graph in #144, the
 complete `five-layer-baseline@1` target decision in #139, the four drift-gated
 architecture-profile contracts in #149, the deterministic user-function
-prerequisite #113, and the exact provider/component catalog in #150 are locally
-implemented and reviewed. Phase 8.4 adds migration 022, revisioned Management
-profile selection/invalidation, immutable resolved-architecture persistence,
-owner-scoped APIs, and audited compatibility projections. Optimizer resolution
-in Phase 8.5 is next and remains dark until joint Phase 8.6 activation;
-Deployer and Flutter activation also remain dark. Credential, remaining
-Optimizer coverage, manual UI audit, and external authentication work remain
-independently tracked in their GitHub milestones rather than inferred from one
-global "current phase" label.
+prerequisite #113, the exact provider/component catalog in #150, Management
+persistence in #142, and default-off Optimizer profile resolution in #151 are
+locally implemented and reviewed. The Phase 8.8 offline decision package also
+freezes the event-enabled five-layer control, the six-layer treatment, six
+provider bundles, the exact source-owned cross-cloud bridge, and its
+Small/Medium/Large evidence without claiming runtime or live-cloud support.
+Phase 8.6 graph resolution is next, followed by the Phase 8.7 Flutter workflow;
+runtime profile activation remains dark until those gates pass. Credential,
+remaining Optimizer coverage, manual UI audit, and external authentication work
+remain independently tracked in their GitHub milestones rather than inferred
+from one global "current phase" label.
 
 ## Backlog Rule
 

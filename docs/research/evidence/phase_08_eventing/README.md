@@ -84,7 +84,7 @@ billed invocation per delivery attempt. AWS Lambda and Azure Functions apply
 their own billing allocations and duration blocks, while Google Cloud Run uses
 the reviewed request-based resource allocation. The adapter is separate from
 the domain processor so its incremental cost cannot disappear as unpriced
-glue.
+transition work.
 
 ## Corrected Capacity Basis
 

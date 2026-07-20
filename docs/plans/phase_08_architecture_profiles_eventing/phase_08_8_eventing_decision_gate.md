@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.6"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.6"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.6
+EXTRACTED: 2026-07-20 | VERSION: 1.7
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -29,7 +29,8 @@ EXTRACTED: 2026-07-20 | VERSION: 1.6
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branch | `codex/phase-8-eventing-decision-gate` |
 | Base branch | `master` |
-| Blocked by | Phase 8.6 / #152 |
+| Evidence status | Approved offline on 2026-07-20 as `phase-08-eventing-decision@1` |
+| Implementation ordering | Phase 8.6 / #152 and Phase 8.7 / #138 still block Phase 8.9 activation; completing this offline evidence early does not bypass them |
 | Produces | Shared domain-event contract plus approved or rejected `five-layer-baseline@2` and `six-layer-eventing@1` decision package |
 | Live cloud E2E | Forbidden |
 
@@ -850,11 +851,16 @@ committed decision record, not a chat statement.
 Safe verification:
 
 ```bash
-python scripts/phase_08_eventing/validate_decision_package.py --strict
-python scripts/phase_08_eventing/calculate_scenarios.py --check
-python scripts/phase_08_eventing/verify_sources.py --offline --strict
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 \
-  python -m pytest tests/unit/pricing tests/unit/calculation_v2 -v
+docker run --rm -i -v "$PWD:/workspace" -w /workspace \
+  2twin2clouds:latest \
+  sh -lc '
+    python scripts/phase_08_eventing/verify_sources.py --offline --strict &&
+    python scripts/phase_08_eventing/calculate_scenarios.py --check &&
+    python scripts/phase_08_eventing/validate_decision_package.py --strict &&
+    python -m pytest \
+      scripts/phase_08_eventing/tests/test_calculate_scenarios.py \
+      scripts/phase_08_eventing/tests/test_validate_decision_package.py -q
+  '
 ```
 
 The online source-refresh mode may perform read-only public documentation and
@@ -884,45 +890,72 @@ This phase is additive evidence only. Rollback means:
 
 ## 18. Definition Of Done
 
-- [ ] `five-layer-baseline@1` remains immutable historical evidence.
-- [ ] `five-layer-baseline@2` and `six-layer-eventing@1` share one exact,
+- [x] `five-layer-baseline@1` remains immutable historical evidence.
+- [x] `five-layer-baseline@2` and `six-layer-eventing@1` share one exact,
       versioned domain-event behavior contract.
-- [ ] Rule evaluation, extension action, notification workflow, and
+- [x] Rule evaluation, extension action, notification workflow, and
       device-command feedback are mandatory components in both new profiles,
       while action invocations remain match-driven.
-- [ ] The three legacy Eventing feature flags are absent from new-profile
+- [x] The three legacy Eventing feature flags are absent from new-profile
       contracts and retained only for historical read/destroy compatibility.
-- [ ] The Eventing workload and capability contracts are channel-aware, exact,
+- [x] The Eventing workload and capability contracts are channel-aware, exact,
       and versioned; fan-out and cross-cloud routes are graph-derived.
-- [ ] Primary-source evidence is current, direct, digest-pinned, and classified.
-- [ ] AWS, Azure, and GCP candidate families and rejected alternatives are
+- [x] Primary-source evidence is current, direct, digest-pinned, and classified.
+- [x] AWS, Azure, and GCP candidate families and rejected alternatives are
       represented without assumed one-to-one equivalence.
-- [ ] Embedded-event and Event-Layer bundles are evaluated separately for
+- [x] Embedded-event and Event-Layer bundles are evaluated separately for
       single-cloud, all six directed provider pairs, and admissible
       three-provider paths.
-- [ ] Small, Medium, and Large capacity is proven before cost is reported.
-- [ ] Cost is recorded as an outcome and is not used to reject an otherwise
+- [x] Small, Medium, and Large theoretical capacity is proven before cost is
+      reported; supervised live capacity remains an activation gate.
+- [x] Cost is recorded as an outcome and is not used to reject an otherwise
       valid PoC bundle.
-- [ ] Every mandatory capability is supplied by a named, deployable bundle
+- [x] Every mandatory capability is supplied by a named, deployable bundle
       member or the candidate is rejected.
-- [ ] Every fixed, variable, tiered, transfer, adapter, retention, replay, DLQ,
+- [x] Every fixed, variable, tiered, transfer, adapter, retention, replay, DLQ,
       and observability cost has one owner and evidence/formula references.
-- [ ] Official non-fetchable prices are reviewed static evidence, never hidden
+- [x] Official non-fetchable prices are reviewed static evidence, never hidden
       fallbacks.
-- [ ] All three scenario calculations are field-traceable and reproducible.
-- [ ] The canonical event envelope, edge semantics, and bridge ownership are
+- [x] All three scenario calculations are field-traceable and reproducible.
+- [x] The canonical event envelope, edge semantics, and bridge ownership are
       fully decided.
-- [ ] The implementation component manifest pins exact cross-project IDs,
+- [x] The implementation component manifest pins exact cross-project IDs,
       resource types, adapters, packages, permissions, ports, bindings, file
       targets, and verification ownership for every selected bundle member.
-- [ ] Trust, retry, DLQ, replay, idempotency, ordering, observability, transfer,
+- [x] Trust, retry, DLQ, replay, idempotency, ordering, observability, transfer,
       and failure behavior are explicit.
-- [ ] `decision.json` is approved only if all three embedded-event and all
+- [x] `decision.json` is approved only if all three embedded-event and all
       three Event-Layer provider bundles pass their applicable contracts.
-- [ ] Schema, reference, capability, pricing, formula, unit, scenario,
+- [x] Schema, reference, capability, pricing, formula, unit, scenario,
       reproducibility, security, and documentation tests pass.
-- [ ] No runtime code, Terraform, cloud credential, cloud resource, paid API,
+- [x] No runtime code, Terraform, cloud credential, cloud resource, paid API,
       or live E2E operation is introduced.
-- [ ] Research notes, source ledger, roadmap, and #146 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #146.
+- [x] Research notes, source ledger, roadmap, and #146 are updated.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commit references #146.
+
+## 19. Completion Evidence
+
+- Approved decision: `phase-08-eventing-decision@1`, normalized digest
+  `sha256:cf9a9bd7b9d385794747bd0b564a58019fb395b8daf128977aa728f6d84a7e6c`.
+- Exact non-executable blueprint:
+  `phase-08-eventing-implementation@1`, normalized digest
+  `sha256:cfaa4459f6d06ff920d5d1ed5295ee21448329754071d024753ef318dd0eb7eb`.
+- Scenario result digest:
+  `sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5`.
+- Strict offline verification covers 12 decision artifacts, 60 frozen
+  primary-source records, all three single-cloud cases, all six directed
+  pairs, six closed-world three-provider placements, three workloads, 33
+  selected service components, nine adapters, eight domain edges, six bridge
+  route classes, and exact file/test ownership.
+- Twenty focused calculator and package-validator tests pass, including
+  negative digest, route, ownership, contract, adapter, and secret cases.
+- Two separate reviews recorded in `decision.json` report `zero_findings`:
+  architecture/provider/security/ownership and
+  pricing/reproducibility/thesis/documentation.
+- Commit `28a76ea6` approves the offline gate and references #146. Runtime,
+  Terraform, live identity exchange, and supervised capacity remain outside
+  this completed evidence phase.
+- GitHub issue #146 records the exact decision, blueprint, and scenario digests,
+  the strict OrbStack result, and the remaining Phase 8.6/8.7/8.9A runtime
+  gates; it remains open until the local evidence is published or merged.

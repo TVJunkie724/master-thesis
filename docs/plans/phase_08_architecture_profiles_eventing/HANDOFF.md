@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-20"
-version: "2.7"
+version: "2.8"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.7"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-20 | VERSION: 2.7
+EXTRACTED: 2026-07-20 | VERSION: 2.8
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,12 +28,12 @@ EXTRACTED: 2026-07-20 | VERSION: 2.7
 | Integration branch | `master` |
 | Planning base | `5e675e77` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Completed implementation | Phase 8.0 / #144 through Phase 8.4 / #142, plus local prerequisite #113 |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.5 / #151, plus prerequisite #113; open issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.4 is complete; Phase 8.5 Optimizer resolution is in progress; Eventing parity planning is reviewed before Phase 8.8 evaluation |
-| Next implementation phase | Phase 8.5 / [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) |
+| Implementation status | Phase 8.5 is implemented as a default-off architecture resolution path; Phase 8.8 is an approved offline decision package; Phase 8.6 and 8.7 still block runtime profile activation |
+| Next implementation phase | Phase 8.6 / [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -75,27 +75,47 @@ evidence; all others are `legacy_not_resolvable` and deselected. The old seven
 fields are now a tracked baseline compatibility projection, not a generic
 architecture model.
 
+Phase 8.5 adds the profile-bounded Optimizer strategy, pre-ranking functional
+completeness, deterministic candidate resolution, exact cost and rejection
+evidence, `ResolvedTwinArchitecture v1`, and default-off Management admission.
+The repository-backed runtime path remains deliberately dark until Phase 8.6
+provides the typed Deployer graph compiler and promotes the reviewed provider
+profiles.
+
+Phase 8.8 is approved independently as an offline evidence gate. Its twelve
+schema-validated artifacts freeze `five-layer-baseline@2`,
+`six-layer-eventing@1`, all six selected AWS/Azure/GCP bundles, all eight domain
+channels, the exact source-owned bridge runtimes and destination broker APIs,
+60 reviewed primary sources, Small/Medium/Large calculations, an exact
+non-executable Phase 8.9 component manifest, and two zero-finding review
+records. This approval does not bypass Phases 8.6 or 8.7 and does not claim
+live-cloud identity or capacity verification.
+The stale native `#146 blocked by #152` relationship was removed because the
+offline evidence is complete independently; #138 and the future 8.9A issue
+still enforce the runtime implementation order.
+
 ## Immediate Next Action
 
-The next implementation step is Phase 8.5:
+The next implementation step is Phase 8.6:
 
-1. create the Phase 8.5 branch from the reviewed Phase 8.4 commit;
+1. create the Phase 8.6 branch from the reviewed Phase 8.5 plus Phase 8.8
+   planning/evidence commit;
 2. read
-   [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md)
+   [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)
    in full;
-3. verify the Phase 8.4 Management models, migration, API DTOs, and admission
-   invariants;
-4. implement profile-bounded functional-completeness resolution in the
-   Optimizer without activating Deployer graph execution;
-5. emit the exact immutable architecture contract and preserve the frozen
-   five-layer golden behavior;
-6. integrate Management admission behind a default-off gate; do not bypass
-   the still-unsupported repository provider profiles;
-7. run the named Optimizer, Management, contract, security, and compatibility
-   gates;
+3. verify the Phase 8.5 default-off Optimizer/Management architecture output
+   and the Phase 8.4 fixed-field reader inventory;
+4. implement Manifest v3, deterministic graph/binding resolution, package
+   selection, typed Terraform input translation, and frozen operation evidence;
+5. promote only provider profiles whose graph/package/no-apply Terraform gates
+   pass and enable architecture-aware calculation admission atomically;
+6. remove executable `cheapest_l*`/`layer_*_provider` ownership while retaining
+   historical read/destroy compatibility;
+7. run the named contract, Management, Deployer, package, security, Terraform
+   no-apply, compatibility, and regression gates;
 8. run two zero-finding reviews;
-9. update current docs, evidence, roadmap, and issue #151;
-10. commit the complete Phase 8.5 boundary before starting Phase 8.6.
+9. update current docs, evidence, roadmap, and issue #152;
+10. commit the complete Phase 8.6 boundary before starting Phase 8.7.
 
 ## Required Reading Order
 
@@ -230,9 +250,10 @@ Native dependency direction:
 
 ```text
 #144 -> #139 -> #149 -> #150 -> #142 -> #151 -> #152
-                     ^                          |       |
-                     |                          |       +-> #146 --+
-                    #113                        +-> #138 -----------+-> #140 -> #148 -> #112
+                     ^                                  |
+                     |                                  +-> #138 --+
+                    #113                                           +-> 8.9A -> #140 -> #148 -> #112
+            #146 --------------------------------------------------+
 ```
 
 Do not replace native blockers with comments or body text. Do not add a blocker
@@ -338,7 +359,7 @@ artifacts, or historical run evidence.
 
 ## Eventing Boundary
 
-Phase 8.8 is a decision gate, not implementation. It must establish:
+Phase 8.8 is an approved decision gate, not implementation. It establishes:
 
 - the immutable role of `five-layer-baseline@1`;
 - one shared domain-event behavior contract for
@@ -355,7 +376,9 @@ Phase 8.8 is a decision gate, not implementation. It must establish:
 - one provider-neutral event envelope and edge contract;
 - retry, DLQ, replay, idempotency, ordering, schema, trust, and observability
   semantics;
-- one explicit multi-cloud bridge decision;
+- one exact multi-cloud bridge decision with source-broker triggers,
+  provider-specific forwarder runtimes, destination broker data-plane APIs,
+  short-lived identity exchanges, and destination-acceptance acknowledgement;
 - reproducible scenario calculations;
 - capacity evidence for Small, Medium, and Large before cost reporting;
 - same-cloud, all six directed provider-pair, and admissible three-provider
@@ -366,14 +389,16 @@ Official static provider prices are allowed when the provider offers no
 machine-readable source, but they are reviewed, versioned evidence. They are
 never a silent fallback.
 
-Phase 8.9 may start only after `decision.json` is explicitly approved and all
+`decision.json` is explicitly approved and all
 AWS, Azure, and GCP embedded-event and Event-Layer bundles satisfy their
-applicable capability contracts. 8.9A and 8.9B use separate branches, reviews,
-and clean commits. This does not imply that an all-GCP whole Twin path exists.
+applicable offline capability contracts. Phase 8.9 still waits for Phase 8.7,
+its new 8.9A issue, and closed native blockers. 8.9A and 8.9B use separate
+branches, reviews, and clean commits. This does not imply that an all-GCP whole
+Twin path exists.
 Whole paths remain positive only where the full profile capability matrix
 supports every responsibility.
 
-Phase 8.8 must also produce
+Phase 8.8 also produced
 `implementation-component-manifest.json`. It pins every selected service,
 resource type, catalog/component ID, adapter, package, permission, formula,
 port, binding, repository file target, and test owner. Phase 8.9 may not start
@@ -428,6 +453,11 @@ docker compose --profile docs run --rm docs mkdocs build --strict
 Each phase plan lists narrower commands and fixtures. Before running Docker
 commands, resolve current Compose service names yourself. Do not ask the user
 to execute commands.
+
+Run Management pytest commands that use the default repository-local
+`./test.db` serially with `./thesis.sh test deployment-contract` in one
+worktree. Their create/drop lifecycle is not a parallel-safe shared database
+boundary.
 
 Never run:
 
@@ -544,11 +574,12 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Phase 8.0 bis 8.4 und das User-Function-Prerequisite #113 sind implementiert
-> und reviewt; Phase 8.5 ist in Arbeit. Fuer Phase 8.8 ist jetzt fest geplant:
+> Phase 8.0 bis 8.5 und das User-Function-Prerequisite #113 sind implementiert
+> und reviewt; Phase 8.8 ist als Offline-Entscheidungspaket freigegeben.
 > `five-layer-baseline@1` bleibt historische Evidenz,
 > `five-layer-baseline@2` und `six-layer-eventing@1` teilen dieselben
 > verpflichtenden Rule-/Action-/Workflow-/Feedback-Funktionen, und nur das
 > Six-Layer-Profil besitzt eine unabhaengige Eventing-Verantwortung. Als
-> naechstes folgt die Provider-, Kapazitaets- und Bridge-Evaluation; Runtime,
-> Live-Cloud-E2E und LaTeX bleiben unangetastet.
+> naechstes folgt Phase 8.6 mit Manifest v3 und dem Deployer-Graph-Resolver;
+> 8.7 und beide 8.9-Branches bleiben danach in dieser Reihenfolge. Live-Cloud-
+> E2E und LaTeX bleiben unangetastet.

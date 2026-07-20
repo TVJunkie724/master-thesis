@@ -6,8 +6,10 @@ This research note records a source-based assessment of the Digital Twin
 decomposition used by Twin2MultiCloud. It is input for the later thesis
 synthesis and the architecture audit in GitHub issue
 [#112](https://github.com/TVJunkie724/master-thesis/issues/112), not a decision
-to replace the implemented architecture. It is deliberately not part of the
-published user and developer documentation.
+to replace the implemented architecture by itself. The note began as
+pre-decision research; its final section now records the separately reviewed
+Phase 8.8 decision. It is deliberately not part of the published user and
+developer documentation.
 
 The related implementation hardening for user-provided function logic,
 provider packaging, and infrastructure-owned bindings is tracked in GitHub
@@ -1239,7 +1241,8 @@ failure domains, the architecture representation must also become richer.
   boundaries, or merely historical module boundaries?
 - What is the minimum functional completeness contract for every compared
   provider implementation?
-- Which deployed services span several layers or exist only as cross-cloud glue?
+- Which deployed services span several layers or exist only as explicit
+  cross-cloud transition adapters?
 - Does each provider-layer result describe a genuinely deployable equivalent?
 - Which provider-native integrations remove resources or transfer edges?
 - Which existing and proposed connections from `LE` to L1-L5 are mandatory for
@@ -1258,15 +1261,41 @@ failure domains, the architecture representation must also become richer.
 
 ## Current Research State
 
-No current implementation contract is changed by this review.
+The initial research review did not change an implementation contract. The
+subsequent Phase 8.0-8.8 work has now separated three exact profile roles:
 
-The five-layer model remains necessary as the current paper-compatible baseline.
-A nonlinear `LE` Eventing and Messaging Layer is now a serious bounded research
-candidate, not an approved implementation contract. The existing system must be
-stabilized first. Stabilization preserves the five functional and cost
-boundaries but does not pre-approve the inherited direct-call topology; that
-decision requires the Function-and-Edge Matrix and explicit baseline edge
-contracts. The capability matrix, scenario cost matrix, architecture audit, and
-multi-cloud bridge design will then determine the Eventing contract and one
-curated implementation profile per provider. General topology optimization
-remains a separate future research direction.
+- `five-layer-baseline@1` remains immutable historical/paper-compatible
+  evidence and retains its reviewed legacy event-check/feedback support and
+  omission decisions exactly as frozen;
+- `five-layer-baseline@2` is the approved fair-comparison control with
+  mandatory embedded rule evaluation, extension action, notification
+  workflow, and device-command feedback; and
+- `six-layer-eventing@1` provides the same domain-event behavior while adding
+  an independent nonlinear Eventing responsibility.
+
+Phase 8.8 approved `phase-08-eventing-decision@1` as an offline evidence
+package and exact non-executable Phase 8.9 blueprint. It selects one embedded
+bundle and one Event-Layer bundle for each of AWS, Azure, and GCP, covers all
+three single-cloud cases, all six directed provider pairs, admissible
+three-provider placements, and Small/Medium/Large scenarios, and records cost
+as an evaluation result rather than a selection criterion.
+
+The cross-cloud boundary is no longer unspecified glue. A source-owned durable
+outbox triggers a source-provider forwarder runtime; that runtime validates the
+canonical envelope and route, obtains a short-lived destination credential,
+publishes through the destination broker's data-plane SDK, and acknowledges
+the source only after durable destination acceptance. Public
+function-to-function calls, a public ingestion endpoint, destination-owned
+pull, and static cloud keys are forbidden.
+
+This approval is deliberately not a claim that Eventing is implemented or
+live-verified. Phase 8.6 and Phase 8.7 still precede Phase 8.9 activation. All
+six directed workload-identity exchanges, the theoretical Large allocations,
+and the GCP hosted BifroMQ device boundary remain explicit implementation or
+supervised-live gates. General topology optimization remains a separate future
+research direction.
+
+The thesis does not need to catalogue every potentially relevant provider
+service. It evaluates one bounded, justified composition per provider.
+Alternative services remain visible as rejected or theory-only candidates
+without becoming executable Optimizer or Deployer choices.

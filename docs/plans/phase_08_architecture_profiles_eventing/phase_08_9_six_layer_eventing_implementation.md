@@ -3,7 +3,7 @@ title: "Phase 8.9: Implement The Event-Enabled Comparison Profiles"
 description: "Implementation plan for five-layer-baseline@2 and six-layer-eventing@1 using one approved domain-event contract and separate architecture ownership."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-07-20"
-version: "1.2"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.2"
 - User-approved bounded six-layer profile with no arbitrary graph editor
 - User-approved event-enabled five-layer @2 comparison profile, shared
   domain-event behavior, and separate 8.9A/8.9B implementation boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.2
+EXTRACTED: 2026-07-20 | VERSION: 1.4
 -->
 
 # Phase 8.9: Implement The Event-Enabled Comparison Profiles
@@ -27,7 +27,7 @@ EXTRACTED: 2026-07-20 | VERSION: 1.2
 | Issues | New `five-layer-baseline@2` implementation issue required before execution; [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branches | 8.9A `codex/phase-8-five-layer-baseline-v2`; 8.9B `codex/phase-8-six-layer-eventing` |
-| Base branch | `master` |
+| Branch bases | 8.9A starts from the reviewed Phase 8.7 boundary plus the approved Phase 8.8 package; 8.9B starts from the reviewed 8.9A commit; both ultimately target `master` |
 | Blocked by | Phase 8.7 / #138 and approved Phase 8.8 / #146 |
 | Produces | Executable closed-world `five-layer-baseline@2` and `six-layer-eventing@1` |
 | Targets | AWS/Azure/GCP Eventing bundles, admissible whole paths, Web, macOS, Windows, Linux |
@@ -94,12 +94,28 @@ Implementation may start only when:
 10. no native blocker is open.
 
 The implementation must verify these conditions through
-`scripts/phase_08_eventing/validate_decision_package.py --strict` before any
-runtime file is changed. A rejected or stale decision aborts the phase.
+the OrbStack-backed command below before any runtime file is changed:
+
+```bash
+docker run --rm -i -v "$PWD:/workspace" -w /workspace \
+  2twin2clouds:latest \
+  python scripts/phase_08_eventing/validate_decision_package.py --strict
+```
+
+A rejected or stale decision aborts the phase.
 No builder may substitute a provider service, invent an unlisted file target,
 or reinterpret an unresolved manifest entry. Such a finding reopens Phase 8.8
 and creates a new immutable decision-package version before implementation
 continues.
+
+The reviewed Phase 8.8 inputs are:
+
+| Artifact | Pinned value |
+|---|---|
+| Decision | `phase-08-eventing-decision@1`, normalized digest `sha256:cf9a9bd7b9d385794747bd0b564a58019fb395b8daf128977aa728f6d84a7e6c` |
+| Implementation blueprint | `phase-08-eventing-implementation@1`, normalized digest `sha256:cfaa4459f6d06ff920d5d1ed5295ee21448329754071d024753ef318dd0eb7eb` |
+| Scenario result | `sha256:bc4102c52f4f759b0726f73b7dd8587689eb4fb09d0a707dba0baec9896308c5` |
+| Decision scope | Offline evidence and non-executable blueprint; live identity and capacity remain activation gates |
 
 ## 3. Fixed Architecture
 
@@ -415,6 +431,27 @@ must have:
 - pricing/formula/specification dimension refs;
 - dependency and lifecycle stages.
 
+### 7.1 Exact Selected Bundles And Provider Versions
+
+The implementation must use these bundle members exactly:
+
+| Scope | AWS | Azure | GCP |
+|---|---|---|---|
+| Embedded `five-layer-baseline@2` | IoT Core, Lambda, Step Functions Standard, IoT Commands, SQS FIFO, CloudWatch | IoT Hub, Functions Flex Consumption, Logic Apps Consumption, Service Bus Standard, Azure Monitor | Pub/Sub, Cloud Run, Workflows, GKE Standard, Apache BifroMQ `4.0.0-incubating`, Cloud Load Balancing, Cloud Logging |
+| `six-layer-eventing@1` Event Layer | Kinesis Data Streams, SNS FIFO, SQS FIFO, S3 failure destination, Lambda, CloudWatch | Event Hubs Standard for Small/Medium, Event Hubs Dedicated for Large, Service Bus Standard, Functions Flex Consumption, Azure Monitor | Pub/Sub, Cloud Run services, Cloud Run worker pools, Cloud Logging |
+
+Provider plugins are pinned by the implementation manifest:
+
+| Provider | Required versions | Binding consequence |
+|---|---|---|
+| AWS | `hashicorp/aws = 6.53.0`, `hashicorp/awscc = 1.90.0` | `aws_iam_outbound_web_identity_federation` and `awscc_iot_command` are required |
+| Azure | `hashicorp/azurerm = 4.81.0`, `Azure/azapi = 2.10.0` | The six-CU Dedicated Event Hubs cluster uses `azapi_resource`; `azurerm_eventhub_cluster` cannot express the reviewed capacity |
+| GCP | `hashicorp/google = 7.39.0`, `hashicorp/kubernetes = 3.2.1`, `hashicorp/helm = 3.2.0` | Cloud Run v2 worker pools and the explicit BifroMQ/GKE/Load-Balancer boundary are required |
+
+Every selected service-component instance maps to exactly one of the 33
+service-component records in `implementation-component-manifest.json`. A
+bundle member absent from that manifest is not an implementation option.
+
 The existing generic `ResolvedDeploymentGraph v1` remains valid. Add Eventing
 nodes and edges through catalog data, not switch statements on `eventing`.
 
@@ -459,18 +496,55 @@ approved consumer components through #113 contracts.
 Implement the exact Phase 8.8 ownership decision as one registered bridge
 component per cross-provider route class.
 
-The bridge must:
+The bridge is not a public function endpoint and is not destination-owned
+pulling. Its fixed flow is:
 
-- authenticate through the approved short-lived/provider identity mechanism;
-- validate destination allowlist and TLS;
-- validate and forward the canonical envelope;
-- acknowledge the source only at the approved delivery boundary;
-- enforce retry, backoff, circuit-break, backpressure, DLQ, and redrive;
-- preserve idempotency and explicitly document ordering degradation;
-- propagate trace/correlation IDs;
-- emit secret/payload-free audit evidence;
-- account for source egress, bridge compute, and destination ingress exactly
-  once.
+```text
+source durable outbox/broker
+  -> source-provider runtime trigger
+  -> envelope and route validation
+  -> short-lived destination credential
+  -> destination broker data-plane publish
+  -> wait for durable destination acceptance
+  -> acknowledge/checkpoint the source
+```
+
+The source runtime and destination APIs are exact:
+
+| Source provider | Source trigger and runtime | Cross-provider destination APIs used by that runtime | Source acknowledgement |
+|---|---|---|---|
+| AWS | Kinesis event-source mapping for telemetry; SNS FIFO archive plus bridge-owned SQS FIFO subscription and Lambda SQS mapping for control; batch maximum 10, Kinesis `ParallelizationFactor=1` | Azure: Event Hubs or Service Bus producer SDK; GCP: ordered Pub/Sub publisher | Kinesis checkpoint/partial batch success or SQS delete only after destination acceptance |
+| Azure | Event Hubs or session-enabled Service Bus trigger on Functions Flex Consumption; batch maximum 10 | AWS: Kinesis `PutRecord` or SNS FIFO `Publish`; GCP: ordered Pub/Sub publisher | Event Hubs checkpoint or Service Bus manual completion only after destination acceptance |
+| GCP Small/Medium and Large control | IAM-authenticated Pub/Sub push invokes a Cloud Run service with one message per request | AWS: Kinesis `PutRecord` or SNS FIFO `Publish`; Azure: Event Hubs or Service Bus producer SDK | HTTP success only after destination acceptance |
+| GCP Large telemetry | Pub/Sub ordered StreamingPull subscription consumed by a Cloud Run worker pool; 21 workers per telemetry channel in the reviewed bridge scenario | AWS: Kinesis `PutRecord`; Azure: Event Hubs producer SDK | Per-message StreamingPull acknowledgement only after destination acceptance |
+
+A same-provider edge publishes and consumes through the selected local broker
+path. It creates no bridge forwarder, workload-identity exchange, or
+cross-cloud egress contribution.
+
+Telemetry lands in Kinesis, Event Hubs, or Pub/Sub with `device_id` as the
+partition/ordering key. Control/action/command traffic lands in SNS/SQS FIFO,
+Service Bus sessions, or ordered Pub/Sub. The six directed route classes and
+their exact trust paths are AWS→Azure, AWS→GCP, Azure→AWS, Azure→GCP,
+GCP→AWS, and GCP→Azure; all are capability-admissible but remain live-tested
+activation gates.
+
+Every bridge runtime must:
+
+- validate the destination allowlist, region-pinned SDK endpoint, normal TLS
+  certificate/hostname chain, envelope, schema, route, and size;
+- cache only short-lived credentials in memory, discarding them at expiry
+  minus five minutes or after one hour, whichever occurs first;
+- enforce retry, backoff, circuit-break, backpressure, terminal source DLQ,
+  and audited redrive;
+- preserve `event_id`, `invocation_id`, correlation, trace, device key, and
+  replay identity; explicit redrive uses `event_id + replay_id_or_live` for
+  FIFO transport deduplication;
+- resume GCP ordering keys after publish errors and emit an ordering-degraded
+  terminal outcome when a key cannot progress;
+- emit only bounded payload/credential/endpoint-free evidence; and
+- account for source outbox/read, forwarder compute, source egress,
+  destination ingress/landing, and observability exactly once.
 
 Static shared secrets are forbidden. If the approved trust mechanism cannot be
 implemented using the current credential/permission contracts, the provider
@@ -560,18 +634,23 @@ second Eventing wizard.
 +-----------------------------------------------------------------------------+
 ```
 
-Eventing workload task:
+The following shared domain-event workload is present for both
+`five-layer-baseline@2` and `six-layer-eventing@1`. It contains no
+enable/disable switch; profile selection changes architecture ownership, not
+whether the domain-event behavior exists.
+
+Domain-event workload task:
 
 ```text
 +--------------------------------------------------------------------------+
-| Eventing workload                                                        |
+| Domain-event workload                                                    |
 | Events / month       [ 10,000,000 ]  Average payload [ 16 ] KiB           |
-| Consumers            [ 3          ]  Peak rate       [ 250 ] events/s     |
+| Channels             [ 8 derived  ]  Peak rate       [ 250 ] events/s     |
 | Retention            [ 168        ]h Ordering        [ Per device      v ] |
 | Retry share          [ 0.5        ]% DLQ share       [ 0.05           ]%  |
-| Replay share         [ 1.0        ]% Cross-cloud     [ 5.0            ]%  |
+| Replay share         [ 1.0        ]% Routes          [ Graph-derived   ]  |
 |                                                                          |
-| Derived monthly deliveries: 30,000,000                    [Details v]     |
+| Derived base deliveries: 40,300,000                       [Details v]     |
 +--------------------------------------------------------------------------+
 ```
 
@@ -579,7 +658,7 @@ Eventing workload task:
 
 ```text
 +------------------------------------------+
-| Workload / Eventing                   [v] |
+| Workload / Domain events              [v] |
 +------------------------------------------+
 | Events / month                           |
 | [ 10,000,000                          ]  |
@@ -775,7 +854,9 @@ Safe verification:
 
 ```bash
 docker compose up -d 2twin2clouds 3cloud-deployer management-api
-python scripts/phase_08_eventing/validate_decision_package.py --strict
+docker run --rm -i -v "$PWD:/workspace" -w /workspace \
+  2twin2clouds:latest \
+  python scripts/phase_08_eventing/validate_decision_package.py --strict
 python scripts/sync_architecture_profile_contracts.py --check
 python scripts/sync_resolved_deployment_contract.py --check
 python scripts/sync_deployment_manifest_contract.py --check
@@ -819,14 +900,20 @@ Rollout:
 
 1. ship RDS v2/Manifest v4 readers and profile definitions dark;
 2. run all offline cross-stack gates;
-3. enable `five-layer-baseline@2` v2/v4 runs;
+3. enable `five-layer-baseline@2` v2/v4 calculation and deployment, publish it
+   through the Management profile list, and expose it through the existing
+   compact Flutter/demo workflow;
 4. verify shared event behavior and historical `five-layer-baseline@1`
    compatibility;
 5. commit and review the 8.9A boundary;
-6. activate `six-layer-eventing@1` calculation/deployment server-side;
-7. expose both new profiles through the Management profile list;
-8. enable Flutter/demo selection;
-9. monitor stable errors and operation evidence.
+6. implement and verify the independent Eventing responsibility from the
+   reviewed 8.9A base, then activate `six-layer-eventing@1`
+   calculation/deployment server-side;
+7. publish `six-layer-eventing@1` through the same Management profile list and
+   existing Flutter/demo workflow without changing the already active
+   five-layer v2 contract;
+8. monitor stable errors and operation evidence;
+9. commit and review the 8.9B boundary.
 
 Activation is atomic at the repository/server profile lifecycle boundary. Do
 not expose a profile whose provider bundles are only partially implemented.

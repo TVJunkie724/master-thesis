@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-07-20"
-version: "1.8"
+version: "1.9"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.8"
 - docs/plans/resolved_deployment_specification/README.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, and #153
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.8
+EXTRACTED: 2026-07-20 | VERSION: 1.9
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -24,7 +24,7 @@ EXTRACTED: 2026-07-20 | VERSION: 1.8
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-implementation-plans` |
-| Status | Phases 8.0 through 8.4 and prerequisite #113 implemented and locally reviewed; Phase 8.5 is next |
+| Status | Phases 8.0 through 8.5 and prerequisite #113 implemented and locally reviewed; Phase 8.8 offline decision approved; Phase 8.6 is next |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -125,10 +125,10 @@ component catalog entries still own the exact executable resource mapping.
 | 8.2 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | [`phase_08_2_profile_contracts.md`](phase_08_2_profile_contracts.md) | Implemented four versioned contracts, semantic registry, fixtures, dark readers, and drift gates | #139 |
 | 8.3 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | [`phase_08_3_provider_profiles_component_catalog.md`](phase_08_3_provider_profiles_component_catalog.md) | Implemented dark/read-only provider profiles, exact component/edge/package/Terraform registries, unsupported fixtures, and #113 slot mapping | #149, #113 |
 | 8.4 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | [`phase_08_4_management_persistence_migration.md`](phase_08_4_management_persistence_migration.md) | Implemented migration 022, revisioned profile selection, immutable resolution persistence/API, and tracked compatibility projections | #150 |
-| 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md) | Next: profile-bounded, complete-path optimization | #142 |
+| 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md) | Implemented default-off profile-bounded complete-path optimization and immutable architecture output | #142 |
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Deterministic deployment graph and preflight | #151 |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Compact profile selection and read-only review | #152 |
-| 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Shared domain-event contract plus approved or rejected embedded/Event-Layer provider, capacity, cost, and bridge decisions | #152 |
+| 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Approved offline package: shared domain flow, six provider bundles, exact bridge, S/M/L costs, implementation manifest, and two zero-finding reviews | None for offline evidence; #152/#138 still gate 8.9A |
 | 8.9A | New implementation issue required before execution | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable `five-layer-baseline@2` with mandatory embedded domain-event behavior | #138, #146 |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable `six-layer-eventing@1` with the same domain-event behavior and an independent Eventing responsibility | 8.9A, #146 |
 | 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Historical `@1` reproduction plus fair `five-layer-baseline@2` versus `six-layer-eventing@1` evaluation | #140 and the 8.9A implementation issue |
@@ -141,13 +141,20 @@ Phase 8.9A and 8.9B are separate implementation branches and commit series.
 The shared contract and `five-layer-baseline@2` gates must be committed and
 reviewed before the six-layer implementation begins.
 
+Phase 8.8 was completed as an offline evidence activity before Phase 8.6
+runtime activation. This does not reorder implementation dependencies:
+Phase 8.6 and Phase 8.7 remain mandatory predecessors of Phase 8.9A.
+Accordingly, #146 is no longer natively blocked by #152; it still blocks the
+Eventing implementation path until its reviewed evidence is published.
+
 ## Native Dependency Graph
 
 ```text
 #144 -> #139 -> #149 -> #150 -> #142 -> #151 -> #152
-                     ^                          |       |
-                     |                          |       +-> #146 --+
-                    #113                        +-> #138 ----------+-> 8.9A -> #140 -> #148 -> #112
+                     ^                                  |
+                     |                                  +-> #138 --+
+                    #113                                           +-> 8.9A -> #140 -> #148 -> #112
+            #146 --------------------------------------------------+
 ```
 
 The relationship direction is left-to-right: the issue on the right is blocked

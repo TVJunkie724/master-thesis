@@ -2,8 +2,8 @@
 title: "Phase 8.1: Harden And Freeze five-layer-baseline@1"
 description: "Implementation plan for the explicit, executable, paper-compatible five-layer baseline decision contract."
 tags: [architecture, baseline, five-layer, decisions, thesis, issue-139]
-lastUpdated: "2026-07-19"
-version: "1.1"
+lastUpdated: "2026-07-20"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.1"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/plans/resolved_deployment_specification/README.md
 - EDTConf CloudDT paper and predecessor implementation provenance retained in the repository
-EXTRACTED: 2026-07-19 | VERSION: 1.1
+EXTRACTED: 2026-07-20 | VERSION: 1.2
 -->
 
 # Phase 8.1: Harden And Freeze `five-layer-baseline@1`
@@ -27,6 +27,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.1
 | Recommended branch | `codex/phase-8-five-layer-baseline` |
 | Base branch | `master` |
 | Blocked by | Phase 8.0 / #144 |
+| Decision status | Complete, reviewed, and immutable |
 | Produces | Normative input for Phases 8.2-8.7 |
 | Runtime behavior change | No; target decisions are implemented in later phases |
 | Live cloud E2E | Forbidden |
@@ -395,24 +396,49 @@ same Phase 8.0 inventory or a newer verified inventory.
 
 ## 14. Definition Of Done
 
-- [ ] The Phase 8.0 inventory digest is current and verified.
-- [ ] Exactly five scientific responsibilities and seven optimization slots
+- [x] The Phase 8.0 inventory digest is current and verified.
+- [x] Exactly five scientific responsibilities and seven optimization slots
       are defined without conflating them.
-- [ ] All six baseline flow/cost relationships remain explicit.
-- [ ] Every current component has one retain/internalize/replace/remove
+- [x] All six baseline flow/cost relationships remain explicit.
+- [x] Every current component has one retain/internalize/replace/remove
       decision.
-- [ ] Every current edge has one explicit target mechanism and binding source.
-- [ ] No historical direct call is retained solely because it exists.
-- [ ] No required behavior or cost disappears without proof.
-- [ ] AWS, Azure, GCP, and mixed-provider admissibility is explicit and
+- [x] Every current edge has one explicit target mechanism and binding source.
+- [x] No historical direct call is retained solely because it exists.
+- [x] No required behavior or cost disappears without proof.
+- [x] AWS, Azure, GCP, and mixed-provider admissibility is explicit and
       fail-closed.
-- [ ] Unsupported scenarios remain visible with stable reasons.
-- [ ] Eventing behavior and cost are excluded from the baseline profile.
-- [ ] Compatibility with the resolved deployment specification is explicit.
-- [ ] Machine checks and negative fixtures enforce full decision coverage.
-- [ ] Research and current/target product documentation remain separated.
-- [ ] Safe deployment-contract and strict documentation gates pass.
-- [ ] No runtime behavior or cloud resource changes.
-- [ ] Two reviews find no unresolved issue.
-- [ ] Roadmap and #139 are updated with named evidence.
-- [ ] The structured commit references #139.
+- [x] Unsupported scenarios remain visible with stable reasons.
+- [x] An independent Eventing responsibility, broker, and event-service cost
+      are excluded from the historical baseline profile; its explicitly
+      supported or unsupported legacy event-check/feedback states remain
+      recorded rather than silently generalized.
+- [x] Compatibility with the resolved deployment specification is explicit.
+- [x] Machine checks and negative fixtures enforce full decision coverage.
+- [x] Research and current/target product documentation remain separated.
+- [x] Safe deployment-contract and strict documentation gates pass.
+- [x] No runtime behavior or cloud resource changes.
+- [x] Two reviews find no unresolved issue.
+- [x] Roadmap and #139 are updated with named evidence.
+- [x] The structured commit references #139.
+
+## 15. Completion Evidence
+
+- Commit `7ba914bf` freezes the original complete decision and references #139:
+  114/114 component decisions, 90/90 edge decisions, five scientific
+  responsibilities, seven optimization slots, and six baseline flow/cost
+  relationships.
+- GitHub issue #139 records the component/edge mechanism counts, positive and
+  unsupported provider scenarios, original full-gate results, limitations,
+  review outcome, and closure.
+- Later contract and reader phases only refreshed audited-source and canonical
+  digests. The currently verified inventory content digest is
+  `sha256:c8812f94523bd84e3c8e2cd05eb75f4fa696f4ef2c92b99933102b2fea1aade3`;
+  the reconciled baseline-decision digest is
+  `sha256:1227f56f13f9e3eb60387fec8c66c5b77e338ad81b7674f29bd137265f3c5642`.
+  The 114 component and 90 edge decisions remain semantically unchanged.
+- The current serial `./thesis.sh test deployment-contract` gate passes all 13
+  stages, including architecture inventory, baseline decision, full service,
+  Flutter, strict documentation, and repository checks.
+- `five-layer-baseline@1` is historical evidence. Its semantics must not be
+  edited to obtain functional parity with Eventing; that role belongs to
+  `five-layer-baseline@2`.

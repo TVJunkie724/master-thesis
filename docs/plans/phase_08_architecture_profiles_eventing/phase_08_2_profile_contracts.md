@@ -2,8 +2,8 @@
 title: "Phase 8.2: Versioned Architecture Profile Contracts"
 description: "Implementation plan for shared closed-world architecture, provider implementation, component catalog, and resolved architecture contracts."
 tags: [architecture, contracts, json-schema, versioning, drift-gate, issue-149]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - contracts/resolved-deployment-specification
 - Existing cross-project contract synchronization and drift-gate patterns
 - User-approved ArchitectureProfile, ProviderImplementationProfile, DeploymentComponentCatalog, and ResolvedTwinArchitecture model
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-20 | VERSION: 1.1
 -->
 
 # Phase 8.2: Versioned Architecture Profile Contracts
@@ -27,6 +27,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Recommended branch | `codex/phase-8-profile-contracts` |
 | Base branch | `master` |
 | Blocked by | Phase 8.1 / #139 |
+| Implementation status | Complete and reviewed as dark shared infrastructure |
 | Produces | Shared contracts consumed by Phases 8.3-8.10 |
 | Runtime behavior change | Contract readers only; no profile selection or deployment change |
 | Live cloud E2E | Forbidden |
@@ -635,26 +636,46 @@ remain as versioned evidence. No data rollback is required.
 
 ## 17. Definition Of Done
 
-- [ ] All four schemas and the semantic registry exist in the repository SSOT.
-- [ ] Field types, cardinalities, enums, IDs, digests, lifecycle, and
+- [x] All four schemas and the semantic registry exist in the repository SSOT.
+- [x] Field types, cardinalities, enums, IDs, digests, lifecycle, and
       compatibility are exact and fail closed.
-- [ ] Optimization strategy, calculation strategy, formula set, workload, and
+- [x] Optimization strategy, calculation strategy, formula set, workload, and
       deployment specification are coupled by one compatible bundle.
-- [ ] Logical architecture contains no provider SDK, Terraform, physical name,
+- [x] Logical architecture contains no provider SDK, Terraform, physical name,
       endpoint, or credential detail.
-- [ ] Provider profiles and component catalogs expose explicit implementation
+- [x] Provider profiles and component catalogs expose explicit implementation
       references behind stable IDs.
-- [ ] Resolved architectures are complete, immutable, secret-free, and
+- [x] Resolved architectures are complete, immutable, secret-free, and
       reference rather than duplicate deployment dimensions.
-- [ ] `ResolvedDeploymentSpecification v1` remains baseline-only and unchanged.
-- [ ] Optimizer, Management API, and Deployer accept/reject identical fixtures
+- [x] `ResolvedDeploymentSpecification v1` remains baseline-only and unchanged.
+- [x] Optimizer, Management API, and Deployer accept/reject identical fixtures
       with identical codes and digests.
-- [ ] Generated copies are byte-identical and drift-gated in CI.
-- [ ] Unknown versions, bad references, illegal cycles, capability gaps,
+- [x] Generated copies are byte-identical and drift-gated in CI.
+- [x] Unknown versions, bad references, illegal cycles, capability gaps,
       incompatible bundles, and secret fields fail closed.
-- [ ] Focused and full safe service suites pass.
-- [ ] Product/developer docs, roadmap, and #149 are updated.
-- [ ] No runtime selection, database, Flutter, Terraform, or cloud behavior
+- [x] Focused and full safe service suites pass.
+- [x] Product/developer docs, roadmap, and #149 are updated.
+- [x] No runtime selection, database, Flutter, Terraform, or cloud behavior
       changes.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #149.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commit references #149.
+
+## 18. Completion Evidence
+
+- Commit `7d9b07fa` implements the four Draft 2020-12 contracts, semantic
+  registry, deterministic canonicalization/digests, required valid/invalid
+  fixtures, bounded readers, stable cross-service errors, and byte-identical
+  generated copies; it references #149.
+- GitHub issue #149 records 31 central contract tests, the service-local
+  reader/boundary gates, the original complete OrbStack repository gate, scope
+  exclusions, review outcome, and closure.
+- Subsequent additive profile/catalog changes are synchronized through the
+  same contract mechanism. The currently verified source-directory digest is
+  `sha256:b5831de1b3d41b0190c090a6f2a0ab6210bbeaa0f2b91b5454253e6c1f3c4d99`
+  in the repository SSOT and all three generated service copies.
+- The current serial `./thesis.sh test deployment-contract` gate passes all 13
+  stages, including 66 root/contract tests, cross-project synchronization,
+  full service suites, Flutter, strict MkDocs, and repository static checks.
+- Runtime profile selection remains governed by later phases; completing this
+  contract phase did not itself activate calculation, persistence, deployment,
+  Flutter, Terraform, credentials, or cloud operations.

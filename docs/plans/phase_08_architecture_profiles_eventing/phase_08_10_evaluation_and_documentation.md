@@ -3,7 +3,7 @@ title: "Phase 8.10: Evaluation Evidence And Final Documentation"
 description: "Implementation plan for reproducible profile evaluation evidence and complete current-system documentation without editing LaTeX."
 tags: [architecture, evaluation, reproducibility, documentation, thesis, issue-148]
 lastUpdated: "2026-07-20"
-version: "1.1"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.1"
 - User-approved separation between product documentation, research evidence, and LaTeX
 - User-approved historical @1 reproduction and fair five-layer @2 versus
   six-layer comparison boundary
-EXTRACTED: 2026-07-20 | VERSION: 1.1
+EXTRACTED: 2026-07-20 | VERSION: 1.3
 -->
 
 # Phase 8.10: Evaluation Evidence And Final Documentation
@@ -28,7 +28,7 @@ EXTRACTED: 2026-07-20 | VERSION: 1.1
 | Issue | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branch | `codex/phase-8-evaluation-package` |
-| Base branch | `master` |
+| Branch base | Reviewed Phase 8.9B commit; the branch ultimately targets `master` |
 | Blocked by | Phase 8.9A implementation issue and Phase 8.9B / #140 |
 | Produces | Reproducible Phase 8 evaluation package and complete current docs |
 | Live cloud E2E | Prepared but not executed |
@@ -277,7 +277,8 @@ Reproduce `five-layer-baseline@1` independently as historical evidence. Do not
 use it as the primary Event-Layer counterfactual because it intentionally omits
 the domain-event paths.
 
-Evaluate `five-layer-baseline@2` and `six-layer-eventing@1` independently:
+Evaluate `five-layer-baseline@2` and `six-layer-eventing@1` independently.
+Within each profile, use:
 
 ```text
 same profile + same workload + same functional contract
@@ -287,10 +288,18 @@ same profile + same workload + same functional contract
 ```
 
 Never rank candidates from different profiles in one optimizer run. Compare
-the reported profile totals only after proving that the two new profiles use
-the same domain-event workload and outcomes. Attribute the remaining
-functional delta specifically to the Eventing responsibility's transport,
-failure, replay, and decoupling semantics.
+the reported profile totals only through this separate cross-profile control:
+
+```text
+same domain-event workload + same rule/action/workflow/command outcomes
+  -> five-layer-baseline@2 reported result
+  -> six-layer-eventing@1 reported result
+  -> functional-quality + topology + estimated-cost delta
+```
+
+Attribute the remaining functional delta specifically to the Eventing
+responsibility's transport, failure, replay, ordering, observability, and
+decoupling semantics.
 
 ### 8.2 Required Results
 
@@ -299,8 +308,8 @@ For every scenario/profile:
 - each admissible single-provider total;
 - federated selected total;
 - provider allocation per responsibility/component;
-- service, edge, transfer, glue/bridge, fixed, variable, and minimum-capacity
-  contributions;
+- service, edge, transfer, source-owned transition-adapter/cross-cloud-bridge,
+  fixed, variable, and minimum-capacity contributions;
 - free quota and tier/rounding effect;
 - extra capability notes;
 - selected and rejected evidence/formula refs;
@@ -516,7 +525,7 @@ generator, validation, and negative fixtures.
 
 ### Slice B: Architecture And Functional Evidence
 
-Must generate all three architecture views, deltas, baseline total matrix,
+Must generate all four architecture views, deltas, baseline total matrix,
 Eventing matrix, rejected candidates, and comparability checks.
 
 ### Slice C: Cost Results

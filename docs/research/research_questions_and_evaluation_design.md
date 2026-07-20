@@ -255,7 +255,8 @@ models, transfer costs, and deployment support are taken into account.
   architecture profile.
 - Calculate the federated provider allocation within the same architecture
   profile.
-- Include cross-cloud transfer and required glue costs.
+- Include cross-cloud transfer and required source-owned transition-adapter or
+  bridge costs.
 - Preserve intent, selected pricing evidence, normalization, formula, tier, and
   result traces.
 - Compare estimated monthly totals and the provider allocation per
@@ -271,7 +272,7 @@ models, transfer costs, and deployment support are taken into account.
 - Complete formula and unit contracts.
 - Single-provider cost totals.
 - Multi-cloud cost total and selected path.
-- Transfer and glue cost attribution.
+- Transfer and transition-adapter/bridge cost attribution.
 - Traceable service-level and layer-level cost contributions.
 - Sensitivity discussion for price, workload, tier, and profile assumptions.
 
@@ -384,8 +385,8 @@ constant.
 - One curated, functionally admissible eventing profile per provider.
 - Explicit Eventing workload and cost contract.
 - Explicit eventing nodes and edges in the architecture profile.
-- Complete ownership of eventing, transfer, glue, and function costs with no
-  double counting.
+- Complete ownership of eventing, transfer, source-owned transition-adapter or
+  cross-cloud-bridge, and function costs with no double counting.
 - Separate evaluation of the five-layer baseline and the Eventing-extended
   profile.
 
@@ -404,7 +405,8 @@ RQ3.2 should identify:
 
 - which functional debt the explicit Eventing responsibility resolves;
 - how the deployed resource graph changes;
-- which costs move from functions or glue into event services;
+- which costs move from direct functions or transition adapters into event
+  services;
 - whether provider rankings change;
 - which additional functionality is gained; and
 - whether the comparison remains valid under the shared functional contract.
@@ -486,7 +488,7 @@ differences. The default thesis interpretation instead reports:
 | Functional completeness | Mandatory capability checks for the selected architecture profile |
 | Provider implementation | Curated service or service-bundle profile for one provider |
 | Cost | Estimated monthly monetary cost in a declared currency |
-| Transfer | Explicit cross-provider data volume, egress price, and required receiving/glue execution |
+| Transfer | Explicit cross-provider data volume, egress price, source-owned forwarder execution, and destination broker landing |
 | Architecture | Versioned profile with responsibilities, implementation slots, and relevant edges |
 | Evidence | Provider pricing row, official static source, reviewed decision, normalization, and formula trace |
 | Deployability | Agreement between Optimizer and Deployer capability contracts plus successful manifest validation |
@@ -502,7 +504,8 @@ A scenario result is thesis-evaluable only when:
 4. Every required pricing field has admissible evidence.
 5. Units, tiers, free allowances, minimums, and formulas are validated.
 6. Emergency fallbacks are absent from publishable calculation results.
-7. Transfer and glue costs are attributed exactly once.
+7. Transfer, source-owned forwarder, and destination broker landing costs are
+   attributed exactly once.
 8. The Optimizer and Deployer agree on provider-layer availability.
 9. The deployment manifest is valid for the selected architecture.
 10. The complete intent-to-result trace is inspectable.
@@ -527,14 +530,14 @@ The current refactoring introduced strong extension points for:
 - deployment manifests and provider capability contracts; and
 - result traceability.
 
-However, the current layer set remains encoded explicitly across the Optimizer,
-Deployer, Management API, database projection, and Flutter models. Adding a new
-service inside an existing responsibility is a bounded extension. Adding `LE`
-as a new architectural responsibility is still a cross-project contract
-change.
+The repository now has a bounded architecture-profile contract and a dark
+Optimizer/Management resolution path. Runtime Deployer and Flutter boundaries
+still reflect the fixed predecessor layer set until Phases 8.6 and 8.7
+complete. Adding a new service inside an existing responsibility is a bounded
+extension; activating `LE` as a new architectural responsibility remains a
+cross-project implementation change.
 
-Before implementing `LE`, the system should introduce a bounded, versioned
-architecture-profile contract:
+The closed-world contract separates:
 
 ```text
 five-layer-baseline@1
@@ -554,11 +557,13 @@ six-layer-eventing@1
          routing, buffering, fan-out, retry/DLQ, replay, and bridge flows
 ```
 
-This contract should keep the approved historical baseline reproducible and
-make both new comparison profiles data-driven and iterable.
-`five-layer-baseline@2` and `six-layer-eventing@1` become approved selectable
-profiles only if the Phase 8 Eventing decision and their respective
-implementation gates pass.
+This contract keeps the approved historical baseline reproducible and makes
+both new comparison profiles data-driven and iterable. Phase 8.8 has approved
+their shared behavior, exact provider bundles, cross-cloud bridge, and
+non-executable implementation blueprint as offline evidence.
+`five-layer-baseline@2` and `six-layer-eventing@1` become runtime-selectable
+only after their respective Phase 8.9 implementation gates and all inherited
+Phase 8.6/8.7 activation gates pass.
 It must not become a general architecture editor or arbitrary topology engine.
 Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge
@@ -610,7 +615,8 @@ declarations determine whether a particular event invokes them.
 ### Internal Validity
 
 - Formula, unit, tier, or free-allowance errors may alter rankings.
-- Cross-cloud transfer or glue costs may be omitted or double counted.
+- Cross-cloud transfer, source-owned forwarder, or destination landing costs
+  may be omitted or double counted.
 - Pricing evidence may drift between providers or collection times.
 - Unsupported deployment paths may appear economically attractive unless
   capability gates are enforced.
@@ -640,7 +646,7 @@ declarations determine whether a particular event invokes them.
 - Monetary cost as the only enabled optimization objective.
 - Functionally gated provider profiles.
 - Provider-specific pricing models, formulas, tiers, and evidence.
-- Transfer and glue costs.
+- Transfer and source-owned transition-adapter/cross-cloud-bridge costs.
 - Reproducible deployment contracts and later live-cloud validation.
 
 ### Out Of Scope

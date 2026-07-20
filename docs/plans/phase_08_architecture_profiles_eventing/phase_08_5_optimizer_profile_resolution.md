@@ -2,8 +2,8 @@
 title: "Phase 8.5: Optimizer Profile Resolution"
 description: "Implementation plan for profile-bounded functional-completeness resolution before cost ranking."
 tags: [architecture, optimizer, functional-completeness, strategy, cost, issue-151]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.0"
 - Phase 8.3 provider implementation profiles and component catalog
 - Phase 8.4 Management API ingestion and persistence contract
 - Current Optimizer strategy, formula, pricing evidence, transfer-path, and resolved-deployment-specification implementations
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-20 | VERSION: 1.1
 -->
 
 # Phase 8.5: Optimizer Profile Resolution
@@ -26,6 +26,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Recommended branch | `codex/phase-8-optimizer-resolution` |
 | Base branch | `master` |
 | Blocked by | Phase 8.4 / #142 |
+| Implementation status | Complete and reviewed locally; activation remains default-off |
 | Produces | Complete, dark-integrated `ResolvedTwinArchitecture v1` for Phase 8.6 activation |
 | Live cloud E2E | Forbidden |
 
@@ -187,8 +188,10 @@ Execute exactly:
    deployment specification, permission, package, or edge implementation;
 7. enumerate complete baseline assignments in deterministic profile order;
 8. validate complete functional and edge coverage before any candidate can win;
-9. calculate component/layer, transfer, transition-runtime, glue, account, and
-   edge costs using the profile's compatible strategy/formula bundle;
+9. calculate component/layer, transfer, registered transition-runtime adapter,
+   account, and edge costs using the profile's compatible strategy/formula
+   bundle; the historical `cost.cross-cloud-glue` ID remains only the
+   compatibility name for its explicit adapter owner;
 10. reject calculation failures with bounded diagnostics;
 11. rank admissible candidates by exact canonical decimal total cost;
 12. break equal-cost ties by lexicographic canonical assignment tuple
@@ -233,7 +236,8 @@ never publishable.
 - Non-additive account costs are represented once and linked to affected
   components; they are not duplicated into every row.
 - The architecture total must equal component/layer plus edge/transfer plus
-  transition/glue plus account-scope contributions within exact decimal rules.
+  registered transition-adapter contributions plus account-scope
+  contributions within exact decimal rules.
 - Display rounding occurs only in API/Flutter projections, never in ranking or
   digests.
 
@@ -371,7 +375,8 @@ legacy projections remain equal for frozen valid scenarios.
 - no admissible candidate;
 - decimal precision and equal-cost deterministic tie;
 - account/non-additive cost counted once;
-- transfer/transition/glue cost ownership;
+- transfer and registered transition-adapter cost ownership, including the
+  historical `cost.cross-cloud-glue` compatibility ID;
 - deterministic resolution ID/digest;
 - resolved architecture/deployment specification mismatch;
 - bounded/redacted diagnostics.
@@ -468,28 +473,51 @@ without architecture evidence.
 
 ## 16. Definition Of Done
 
-- [ ] `ArchitectureOptimizationStrategy` is registered by compatible profile
+- [x] `ArchitectureOptimizationStrategy` is registered by compatible profile
       bundle and has one baseline implementation.
-- [ ] The existing formula, pricing, transfer, transition, and deployment
+- [x] The existing formula, pricing, transfer, transition, and deployment
       engines are reused rather than duplicated.
-- [ ] Functional completeness and edge coverage run before cost ranking.
-- [ ] Every publishable candidate has full component, edge, region, permission,
+- [x] Functional completeness and edge coverage run before cost ranking.
+- [x] Every publishable candidate has full component, edge, region, permission,
       pricing, formula, evidence, deployment, and extension coverage.
-- [ ] Ranking uses exact decimals and deterministic tie-breaking.
-- [ ] One deterministic, valid resolved architecture and matching deployment
+- [x] Ranking uses exact decimals and deterministic tie-breaking.
+- [x] One deterministic, valid resolved architecture and matching deployment
       specification are emitted per architecture-aware successful fixture run.
-- [ ] Legacy baseline costs, winners, traces, and deployment selections match
+- [x] Legacy baseline costs, winners, traces, and deployment selections match
       golden fixtures.
-- [ ] Unsupported and incomplete candidates remain visible and cannot win.
-- [ ] Management validates and persists run/spec/architecture atomically when
+- [x] Unsupported and incomplete candidates remain visible and cannot win.
+- [x] Management validates and persists run/spec/architecture atomically when
       the test activation gate is enabled with supported fixtures.
-- [ ] Runtime activation remains default-off while repository provider
+- [x] Runtime activation remains default-off while repository provider
       profiles are unsupported; no validator bypass is introduced.
-- [ ] Invalid Optimizer responses fail closed with no fallback resolution.
-- [ ] Unit, property, exhaustive candidate, golden regression, Management
+- [x] Invalid Optimizer responses fail closed with no fallback resolution.
+- [x] Unit, property, exhaustive candidate, golden regression, Management
       integration, full safe suites, and deployment drift gates pass.
-- [ ] No live provider API, credential, Terraform, deployment, or E2E runs.
-- [ ] Product/developer docs, research evidence where applicable, roadmap, and
+- [x] No live provider API, credential, Terraform, deployment, or E2E runs.
+- [x] Product/developer docs, research evidence where applicable, roadmap, and
       #151 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #151.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commits reference #151.
+
+## 17. Completion Evidence
+
+- The implementation is split across the reviewable commit series
+  `eadced8b`, `c49a6194`, `98547c21`, `3d71f7a2`, `4907320e`,
+  `9c10bac8`, `97a5c42a`, `a27be8c7`, `571778c6`, `17298eb8`, and
+  `1ba9fa0a`; each commit references #151.
+- Focused verification reports 353 passing Optimizer tests and 110 passing
+  Management tests.
+- The serial `./thesis.sh test deployment-contract` gate passes all 13 stages:
+  66 root/contract, 40 Optimizer drift, 87 Management drift, 73 Deployer drift,
+  885 Optimizer, 1,007 Management, 1,851 Deployer with one intentional skip,
+  and 730 Flutter tests. Static analysis, security/package checks, Flutter
+  web/macOS builds, strict MkDocs, and repository checks also pass.
+- The architecture-inventory follow-up in `c8a34a42` makes the Phase 8.4
+  resolved-architecture compatibility reader part of the audited source
+  digest and leaves the historical Phase 8.0 evidence cut unchanged.
+- GitHub issue #151 contains the same local completion evidence and remains open
+  until the commits are published or merged.
+- Repository activation is deliberately still off. Phase 8.6 must promote the
+  reviewed provider implementations and activate the typed compiler path; no
+  live provider, credential-bearing, Terraform, deployment, or E2E operation
+  was performed by Phase 8.5.

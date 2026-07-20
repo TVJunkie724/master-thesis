@@ -2,8 +2,8 @@
 title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
-lastUpdated: "2026-07-19"
-version: "1.1"
+lastUpdated: "2026-07-20"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.1"
 - twin2multicloud_flutter/lib/services/management_api.dart
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
-EXTRACTED: 2026-07-19 | VERSION: 1.1
+EXTRACTED: 2026-07-20 | VERSION: 1.2
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -27,7 +27,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.1
 | Issue | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branch | `codex/phase-8-flutter-profile-workflow` |
-| Base branch | `master` |
+| Branch base | Reviewed Phase 8.6 commit; the branch ultimately targets `master` |
 | Blocked by | Phase 8.6 / #152 |
 | Targets | Web, macOS, Windows, Linux |
 | Backend boundary | Management API only |
