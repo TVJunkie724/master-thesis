@@ -3,13 +3,13 @@
   "calculation_scope": "embedded domain-event behavior and incremental Event-Layer/bridge costs only; no full-profile ranking",
   "input_digests": {
     "domain_event_flow_contract": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590",
-    "formula_and_unit_ledger": "sha256:259cbfa86b4c6f7a60c3d82b69d23bdaf2542cf7844b1104466eb5c27c8d90c7",
-    "pricing_model_matrix": "sha256:6b49f046c31a394bf38d09f8f216a43ff9e04c3f5abaa200aea8352cbcd80029",
+    "formula_and_unit_ledger": "sha256:3488d4f5e660c06fffa3178d031f95c1d9918efefa06859a094c586e476f7fa8",
+    "pricing_model_matrix": "sha256:d40386a1be331eb849adaee80c9e08b85d82f4af2f92b3398b6e2accc2140157",
     "provider_capability_matrix": "sha256:69bfe79d4daa50e97aa6560a9aa99a2e0ab6a6878198eb8a0b5aa396e9220757",
     "scenario_inputs": "sha256:3d43153f7ccd6b99916902a1ec99881602650df463da2c2c33858f66d746d8ec",
     "source_ledger": "sha256:03595b2f2d04b3a051964903ed7c0b63f053052ccd80abb88e43bd6a9b1a6e86"
   },
-  "result_digest": "sha256:6ae8d9525ff3cf6490d5223f56bf46137f8e5abbac6a799f40c9395aa9559ada",
+  "result_digest": "sha256:4d0d28da4afef2ee35ab9022e6c8ab6e77b6824808bc3b39344f5007f61a9370",
   "result_set_id": "phase-08-eventing-cost-results@1",
   "scenarios": [
     {
@@ -71,15 +71,16 @@
               "amount_usd": "0.000000000",
               "contribution_id": "bridge.aws-to-azure.eventing-small-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20321
+                  "bridge_forwarder": 20326
                 },
-                "gb_seconds": "2540.125",
-                "requests": 20321
+                "gb_seconds": "2540.75",
+                "requests": 20326
               },
               "notes": "1-ms duration billing; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -95,10 +96,54 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 203206,
-                "bridge_invocations": 20321,
+                "bridge_invocations": 20326,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "1.030410752",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 1030410752
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -238,15 +283,16 @@
               "amount_usd": "0.000000000",
               "contribution_id": "bridge.aws-to-gcp.eventing-small-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20321
+                  "bridge_forwarder": 20326
                 },
-                "gb_seconds": "2540.125",
-                "requests": 20321
+                "gb_seconds": "2540.75",
+                "requests": 20326
               },
               "notes": "1-ms duration billing; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -262,10 +308,54 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 203206,
-                "bridge_invocations": 20321,
+                "bridge_invocations": 20326,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "1.030410752",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 1030410752
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -392,15 +482,16 @@
               "amount_usd": "0.000000000",
               "contribution_id": "bridge.azure-to-aws.eventing-small-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20321
+                  "bridge_forwarder": 20326
                 },
-                "gb_seconds": "40642",
-                "requests": 20321
+                "gb_seconds": "40652",
+                "requests": 20326
               },
               "notes": "On-demand 2-GiB allocation with a 1-second minimum and 100-ms blocks; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -416,10 +507,54 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 203206,
-                "bridge_invocations": 20321,
+                "bridge_invocations": 20326,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "1.030410752",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 1030410752
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -556,15 +691,16 @@
               "amount_usd": "0.000000000",
               "contribution_id": "bridge.azure-to-gcp.eventing-small-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20321
+                  "bridge_forwarder": 20326
                 },
-                "gb_seconds": "40642",
-                "requests": 20321
+                "gb_seconds": "40652",
+                "requests": 20326
               },
               "notes": "On-demand 2-GiB allocation with a 1-second minimum and 100-ms blocks; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -580,10 +716,54 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 203206,
-                "bridge_invocations": 20321,
+                "bridge_invocations": 20326,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "1.030410752",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 1030410752
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -707,16 +887,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "bridge.gcp-to-aws.eventing-small-v1.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20321
+                  "bridge_forwarder": 203206
                 },
-                "gib_seconds": "3048.15",
-                "requests": 20321,
-                "vcpu_seconds": "1018.0821"
+                "gib_seconds": "30480.9",
+                "requests": 203206,
+                "vcpu_seconds": "10180.6206"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -733,10 +914,54 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 203206,
-                "bridge_invocations": 20321,
+                "bridge_invocations": 203206,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "0.959644794464111328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 1030410752
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -871,16 +1096,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "bridge.gcp-to-azure.eventing-small-v1.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20321
+                  "bridge_forwarder": 203206
                 },
-                "gib_seconds": "3048.15",
-                "requests": 20321,
-                "vcpu_seconds": "1018.0821"
+                "gib_seconds": "30480.9",
+                "requests": 203206,
+                "vcpu_seconds": "10180.6206"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -897,10 +1123,54 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 203206,
-                "bridge_invocations": 20321,
+                "bridge_invocations": 203206,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1001,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 251,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "0.959644794464111328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 1030410752
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -1909,7 +2179,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-small-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -1933,10 +2204,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -1948,7 +2228,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-small-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -1972,10 +2253,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2027,16 +2317,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-small-v1.processing-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 10010
+                  "bridge_forwarder": 100100
                 },
-                "gib_seconds": "1501.5",
-                "requests": 10010,
-                "vcpu_seconds": "501.501"
+                "gib_seconds": "15015",
+                "requests": 100100,
+                "vcpu_seconds": "5015.01"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -2053,10 +2344,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
-                "bridge_invocations": 10010,
+                "bridge_invocations": 100100,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.477313995361328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2187,7 +2487,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-small-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -2211,10 +2512,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2226,16 +2536,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-small-v1.eventing-to-processing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 10010
+                  "bridge_forwarder": 100100
                 },
-                "gib_seconds": "1501.5",
-                "requests": 10010,
-                "vcpu_seconds": "501.501"
+                "gib_seconds": "15015",
+                "requests": 100100,
+                "vcpu_seconds": "5015.01"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -2252,10 +2563,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
-                "bridge_invocations": 10010,
+                "bridge_invocations": 100100,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.477313995361328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2309,7 +2629,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-small-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -2333,10 +2654,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2463,7 +2793,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-small-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -2487,10 +2818,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2502,7 +2842,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-small-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -2526,10 +2867,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2581,16 +2931,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-small-v1.processing-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 10010
+                  "bridge_forwarder": 100100
                 },
-                "gib_seconds": "1501.5",
-                "requests": 10010,
-                "vcpu_seconds": "501.501"
+                "gib_seconds": "15015",
+                "requests": 100100,
+                "vcpu_seconds": "5015.01"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -2607,10 +2958,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
-                "bridge_invocations": 10010,
+                "bridge_invocations": 100100,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.477313995361328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2737,7 +3097,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-small-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -2761,10 +3122,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2776,16 +3146,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-small-v1.eventing-to-processing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 10010
+                  "bridge_forwarder": 100100
                 },
-                "gib_seconds": "1501.5",
-                "requests": 10010,
-                "vcpu_seconds": "501.501"
+                "gib_seconds": "15015",
+                "requests": 100100,
+                "vcpu_seconds": "5015.01"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -2802,10 +3173,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
-                "bridge_invocations": 10010,
+                "bridge_invocations": 100100,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.477313995361328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -2865,7 +3245,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-small-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -2889,10 +3270,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3018,16 +3408,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-small-v1.ingress-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 10010
+                  "bridge_forwarder": 100100
                 },
-                "gib_seconds": "1501.5",
-                "requests": 10010,
-                "vcpu_seconds": "501.501"
+                "gib_seconds": "15015",
+                "requests": 100100,
+                "vcpu_seconds": "5015.01"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -3044,10 +3435,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
-                "bridge_invocations": 10010,
+                "bridge_invocations": 100100,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.477313995361328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3059,7 +3459,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-small-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -3083,10 +3484,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3140,7 +3550,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-small-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -3164,10 +3575,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3293,16 +3713,17 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-small-v1.ingress-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 10010
+                  "bridge_forwarder": 100100
                 },
-                "gib_seconds": "1501.5",
-                "requests": 10010,
-                "vcpu_seconds": "501.501"
+                "gib_seconds": "15015",
+                "requests": 100100,
+                "vcpu_seconds": "5015.01"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -3319,10 +3740,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
-                "bridge_invocations": 10010,
+                "bridge_invocations": 100100,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.477313995361328125",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3334,7 +3764,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-small-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -3358,10 +3789,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3421,7 +3861,8 @@
               "amount_usd": "0.000000000",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-small-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -3445,10 +3886,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 100100,
                 "bridge_invocations": 10010,
+                "channel_attempts": [
+                  {
+                    "attempts": 100100,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "0.512512",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 512512000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3605,18 +4055,19 @@
               ]
             },
             {
-              "amount_usd": "0.212090000",
+              "amount_usd": "0.212090400",
               "contribution_id": "bridge.aws-to-azure.eventing-medium-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 2060450
+                  "bridge_forwarder": 2060452
                 },
-                "gb_seconds": "257556.25",
-                "requests": 2060450
+                "gb_seconds": "257556.5",
+                "requests": 2060452
               },
               "notes": "1-ms duration billing; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -3632,10 +4083,54 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 20604500,
-                "bridge_invocations": 2060450,
+                "bridge_invocations": 2060452,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "353.928064",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 353928064000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3716,7 +4211,7 @@
             "source.azure.service-bus.retail-api.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "827.896720540"
+          "total_monthly_usd": "827.896720940"
         },
         {
           "cost_contributions": [
@@ -3772,18 +4267,19 @@
               ]
             },
             {
-              "amount_usd": "0.212090000",
+              "amount_usd": "0.212090400",
               "contribution_id": "bridge.aws-to-gcp.eventing-medium-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 2060450
+                  "bridge_forwarder": 2060452
                 },
-                "gb_seconds": "257556.25",
-                "requests": 2060450
+                "gb_seconds": "257556.5",
+                "requests": 2060452
               },
               "notes": "1-ms duration billing; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -3799,10 +4295,54 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 20604500,
-                "bridge_invocations": 2060450,
+                "bridge_invocations": 2060452,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "353.928064",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 353928064000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -3881,7 +4421,7 @@
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "587.501985238"
+          "total_monthly_usd": "587.501985638"
         },
         {
           "cost_contributions": [
@@ -3926,18 +4466,19 @@
               ]
             },
             {
-              "amount_usd": "105.267580000",
+              "amount_usd": "105.267684800",
               "contribution_id": "bridge.azure-to-aws.eventing-medium-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 2060450
+                  "bridge_forwarder": 2060452
                 },
-                "gb_seconds": "4120900",
-                "requests": 2060450
+                "gb_seconds": "4120904",
+                "requests": 2060452
               },
               "notes": "On-demand 2-GiB allocation with a 1-second minimum and 100-ms blocks; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -3953,10 +4494,54 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 20604500,
-                "bridge_invocations": 2060450,
+                "bridge_invocations": 2060452,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "353.928064",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 353928064000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -4045,7 +4630,7 @@
             "source.azure.service-bus.retail-api.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "768.993126890"
+          "total_monthly_usd": "768.993231690"
         },
         {
           "cost_contributions": [
@@ -4090,18 +4675,19 @@
               ]
             },
             {
-              "amount_usd": "105.267580000",
+              "amount_usd": "105.267684800",
               "contribution_id": "bridge.azure-to-gcp.eventing-medium-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 2060450
+                  "bridge_forwarder": 2060452
                 },
-                "gb_seconds": "4120900",
-                "requests": 2060450
+                "gb_seconds": "4120904",
+                "requests": 2060452
               },
               "notes": "On-demand 2-GiB allocation with a 1-second minimum and 100-ms blocks; free grants applied once to this scoped result.",
               "pricing_intent_ids": [
@@ -4117,10 +4703,54 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 20604500,
-                "bridge_invocations": 2060450,
+                "bridge_invocations": 2060452,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "353.928064",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 353928064000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -4197,7 +4827,7 @@
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "433.314046266"
+          "total_monthly_usd": "433.314151066"
         },
         {
           "cost_contributions": [
@@ -4241,19 +4871,20 @@
               ]
             },
             {
-              "amount_usd": "0.024180000",
+              "amount_usd": "34.723338300",
               "contribution_id": "bridge.gcp-to-aws.eventing-medium-v1.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 2060450
+                  "bridge_forwarder": 20604500
                 },
-                "gib_seconds": "309067.5",
-                "requests": 2060450,
-                "vcpu_seconds": "103228.545"
+                "gib_seconds": "3090675",
+                "requests": 20604500,
+                "vcpu_seconds": "1032285.45"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -4270,10 +4901,54 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 20604500,
-                "bridge_invocations": 2060450,
+                "bridge_invocations": 20604500,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "329.62119579315185546875",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 353928064000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -4361,7 +5036,7 @@
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "453.230920634"
+          "total_monthly_usd": "487.930078934"
         },
         {
           "cost_contributions": [
@@ -4405,19 +5080,20 @@
               ]
             },
             {
-              "amount_usd": "0.024180000",
+              "amount_usd": "34.723338300",
               "contribution_id": "bridge.gcp-to-azure.eventing-medium-v1.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 2060450
+                  "bridge_forwarder": 20604500
                 },
-                "gib_seconds": "309067.5",
-                "requests": 2060450,
-                "vcpu_seconds": "103228.545"
+                "gib_seconds": "3090675",
+                "requests": 20604500,
+                "vcpu_seconds": "1032285.45"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -4434,10 +5110,54 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 20604500,
-                "bridge_invocations": 2060450,
+                "bridge_invocations": 20604500,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 101500,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 25375,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "329.62119579315185546875",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 353928064000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -4515,7 +5235,7 @@
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "357.946575312"
+          "total_monthly_usd": "392.645733612"
         }
       ],
       "embedded_bundle_results": [
@@ -5415,7 +6135,7 @@
       ],
       "three_provider_results": [
         {
-          "bridge_addition_total_usd": "388.046172535",
+          "bridge_addition_total_usd": "402.096782535",
           "bridge_cost_contributions": [
             {
               "amount_usd": "265.731382720",
@@ -5446,7 +6166,8 @@
               "amount_usd": "0.003000000",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-medium-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -5470,10 +6191,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -5485,7 +6215,8 @@
               "amount_usd": "50.486000000",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-medium-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -5509,10 +6240,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -5561,19 +6301,20 @@
               ]
             },
             {
-              "amount_usd": "0.000000000",
+              "amount_usd": "14.050610000",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-medium-v1.processing-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 1015000
+                  "bridge_forwarder": 10150000
                 },
-                "gib_seconds": "152250",
-                "requests": 1015000,
-                "vcpu_seconds": "50851.5"
+                "gib_seconds": "1522500",
+                "requests": 10150000,
+                "vcpu_seconds": "508515"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -5590,10 +6331,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
-                "bridge_invocations": 1015000,
+                "bridge_invocations": 10150000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "164.5565032958984375",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -5677,13 +6427,13 @@
               "route_role": "processing-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "42.071073462"
+              "subtotal_usd": "56.121683462"
             }
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.azure.event-layer@1",
           "event_layer_bundle_total_usd": "1860.108290000",
-          "event_scope_total_usd": "2248.154462535",
+          "event_scope_total_usd": "2262.205072535",
           "eventing_provider": "azure",
           "ingress_provider": "aws",
           "placement_id": "placement.aws-azure-gcp@1",
@@ -5693,7 +6443,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "612.784305516",
+          "bridge_addition_total_usd": "626.834915516",
           "bridge_cost_contributions": [
             {
               "amount_usd": "265.731382720",
@@ -5724,7 +6474,8 @@
               "amount_usd": "0.003000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-medium-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -5748,10 +6499,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -5760,19 +6520,20 @@
               ]
             },
             {
-              "amount_usd": "0.000000000",
+              "amount_usd": "14.050610000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-medium-v1.eventing-to-processing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 1015000
+                  "bridge_forwarder": 10150000
                 },
-                "gib_seconds": "152250",
-                "requests": 1015000,
-                "vcpu_seconds": "50851.5"
+                "gib_seconds": "1522500",
+                "requests": 10150000,
+                "vcpu_seconds": "508515"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -5789,10 +6550,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
-                "bridge_invocations": 1015000,
+                "bridge_invocations": 10150000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "164.5565032958984375",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -5846,7 +6616,8 @@
               "amount_usd": "50.486000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-medium-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -5870,10 +6641,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -5948,7 +6728,7 @@
               "route_role": "eventing-to-processing",
               "source_outbox_cost_included": false,
               "source_provider": "gcp",
-              "subtotal_usd": "151.309580396"
+              "subtotal_usd": "165.360190396"
             },
             {
               "deduplicated_event_layer_endpoint": "destination",
@@ -5963,7 +6743,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_bundle_total_usd": "78.768906934",
-          "event_scope_total_usd": "691.553212450",
+          "event_scope_total_usd": "705.603822450",
           "eventing_provider": "gcp",
           "ingress_provider": "aws",
           "placement_id": "placement.aws-gcp-azure@1",
@@ -5973,7 +6753,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "253.994789815",
+          "bridge_addition_total_usd": "268.045399815",
           "bridge_cost_contributions": [
             {
               "amount_usd": "131.680000000",
@@ -6000,7 +6780,8 @@
               "amount_usd": "50.486000000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-medium-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -6024,10 +6805,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6039,7 +6829,8 @@
               "amount_usd": "0.003000000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-medium-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -6063,10 +6854,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6115,19 +6915,20 @@
               ]
             },
             {
-              "amount_usd": "0.000000000",
+              "amount_usd": "14.050610000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-medium-v1.processing-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 1015000
+                  "bridge_forwarder": 10150000
                 },
-                "gib_seconds": "152250",
-                "requests": 1015000,
-                "vcpu_seconds": "50851.5"
+                "gib_seconds": "1522500",
+                "requests": 10150000,
+                "vcpu_seconds": "508515"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -6144,10 +6945,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
-                "bridge_invocations": 1015000,
+                "bridge_invocations": 10150000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "164.5565032958984375",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6231,13 +7041,13 @@
               "route_role": "processing-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "42.071073462"
+              "subtotal_usd": "56.121683462"
             }
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.aws.event-layer@1",
           "event_layer_bundle_total_usd": "700.907212947",
-          "event_scope_total_usd": "954.902002762",
+          "event_scope_total_usd": "968.952612762",
           "eventing_provider": "aws",
           "ingress_provider": "azure",
           "placement_id": "placement.azure-aws-gcp@1",
@@ -6247,7 +7057,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "665.238255516",
+          "bridge_addition_total_usd": "679.288865516",
           "bridge_cost_contributions": [
             {
               "amount_usd": "131.680000000",
@@ -6274,7 +7084,8 @@
               "amount_usd": "50.486000000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-medium-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -6298,10 +7109,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6310,19 +7130,20 @@
               ]
             },
             {
-              "amount_usd": "0.000000000",
+              "amount_usd": "14.050610000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-medium-v1.eventing-to-processing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 1015000
+                  "bridge_forwarder": 10150000
                 },
-                "gib_seconds": "152250",
-                "requests": 1015000,
-                "vcpu_seconds": "50851.5"
+                "gib_seconds": "1522500",
+                "requests": 10150000,
+                "vcpu_seconds": "508515"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -6339,10 +7160,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
-                "bridge_invocations": 1015000,
+                "bridge_invocations": 10150000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "164.5565032958984375",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6402,7 +7232,8 @@
               "amount_usd": "0.003000000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-medium-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -6426,10 +7257,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6504,7 +7344,7 @@
               "route_role": "eventing-to-processing",
               "source_outbox_cost_included": false,
               "source_provider": "gcp",
-              "subtotal_usd": "203.763530396"
+              "subtotal_usd": "217.814140396"
             },
             {
               "deduplicated_event_layer_endpoint": "destination",
@@ -6519,7 +7359,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_bundle_total_usd": "78.768906934",
-          "event_scope_total_usd": "744.007162450",
+          "event_scope_total_usd": "758.057772450",
           "eventing_provider": "gcp",
           "ingress_provider": "azure",
           "placement_id": "placement.azure-gcp-aws@1",
@@ -6529,7 +7369,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "369.497215862",
+          "bridge_addition_total_usd": "383.547825862",
           "bridge_cost_contributions": [
             {
               "amount_usd": "22.444293066",
@@ -6552,19 +7392,20 @@
               ]
             },
             {
-              "amount_usd": "0.000000000",
+              "amount_usd": "14.050610000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-medium-v1.ingress-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 1015000
+                  "bridge_forwarder": 10150000
                 },
-                "gib_seconds": "152250",
-                "requests": 1015000,
-                "vcpu_seconds": "50851.5"
+                "gib_seconds": "1522500",
+                "requests": 10150000,
+                "vcpu_seconds": "508515"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -6581,10 +7422,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
-                "bridge_invocations": 1015000,
+                "bridge_invocations": 10150000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "164.5565032958984375",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6596,7 +7446,8 @@
               "amount_usd": "0.003000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-medium-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -6620,10 +7471,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6677,7 +7537,8 @@
               "amount_usd": "50.486000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-medium-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -6701,10 +7562,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6770,7 +7640,7 @@
               "route_role": "ingress-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "42.071073462"
+              "subtotal_usd": "56.121683462"
             },
             {
               "deduplicated_event_layer_endpoint": "source",
@@ -6794,7 +7664,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.aws.event-layer@1",
           "event_layer_bundle_total_usd": "700.907212947",
-          "event_scope_total_usd": "1070.404428809",
+          "event_scope_total_usd": "1084.455038809",
           "eventing_provider": "aws",
           "ingress_provider": "gcp",
           "placement_id": "placement.gcp-aws-azure@1",
@@ -6804,7 +7674,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "556.002548582",
+          "bridge_addition_total_usd": "570.053158582",
           "bridge_cost_contributions": [
             {
               "amount_usd": "22.444293066",
@@ -6827,19 +7697,20 @@
               ]
             },
             {
-              "amount_usd": "0.000000000",
+              "amount_usd": "14.050610000",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-medium-v1.ingress-to-eventing.forwarder.cloud-run",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 1015000
+                  "bridge_forwarder": 10150000
                 },
-                "gib_seconds": "152250",
-                "requests": 1015000,
-                "vcpu_seconds": "50851.5"
+                "gib_seconds": "1522500",
+                "requests": 10150000,
+                "vcpu_seconds": "508515"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -6856,10 +7727,19 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "one_push_request_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
-                "bridge_invocations": 1015000,
+                "bridge_invocations": 10150000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "164.5565032958984375",
+                "runtime_mode": "authenticated_pubsub_push",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6871,7 +7751,8 @@
               "amount_usd": "50.486000000",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-medium-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -6895,10 +7776,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -6958,7 +7848,8 @@
               "amount_usd": "0.003000000",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-medium-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -6982,10 +7873,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 10150000,
                 "bridge_invocations": 1015000,
+                "channel_attempts": [
+                  {
+                    "attempts": 10150000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "176.6912",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 176691200000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -7051,7 +7951,7 @@
               "route_role": "ingress-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "42.071073462"
+              "subtotal_usd": "56.121683462"
             },
             {
               "deduplicated_event_layer_endpoint": "source",
@@ -7075,7 +7975,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.azure.event-layer@1",
           "event_layer_bundle_total_usd": "1860.108290000",
-          "event_scope_total_usd": "2416.110838582",
+          "event_scope_total_usd": "2430.161448582",
           "eventing_provider": "azure",
           "ingress_provider": "gcp",
           "placement_id": "placement.gcp-azure-aws@1",
@@ -7145,7 +8045,8 @@
               "amount_usd": "40.875623788",
               "contribution_id": "bridge.aws-to-azure.eventing-large-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -7169,10 +8070,54 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 209090000,
                 "bridge_invocations": 20909000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "13716.89728",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 13716897280000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -7312,7 +8257,8 @@
               "amount_usd": "40.875623788",
               "contribution_id": "bridge.aws-to-gcp.eventing-large-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -7336,10 +8282,54 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 209090000,
                 "bridge_invocations": 20909000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "13716.89728",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 13716897280000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -7466,7 +8456,8 @@
               "amount_usd": "1092.931600000",
               "contribution_id": "bridge.azure-to-aws.eventing-large-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -7490,10 +8481,54 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 209090000,
                 "bridge_invocations": 20909000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "13716.89728",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 13716897280000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -7630,7 +8665,8 @@
               "amount_usd": "1092.931600000",
               "contribution_id": "bridge.azure-to-gcp.eventing-large-v1.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -7654,10 +8690,54 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 209090000,
                 "bridge_invocations": 20909000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
                 "provider_transfer_quantity": "13716.89728",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 13716897280000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -7778,19 +8858,43 @@
               ]
             },
             {
-              "amount_usd": "35.325456600",
-              "contribution_id": "bridge.gcp-to-aws.eventing-large-v1.forwarder.cloud-run",
+              "amount_usd": "1304.004935384",
+              "contribution_id": "bridge.gcp-to-aws.eventing-large-v1.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
+              ],
+              "member": "Google Cloud Run bridge worker pools",
+              "normalized_quantities": {
+                "gib_seconds": "55188000",
+                "instances": 42,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 206000000,
+                "streaming_pull_streams": 42,
+                "telemetry_channel_count": 2,
+                "vcpu_seconds": "110376000"
+              },
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
+              "pricing_intent_ids": [
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
+              ]
+            },
+            {
+              "amount_usd": "0.694750000",
+              "contribution_id": "bridge.gcp-to-aws.eventing-large-v1.forwarder.control.cloud-run",
+              "formula_ids": [
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20909000
+                  "bridge_control_forwarder": 3090000
                 },
-                "gib_seconds": "3136350",
-                "requests": 20909000,
-                "vcpu_seconds": "1047540.9"
+                "gib_seconds": "463500",
+                "requests": 3090000,
+                "vcpu_seconds": "154809"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -7807,11 +8911,57 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 209090000,
-                "bridge_invocations": 20909000,
+                "bridge_invocations": 3090000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "12774.856090545654296875",
-                "transfer_bytes": 13716897280000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 13716897280000,
+                "worker_instances": 42
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -7898,7 +9048,7 @@
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "15417.311441121"
+          "total_monthly_usd": "16686.685669905"
         },
         {
           "cost_contributions": [
@@ -7942,19 +9092,43 @@
               ]
             },
             {
-              "amount_usd": "35.325456600",
-              "contribution_id": "bridge.gcp-to-azure.eventing-large-v1.forwarder.cloud-run",
+              "amount_usd": "1304.004935384",
+              "contribution_id": "bridge.gcp-to-azure.eventing-large-v1.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
+              ],
+              "member": "Google Cloud Run bridge worker pools",
+              "normalized_quantities": {
+                "gib_seconds": "55188000",
+                "instances": 42,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 206000000,
+                "streaming_pull_streams": 42,
+                "telemetry_channel_count": 2,
+                "vcpu_seconds": "110376000"
+              },
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
+              "pricing_intent_ids": [
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
+              ]
+            },
+            {
+              "amount_usd": "0.694750000",
+              "contribution_id": "bridge.gcp-to-azure.eventing-large-v1.forwarder.control.cloud-run",
+              "formula_ids": [
+                "formula.gcp.cloud-run-request",
+                "formula.bridge.compute"
               ],
               "member": "Google Cloud Run services",
               "normalized_quantities": {
                 "component_invocations": {
-                  "bridge_forwarder": 20909000
+                  "bridge_control_forwarder": 3090000
                 },
-                "gib_seconds": "3136350",
-                "requests": 20909000,
-                "vcpu_seconds": "1047540.9"
+                "gib_seconds": "463500",
+                "requests": 3090000,
+                "vcpu_seconds": "154809"
               },
               "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
               "pricing_intent_ids": [
@@ -7971,11 +9145,57 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 209090000,
-                "bridge_invocations": 20909000,
+                "bridge_invocations": 3090000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "event.matched.v1",
+                    "payload_class": "match"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.requested.v1",
+                    "payload_class": "notification"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.requested.v1",
+                    "payload_class": "device_command"
+                  },
+                  {
+                    "attempts": 1030000,
+                    "channel_id": "extension.action.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "notification.workflow.outcome.v1",
+                    "payload_class": "outcome"
+                  },
+                  {
+                    "attempts": 257500,
+                    "channel_id": "device.command.outcome.v1",
+                    "payload_class": "outcome"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "12774.856090545654296875",
-                "transfer_bytes": 13716897280000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 13716897280000,
+                "worker_instances": 42
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -8052,7 +9272,7 @@
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "11921.934966874"
+          "total_monthly_usd": "13191.309195658"
         }
       ],
       "embedded_bundle_results": [
@@ -8973,7 +10193,7 @@
       ],
       "three_provider_results": [
         {
-          "bridge_addition_total_usd": "12864.247307617",
+          "bridge_addition_total_usd": "13499.292561001",
           "bridge_cost_contributions": [
             {
               "amount_usd": "8872.198608000",
@@ -9004,7 +10224,8 @@
               "amount_usd": "16.651696250",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-large-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -9028,10 +10249,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -9043,7 +10273,8 @@
               "amount_usd": "537.020000000",
               "contribution_id": "three-provider.aws-azure-gcp.eventing-large-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -9067,10 +10298,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -9119,25 +10359,26 @@
               ]
             },
             {
-              "amount_usd": "14.347220000",
-              "contribution_id": "three-provider.aws-azure-gcp.eventing-large-v1.processing-to-eventing.forwarder.cloud-run",
+              "amount_usd": "649.392473384",
+              "contribution_id": "three-provider.aws-azure-gcp.eventing-large-v1.processing-to-eventing.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
               ],
-              "member": "Google Cloud Run services",
+              "member": "Google Cloud Run bridge worker pools",
               "normalized_quantities": {
-                "component_invocations": {
-                  "bridge_forwarder": 10300000
-                },
-                "gib_seconds": "1545000",
-                "requests": 10300000,
-                "vcpu_seconds": "516030"
+                "gib_seconds": "27594000",
+                "instances": 21,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 103000000,
+                "streaming_pull_streams": 21,
+                "telemetry_channel_count": 1,
+                "vcpu_seconds": "55188000"
               },
-              "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
               "pricing_intent_ids": [
-                "intent.gcp.cloud-run.request",
-                "intent.gcp.cloud-run.cpu",
-                "intent.gcp.cloud-run.memory"
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
               ]
             },
             {
@@ -9148,11 +10389,22 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
-                "bridge_invocations": 10300000,
+                "bridge_invocations": 0,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "6384.84954833984375",
-                "transfer_bytes": 6855680000000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 6855680000000,
+                "worker_instances": 21
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -9235,13 +10487,13 @@
               "route_role": "processing-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "1603.142011773"
+              "subtotal_usd": "2238.187265157"
             }
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.azure.event-layer@1",
           "event_layer_bundle_total_usd": "40339.359729680",
-          "event_scope_total_usd": "53203.607037297",
+          "event_scope_total_usd": "53838.652290681",
           "eventing_provider": "azure",
           "ingress_provider": "aws",
           "placement_id": "placement.aws-azure-gcp@1",
@@ -9251,7 +10503,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "20119.738334567",
+          "bridge_addition_total_usd": "20754.783587951",
           "bridge_cost_contributions": [
             {
               "amount_usd": "8872.198608000",
@@ -9282,7 +10534,8 @@
               "amount_usd": "16.651696250",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-large-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -9306,10 +10559,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -9318,25 +10580,26 @@
               ]
             },
             {
-              "amount_usd": "14.347220000",
-              "contribution_id": "three-provider.aws-gcp-azure.eventing-large-v1.eventing-to-processing.forwarder.cloud-run",
+              "amount_usd": "649.392473384",
+              "contribution_id": "three-provider.aws-gcp-azure.eventing-large-v1.eventing-to-processing.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
               ],
-              "member": "Google Cloud Run services",
+              "member": "Google Cloud Run bridge worker pools",
               "normalized_quantities": {
-                "component_invocations": {
-                  "bridge_forwarder": 10300000
-                },
-                "gib_seconds": "1545000",
-                "requests": 10300000,
-                "vcpu_seconds": "516030"
+                "gib_seconds": "27594000",
+                "instances": 21,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 103000000,
+                "streaming_pull_streams": 21,
+                "telemetry_channel_count": 1,
+                "vcpu_seconds": "55188000"
               },
-              "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
               "pricing_intent_ids": [
-                "intent.gcp.cloud-run.request",
-                "intent.gcp.cloud-run.cpu",
-                "intent.gcp.cloud-run.memory"
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
               ]
             },
             {
@@ -9347,11 +10610,22 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
-                "bridge_invocations": 10300000,
+                "bridge_invocations": 0,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "6384.84954833984375",
-                "transfer_bytes": 6855680000000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 6855680000000,
+                "worker_instances": 21
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -9404,7 +10678,8 @@
               "amount_usd": "537.020000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-large-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -9428,10 +10703,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -9506,7 +10790,7 @@
               "route_role": "eventing-to-processing",
               "source_outbox_cost_included": false,
               "source_provider": "gcp",
-              "subtotal_usd": "5112.512670317"
+              "subtotal_usd": "5747.557923701"
             },
             {
               "deduplicated_event_layer_endpoint": "destination",
@@ -9521,7 +10805,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_bundle_total_usd": "6023.456950260",
-          "event_scope_total_usd": "26143.195284827",
+          "event_scope_total_usd": "26778.240538211",
           "eventing_provider": "gcp",
           "ingress_provider": "aws",
           "placement_id": "placement.aws-gcp-azure@1",
@@ -9531,7 +10815,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "8377.648699617",
+          "bridge_addition_total_usd": "9012.693953001",
           "bridge_cost_contributions": [
             {
               "amount_usd": "4385.600000000",
@@ -9558,7 +10842,8 @@
               "amount_usd": "537.020000000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-large-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -9582,10 +10867,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -9597,7 +10891,8 @@
               "amount_usd": "16.651696250",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-large-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -9621,10 +10916,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -9673,25 +10977,26 @@
               ]
             },
             {
-              "amount_usd": "14.347220000",
-              "contribution_id": "three-provider.azure-aws-gcp.eventing-large-v1.processing-to-eventing.forwarder.cloud-run",
+              "amount_usd": "649.392473384",
+              "contribution_id": "three-provider.azure-aws-gcp.eventing-large-v1.processing-to-eventing.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
               ],
-              "member": "Google Cloud Run services",
+              "member": "Google Cloud Run bridge worker pools",
               "normalized_quantities": {
-                "component_invocations": {
-                  "bridge_forwarder": 10300000
-                },
-                "gib_seconds": "1545000",
-                "requests": 10300000,
-                "vcpu_seconds": "516030"
+                "gib_seconds": "27594000",
+                "instances": 21,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 103000000,
+                "streaming_pull_streams": 21,
+                "telemetry_channel_count": 1,
+                "vcpu_seconds": "55188000"
               },
-              "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
               "pricing_intent_ids": [
-                "intent.gcp.cloud-run.request",
-                "intent.gcp.cloud-run.cpu",
-                "intent.gcp.cloud-run.memory"
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
               ]
             },
             {
@@ -9702,11 +11007,22 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
-                "bridge_invocations": 10300000,
+                "bridge_invocations": 0,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "6384.84954833984375",
-                "transfer_bytes": 6855680000000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 6855680000000,
+                "worker_instances": 21
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -9789,13 +11105,13 @@
               "route_role": "processing-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "1603.142011773"
+              "subtotal_usd": "2238.187265157"
             }
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.aws.event-layer@1",
           "event_layer_bundle_total_usd": "28905.720125106",
-          "event_scope_total_usd": "37283.368824723",
+          "event_scope_total_usd": "37918.414078107",
           "eventing_provider": "aws",
           "ingress_provider": "azure",
           "placement_id": "placement.azure-aws-gcp@1",
@@ -9805,7 +11121,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "21871.381334567",
+          "bridge_addition_total_usd": "22506.426587951",
           "bridge_cost_contributions": [
             {
               "amount_usd": "4385.600000000",
@@ -9832,7 +11148,8 @@
               "amount_usd": "537.020000000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-large-v1.ingress-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -9856,10 +11173,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -9868,25 +11194,26 @@
               ]
             },
             {
-              "amount_usd": "14.347220000",
-              "contribution_id": "three-provider.azure-gcp-aws.eventing-large-v1.eventing-to-processing.forwarder.cloud-run",
+              "amount_usd": "649.392473384",
+              "contribution_id": "three-provider.azure-gcp-aws.eventing-large-v1.eventing-to-processing.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
               ],
-              "member": "Google Cloud Run services",
+              "member": "Google Cloud Run bridge worker pools",
               "normalized_quantities": {
-                "component_invocations": {
-                  "bridge_forwarder": 10300000
-                },
-                "gib_seconds": "1545000",
-                "requests": 10300000,
-                "vcpu_seconds": "516030"
+                "gib_seconds": "27594000",
+                "instances": 21,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 103000000,
+                "streaming_pull_streams": 21,
+                "telemetry_channel_count": 1,
+                "vcpu_seconds": "55188000"
               },
-              "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
               "pricing_intent_ids": [
-                "intent.gcp.cloud-run.request",
-                "intent.gcp.cloud-run.cpu",
-                "intent.gcp.cloud-run.memory"
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
               ]
             },
             {
@@ -9897,11 +11224,22 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
-                "bridge_invocations": 10300000,
+                "bridge_invocations": 0,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "6384.84954833984375",
-                "transfer_bytes": 6855680000000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 6855680000000,
+                "worker_instances": 21
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -9960,7 +11298,8 @@
               "amount_usd": "16.651696250",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-large-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -9984,10 +11323,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -10062,7 +11410,7 @@
               "route_role": "eventing-to-processing",
               "source_outbox_cost_included": false,
               "source_provider": "gcp",
-              "subtotal_usd": "6864.155670317"
+              "subtotal_usd": "7499.200923701"
             },
             {
               "deduplicated_event_layer_endpoint": "destination",
@@ -10077,7 +11425,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_bundle_total_usd": "6023.456950260",
-          "event_scope_total_usd": "27894.838284827",
+          "event_scope_total_usd": "28529.883538211",
           "eventing_provider": "gcp",
           "ingress_provider": "azure",
           "placement_id": "placement.azure-gcp-aws@1",
@@ -10087,7 +11435,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "12123.881068023",
+          "bridge_addition_total_usd": "12758.926321407",
           "bridge_cost_contributions": [
             {
               "amount_usd": "876.341341456",
@@ -10110,25 +11458,26 @@
               ]
             },
             {
-              "amount_usd": "14.347220000",
-              "contribution_id": "three-provider.gcp-aws-azure.eventing-large-v1.ingress-to-eventing.forwarder.cloud-run",
+              "amount_usd": "649.392473384",
+              "contribution_id": "three-provider.gcp-aws-azure.eventing-large-v1.ingress-to-eventing.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
               ],
-              "member": "Google Cloud Run services",
+              "member": "Google Cloud Run bridge worker pools",
               "normalized_quantities": {
-                "component_invocations": {
-                  "bridge_forwarder": 10300000
-                },
-                "gib_seconds": "1545000",
-                "requests": 10300000,
-                "vcpu_seconds": "516030"
+                "gib_seconds": "27594000",
+                "instances": 21,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 103000000,
+                "streaming_pull_streams": 21,
+                "telemetry_channel_count": 1,
+                "vcpu_seconds": "55188000"
               },
-              "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
               "pricing_intent_ids": [
-                "intent.gcp.cloud-run.request",
-                "intent.gcp.cloud-run.cpu",
-                "intent.gcp.cloud-run.memory"
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
               ]
             },
             {
@@ -10139,11 +11488,22 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
-                "bridge_invocations": 10300000,
+                "bridge_invocations": 0,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "6384.84954833984375",
-                "transfer_bytes": 6855680000000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 6855680000000,
+                "worker_instances": 21
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -10154,7 +11514,8 @@
               "amount_usd": "16.651696250",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-large-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -10178,10 +11539,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -10235,7 +11605,8 @@
               "amount_usd": "537.020000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-large-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -10259,10 +11630,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -10328,7 +11708,7 @@
               "route_role": "ingress-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "1603.142011773"
+              "subtotal_usd": "2238.187265157"
             },
             {
               "deduplicated_event_layer_endpoint": "source",
@@ -10352,7 +11732,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.aws.event-layer@1",
           "event_layer_bundle_total_usd": "28905.720125106",
-          "event_scope_total_usd": "41029.601193129",
+          "event_scope_total_usd": "41664.646446513",
           "eventing_provider": "aws",
           "ingress_provider": "gcp",
           "placement_id": "placement.gcp-aws-azure@1",
@@ -10362,7 +11742,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "18362.122676023",
+          "bridge_addition_total_usd": "18997.167929407",
           "bridge_cost_contributions": [
             {
               "amount_usd": "876.341341456",
@@ -10385,25 +11765,26 @@
               ]
             },
             {
-              "amount_usd": "14.347220000",
-              "contribution_id": "three-provider.gcp-azure-aws.eventing-large-v1.ingress-to-eventing.forwarder.cloud-run",
+              "amount_usd": "649.392473384",
+              "contribution_id": "three-provider.gcp-azure-aws.eventing-large-v1.ingress-to-eventing.forwarder.worker-pool",
               "formula_ids": [
-                "formula.gcp.cloud-run-request"
+                "formula.gcp.cloud-run-worker-pool",
+                "formula.bridge.compute"
               ],
-              "member": "Google Cloud Run services",
+              "member": "Google Cloud Run bridge worker pools",
               "normalized_quantities": {
-                "component_invocations": {
-                  "bridge_forwarder": 10300000
-                },
-                "gib_seconds": "1545000",
-                "requests": 10300000,
-                "vcpu_seconds": "516030"
+                "gib_seconds": "27594000",
+                "instances": 21,
+                "instances_per_telemetry_channel": 21,
+                "logical_telemetry_attempts": 103000000,
+                "streaming_pull_streams": 21,
+                "telemetry_channel_count": 1,
+                "vcpu_seconds": "55188000"
               },
-              "notes": "100-ms request-based billing at 0.167 vCPU and the component memory allocation; free grants applied once.",
+              "notes": "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
               "pricing_intent_ids": [
-                "intent.gcp.cloud-run.request",
-                "intent.gcp.cloud-run.cpu",
-                "intent.gcp.cloud-run.memory"
+                "intent.gcp.cloud-run-worker.cpu",
+                "intent.gcp.cloud-run-worker.memory"
               ]
             },
             {
@@ -10414,11 +11795,22 @@
               ],
               "member": "GCP internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "telemetry_streaming_pull_workers_and_one_control_push_per_attempt",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
-                "bridge_invocations": 10300000,
+                "bridge_invocations": 0,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
+                "instances_per_telemetry_channel": 21,
                 "provider_transfer_quantity": "6384.84954833984375",
-                "transfer_bytes": 6855680000000
+                "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+                "transfer_bytes": 6855680000000,
+                "worker_instances": 21
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
               "pricing_intent_ids": [
@@ -10429,7 +11821,8 @@
               "amount_usd": "537.020000000",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-large-v1.eventing-to-processing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "Azure Functions Flex Consumption",
               "normalized_quantities": {
@@ -10453,10 +11846,19 @@
               ],
               "member": "AZURE internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.received.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -10516,7 +11918,8 @@
               "amount_usd": "16.651696250",
               "contribution_id": "three-provider.gcp-azure-aws.eventing-large-v1.processing-to-eventing.forwarder.serverless",
               "formula_ids": [
-                "formula.compute.serverless"
+                "formula.compute.serverless",
+                "formula.bridge.compute"
               ],
               "member": "AWS Lambda",
               "normalized_quantities": {
@@ -10540,10 +11943,19 @@
               ],
               "member": "AWS internet data transfer",
               "normalized_quantities": {
+                "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
                 "bridge_batch_max_events": 10,
                 "bridge_event_attempts": 103000000,
                 "bridge_invocations": 10300000,
+                "channel_attempts": [
+                  {
+                    "attempts": 103000000,
+                    "channel_id": "telemetry.processed.v1",
+                    "payload_class": "telemetry"
+                  }
+                ],
                 "provider_transfer_quantity": "6855.68",
+                "runtime_mode": "event_source_trigger",
                 "transfer_bytes": 6855680000000
               },
               "notes": "Source provider owns egress; canonical envelope bytes only, with retry and replay attempts included.",
@@ -10609,7 +12021,7 @@
               "route_role": "ingress-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "gcp",
-              "subtotal_usd": "1603.142011773"
+              "subtotal_usd": "2238.187265157"
             },
             {
               "deduplicated_event_layer_endpoint": "source",
@@ -10633,7 +12045,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.azure.event-layer@1",
           "event_layer_bundle_total_usd": "40339.359729680",
-          "event_scope_total_usd": "58701.482405703",
+          "event_scope_total_usd": "59336.527659087",
           "eventing_provider": "azure",
           "ingress_provider": "gcp",
           "placement_id": "placement.gcp-azure-aws@1",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import math
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -132,6 +133,72 @@ class ScenarioCalculationTest(unittest.TestCase):
         ]
         with self.assertRaises(KeyError):
             self.build(pricing=incomplete)
+
+    def test_bridge_runtime_is_provider_and_channel_specific(self) -> None:
+        result = self.build()
+        small = result["scenarios"][0]["directed_pair_bridge_results"]
+        aws_small = next(item for item in small if item["source_provider"] == "aws")
+        gcp_small = next(item for item in small if item["source_provider"] == "gcp")
+
+        def egress(route: dict) -> dict:
+            return next(
+                item
+                for item in route["cost_contributions"]
+                if item["contribution_id"].endswith(".egress")
+            )
+
+        aws_quantities = egress(aws_small)["normalized_quantities"]
+        gcp_quantities = egress(gcp_small)["normalized_quantities"]
+        self.assertEqual(
+            aws_quantities["bridge_invocations"],
+            sum(
+                math.ceil(row["attempts"] / 10)
+                for row in aws_quantities["channel_attempts"]
+            ),
+        )
+        self.assertEqual(
+            gcp_quantities["bridge_invocations"],
+            gcp_quantities["bridge_event_attempts"],
+        )
+        self.assertEqual(
+            gcp_quantities["actual_batch_rule"],
+            "one_push_request_per_attempt",
+        )
+
+    def test_gcp_large_bridge_worker_count_follows_telemetry_channels(self) -> None:
+        result = self.build()
+        large = result["scenarios"][2]
+        gcp_pair = next(
+            item
+            for item in large["directed_pair_bridge_results"]
+            if item["source_provider"] == "gcp"
+        )
+        pair_worker = next(
+            item
+            for item in gcp_pair["cost_contributions"]
+            if item["contribution_id"].endswith(".forwarder.worker-pool")
+        )
+        self.assertEqual(
+            pair_worker["normalized_quantities"]["telemetry_channel_count"],
+            2,
+        )
+        self.assertEqual(pair_worker["normalized_quantities"]["instances"], 42)
+
+        gcp_source_placement = next(
+            item
+            for item in large["three_provider_results"]
+            if item["ingress_provider"] == "gcp"
+        )
+        route_worker = next(
+            item
+            for item in gcp_source_placement["bridge_cost_contributions"]
+            if ".ingress-to-eventing.forwarder.worker-pool" in item["contribution_id"]
+        )
+        self.assertEqual(
+            route_worker["normalized_quantities"]["telemetry_channel_count"],
+            1,
+        )
+        self.assertEqual(route_worker["normalized_quantities"]["instances"], 21)
 
 
 if __name__ == "__main__":

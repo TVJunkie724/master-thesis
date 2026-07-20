@@ -1247,28 +1247,139 @@ def bridge_compute_and_transfer(
     replay_share = Decimal(str(scenario["replay_share"]))
     bridge_events = 0
     transfer_bytes = 0
+    channel_attempts = []
     for row in channels:
         retries = ceil_decimal(Decimal(row["publish_count"]) * retry_share)
         replays = ceil_decimal(Decimal(row["publish_count"]) * replay_share)
         attempts = row["publish_count"] + retries + replays
         bridge_events += attempts
         transfer_bytes += attempts * row["canonical_bytes_per_event"]
+        channel_attempts.append(
+            {
+                "channel_id": row["channel_id"],
+                "payload_class": row["payload_class"],
+                "attempts": attempts,
+            }
+        )
     batch = shared["component_compute_assumptions"]["bridge"]["max_batch_events"]
-    invocations = math.ceil(bridge_events / batch)
     bridge = shared["component_compute_assumptions"]["bridge"]
-    items = serverless_compute(
-        source_provider,
-        [
-            (
-                "bridge_forwarder",
-                invocations,
-                bridge["duration_ms"],
-                bridge["memory_mib"],
+    runtime_quantities: dict[str, Any]
+    if source_provider in {"aws", "azure"}:
+        invocations = sum(
+            math.ceil(row["attempts"] / batch) for row in channel_attempts
+        )
+        items = serverless_compute(
+            source_provider,
+            [
+                (
+                    "bridge_forwarder",
+                    invocations,
+                    bridge["duration_ms"],
+                    bridge["memory_mib"],
+                )
+            ],
+            intents,
+            f"{prefix}.forwarder",
+        )
+        runtime_quantities = {
+            "runtime_mode": "event_source_trigger",
+            "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
+            "bridge_batch_max_events": batch,
+            "bridge_invocations": invocations,
+        }
+    elif source_provider == "gcp" and scenario["scenario_id"] == "eventing-large-v1":
+        telemetry_channels = [
+            row for row in channel_attempts if row["payload_class"] == "telemetry"
+        ]
+        control_channels = [
+            row for row in channel_attempts if row["payload_class"] != "telemetry"
+        ]
+        instances_per_telemetry_channel = 21
+        worker_instances = len(telemetry_channels) * instances_per_telemetry_channel
+        items = []
+        if worker_instances:
+            cpu_id = "intent.gcp.cloud-run-worker.cpu"
+            memory_id = "intent.gcp.cloud-run-worker.memory"
+            cpu_seconds = Decimal(worker_instances) * SECONDS_PER_MONTH
+            memory_seconds = cpu_seconds * Decimal("0.5")
+            items.append(
+                contribution(
+                    f"{prefix}.forwarder.worker-pool",
+                    "Google Cloud Run bridge worker pools",
+                    progressive_cost(cpu_seconds, intents[cpu_id])
+                    + progressive_cost(memory_seconds, intents[memory_id]),
+                    [cpu_id, memory_id],
+                    ["formula.gcp.cloud-run-worker-pool", "formula.bridge.compute"],
+                    {
+                        "instances": worker_instances,
+                        "instances_per_telemetry_channel": (
+                            instances_per_telemetry_channel
+                        ),
+                        "telemetry_channel_count": len(telemetry_channels),
+                        "streaming_pull_streams": worker_instances,
+                        "vcpu_seconds": cpu_seconds,
+                        "gib_seconds": memory_seconds,
+                        "logical_telemetry_attempts": sum(
+                            row["attempts"] for row in telemetry_channels
+                        ),
+                    },
+                    "Each telemetry channel uses 21 one-stream StreamingPull workers; no request batching is assumed.",
+                )
             )
-        ],
-        intents,
-        f"{prefix}.forwarder",
-    )
+        control_invocations = sum(row["attempts"] for row in control_channels)
+        if control_invocations:
+            items.extend(
+                serverless_compute(
+                    source_provider,
+                    [
+                        (
+                            "bridge_control_forwarder",
+                            control_invocations,
+                            bridge["duration_ms"],
+                            bridge["memory_mib"],
+                        )
+                    ],
+                    intents,
+                    f"{prefix}.forwarder.control",
+                )
+            )
+        runtime_quantities = {
+            "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
+            "actual_batch_rule": (
+                "telemetry_streaming_pull_workers_and_one_control_push_per_attempt"
+            ),
+            "bridge_batch_max_events": batch,
+            "bridge_invocations": control_invocations,
+            "worker_instances": worker_instances,
+            "instances_per_telemetry_channel": (instances_per_telemetry_channel),
+        }
+    elif source_provider == "gcp":
+        invocations = bridge_events
+        items = serverless_compute(
+            source_provider,
+            [
+                (
+                    "bridge_forwarder",
+                    invocations,
+                    bridge["duration_ms"],
+                    bridge["memory_mib"],
+                )
+            ],
+            intents,
+            f"{prefix}.forwarder",
+        )
+        runtime_quantities = {
+            "runtime_mode": "authenticated_pubsub_push",
+            "actual_batch_rule": "one_push_request_per_attempt",
+            "bridge_batch_max_events": batch,
+            "bridge_invocations": invocations,
+        }
+    else:
+        raise ValueError(source_provider)
+
+    for item in items:
+        if "formula.bridge.compute" not in item["formula_ids"]:
+            item["formula_ids"].append("formula.bridge.compute")
     transfer_id, transfer_quantity, amount = transfer_cost(
         source_provider, transfer_bytes, intents
     )
@@ -1281,8 +1392,8 @@ def bridge_compute_and_transfer(
             ["formula.transfer.progressive-egress"],
             {
                 "bridge_event_attempts": bridge_events,
-                "bridge_batch_max_events": batch,
-                "bridge_invocations": invocations,
+                "channel_attempts": channel_attempts,
+                **runtime_quantities,
                 "transfer_bytes": transfer_bytes,
                 "provider_transfer_quantity": transfer_quantity,
             },

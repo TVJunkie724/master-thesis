@@ -320,11 +320,11 @@
     },
     {
       "formula_id": "formula.bridge.compute",
-      "inputs": ["events", "max_batch_events", "duration_ms", "source_provider_allocation"],
-      "expression": "ceil(events/max_batch_events) invocations priced by the source provider serverless formula",
+      "inputs": ["channel_event_attempts", "source_provider", "scenario_id", "max_batch_events", "duration_ms", "source_provider_allocation"],
+      "expression": "AWS/Azure: sum per channel ceil(attempts/10) serverless invocations; GCP Small/Medium: one Pub/Sub push request per attempt; GCP Large telemetry: 21 one-stream worker instances per telemetry channel plus request-based control forwarding",
       "output_unit": "USD/month",
-      "rounding": "ceiling batches; provider duration and allocation rounding",
-      "notes": "Source is acknowledged only after destination durable acceptance."
+      "rounding": "never batch across channels or ordering keys; provider duration and allocation rounding",
+      "notes": "Ten is a maximum, not a universal batch factor. Source is acknowledged only after destination durable acceptance."
     },
     {
       "formula_id": "formula.transfer.progressive-egress",
