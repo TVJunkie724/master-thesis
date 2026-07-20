@@ -3,7 +3,7 @@ title: "Phase 8.3: Provider Profiles And Deployment Component Catalog"
 description: "Implementation plan for explicit AWS, Azure, and GCP baseline implementations and a deterministic deployment component catalog."
 tags: [architecture, provider-profiles, component-catalog, deployer, optimizer, issue-150]
 lastUpdated: "2026-07-20"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.1"
 - GitHub issue #113 user-function extension prerequisite
 - Current provider capability, package registry, Terraform, permission, and resolved-deployment-specification matrices
 - 2-twin2clouds and 3-cloud-deployer provider implementations
-EXTRACTED: 2026-07-20 | VERSION: 1.1
+EXTRACTED: 2026-07-20 | VERSION: 1.2
 -->
 
 # Phase 8.3: Provider Profiles And Deployment Component Catalog
@@ -33,6 +33,17 @@ EXTRACTED: 2026-07-20 | VERSION: 1.1
 The issue may not start until #113 is complete. The baseline contains approved
 user logic, so omitting its extension slots is not a valid way around the
 blocker. Partial extension-slot metadata is forbidden.
+
+## Corrective Catalog Addendum
+
+The completed baseline catalog is dark historical `@1` evidence. Its active
+lifecycle labels mean schema/catalog availability, not permission to create a
+new deployment. The catalog does not prove the current public
+Function/shared-token boundaries or direct L3-to-Grafana path admissible.
+Phase 8.9 must register new versioned AWS, Azure, and provider-hosted GCP
+components from the immutable complete-service decision package; it must not
+mutate this catalog or reuse its unsupported claims as current service
+evaluation.
 
 ## 1. Outcome
 
@@ -433,7 +444,9 @@ Update:
 ## 15. Rollout And Rollback
 
 Catalogs are loaded in validation/read-only mode. Existing calculation and
-deployment paths remain authoritative until Phases 8.5 and 8.6 activate them.
+deployment paths remain predecessor behavior while Phase 8.5 and Phase 8.6
+stay dark. Phase 8.9A registers and activates separate complete new-profile
+catalog entries; it does not promote this historical catalog.
 
 Rollback disables catalog loading and removes generated copies/read services.
 Root definitions remain reviewable evidence. No database or cloud rollback is

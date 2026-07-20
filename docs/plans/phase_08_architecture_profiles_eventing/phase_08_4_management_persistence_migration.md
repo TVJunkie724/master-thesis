@@ -2,8 +2,8 @@
 title: "Phase 8.4: Management Persistence And API Migration"
 description: "Implementation plan for normalized architecture selection and immutable resolved-architecture persistence in the Management API."
 tags: [architecture, management-api, persistence, migration, api, issue-142]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.0"
 - twin2multicloud_backend models, migrations, repositories, services, routes, and OpenAPI
 - Existing durable calculation-run and resolved-deployment-specification persistence
 - User-approved server-derived profile-change preview and stale-digest protection
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-20 | VERSION: 1.1
 -->
 
 # Phase 8.4: Management Persistence And API Migration
@@ -31,6 +31,15 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 
 Every model, constraint, migration, projection, route, authorization rule,
 error code, and test in this plan is mandatory.
+
+## Corrective Selection Addendum
+
+Migration 022 and existing `@1` selections remain immutable historical state.
+No newly created Twin may receive `five-layer-baseline@1` as a selectable
+execution default. Until `five-layer-baseline@2` activates, the architecture
+API may correctly return no active profile and the UI must show its blocking
+empty state. Phase 8.9A atomically establishes `@2` as the new default without
+rewriting historical Twins, runs, or resolutions.
 
 ## 1. Outcome
 
@@ -72,16 +81,17 @@ result JSON, while deployment, simulator, verification, export, credential
 selection, and Flutter projections still read fixed fields.
 
 This phase adds the normalized architecture model and API compatibility layer.
-Phase 8.5 implements Optimizer emission dark; architecture-aware calculation
-and deployment consumption activate together in Phase 8.6.
+Phase 8.5 implements Optimizer emission dark; Phase 8.6 keeps deployment
+compilation dark; architecture-aware calculation and deployment consumption
+activate together in Phase 8.9A.
 
 Phase 8.4 stages the `ready` selected-run invariant and enforces it whenever a
 run already carries architecture metadata. The existing live Optimizer path
 still creates `legacy_not_resolvable` runs while Phase 8.5 integrates the
-atomic ingestion boundary dark. Phase 8.6 activates that boundary only after
-the AWS/Azure provider profiles and the typed Deployer graph compiler are
-jointly supported. The temporary compatibility path is audited and is not an
-architecture-ready deployment claim.
+atomic ingestion boundary dark. Phase 8.9A activates that boundary only after
+the complete AWS/Azure/provider-hosted-GCP profiles, storage routes, and typed
+Deployer graph compiler are jointly supported. The temporary compatibility
+path is audited and is not an architecture-ready deployment claim.
 
 ## 3. Persistence Model
 
@@ -219,8 +229,8 @@ Do not create a second mutable extension-binding table.
 - Persisting the resolution and all child rows is one transaction.
 - Selecting a run does not mutate the resolution.
 - A selected `ready` run must own one `complete` resolution and matching
-  deployment specification digest. Phase 8.6 removes the temporary legacy
-  selection compatibility path when it activates architecture output.
+  deployment specification digest. Phase 8.9A removes the temporary legacy
+  selection compatibility path when it activates complete `@2` output.
 - Delete occurs only through calculation-run/Twin cascade or explicit
   retention policy outside this phase.
 
@@ -360,8 +370,8 @@ The Management API must:
 The public calculation-create request never accepts a resolved architecture.
 
 Phase 8.4 implements the method and tests with fixtures. Phase 8.5 integrates
-the Optimizer output behind a default-off activation gate; Phase 8.6 enables
-the path after provider-profile deployment support exists.
+the Optimizer output behind a default-off activation gate; Phase 8.9A enables
+the path after complete-provider deployment support exists.
 
 ## 7. Legacy Migration
 
@@ -383,16 +393,18 @@ Migration 022 must:
    row or inventing data;
 8. preserve every fixed `cheapest_l*` column and historical JSON field.
 
-After migration, the Twin creation service must create the default
-`five-layer-baseline@1` selection in the same transaction as every new Twin.
-Twin creation fails if the active baseline definition cannot be resolved.
+Migration creates historical `@1` selections only for Twins that existed at
+the migration boundary. New Twins created before Phase 8.9A have no executable
+profile selection. Phase 8.9A atomically establishes `@2` as the default for
+new Twins after its complete-service gate; it does not backfill or rewrite
+historical selections.
 
 Legacy runs:
 
 - remain readable with explicit migration status;
 - can remain selected only if reconstructed and deployment-compatible;
 - are deselected atomically if not resolvable;
-- cannot be deployed/redeployed from fixed fields after Phase 8.6;
+- cannot be deployed/redeployed from fixed fields after Phase 8.9A;
 - retain destroy/audit access through frozen historical operation evidence.
 
 Do not silently derive a service, edge, formula, evidence, region, or component
@@ -400,7 +412,7 @@ from provider names alone.
 
 ## 8. Transitional Fixed-Field Projection
 
-Until Phase 8.6 completes:
+Until Phase 8.9A activates `@2`:
 
 - existing `cheapest_l*` columns remain a derived compatibility projection for
   `five-layer-baseline@1`;
@@ -417,8 +429,8 @@ Until Phase 8.6 completes:
 The tracked ownership and removal list is
 [`phase_08_4_fixed_field_reader_inventory.md`](phase_08_4_fixed_field_reader_inventory.md).
 
-After Phase 8.6, fixed fields remain physically for non-destructive history but
-are no longer an executable source.
+After Phase 8.9A, fixed fields remain physically for non-destructive history
+but are no longer an executable source.
 
 ## 9. Error Contract
 
@@ -594,7 +606,7 @@ Rollback:
 
 - disable new routes and architecture ingestion;
 - preserve new rows and migration journal;
-- continue reading legacy fixed fields only while Phase 8.6 has not removed
+- continue reading legacy fixed fields only while Phase 8.9A has not removed
   executable fallback;
 - never drop tables or overwrite legacy data automatically.
 
@@ -603,8 +615,9 @@ Rollback:
 - [x] Repository definitions remain SSOT; DB stores only selections and
       concrete resolutions.
 - [x] Migration 022 is idempotent, transactional, and non-destructive.
-- [x] Every migrated and newly created Twin has one pinned baseline profile
-      selection.
+- [x] At the original migration boundary, migrated and then-new Twins received
+      one pinned historical baseline selection; the corrective addendum assigns
+      the new-Twin default change to Phase 8.9A without rewriting history.
 - [x] Profile selection uses optimistic concurrency and atomically invalidates
       stale deployment selection.
 - [x] Profile changes require a server-derived invalidation preview and matching
@@ -621,9 +634,9 @@ Rollback:
       classified `legacy_not_resolvable` without a resolution row.
 - [x] Fixed fields on architecture-ready runs are derived baseline
       projections; the inventoried live legacy writers are removed by their
-      owning Phases 8.6-8.7.
+      owning dark/UI phases and final Phase 8.9A activation.
 - [x] Architecture-ready selected runs require matching architecture and
-      deployment specification; Phase 8.6 owns removal of the explicitly
+      deployment specification; Phase 8.9A owns removal of the explicitly
       audited legacy-selection compatibility path at runtime activation.
 - [x] Migration, model, repository, service, API, OpenAPI, security, redaction,
       and compatibility tests pass.
@@ -654,7 +667,7 @@ Rollback:
   fixed-field mismatch rejection, rollback, and append-only triggers.
 - `mkdocs build --strict`, Ruff, contract sync, catalog completeness, inventory,
   and `git diff --check` passed.
-- Review 1 and Review 2 closed all findings. The remaining legacy selection
-  path is intentional, audited, and owned by the joint Phase 8.6 activation;
-  Phase 8.5 integrates architecture emission dark and cannot bypass
-  unsupported provider profiles.
+- Review 1 and Review 2 closed all findings for the completed migration. The
+  remaining legacy selection path is historical and audited; the corrective
+  new-Twin default change is owned by Phase 8.9A. Phase 8.5 integrates
+  architecture emission dark and cannot bypass unsupported provider profiles.

@@ -3,7 +3,7 @@ title: "Phase 8.9: Implement The Event-Enabled Comparison Profiles"
 description: "Implementation plan for five-layer-baseline@2 and six-layer-eventing@1 using one approved domain-event contract and separate architecture ownership."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-07-20"
-version: "1.5"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.5"
 - User-approved bounded six-layer profile with no arbitrary graph editor
 - User-approved event-enabled five-layer @2 comparison profile, shared
   domain-event behavior, and separate 8.9A/8.9B implementation boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.5
+EXTRACTED: 2026-07-20 | VERSION: 1.6
 -->
 
 # Phase 8.9: Implement The Event-Enabled Comparison Profiles
@@ -27,8 +27,8 @@ EXTRACTED: 2026-07-20 | VERSION: 1.5
 | Issues | New `five-layer-baseline@2` implementation issue required before execution; [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branches | 8.9A `codex/phase-8-five-layer-baseline-v2`; 8.9B `codex/phase-8-six-layer-eventing` |
-| Branch bases | 8.9A starts from the reviewed Phase 8.7 boundary plus the approved Phase 8.8 package; 8.9B starts from the reviewed 8.9A commit; both ultimately target `master` |
-| Blocked by | Phase 8.7 / #138 and approved Phase 8.8 / #146 |
+| Branch bases | 8.9A starts from the reviewed Phase 8.7 boundary, which already contains both immutable decision packages and the integrated dark compiler; 8.9B starts from the reviewed 8.9A commit; both ultimately target `master` |
+| Blocked by | Phase 8.7 / #138, approved Phase 8.8 / #146, and approved immutable complete-service decision |
 | Produces | Executable closed-world `five-layer-baseline@2` and `six-layer-eventing@1` |
 | Targets | AWS/Azure/GCP Eventing bundles, admissible whole paths, Web, macOS, Windows, Linux |
 | Live cloud E2E | Forbidden |
@@ -36,11 +36,40 @@ EXTRACTED: 2026-07-20 | VERSION: 1.5
 Every contract, provider bundle, formula, package, permission, Terraform
 binding, API field, UI state, test, and Definition of Done item in this plan is
 mandatory. The phase must use the exact approved Phase 8.8 bundle and bridge
-IDs; it must not substitute another service during implementation.
+IDs plus the exact complete-service bundle/storage/L4/L5 IDs; it must not
+substitute another service during implementation.
+
+### Corrective Complete-Service Boundary
+
+This plan composes two immutable decisions:
+
+1. `phase-08-eventing-decision@1` for shared domain events, embedded/Event-Layer
+   bundles, and asynchronous broker bridges;
+2. `phase-08-complete-service-bundles@1` for complete AWS, Azure, and
+   provider-hosted GCP L1-L5 bundles, storage transitions, workload v2,
+   L4/L5 co-location, materialization, datasource identity, and full-profile
+   capacity.
+
+Phase 8.9 may not reinterpret the first package as proof of the second. The
+current public Function/shared-token runtime and direct L3-hot-to-Grafana path
+are forbidden for both new profiles.
 
 Phase 8.9 is executed as two independently reviewed branches and commit series.
 8.9A implements and closes `five-layer-baseline@2`. 8.9B starts only after
 8.9A is clean and implements `six-layer-eventing@1`.
+
+In this plan, activation is an offline repository state: the Management API
+may expose the version for new selection, and the platform may calculate,
+resolve, package, and use its implemented deployment path. Verification in
+this phase remains no-apply. Activation does not claim a successful live
+deployment or measured provider capacity. Those separate live-readiness gates
+remain `live_capacity_pending` until a supervised cloud run is explicitly
+approved and recorded.
+
+The composed decision validator applies the single pinned legacy mapping
+`required_before_profile_activation` ->
+`required_before_live_readiness` from the immutable Eventing package. Unknown
+gate values or any other cross-package disagreement abort activation.
 
 ## 1. Outcome
 
@@ -91,15 +120,23 @@ Implementation may start only when:
    binding, file target, and test owner without duplicates;
 8. the new 8.9A issue exists with reviewed native blockers;
 9. Phase 8.7 all-platform and real-Management integration gates pass;
-10. no native blocker is open.
+10. the complete-service decision is approved and its implementation manifest
+    resolves without conflict against the Eventing manifest;
+11. all six storage-transition identity/route classes resolve;
+12. AWS, Azure, and provider-hosted GCP complete-provider capacity gates pass;
+13. no native blocker is open.
 
 The implementation must verify these conditions through
-the OrbStack-backed command below before any runtime file is changed:
+both OrbStack-backed commands below before any runtime file is changed:
 
 ```bash
 docker run --rm -i -v "$PWD:/workspace" -w /workspace \
   2twin2clouds:latest \
   python scripts/phase_08_eventing/validate_decision_package.py --strict
+
+docker run --rm -i -v "$PWD:/workspace" -w /workspace \
+  2twin2clouds:latest \
+  python scripts/phase_08_service_bundles/validate_decision_package.py --strict
 ```
 
 A rejected or stale decision aborts the phase.
@@ -115,7 +152,12 @@ The reviewed Phase 8.8 inputs are:
 | Decision | `phase-08-eventing-decision@1`, normalized digest `sha256:22aec12d3e3915564d59d6d2ae00ce7fdce375b8d4bfc8c3880762697a02b2a6` |
 | Implementation blueprint | `phase-08-eventing-implementation@1`, normalized digest `sha256:7758a81f40d119fec8a61d03d3a8eb36c3825f732129a0edfcc925df26a85ab5` |
 | Scenario result | `sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27` |
-| Decision scope | Offline evidence and non-executable blueprint; live identity and capacity remain activation gates |
+| Decision scope | Offline evidence and non-executable blueprint; live identity and capacity remain live-readiness gates |
+
+The table above is Event-domain evidence only. Phase 8.9 additionally pins the
+complete-service decision/package/capacity digests generated by
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
+Missing values abort implementation rather than being filled from memory.
 
 ## 3. Fixed Architecture
 
@@ -223,9 +265,10 @@ bridge runtimes.
 The positive fixture set must assign the Eventing responsibility to AWS,
 Azure, and GCP at least once within an otherwise functionally complete whole
 architecture. It must not assume that every provider can implement every other
-responsibility. An all-GCP whole path is positive only when the Phase 8.5
-capability gate proves all six responsibilities complete; otherwise it remains
-an explicit negative fixture with exact unsupported reasons.
+responsibility. The new complete-service decision makes the provider-hosted
+GCP L4/L5 bundle an implementation target, so all-GCP positive fixtures are
+mandatory for both new profiles. Historical `@1` keeps its explicit all-GCP
+negative fixture.
 
 ### 4.2 `ResolvedDeploymentSpecification v2`
 
@@ -325,6 +368,27 @@ The Management API, Optimizer, and Flutter must share exact constraints for:
 or stale Eventing fields fail validation. Switching to historical
 `five-layer-baseline@1` is not a silent downgrade; only its historical
 read/destroy paths consume legacy records.
+
+The shared workload-v2 core adds these required typed fields:
+
+```text
+twinEntityCount
+sceneEntityCount
+averageSceneAssetSizeMiB
+aggregateDashboardRefreshesPerHour
+apiCallsPerAggregateDashboardRefresh
+dashboardActiveHoursPerDay
+monthlyEditorSeats
+monthlyViewerSeats
+twinStateMaterializationsPerSecond
+twinGraphUpdatesPerSecond
+```
+
+It rejects `allowGcpSelfHostedL4`, `allowGcpSelfHostedL5`, and the three legacy
+Eventing flags. `entityCount` remains historical scene-display input only and
+never supplies Twin graph capacity. The three `core-*-v2` presets and their
+synthetic state/graph update bounds come from the complete-service decision;
+the Phase 8.8 Eventing presets remain separate.
 
 ### 5.2 Pricing Registry
 
@@ -475,6 +539,28 @@ Preflight must reject:
 - RDS v2 dimension mismatch;
 - catalog/decision digest drift.
 
+### 7.2 Complete Core Service Bundles
+
+In addition to the Event-domain table above, implement these exact
+complete-service selections:
+
+| Provider | L3 | L4 | L5 |
+|---|---|---|---|
+| AWS | DynamoDB on-demand; S3 Standard-IA and Glacier Deep Archive | IoT TwinMaker plus external time-series connector and scene assets | Amazon Managed Grafana 12 with TwinMaker plugin `1.3.1`, scene viewer, IAM workspace role, and service-account automation |
+| Azure | Cosmos DB dynamic autoscale; Blob Cool and Archive | Azure Digital Twins plus Azure Data Explorer, direct time-series ingestion, and graph data history | Azure Managed Grafana Standard X1/X2 on Grafana 12 with ADX datasource/managed identity; 3D Scenes viewer/assets when required |
+| GCP | Firestore; Cloud Storage Nearline and Archive | Cloud Run Twin API/materializer, Spanner Graph Enterprise, BigQuery, and scene assets | Grafana OSS 12 on GKE with BigQuery datasource `3.2.0` in `Google Metadata Server` mode, platform Twin/scene plugin, and Workload Identity for GKE |
+
+`provider(L4) == provider(L5)` is mandatory. Add three positive and six
+directed negative placement fixtures. Exact service/software/provider/Helm
+versions and digests come from the complete-service implementation manifest.
+
+Add separate registered storage-transition components for all six directed
+provider pairs at hot-to-cool and cool-to-archive. Same-provider
+cool-to-archive uses native object lifecycle; cross-provider transitions use
+source-owned movers and direct destination object-store APIs. These components
+do not reuse Eventing component IDs or transport object payloads through
+brokers.
+
 ## 8. Runtime Adapters And Packages
 
 Implement `eventing-envelope.v1` in platform-owned adapters for all three
@@ -556,8 +642,8 @@ Telemetry lands in Kinesis, Event Hubs, or Pub/Sub with `device_id` as the
 partition/ordering key. Control/action/command traffic lands in SNS/SQS FIFO,
 Service Bus sessions, or ordered Pub/Sub. The six directed route classes and
 their exact trust paths are AWS→Azure, AWS→GCP, Azure→AWS, Azure→GCP,
-GCP→AWS, and GCP→Azure; all are capability-admissible but remain live-tested
-activation gates.
+GCP→AWS, and GCP→Azure; all are capability-admissible, while live testing
+remains a future live-readiness gate.
 
 Every bridge runtime must:
 
@@ -581,6 +667,11 @@ Every bridge runtime must:
 Static shared secrets are forbidden. If the approved trust mechanism cannot be
 implemented using the current credential/permission contracts, the provider
 route remains unsupported and the profile cannot activate.
+
+This section governs canonical domain-event routes only. Storage transitions
+implement the separate complete-service route contract and may reuse only the
+reviewed short-lived identity-exchange primitive. They have independent
+payload, checkpoint, permission, failure, observability, and cost owners.
 
 ## 10. Terraform Implementation
 
@@ -641,6 +732,13 @@ Structured operation evidence includes:
 Extend the existing Phase 8.7 Architecture and Workload tasks. Do not add a
 second Eventing wizard.
 
+The core Twin workload section labels dashboard refreshes as aggregate
+workspace load and renders separate controls for Twin entities, 3D scene
+entities/assets, monthly editor/viewer seats, state materializations, and
+graph/model updates. A change to one field must not mutate or infer another.
+The controls are visible for both new profiles and use the exact workload-v2
+units; no GCP-support or domain-event enable/disable control is rendered.
+
 ### 12.1 Wide Layout
 
 ```text
@@ -648,7 +746,7 @@ second Eventing wizard.
 | Configuration        | Architecture                                         |
 |                      |                                                      |
 | Architecture       * | Profile                                              |
-|   Select profile   * | ( ) Five-layer baseline                              |
+|   Select profile   * | ( ) Five-layer v2 (embedded events)                  |
 |   Understand       o | (o) Six-layer Eventing                               |
 | Workload           l |                                                      |
 | User Logic         l | Eventing and messaging                               |
@@ -660,7 +758,7 @@ second Eventing wizard.
 |                      |               Storage                                 |
 |                      |                                                      |
 |                      | Functional coverage: Complete                         |
-|                      | Provider bundles: AWS | Azure | GCP | Mixed           |
+|                      | L4/L5 bundles: AWS | Azure | GCP | co-located        |
 +----------------------+------------------------------------------------------+
 | Back                       Draft saved                         Continue       |
 +-----------------------------------------------------------------------------+
@@ -755,7 +853,9 @@ Optimizer, Management, Deployer, Terraform, Flutter, tests, and documentation.
 This includes all three shared bridge runtimes, the six directed route classes,
 and their `five-layer-baseline@2` embedded outbox/destination bindings because
 the five-layer profile must support remote responsibility edges independently
-of 8.9B.
+of 8.9B. It also includes workload v2, all three complete L1-L5 provider
+bundles, all storage-transition routes, L4/L5 co-location, and removal of the
+legacy shared-token/direct-L3-visualization paths from new operations.
 Run two reviews, fix every finding, and create the clean 8.9A commit before
 opening the 8.9B branch. Historical `five-layer-baseline@1` golden evidence
 must remain unchanged.
@@ -805,12 +905,12 @@ invalidation, demo parity, accessibility, and all-platform gates.
 
 ### Slice G: Cross-Stack Offline Release Gate
 
-Must prove every currently admissible single-provider path and at least one
-complete whole path assigning Eventing to each of AWS, Azure, and GCP from
-workload through Optimizer, Management, Manifest v4, Deployer graph, package,
-permissions, and Terraform mock plan. Explicitly unsupported single-provider
-paths must remain negative fixtures. The gate must also prove baseline v2 and
-historical v1/v3 compatibility.
+Must prove all-AWS, all-Azure, and provider-hosted all-GCP for each new profile,
+plus at least one complete mixed whole path assigning Eventing to each of AWS,
+Azure, and GCP, from workload through Optimizer, Management, Manifest v4,
+Deployer graph, package, permissions, and Terraform mock plan. The gate also
+proves historical `@1` all-GCP rejection, all six unequal L4/L5 rejections,
+baseline v2, and historical v1/v3 compatibility.
 
 ## 14. Test Plan
 
@@ -826,13 +926,17 @@ historical v1/v3 compatibility.
 
 - Phase 8.8 small/medium/large scenarios for each embedded-event and
   Event-Layer provider bundle;
-- every currently admissible single-provider whole path;
+- all-AWS, all-Azure, and provider-hosted all-GCP for both new profiles;
 - at least one complete whole path assigning Eventing to each of AWS, Azure,
   and GCP;
-- explicitly unsupported single-provider paths remain rejected;
+- historical `@1` all-GCP remains rejected;
+- all six unequal directed L4/L5 placements reject before cost;
+- all six directed event bridges and all six directed storage routes resolve;
 - mandatory capability, ordering, pricing, region, permission, formula, and
   specification rejection;
 - exact provider chunk/tier/capacity/retention/transfer boundaries;
+- exact `core-*-v2` workload fields, scenario values, and storage-batch
+  capacity calculations;
 - no legacy Eventing feature flag in either new profile;
 - shared domain-event paths execute for both new profiles;
 - no `five-layer-baseline@2`/`six-layer-eventing@1` cross-ranking;
@@ -844,6 +948,8 @@ historical v1/v3 compatibility.
 - migration from baseline-only database;
 - profile selection/change preview and exact shared/layer-specific field
   invalidation;
+- workload-v2 persistence separates Twin/scene entities, aggregate dashboard
+  traffic, seats, and semantic update rates and rejects all five legacy flags;
 - Eventing run/spec/resolution atomic persistence;
 - generic assignment/edge API projections;
 - selected-run readiness and invalidation;
@@ -855,6 +961,8 @@ historical v1/v3 compatibility.
 - every approved/rejected binding;
 - exact envelope behavior across provider adapters;
 - duplicate, retry, DLQ, replay, redrive, ordering, and bridge failure;
+- separate storage capture/outbox/batch/checkpoint paths, all six destination
+  identity routes, partial batches, checksum mismatch, and resume;
 - trust/destination allowlist, TLS, idempotency, and backpressure;
 - package determinism and secret/payload-free evidence;
 - permission contract and Terraform symbol drift;
@@ -868,6 +976,8 @@ historical v1/v3 compatibility.
 - strict model parsing and unknown version;
 - BLoC happy/error/stale/invalidation/retry states;
 - profile selection and profile-specific workload fields;
+- Twin entities, scene assets, aggregate dashboard load, seats, and
+  state/graph rates remain independent and no legacy flag control renders;
 - wide/compact layout at 720/960/1200 boundaries;
 - 200% text, long labels, keyboard, semantics, light/dark;
 - data-driven graph and evidence;
@@ -882,8 +992,9 @@ Management integration gate.
 ### Regression
 
 - complete safe Optimizer, Management, Deployer, Flutter suites;
-- five-layer baseline golden cost and graph remain unchanged except intentional
-  RDS v2/Manifest v4 representation for new runs;
+- historical `five-layer-baseline@1` golden cost and graph remain unchanged;
+- `five-layer-baseline@2` uses the intentional workload-v2/RDS-v2/Manifest-v4
+  representation;
 - historical operations remain readable/destroyable from frozen evidence;
 - docs strict build and links.
 

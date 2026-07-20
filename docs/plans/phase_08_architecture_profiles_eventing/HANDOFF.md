@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-20"
-version: "2.9"
+version: "3.0"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.9"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-20 | VERSION: 2.9
+EXTRACTED: 2026-07-20 | VERSION: 3.0
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -32,8 +32,8 @@ EXTRACTED: 2026-07-20 | VERSION: 2.9
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.5 is implemented as a default-off architecture resolution path; Phase 8.8 is an approved offline decision package; Phase 8.6 and 8.7 still block runtime profile activation |
-| Next implementation phase | Phase 8.6 / [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) |
+| Implementation status | Phase 8.5 is default-off; Phase 8.8 approves Event-domain evidence only; the complete-service closure is the corrective activation gate; Phase 8.6 may complete only as a dark generic compiler until the new-profile bundles are implemented |
+| Next action | Approve and commit the complete-service planning/evaluation closure, build the immutable decision package, then finish/review the dark Phase 8.6 compiler boundary |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -54,7 +54,7 @@ AWS, Azure, and GCP processing catalog entries while keeping runtime activation
 dark until the later resolver phases. This is an execution extension inside
 the five-layer baseline, not an Event Layer.
 
-Phase 8.3 now provides one generated baseline profile, three provider profiles,
+Phase 8.3 now provides one generated historical baseline profile, three provider profiles,
 22 reviewed deployment bundles covering all 42 deployment-dimension
 components, 33 Phase 8.1 decision-traced edge implementations, 43
 content-addressed platform/shared artifacts, 51 parser-verified Terraform
@@ -62,9 +62,11 @@ resources, exact coverage of all 51 Phase 8.3/#113 retained component
 decisions, exact variable/output/dimension/permission/pricing/formula
 references, and deterministic supported/blocked fixtures. The completed #113
 user-processor scenario is supported at the catalog-binding boundary without
-activating profile selection. AWS and Azure remain blocked on the Phase 8.6
-L4-to-L5 compiler; GCP remains unsupported for a complete baseline because
-L4/L5 are absent.
+activating profile selection. Those mappings remain dark/historical. AWS and
+Azure are not made deployable by the graph compiler alone because the current
+L4-to-L5 and shared-token runtime is invalid. GCP remains unsupported in
+historical `@1`; the new profiles instead target the separately reviewed
+provider-hosted GCP L4/L5 bundle.
 
 Phase 8.4 adds transactional migration 022, one pinned baseline profile per
 Twin, optimistic profile selection with server-derived invalidation previews,
@@ -78,9 +80,10 @@ architecture model.
 Phase 8.5 adds the profile-bounded Optimizer strategy, pre-ranking functional
 completeness, deterministic candidate resolution, exact cost and rejection
 evidence, `ResolvedTwinArchitecture v1`, and default-off Management admission.
-The repository-backed runtime path remains deliberately dark until Phase 8.6
-provides the typed Deployer graph compiler and promotes the reviewed provider
-profiles.
+The repository-backed runtime path remains deliberately dark. Phase 8.6
+provides the typed Deployer graph compiler but does not promote the historical
+provider profiles. New-profile activation belongs to Phase 8.9A after the
+complete-service decision.
 
 Phase 8.8 is approved independently as an offline evidence gate. Its twelve
 schema-validated artifacts freeze `five-layer-baseline@2`,
@@ -95,28 +98,40 @@ The stale native `#146 blocked by #152` relationship was removed because the
 offline evidence is complete independently; #138 and the future 8.9A issue
 still enforce the runtime implementation order.
 
+The subsequent complete-service review found boundaries outside the Eventing
+package: cross-provider storage movement, native/provider-hosted L4-to-L5
+bindings, the predecessor public Function/shared-token mechanism, conflated
+Twin/scene entity counts, and complete GCP L4/L5 support. The controlling plan
+is [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md),
+with research evidence in
+[`phase_08_service_bundle_evaluation.md`](../../research/phase_08_service_bundle_evaluation.md).
+
 ## Immediate Next Action
 
-The next implementation step is Phase 8.6:
+Do not activate a profile. Complete these boundaries in order:
 
-1. create the Phase 8.6 branch from the reviewed Phase 8.5 plus Phase 8.8
-   planning/evidence commit;
-2. read
+1. finish the concept/plan reviews for the complete-service closure and obtain
+   explicit user approval;
+2. build and commit the immutable complete-service decision package;
+3. return to the existing Phase 8.6 implementation worktree and read
    [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)
    in full;
-3. verify the Phase 8.5 default-off Optimizer/Management architecture output
+4. verify the Phase 8.5 default-off Optimizer/Management architecture output
    and the Phase 8.4 fixed-field reader inventory;
-4. implement Manifest v3, deterministic graph/binding resolution, package
-   selection, typed Terraform input translation, and frozen operation evidence;
-5. promote only provider profiles whose graph/package/no-apply Terraform gates
-   pass and enable architecture-aware calculation admission atomically;
-6. remove executable `cheapest_l*`/`layer_*_provider` ownership while retaining
+5. finish Manifest v3, deterministic graph/binding resolution, package
+   selection, typed Terraform input translation, and frozen operation evidence
+   as a dark compiler;
+6. do not promote `@1` or the current AWS/Azure runtime;
+7. remove executable `cheapest_l*`/`layer_*_provider` ownership while retaining
    historical read/destroy compatibility;
-7. run the named contract, Management, Deployer, package, security, Terraform
+8. run the named contract, Management, Deployer, package, security, Terraform
    no-apply, compatibility, and regression gates;
-8. run two zero-finding reviews;
-9. update current docs, evidence, roadmap, and issue #152;
-10. commit the complete Phase 8.6 boundary before starting Phase 8.7.
+9. run two zero-finding reviews;
+10. update current docs, evidence, roadmap, and issue #152;
+11. commit the complete dark Phase 8.6 boundary;
+12. create the reviewed integrated foundation from the complete-service
+    decision commit plus the clean Phase 8.6 compiler commit, rerun both review
+    suites, and start Phase 8.7 only from that integrated boundary.
 
 ## Required Reading Order
 
@@ -161,8 +176,8 @@ the implementation contract. Neither replaces the other.
 
 Phase 8 is a bounded architecture refactoring for the thesis. It must:
 
-- preserve `five-layer-baseline@1` as executable, paper-compatible, immutable
-  historical evidence;
+- preserve `five-layer-baseline@1` as paper-compatible, immutable historical
+  evidence with read/verify/destroy compatibility only;
 - add `five-layer-baseline@2` with mandatory embedded rule evaluation,
   extension actions, notification workflows, and device-command feedback;
 - keep local direct-edge transport and topology-conditional cross-cloud
@@ -245,7 +260,8 @@ string conventions or user functions constructing another resource's identity.
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Deterministic Deployer graph |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Compact profile workflow |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Shared domain-event contract plus approved or rejected embedded/Event-Layer decision package |
-| 8.9A | New implementation issue required before execution | Executable `five-layer-baseline@2` |
+| Service closure | New issue required before implementation | Complete AWS/Azure/provider-hosted-GCP bundles, storage routes, workload/capacity semantics, and immutable decision package |
+| 8.9A | New implementation issue required before execution | Executable `five-layer-baseline@2` with complete service bundles |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Executable `six-layer-eventing@1` |
 | 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Historical `@1` reproduction plus fair `@2` versus six-layer evaluation |
 
@@ -254,9 +270,9 @@ Native dependency direction:
 ```text
 #144 -> #139 -> #149 -> #150 -> #142 -> #151 -> #152
                      ^                                  |
-                     |                                  +-> #138 --+
-                    #113                                           +-> 8.9A -> #140 -> #148 -> #112
-            #146 --------------------------------------------------+
+                     |                                  +-> #138 --------+
+                    #113                                                 |
+            #146 -> complete-service decision ---------------------------+-> 8.9A -> #140 -> #148 -> #112
 ```
 
 Do not replace native blockers with comments or body text. Do not add a blocker
@@ -276,6 +292,7 @@ merely because two issues are related.
 | #152 / Phase 8.6 | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) |
 | #138 / Phase 8.7 | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) |
 | #146 / Phase 8.8 | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) |
+| Complete-service closure | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) |
 | #140 / Phase 8.9 | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) |
 | #148 / Phase 8.10 | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) |
 
@@ -396,16 +413,19 @@ never a silent fallback.
 AWS, Azure, and GCP embedded-event and Event-Layer bundles satisfy their
 applicable offline capability contracts. Phase 8.9 still waits for Phase 8.7,
 its new 8.9A issue, and closed native blockers. 8.9A and 8.9B use separate
-branches, reviews, and clean commits. This does not imply that an all-GCP whole
-Twin path exists.
-Whole paths remain positive only where the full profile capability matrix
-supports every responsibility.
+branches, reviews, and clean commits. That Event-domain approval alone does not
+imply that an all-GCP whole Twin path exists. The complete-service closure now
+makes provider-hosted all-GCP a mandatory new-profile implementation target;
+whole paths become positive only after its full capability matrix supports
+every responsibility.
 
 Phase 8.8 also produced
 `implementation-component-manifest.json`. It pins every selected service,
 resource type, catalog/component ID, adapter, package, permission, formula,
-port, binding, repository file target, and test owner. Phase 8.9 may not start
-with an unresolved manifest entry or substitute another provider service.
+port, binding, repository file target, and test owner within the Event-domain
+scope. The separate complete-service manifest owns storage, L4/L5, workload,
+and whole-profile capacity targets. Phase 8.9 may not start with an unresolved
+entry in either manifest or substitute another provider service.
 
 ## Contract Evolution
 
@@ -547,8 +567,8 @@ The planning package is ready for implementation when:
 
 Phase 8 is complete only when:
 
-- `five-layer-baseline@1` is executable and hardened;
-- `five-layer-baseline@1` remains immutable historical evidence;
+- `five-layer-baseline@1` remains immutable historical
+  read/verify/destroy evidence;
 - `five-layer-baseline@2` is executable with mandatory embedded domain-event
   behavior;
 - all four architecture contracts are versioned and drift-gated;
@@ -563,6 +583,8 @@ Phase 8 is complete only when:
 - the approved Eventing implementation-component manifest pins every
   cross-project implementation target and remains in the evaluation digest
   chain;
+- the approved complete-service manifest pins every storage, L4/L5,
+  provider-hosted GCP, workload, capacity, identity, and cost target;
 - `six-layer-eventing@1` is executable through the same generic boundaries;
 - `five-layer-baseline@2` and `six-layer-eventing@1` implement the same
   rule/action/workflow/command contract without legacy feature flags;

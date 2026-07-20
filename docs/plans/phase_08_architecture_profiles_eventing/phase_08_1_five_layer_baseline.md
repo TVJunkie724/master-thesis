@@ -1,9 +1,9 @@
 ---
 title: "Phase 8.1: Harden And Freeze five-layer-baseline@1"
-description: "Implementation plan for the explicit, executable, paper-compatible five-layer baseline decision contract."
+description: "Decision plan for the explicit, paper-compatible five-layer baseline retained as immutable historical evidence."
 tags: [architecture, baseline, five-layer, decisions, thesis, issue-139]
 lastUpdated: "2026-07-20"
-version: "1.2"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.2"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/plans/resolved_deployment_specification/README.md
 - EDTConf CloudDT paper and predecessor implementation provenance retained in the repository
-EXTRACTED: 2026-07-20 | VERSION: 1.2
+EXTRACTED: 2026-07-20 | VERSION: 1.3
 -->
 
 # Phase 8.1: Harden And Freeze `five-layer-baseline@1`
@@ -35,18 +35,29 @@ EXTRACTED: 2026-07-20 | VERSION: 1.2
 Every edge and component from the approved Phase 8.0 inventory must receive a
 decision. Partial decision coverage is a blocking failure.
 
+## Corrective Lifecycle Addendum
+
+This completed decision remains immutable provenance for
+`five-layer-baseline@1`. Following the approved Phase 8.8 parity decision and
+the complete-service closure, `@1` is historical read/verify/destroy evidence
+only. Its graph and digests are not modified, but it is not activated for new
+calculation or deployment. Complete service, identity, capacity, and executable
+runtime decisions for new operations belong to `five-layer-baseline@2` under
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
+
 ## 1. Outcome
 
-Freeze one explicit, executable target definition for
+Freeze one explicit target definition for
 `five-layer-baseline@1`. It preserves the five paper-compatible functional and
 cost responsibilities while rejecting the assumption that every inherited
 function, direct call, name convention, or provider mapping is scientifically
 required.
 
 This phase decides the target graph and its invariants. It does not add the
-shared profile classes or modify runtime wiring. Phases 8.2-8.7 implement the
-approved decision through common contracts, provider catalogs, persistence,
-optimization, deployment resolution, and Flutter.
+shared profile classes or modify runtime wiring. Phases 8.2-8.7 materialize its
+historical compatibility mapping and the reusable dark contracts, catalogs,
+persistence, optimization, deployment-resolution, and Flutter foundations;
+they do not reactivate `@1`.
 
 ### Scope Boundary
 

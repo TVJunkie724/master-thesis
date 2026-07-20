@@ -2,8 +2,8 @@
 title: "Five-Layer Baseline Target Decision"
 description: "Evidence-backed Phase 8.1 decision for the paper-compatible five-layer Digital Twin baseline."
 tags: [architecture, baseline, digital-twin, phase-8, decision]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - docs/research/digital_twin_architecture_and_eventing_layer.md
 - docs/research/research_questions_and_evaluation_design.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_1_five_layer_baseline.md
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-20 | VERSION: 1.1
 -->
 
 # Five-Layer Baseline Target Decision
@@ -32,10 +32,19 @@ approved component or edge. The optional event-check and feedback topology is
 not currently executable as a complete reviewed path and is therefore
 explicitly excluded rather than silently represented as supported.
 
-This is a target decision, not current runtime documentation. Phases 8.2-8.7
-must implement the shared contracts, provider profiles, persistence,
-optimization, deployment resolution, and Flutter workflow before any target
-provider candidate becomes supported.
+### Lifecycle Addendum
+
+The decision and its digests remain immutable historical/paper-compatible
+evidence. It is no longer the target for new calculate/deploy operations.
+`five-layer-baseline@2` carries the corrected complete service bundles,
+mandatory domain-event behavior, workload semantics, identities, and
+L4-to-L5 implementation. Existing `@1` records remain read/verify/destroy
+compatible and are never rewritten.
+
+This is a historical target decision, not current runtime documentation.
+Phases 8.2-8.7 materialize its compatibility mapping and reusable dark
+foundations. Only Phase 8.9 may register and activate complete new-profile
+provider candidates from the separate complete-service decision.
 
 ## Current Versus Target
 
@@ -168,10 +177,11 @@ The decision neither changes prices nor introduces a new cost formula.
   digest invalidates it.
 - Provider admissibility is an offline architecture decision; no live provider
   deployment was run.
-- The target L4-to-L5 contract is not evidence of a deployed datasource until
-  Phase 8.6 completes.
-- GCP L4/L5 support is absent from current evidence and is not inferred from
-  analogous provider services.
+- The historical `@1` L4-to-L5 contract is not evidence of a deployed
+  datasource, and the dark Phase 8.6 compiler does not repair that runtime.
+- GCP L4/L5 support is absent from this historical `@1` evidence. The separate
+  complete-service decision selects an explicit provider-hosted bundle only
+  for the new profiles.
 - The optional error path remains visible but unsupported. A later profile may
   reintroduce it only through a separate reviewed contract.
 - Current fixed seven-slot compatibility remains during migration. It is not a

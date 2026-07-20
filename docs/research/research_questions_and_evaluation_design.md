@@ -563,7 +563,8 @@ their shared behavior, exact provider bundles, cross-cloud bridge, and
 non-executable implementation blueprint as offline evidence.
 `five-layer-baseline@2` and `six-layer-eventing@1` become runtime-selectable
 only after their respective Phase 8.9 implementation gates and all inherited
-Phase 8.6/8.7 activation gates pass.
+dark Phase 8.6 compiler, Phase 8.7 UI, and complete-service decision gates
+pass.
 It must not become a general architecture editor or arbitrary topology engine.
 Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge
@@ -635,6 +636,29 @@ declarations determine whether a particular event invokes them.
 - Results must include sensitivity and assumptions.
 - Eventing benefits include functionality and operability, not only monetary
   cost.
+
+## Complete-Service Evaluation Rule
+
+The functional-total matrix now contains three complete-provider targets for
+the new profiles: native/composed AWS, native/composed Azure, and
+provider-hosted GCP. A provider-hosted bundle is admissible only when software
+version/license, compute, identity, persistence, networking, operations,
+capacity, deployment, cleanup, and cost ownership are explicit. Absence of a
+single managed product is not itself a functional rejection.
+
+Two scenario families remain distinct and are paired by size for the final
+comparison:
+
+- Core Twin scenarios determine device telemetry, storage retention, Twin and
+  scene entities, semantic update bounds, and aggregate dashboard queries;
+- Eventing scenarios determine canonical event volume, payload, fan-out,
+  delivery, ordering, retry, replay, bridge, and concurrent-device bounds.
+
+The Eventing bridge and storage-transition mover are separate evaluated
+components. Three co-located L4/L5 bundles are admissible; the six unequal
+L4/L5 directions remain explicit negative candidates. This keeps the result
+space bounded while still evaluating all three single-cloud providers and
+mixed L1-L3/Eventing assignments.
 
 ## Scope Decisions
 

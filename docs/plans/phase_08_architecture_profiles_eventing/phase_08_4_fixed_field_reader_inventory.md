@@ -2,19 +2,28 @@
 title: "Phase 8.4 Fixed-Field Compatibility Inventory"
 description: "Tracked owners and removal phases for the remaining cheapest-layer, provider-key, and fixed-slot consumers."
 tags: [architecture, migration, compatibility, management-api, flutter]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-20"
+version: "1.1"
 ---
 
 # Phase 8.4 Fixed-Field Compatibility Inventory
+
+## Corrective Scope Addendum
+
+The inventory remains valid for historical compatibility, but none of the
+listed fixed-field readers may become the execution SSOT for
+`five-layer-baseline@2` or `six-layer-eventing@1`. Phase 8.9 additionally
+isolates legacy Eventing flags, `allowGcpSelfHostedL4`,
+`allowGcpSelfHostedL5`, and the overloaded `entityCount` field. New profiles
+use the versioned complete-service workload and generic assignment/edge
+records.
 
 This inventory is the transition contract for the old seven-slot
 `cheapest_l*`, `layer_*_provider`, and Flutter fixed-slot projections. For an
 architecture-ready run, the executable source of truth is the immutable
 `ResolvedTwinArchitecture`; fixed fields are derived only for
-`five-layer-baseline@1`. The live calculation path remains legacy until Phase
-8.6 activates the dark Phase 8.5 architecture output together with the typed
-Deployer graph compiler.
+`five-layer-baseline@1`. Phase 8.6 keeps the generic compiler dark; Phase 8.9A
+activates only the new complete `five-layer-baseline@2` path.
 
 The executable drift gate remains
 `scripts/architecture_inventory/extractors.py`. It currently covers 100 exact

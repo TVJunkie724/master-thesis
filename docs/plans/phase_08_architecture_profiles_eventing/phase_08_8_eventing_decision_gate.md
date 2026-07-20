@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.8"
+version: "1.9"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.8"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.8
+EXTRACTED: 2026-07-20 | VERSION: 1.9
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -30,13 +30,37 @@ EXTRACTED: 2026-07-20 | VERSION: 1.8
 | Recommended branch | `codex/phase-8-eventing-decision-gate` |
 | Base branch | `master` |
 | Evidence status | Approved offline on 2026-07-20 as `phase-08-eventing-decision@1` |
-| Implementation ordering | Phase 8.6 / #152 and Phase 8.7 / #138 still block Phase 8.9 activation; completing this offline evidence early does not bypass them |
+| Implementation ordering | Phase 8.6 / #152, Phase 8.7 / #138, and the immutable complete-service decision still block Phase 8.9 activation; completing this offline evidence early does not bypass them |
 | Produces | Shared domain-event contract plus approved or rejected `five-layer-baseline@2` and `six-layer-eventing@1` decision package |
 | Live cloud E2E | Forbidden |
 
 Every source, matrix cell, formula input, capability decision, bridge property,
 review gate, and Definition of Done item in this plan is mandatory. Phase 8.9
 must not begin until this gate concludes with an explicit `approved` decision.
+
+## Corrective Scope Addendum
+
+The completed package proves the shared domain-event behavior, embedded
+event-domain bundles, independent Event-Layer bundles, their six directed
+broker bridge routes, and Eventing scenario capacity/cost. It does not prove:
+
+- hot-to-cool or cool-to-archive cross-provider data movement;
+- native/provider-hosted L4/L5 service and datasource bindings;
+- complete Core Twin Small/Medium/Large capacity;
+- the predecessor public Function/shared-token runtime safe;
+- complete GCP L4/L5 support.
+
+Those concerns are owned by
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
+The Eventing artifacts and digests remain immutable; a separate complete-service
+decision package composes with them before Phase 8.9. “All three providers”
+within this completed phase means all three Event-domain providers, not that
+every whole-Twin single-cloud path was already complete.
+
+Historical uses of “activation gate” in this completed Event-domain plan mean
+a live-readiness or live-capacity claim, not the offline server/profile
+activation defined by the complete-service closure. Offline activation is
+owned by Phase 8.9 and requires the composed complete-service package.
 
 ## 1. Outcome
 

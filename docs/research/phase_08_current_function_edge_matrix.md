@@ -360,7 +360,9 @@ are expressly forbidden.
 4. User functions remain provider-selected operation-package inputs.
 5. Flutter architecture graphs and configuration labels are fixed-slot
    presentations until Phase 8.7.
-6. GCP L4/L5 remains unsupported; source presence is not capability evidence.
+6. In this predecessor inventory, GCP L4/L5 remains unsupported; source
+   presence is not capability evidence. A later provider-hosted target does
+   not rewrite this historical finding.
 7. The inventory contains no retain/replace/remove decision. Phase 8.1 owns
    that decision for every implementation and edge.
 

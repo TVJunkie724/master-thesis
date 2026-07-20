@@ -495,8 +495,10 @@ capture the real token claims and execute all six directions.
 Same-cloud does not mean one service. It means the complete local event-domain
 bundle provides the required domain flow without a cross-cloud forwarder. It
 does not claim a complete executable whole Twin: AWS and Azure target profiles
-remain unimplemented, and all-GCP additionally remains unsupported until the
-separately owned L4/L5 gap is closed.
+remain unimplemented, and historical all-GCP remains unsupported. The separate
+complete-service closure now selects a provider-hosted GCP L4/L5 target for
+the new profiles; that later decision does not alter this Event-domain
+package or claim the target implemented.
 
 ### Three Providers
 

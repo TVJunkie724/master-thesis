@@ -3,7 +3,7 @@ title: "Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight"
 description: "Implementation plan for deterministic graph resolution, package binding, and fail-closed Terraform preflight."
 tags: [architecture, deployer, graph, manifest, terraform, preflight, issue-152]
 lastUpdated: "2026-07-20"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.1"
 - Phase 8.5 ResolvedTwinArchitecture output
 - contracts/deployment-manifest and contracts/resolved-deployment-specification
 - Current Deployer package, operation-state, Terraform, logging, and ephemeral-workspace boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.1
+EXTRACTED: 2026-07-20 | VERSION: 1.2
 -->
 
 # Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight
@@ -27,11 +27,23 @@ EXTRACTED: 2026-07-20 | VERSION: 1.1
 | Recommended branch | `codex/phase-8-deployer-graph-resolver` |
 | Branch base | Reviewed Phase 8.5 implementation plus the approved Phase 8.8 planning/evidence commit; the branch ultimately targets `master` |
 | Blocked by | Phase 8.5 / #151 |
-| Produces | Executable profile-driven baseline for Flutter and the later Eventing implementation |
+| Produces | Dark generic graph/compiler foundation for Flutter contracts and later new-profile implementation |
 | Live cloud E2E | Forbidden |
 
 All graph, manifest, binding, package, Terraform, state, error, security, and
 compatibility requirements in this plan are mandatory.
+
+## Corrective Activation Addendum
+
+This phase may complete Manifest v3, deterministic graph resolution, binding
+preflight, compatibility readers, and frozen evidence, but it must remain dark.
+It must not promote `five-layer-baseline@1`, the current AWS/Azure provider
+profiles, the direct L3-hot-to-Grafana datasource, or the public
+Function/shared-token cross-cloud runtime. Complete executable bundles are
+introduced and activated only by Phase 8.9A after
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) and
+its immutable decision package pass. Any older rollout or Definition-of-Done
+text that says Phase 8.6 activates `@1` is superseded by this addendum.
 
 ## 1. Outcome
 
@@ -458,12 +470,12 @@ Rollout:
 
 1. ship v3 readers/writers dark;
 2. run cross-stack no-apply gates;
-3. promote the reviewed AWS/Azure baseline provider profiles to `supported`
-   only after their graph/package/Terraform compiler gates pass;
-4. enable Phase 8.5 architecture-aware calculation admission and v3 together;
-5. remove legacy run selection and keep v2 historical read/destroy support;
-6. monitor graph/preflight codes;
-7. remove executable reads of fixed provider fields.
+3. keep the historical AWS/Azure/GCP provider profiles non-executable;
+4. keep Phase 8.5 architecture-aware calculation admission off;
+5. retain v2/v3 historical read/destroy inspection without new operation
+   fallback;
+6. exercise graph/preflight codes through fixtures;
+7. publish the dark compiler boundary for Phase 8.7 and Phase 8.9A.
 
 Rollback disables new deployment creation rather than silently using v2 or
 fixed fields. Existing v3 operations remain inspectable/destroyable using
@@ -485,9 +497,10 @@ frozen evidence.
 - [ ] Retry, recovery, destroy, state, logs, redaction, and ephemeral cleanup
       are bound to frozen graph evidence.
 - [ ] v2 remains historical only; invalid v3 never falls back.
-- [ ] AWS/Azure provider-profile support and architecture-aware calculation
-      admission activate only after the typed graph compiler passes.
-- [ ] Legacy calculation-run selection is removed when activation succeeds.
+- [ ] No historical provider profile or architecture-aware calculation path is
+      activated by this phase.
+- [ ] Phase 8.9A can consume the typed compiler only after the separate
+      complete-service decision and bundles pass.
 - [ ] All-AWS, all-Azure, mixed, unsupported, negative graph/package, and
       offline Terraform fixtures pass.
 - [ ] Full safe Management and Deployer suites plus deployment drift pass.

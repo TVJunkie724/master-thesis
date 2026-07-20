@@ -1303,10 +1303,11 @@ terminates MQTT in both directions, a persistent QoS 1 ordered-shared adapter
 publishes accepted telemetry to Pub/Sub, and Pub/Sub remains the durable cloud
 backbone for commands and correlated outcomes. Reconnect ordering degradation,
 the selected image's 64-KiB capacity, and node/failure behavior remain explicit
-activation gates.
+live-readiness gates.
 
 This approval is deliberately not a claim that Eventing is implemented or
-live-verified. Phase 8.6 and Phase 8.7 still precede Phase 8.9 activation. All
+live-verified. The complete-service closure plus Phase 8.6 and Phase 8.7 still
+precede Phase 8.9 activation. All
 six directed workload-identity exchanges, the theoretical Large allocations,
 and the GCP hosted BifroMQ device boundary remain explicit implementation or
 supervised-live gates. General topology optimization remains a separate future
@@ -1316,3 +1317,34 @@ The thesis does not need to catalogue every potentially relevant provider
 service. It evaluates one bounded, justified composition per provider.
 Alternative services remain visible as rejected or theory-only candidates
 without becoming executable Optimizer or Deployer choices.
+
+## Complete-Service Closure
+
+The subsequent whole-profile review separates three boundary classes that the
+Eventing decision alone cannot close:
+
+1. canonical asynchronous domain events use the approved source-owned broker
+   bridge;
+2. hot/cool/archive data movement uses source-owned storage movers and direct
+   destination object-store APIs;
+3. L4-to-L5 remains a synchronous provider-local query/visualization bundle.
+
+The selected complete L4/L5 bundles are AWS IoT TwinMaker plus Amazon Managed
+Grafana, Azure Digital Twins plus Azure Data Explorer and Azure Managed
+Grafana, and a provider-hosted GCP bundle using a Cloud Run Twin API, Spanner
+Graph, BigQuery, and Grafana OSS on GKE. GCP therefore becomes a complete
+single-cloud implementation target for the new profiles without changing the
+historical all-GCP rejection in `five-layer-baseline@1`.
+
+`L4 != L5` remains outside the bounded v1 experiment because each selected
+visualization depends on provider-local datasource, identity, query, and scene
+components. This still permits every provider to send and receive on other
+resolved edges and permits arbitrary admissible L1-L3/Eventing placements.
+
+The workload model now distinguishes Twin entities from 3D scene entities and
+aggregate workspace dashboard queries from monthly Grafana seats. Raw
+telemetry is retained in the provider time-series backend; versioned semantic
+state/graph materialization prevents managed Twin graph APIs from becoming an
+accidental per-message ingestion bottleneck. Full details and current primary
+sources are in
+[`phase_08_service_bundle_evaluation.md`](phase_08_service_bundle_evaluation.md).

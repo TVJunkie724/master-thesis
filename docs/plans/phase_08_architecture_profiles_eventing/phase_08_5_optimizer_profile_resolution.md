@@ -3,7 +3,7 @@ title: "Phase 8.5: Optimizer Profile Resolution"
 description: "Implementation plan for profile-bounded functional-completeness resolution before cost ranking."
 tags: [architecture, optimizer, functional-completeness, strategy, cost, issue-151]
 lastUpdated: "2026-07-20"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.1"
 - Phase 8.3 provider implementation profiles and component catalog
 - Phase 8.4 Management API ingestion and persistence contract
 - Current Optimizer strategy, formula, pricing evidence, transfer-path, and resolved-deployment-specification implementations
-EXTRACTED: 2026-07-20 | VERSION: 1.1
+EXTRACTED: 2026-07-20 | VERSION: 1.2
 -->
 
 # Phase 8.5: Optimizer Profile Resolution
@@ -27,11 +27,20 @@ EXTRACTED: 2026-07-20 | VERSION: 1.1
 | Base branch | `master` |
 | Blocked by | Phase 8.4 / #142 |
 | Implementation status | Complete and reviewed locally; activation remains default-off |
-| Produces | Complete, dark-integrated `ResolvedTwinArchitecture v1` for Phase 8.6 activation |
+| Produces | Complete, dark-integrated `ResolvedTwinArchitecture v1` compiler input; new-profile activation remains Phase 8.9A |
 | Live cloud E2E | Forbidden |
 
 The existing `five-layer-baseline@1` cost behavior must remain golden-tested.
 No incomplete or unsupported candidate may reach cost ranking.
+
+## Corrective Activation Addendum
+
+The completed resolver is generic default-off infrastructure and historical
+`@1` reproduction evidence. A priceable seven-slot candidate is not a complete
+new-profile architecture. Repository-backed activation requires the immutable
+complete-service decision, workload v2, corrected cross-cloud storage routes,
+native/provider-hosted L4/L5 bundles, and their capacity/cost contracts.
+Phase 8.6 does not satisfy these requirements by compiling the old catalog.
 
 ## 1. Outcome
 
@@ -55,18 +64,18 @@ edges, Terraform, or provider services.
 
 ### Activation Boundary
 
-Phase 8.3 intentionally publishes AWS and Azure provider profiles as
-`supported: false` until the Phase 8.6 typed L4-to-L5 graph compiler exists.
-The shared semantic validator therefore must not admit a repository-backed
-publishable resolution during Phase 8.5.
+Phase 8.3 intentionally publishes the historical provider profiles as
+`supported: false`. The shared semantic validator therefore must not admit a
+repository-backed publishable resolution during Phase 8.5.
 
 Phase 8.5 implements and fully tests resolution with the canonical supported
 contract fixtures, integrates the Management request/response path behind a
 default-off activation gate, and keeps the existing audited legacy path
 unchanged while that gate is off. Phase 8.6 proves the deployment compiler,
-promotes the reviewed AWS/Azure provider profiles to supported, enables the
-gate, and removes legacy run selection. No service may bypass or reinterpret
-the provider-profile `supported` field to activate earlier.
+but keeps it dark. Phase 8.9A registers complete new-profile provider bundles,
+enables the gate, and removes legacy run selection after the separate
+complete-service decision. No service may bypass or reinterpret the
+provider-profile `supported` field to activate earlier.
 
 ## 2. Internal Request Contract
 
@@ -383,8 +392,8 @@ legacy projections remain equal for frozen valid scenarios.
 
 ### Golden Regression
 
-For all-AWS, all-Azure, mixed-provider, unsupported all-GCP, and edge-heavy
-storage/transfer fixtures:
+For the historical `five-layer-baseline@1` all-AWS, all-Azure,
+mixed-provider, unsupported all-GCP, and edge-heavy storage/transfer fixtures:
 
 - identical provider cost outputs;
 - identical total cost before display rounding;
@@ -456,17 +465,18 @@ Do not claim Eventing support. Do not edit LaTeX.
 
 ## 15. Rollout And Rollback
 
-Stage only `five-layer-baseline@1`.
+Keep `five-layer-baseline@1` historical and stage the generic resolver dark.
 
 1. deploy synchronized profile/catalog contracts;
 2. ship Optimizer profile request validation and resolution dark;
 3. ship Management enrichment, response validation, and persistence dark;
 4. retain legacy response projections and selection while the gate is off;
-5. let Phase 8.6 promote supported profiles and enable both sides atomically;
+5. let Phase 8.9A register complete `@2` bundles and enable both sides
+   atomically;
 6. monitor resolution failure and candidate rejection codes in fixture and
    offline integration gates.
 
-Rollback leaves the activation gate off. After Phase 8.6 activation, rollback
+Rollback leaves the activation gate off. After Phase 8.9A activation, rollback
 disables new architecture-aware run creation but preserves already persisted
 immutable resolutions. An enabled path must not silently create legacy runs
 without architecture evidence.
@@ -517,7 +527,8 @@ without architecture evidence.
   digest and leaves the historical Phase 8.0 evidence cut unchanged.
 - GitHub issue #151 contains the same local completion evidence and remains open
   until the commits are published or merged.
-- Repository activation is deliberately still off. Phase 8.6 must promote the
-  reviewed provider implementations and activate the typed compiler path; no
+- Repository activation is deliberately still off. Phase 8.9A must register
+  the complete-service provider implementations and activate the typed
+  compiler path; no
   live provider, credential-bearing, Terraform, deployment, or E2E operation
   was performed by Phase 8.5.

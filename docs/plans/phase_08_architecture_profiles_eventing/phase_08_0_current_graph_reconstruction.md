@@ -2,8 +2,8 @@
 title: "Phase 8.0: Current Graph Reconstruction"
 description: "Implementation plan for a code-verified Function-and-Edge Matrix of the currently deployable Twin architecture."
 tags: [architecture, inventory, graph, contracts, evidence, issue-144]
-lastUpdated: "2026-07-19"
-version: "1.2"
+lastUpdated: "2026-07-20"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -12,10 +12,20 @@ version: "1.2"
 - docs/plans/resolved_deployment_specification/README.md
 - 2-twin2clouds, twin2multicloud_backend, 3-cloud-deployer, and twin2multicloud_flutter current source trees
 - docs/research/digital_twin_architecture_and_eventing_layer.md
-EXTRACTED: 2026-07-19 | VERSION: 1.2
+EXTRACTED: 2026-07-20 | VERSION: 1.3
 -->
 
 # Phase 8.0: Current Graph Reconstruction
+
+## Corrective Interpretation Addendum
+
+This phase is an immutable inventory of predecessor behavior. Its
+`finding.l5-reader-binding-divergence`, public cross-cloud Function endpoints,
+and shared-token evidence are intentionally not edited away. They are resolved
+only for the new executable profiles by
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
+The inventory finding therefore remains historical evidence and is not an
+unresolved finding in the current Phase 8 target plan.
 
 ## 0. Metadata
 
