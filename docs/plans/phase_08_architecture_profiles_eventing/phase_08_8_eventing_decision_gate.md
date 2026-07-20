@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.3"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.3"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.3
+EXTRACTED: 2026-07-20 | VERSION: 1.4
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -326,8 +326,11 @@ resolved producer/consumer graph.
 | `workflow_start_share_of_matches` | Decimal `[0,1]` |
 | `device_command_share_of_matches` | Decimal `[0,1]` |
 | `workflow_actions_per_execution` | Positive integer used for workflow quota and cost transformation |
+| `workflow_internal_actions_per_execution` | Non-negative integer; provider-local orchestration/control actions |
+| `workflow_external_actions_per_execution` | Non-negative integer; external notification/connector actions; internal plus external must equal total workflow actions |
 | `terminal_outcome_events_per_invocation` | Closed-world action/workflow/command counts; v1 emits one typed terminal outcome per invocation |
 | `component_compute_assumptions` | Closed-world duration, memory, batch-size, and concurrency inputs for new rule/action/workflow-adapter/device-adapter/bridge compute |
+| `observability_assumptions` | Closed-world sample share, record size, full-capture channel classes, and retention used to derive log ingestion/storage |
 | `provider_region_refs` | Exact AWS, Azure, and GCP region plus immutable pricing-catalog refs |
 
 `provider_region_refs` must pin the same existing comparison regions used by
@@ -354,7 +357,9 @@ must distinguish:
 - dead-letter writes and storage;
 - replay reads and redeliveries;
 - inter-region/inter-cloud bytes;
-- adapter/workflow invocations.
+- adapter/workflow invocations; and
+- sampled telemetry log records plus fully captured control, outcome, retry,
+  dead-letter, replay, and bridge-failure records.
 
 No formula may use `events_per_month` as a substitute for all provider billing
 dimensions. `telemetry.received.v1` and `telemetry.processed.v1` each carry the
@@ -548,12 +553,18 @@ v1 scenario. They are synthetic reference assumptions, not measurements:
 | Terminal outcome payload | 512 B |
 | Extension actions per match | 1 |
 | Workflow actions per execution | 4 |
+| Workflow internal actions per execution | 3 |
+| Workflow external notification actions per execution | 1 |
 | Terminal outcomes | 1 per extension action, workflow, and command |
 | Rule evaluator | 50 ms at 256 MiB |
 | Extension action adapter | 100 ms at 256 MiB |
 | Workflow start adapter | 50 ms at 256 MiB |
 | Device-command adapter | 100 ms at 256 MiB |
 | Cross-cloud bridge batch | maximum 10 events, 250 ms at 512 MiB |
+| Telemetry observability sample | 1% of received and processed publications |
+| Fully captured observability records | Every match, notification request, command request, terminal outcome, retry, DLQ, replay, and bridge terminal failure |
+| Average observability record | 1 KiB after safe-field projection |
+| Observability retention | 30 days |
 
 For the Event-Layer treatment, all three scenarios require at-least-once
 delivery and per-device ordering. For the embedded baseline, the same fields
@@ -564,10 +575,16 @@ catalog refs above and state that these are bounded evaluation scenarios, not
 observed production traffic. Publish request counts intentionally equal event
 counts in v1 so batching is not silently assumed for domain publishers;
 provider billing chunks are derived later from the serialized envelope and
-provider rules. Only the bridge has the explicit bounded batch assumption
-above. If existing thesis workload fixtures justify different values, the
-change must be made before calculation, documented in the decision record, and
-versioned as new scenario IDs.
+provider rules. The four-step notification workflow has three provider-local
+orchestration/control steps and one external notification delivery step. This
+keeps the observable behavior identical while preserving the providers'
+different workflow and connector meters. The observability sample is a
+synthetic cost/capacity assumption, not a production-recommended logging
+policy: telemetry is sampled, while low-volume control, outcome, and failure
+records are retained completely. Only the bridge has the explicit bounded
+batch assumption above. If existing thesis workload fixtures justify different
+values, the change must be made before calculation, documented in the decision
+record, and versioned as new scenario IDs.
 
 The three mandatory `telemetry.processed.v1` consumers are historical
 persistence, Twin-state update, and rule evaluation. The Large scenario adds

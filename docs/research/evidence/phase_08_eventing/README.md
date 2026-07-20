@@ -65,6 +65,16 @@ Each extension action, workflow, and device command emits one typed terminal
 outcome. Storage lifecycle movement stays storage-owned and does not send object
 payloads through the event broker. Query/read traffic remains synchronous.
 
+The reference notification workflow has four steps: three provider-local
+orchestration/control steps and one external notification delivery. This keeps
+the user-visible behavior fixed without erasing Azure connector calls or the
+internal/external-step distinction in Google Workflows. Required observability
+uses a 1% sample of both full-payload telemetry publications and complete
+capture of matches, notification/command requests, terminal outcomes, retries,
+dead letters, replays, and bridge terminal failures. Every projected log record
+is modeled as 1 KiB with 30-day retention. These are synthetic evaluation
+assumptions, not observed production traffic or a recommended logging policy.
+
 ## Corrected Capacity Basis
 
 Every telemetry event carries a 1 KiB canonical-envelope overhead after device

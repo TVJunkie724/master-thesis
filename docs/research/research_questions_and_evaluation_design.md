@@ -370,8 +370,12 @@ therefore also freezes canonical-envelope overhead, payload sizes for match,
 notification, device-command, and terminal-outcome events, workflow actions per
 execution, extension-action and terminal-outcome cardinality, concurrent device
 connections, and bounded duration/memory/batch assumptions for every newly
-costed adapter. Canonical serialized bytes, rather than raw telemetry bytes,
-drive provider message chunks and cross-cloud transfer. Network protocol
+costed adapter. The workflow contract separates three internal orchestration
+steps from one externally visible notification step so that provider connector
+meters are not hidden. It also freezes a 1% telemetry observability sample,
+complete capture of control/outcome/failure records, a 1-KiB safe log record,
+and 30-day retention. Canonical serialized bytes, rather than raw telemetry
+bytes, drive provider message chunks and cross-cloud transfer. Network protocol
 overhead remains an explicit sensitivity limitation instead of an invented
 constant.
 
