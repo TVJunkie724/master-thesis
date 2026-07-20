@@ -4,7 +4,10 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 from rest_api import app
 from api.calculation import CalcParams
-from backend.architecture_profiles.diagnostics import ArchitectureResolutionError
+from backend.architecture_profiles.diagnostics import (
+    ArchitectureResolutionError,
+    RejectionCollector,
+)
 from backend.architecture_profiles.registry import ArchitectureProfileRegistry
 from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.pricing_catalog_models import PricingCatalogContext
@@ -423,10 +426,19 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
         "true",
     )
     mock_resolve_pricing.return_value = _resolved_catalogs({})
+    rejections = RejectionCollector()
+    for index in range(125):
+        rejections.record(
+            "ARCH_EDGE_IMPLEMENTATION_MISSING",
+            f"candidate:{index}",
+        )
     mock_engine.side_effect = ArchitectureResolutionError(
         "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
         "providerProfiles",
         "No active supported provider profile is available",
+        enumerated_candidate_count=128,
+        admissible_candidate_count=0,
+        diagnostics=rejections.freeze(),
     )
 
     with caplog.at_level("WARNING", logger="digital_twin"):
@@ -437,7 +449,12 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
         )
 
     assert response.status_code == 409
-    assert response.json()["detail"] == {
+    detail = response.json()["detail"]
+    assert {
+        key: value
+        for key, value in detail.items()
+        if key != "diagnostics"
+    } == {
         "error_code": "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
         "message": "No active supported provider profile is available",
         "fix_suggestion": (
@@ -446,8 +463,17 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
         ),
         "http_status": 409,
     }
+    assert detail["diagnostics"]["enumeratedCandidateCount"] == 128
+    assert detail["diagnostics"]["admissibleCandidateCount"] == 0
+    assert detail["diagnostics"]["rejectedCandidateCount"] == 125
+    assert detail["diagnostics"]["rejectedByErrorCode"] == {
+        "ARCH_EDGE_IMPLEMENTATION_MISSING": 125
+    }
+    assert len(detail["diagnostics"]["representativeCandidateIds"]) == 25
     assert "architecture_resolution outcome=failure" in caplog.text
     assert "correlation_id=phase-8.5-error" in caplog.text
+    assert "enumerated_candidate_count=128" in caplog.text
+    assert "rejected_candidate_count=125" in caplog.text
     assert "error_code=ARCH_PROVIDER_IMPLEMENTATION_MISSING" in caplog.text
     assert "No active supported provider profile is available" not in caplog.text
 

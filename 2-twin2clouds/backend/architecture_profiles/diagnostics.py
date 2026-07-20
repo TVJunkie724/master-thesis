@@ -30,18 +30,6 @@ MAX_REPRESENTATIVE_CANDIDATES = 25
 _SAFE_CANDIDATE_ID = re.compile(r"^[a-z0-9][a-z0-9._:|-]{0,159}$")
 
 
-class ArchitectureResolutionError(ValueError):
-    """Stable fail-closed error without unsafe payload or traceback details."""
-
-    def __init__(self, code: str, field: str, message: str):
-        if code not in ARCHITECTURE_ERROR_CODES:
-            raise ValueError(f"Unknown architecture error code: {code}")
-        self.code = code
-        self.field = field
-        self.message = message
-        super().__init__(f"{code} at {field}: {message}")
-
-
 @dataclass(frozen=True)
 class RejectionDiagnostics:
     """Aggregate candidate rejection evidence safe for API responses and logs."""
@@ -60,6 +48,52 @@ class RejectionDiagnostics:
             "representativeCandidateIds": list(
                 self.representative_candidate_ids
             ),
+        }
+
+
+class ArchitectureResolutionError(ValueError):
+    """Stable fail-closed error without unsafe payload or traceback details."""
+
+    def __init__(
+        self,
+        code: str,
+        field: str,
+        message: str,
+        *,
+        enumerated_candidate_count: int = 0,
+        admissible_candidate_count: int = 0,
+        diagnostics: RejectionDiagnostics | None = None,
+    ):
+        if code not in ARCHITECTURE_ERROR_CODES:
+            raise ValueError(f"Unknown architecture error code: {code}")
+        if (
+            enumerated_candidate_count < 0
+            or admissible_candidate_count < 0
+            or admissible_candidate_count > enumerated_candidate_count
+        ):
+            raise ValueError("Architecture candidate counts are invalid")
+        self.code = code
+        self.field = field
+        self.message = message
+        self.enumerated_candidate_count = enumerated_candidate_count
+        self.admissible_candidate_count = admissible_candidate_count
+        self.diagnostics = diagnostics
+        super().__init__(f"{code} at {field}: {message}")
+
+    def safe_diagnostics(self) -> dict[str, Any]:
+        rejection_payload = (
+            self.diagnostics.to_dict()
+            if self.diagnostics is not None
+            else {
+                "rejectedCandidateCount": 0,
+                "rejectedByErrorCode": {},
+                "representativeCandidateIds": [],
+            }
+        )
+        return {
+            "enumeratedCandidateCount": self.enumerated_candidate_count,
+            "admissibleCandidateCount": self.admissible_candidate_count,
+            **rejection_payload,
         }
 
 

@@ -440,7 +440,10 @@ def calc(params: CalcParams, request: Request):
     )
     architecture_log_emitted = False
 
-    def log_architecture_failure(error_code: str) -> None:
+    def log_architecture_failure(
+        error_code: str,
+        diagnostics: dict | None = None,
+    ) -> None:
         nonlocal architecture_log_emitted
         if not architecture_requested or architecture_log_emitted:
             return
@@ -450,6 +453,7 @@ def calc(params: CalcParams, request: Request):
             correlation_id=correlation_id,
             error_code=error_code,
             started_at=resolution_started_at,
+            diagnostics=diagnostics,
         )
         architecture_log_emitted = True
 
@@ -556,7 +560,7 @@ def calc(params: CalcParams, request: Request):
             },
         ) from e
     except ArchitectureResolutionError as e:
-        log_architecture_failure(e.code)
+        log_architecture_failure(e.code, e.safe_diagnostics())
         raise HTTPException(
             status_code=409,
             detail={
@@ -567,6 +571,7 @@ def calc(params: CalcParams, request: Request):
                     "profile and extension references, then retry."
                 ),
                 "http_status": 409,
+                "diagnostics": e.safe_diagnostics(),
             },
         ) from e
     except TransferPricingContractError as e:
@@ -671,14 +676,16 @@ def _log_architecture_resolution_failure(
     correlation_id: str,
     error_code: str,
     started_at: float,
+    diagnostics: dict | None,
 ) -> None:
     profile = params.architectureProfile
+    safe_diagnostics = diagnostics or {}
     logger.warning(
         "architecture_resolution outcome=failure run_id=%s "
         "correlation_id=%s profile_id=%s profile_version=%s "
         "profile_digest=%s bundle_id=%s bundle_version=%s "
-        "bundle_digest=%s enumerated_candidate_count=0 "
-        "admissible_candidate_count=0 rejected_candidate_count=0 "
+        "bundle_digest=%s enumerated_candidate_count=%s "
+        "admissible_candidate_count=%s rejected_candidate_count=%s "
         "winner_candidate_id=none error_code=%s duration_ms=%.3f",
         str(params.calculationRunId),
         correlation_id,
@@ -712,6 +719,9 @@ def _log_architecture_resolution_failure(
             if context is not None
             else "unresolved"
         ),
+        safe_diagnostics.get("enumeratedCandidateCount", 0),
+        safe_diagnostics.get("admissibleCandidateCount", 0),
+        safe_diagnostics.get("rejectedCandidateCount", 0),
         error_code,
         (perf_counter() - started_at) * 1000,
     )

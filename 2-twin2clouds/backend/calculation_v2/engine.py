@@ -697,6 +697,7 @@ def calculate_cheapest_costs(
         CompleteArchitectureCandidate,
     ] = {}
     architecture_rejections = RejectionCollector()
+    architecture_candidate_count = 0
     bound_architecture_context = architecture_context
     if architecture_context is not None:
         bound_architecture_context = architecture_context.with_execution_inputs(
@@ -718,6 +719,7 @@ def calculate_cheapest_costs(
         architecture_candidates = architecture_strategy.enumerate_candidates(
             bound_architecture_context
         )
+        architecture_candidate_count = len(architecture_candidates)
         for candidate in architecture_candidates:
             try:
                 complete = (
@@ -734,10 +736,14 @@ def calculate_cheapest_costs(
                 continue
             complete_architecture_candidates[complete.candidate_id] = complete
         if not complete_architecture_candidates:
+            frozen_rejections = architecture_rejections.freeze()
             raise ArchitectureResolutionError(
                 "ARCH_NO_ADMISSIBLE_CANDIDATE",
                 "architectureProfile",
                 "No functionally complete architecture candidate is admissible",
+                enumerated_candidate_count=architecture_candidate_count,
+                admissible_candidate_count=0,
+                diagnostics=frozen_rejections,
             )
 
     def resolve_glue_cost(provider, invocations):
@@ -768,20 +774,49 @@ def calculate_cheapest_costs(
             pricing=pricing,
         )
 
-    evaluation_set = evaluate_complete_paths(
-        layer_options=layer_options,
-        derived=derived,
-        pricing=pricing,
-        pricing_catalog_context=pricing_catalog_context,
-        pricing_registry=pricing_registry,
-        glue_cost_resolver=resolve_glue_cost,
-        transition_runtime_resolver=resolve_transition_runtime,
-        admissible_candidate_ids=(
-            frozenset(complete_architecture_candidates)
-            if architecture_context is not None
-            else None
-        ),
-    )
+    try:
+        evaluation_set = evaluate_complete_paths(
+            layer_options=layer_options,
+            derived=derived,
+            pricing=pricing,
+            pricing_catalog_context=pricing_catalog_context,
+            pricing_registry=pricing_registry,
+            glue_cost_resolver=resolve_glue_cost,
+            transition_runtime_resolver=resolve_transition_runtime,
+            admissible_candidate_ids=(
+                frozenset(complete_architecture_candidates)
+                if architecture_context is not None
+                else None
+            ),
+        )
+    except TransferPricingContractError as exc:
+        if architecture_context is None:
+            raise
+        for candidate_id in complete_architecture_candidates:
+            architecture_rejections.record(
+                "ARCH_PRICING_EVIDENCE_MISSING",
+                candidate_id,
+            )
+        frozen_rejections = architecture_rejections.freeze()
+        raise ArchitectureResolutionError(
+            "ARCH_NO_ADMISSIBLE_CANDIDATE",
+            "architectureProfile",
+            "No architecture candidate has complete pricing evidence",
+            enumerated_candidate_count=architecture_candidate_count,
+            admissible_candidate_count=0,
+            diagnostics=frozen_rejections,
+        ) from exc
+    if architecture_context is not None:
+        evaluated_candidate_ids = {
+            evaluation.candidate_id
+            for evaluation in evaluation_set.evaluations
+        }
+        for candidate_id in complete_architecture_candidates:
+            if candidate_id not in evaluated_candidate_ids:
+                architecture_rejections.record(
+                    "ARCH_PRICING_EVIDENCE_MISSING",
+                    candidate_id,
+                )
     snapshot_references = tuple(
         f"pricing_catalog:{pricing_catalog_context.catalogs[provider].snapshot_id}"
         for provider in ("aws", "azure", "gcp")
@@ -921,11 +956,10 @@ def calculate_cheapest_costs(
             "profileId": architecture_context.profile_ref.profile_id,
             "profileVersion": architecture_context.profile_ref.profile_version,
             "enumeratedCandidateCount": (
-                len(complete_architecture_candidates)
-                + frozen_rejections.rejected_candidate_count
+                architecture_candidate_count
             ),
             "admissibleCandidateCount": len(
-                complete_architecture_candidates
+                evaluation_set.evaluations
             ),
             **frozen_rejections.to_dict(),
             "winningCandidateId": winner.candidate_id,

@@ -1058,6 +1058,49 @@ class TestEngineIntegration:
 
         assert raised.value.code == "ARCH_RESOLUTION_BUILD_FAILED"
 
+    def test_no_admissible_architecture_retains_bounded_diagnostics(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.architecture_profiles.diagnostics import (
+            ArchitectureResolutionError,
+        )
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _catalog_context_with_mutation,
+            _context,
+            _registry,
+        )
+
+        def remove_edge_formulas(catalog):
+            for edge in catalog["edge_implementations"]:
+                if edge["logical_edge_ids"]:
+                    edge["formula_refs"] = []
+
+        context = _catalog_context_with_mutation(
+            _context(_registry()),
+            remove_edge_formulas,
+        )
+
+        with pytest.raises(ArchitectureResolutionError) as raised:
+            calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
+                architecture_context=context,
+            )
+
+        assert raised.value.code == "ARCH_NO_ADMISSIBLE_CANDIDATE"
+        diagnostics = raised.value.safe_diagnostics()
+        assert diagnostics["enumeratedCandidateCount"] == 128
+        assert diagnostics["admissibleCandidateCount"] == 0
+        assert diagnostics["rejectedCandidateCount"] == 128
+        assert sum(diagnostics["rejectedByErrorCode"].values()) == 128
+        assert len(diagnostics["representativeCandidateIds"]) == 25
+
     def test_scoring_strategy_does_not_receive_provider_pricing_payload(
         self,
         sample_params,
