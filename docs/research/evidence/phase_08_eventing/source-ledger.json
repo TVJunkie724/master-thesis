@@ -554,7 +554,66 @@
       ],
       "content_digest": "sha256:469b9464f9a74721478d142c58b5ca40992369bfa082a294ed55606e5d063788",
       "review_status": "reviewed",
-      "reviewer_note": "Large is sharded across 15 namespaces because throughput units are namespace-scoped."
+      "reviewer_note": "Standard is selected only for Small and Medium; its 40-TU namespace ceiling excludes one unsharded Large telemetry channel."
+    },
+    {
+      "source_id": "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Dedicated",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Event%20Hubs%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2019-06-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-cu",
+          "value": 6.849,
+          "unit": "USD/CU-hour"
+        }
+      ],
+      "content_digest": "sha256:6c389f2fd41df3bfbeed91ac13deff84a8b4ae94496ce74788d006c824012912",
+      "review_status": "reviewed",
+      "reviewer_note": "The West Europe pay-as-you-go Dedicated Capacity Unit meter is selected for Large; no Standard ingress-event meter is added."
+    },
+    {
+      "source_id": "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Dedicated",
+      "claim_type": "quota",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-dedicated-overview",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-conservative-ingress",
+          "value": 100,
+          "unit": "MB/s/CU"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-conservative-egress",
+          "value": 200,
+          "unit": "MB/s/CU"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-self-service-max-cu",
+          "value": 10,
+          "unit": "CU/cluster"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-max-event",
+          "value": 20,
+          "unit": "MB/publication"
+        }
+      ],
+      "content_digest": "sha256:aba5680747573f5c837b2fcb5ce556550614c78882b1c1d657906fc3892a04a9",
+      "review_status": "reviewed",
+      "reviewer_note": "Capacity uses the lower published 100-MB/s ingress bound and a conservative 200-MB/s egress bound from the documented two-receiver benchmark; Phase 8.9 still requires a load test."
     },
     {
       "source_id": "source.azure.event-grid.retail-api.2026-07-20",

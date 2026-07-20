@@ -268,7 +268,15 @@
       "expression": "namespaces*throughput_units_per_namespace*730*tu_hour_price + ingress_events_64kb/1000000*ingress_price_per_million",
       "output_unit": "USD/month",
       "rounding": "each event rounds to 64-KB ingress units",
-      "notes": "Seven-day retention is included in Standard."
+      "notes": "Seven-day retention is included in Standard; this formula is used only for Small and Medium."
+    },
+    {
+      "formula_id": "formula.azure.event-hubs-dedicated",
+      "inputs": ["peak_ingress_bytes_per_second", "peak_egress_bytes_per_second", "headroom", "conservative_ingress_mb_per_second_per_cu", "conservative_egress_mb_per_second_per_cu"],
+      "expression": "max(ceil(peak_ingress_bytes_per_second*headroom/100000000),ceil(peak_egress_bytes_per_second*headroom/200000000))*730*cu_hour_price",
+      "output_unit": "USD/month",
+      "rounding": "whole capacity units at the conservative published throughput bounds",
+      "notes": "Large only; the selected 6-CU Event-Layer allocation is within the ten-CU self-service range and must be load-tested in Phase 8.9."
     },
     {
       "formula_id": "formula.azure.service-bus-standard",

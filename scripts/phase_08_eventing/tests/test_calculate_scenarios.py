@@ -200,6 +200,47 @@ class ScenarioCalculationTest(unittest.TestCase):
         )
         self.assertEqual(route_worker["normalized_quantities"]["instances"], 21)
 
+    def test_azure_large_uses_dedicated_capacity_without_namespace_sharding(
+        self,
+    ) -> None:
+        result = self.build()
+        medium = result["scenarios"][1]
+        large = result["scenarios"][2]
+        azure_medium = next(
+            item
+            for item in medium["event_layer_bundle_results"]
+            if item["provider"] == "azure"
+        )
+        azure_large = next(
+            item
+            for item in large["event_layer_bundle_results"]
+            if item["provider"] == "azure"
+        )
+        medium_telemetry = next(
+            item
+            for item in azure_medium["cost_contributions"]
+            if item["contribution_id"].endswith(".telemetry-log")
+        )
+        large_telemetry = next(
+            item
+            for item in azure_large["cost_contributions"]
+            if item["contribution_id"].endswith(".telemetry-log")
+        )
+        self.assertEqual(medium_telemetry["member"], "Azure Event Hubs Standard")
+        self.assertEqual(large_telemetry["member"], "Azure Event Hubs Dedicated")
+        self.assertEqual(
+            large_telemetry["normalized_quantities"]["capacity_units"],
+            6,
+        )
+        self.assertNotIn(
+            "namespaces",
+            large_telemetry["normalized_quantities"],
+        )
+        self.assertEqual(
+            large_telemetry["pricing_intent_ids"],
+            ["intent.azure.event-hubs-dedicated.cu-hour"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

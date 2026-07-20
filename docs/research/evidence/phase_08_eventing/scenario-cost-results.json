@@ -3,13 +3,13 @@
   "calculation_scope": "embedded domain-event behavior and incremental Event-Layer/bridge costs only; no full-profile ranking",
   "input_digests": {
     "domain_event_flow_contract": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590",
-    "formula_and_unit_ledger": "sha256:3488d4f5e660c06fffa3178d031f95c1d9918efefa06859a094c586e476f7fa8",
-    "pricing_model_matrix": "sha256:d40386a1be331eb849adaee80c9e08b85d82f4af2f92b3398b6e2accc2140157",
-    "provider_capability_matrix": "sha256:69bfe79d4daa50e97aa6560a9aa99a2e0ab6a6878198eb8a0b5aa396e9220757",
+    "formula_and_unit_ledger": "sha256:e1158045d257194aa7fba59a2451be67f869d72bad531285b3730085ca5eacc4",
+    "pricing_model_matrix": "sha256:79ba91ada73d75eefddee7bd0720c173f46cf27c3070d1c4d7d08c8bd6b72863",
+    "provider_capability_matrix": "sha256:84db1a0ee092c68531dcd399aa6a552e6882582cba6539ba56fbe84ec44eeb77",
     "scenario_inputs": "sha256:3d43153f7ccd6b99916902a1ec99881602650df463da2c2c33858f66d746d8ec",
-    "source_ledger": "sha256:03595b2f2d04b3a051964903ed7c0b63f053052ccd80abb88e43bd6a9b1a6e86"
+    "source_ledger": "sha256:3e11de4dcc3f60f51c4a2b3e8a9a370befc12e537e0805c1c21922508acf076c"
   },
-  "result_digest": "sha256:4d0d28da4afef2ee35ab9022e6c8ab6e77b6824808bc3b39344f5007f61a9370",
+  "result_digest": "sha256:fd5428c47781aa14a85be7abf3f41f86ee86f7917e85c23fa40808c19ff82da1",
   "result_set_id": "phase-08-eventing-cost-results@1",
   "scenarios": [
     {
@@ -1807,7 +1807,8 @@
                 "namespaces": 1,
                 "streams": 2,
                 "throughput_unit_hours": 730,
-                "throughput_units_per_namespace": 1
+                "throughput_units_per_namespace": 1,
+                "tier": "standard"
               },
               "notes": "The explicit dead-letter Event Hub shares the selected namespace capacity; replay is a checkpoint read.",
               "pricing_intent_ids": [
@@ -5794,7 +5795,8 @@
                 "namespaces": 1,
                 "streams": 2,
                 "throughput_unit_hours": 8030,
-                "throughput_units_per_namespace": 11
+                "throughput_units_per_namespace": 11,
+                "tier": "standard"
               },
               "notes": "The explicit dead-letter Event Hub shares the selected namespace capacity; replay is a checkpoint read.",
               "pricing_intent_ids": [
@@ -8143,24 +8145,28 @@
               ]
             },
             {
-              "amount_usd": "8771.424000000",
+              "amount_usd": "19999.080000000",
               "contribution_id": "bridge.aws-to-azure.eventing-large-v1.destination.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard landing",
+              "member": "Azure Event Hubs Dedicated landing",
               "normalized_quantities": {
-                "ingress_64kb_units": 408000000,
-                "namespaces": 10,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 2920,
+                "capacity_units": 4,
+                "clusters": 1,
+                "egress_capacity_units": 0,
+                "ingress_capacity_units": 4,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 0,
+                "peak_ingress_bytes_per_second": 332800000,
                 "streams": 2,
-                "throughput_unit_hours": 292000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Destination durable acceptance; downstream consumer compute is outside the bridge result.",
+              "notes": "Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -8194,11 +8200,11 @@
             "source.aws.lambda.pricing-api.2026-07-20",
             "source.aws.sns-fifo.pricing-api.2026-07-20",
             "source.aws.sqs-fifo.pricing-api.2026-07-20",
-            "source.azure.event-hubs.retail-api.2026-07-20",
+            "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
             "source.azure.service-bus.retail-api.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "27785.036686788"
+          "total_monthly_usd": "39012.692686788"
         },
         {
           "cost_contributions": [
@@ -8413,24 +8419,28 @@
         {
           "cost_contributions": [
             {
-              "amount_usd": "8771.200000000",
+              "amount_usd": "19999.080000000",
               "contribution_id": "bridge.azure-to-aws.eventing-large-v1.source-outbox.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard source outbox",
+              "member": "Azure Event Hubs Dedicated source outbox",
               "normalized_quantities": {
-                "ingress_64kb_units": 400000000,
-                "namespaces": 10,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 2920,
+                "capacity_units": 4,
+                "clusters": 1,
+                "egress_capacity_units": 2,
+                "ingress_capacity_units": 4,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 332800000,
+                "peak_ingress_bytes_per_second": 332800000,
                 "streams": 2,
-                "throughput_unit_hours": 292000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Source-owned durable outbox and bridge subscription. downstream consumer compute is outside the bridge result.",
+              "notes": "Source-owned durable outbox and bridge subscription. Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -8611,35 +8621,39 @@
             "source.aws.sns-fifo.pricing-api.2026-07-20",
             "source.aws.sqs-fifo.pricing-api.2026-07-20",
             "source.azure.data-transfer.reviewed-catalog.2026-07-19",
-            "source.azure.event-hubs.retail-api.2026-07-20",
+            "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
             "source.azure.functions-flex.retail-api.2026-07-20",
             "source.azure.monitor.retail-api.2026-07-20",
             "source.azure.service-bus.retail-api.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "23341.324864167"
+          "total_monthly_usd": "34569.204864167"
         },
         {
           "cost_contributions": [
             {
-              "amount_usd": "8771.200000000",
+              "amount_usd": "19999.080000000",
               "contribution_id": "bridge.azure-to-gcp.eventing-large-v1.source-outbox.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard source outbox",
+              "member": "Azure Event Hubs Dedicated source outbox",
               "normalized_quantities": {
-                "ingress_64kb_units": 400000000,
-                "namespaces": 10,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 2920,
+                "capacity_units": 4,
+                "clusters": 1,
+                "egress_capacity_units": 2,
+                "ingress_capacity_units": 4,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 332800000,
+                "peak_ingress_bytes_per_second": 332800000,
                 "streams": 2,
-                "throughput_unit_hours": 292000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Source-owned durable outbox and bridge subscription. downstream consumer compute is outside the bridge result.",
+              "notes": "Source-owned durable outbox and bridge subscription. Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -8807,14 +8821,14 @@
           "source_provider": "azure",
           "source_refs": [
             "source.azure.data-transfer.reviewed-catalog.2026-07-19",
-            "source.azure.event-hubs.retail-api.2026-07-20",
+            "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
             "source.azure.functions-flex.retail-api.2026-07-20",
             "source.azure.monitor.retail-api.2026-07-20",
             "source.azure.service-bus.retail-api.2026-07-20",
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "12344.379677097"
+          "total_monthly_usd": "23572.259677097"
         },
         {
           "cost_contributions": [
@@ -9219,24 +9233,28 @@
               ]
             },
             {
-              "amount_usd": "8771.424000000",
+              "amount_usd": "19999.080000000",
               "contribution_id": "bridge.gcp-to-azure.eventing-large-v1.destination.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard landing",
+              "member": "Azure Event Hubs Dedicated landing",
               "normalized_quantities": {
-                "ingress_64kb_units": 408000000,
-                "namespaces": 10,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 2920,
+                "capacity_units": 4,
+                "clusters": 1,
+                "egress_capacity_units": 0,
+                "ingress_capacity_units": 4,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 0,
+                "peak_ingress_bytes_per_second": 332800000,
                 "streams": 2,
-                "throughput_unit_hours": 292000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Destination durable acceptance; downstream consumer compute is outside the bridge result.",
+              "notes": "Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -9264,7 +9282,7 @@
           "route_id": "route.gcp-to-azure.all-domain-channels@1",
           "source_provider": "gcp",
           "source_refs": [
-            "source.azure.event-hubs.retail-api.2026-07-20",
+            "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
             "source.azure.service-bus.retail-api.2026-07-20",
             "source.gcp.cloud-run.pricing.2026-07-20",
             "source.gcp.data-transfer.reviewed-catalog.2026-07-19",
@@ -9272,7 +9290,7 @@
             "source.gcp.pubsub.pricing.2026-07-20"
           ],
           "status": "publishable_capability_admissible_live_pending",
-          "total_monthly_usd": "13191.309195658"
+          "total_monthly_usd": "24418.965195658"
         }
       ],
       "embedded_bundle_results": [
@@ -9819,24 +9837,28 @@
           "bundle_id": "bundle.azure.event-layer@1",
           "cost_contributions": [
             {
-              "amount_usd": "13151.233600000",
+              "amount_usd": "29998.620000000",
               "contribution_id": "event-layer.azure.eventing-large-v1.telemetry-log",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard",
+              "member": "Azure Event Hubs Dedicated",
               "normalized_quantities": {
-                "dead_letter_64kb_units": 1200000,
-                "ingress_64kb_units": 400000000,
-                "namespaces": 15,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 4380,
+                "capacity_units": 6,
+                "clusters": 1,
+                "egress_capacity_units": 6,
+                "ingress_capacity_units": 4,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 998400000,
+                "peak_ingress_bytes_per_second": 332800000,
                 "streams": 2,
-                "throughput_unit_hours": 438000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "The explicit dead-letter Event Hub shares the selected namespace capacity; replay is a checkpoint read.",
+              "notes": "One six-CU cluster carries both telemetry Event Hubs and the explicit dead-letter Event Hub; replay is a checkpoint read.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -9902,7 +9924,7 @@
             "per-device ordering"
           ],
           "formula_refs": [
-            "formula.azure.event-hubs-standard",
+            "formula.azure.event-hubs-dedicated",
             "formula.azure.service-bus-standard",
             "formula.compute.serverless",
             "formula.observability.decimal-gb"
@@ -9920,13 +9942,13 @@
           },
           "provider": "azure",
           "source_refs": [
-            "source.azure.event-hubs.retail-api.2026-07-20",
+            "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
             "source.azure.functions-flex.retail-api.2026-07-20",
             "source.azure.monitor.retail-api.2026-07-20",
             "source.azure.service-bus.retail-api.2026-07-20"
           ],
           "status": "publishable_bounded_estimate",
-          "total_monthly_usd": "45736.559729680"
+          "total_monthly_usd": "62583.946129680"
         },
         {
           "bundle_id": "bundle.gcp.event-layer@1",
@@ -10172,7 +10194,7 @@
           "embedded_bundle_ref": "bundle.azure.embedded@1",
           "embedded_event_cost_usd": "7949.465384080",
           "event_layer_bundle_ref": "bundle.azure.event-layer@1",
-          "event_layer_cost_usd": "45736.559729680",
+          "event_layer_cost_usd": "62583.946129680",
           "event_scope_status": "capability_admissible_live_pending",
           "provider": "azure",
           "scope_note": "Separate event-scope subtotals; not a full-profile total or cross-profile ranking.",
@@ -10492,8 +10514,8 @@
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.azure.event-layer@1",
-          "event_layer_bundle_total_usd": "40339.359729680",
-          "event_scope_total_usd": "53838.652290681",
+          "event_layer_bundle_total_usd": "57186.746129680",
+          "event_scope_total_usd": "70686.038690681",
           "eventing_provider": "azure",
           "ingress_provider": "aws",
           "placement_id": "placement.aws-azure-gcp@1",
@@ -10503,7 +10525,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "20754.783587951",
+          "bridge_addition_total_usd": "31982.551587951",
           "bridge_cost_contributions": [
             {
               "amount_usd": "8872.198608000",
@@ -10633,45 +10655,53 @@
               ]
             },
             {
-              "amount_usd": "4385.712000000",
+              "amount_usd": "9999.540000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-large-v1.eventing-to-processing.destination.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard landing",
+              "member": "Azure Event Hubs Dedicated landing",
               "normalized_quantities": {
-                "ingress_64kb_units": 204000000,
-                "namespaces": 5,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 1460,
+                "capacity_units": 2,
+                "clusters": 1,
+                "egress_capacity_units": 0,
+                "ingress_capacity_units": 2,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 0,
+                "peak_ingress_bytes_per_second": 166400000,
                 "streams": 1,
-                "throughput_unit_hours": 146000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Destination durable acceptance; downstream consumer compute is outside the bridge result.",
+              "notes": "Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
-              "amount_usd": "4385.600000000",
+              "amount_usd": "9999.540000000",
               "contribution_id": "three-provider.aws-gcp-azure.eventing-large-v1.processing-to-eventing.source-outbox.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard source outbox",
+              "member": "Azure Event Hubs Dedicated source outbox",
               "normalized_quantities": {
-                "ingress_64kb_units": 200000000,
-                "namespaces": 5,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 1460,
+                "capacity_units": 2,
+                "clusters": 1,
+                "egress_capacity_units": 1,
+                "ingress_capacity_units": 2,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 166400000,
+                "peak_ingress_bytes_per_second": 166400000,
                 "streams": 1,
-                "throughput_unit_hours": 146000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Source-owned durable outbox and bridge subscription. downstream consumer compute is outside the bridge result.",
+              "notes": "Source-owned durable outbox and bridge subscription. Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -10790,7 +10820,7 @@
               "route_role": "eventing-to-processing",
               "source_outbox_cost_included": false,
               "source_provider": "gcp",
-              "subtotal_usd": "5747.557923701"
+              "subtotal_usd": "11361.385923701"
             },
             {
               "deduplicated_event_layer_endpoint": "destination",
@@ -10799,13 +10829,13 @@
               "route_role": "processing-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "azure",
-              "subtotal_usd": "5510.364160000"
+              "subtotal_usd": "11124.304160000"
             }
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_bundle_total_usd": "6023.456950260",
-          "event_scope_total_usd": "26778.240538211",
+          "event_scope_total_usd": "38006.008538211",
           "eventing_provider": "gcp",
           "ingress_provider": "aws",
           "placement_id": "placement.aws-gcp-azure@1",
@@ -10815,27 +10845,31 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "9012.693953001",
+          "bridge_addition_total_usd": "14626.633953001",
           "bridge_cost_contributions": [
             {
-              "amount_usd": "4385.600000000",
+              "amount_usd": "9999.540000000",
               "contribution_id": "three-provider.azure-aws-gcp.eventing-large-v1.ingress-to-eventing.source-outbox.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard source outbox",
+              "member": "Azure Event Hubs Dedicated source outbox",
               "normalized_quantities": {
-                "ingress_64kb_units": 200000000,
-                "namespaces": 5,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 1460,
+                "capacity_units": 2,
+                "clusters": 1,
+                "egress_capacity_units": 1,
+                "ingress_capacity_units": 2,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 166400000,
+                "peak_ingress_bytes_per_second": 166400000,
                 "streams": 1,
-                "throughput_unit_hours": 146000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Source-owned durable outbox and bridge subscription. downstream consumer compute is outside the bridge result.",
+              "notes": "Source-owned durable outbox and bridge subscription. Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -11087,7 +11121,7 @@
               "route_role": "ingress-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "azure",
-              "subtotal_usd": "5510.364160000"
+              "subtotal_usd": "11124.304160000"
             },
             {
               "deduplicated_event_layer_endpoint": "source",
@@ -11111,7 +11145,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.aws.event-layer@1",
           "event_layer_bundle_total_usd": "28905.720125106",
-          "event_scope_total_usd": "37918.414078107",
+          "event_scope_total_usd": "43532.354078107",
           "eventing_provider": "aws",
           "ingress_provider": "azure",
           "placement_id": "placement.azure-aws-gcp@1",
@@ -11121,27 +11155,31 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "22506.426587951",
+          "bridge_addition_total_usd": "28120.366587951",
           "bridge_cost_contributions": [
             {
-              "amount_usd": "4385.600000000",
+              "amount_usd": "9999.540000000",
               "contribution_id": "three-provider.azure-gcp-aws.eventing-large-v1.ingress-to-eventing.source-outbox.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard source outbox",
+              "member": "Azure Event Hubs Dedicated source outbox",
               "normalized_quantities": {
-                "ingress_64kb_units": 200000000,
-                "namespaces": 5,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 1460,
+                "capacity_units": 2,
+                "clusters": 1,
+                "egress_capacity_units": 1,
+                "ingress_capacity_units": 2,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 166400000,
+                "peak_ingress_bytes_per_second": 166400000,
                 "streams": 1,
-                "throughput_unit_hours": 146000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Source-owned durable outbox and bridge subscription. downstream consumer compute is outside the bridge result.",
+              "notes": "Source-owned durable outbox and bridge subscription. Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -11401,7 +11439,7 @@
               "route_role": "ingress-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "azure",
-              "subtotal_usd": "5510.364160000"
+              "subtotal_usd": "11124.304160000"
             },
             {
               "deduplicated_event_layer_endpoint": "source",
@@ -11425,7 +11463,7 @@
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.gcp.event-layer@1",
           "event_layer_bundle_total_usd": "6023.456950260",
-          "event_scope_total_usd": "28529.883538211",
+          "event_scope_total_usd": "34143.823538211",
           "eventing_provider": "gcp",
           "ingress_provider": "azure",
           "placement_id": "placement.azure-gcp-aws@1",
@@ -11435,7 +11473,7 @@
           "topology": "hub_and_spoke"
         },
         {
-          "bridge_addition_total_usd": "12758.926321407",
+          "bridge_addition_total_usd": "23986.694321407",
           "bridge_cost_contributions": [
             {
               "amount_usd": "876.341341456",
@@ -11560,45 +11598,53 @@
               ]
             },
             {
-              "amount_usd": "4385.712000000",
+              "amount_usd": "9999.540000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-large-v1.eventing-to-processing.destination.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard landing",
+              "member": "Azure Event Hubs Dedicated landing",
               "normalized_quantities": {
-                "ingress_64kb_units": 204000000,
-                "namespaces": 5,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 1460,
+                "capacity_units": 2,
+                "clusters": 1,
+                "egress_capacity_units": 0,
+                "ingress_capacity_units": 2,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 0,
+                "peak_ingress_bytes_per_second": 166400000,
                 "streams": 1,
-                "throughput_unit_hours": 146000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Destination durable acceptance; downstream consumer compute is outside the bridge result.",
+              "notes": "Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
-              "amount_usd": "4385.600000000",
+              "amount_usd": "9999.540000000",
               "contribution_id": "three-provider.gcp-aws-azure.eventing-large-v1.processing-to-eventing.source-outbox.telemetry-landing",
               "formula_ids": [
-                "formula.azure.event-hubs-standard"
+                "formula.azure.event-hubs-dedicated"
               ],
-              "member": "Azure Event Hubs Standard source outbox",
+              "member": "Azure Event Hubs Dedicated source outbox",
               "normalized_quantities": {
-                "ingress_64kb_units": 200000000,
-                "namespaces": 5,
-                "required_ingress_tu_per_stream": 200,
+                "capacity_headroom": "1.2",
+                "capacity_unit_hours": 1460,
+                "capacity_units": 2,
+                "clusters": 1,
+                "egress_capacity_units": 1,
+                "ingress_capacity_units": 2,
+                "partitions_per_stream": 200,
+                "peak_egress_bytes_per_second": 166400000,
+                "peak_ingress_bytes_per_second": 166400000,
                 "streams": 1,
-                "throughput_unit_hours": 146000,
-                "throughput_units_per_namespace": 40
+                "tier": "dedicated"
               },
-              "notes": "Source-owned durable outbox and bridge subscription. downstream consumer compute is outside the bridge result.",
+              "notes": "Source-owned durable outbox and bridge subscription. Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
               "pricing_intent_ids": [
-                "intent.azure.event-hubs.tu-hour",
-                "intent.azure.event-hubs.ingress"
+                "intent.azure.event-hubs-dedicated.cu-hour"
               ]
             },
             {
@@ -11717,7 +11763,7 @@
               "route_role": "eventing-to-processing",
               "source_outbox_cost_included": false,
               "source_provider": "aws",
-              "subtotal_usd": "5010.374896250"
+              "subtotal_usd": "10624.202896250"
             },
             {
               "deduplicated_event_layer_endpoint": "destination",
@@ -11726,13 +11772,13 @@
               "route_role": "processing-to-eventing",
               "source_outbox_cost_included": true,
               "source_provider": "azure",
-              "subtotal_usd": "5510.364160000"
+              "subtotal_usd": "11124.304160000"
             }
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.aws.event-layer@1",
           "event_layer_bundle_total_usd": "28905.720125106",
-          "event_scope_total_usd": "41664.646446513",
+          "event_scope_total_usd": "52892.414446513",
           "eventing_provider": "aws",
           "ingress_provider": "gcp",
           "placement_id": "placement.gcp-aws-azure@1",
@@ -12044,8 +12090,8 @@
           ],
           "bridge_shared_observability_usd": "0.000000000",
           "event_layer_bundle_ref": "bundle.azure.event-layer@1",
-          "event_layer_bundle_total_usd": "40339.359729680",
-          "event_scope_total_usd": "59336.527659087",
+          "event_layer_bundle_total_usd": "57186.746129680",
+          "event_scope_total_usd": "76183.914059087",
           "eventing_provider": "azure",
           "ingress_provider": "gcp",
           "placement_id": "placement.gcp-azure-aws@1",

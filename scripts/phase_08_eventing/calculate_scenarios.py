@@ -796,7 +796,7 @@ def embedded_result(
     }
 
 
-def telemetry_capacity(scenario_id: str, provider: str) -> dict[str, int]:
+def telemetry_capacity(scenario_id: str, provider: str) -> dict[str, Any]:
     if provider == "aws":
         shards = {
             "eventing-small-v1": 1,
@@ -805,12 +805,19 @@ def telemetry_capacity(scenario_id: str, provider: str) -> dict[str, int]:
         }[scenario_id]
         return {"streams": 2, "shards_per_stream": shards}
     if provider == "azure":
+        if scenario_id == "eventing-large-v1":
+            return {
+                "tier": "dedicated",
+                "clusters": 1,
+                "streams": 2,
+                "partitions_per_stream": 200,
+            }
         namespaces, throughput_units = {
             "eventing-small-v1": (1, 1),
             "eventing-medium-v1": (1, 11),
-            "eventing-large-v1": (15, 40),
         }[scenario_id]
         return {
+            "tier": "standard",
             "streams": 2,
             "namespaces": namespaces,
             "throughput_units_per_namespace": throughput_units,
@@ -818,6 +825,59 @@ def telemetry_capacity(scenario_id: str, provider: str) -> dict[str, int]:
     if provider == "gcp":
         return {"topics": 2}
     raise ValueError(provider)
+
+
+def azure_dedicated_capacity(
+    scenario: dict[str, Any],
+    telemetry: list[dict[str, Any]],
+    *,
+    include_delivery: bool,
+) -> dict[str, Any]:
+    peak_events_per_second = scenario["peak_events_per_second"]
+    peak_ingress_bytes_per_second = sum(
+        peak_events_per_second * row["canonical_bytes_per_event"] for row in telemetry
+    )
+    peak_egress_bytes_per_second = (
+        sum(
+            peak_events_per_second
+            * row["canonical_bytes_per_event"]
+            * row["consumer_count"]
+            for row in telemetry
+        )
+        if include_delivery
+        else 0
+    )
+    headroom = Decimal("1.2")
+    conservative_ingress_bytes_per_second_per_cu = Decimal(100_000_000)
+    conservative_egress_bytes_per_second_per_cu = Decimal(200_000_000)
+    ingress_cus = ceil_decimal(
+        Decimal(peak_ingress_bytes_per_second)
+        * headroom
+        / conservative_ingress_bytes_per_second_per_cu
+    )
+    egress_cus = ceil_decimal(
+        Decimal(peak_egress_bytes_per_second)
+        * headroom
+        / conservative_egress_bytes_per_second_per_cu
+    )
+    capacity_units = max(1, ingress_cus, egress_cus)
+    if capacity_units > 10:
+        raise ValueError(
+            "Azure Event Hubs Dedicated allocation exceeds the reviewed "
+            f"self-service maximum: {capacity_units} CU"
+        )
+    return {
+        "tier": "dedicated",
+        "clusters": 1,
+        "streams": len(telemetry),
+        "partitions_per_stream": 200,
+        "peak_ingress_bytes_per_second": peak_ingress_bytes_per_second,
+        "peak_egress_bytes_per_second": peak_egress_bytes_per_second,
+        "capacity_headroom": headroom,
+        "ingress_capacity_units": ingress_cus,
+        "egress_capacity_units": egress_cus,
+        "capacity_units": capacity_units,
+    }
 
 
 def event_layer_result(
@@ -964,40 +1024,66 @@ def event_layer_result(
             )
         )
     elif provider == "azure":
-        tu_id = "intent.azure.event-hubs.tu-hour"
-        ingress_id = "intent.azure.event-hubs.ingress"
-        ingress_units = sum(
-            row["publish_count"] * math.ceil(row["canonical_bytes_per_event"] / 65536)
-            for row in telemetry
-        )
-        telemetry_dlq_units = sum(
-            row["dead_letter_count"]
-            * math.ceil(row["canonical_bytes_per_event"] / 65536)
-            for row in telemetry
-        )
-        tu_hours = (
-            capacity["namespaces"] * capacity["throughput_units_per_namespace"] * 730
-        )
-        amount = Decimal(tu_hours) * price(intents, tu_id)
-        amount += Decimal(ingress_units + telemetry_dlq_units) * price(
-            intents, ingress_id
-        )
-        items.append(
-            contribution(
-                f"{prefix}.telemetry-log",
-                "Azure Event Hubs Standard",
-                amount,
-                [tu_id, ingress_id],
-                ["formula.azure.event-hubs-standard"],
-                {
-                    **capacity,
-                    "throughput_unit_hours": tu_hours,
-                    "ingress_64kb_units": ingress_units,
-                    "dead_letter_64kb_units": telemetry_dlq_units,
-                },
-                "The explicit dead-letter Event Hub shares the selected namespace capacity; replay is a checkpoint read.",
+        if scenario["scenario_id"] == "eventing-large-v1":
+            capacity = azure_dedicated_capacity(
+                scenario,
+                telemetry,
+                include_delivery=True,
             )
-        )
+            cu_id = "intent.azure.event-hubs-dedicated.cu-hour"
+            cu_hours = capacity["capacity_units"] * 730
+            items.append(
+                contribution(
+                    f"{prefix}.telemetry-log",
+                    "Azure Event Hubs Dedicated",
+                    Decimal(cu_hours) * price(intents, cu_id),
+                    [cu_id],
+                    ["formula.azure.event-hubs-dedicated"],
+                    {
+                        **capacity,
+                        "capacity_unit_hours": cu_hours,
+                    },
+                    "One six-CU cluster carries both telemetry Event Hubs and the explicit dead-letter Event Hub; replay is a checkpoint read.",
+                )
+            )
+        else:
+            tu_id = "intent.azure.event-hubs.tu-hour"
+            ingress_id = "intent.azure.event-hubs.ingress"
+            ingress_units = sum(
+                row["publish_count"]
+                * math.ceil(row["canonical_bytes_per_event"] / 65536)
+                for row in telemetry
+            )
+            telemetry_dlq_units = sum(
+                row["dead_letter_count"]
+                * math.ceil(row["canonical_bytes_per_event"] / 65536)
+                for row in telemetry
+            )
+            tu_hours = (
+                capacity["namespaces"]
+                * capacity["throughput_units_per_namespace"]
+                * 730
+            )
+            amount = Decimal(tu_hours) * price(intents, tu_id)
+            amount += Decimal(ingress_units + telemetry_dlq_units) * price(
+                intents, ingress_id
+            )
+            items.append(
+                contribution(
+                    f"{prefix}.telemetry-log",
+                    "Azure Event Hubs Standard",
+                    amount,
+                    [tu_id, ingress_id],
+                    ["formula.azure.event-hubs-standard"],
+                    {
+                        **capacity,
+                        "throughput_unit_hours": tu_hours,
+                        "ingress_64kb_units": ingress_units,
+                        "dead_letter_64kb_units": telemetry_dlq_units,
+                    },
+                    "The explicit dead-letter Event Hub shares the selected namespace capacity; replay is a checkpoint read.",
+                )
+            )
         base_id = "intent.azure.service-bus.base-hour"
         operation_id = "intent.azure.service-bus.operation"
         control_publishes = count_for(control, "publish_count")
@@ -1472,46 +1558,69 @@ def landing_cost(
                 )
             )
         elif provider == "azure":
-            canonical_peak_bytes_per_second = scenario["peak_events_per_second"] * (
-                scenario["average_event_payload_bytes"] + 1024
-            )
-            required_tu_per_stream = math.ceil(
-                Decimal(str(canonical_peak_bytes_per_second))
-                * Decimal("1.2")
-                / DECIMAL_GB
-                * Decimal(1000)
-            )
-            required_tu = required_tu_per_stream * len(telemetry)
-            namespaces = math.ceil(required_tu / 40)
-            tu_per_namespace = math.ceil(required_tu / namespaces)
-            tu_id = "intent.azure.event-hubs.tu-hour"
-            ingress_id = "intent.azure.event-hubs.ingress"
-            ingress_units = sum(
-                row["publish_count"]
-                * math.ceil(row["canonical_bytes_per_event"] / 65536)
-                for row in telemetry
-            )
-            tu_hours = namespaces * tu_per_namespace * 730
-            amount = Decimal(tu_hours) * price(intents, tu_id)
-            amount += Decimal(ingress_units) * price(intents, ingress_id)
-            items.append(
-                contribution(
-                    f"{prefix}.telemetry-landing",
-                    "Azure Event Hubs Standard landing",
-                    amount,
-                    [tu_id, ingress_id],
-                    ["formula.azure.event-hubs-standard"],
-                    {
-                        "streams": len(telemetry),
-                        "required_ingress_tu_per_stream": (required_tu_per_stream),
-                        "namespaces": namespaces,
-                        "throughput_units_per_namespace": tu_per_namespace,
-                        "throughput_unit_hours": tu_hours,
-                        "ingress_64kb_units": ingress_units,
-                    },
-                    "Destination durable acceptance; downstream consumer compute is outside the bridge result.",
+            if scenario["scenario_id"] == "eventing-large-v1":
+                capacity = azure_dedicated_capacity(
+                    scenario,
+                    telemetry,
+                    include_delivery=include_delivery,
                 )
-            )
+                cu_id = "intent.azure.event-hubs-dedicated.cu-hour"
+                cu_hours = capacity["capacity_units"] * 730
+                items.append(
+                    contribution(
+                        f"{prefix}.telemetry-landing",
+                        "Azure Event Hubs Dedicated landing",
+                        Decimal(cu_hours) * price(intents, cu_id),
+                        [cu_id],
+                        ["formula.azure.event-hubs-dedicated"],
+                        {
+                            **capacity,
+                            "capacity_unit_hours": cu_hours,
+                        },
+                        "Destination durable acceptance on a Large-dimensioned Dedicated cluster; downstream consumer compute is outside the bridge result.",
+                    )
+                )
+            else:
+                canonical_peak_bytes_per_second = scenario["peak_events_per_second"] * (
+                    scenario["average_event_payload_bytes"] + 1024
+                )
+                required_tu_per_stream = math.ceil(
+                    Decimal(str(canonical_peak_bytes_per_second))
+                    * Decimal("1.2")
+                    / DECIMAL_GB
+                    * Decimal(1000)
+                )
+                required_tu = required_tu_per_stream * len(telemetry)
+                namespaces = math.ceil(required_tu / 40)
+                tu_per_namespace = math.ceil(required_tu / namespaces)
+                tu_id = "intent.azure.event-hubs.tu-hour"
+                ingress_id = "intent.azure.event-hubs.ingress"
+                ingress_units = sum(
+                    row["publish_count"]
+                    * math.ceil(row["canonical_bytes_per_event"] / 65536)
+                    for row in telemetry
+                )
+                tu_hours = namespaces * tu_per_namespace * 730
+                amount = Decimal(tu_hours) * price(intents, tu_id)
+                amount += Decimal(ingress_units) * price(intents, ingress_id)
+                items.append(
+                    contribution(
+                        f"{prefix}.telemetry-landing",
+                        "Azure Event Hubs Standard landing",
+                        amount,
+                        [tu_id, ingress_id],
+                        ["formula.azure.event-hubs-standard"],
+                        {
+                            "streams": len(telemetry),
+                            "required_ingress_tu_per_stream": (required_tu_per_stream),
+                            "namespaces": namespaces,
+                            "throughput_units_per_namespace": tu_per_namespace,
+                            "throughput_unit_hours": tu_hours,
+                            "ingress_64kb_units": ingress_units,
+                        },
+                        "Destination durable acceptance; downstream consumer compute is outside the bridge result.",
+                    )
+                )
         elif provider == "gcp":
             throughput_id = "intent.gcp.pubsub.throughput"
             retention_id = "intent.gcp.pubsub.retention"

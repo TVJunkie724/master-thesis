@@ -180,14 +180,14 @@ decision and must be reassessed before production use.
 
 | Responsibility | AWS bundle | Azure bundle | GCP bundle |
 |---|---|---|---|
-| Ordered telemetry log | Two provisioned Kinesis Data Streams | `telemetry.received` and `telemetry.processed` Event Hubs | Two Pub/Sub topics with ordering keys |
+| Ordered telemetry log | Two provisioned Kinesis Data Streams | Two Event Hubs: Standard for Small/Medium, one Dedicated cluster for Large | Two Pub/Sub topics with ordering keys |
 | Independent fan-out | Kinesis enhanced fan-out consumer per named consumer | Consumer group per named consumer | Subscription per named consumer |
 | Durable control/action delivery | SNS FIFO topic plus one SQS FIFO queue per consumer | Service Bus Standard topics/queues with sessions | Ordered Pub/Sub subscriptions |
 | Retry and terminal failure | Lambda event-source retry/bisect plus S3 full-record failure destination; SQS DLQs for control | Functions Event Hubs retry policy plus explicit dead-letter Event Hub; Service Bus DLQs | Subscription retry policy and dead-letter topic |
 | Retention and replay | Kinesis retention; SNS FIFO archive/replay for control | Event Hubs retention and checkpoint replay; explicit redrive processor | Topic retention plus subscription Seek/snapshot |
 | Workflow | Step Functions Standard | Logic Apps Consumption (stateful multitenant) | Workflows |
 | Device command | AWS IoT Commands | IoT Hub cloud-to-device queue | Hosted BifroMQ/GKE command boundary |
-| Consumers and bridges | Lambda/KCL adapters | Azure Functions Event Hubs/Service Bus adapters | Cloud Run push for Small/Medium; StreamingPull worker pools for Large |
+| Consumers and bridges | Lambda event-source mappings | Azure Functions Event Hubs/Service Bus adapters | Cloud Run push for Small/Medium; StreamingPull worker pools for Large |
 | Observability | CloudWatch metrics/logs and bounded failure destinations | Azure Monitor/Application Insights and broker metrics | Cloud Monitoring/Logging and subscription backlog/DLQ metrics |
 
 ### AWS Capacity
@@ -232,25 +232,29 @@ capacity.
 ### Azure Capacity
 
 Event Hubs Standard supplies 1 MB/s ingress and 2 MB/s egress per throughput
-unit, up to 40 TU and 32 partitions per Event Hub in one namespace. Since TU
-capacity is namespace-scoped, Large must be explicitly sharded across
-namespaces:
+unit, up to 40 TU and 32 partitions per Event Hub in one namespace. It remains
+the selected Small/Medium tier. It cannot carry one 166.4-MB/s Large logical
+channel without application-owned sharding across namespaces, so Large uses
+Event Hubs Dedicated instead.
 
-| Scenario | Namespaces | TU per namespace | Partitions per Event Hub | Aggregate ingress / egress capacity | Qualification |
-|---|---:|---:|---:|---:|---|
-| Small | 1 | 1 | 4 | 1 / 2 MB/s | Pass |
-| Medium | 1 | 11 | 16 | 11 / 22 MB/s | Pass |
-| Large | 15 | 40 | 32 | 600 / 1,200 MB/s | Pass |
+| Scenario | Selected tier/allocation | Partitions per Event Hub | Aggregate ingress / egress basis | Qualification |
+|---|---|---:|---:|---|
+| Small | Standard, 1 namespace × 1 TU | 4 | 1 / 2 MB/s | Pass |
+| Medium | Standard, 1 namespace × 11 TU | 16 | 11 / 22 MB/s | Pass |
+| Large | Dedicated, 1 cluster × 6 CU | 200 | at least 600 / 1,200 MB/s | Pass; load test required |
 
 The Large requirement including 20% headroom is 399.36 MB/s ingress and
-1,198.08 MB/s egress. Fifteen namespaces at 40 TU therefore pass narrowly on
-egress. Device ID is hashed first to a namespace and then used as the Event
-Hubs partition key. Namespace and partition counts are immutable deployment
-dimensions, not optimizer workload inputs.
+1,198.08 MB/s egress. The Dedicated calculation deliberately uses the low end
+of Microsoft's published approximate ingress range, 100 MB/s per CU, and a
+conservative 200-MB/s egress bound derived from its documented two-receiver
+benchmark. Six CUs satisfy both bounds and stay within the ten-CU self-service
+range. Both telemetry Event Hubs, their consumer groups, and the explicit
+dead-letter Event Hub remain in one cluster; no provider-independent
+namespace-sharding algorithm is introduced. The approximation makes the
+Phase 8.9 load test a release gate.
 
-The namespace count is below the documented 1,000 namespaces per subscription
-per region. Each Event Hub needs only one processing consumer group or five
-processed-telemetry consumer groups, below the Standard limit of 20.
+Each Event Hub needs one received-telemetry consumer group or five
+processed-telemetry consumer groups, below the tier limits.
 
 IoT Hub sizing uses its own raw device traffic and 4-KiB metering:
 
@@ -270,13 +274,13 @@ at-least-once delivery, duplicate detection protects send retries, and each
 queue/subscription owns a DLQ.
 
 Azure Functions uses Flex Consumption with 2-GiB instances and target-based,
-per-function scaling. Large exposes at most 480 partitions per telemetry event
-type across the 15 namespaces, below the 1,000-instance plan limit. The
-implementation uses one function app per namespace so no app accumulates the
-entire sharded trigger set. Its configured maximum and the regional
-subscription-memory quota are deployment preflight inputs, not assumed free
-capacity. Logic Apps Consumption executes 7,500 actions per five minutes at
-the Large peak, below the documented 100,000-action default.
+per-function scaling. Large exposes 200 partitions per telemetry Event Hub.
+The implementation uses one trigger/app boundary per named consumer so one
+application does not combine all six telemetry delivery paths. Its configured
+maximum and the regional subscription-memory quota are deployment preflight
+inputs, not assumed free capacity. Logic Apps Consumption executes 7,500
+actions per five minutes at the Large peak, below the documented
+100,000-action default.
 
 ### GCP Capacity
 
@@ -332,15 +336,18 @@ scenario-specific:
 
 | Source | Small/Medium | Large |
 |---|---|---|
-| AWS | Lambda event-source mapping | Shard-parallel Lambda/KCL consumer |
-| Azure | Functions Event Hubs/Service Bus trigger | Partition-parallel Functions deployment across the selected namespaces |
-| GCP | Cloud Run push or worker pool | Cloud Run worker pool with StreamingPull |
+| AWS | Lambda event-source mapping | Shard-parallel Lambda event-source mapping |
+| Azure | Functions Event Hubs/Service Bus trigger | Partition-parallel Functions trigger on Event Hubs Dedicated |
+| GCP | Authenticated Pub/Sub push to Cloud Run | Cloud Run worker pool with StreamingPull for telemetry; authenticated push for control |
 
-A bridge batch contains at most ten 65-KiB telemetry envelopes, keeping the
-application payload below the 1-MB destination batch/publication boundary.
-The adapter preserves event ID, correlation ID, trace context, replay marker,
-and device partition key. It never logs credentials, payloads, provider
-resource IDs, raw exceptions, or arbitrary headers.
+AWS and Azure source triggers use at most ten envelopes per channel/key-aware
+batch. GCP push delivers one message per request; the GCP Large telemetry path
+uses continuous StreamingPull workers. Destination publishers may batch at
+most ten current 65-KiB telemetry envelopes, which remains below the smallest
+selected destination publication boundary. The adapter preserves event ID,
+correlation ID, trace context, replay marker, and device partition key. It
+never logs credentials, payloads, provider resource IDs, raw exceptions, or
+arbitrary headers.
 
 The destination mapping is channel-specific:
 
@@ -420,7 +427,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:4d0d28da4afef2ee35ab9022e6c8ab6e77b6824808bc3b39344f5007f61a9370`.
+`sha256:fd5428c47781aa14a85be7abf3f41f86ee86f7917e85c23fa40808c19ff82da1`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the
@@ -433,7 +440,7 @@ profile totals and not a ranking:
 |---|---:|---:|---:|---:|---:|---:|
 | Small | 0.572645 | 37.526536 | 708.274221 | 78.877579 | 50.156006 | 0.008512 |
 | Medium | 97.504650 | 1,296.531230 | 735.226836 | 704.792321 | 2,391.968290 | 87.531402 |
-| Large | 2,005.320312 | 7,949.465384 | 1,676.651157 | 28,947.778501 | 45,736.559730 | 6,678.069412 |
+| Large | 2,005.320312 | 7,949.465384 | 1,676.651157 | 28,947.778501 | 62,583.946130 | 6,678.069412 |
 
 The GCP embedded fixed floor exposes the hosted three-node BifroMQ/GKE boundary.
 The Azure adapter estimate exposes Flex Consumption's one-second minimum
@@ -457,6 +464,7 @@ delivery adapter when the bridge-forwarder replaces it.
 | AWS SNS as the telemetry log | Rejected | It is suitable for low-rate FIFO control fan-out, not the selected replayable high-throughput telemetry log. |
 | AWS Step Functions Express for notifications | Rejected | Standard provides durable, auditable, exactly-once workflow execution at the required low start rate. |
 | Azure Event Grid Basic as the Large telemetry backbone | Rejected | Its documented throughput is far below the 332.8/998.4-MB/s Large requirement and its retention is not the selected log contract. |
+| Azure Event Hubs Standard with application sharding for Large | Rejected for the selected bundle | It is theoretically constructible across many namespaces, but adds a custom device-to-namespace routing contract and operational surface solely to retain the cheaper tier. Dedicated provides the required function without making cost the selection criterion. |
 | Azure Service Bus as the telemetry backbone | Rejected | Queue/session semantics are useful for control, while Event Hubs has the selected log, consumer-group, retention, and throughput model. |
 | Azure IoT Hub Direct Methods for device feedback | Rejected | Direct Methods are synchronous and intended for immediately connected devices; C2D supplies a persistent per-device queue and acknowledgement. |
 | GCP Eventarc as the telemetry backbone | Rejected | Eventarc is a delivery/trigger surface around events, not the selected retained fan-out log with Seek replay. |
