@@ -18,8 +18,8 @@
   },
   "manifest_version": "architecture-profile-definitions.v1",
   "source_digests": {
-    "architecture_inventory": "sha256:cca05fd1fe5e838f1a1568ec64adc89888e4545331919cecb476fec6cbcd607a",
-    "baseline_decision": "sha256:be3ad539ba30559f002179db90bc5b5bfcecbe1e49410a944e79c18df6067b74",
+    "architecture_inventory": "sha256:c8812f94523bd84e3c8e2cd05eb75f4fa696f4ef2c92b99933102b2fea1aade3",
+    "baseline_decision": "sha256:1227f56f13f9e3eb60387fec8c66c5b77e338ad81b7674f29bd137265f3c5642",
     "deployment_dimensions": "sha256:16b5212542f3e0a7805ea4a270df542dbfe135624efc3acafb5c9664d805aeac",
     "package_builders": {
       "aws": "sha256:1e627fb6d81fbf21790ee6d07438748a248b42984ea357561f44b28840765c19",

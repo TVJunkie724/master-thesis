@@ -366,11 +366,20 @@ are expressly forbidden.
 
 ## Verification
 
-The drift gate validates Draft 2020-12 schema closure, canonical and source-tree
-digests, global IDs, logical/provider identity agreement, references, all 20
-registry functions, all 661 parsed HCL objects, package/template sources, 42
-deployment catalog components, seven Optimizer slots, six baseline edges, and
-93 bounded Management/Flutter fixed-field anchors across 19 source consumers.
+The Phase 8.0 evidence cut validated Draft 2020-12 schema closure, canonical
+and source-tree digests, global IDs, logical/provider identity agreement,
+references, all 20 registry functions, all 661 parsed HCL objects,
+package/template sources, 42 deployment catalog components, seven Optimizer
+slots, six baseline edges, and 93 bounded Management/Flutter fixed-field
+anchors across 19 source consumers.
+
+Phase 8.4 subsequently added the server-owned
+`resolved_architecture_service.py` compatibility projection to that executable
+allowlist. The current drift gate therefore verifies 100 anchors across 20
+source files, as tracked in
+[`phase_08_4_fixed_field_reader_inventory.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_4_fixed_field_reader_inventory.md);
+the Phase 8.0 count above remains the historical cut rather than being silently
+rewritten.
 
 ```bash
 python3 scripts/check_architecture_inventory.py

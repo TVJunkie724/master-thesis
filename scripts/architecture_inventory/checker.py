@@ -71,6 +71,7 @@ AUDITED_SOURCE_PATHS = (
     "twin2multicloud_backend/src/services/optimizer_config_projection.py",
     "twin2multicloud_backend/src/services/optimizer_configuration_service.py",
     "twin2multicloud_backend/src/services/project_zip_extraction_service.py",
+    "twin2multicloud_backend/src/services/resolved_architecture_service.py",
     "twin2multicloud_backend/src/services/simulator_service.py",
     "twin2multicloud_backend/src/services/test_deployment_service.py",
     "twin2multicloud_backend/src/services/verification_service.py",

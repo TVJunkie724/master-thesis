@@ -4008,7 +4008,7 @@
       "target_responsibility_id": "responsibility.processing"
     }
   ],
-  "content_digest": "sha256:be3ad539ba30559f002179db90bc5b5bfcecbe1e49410a944e79c18df6067b74",
+  "content_digest": "sha256:1227f56f13f9e3eb60387fec8c66c5b77e338ad81b7674f29bd137265f3c5642",
   "cost_ownership_rules": [
     {
       "current_cost_owner_id": "cost.cross-cloud-glue",
@@ -8457,5 +8457,5 @@
     }
   ],
   "schema_version": "five-layer-baseline-decision.v1",
-  "source_inventory_digest": "sha256:cca05fd1fe5e838f1a1568ec64adc89888e4545331919cecb476fec6cbcd607a"
+  "source_inventory_digest": "sha256:c8812f94523bd84e3c8e2cd05eb75f4fa696f4ef2c92b99933102b2fea1aade3"
 }
