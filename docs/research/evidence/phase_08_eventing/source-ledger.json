@@ -574,7 +574,7 @@
           "unit": "USD/CU-hour"
         }
       ],
-      "content_digest": "sha256:6c389f2fd41df3bfbeed91ac13deff84a8b4ae94496ce74788d006c824012912",
+      "content_digest": "sha256:8abc52513300c7d686adbb6d2971f96fdf796632538bd5b0d2e8cce96be5eabb",
       "review_status": "reviewed",
       "reviewer_note": "The West Europe pay-as-you-go Dedicated Capacity Unit meter is selected for Large; no Standard ingress-event meter is added."
     },
@@ -611,7 +611,7 @@
           "unit": "MB/publication"
         }
       ],
-      "content_digest": "sha256:aba5680747573f5c837b2fcb5ce556550614c78882b1c1d657906fc3892a04a9",
+      "content_digest": "sha256:92b538df1cc5198cf32a62ee0480658dc81af989524712ce3748f50ed778b96c",
       "review_status": "reviewed",
       "reviewer_note": "Capacity uses the lower published 100-MB/s ingress bound and a conservative 200-MB/s egress bound from the documented two-receiver benchmark; Phase 8.9 still requires a load test."
     },
@@ -1454,6 +1454,505 @@
       "content_digest": "sha256:c1402dec9d1dd9c5aa900a4485eda51d254bee811389cf5db50fadaab556403d",
       "review_status": "reviewed",
       "reviewer_note": "Provider and service-account bindings must constrain mapped workload attributes."
+    },
+    {
+      "source_id": "source.aws.outbound-identity-federation.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS IAM outbound identity federation",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_outbound.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.outbound-identity.get-web-identity-token",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.oidc-discovery",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.audience-bound",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:1212c11d6b97ff82bfd5f0edeb75384e9c76140d243ec0498d897328482b314f",
+      "review_status": "reviewed",
+      "reviewer_note": "AWS sources use STS GetWebIdentityToken for Azure's generic OIDC exchange; the exact AWS principal and audience claims are deployment-bound."
+    },
+    {
+      "source_id": "source.aws.lambda-kinesis-trigger.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS Lambda Kinesis event-source mapping",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/lambda/latest/dg/services-kinesis-parameters.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.lambda-kinesis.max-batch-size",
+          "value": 10000,
+          "unit": "records/invocation"
+        },
+        {
+          "fact_id": "fact.aws.lambda-kinesis.partial-batch-failure",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.lambda-kinesis.bounded-retry-config",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:06eaf0b1fc44e718ccba869d22c0dea683c2895bf05b2229a1edad6c34d0f8b7",
+      "review_status": "reviewed",
+      "reviewer_note": "The selected bridge deliberately configures ten records, partial batch responses, and five retries even though higher provider maxima exist."
+    },
+    {
+      "source_id": "source.aws.lambda-sqs-fifo-trigger.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS Lambda SQS FIFO event-source mapping",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.lambda-sqs-fifo.max-batch-size",
+          "value": 10,
+          "unit": "messages/invocation"
+        },
+        {
+          "fact_id": "fact.aws.lambda-sqs-fifo.same-region-trigger",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:6f49c8c733734a83fe9852389cc01a5bcf3ca8c21a0f9c65bff601d0b2fb25b0",
+      "review_status": "reviewed",
+      "reviewer_note": "A bridge-owned SQS FIFO subscription is the control-channel trigger; the Lambda is not invoked by a remote public endpoint."
+    },
+    {
+      "source_id": "source.aws.kinesis-put-record.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon Kinesis Data Streams PutRecord",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/kinesis/latest/APIReference/API_PutRecord.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.kinesis-put-record.partition-key",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.kinesis-put-record.sequence-for-ordering",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.kinesis-put-record.durable-success-sequence",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:84345f6ca1314e16cbb75606eb45ef00ae697f746fa5531979b418e2f622d258",
+      "review_status": "reviewed",
+      "reviewer_note": "Ordered telemetry landing uses serial PutRecord calls per device key; PutRecords is deliberately excluded because partial failure can reorder records."
+    },
+    {
+      "source_id": "source.aws.sns-fifo-ordering.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon SNS FIFO",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/sns/latest/dg/fifo-topic-message-ordering.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.sns-fifo.message-group-order",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.sns-fifo.deduplication-id",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:55d976301625372d19e74615d14eea3439c897ca9558586e8d53d3d7f71f6347",
+      "review_status": "reviewed",
+      "reviewer_note": "Control landing maps device_id to MessageGroupId and event_id to MessageDeduplicationId; consumer idempotency remains mandatory beyond the broker window."
+    },
+    {
+      "source_id": "source.azure.functions-event-hubs-trigger.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Functions Event Hubs trigger",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-event-hubs",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.functions-event-hubs.batch-trigger",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-event-hubs.max-event-batch-config",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-event-hubs.checkpoint-per-batch-config",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:ec830cf24830c4813cba69205a6a9818a2dba3d5dae3dd697ee8cb6909402b8c",
+      "review_status": "reviewed",
+      "reviewer_note": "The selected bridge sets maxEventBatchSize to ten and only lets the trigger checkpoint after destination acceptance."
+    },
+    {
+      "source_id": "source.azure.functions-service-bus-trigger.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Functions Service Bus trigger",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-service-bus-trigger",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.functions-service-bus.batch-trigger",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-service-bus.sessions",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-service-bus.manual-settlement",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:166730ddc36983958c4e96c60a3bb45c0d0b7e48d14c2252c7b438b2fd2773e3",
+      "review_status": "reviewed",
+      "reviewer_note": "Control forwarding uses a session-enabled batched trigger, AutoCompleteMessages=false, and completes only accepted destination messages."
+    },
+    {
+      "source_id": "source.azure.event-hubs-data-sender.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Microsoft Entra authorization",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/event-hubs/authenticate-application",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.data-sender-role",
+          "value": "Azure Event Hubs Data Sender",
+          "unit": "RBAC-role"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.oauth-data-plane",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:0a53f4e0a1af02811b7fac4176ea51478e3fca462f64f3b84ade76c7a6cb7136",
+      "review_status": "reviewed",
+      "reviewer_note": "The destination role is scoped to the exact landing Event Hub; shared access keys and connection strings are disabled."
+    },
+    {
+      "source_id": "source.azure.event-hubs-partitioning.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs partitioning",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-features",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.partition-key-ordering",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.consumer-groups-independent",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:d188ea48adfa9087e62b2e8e91b3a792aa84b47acbb1e7688daf38a4a3f6cbb2",
+      "review_status": "reviewed",
+      "reviewer_note": "The bridge uses device_id as the partition key and never mixes device keys in a destination batch."
+    },
+    {
+      "source_id": "source.azure.service-bus-data-sender.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Service Bus Microsoft Entra authorization",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/service-bus-messaging/disable-local-authentication",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.service-bus.data-sender-role",
+          "value": "Azure Service Bus Data Sender",
+          "unit": "RBAC-role"
+        },
+        {
+          "fact_id": "fact.azure.service-bus.local-auth-disabled",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:6eb7ae1d90e3b604cad0f7d2d761066cb3ae1c503ac530290caab23b8ea5c921",
+      "review_status": "reviewed",
+      "reviewer_note": "The destination role is scoped to the exact control topic or queue and no SAS connection string is emitted."
+    },
+    {
+      "source_id": "source.azure.service-bus-sessions.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Service Bus sessions",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/service-bus-messaging/message-sessions",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.service-bus.session-fifo",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.service-bus.session-id",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:c7a40490c81934e0d47d7d98d937c26ff539e702cad06216173e0e89a9b1e06c",
+      "review_status": "reviewed",
+      "reviewer_note": "Control landing maps device_id to SessionId and preserves order only within that session."
+    },
+    {
+      "source_id": "source.gcp.pubsub-push-delivery.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub push subscriptions",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/push",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub-push.one-message-per-request",
+          "value": 1,
+          "unit": "message/request"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-push.success-acks-message",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-push.authenticated-jwt",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:bb54c7ca7373ba698377179753e41e8a8488286a08c828a48bacfdb13b0ecb31",
+      "review_status": "reviewed",
+      "reviewer_note": "Small/Medium and Large control paths return success only after destination durable acceptance; a non-success response causes redelivery."
+    },
+    {
+      "source_id": "source.gcp.pubsub-streaming-pull.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub StreamingPull",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/pull",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub-streaming-pull.open-stream",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-streaming-pull.explicit-ack",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:ece05e90549a3c452923e8e05d3b2fd13f0c551cf3c24ed6ec3a477a8645ce30",
+      "review_status": "reviewed",
+      "reviewer_note": "Large telemetry workers hold StreamingPull connections and acknowledge each source message only after destination acceptance."
+    },
+    {
+      "source_id": "source.gcp.cloud-run-worker-pools.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Run worker pools",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/run/docs/overview/what-is-cloud-run",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.cloud-run-worker.always-on-pull",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run-worker.no-public-url",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run-worker.pubsub-pull-use-case",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:5cc817e9dc4e9e2bf5d52c2716c0fabd41848f83eec4a7d33df64a28cae9294a",
+      "review_status": "reviewed",
+      "reviewer_note": "Large telemetry uses manually dimensioned worker pools; unlike a Cloud Run service, the worker has no load-balanced endpoint."
+    },
+    {
+      "source_id": "source.gcp.pubsub-ordered-publisher.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub publisher",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/publisher",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub-publisher.ordering-key",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-publisher.locational-endpoint",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-publisher.resume-after-error",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:55a18079df7e926896537babd298e21a89c4e28b88a36fe3df12f9eb4a6b3816",
+      "review_status": "reviewed",
+      "reviewer_note": "Destination publishing enables ordering, uses europe-west1 endpoints, and keeps one active publisher sequence per device key."
+    },
+    {
+      "source_id": "source.gcp.pubsub.authentication.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud PubSub authentication",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/authentication",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub.external-workload-identity-federation",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.api-keys-unsupported",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:c7fc6aff569ef5898acd6e445f65c6e426e6ce3e62a9d84ef5b6523c60fc2993",
+      "review_status": "reviewed",
+      "reviewer_note": "External bridges authenticate through Workload Identity Federation and receive only topic-scoped publisher authorization."
+    },
+    {
+      "source_id": "source.aws.sts-get-caller-identity.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS STS GetCallerIdentity",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/STS/latest/APIReference/API_GetCallerIdentity.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.sts-get-caller-identity.signed-request",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.sts-get-caller-identity.role-arn-response",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:9289286042ce076b2f4c2ff08316fe1aa6b2742a735046179d05698e41e9c543",
+      "review_status": "reviewed",
+      "reviewer_note": "The AWS-to-GCP path gives GCP Workload Identity Federation a signed GetCallerIdentity request whose response identifies the temporary AWS role."
     }
   ]
 }

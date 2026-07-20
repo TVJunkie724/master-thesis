@@ -20,6 +20,7 @@ PRICE_PATH = EVIDENCE_ROOT / "pricing-model-matrix.json"
 FORMULA_PATH = EVIDENCE_ROOT / "formula-and-unit-ledger.json"
 CAPABILITY_PATH = EVIDENCE_ROOT / "provider-capability-matrix.json"
 SOURCE_PATH = EVIDENCE_ROOT / "source-ledger.json"
+BRIDGE_PATH = EVIDENCE_ROOT / "bridge-decision.json"
 RESULT_PATH = EVIDENCE_ROOT / "scenario-cost-results.json"
 
 MONEY_QUANTUM = Decimal("0.000000001")
@@ -1351,9 +1352,7 @@ def bridge_compute_and_transfer(
     bridge = shared["component_compute_assumptions"]["bridge"]
     runtime_quantities: dict[str, Any]
     if source_provider in {"aws", "azure"}:
-        invocations = sum(
-            math.ceil(row["attempts"] / batch) for row in channel_attempts
-        )
+        invocations = bridge_events
         items = serverless_compute(
             source_provider,
             [
@@ -1369,8 +1368,8 @@ def bridge_compute_and_transfer(
         )
         runtime_quantities = {
             "runtime_mode": "event_source_trigger",
-            "actual_batch_rule": "ceil_each_channel_attempts_divided_by_max_batch",
-            "bridge_batch_max_events": batch,
+            "cost_batch_assumption": "one_billed_invocation_per_attempt",
+            "configured_trigger_batch_max_events": batch,
             "bridge_invocations": invocations,
         }
     elif source_provider == "gcp" and scenario["scenario_id"] == "eventing-large-v1":
@@ -1431,10 +1430,10 @@ def bridge_compute_and_transfer(
             )
         runtime_quantities = {
             "runtime_mode": "streaming_pull_worker_pool_plus_control_push",
-            "actual_batch_rule": (
+            "cost_batch_assumption": (
                 "telemetry_streaming_pull_workers_and_one_control_push_per_attempt"
             ),
-            "bridge_batch_max_events": batch,
+            "configured_trigger_batch_max_events": batch,
             "bridge_invocations": control_invocations,
             "worker_instances": worker_instances,
             "instances_per_telemetry_channel": (instances_per_telemetry_channel),
@@ -1456,8 +1455,8 @@ def bridge_compute_and_transfer(
         )
         runtime_quantities = {
             "runtime_mode": "authenticated_pubsub_push",
-            "actual_batch_rule": "one_push_request_per_attempt",
-            "bridge_batch_max_events": batch,
+            "cost_batch_assumption": "one_push_request_per_attempt",
+            "configured_trigger_batch_max_events": batch,
             "bridge_invocations": invocations,
         }
     else:
@@ -1868,16 +1867,38 @@ def three_provider_result(
     ingress = placement["ingress_provider"]
     eventing = placement["eventing_provider"]
     processing = placement["processing_provider"]
+    ingress_produced_channel_ids = {
+        "telemetry.received.v1",
+        "device.command.outcome.v1",
+    }
+    processing_produced_channel_ids = {
+        "telemetry.processed.v1",
+        "event.matched.v1",
+        "notification.requested.v1",
+        "device.command.requested.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+    }
+    ingress_consumed_channel_ids = {"device.command.requested.v1"}
+    processing_consumed_channel_ids = {
+        "telemetry.received.v1",
+        "telemetry.processed.v1",
+        "event.matched.v1",
+        "notification.requested.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1",
+    }
+    all_channel_ids = ingress_produced_channel_ids | processing_produced_channel_ids
+    placement_channels = channel_fixture(channels, all_channel_ids)
     placement_event_layer = event_layer_result(
         eventing,
         scenario,
         shared,
-        channels,
+        placement_channels,
         intents,
-        remote_delivery_channel_ids={"telemetry.received.v1"},
+        remote_delivery_channel_ids=all_channel_ids,
     )
-    received = channel_fixture(channels, {"telemetry.received.v1"})
-    processed = channel_fixture(channels, {"telemetry.processed.v1"})
     items: list[dict[str, Any]] = []
 
     route_specs = [
@@ -1885,7 +1906,15 @@ def three_provider_result(
             "ingress-to-eventing",
             ingress,
             eventing,
-            received,
+            channel_fixture(channels, ingress_produced_channel_ids),
+            True,
+            False,
+        ),
+        (
+            "processing-to-eventing",
+            processing,
+            eventing,
+            channel_fixture(channels, processing_produced_channel_ids),
             True,
             False,
         ),
@@ -1893,17 +1922,17 @@ def three_provider_result(
             "eventing-to-processing",
             eventing,
             processing,
-            received,
+            channel_fixture(channels, processing_consumed_channel_ids),
             False,
             True,
         ),
         (
-            "processing-to-eventing",
-            processing,
+            "eventing-to-ingress",
             eventing,
-            processed,
-            True,
+            ingress,
+            channel_fixture(channels, ingress_consumed_channel_ids),
             False,
+            True,
         ),
     ]
     route_summaries = []
@@ -2001,7 +2030,7 @@ def three_provider_result(
         "bridge_cost_contributions": items,
         "bridge_addition_total_usd": money(bridge_total),
         "event_scope_total_usd": money(event_layer_total + bridge_total),
-        "scope_note": "This is Event-Layer plus deduplicated bridge infrastructure only; the remote received-telemetry delivery adapter is replaced by the bridge rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10.",
+        "scope_note": "This is Event-Layer plus deduplicated bridge infrastructure only. All eight domain channels are routed from their component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10.",
     }
 
 
@@ -2012,6 +2041,7 @@ def build_result_from_documents(
     formula_doc: dict[str, Any],
     capability_doc: dict[str, Any],
     source_doc: dict[str, Any],
+    bridge_doc: dict[str, Any],
 ) -> dict[str, Any]:
     intents = intent_map(pricing_doc)
     shared = scenario_doc["shared_assumptions"]
@@ -2117,6 +2147,7 @@ def build_result_from_documents(
                 normalize_for_digest(capability_doc)
             ),
             "source_ledger": normalized_digest(normalize_for_digest(source_doc)),
+            "bridge_decision": normalized_digest(normalize_for_digest(bridge_doc)),
         },
         "scenarios": scenarios_out,
     }
@@ -2132,6 +2163,7 @@ def build_result() -> dict[str, Any]:
         load_json(FORMULA_PATH),
         load_json(CAPABILITY_PATH),
         load_json(SOURCE_PATH),
+        load_json(BRIDGE_PATH),
     )
 
 

@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/bridge-decision.schema.json",
+  "title": "Phase 8 cross-cloud bridge decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "decision_id",
+    "status",
+    "profile_ownership",
+    "logical_shape",
+    "security_contract",
+    "envelope_contract",
+    "delivery_contract",
+    "validation_and_error_contract",
+    "failure_contract",
+    "observability_and_lifecycle_contract",
+    "provider_source_runtimes",
+    "destination_landings",
+    "directed_identity_paths",
+    "topology_contracts",
+    "cost_ownership",
+    "verification_gates",
+    "source_refs"
+  ],
+  "properties": {
+    "$schema": {"const": "schemas/bridge-decision.schema.json"},
+    "schema_version": {"const": "bridge-decision.v1"},
+    "decision_id": {"const": "phase-08-cross-cloud-bridge@1"},
+    "status": {"const": "selected_documented_live_pending"},
+    "profile_ownership": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/profileOwnership"}
+    },
+    "logical_shape": {"$ref": "#/$defs/logicalShape"},
+    "security_contract": {"$ref": "#/$defs/securityContract"},
+    "envelope_contract": {"$ref": "#/$defs/envelope"},
+    "delivery_contract": {"$ref": "#/$defs/delivery"},
+    "validation_and_error_contract": {"$ref": "#/$defs/validationAndError"},
+    "failure_contract": {"$ref": "#/$defs/failure"},
+    "observability_and_lifecycle_contract": {
+      "$ref": "#/$defs/observabilityAndLifecycle"
+    },
+    "provider_source_runtimes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/sourceRuntime"}
+    },
+    "destination_landings": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/destinationLanding"}
+    },
+    "directed_identity_paths": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/identityPath"}
+    },
+    "topology_contracts": {"$ref": "#/$defs/topologies"},
+    "cost_ownership": {"$ref": "#/$defs/costOwnership"},
+    "verification_gates": {
+      "type": "array",
+      "minItems": 10,
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 15,
+      "items": {"$ref": "#/$defs/sourceRef"},
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "provider": {
+      "enum": ["aws", "azure", "gcp"]
+    },
+    "sourceRef": {
+      "type": "string",
+      "pattern": "^source\\."
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/nonEmptyString"},
+      "uniqueItems": true
+    },
+    "sourceRefArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/sourceRef"},
+      "uniqueItems": true
+    },
+    "profileOwnership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "bridge_presence", "owner"],
+      "properties": {
+        "profile_id": {
+          "enum": [
+            "five-layer-baseline@1",
+            "five-layer-baseline@2",
+            "six-layer-eventing@1"
+          ]
+        },
+        "bridge_presence": {"$ref": "#/$defs/nonEmptyString"},
+        "owner": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "logicalShape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "flow",
+        "architecture_boundary",
+        "forbidden_boundaries",
+        "destination_consumer_runtime_is_outside_bridge"
+      ],
+      "properties": {
+        "component_id": {"const": "component.cross-cloud-bridge-forwarder"},
+        "flow": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {"$ref": "#/$defs/nonEmptyString"}
+        },
+        "architecture_boundary": {"$ref": "#/$defs/nonEmptyString"},
+        "forbidden_boundaries": {"$ref": "#/$defs/stringArray"},
+        "destination_consumer_runtime_is_outside_bridge": {"const": true}
+      }
+    },
+    "securityContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transport_encryption",
+        "endpoint_validation",
+        "provider_trigger_ingress",
+        "credential_storage",
+        "credential_cache_lifetime",
+        "trust_constraints",
+        "destination_authorization"
+      ],
+      "properties": {
+        "transport_encryption": {"$ref": "#/$defs/nonEmptyString"},
+        "endpoint_validation": {"$ref": "#/$defs/nonEmptyString"},
+        "provider_trigger_ingress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aws", "azure", "gcp_small_medium", "gcp_large"],
+          "properties": {
+            "aws": {"$ref": "#/$defs/nonEmptyString"},
+            "azure": {"$ref": "#/$defs/nonEmptyString"},
+            "gcp_small_medium": {"$ref": "#/$defs/nonEmptyString"},
+            "gcp_large": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        },
+        "credential_storage": {"$ref": "#/$defs/nonEmptyString"},
+        "credential_cache_lifetime": {"$ref": "#/$defs/nonEmptyString"},
+        "trust_constraints": {"$ref": "#/$defs/stringArray"},
+        "destination_authorization": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "max_length"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "type": {"$ref": "#/$defs/nonEmptyString"},
+        "max_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 98304
+        }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "encoding",
+        "max_serialized_event_bytes",
+        "current_scenario_max_serialized_event_bytes",
+        "required_fields",
+        "optional_fields",
+        "routing_fields",
+        "forbidden_fields",
+        "unknown_event_type_or_schema",
+        "consumer_idempotency_key"
+      ],
+      "properties": {
+        "contract_id": {"const": "eventing-envelope.v1"},
+        "encoding": {"const": "utf-8-json"},
+        "max_serialized_event_bytes": {"const": 98304},
+        "current_scenario_max_serialized_event_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 98304
+        },
+        "required_fields": {
+          "type": "array",
+          "minItems": 13,
+          "items": {"$ref": "#/$defs/field"}
+        },
+        "optional_fields": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/field"}
+        },
+        "routing_fields": {"$ref": "#/$defs/stringArray"},
+        "forbidden_fields": {"$ref": "#/$defs/stringArray"},
+        "unknown_event_type_or_schema": {"$ref": "#/$defs/nonEmptyString"},
+        "consumer_idempotency_key": {
+          "const": ["event_id", "invocation_id"]
+        }
+      }
+    },
+    "acceptanceSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "telemetry", "control"],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "telemetry": {"$ref": "#/$defs/nonEmptyString"},
+        "control": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delivery_guarantee",
+        "ordering_scope",
+        "producer_ack_boundary",
+        "bridge_ack_boundary",
+        "consumer_ack_boundary",
+        "source_invocation_batching",
+        "concurrency_rule",
+        "destination_batch_rule",
+        "destination_acceptance_signals"
+      ],
+      "properties": {
+        "delivery_guarantee": {"const": "at_least_once"},
+        "ordering_scope": {"const": "per_device_id"},
+        "producer_ack_boundary": {"$ref": "#/$defs/nonEmptyString"},
+        "bridge_ack_boundary": {
+          "const": "destination_broker_durable_acceptance"
+        },
+        "consumer_ack_boundary": {"$ref": "#/$defs/nonEmptyString"},
+        "source_invocation_batching": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "aws",
+            "azure",
+            "gcp_small_medium",
+            "gcp_large_telemetry",
+            "gcp_large_control"
+          ],
+          "properties": {
+            "aws": {"$ref": "#/$defs/nonEmptyString"},
+            "azure": {"$ref": "#/$defs/nonEmptyString"},
+            "gcp_small_medium": {"$ref": "#/$defs/nonEmptyString"},
+            "gcp_large_telemetry": {"$ref": "#/$defs/nonEmptyString"},
+            "gcp_large_control": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        },
+        "concurrency_rule": {"$ref": "#/$defs/nonEmptyString"},
+        "destination_batch_rule": {"$ref": "#/$defs/nonEmptyString"},
+        "destination_acceptance_signals": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/acceptanceSignal"}
+        }
+      }
+    },
+    "retryRealization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "telemetry", "control"],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "telemetry": {"$ref": "#/$defs/nonEmptyString"},
+        "control": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "validationAndError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validation_order",
+        "retryable_failures",
+        "terminal_message_failures",
+        "route_blocking_failures",
+        "route_blocking_behavior",
+        "terminal_message_behavior",
+        "retry_exhaustion_behavior",
+        "destination_acceptance_requirement",
+        "maximum_delivery_attempts"
+      ],
+      "properties": {
+        "validation_order": {"$ref": "#/$defs/stringArray"},
+        "retryable_failures": {"$ref": "#/$defs/stringArray"},
+        "terminal_message_failures": {"$ref": "#/$defs/stringArray"},
+        "route_blocking_failures": {"$ref": "#/$defs/stringArray"},
+        "route_blocking_behavior": {"$ref": "#/$defs/nonEmptyString"},
+        "terminal_message_behavior": {"$ref": "#/$defs/nonEmptyString"},
+        "retry_exhaustion_behavior": {"$ref": "#/$defs/nonEmptyString"},
+        "destination_acceptance_requirement": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "maximum_delivery_attempts": {"const": 6}
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_delivery_attempts",
+        "terminal_attempt",
+        "provider_retry_realizations",
+        "backpressure",
+        "dead_letter_record",
+        "redrive"
+      ],
+      "properties": {
+        "maximum_delivery_attempts": {"const": 6},
+        "terminal_attempt": {"const": 6},
+        "provider_retry_realizations": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/retryRealization"}
+        },
+        "backpressure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rule",
+            "max_in_memory_events_per_runtime",
+            "circuit_breaker",
+            "ordered_key_behavior"
+          ],
+          "properties": {
+            "rule": {"$ref": "#/$defs/nonEmptyString"},
+            "max_in_memory_events_per_runtime": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "circuit_breaker": {"$ref": "#/$defs/nonEmptyString"},
+            "ordered_key_behavior": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        },
+        "dead_letter_record": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "owner",
+            "retention",
+            "required_metadata",
+            "forbidden_metadata"
+          ],
+          "properties": {
+            "owner": {"const": "source_bridge"},
+            "retention": {"const": "scenario_retention_hours"},
+            "required_metadata": {"$ref": "#/$defs/stringArray"},
+            "forbidden_metadata": {"$ref": "#/$defs/stringArray"}
+          }
+        },
+        "redrive": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_id",
+            "invocation_id",
+            "replay_id",
+            "replay_marker",
+            "audit_outcome",
+            "ordering_degradation_outcome"
+          ],
+          "properties": {
+            "event_id": {"const": "preserve"},
+            "invocation_id": {"const": "preserve"},
+            "replay_id": {"const": "new_uuid"},
+            "replay_marker": {"const": "required"},
+            "audit_outcome": {"const": "required"},
+            "ordering_degradation_outcome": {
+              "$ref": "#/$defs/nonEmptyString"
+            }
+          }
+        }
+      }
+    },
+    "sourceRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "scenario_scope",
+        "telemetry_source",
+        "telemetry_runtime",
+        "telemetry_batch",
+        "control_source",
+        "control_runtime",
+        "control_batch",
+        "source_ack",
+        "source_dlq",
+        "source_refs"
+      ],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "scenario_scope": {"$ref": "#/$defs/nonEmptyString"},
+        "telemetry_source": {"$ref": "#/$defs/nonEmptyString"},
+        "telemetry_runtime": {"$ref": "#/$defs/nonEmptyString"},
+        "telemetry_batch": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "control_source": {"$ref": "#/$defs/nonEmptyString"},
+        "control_runtime": {"$ref": "#/$defs/nonEmptyString"},
+        "control_batch": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "source_ack": {"$ref": "#/$defs/nonEmptyString"},
+        "source_dlq": {"$ref": "#/$defs/nonEmptyString"},
+        "worker_dimension": {"$ref": "#/$defs/nonEmptyString"},
+        "source_refs": {"$ref": "#/$defs/sourceRefArray"}
+      }
+    },
+    "observabilityAndLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_log_fields",
+        "forbidden_log_fields",
+        "metric_names",
+        "metric_dimensions",
+        "forbidden_metric_dimensions",
+        "audit_events",
+        "retention",
+        "deletion_rule"
+      ],
+      "properties": {
+        "allowed_log_fields": {"$ref": "#/$defs/stringArray"},
+        "forbidden_log_fields": {"$ref": "#/$defs/stringArray"},
+        "metric_names": {"$ref": "#/$defs/stringArray"},
+        "metric_dimensions": {"$ref": "#/$defs/stringArray"},
+        "forbidden_metric_dimensions": {"$ref": "#/$defs/stringArray"},
+        "audit_events": {"$ref": "#/$defs/stringArray"},
+        "retention": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_outbox_and_bridge_DLQ",
+            "operational_logs_and_audit",
+            "in_memory_envelope",
+            "credential"
+          ],
+          "properties": {
+            "source_outbox_and_bridge_DLQ": {
+              "const": "scenario_retention_hours"
+            },
+            "operational_logs_and_audit": {"const": "30_days"},
+            "in_memory_envelope": {"$ref": "#/$defs/nonEmptyString"},
+            "credential": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        },
+        "deletion_rule": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "destinationLanding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "telemetry_service",
+        "telemetry_api",
+        "telemetry_ordering",
+        "control_service",
+        "control_api",
+        "control_ordering",
+        "authorization",
+        "source_refs"
+      ],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "telemetry_service": {"$ref": "#/$defs/nonEmptyString"},
+        "telemetry_api": {"$ref": "#/$defs/nonEmptyString"},
+        "telemetry_ordering": {"$ref": "#/$defs/nonEmptyString"},
+        "control_service": {"$ref": "#/$defs/nonEmptyString"},
+        "control_api": {"$ref": "#/$defs/nonEmptyString"},
+        "control_ordering": {"$ref": "#/$defs/nonEmptyString"},
+        "authorization": {"$ref": "#/$defs/nonEmptyString"},
+        "source_refs": {"$ref": "#/$defs/sourceRefArray"}
+      }
+    },
+    "identityPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_provider",
+        "destination_provider",
+        "source_assertion",
+        "exchange",
+        "destination_credential",
+        "status",
+        "source_refs"
+      ],
+      "properties": {
+        "source_provider": {"$ref": "#/$defs/provider"},
+        "destination_provider": {"$ref": "#/$defs/provider"},
+        "source_assertion": {"$ref": "#/$defs/nonEmptyString"},
+        "exchange": {"$ref": "#/$defs/nonEmptyString"},
+        "destination_credential": {"$ref": "#/$defs/nonEmptyString"},
+        "status": {"const": "capability_admissible_live_pending"},
+        "source_refs": {"$ref": "#/$defs/sourceRefArray"}
+      }
+    },
+    "topologies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["single_cloud", "directed_pair", "three_provider"],
+      "properties": {
+        "single_cloud": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bridge_instances",
+            "cross_cloud_egress_bytes",
+            "rule"
+          ],
+          "properties": {
+            "bridge_instances": {"const": 0},
+            "cross_cloud_egress_bytes": {"const": 0},
+            "rule": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        },
+        "directed_pair": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["routes", "fixture", "destination_fanout"],
+          "properties": {
+            "routes": {"$ref": "#/$defs/nonEmptyString"},
+            "fixture": {"$ref": "#/$defs/nonEmptyString"},
+            "destination_fanout": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        },
+        "three_provider": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "topology",
+            "component_placement",
+            "routes",
+            "mesh_forbidden"
+          ],
+          "properties": {
+            "topology": {"const": "eventing_hub_and_spoke"},
+            "component_placement": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "component.device-ingress",
+                "component.telemetry-processor",
+                "component.historical-persistence",
+                "component.twin-state-update",
+                "component.rule-evaluator",
+                "component.action-dispatcher",
+                "component.notification-workflow",
+                "component.device-command-adapter"
+              ],
+              "properties": {
+                "component.device-ingress": {"const": "ingress_provider"},
+                "component.telemetry-processor": {"const": "processing_provider"},
+                "component.historical-persistence": {"const": "processing_provider"},
+                "component.twin-state-update": {"const": "processing_provider"},
+                "component.rule-evaluator": {"const": "processing_provider"},
+                "component.action-dispatcher": {"const": "processing_provider"},
+                "component.notification-workflow": {"const": "processing_provider"},
+                "component.device-command-adapter": {"const": "ingress_provider"}
+              }
+            },
+            "routes": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "mesh_forbidden": {"const": true}
+          }
+        }
+      }
+    },
+    "costOwnership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_owns",
+        "destination_owns",
+        "inbound_transfer_cost",
+        "double_count_rule",
+        "compute_estimation_rule",
+        "selection_rule"
+      ],
+      "properties": {
+        "source_owns": {"$ref": "#/$defs/stringArray"},
+        "destination_owns": {"$ref": "#/$defs/stringArray"},
+        "inbound_transfer_cost": {"$ref": "#/$defs/nonEmptyString"},
+        "double_count_rule": {"$ref": "#/$defs/nonEmptyString"},
+        "compute_estimation_rule": {"$ref": "#/$defs/nonEmptyString"},
+        "selection_rule": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    }
+  }
+}

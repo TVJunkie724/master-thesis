@@ -9,13 +9,13 @@ This directory is the working evidence package for Phase 8.8 and GitHub issue
 
 **Regions:** AWS `eu-central-1`, Azure `westeurope`, GCP `europe-west1`
 
-**Current decision status:** `draft-envelope-and-manifest-pending`
+**Current decision status:** `bridge-selected-manifest-and-review-pending`
 
 The capability, compatibility, theoretical-capacity, source, and normalized
 pricing reviews below are complete enough to nominate provider bundles. It is
-not the final Phase 8.8 approval. The bridge/envelope decision, the
-implementation-component manifest, the complete package validator, and the
-independent approval reviews are still required.
+not the final Phase 8.8 approval. The bridge/envelope decision is now frozen in
+`bridge-decision.json`; the implementation-component manifest, the complete
+package validator, and the independent approval reviews are still required.
 
 No runtime code or cloud resource is changed by this evidence.
 
@@ -77,11 +77,13 @@ assumptions, not observed production traffic or a recommended logging policy.
 
 The incremental Event-Layer delivery adapter is modeled at 50 ms and 256 MiB
 with one invocation per broker delivery. No consumer batch factor is invented;
-the only explicit batching assumption in v1 remains the bridge maximum of ten
-events. AWS Lambda and Azure Functions apply their own billing allocations and
-duration blocks, while Google Cloud Run uses the reviewed request-based
-resource allocation. The adapter is separate from the domain processor so its
-incremental cost cannot disappear as unpriced glue.
+the bridge trigger maximum of ten is a runtime capacity setting, not a
+favorable billing assumption. AWS and Azure bridge compute is bounded at one
+billed invocation per delivery attempt. AWS Lambda and Azure Functions apply
+their own billing allocations and duration blocks, while Google Cloud Run uses
+the reviewed request-based resource allocation. The adapter is separate from
+the domain processor so its incremental cost cannot disappear as unpriced
+glue.
 
 ## Corrected Capacity Basis
 
@@ -340,14 +342,44 @@ scenario-specific:
 | Azure | Functions Event Hubs/Service Bus trigger | Partition-parallel Functions trigger on Event Hubs Dedicated |
 | GCP | Authenticated Pub/Sub push to Cloud Run | Cloud Run worker pool with StreamingPull for telemetry; authenticated push for control |
 
-AWS and Azure source triggers use at most ten envelopes per channel/key-aware
-batch. GCP push delivers one message per request; the GCP Large telemetry path
-uses continuous StreamingPull workers. Destination publishers may batch at
-most ten current 65-KiB telemetry envelopes, which remains below the smallest
-selected destination publication boundary. The adapter preserves event ID,
+AWS and Azure source triggers use at most ten envelopes from one channel per
+invocation; the invocation may contain different device keys, which the
+adapter groups and serializes per key. GCP push delivers one message per
+request to an IAM-protected Cloud Run URL inside the provider integration; that
+URL is not a cross-cloud architecture endpoint. The GCP Large telemetry path
+uses continuous StreamingPull workers with no load-balanced URL.
+The cost fixture does not assume that AWS/Azure batches are always full: it
+uses one billed invocation per delivery attempt as a conservative bound while
+retaining ten as the configured trigger maximum. This especially avoids
+understating sparse control-channel compute.
+Destination publishers never mix channels or device keys and may group at most
+ten current 65-KiB telemetry envelopes where the destination API preserves
+that key's order. AWS telemetry is stricter: it uses serial `PutRecord` calls
+and chains `SequenceNumberForOrdering` for consecutive same-key records within
+an invocation, because `PutRecords` can partially succeed and reorder. Kinesis
+source processing keeps `ParallelizationFactor=1`, so acknowledgement of the
+previous invocation prevents the same key from overlapping after an execution
+environment change. The adapter preserves event ID, invocation ID,
 correlation ID, trace context, replay marker, and device partition key. It
 never logs credentials, payloads, provider resource IDs, raw exceptions, or
 arbitrary headers.
+
+Every identity exchange and destination publish uses the official provider SDK
+over TLS 1.2 or newer with normal certificate/hostname validation, a
+region-pinned data-plane endpoint, and no redirect or custom-endpoint override.
+Credentials exist only in memory and are discarded at token expiry minus five
+minutes or after one hour, whichever occurs first. The adapter validates size,
+JSON, required/forbidden fields, the closed event/schema registry, partition
+key, and route before requesting the target credential.
+
+Bad envelopes are terminal message failures and enter the source bridge DLQ.
+Network failures, throttling, provider 5xx responses, and transient identity
+errors use the six-attempt retry budget. TLS, endpoint, route, claim, and
+permission mismatches block the route without acknowledging the source or
+burning a message retry budget; they require an operator correction. Metrics
+carry only bounded provider/route/channel/scenario dimensions, while messages,
+credentials, device/Twin IDs, endpoints, resource IDs, and raw exceptions are
+forbidden from logs and metric labels.
 
 The destination mapping is channel-specific:
 
@@ -359,7 +391,10 @@ The destination mapping is channel-specific:
 For one key, the bridge does not advance to a later batch while an earlier
 batch is retrying. A terminal failure moves the envelope to the source bridge
 DLQ and emits an ordering-degraded outcome. Redrive republishes the same event
-ID and key with a replay marker; consumers remain idempotent.
+ID and key with a new replay ID; AWS SNS FIFO and Azure Service Bus derive the
+transport deduplication/message ID from the event ID plus `replay_id_or_live`.
+Source retries therefore deduplicate, while an explicit redrive is not
+silently suppressed. Consumers remain idempotent on the domain IDs.
 
 ### Six Directed Trust Paths
 
@@ -411,9 +446,17 @@ provider:
 - a remote producer publishes through its one source-owned outbox and bridge;
 - a remote consumer provider receives one channel copy in its landing broker;
 - consumers on the same remote provider fan out locally;
-- two remote providers cause two directed bridge deliveries, not a hidden
-  global mesh;
+- the fixed three-provider fixture aggregates four directed route groups:
+  ingress→Eventing, processing→Eventing, Eventing→processing, and
+  Eventing→ingress;
 - same-provider edges remain local.
+
+The ingress provider owns device ingress, device-command delivery, and the
+corresponding outcome. The processing provider owns the processor,
+persistence, Twin update, rule/action path, and notification workflow. This
+placement routes all eight closed-world channels; in particular, the device
+command returns from the Eventing provider to the ingress provider instead of
+disappearing from the three-cloud fixture.
 
 AWS, Azure, and GCP remain candidate Eventing providers because all six
 directions have a documented federation primitive and construction rule.
@@ -427,7 +470,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:fd5428c47781aa14a85be7abf3f41f86ee86f7917e85c23fa40808c19ff82da1`.
+`sha256:1b4a774ac3af58ee66e1bff412b8f5e321211fc96d37ca0278e5548adf261beb`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the
@@ -452,9 +495,9 @@ reject a functionally admissible PoC bundle.
 Every single-cloud case has zero bridge invocations and zero cross-cloud
 egress. All six directed pairs are calculated as one copy of every closed-world
 domain-event channel, with destination fan-out excluded. Each of the six
-three-provider permutations calculates the exact
-ingress→Eventing→processing→Eventing hub-and-spoke routes and removes the local
-delivery adapter when the bridge-forwarder replaces it.
+three-provider permutations calculates all four aggregated hub-and-spoke route
+groups and removes local delivery adapters when the bridge-forwarders replace
+them.
 
 ## Rejected Or Restricted Alternatives
 
@@ -487,10 +530,9 @@ formula and unit rules, and schemas for the current artifacts now exist and
 pass their current offline checks. Phase 8.8 is not yet `approved` because the
 following evidence is still missing:
 
-1. the canonical envelope and selected bridge decision;
-2. the exact Terraform/provider/runtime/permission component manifest;
-3. the complete-package validator; and
-4. two zero-finding reviews of the complete package.
+1. the exact Terraform/provider/runtime/permission component manifest;
+2. the complete-package validator; and
+3. two zero-finding reviews of the complete package.
 
 No selected bundle may enter optimizer ranking before those gates pass.
 

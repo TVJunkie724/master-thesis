@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import importlib.util
-import math
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -28,6 +27,7 @@ class ScenarioCalculationTest(unittest.TestCase):
         cls.formula = CALCULATOR.load_json(CALCULATOR.FORMULA_PATH)
         cls.capability = CALCULATOR.load_json(CALCULATOR.CAPABILITY_PATH)
         cls.sources = CALCULATOR.load_json(CALCULATOR.SOURCE_PATH)
+        cls.bridge = CALCULATOR.load_json(CALCULATOR.BRIDGE_PATH)
 
     def build(
         self,
@@ -42,6 +42,7 @@ class ScenarioCalculationTest(unittest.TestCase):
             copy.deepcopy(self.formula),
             copy.deepcopy(self.capability),
             copy.deepcopy(sources or self.sources),
+            copy.deepcopy(self.bridge),
         )
 
     def test_committed_result_is_byte_identical(self) -> None:
@@ -151,17 +152,22 @@ class ScenarioCalculationTest(unittest.TestCase):
         gcp_quantities = egress(gcp_small)["normalized_quantities"]
         self.assertEqual(
             aws_quantities["bridge_invocations"],
-            sum(
-                math.ceil(row["attempts"] / 10)
-                for row in aws_quantities["channel_attempts"]
-            ),
+            aws_quantities["bridge_event_attempts"],
+        )
+        self.assertEqual(
+            aws_quantities["cost_batch_assumption"],
+            "one_billed_invocation_per_attempt",
+        )
+        self.assertEqual(
+            aws_quantities["configured_trigger_batch_max_events"],
+            10,
         )
         self.assertEqual(
             gcp_quantities["bridge_invocations"],
             gcp_quantities["bridge_event_attempts"],
         )
         self.assertEqual(
-            gcp_quantities["actual_batch_rule"],
+            gcp_quantities["cost_batch_assumption"],
             "one_push_request_per_attempt",
         )
 
@@ -199,6 +205,51 @@ class ScenarioCalculationTest(unittest.TestCase):
             1,
         )
         self.assertEqual(route_worker["normalized_quantities"]["instances"], 21)
+
+    def test_three_provider_routes_cover_all_domain_channels(self) -> None:
+        result = self.build()
+        placement = result["scenarios"][0]["three_provider_results"][0]
+        summaries = {
+            item["route_role"]: item
+            for item in placement["bridge_route_summaries"]
+        }
+        self.assertEqual(
+            set(summaries),
+            {
+                "ingress-to-eventing",
+                "processing-to-eventing",
+                "eventing-to-processing",
+                "eventing-to-ingress",
+            },
+        )
+        regular_event_layer = next(
+            item
+            for item in result["scenarios"][0]["event_layer_bundle_results"]
+            if item["provider"] == placement["eventing_provider"]
+        )
+        self.assertNotEqual(
+            placement["event_layer_bundle_total_usd"],
+            regular_event_layer["total_monthly_usd"],
+        )
+        contribution_channels = {
+            row["channel_id"]
+            for item in placement["bridge_cost_contributions"]
+            if item["contribution_id"].endswith(".egress")
+            for row in item["normalized_quantities"]["channel_attempts"]
+        }
+        self.assertEqual(
+            contribution_channels,
+            {
+                "telemetry.received.v1",
+                "telemetry.processed.v1",
+                "event.matched.v1",
+                "notification.requested.v1",
+                "device.command.requested.v1",
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+                "device.command.outcome.v1",
+            },
+        )
 
     def test_azure_large_uses_dedicated_capacity_without_namespace_sharding(
         self,

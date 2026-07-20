@@ -27,7 +27,8 @@
         "pricing_model_matrix",
         "formula_and_unit_ledger",
         "provider_capability_matrix",
-        "source_ledger"
+        "source_ledger",
+        "bridge_decision"
       ],
       "properties": {
         "scenario_inputs": {"$ref": "#/$defs/digest"},
@@ -35,7 +36,8 @@
         "pricing_model_matrix": {"$ref": "#/$defs/digest"},
         "formula_and_unit_ledger": {"$ref": "#/$defs/digest"},
         "provider_capability_matrix": {"$ref": "#/$defs/digest"},
-        "source_ledger": {"$ref": "#/$defs/digest"}
+        "source_ledger": {"$ref": "#/$defs/digest"},
+        "bridge_decision": {"$ref": "#/$defs/digest"}
       }
     },
     "scenarios": {
@@ -277,7 +279,8 @@
           "enum": [
             "ingress-to-eventing",
             "eventing-to-processing",
-            "processing-to-eventing"
+            "processing-to-eventing",
+            "eventing-to-ingress"
           ]
         },
         "source_provider": {"$ref": "#/$defs/provider"},
@@ -320,8 +323,8 @@
         "event_layer_bundle_total_usd": {"$ref": "#/$defs/money"},
         "bridge_route_summaries": {
           "type": "array",
-          "minItems": 3,
-          "maxItems": 3,
+          "minItems": 4,
+          "maxItems": 4,
           "items": {"$ref": "#/$defs/routeSummary"}
         },
         "bridge_shared_observability_usd": {"$ref": "#/$defs/money"},

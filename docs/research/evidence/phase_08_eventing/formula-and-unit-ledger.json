@@ -329,10 +329,10 @@
     {
       "formula_id": "formula.bridge.compute",
       "inputs": ["channel_event_attempts", "source_provider", "scenario_id", "max_batch_events", "duration_ms", "source_provider_allocation"],
-      "expression": "AWS/Azure: sum per channel ceil(attempts/10) serverless invocations; GCP Small/Medium: one Pub/Sub push request per attempt; GCP Large telemetry: 21 one-stream worker instances per telemetry channel plus request-based control forwarding",
+      "expression": "AWS/Azure conservative billing bound: one serverless invocation per delivery attempt while the configured trigger may batch up to 10 records; GCP Small/Medium: one Pub/Sub push request per attempt; GCP Large telemetry: 21 one-stream worker instances per telemetry channel plus request-based control forwarding",
       "output_unit": "USD/month",
-      "rounding": "never batch across channels or ordering keys; provider duration and allocation rounding",
-      "notes": "Ten is a maximum, not a universal batch factor. Source is acknowledged only after destination durable acceptance."
+      "rounding": "source invocations never batch across channels; provider duration and allocation rounding",
+      "notes": "The AWS/Azure cost bound deliberately does not assume full trigger batches, because sparse control channels may not fill them. A source invocation may contain different device keys, but the adapter serializes destination calls per key and never mixes keys in a destination batch. Source is acknowledged only after destination durable acceptance."
     },
     {
       "formula_id": "formula.transfer.progressive-egress",
