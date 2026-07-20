@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -291,7 +291,12 @@ resolved producer/consumer graph.
 | Field | Unit / Rule |
 |---|---|
 | `events_per_month` | Non-negative integer |
-| `average_event_payload_bytes` | Positive integer; pre-provider rounding |
+| `average_event_payload_bytes` | Positive integer; raw telemetry payload before the canonical envelope and provider rounding |
+| `average_envelope_overhead_bytes` | Positive integer; bounded serialized `eventing-envelope.v1` metadata added to every domain event |
+| `average_match_payload_bytes` | Positive integer; rule-match payload before envelope overhead |
+| `average_notification_payload_bytes` | Positive integer; notification request payload before envelope overhead |
+| `average_device_command_payload_bytes` | Positive integer; device-command request payload before envelope overhead |
+| `average_outcome_payload_bytes` | Positive integer; terminal action/workflow/command outcome payload before envelope overhead |
 | `publish_requests_per_month` | Non-negative integer |
 | `event_channels` | Closed-world channel IDs with exact producer and consumer component refs |
 | `channel_delivery_counts` | Derived per channel and per consumer from the resolved graph |
@@ -305,9 +310,14 @@ resolved producer/consumer graph.
 | `required_delivery_semantics` | `at_least_once` for v1 |
 | `peak_events_per_second` | Non-negative decimal |
 | `active_partition_keys` | Positive integer when per-device ordering applies |
+| `concurrent_device_connections` | Positive integer; separate from partition-key cardinality and required for device-boundary capacity |
 | `rule_match_share` | Decimal `[0,1]`; applies to processed telemetry |
+| `extension_actions_per_match` | Positive integer |
 | `workflow_start_share_of_matches` | Decimal `[0,1]` |
 | `device_command_share_of_matches` | Decimal `[0,1]` |
+| `workflow_actions_per_execution` | Positive integer used for workflow quota and cost transformation |
+| `terminal_outcome_events_per_invocation` | Closed-world action/workflow/command counts; v1 emits one typed terminal outcome per invocation |
+| `component_compute_assumptions` | Closed-world duration, memory, batch-size, and concurrency inputs for new rule/action/workflow-adapter/device-adapter/bridge compute |
 | `provider_region_refs` | Exact AWS, Azure, and GCP region plus immutable pricing-catalog refs |
 
 `provider_region_refs` must pin the same existing comparison regions used by
@@ -327,6 +337,7 @@ Derived quantities must be calculated by one named function each. The contract
 must distinguish:
 
 - domain events;
+- canonical serialized bytes, including envelope overhead;
 - provider-billed request or message chunks;
 - deliveries per consumer;
 - retries;
@@ -336,7 +347,13 @@ must distinguish:
 - adapter/workflow invocations.
 
 No formula may use `events_per_month` as a substitute for all provider billing
-dimensions.
+dimensions. `telemetry.received.v1` and `telemetry.processed.v1` each carry the
+scenario telemetry payload in v1, so the Event-Layer ingress volume contains
+two full telemetry publishes. Bridge and transfer bytes use canonical
+serialized envelope bytes. TLS, TCP/IP, and provider-internal replication
+overhead are excluded from the base estimate and named as a sensitivity and
+construct-validity limitation; they must not be silently approximated as
+payload bytes.
 
 The closed-world channel registry must contain at least:
 
@@ -346,8 +363,8 @@ The closed-world channel registry must contain at least:
 - `event.matched.v1`, consumed by action dispatch;
 - `notification.requested.v1`, consumed by the workflow adapter;
 - `device.command.requested.v1`, consumed by the device-command adapter; and
-- typed action/command outcome events required for retry, audit, or terminal
-  failure evidence.
+- typed action/workflow/command outcome events required for retry, audit, or
+  terminal failure evidence.
 
 Additional audit or real-time visualization subscribers are separate named
 sensitivity variants. They must not be hidden in one generic consumer
@@ -359,9 +376,13 @@ multiplier or silently presented as part of the historical five-layer graph.
 
 Every embedded-event bundle must provide the shared domain behavior from
 Section 1.1, typed delivery outcomes, bounded retry/failure handling for its
-direct edges, provider-native workflow execution, and provider-native device
-command delivery. It is not required to pretend that it owns a general replay
-or fan-out layer.
+direct edges, provider-native workflow execution, and a provider-native or
+explicitly provider-hosted device-command boundary. A hosted device boundary
+must pin the software distribution/version/license, compute, load balancing,
+device identity, authorization, durable-session, observability, lifecycle, and
+cost owners; it cannot be described as though it were a managed provider
+service. The embedded profile is not required to pretend that it owns a
+general replay or fan-out layer.
 
 Every selected Event-Layer bundle must additionally provide:
 
@@ -499,20 +520,40 @@ non-publishable.
 
 Freeze three channel-aware sensitivity scenarios:
 
-| Scenario | Telemetry events / publish requests | Payload | Mandatory processed-telemetry consumers | Extra sensitivity consumers | Rule match / workflow / command share | Retry / DLQ / replay | Retention | Peak events/s | Active partition keys | Max latency |
+| Scenario | Telemetry events / publish requests | Raw telemetry payload | Mandatory processed-telemetry consumers | Extra sensitivity consumers | Rule match / workflow / command share | Retry / DLQ / replay | Retention | Peak events/s | Active keys / concurrent devices | Max latency |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `eventing-small-v1` | 100,000 / 100,000 | 4 KiB | 3 | 0 | 1% / 25% / 25% of matches | 0.1% / 0.01% / 0% | 24 h | 10 | 100 | 30 s |
-| `eventing-medium-v1` | 10,000,000 / 10,000,000 | 16 KiB | 3 | 0 | 1% / 25% / 25% of matches | 0.5% / 0.05% / 1% | 168 h | 250 | 10,000 | 10 s |
-| `eventing-large-v1` | 100,000,000 / 100,000,000 | 64 KiB | 3 | 2 | 1% / 25% / 25% of matches | 1% / 0.1% / 2% | 168 h | 2,500 | 100,000 | 5 s |
+| `eventing-small-v1` | 100,000 / 100,000 | 4 KiB | 3 | 0 | 1% / 25% / 25% of matches | 0.1% / 0.01% / 0% | 24 h | 10 | 100 / 100 | 30 s |
+| `eventing-medium-v1` | 10,000,000 / 10,000,000 | 16 KiB | 3 | 0 | 1% / 25% / 25% of matches | 0.5% / 0.05% / 1% | 168 h | 250 | 10,000 / 10,000 | 10 s |
+| `eventing-large-v1` | 100,000,000 / 100,000,000 | 64 KiB | 3 | 2 | 1% / 25% / 25% of matches | 1% / 0.1% / 2% | 168 h | 2,500 | 100,000 / 100,000 | 5 s |
+
+The following auxiliary payload and execution dimensions are fixed for every
+v1 scenario. They are synthetic reference assumptions, not measurements:
+
+| Dimension | v1 value |
+|---|---:|
+| Canonical envelope overhead | 1 KiB/event |
+| Rule-match payload | 1 KiB |
+| Notification request payload | 1 KiB |
+| Device-command request payload | 1 KiB |
+| Terminal outcome payload | 512 B |
+| Extension actions per match | 1 |
+| Workflow actions per execution | 4 |
+| Terminal outcomes | 1 per extension action, workflow, and command |
+| Rule evaluator | 50 ms at 256 MiB |
+| Extension action adapter | 100 ms at 256 MiB |
+| Workflow start adapter | 50 ms at 256 MiB |
+| Device-command adapter | 100 ms at 256 MiB |
+| Cross-cloud bridge batch | maximum 10 events, 250 ms at 512 MiB |
 
 All three use at-least-once delivery and per-device ordering. The input file
 must pin the three provider-region catalog refs above and state that these are
 bounded evaluation scenarios, not observed production traffic. Publish request
 counts intentionally equal event counts in v1 so batching is not silently
-assumed; provider billing chunks are derived later from payload and provider
-rules. If existing thesis workload fixtures justify different values, the
-change must be made before calculation, documented in the decision record, and
-versioned as new scenario IDs.
+assumed for domain publishers; provider billing chunks are derived later from
+the serialized envelope and provider rules. Only the bridge has the explicit
+bounded batch assumption above. If existing thesis workload fixtures justify
+different values, the change must be made before calculation, documented in
+the decision record, and versioned as new scenario IDs.
 
 The three mandatory `telemetry.processed.v1` consumers are historical
 persistence, Twin-state update, and rule evaluation. The Large scenario adds
@@ -520,7 +561,10 @@ two explicitly named audit/real-time sensitivity subscribers; it does not
 pretend that the original five-layer graph had five anonymous consumers.
 Workflow and command shares are applied after the 1% rule-match share. At the
 Large peak this means 2,500 rule checks/s, 25 matches/s, and 6.25 workflow
-starts/s plus 6.25 command requests/s.
+starts/s plus 6.25 command requests/s. Every match also starts one extension
+action. Each extension action, workflow, and command emits one typed terminal
+outcome. Device-boundary capacity must use `concurrent_device_connections`,
+not infer connection count from monthly event volume.
 
 Cross-cloud volume is calculated separately for every resolved placement:
 

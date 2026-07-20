@@ -364,6 +364,17 @@ curated provider profiles. It calculates comparable eventing costs and makes
 visible where a provider gains or loses cost because its service bundle
 provides more or less functionality.
 
+The fixed workload must be rich enough to prove both capacity and cost. Event
+rate and raw telemetry payload alone are insufficient. The Eventing evidence
+therefore also freezes canonical-envelope overhead, payload sizes for match,
+notification, device-command, and terminal-outcome events, workflow actions per
+execution, extension-action and terminal-outcome cardinality, concurrent device
+connections, and bounded duration/memory/batch assumptions for every newly
+costed adapter. Canonical serialized bytes, rather than raw telemetry bytes,
+drive provider message chunks and cross-cloud transfer. Network protocol
+overhead remains an explicit sensitivity limitation instead of an invented
+constant.
+
 #### Executable Scope
 
 - One curated, functionally admissible eventing profile per provider.
