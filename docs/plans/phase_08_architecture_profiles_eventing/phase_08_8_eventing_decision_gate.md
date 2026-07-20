@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.2"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.2"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.1
+EXTRACTED: 2026-07-20 | VERSION: 1.3
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -81,6 +81,16 @@ The decision package must encode these three distinct roles:
 | `five-layer-baseline@1` | Immutable historical and paper-compatible profile | Preserves its reviewed omission of optional event-check/action/feedback paths | None |
 | `five-layer-baseline@2` | New fair-comparison baseline | Rule evaluation, extension action, notification workflow, and device-command feedback are mandatory embedded L1/L2 behavior | None; transport remains owned by the existing producer/consumer responsibilities |
 | `six-layer-eventing@1` | New treatment profile | Exactly the same mandatory domain-event behavior as `five-layer-baseline@2` | Adds independent routing, buffering, fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud transport ownership |
+
+“Exactly the same mandatory domain-event behavior” means the same event types,
+rule decisions, invocations, terminal outcomes, and scenario volumes. It does
+not erase the treatment variable by requiring the embedded profile to own the
+Event-Layer service-quality contract. The embedded profile records the
+delivery and ordering behavior its direct edges actually achieve. The
+six-layer profile must satisfy the additional Event-Layer guarantees in
+Section 7.1. A cross-profile result must therefore report both functional
+parity and the achieved quality delta; it must never describe the profiles as
+transport-semantics-equivalent.
 
 The shared domain-event flow is:
 
@@ -545,15 +555,19 @@ v1 scenario. They are synthetic reference assumptions, not measurements:
 | Device-command adapter | 100 ms at 256 MiB |
 | Cross-cloud bridge batch | maximum 10 events, 250 ms at 512 MiB |
 
-All three use at-least-once delivery and per-device ordering. The input file
-must pin the three provider-region catalog refs above and state that these are
-bounded evaluation scenarios, not observed production traffic. Publish request
-counts intentionally equal event counts in v1 so batching is not silently
-assumed for domain publishers; provider billing chunks are derived later from
-the serialized envelope and provider rules. Only the bridge has the explicit
-bounded batch assumption above. If existing thesis workload fixtures justify
-different values, the change must be made before calculation, documented in
-the decision record, and versioned as new scenario IDs.
+For the Event-Layer treatment, all three scenarios require at-least-once
+delivery and per-device ordering. For the embedded baseline, the same fields
+are evaluation probes: the evidence records whether each direct provider path
+achieves them, but failure does not fabricate a sixth responsibility inside
+the five-layer profile. The input file must pin the three provider-region
+catalog refs above and state that these are bounded evaluation scenarios, not
+observed production traffic. Publish request counts intentionally equal event
+counts in v1 so batching is not silently assumed for domain publishers;
+provider billing chunks are derived later from the serialized envelope and
+provider rules. Only the bridge has the explicit bounded batch assumption
+above. If existing thesis workload fixtures justify different values, the
+change must be made before calculation, documented in the decision record, and
+versioned as new scenario IDs.
 
 The three mandatory `telemetry.processed.v1` consumers are historical
 persistence, Twin-state update, and rule evaluation. The Large scenario adds
@@ -656,8 +670,11 @@ provider, not an arbitrary mesh:
   source-owned bridge publishes to the destination landing queue/topic;
 - the source delivery is acknowledged only after the destination durable
   endpoint accepts the canonical envelope;
-- short-lived workload identity federation is preferred; any provider
-  direction that cannot establish reviewed secretless trust is unsupported.
+- short-lived workload identity federation is preferred; every trust must
+  constrain the workload through a token subject claim or through a
+  single-workload token-issuance assignment plus issuer/audience checks; any
+  provider direction that cannot establish reviewed secretless trust is
+  unsupported.
 
 The matrix must test all six directed provider pairs. A generic statement that
 "HTTPS works cross-cloud" is not sufficient evidence.
