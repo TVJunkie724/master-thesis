@@ -663,6 +663,33 @@
       "reviewer_note": "Retail API quantities are normalized from units of ten executions; selected instances use 2 GiB."
     },
     {
+      "source_id": "source.azure.functions-flex.billing.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Functions Flex Consumption",
+      "claim_type": "unit",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.functions-flex.minimum-billable-duration",
+          "value": 1000,
+          "unit": "ms/execution"
+        },
+        {
+          "fact_id": "fact.azure.functions-flex.duration-block",
+          "value": 100,
+          "unit": "ms"
+        }
+      ],
+      "content_digest": "sha256:375c650d7851e7844edc60a835ca272788ec7ca0f27aa2f9a7971d6cb0c15b6b",
+      "review_status": "reviewed",
+      "reviewer_note": "On-demand Flex executions are billed for at least one second and then in 100-ms increments."
+    },
+    {
       "source_id": "source.azure.logic-apps.retail-api.2026-07-20",
       "provider": "azure",
       "service_family": "Azure Logic Apps Consumption",

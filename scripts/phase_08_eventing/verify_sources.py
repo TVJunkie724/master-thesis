@@ -40,9 +40,10 @@ def normalized_capture(source: dict[str, Any]) -> dict[str, Any]:
 
 
 def content_digest(source: dict[str, Any]) -> str:
-    return "sha256:" + hashlib.sha256(
-        canonical_json(normalized_capture(source))
-    ).hexdigest()
+    return (
+        "sha256:"
+        + hashlib.sha256(canonical_json(normalized_capture(source))).hexdigest()
+    )
 
 
 def iter_source_references(value: Any) -> Iterable[str]:
@@ -92,9 +93,7 @@ def verify(strict: bool) -> list[str]:
         if not source["canonical_url"].startswith("https://"):
             errors.append(f"non-HTTPS canonical_url: {source_id}")
         if strict and source["review_status"] != "reviewed":
-            errors.append(
-                f"strict mode rejects {source['review_status']}: {source_id}"
-            )
+            errors.append(f"strict mode rejects {source['review_status']}: {source_id}")
 
         for fact in source["facts"]:
             fact_id = fact["fact_id"]
@@ -103,6 +102,7 @@ def verify(strict: bool) -> list[str]:
             fact_ids.add(fact_id)
 
     referenced_files = [
+        EVIDENCE_ROOT / "formula-and-unit-ledger.json",
         EVIDENCE_ROOT / "provider-capability-matrix.json",
         EVIDENCE_ROOT / "pricing-model-matrix.json",
     ]
@@ -113,7 +113,9 @@ def verify(strict: bool) -> list[str]:
             continue
         for source_id in iter_source_references(load_json(path)):
             if source_id not in source_ids:
-                errors.append(f"unresolved source reference in {path.name}: {source_id}")
+                errors.append(
+                    f"unresolved source reference in {path.name}: {source_id}"
+                )
 
     return errors
 
@@ -157,8 +159,7 @@ def main() -> int:
 
     ledger = load_json(LEDGER_PATH)
     print(
-        "verified "
-        f"{len(ledger['sources'])} reviewed sources and all known references"
+        f"verified {len(ledger['sources'])} reviewed sources and all known references"
     )
     return 0
 

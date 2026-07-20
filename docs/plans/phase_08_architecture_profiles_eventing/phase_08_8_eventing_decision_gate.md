@@ -3,7 +3,7 @@ title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
 lastUpdated: "2026-07-20"
-version: "1.5"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.5"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.5
+EXTRACTED: 2026-07-20 | VERSION: 1.6
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -328,7 +328,7 @@ resolved producer/consumer graph.
 | `workflow_internal_actions_per_execution` | Non-negative integer; provider-local orchestration/control actions |
 | `workflow_external_actions_per_execution` | Non-negative integer; external notification/connector actions; internal plus external must equal total workflow actions |
 | `terminal_outcome_events_per_invocation` | Closed-world action/workflow/command counts; v1 emits one typed terminal outcome per invocation |
-| `component_compute_assumptions` | Closed-world duration, memory, batch-size, and concurrency inputs for new rule/action/workflow-adapter/device-adapter/bridge compute |
+| `component_compute_assumptions` | Closed-world duration, memory, batch-size, and concurrency inputs for new rule/action/Event-Layer-delivery-adapter/workflow-adapter/device-adapter/bridge compute |
 | `observability_assumptions` | Closed-world sample share, record size, full-capture channel classes, and retention used to derive log ingestion/storage |
 | `provider_region_refs` | Exact AWS, Azure, and GCP region plus immutable pricing-catalog refs |
 
@@ -557,6 +557,7 @@ v1 scenario. They are synthetic reference assumptions, not measurements:
 | Terminal outcomes | 1 per extension action, workflow, and command |
 | Rule evaluator | 50 ms at 256 MiB |
 | Extension action adapter | 100 ms at 256 MiB |
+| Event-Layer delivery adapter | 50 ms at 256 MiB, one invocation per delivery; no unapproved batching |
 | Workflow start adapter | 50 ms at 256 MiB |
 | Device-command adapter | 100 ms at 256 MiB |
 | Cross-cloud bridge batch | maximum 10 events, 250 ms at 512 MiB |

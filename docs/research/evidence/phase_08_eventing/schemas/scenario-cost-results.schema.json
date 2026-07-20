@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/scenario-cost-results.schema.json",
+  "title": "Phase 8 deterministic Eventing scenario cost results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "result_set_id",
+    "calculation_scope",
+    "input_digests",
+    "scenarios",
+    "result_digest"
+  ],
+  "properties": {
+    "$schema": {"const": "schemas/scenario-cost-results.schema.json"},
+    "schema_version": {"const": "scenario-cost-results.v1"},
+    "result_set_id": {"const": "phase-08-eventing-cost-results@1"},
+    "calculation_scope": {"type": "string", "minLength": 1},
+    "input_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_inputs",
+        "domain_event_flow_contract",
+        "pricing_model_matrix",
+        "formula_and_unit_ledger",
+        "provider_capability_matrix",
+        "source_ledger"
+      ],
+      "properties": {
+        "scenario_inputs": {"$ref": "#/$defs/digest"},
+        "domain_event_flow_contract": {"$ref": "#/$defs/digest"},
+        "pricing_model_matrix": {"$ref": "#/$defs/digest"},
+        "formula_and_unit_ledger": {"$ref": "#/$defs/digest"},
+        "provider_capability_matrix": {"$ref": "#/$defs/digest"},
+        "source_ledger": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/scenario"}
+    },
+    "result_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "money": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]{9}$"
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "provider": {
+      "enum": ["aws", "azure", "gcp"]
+    },
+    "traceValue": {
+      "oneOf": [
+        {"type": "integer"},
+        {"$ref": "#/$defs/decimal"},
+        {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {"type": "integer"},
+              {"$ref": "#/$defs/decimal"}
+            ]
+          }
+        }
+      ]
+    },
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel_id",
+        "payload_class",
+        "canonical_bytes_per_event",
+        "publish_count",
+        "consumer_count",
+        "base_delivery_count",
+        "retry_delivery_count",
+        "dead_letter_count",
+        "replay_publish_count",
+        "replay_delivery_count",
+        "delivery_attempt_count"
+      ],
+      "properties": {
+        "channel_id": {"type": "string", "pattern": "^[a-z]+(?:\\.[a-z]+)+\\.v1$"},
+        "payload_class": {
+          "enum": [
+            "telemetry",
+            "match",
+            "notification",
+            "device_command",
+            "outcome"
+          ]
+        },
+        "canonical_bytes_per_event": {"type": "integer", "minimum": 1},
+        "publish_count": {"type": "integer", "minimum": 0},
+        "consumer_count": {"type": "integer", "minimum": 1},
+        "base_delivery_count": {"type": "integer", "minimum": 0},
+        "retry_delivery_count": {"type": "integer", "minimum": 0},
+        "dead_letter_count": {"type": "integer", "minimum": 0},
+        "replay_publish_count": {"type": "integer", "minimum": 0},
+        "replay_delivery_count": {"type": "integer", "minimum": 0},
+        "delivery_attempt_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contribution_id",
+        "member",
+        "amount_usd",
+        "pricing_intent_ids",
+        "formula_ids",
+        "normalized_quantities",
+        "notes"
+      ],
+      "properties": {
+        "contribution_id": {"type": "string", "minLength": 1},
+        "member": {"type": "string", "minLength": 1},
+        "amount_usd": {"$ref": "#/$defs/money"},
+        "pricing_intent_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^intent\\."},
+          "uniqueItems": true
+        },
+        "formula_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^formula\\."},
+          "uniqueItems": true
+        },
+        "normalized_quantities": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"$ref": "#/$defs/traceValue"}
+        },
+        "notes": {"type": "string", "minLength": 1}
+      }
+    },
+    "bundleResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_id",
+        "provider",
+        "status",
+        "cost_contributions",
+        "total_monthly_usd",
+        "normalized_summary",
+        "extra_functionality",
+        "formula_refs",
+        "source_refs"
+      ],
+      "properties": {
+        "bundle_id": {"type": "string", "pattern": "^bundle\\."},
+        "provider": {"$ref": "#/$defs/provider"},
+        "status": {"const": "publishable_bounded_estimate"},
+        "cost_contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/contribution"}
+        },
+        "total_monthly_usd": {"$ref": "#/$defs/money"},
+        "normalized_summary": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "extra_functionality": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "formula_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^formula\\."},
+          "uniqueItems": true
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^source\\."},
+          "uniqueItems": true
+        }
+      }
+    },
+    "singleCloud": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "event_scope_status",
+        "whole_profile_status",
+        "embedded_bundle_ref",
+        "embedded_event_cost_usd",
+        "event_layer_bundle_ref",
+        "event_layer_cost_usd",
+        "bridge_invocations",
+        "cross_cloud_egress_bytes",
+        "scope_note"
+      ],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "event_scope_status": {"type": "string", "minLength": 1},
+        "whole_profile_status": {"type": "string", "minLength": 1},
+        "embedded_bundle_ref": {"type": "string", "pattern": "^bundle\\."},
+        "embedded_event_cost_usd": {"$ref": "#/$defs/money"},
+        "event_layer_bundle_ref": {"type": "string", "pattern": "^bundle\\."},
+        "event_layer_cost_usd": {"$ref": "#/$defs/money"},
+        "bridge_invocations": {"const": 0},
+        "cross_cloud_egress_bytes": {"const": 0},
+        "scope_note": {"type": "string", "minLength": 1}
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_id",
+        "source_provider",
+        "destination_provider",
+        "status",
+        "fixture_scope",
+        "cost_contributions",
+        "total_monthly_usd",
+        "source_refs"
+      ],
+      "properties": {
+        "route_id": {"type": "string", "pattern": "^route\\."},
+        "source_provider": {"$ref": "#/$defs/provider"},
+        "destination_provider": {"$ref": "#/$defs/provider"},
+        "status": {"type": "string", "minLength": 1},
+        "fixture_scope": {"type": "string", "minLength": 1},
+        "cost_contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/contribution"}
+        },
+        "total_monthly_usd": {"$ref": "#/$defs/money"},
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^source\\."},
+          "uniqueItems": true
+        }
+      }
+    },
+    "routeSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_role",
+        "source_provider",
+        "destination_provider",
+        "source_outbox_cost_included",
+        "destination_landing_cost_included",
+        "deduplicated_event_layer_endpoint",
+        "subtotal_usd"
+      ],
+      "properties": {
+        "route_role": {
+          "enum": [
+            "ingress-to-eventing",
+            "eventing-to-processing",
+            "processing-to-eventing"
+          ]
+        },
+        "source_provider": {"$ref": "#/$defs/provider"},
+        "destination_provider": {"$ref": "#/$defs/provider"},
+        "source_outbox_cost_included": {"type": "boolean"},
+        "destination_landing_cost_included": {"type": "boolean"},
+        "deduplicated_event_layer_endpoint": {
+          "enum": ["source", "destination"]
+        },
+        "subtotal_usd": {"$ref": "#/$defs/money"}
+      }
+    },
+    "threeProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "placement_id",
+        "ingress_provider",
+        "eventing_provider",
+        "processing_provider",
+        "status",
+        "topology",
+        "event_layer_bundle_ref",
+        "event_layer_bundle_total_usd",
+        "bridge_route_summaries",
+        "bridge_shared_observability_usd",
+        "bridge_cost_contributions",
+        "bridge_addition_total_usd",
+        "event_scope_total_usd",
+        "scope_note"
+      ],
+      "properties": {
+        "placement_id": {"type": "string", "pattern": "^placement\\."},
+        "ingress_provider": {"$ref": "#/$defs/provider"},
+        "eventing_provider": {"$ref": "#/$defs/provider"},
+        "processing_provider": {"$ref": "#/$defs/provider"},
+        "status": {"type": "string", "minLength": 1},
+        "topology": {"const": "hub_and_spoke"},
+        "event_layer_bundle_ref": {"type": "string", "pattern": "^bundle\\."},
+        "event_layer_bundle_total_usd": {"$ref": "#/$defs/money"},
+        "bridge_route_summaries": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/routeSummary"}
+        },
+        "bridge_shared_observability_usd": {"$ref": "#/$defs/money"},
+        "bridge_cost_contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/contribution"}
+        },
+        "bridge_addition_total_usd": {"$ref": "#/$defs/money"},
+        "event_scope_total_usd": {"$ref": "#/$defs/money"},
+        "scope_note": {"type": "string", "minLength": 1}
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "normalized_channels",
+        "embedded_bundle_results",
+        "event_layer_bundle_results",
+        "single_cloud_results",
+        "directed_pair_bridge_results",
+        "three_provider_results"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^eventing-(small|medium|large)-v1$"
+        },
+        "normalized_channels": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {"$ref": "#/$defs/channel"}
+        },
+        "embedded_bundle_results": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/bundleResult"}
+        },
+        "event_layer_bundle_results": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/bundleResult"}
+        },
+        "single_cloud_results": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/singleCloud"}
+        },
+        "directed_pair_bridge_results": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {"$ref": "#/$defs/pair"}
+        },
+        "three_provider_results": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {"$ref": "#/$defs/threeProvider"}
+        }
+      }
+    }
+  }
+}

@@ -61,6 +61,7 @@
           "required": [
             "rule_evaluator",
             "extension_action",
+            "event_delivery_adapter",
             "workflow_adapter",
             "device_command_adapter",
             "bridge"
@@ -68,6 +69,7 @@
           "properties": {
             "rule_evaluator": {"$ref": "#/$defs/compute"},
             "extension_action": {"$ref": "#/$defs/compute"},
+            "event_delivery_adapter": {"$ref": "#/$defs/compute"},
             "workflow_adapter": {"$ref": "#/$defs/compute"},
             "device_command_adapter": {"$ref": "#/$defs/compute"},
             "bridge": {

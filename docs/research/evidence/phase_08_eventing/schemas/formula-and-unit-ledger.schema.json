@@ -58,7 +58,12 @@
             "uniqueItems": true
           },
           "expression": {"type": "string", "minLength": 1},
-          "rounding": {"type": "string", "minLength": 1}
+          "rounding": {"type": "string", "minLength": 1},
+          "source_ids": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^source\\."},
+            "uniqueItems": true
+          }
         }
       }
     },

@@ -86,8 +86,9 @@
     {
       "normalization_rule_id": "normalization.provider-duration-and-2gib",
       "inputs": ["invocations", "duration_ms"],
-      "expression": "normalized_quantity=invocations*provider_rounded_duration_seconds*2",
-      "rounding": "apply the Azure Flex duration block before multiplying by 2 GiB"
+      "expression": "normalized_quantity=invocations*max(1,ceil(duration_ms/100)*0.1)*2",
+      "rounding": "minimum 1-second Azure Flex execution, then 100-ms blocks, multiplied by 2 GiB",
+      "source_ids": ["source.azure.functions-flex.billing.2026-07-20"]
     },
     {
       "normalization_rule_id": "normalization.divide-price-by-10",
@@ -175,11 +176,11 @@
     },
     {
       "formula_id": "formula.domain.retry-dlq-replay",
-      "inputs": ["base_deliveries", "base_publishes", "retry_share", "dead_letter_share", "replay_share"],
-      "expression": "retries=ceil(base_deliveries*retry_share); dead_letters=ceil(base_deliveries*dead_letter_share); replay_publishes=ceil(base_publishes*replay_share)",
+      "inputs": ["channel_publish_counts", "channel_consumer_delivery_counts", "retry_share", "dead_letter_share", "replay_share"],
+      "expression": "for each channel and consumer: retries=ceil(deliveries*retry_share), dead_letters=ceil(deliveries*dead_letter_share); for each channel: replay_publishes=ceil(publishes*replay_share), then replay_deliveries=replay_publishes*named_consumer_count",
       "output_unit": "operations/month",
-      "rounding": "ceiling per quantity",
-      "notes": "The synthetic shares are applied once and do not recursively retry retries."
+      "rounding": "ceiling independently per channel-consumer delivery or channel publication",
+      "notes": "The synthetic shares are applied once and do not recursively retry retries; replay preserves the channel fan-out."
     },
     {
       "formula_id": "formula.domain.observability-bytes",

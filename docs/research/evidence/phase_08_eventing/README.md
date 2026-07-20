@@ -9,13 +9,13 @@ This directory is the working evidence package for Phase 8.8 and GitHub issue
 
 **Regions:** AWS `eu-central-1`, Azure `westeurope`, GCP `europe-west1`
 
-**Current decision status:** `draft-calculation-pending`
+**Current decision status:** `draft-envelope-and-manifest-pending`
 
 The capability, compatibility, theoretical-capacity, source, and normalized
 pricing reviews below are complete enough to nominate provider bundles. It is
-not the final Phase 8.8 approval. Offline scenario calculation, the bridge
-decision, the implementation-component manifest, the complete package
-validator, and the independent approval reviews are still required.
+not the final Phase 8.8 approval. The bridge/envelope decision, the
+implementation-component manifest, the complete package validator, and the
+independent approval reviews are still required.
 
 No runtime code or cloud resource is changed by this evidence.
 
@@ -74,6 +74,14 @@ capture of matches, notification/command requests, terminal outcomes, retries,
 dead letters, replays, and bridge terminal failures. Every projected log record
 is modeled as 1 KiB with 30-day retention. These are synthetic evaluation
 assumptions, not observed production traffic or a recommended logging policy.
+
+The incremental Event-Layer delivery adapter is modeled at 50 ms and 256 MiB
+with one invocation per broker delivery. No consumer batch factor is invented;
+the only explicit batching assumption in v1 remains the bridge maximum of ten
+events. AWS Lambda and Azure Functions apply their own billing allocations and
+duration blocks, while Google Cloud Run uses the reviewed request-based
+resource allocation. The adapter is separate from the domain processor so its
+incremental cost cannot disappear as unpriced glue.
 
 ## Corrected Capacity Basis
 
@@ -407,6 +415,40 @@ bridge can carry up to one canonical channel copy at 166.4 MB/s in Large; five
 consumers on one destination provider do not multiply cross-cloud bytes
 because fan-out occurs after the landing broker.
 
+## Deterministic Scenario Results
+
+`scenario-cost-results.json` is generated offline by
+`scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
+is
+`sha256:6ae8d9525ff3cf6490d5223f56bf46137f8e5abbac6a799f40c9395aa9559ada`.
+The generator emits per-channel publication, delivery, retry, DLQ, replay,
+retention, compute, workflow, observability, outbox, landing, and transfer
+traces. Reordering source-ledger or pricing-matrix rows does not change the
+result; a referenced price mutation does.
+
+These are separate event-scope estimates in USD/month, not complete Twin
+profile totals and not a ranking:
+
+| Scenario | AWS embedded | Azure embedded | GCP embedded | AWS Event Layer | Azure Event Layer | GCP Event Layer |
+|---|---:|---:|---:|---:|---:|---:|
+| Small | 0.572645 | 37.526536 | 708.274221 | 78.877579 | 50.156006 | 0.008512 |
+| Medium | 97.504650 | 1,296.531230 | 735.226836 | 704.792321 | 2,391.968290 | 87.531402 |
+| Large | 2,005.320312 | 7,949.465384 | 1,676.651157 | 28,947.778501 | 45,736.559730 | 6,678.069412 |
+
+The GCP embedded fixed floor exposes the hosted three-node BifroMQ/GKE boundary.
+The Azure adapter estimate exposes Flex Consumption's one-second minimum
+billable execution. The Large GCP Event-Layer estimate includes 126 continuous
+StreamingPull worker-pool instances plus request-based control adapters. These
+differences are intentionally visible outcomes; none was used to select or
+reject a functionally admissible PoC bundle.
+
+Every single-cloud case has zero bridge invocations and zero cross-cloud
+egress. All six directed pairs are calculated as one copy of every closed-world
+domain-event channel, with destination fan-out excluded. Each of the six
+three-provider permutations calculates the exact
+ingress→Eventing→processing→Eventing hub-and-spoke routes and removes the local
+delivery adapter when the bridge-forwarder replaces it.
+
 ## Rejected Or Restricted Alternatives
 
 | Candidate | Decision | Reason |
@@ -437,11 +479,10 @@ formula and unit rules, and schemas for the current artifacts now exist and
 pass their current offline checks. Phase 8.8 is not yet `approved` because the
 following evidence is still missing:
 
-1. calculated scenario totals with byte-identical offline reproduction;
-2. the canonical envelope and selected bridge decision;
-3. the exact Terraform/provider/runtime/permission component manifest;
-4. the complete-package validator and negative fixtures; and
-5. two zero-finding reviews of the complete package.
+1. the canonical envelope and selected bridge decision;
+2. the exact Terraform/provider/runtime/permission component manifest;
+3. the complete-package validator; and
+4. two zero-finding reviews of the complete package.
 
 No selected bundle may enter optimizer ranking before those gates pass.
 
