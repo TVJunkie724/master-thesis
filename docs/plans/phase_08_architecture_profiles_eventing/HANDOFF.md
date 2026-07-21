@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
-lastUpdated: "2026-07-20"
-version: "3.0"
+lastUpdated: "2026-07-22"
+version: "3.2"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "3.0"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-20 | VERSION: 3.0
+EXTRACTED: 2026-07-22 | VERSION: 3.2
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -26,23 +26,24 @@ EXTRACTED: 2026-07-20 | VERSION: 3.0
 |---|---|
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
-| Planning base | `5e675e77` |
-| Planning branch | `codex/phase-8-implementation-plans` |
+| Planning base | `626e907a` |
+| Planning branch | `codex/phase-8-service-bundle-closure` |
 | Locally completed implementation | Phase 8.0 / #144 through Phase 8.5 / #151, plus prerequisite #113; open issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Phase 8.5 is default-off; Phase 8.8 approves Event-domain evidence only; the complete-service closure is the corrective activation gate; Phase 8.6 may complete only as a dark generic compiler until the new-profile bundles are implemented |
-| Next action | Approve and commit the complete-service planning/evaluation closure, build the immutable decision package, then finish/review the dark Phase 8.6 compiler boundary |
+| Next action | Obtain explicit user approval for the reviewed and committed PoC service closure, then build the immutable decision package and finish/review the dark Phase 8.6 compiler boundary |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
 Phase 8.0 reconstructed the current deployment graph and closed #144. Phase
-8.1 froze the five-layer target with complete decisions for all 114 current
-implementation records and all 90 current edges. The baseline contains no
-general Eventing responsibility. The current direct L3-hot-to-Grafana shortcut
-is removed from the target and replaced by a typed L4-to-L5 contract owned by
-Phase 8.6. Phase 8.2 provides all four Draft 2020-12 contracts, the semantic
+8.1 froze the historical `five-layer-baseline@1` target with complete
+decisions for all 114 current implementation records and all 90 current edges.
+That baseline contains no general Eventing responsibility and keeps its
+L4-to-L5-only target evidence unchanged. The new `five-layer-baseline@2`
+corrects the runtime mismatch with two typed logical reads: L3-hot-to-L5 raw
+history and L4-to-L5 Twin context. Phase 8.2 provides all four Draft 2020-12 contracts, the semantic
 registry, deterministic fixtures and digests, byte-identical service copies,
 and validators with stable cross-service error codes.
 
@@ -64,18 +65,18 @@ references, and deterministic supported/blocked fixtures. The completed #113
 user-processor scenario is supported at the catalog-binding boundary without
 activating profile selection. Those mappings remain dark/historical. AWS and
 Azure are not made deployable by the graph compiler alone because the current
-L4-to-L5 and shared-token runtime is invalid. GCP remains unsupported in
-historical `@1`; the new profiles instead target the separately reviewed
-provider-hosted GCP L4/L5 bundle.
+query bindings and shared-token runtime are invalid. GCP remains unsupported
+in historical `@1`; the new profiles instead target the separately reviewed
+provider-hosted GCP online analytics bundle.
 
 Phase 8.4 adds transactional migration 022, one pinned baseline profile per
 Twin, optimistic profile selection with server-derived invalidation previews,
 immutable canonical resolutions and query projections, owner-scoped read APIs,
 append-only audit evidence, and a fixture-gated atomic Optimizer admission
 boundary. Historical runs are reconstructed only from complete matching
-evidence; all others are `legacy_not_resolvable` and deselected. The old seven
-fields are now a tracked baseline compatibility projection, not a generic
-architecture model.
+evidence; all others are `legacy_not_resolvable` and deselected. The seven old
+`cheapest_l*` layer/provider fields are now a tracked baseline compatibility
+projection, not a generic architecture model.
 
 Phase 8.5 adds the profile-bounded Optimizer strategy, pre-ranking functional
 completeness, deterministic candidate resolution, exact cost and rejection
@@ -99,9 +100,16 @@ offline evidence is complete independently; #138 and the future 8.9A issue
 still enforce the runtime implementation order.
 
 The subsequent complete-service review found boundaries outside the Eventing
-package: cross-provider storage movement, native/provider-hosted L4-to-L5
-bindings, the predecessor public Function/shared-token mechanism, conflated
-Twin/scene entity counts, and complete GCP L4/L5 support. The controlling plan
+package: cross-provider storage movement, dual L3/L4 visualization reads, the
+predecessor public Function/shared-token mechanism, conflated Twin/scene entity
+counts, and complete GCP support. User review then removed unneeded
+CDC/outbox/permanent-worker storage machinery, Cosmos duplication, Spanner
+Graph, and the default dedicated Grafana node pool. The corrected target uses
+finite scheduled storage jobs and one provider-local L3-hot/L4/L5 online
+analytics bundle. It freezes `eu-central-1`/`westeurope`/`europe-west1`, uses
+cumulative hot/cool/archive boundaries with non-overlapping cost intervals,
+keeps conditional 3D paths minimal, and fails closed on unproven datasource
+identity. The controlling plan
 is [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md),
 with research evidence in
 [`phase_08_service_bundle_evaluation.md`](../../research/phase_08_service_bundle_evaluation.md).
@@ -110,8 +118,7 @@ with research evidence in
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. finish the concept/plan reviews for the complete-service closure and obtain
-   explicit user approval;
+1. obtain explicit user approval for the corrected complete-service closure;
 2. build and commit the immutable complete-service decision package;
 3. return to the existing Phase 8.6 implementation worktree and read
    [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)
@@ -386,7 +393,9 @@ Phase 8.8 is an approved decision gate, not implementation. It establishes:
   `five-layer-baseline@2` and `six-layer-eventing@1`;
 - mandatory embedded rule/action/workflow/command components in both new
   profiles without the legacy Eventing feature flags;
-- exact workload fields and normalized units;
+- exact immutable Eventing workload fields and normalized units, selected for
+  runtime through one server-resolved `eventingScenarioId` rather than inline
+  caller values;
 - graph-derived per-channel fan-out and directed cross-cloud routes;
 - mandatory and optional functional capabilities;
 - current primary-source evidence per provider;
@@ -423,8 +432,9 @@ Phase 8.8 also produced
 `implementation-component-manifest.json`. It pins every selected service,
 resource type, catalog/component ID, adapter, package, permission, formula,
 port, binding, repository file target, and test owner within the Event-domain
-scope. The separate complete-service manifest owns storage, L4/L5, workload,
-and whole-profile capacity targets. Phase 8.9 may not start with an unresolved
+scope. The separate complete-service manifest owns storage, the L3-hot/L4/L5
+online bundles, both visualization reads, workload, and whole-profile capacity
+targets. Phase 8.9 may not start with an unresolved
 entry in either manifest or substitute another provider service.
 
 ## Contract Evolution
@@ -583,8 +593,9 @@ Phase 8 is complete only when:
 - the approved Eventing implementation-component manifest pins every
   cross-project implementation target and remains in the evaluation digest
   chain;
-- the approved complete-service manifest pins every storage, L4/L5,
-  provider-hosted GCP, workload, capacity, identity, and cost target;
+- the approved complete-service manifest pins every finite storage job,
+  L3-hot/L4/L5 online bundle, dual query, provider-hosted GCP, workload,
+  capacity, identity, and cost target;
 - `six-layer-eventing@1` is executable through the same generic boundaries;
 - `five-layer-baseline@2` and `six-layer-eventing@1` implement the same
   rule/action/workflow/command contract without legacy feature flags;
@@ -605,6 +616,7 @@ The next agent can begin with:
 > `five-layer-baseline@2` und `six-layer-eventing@1` teilen dieselben
 > verpflichtenden Rule-/Action-/Workflow-/Feedback-Funktionen, und nur das
 > Six-Layer-Profil besitzt eine unabhaengige Eventing-Verantwortung. Als
-> naechstes folgt Phase 8.6 mit Manifest v3 und dem Deployer-Graph-Resolver;
-> 8.7 und beide 8.9-Branches bleiben danach in dieser Reihenfolge. Live-Cloud-
-> E2E und LaTeX bleiben unangetastet.
+> naechstes benoetigt der korrigierte Service-Plan die Benutzerfreigabe;
+> danach folgt das immutable Complete-Service-Entscheidungspaket und erst dann
+> der Abschluss von Phase 8.6. 8.7 und beide 8.9-Branches bleiben in dieser
+> Reihenfolge. Live-Cloud-E2E und LaTeX bleiben unangetastet.

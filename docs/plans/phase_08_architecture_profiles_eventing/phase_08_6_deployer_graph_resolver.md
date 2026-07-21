@@ -2,8 +2,8 @@
 title: "Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight"
 description: "Implementation plan for deterministic graph resolution, package binding, and fail-closed Terraform preflight."
 tags: [architecture, deployer, graph, manifest, terraform, preflight, issue-152]
-lastUpdated: "2026-07-20"
-version: "1.2"
+lastUpdated: "2026-07-21"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.2"
 - Phase 8.5 ResolvedTwinArchitecture output
 - contracts/deployment-manifest and contracts/resolved-deployment-specification
 - Current Deployer package, operation-state, Terraform, logging, and ephemeral-workspace boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.2
+EXTRACTED: 2026-07-21 | VERSION: 1.3
 -->
 
 # Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight
@@ -38,8 +38,10 @@ compatibility requirements in this plan are mandatory.
 This phase may complete Manifest v3, deterministic graph resolution, binding
 preflight, compatibility readers, and frozen evidence, but it must remain dark.
 It must not promote `five-layer-baseline@1`, the current AWS/Azure provider
-profiles, the direct L3-hot-to-Grafana datasource, or the public
-Function/shared-token cross-cloud runtime. Complete executable bundles are
+profiles, the uncontracted direct L3-hot-to-Grafana datasource, or the public
+Function/shared-token cross-cloud runtime. The generic compiler must permit
+multiple typed edges between responsibilities so Phase 8.9A can register both
+L3-hot-to-L5 raw-history and L4-to-L5 Twin-context reads. Complete executable bundles are
 introduced and activated only by Phase 8.9A after
 [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) and
 its immutable decision package pass. Any older rollout or Definition-of-Done

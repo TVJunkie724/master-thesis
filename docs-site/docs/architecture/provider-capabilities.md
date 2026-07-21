@@ -47,6 +47,26 @@ The current platform exposes all 21 provider-layer rows:
 deterministic contract evidence. It does not mean that the path has passed the final
 supervised live-cloud E2E gate.
 
+### Planned Phase 8 Successor Bundles
+
+The following target is reviewed planning, not current runtime capability:
+
+| Provider | L1 target | L3-hot/L4/L5 online analytics target | Status |
+|---|---|---|---|
+| AWS | IoT Core and IoT Commands | DynamoDB + IoT TwinMaker + Amazon Managed Grafana | planned, not selectable |
+| Azure | IoT Hub | Azure Data Explorer + Azure Digital Twins + Azure Managed Grafana | planned, not selectable |
+| GCP | BifroMQ on GKE + Pub/Sub | BigQuery + Cloud Run/Firestore Twin API + one Grafana pod/Persistent Disk on GKE with paid BigQuery plugin | planned, not selectable |
+
+Both `five-layer-baseline@2` and `six-layer-eventing@1` use the same L1-L5
+target. The Six-layer profile adds an independent Eventing responsibility; it
+does not add GCP's BifroMQ boundary only to that profile.
+
+The first target version keeps `provider(L3_hot) == provider(L4) ==
+provider(L5)` and models separate raw-history and Twin-context visualization
+reads. Cosmos DB beside ADX, Spanner Graph, a default dedicated Grafana node
+pool, and storage-specific CDC/outbox/broker pipelines are not selected for the
+PoC. None of these planning decisions changes a row above to `available`.
+
 ## Contract Semantics
 
 Each service publishes `provider-service-capabilities.v1`; the Management API returns

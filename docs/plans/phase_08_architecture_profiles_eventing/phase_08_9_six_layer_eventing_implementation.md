@@ -2,8 +2,8 @@
 title: "Phase 8.9: Implement The Event-Enabled Comparison Profiles"
 description: "Implementation plan for five-layer-baseline@2 and six-layer-eventing@1 using one approved domain-event contract and separate architecture ownership."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-07-20"
-version: "1.6"
+lastUpdated: "2026-07-22"
+version: "1.9"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.6"
 - User-approved bounded six-layer profile with no arbitrary graph editor
 - User-approved event-enabled five-layer @2 comparison profile, shared
   domain-event behavior, and separate 8.9A/8.9B implementation boundaries
-EXTRACTED: 2026-07-20 | VERSION: 1.6
+EXTRACTED: 2026-07-22 | VERSION: 1.9
 -->
 
 # Phase 8.9: Implement The Event-Enabled Comparison Profiles
@@ -36,7 +36,7 @@ EXTRACTED: 2026-07-20 | VERSION: 1.6
 Every contract, provider bundle, formula, package, permission, Terraform
 binding, API field, UI state, test, and Definition of Done item in this plan is
 mandatory. The phase must use the exact approved Phase 8.8 bundle and bridge
-IDs plus the exact complete-service bundle/storage/L4/L5 IDs; it must not
+IDs plus the exact complete-service online-bundle/storage/query IDs; it must not
 substitute another service during implementation.
 
 ### Corrective Complete-Service Boundary
@@ -46,17 +46,25 @@ This plan composes two immutable decisions:
 1. `phase-08-eventing-decision@1` for shared domain events, embedded/Event-Layer
    bundles, and asynchronous broker bridges;
 2. `phase-08-complete-service-bundles@1` for complete AWS, Azure, and
-   provider-hosted GCP L1-L5 bundles, storage transitions, workload v2,
-   L4/L5 co-location, materialization, datasource identity, and full-profile
-   capacity.
+   provider-hosted GCP L1-L5 bundles, minimal storage transitions, workload
+   v2, online-analytics co-location, dual visualization reads,
+   materialization, datasource identity, and full-profile capacity.
 
 Phase 8.9 may not reinterpret the first package as proof of the second. The
-current public Function/shared-token runtime and direct L3-hot-to-Grafana path
-are forbidden for both new profiles.
+current public Function/shared-token runtime and the uncontracted historical
+L3-hot-to-Grafana binding are forbidden for both new profiles. A corrected,
+typed L3-hot-to-L5 raw-history edge is mandatory alongside L4-to-L5 Twin
+context.
 
 Phase 8.9 is executed as two independently reviewed branches and commit series.
 8.9A implements and closes `five-layer-baseline@2`. 8.9B starts only after
 8.9A is clean and implements `six-layer-eventing@1`.
+
+Both boundaries use one fixed regional experiment: AWS `eu-central-1`, Azure
+`westeurope`, and GCP `europe-west1`. Region is not an optimization dimension
+for these versions. All regional components of a provider stay in its fixed
+region, and a missing service/tier/price rejects the bundle instead of causing
+an implicit regional fallback.
 
 In this plan, activation is an offline repository state: the Management API
 may expose the version for new selection, and the platform may calculate,
@@ -70,6 +78,14 @@ The composed decision validator applies the single pinned legacy mapping
 `required_before_profile_activation` ->
 `required_before_live_readiness` from the immutable Eventing package. Unknown
 gate values or any other cross-package disagreement abort activation.
+
+It also preserves the immutable whole-profile observations
+`profile_target_not_implemented` and `unsupported_missing_l4_l5`. The
+complete-service package must close them with an exact provider/profile bundle
+mapping; GCP closure must specifically prove its selected L4/L5 implementation.
+The validator emits both the historical status and the new closure ref/digest.
+It never edits the Eventing artifact or treats the old status as the current
+runtime result. A missing or provider-mismatched mapping aborts activation.
 
 ## 1. Outcome
 
@@ -122,7 +138,8 @@ Implementation may start only when:
 9. Phase 8.7 all-platform and real-Management integration gates pass;
 10. the complete-service decision is approved and its implementation manifest
     resolves without conflict against the Eventing manifest;
-11. all six storage-transition identity/route classes resolve;
+11. all six storage identity directions and all twelve hot-to-cool/
+    cool-to-archive stage route classes resolve;
 12. AWS, Azure, and provider-hosted GCP complete-provider capacity gates pass;
 13. no native blocker is open.
 
@@ -204,8 +221,9 @@ Required topology properties for both profiles:
 - the event-rule, action, workflow, and command components are always present;
 - runtime rules determine whether a specific message produces an action;
 - legacy Eventing feature flags are not accepted for new-profile operations;
-- storage lifecycle data movement remains storage-owned and L4-to-L5 reads
-  remain synchronous;
+- storage lifecycle data movement remains storage-owned;
+- L3-hot-to-L5 raw-history and L4-to-L5 Twin-context reads remain separate
+  typed synchronous edges;
 
 Additional topology properties for `six-layer-eventing@1`:
 
@@ -217,6 +235,15 @@ Additional topology properties for `six-layer-eventing@1`:
   than an accidental topic chain;
 - synchronous request/response edges remain typed synchronous edges when the
   functional requirement demands immediate response.
+
+Do not collapse components merely because they use the same provider service
+family. In an all-GCP Six-layer graph, L1 device-backbone Pub/Sub resources and
+Event-Layer Pub/Sub resources have distinct topics, subscriptions, retention,
+permissions, component IDs, and operation costs. They may reuse project/API
+enablement and the one L1 BifroMQ/GKE boundary. The equivalent AWS/Azure local
+case uses separate declared broker/consumer resources where the approved graph
+requires them, but never creates a cross-cloud bridge for a same-provider
+edge.
 
 ## 4. Contract Evolution
 
@@ -266,7 +293,7 @@ The positive fixture set must assign the Eventing responsibility to AWS,
 Azure, and GCP at least once within an otherwise functionally complete whole
 architecture. It must not assume that every provider can implement every other
 responsibility. The new complete-service decision makes the provider-hosted
-GCP L4/L5 bundle an implementation target, so all-GCP positive fixtures are
+GCP online analytics bundle an implementation target, so all-GCP positive fixtures are
 mandatory for both new profiles. Historical `@1` keeps its explicit all-GCP
 negative fixture.
 
@@ -343,11 +370,30 @@ Compatibility tests must prove:
 
 ### 5.1 Workload Contract
 
-Add the approved `eventing-workload.v1` fields to the profile-bound workload
-bundle. The user-facing workload remains one typed object. Shared
-domain-event traffic fields are required by both new profiles; fields that
-describe Event-Layer-only retention/replay policy are required only by
-`six-layer-eventing@1`.
+The user-facing profile workload remains one typed v2 request. In addition to
+the core fields below, it has exactly one Eventing field:
+
+```text
+profileWorkloadVersion = 2
+eventingScenarioId = eventing-small-v1
+                   | eventing-medium-v1
+                   | eventing-large-v1
+```
+
+The immutable `eventing-workload.v1` schema is evidence for bounded synthetic
+S/M/L scenarios, not a caller-editable runtime DTO. Management resolves the
+selected ID from the approved Phase 8.8 package, verifies the decision and
+scenario digests, and transactionally persists the ID, digest, and canonical
+20-field snapshot with the Optimizer run. Flutter sends only the ID to
+`POST /twins/{twin_id}/optimizer-runs/`; Management sends only the resolved
+snapshot to the Optimizer. Inline Eventing objects and custom Eventing scenario
+IDs fail closed. A custom workload needs a new contract version.
+
+Both new profiles require the same reference and receive the same exact
+snapshot. For `five-layer-baseline@2`, its transport-quality fields are
+evaluation probes whose result may show a weaker embedded path; for
+`six-layer-eventing@1`, they are mandatory Event-Layer acceptance criteria.
+They never cause the five-layer profile to fabricate a sixth responsibility.
 
 The Management API, Optimizer, and Flutter must share exact constraints for:
 
@@ -363,9 +409,37 @@ The Management API, Optimizer, and Flutter must share exact constraints for:
 - graph-derived directed cross-cloud routes;
 - exact provider-region pricing catalog references.
 
+The profile-detail projection and Dart DTO use these exact JSON keys and
+compatible types; decimal shares/rates are JSON numbers and Dart `double`,
+while counts remain JSON integers and Dart `int`:
+
+| JSON key | API type | Dart type |
+|---|---|---|
+| `scenario_id` | string enum of the three approved IDs | `String` |
+| `display_name` | string | `String` |
+| `schema_version` | const `eventing-workload.v1` | `String` |
+| `scenario_digest` | `sha256:` string | `String` |
+| `events_per_month`, `publish_requests_per_month`, `average_event_payload_bytes` | integer | `int` |
+| `mandatory_processed_consumers`, `extra_processed_consumers` | unique string array | `List<String>` |
+| `retry_share`, `dead_letter_share`, `replay_share`, `rule_match_share`, `workflow_start_share_of_matches`, `device_command_share_of_matches` | number `[0,1]` | `double` |
+| `retention_hours`, `max_delivery_latency_seconds`, `active_partition_keys`, `concurrent_device_connections` | integer | `int` |
+| `ordering_scope` | const `per_device` | `String` enum |
+| `required_delivery_semantics` | const `at_least_once` | `String` enum |
+| `peak_events_per_second` | non-negative number | `double` |
+| `bounded_synthetic_scenario` | const `true` | `bool` |
+
+`ArchitectureProfileDetailResponse` adds
+`eventing_scenarios: List<EventingScenarioSummary>` for the two new profiles
+and an empty list for historical/read-only profiles. Inside the existing run
+request `params`, Flutter sends camel-case `profileWorkloadVersion: 2` and
+`eventingScenarioId: String`. `CostCalculationRunDetailResponse` adds the
+typed `eventing_scenario_ref` with `scenario_id`, `schema_version`, and
+`scenario_digest`; the caller never supplies that digest. Unknown/additional
+keys fail at the Management boundary.
+
 `useEventChecking`, `triggerNotificationWorkflow`, and
-`returnFeedbackToDevice` are invalid for both new profiles. Unknown, hidden,
-or stale Eventing fields fail validation. Switching to historical
+`returnFeedbackToDevice` are invalid for both new profiles. Unknown, inline,
+hidden, or stale Eventing fields fail validation. Switching to historical
 `five-layer-baseline@1` is not a silent downgrade; only its historical
 read/destroy paths consume legacy records.
 
@@ -374,7 +448,7 @@ The shared workload-v2 core adds these required typed fields:
 ```text
 twinEntityCount
 sceneEntityCount
-averageSceneAssetSizeMiB
+totalSceneAssetSizeMiB
 aggregateDashboardRefreshesPerHour
 apiCallsPerAggregateDashboardRefresh
 dashboardActiveHoursPerDay
@@ -384,11 +458,21 @@ twinStateMaterializationsPerSecond
 twinGraphUpdatesPerSecond
 ```
 
-It rejects `allowGcpSelfHostedL4`, `allowGcpSelfHostedL5`, and the three legacy
-Eventing flags. `entityCount` remains historical scene-display input only and
-never supplies Twin graph capacity. The three `core-*-v2` presets and their
-synthetic state/graph update bounds come from the complete-service decision;
-the Phase 8.8 Eventing presets remain separate.
+`totalSceneAssetSizeMiB` is aggregate GLB bytes, while `sceneEntityCount`
+counts node/Twin bindings. `needs3DModel=false` requires both to be zero;
+`needs3DModel=true` requires both to be positive. Keep the existing three
+storage-duration fields in workload v2 but validate `1 <= H < C < A` and
+expose the five-minute batch, 24-hour retry, and 48-hour source grace only as
+resolved profile constants. Historical workload validation remains unchanged.
+
+It rejects the exact retired-field set from the complete-service closure:
+the three legacy Eventing flags, both GCP capability switches, the two old
+scene fields, the two old seat fields, the two old dashboard fields, and the
+five old Eventing/error workload surrogates. Those fields remain historical
+inputs only and never supply v2 Twin, scene, Eventing, or storage capacity.
+`numberOfDeviceTypes` remains a valid L2 processor-count input. The three
+`core-*-v2` presets and their synthetic state/graph update bounds come from
+the complete-service decision; the Phase 8.8 Eventing presets remain separate.
 
 ### 5.2 Pricing Registry
 
@@ -440,14 +524,15 @@ endpoint.
 
 For each candidate:
 
-1. load approved provider profile/catalog versions;
-2. map every shared domain-event component and edge;
-3. prove mandatory capabilities;
-4. validate pricing/formula/specification compatibility;
-5. calculate component/edge costs and transfer routes;
-6. reject incomplete or unpublishable candidates;
-7. rank complete whole-architecture paths;
-8. emit RTA v1 and RDS v2 with matching profile/run/digests.
+1. resolve and digest-check the Management-owned Eventing scenario snapshot;
+2. load approved provider profile/catalog versions;
+3. map every shared domain-event component and edge;
+4. prove mandatory capabilities;
+5. validate pricing/formula/specification compatibility;
+6. calculate component/edge costs and transfer routes;
+7. reject incomplete or unpublishable candidates;
+8. rank complete whole-architecture paths;
+9. emit RTA v1 and RDS v2 with matching profile/run/digests.
 
 Single-cloud and mixed candidates stay in one result set only when they use the
 same exact profile version. `five-layer-baseline@2` and
@@ -461,7 +546,8 @@ The generic Phase 8.4 tables continue to store resolutions and assignments.
 Add only:
 
 - v2 deployment-specification persistence/validation;
-- Eventing workload fields in normalized Twin workload persistence;
+- required Eventing scenario ID plus immutable digest/snapshot in normalized
+  run persistence;
 - decision/provider/catalog/bridge digest projections needed for query and
   audit;
 - profile-aware run/result summaries;
@@ -473,8 +559,14 @@ pricing JSON fields, or a second Eventing resolution table.
 Required API behavior:
 
 - `/architecture-profiles` returns Eventing only after full activation;
-- profile detail returns the Eventing graph and provider availability;
-- calculation create derives the Eventing bundle from selected profile;
+- profile detail returns the Eventing graph, provider availability, and the
+  three typed immutable `EventingScenarioSummary` projections;
+- `POST /twins/{twin_id}/optimizer-runs/` accepts only
+  `profileWorkloadVersion=2`, core workload-v2 fields, and one approved
+  `eventingScenarioId` for either new profile, then resolves the canonical
+  scenario server-side;
+- calculation create derives the Eventing bundle from selected profile and the
+  workload only from the persisted server-resolved snapshot;
 - run/resolution endpoints return typed Eventing assignments and edges;
 - deployment requires matching RTA v1 + RDS v2;
 - profile-change preview includes Eventing workload/binding invalidation;
@@ -519,9 +611,12 @@ Provider plugins are pinned by the implementation manifest:
 | Azure | `hashicorp/azurerm = 4.81.0`, `Azure/azapi = 2.10.0` | The six-CU Dedicated Event Hubs cluster uses `azapi_resource`; `azurerm_eventhub_cluster` cannot express the reviewed capacity |
 | GCP | `hashicorp/google = 7.39.0`, `hashicorp/kubernetes = 3.2.1`, `hashicorp/helm = 3.2.0` | Cloud Run v2 worker pools and the explicit BifroMQ/GKE/Load-Balancer boundary are required |
 
-Every selected service-component instance maps to exactly one of the 37
-service-component records in `implementation-component-manifest.json`. A
-bundle member absent from that manifest is not an implementation option.
+Every Event-domain service-component instance in the table maps to exactly one
+of the 37 records in the immutable Phase 8.8
+`implementation-component-manifest.json`. Core online, storage, visualization,
+and support components map instead to the separate complete-service manifest.
+A selected member absent from its owning manifest is not an implementation
+option, and duplicate ownership across the two manifests is invalid.
 
 The existing generic `ResolvedDeploymentGraph v1` remains valid. Add Eventing
 nodes and edges through catalog data, not switch statements on `eventing`.
@@ -544,22 +639,134 @@ Preflight must reject:
 In addition to the Event-domain table above, implement these exact
 complete-service selections:
 
-| Provider | L3 | L4 | L5 |
+| Provider | L3 hot / cool / archive | L4 | L5 |
 |---|---|---|---|
-| AWS | DynamoDB on-demand; S3 Standard-IA and Glacier Deep Archive | IoT TwinMaker plus external time-series connector and scene assets | Amazon Managed Grafana 12 with TwinMaker plugin `1.3.1`, scene viewer, IAM workspace role, and service-account automation |
-| Azure | Cosmos DB dynamic autoscale; Blob Cool and Archive | Azure Digital Twins plus Azure Data Explorer, direct time-series ingestion, and graph data history | Azure Managed Grafana Standard X1/X2 on Grafana 12 with ADX datasource/managed identity; 3D Scenes viewer/assets when required |
-| GCP | Firestore; Cloud Storage Nearline and Archive | Cloud Run Twin API/materializer, Spanner Graph Enterprise, BigQuery, and scene assets | Grafana OSS 12 on GKE with BigQuery datasource `3.2.0` in `Google Metadata Server` mode, platform Twin/scene plugin, and Workload Identity for GKE |
+| AWS | DynamoDB on-demand with window-shard GSI / S3 Standard-IA / Glacier Deep Archive | IoT TwinMaker Standard pricing plan plus Lambda external-data connector and scene assets | Amazon Managed Grafana 12 with TwinMaker plugin `1.3.1`, scene viewer, IAM workspace role, and service-account automation |
+| Azure | Azure Data Explorer with typed `stored_at` / Blob Cool / Blob Archive | Azure Digital Twins current graph/state and optional 3D scene assets | Azure Managed Grafana Standard X1/X2 on Grafana 12 with ADX datasource, ADT query context, and 3D Scenes viewer when required |
+| GCP | BigQuery partitioned on `stored_at` and clustered by device ID / Cloud Storage Nearline / Cloud Storage Archive | Cloud Run Twin API/materializer backed by bounded Firestore Native collections and scene assets | One Grafana OSS 12 pod on GKE with Persistent Disk PVC, paid BigQuery Marketplace datasource `3.2.0` in `Google Metadata Server` mode, and a minimal Twin API/scene datasource-panel |
 
-`provider(L4) == provider(L5)` is mandatory. Add three positive and six
-directed negative placement fixtures. Exact service/software/provider/Helm
-versions and digests come from the complete-service implementation manifest.
+Cosmos DB and Spanner Graph are not selected. The signed BigQuery plugin
+artifact, entitlement, license, digest, and fixed cost must resolve before GCP
+activation. GCP Grafana reuses the BifroMQ GKE cluster when present and
+otherwise creates one GKE Standard cluster; it
+does not receive a dedicated node pool, shared database, or multi-replica HA
+setup by default. Scenario-derived CPU/RAM and one Persistent Disk PVC are
+priced explicitly. It also adds one priced general-workload node:
+`e2-standard-4` for Small/Medium or `e2-standard-8` for Large, whether the
+control plane is shared or newly created.
 
-Add separate registered storage-transition components for all six directed
-provider pairs at hot-to-cool and cool-to-archive. Same-provider
-cool-to-archive uses native object lifecycle; cross-provider transitions use
-source-owned movers and direct destination object-store APIs. These components
-do not reuse Eventing component IDs or transport object payloads through
-brokers.
+TwinMaker Standard is fixed for every scenario because the selected knowledge
+graph is unavailable in Basic. Do not introduce a tiered-bundle choice; price
+the Standard entity, data-access, query, connector, scene, and visualization
+dimensions.
+
+Build the platform Twin API/scene datasource-panel as the app plugin
+`twin2multicloud-twin-app`. Copy its reviewed content digest into the pinned
+Grafana image and set `allow_loading_unsigned_plugins` to exactly that one ID.
+Do not enable Grafana development mode, list any other unsigned plugin, download
+the app at runtime, or enable plugin-admin installation. The paid BigQuery
+plugin remains signed and outside this exception. Preflight and image tests
+must verify the Grafana image digest, app digest/ID, exact allowlist, disabled
+plugin administration, and absence of any additional unsigned artifact.
+
+Implement the bounded GCP Firestore Native model exactly as
+`models/{model_id}`, `twins/{twin_id}`,
+`twins/{twin_id}/sources/{source_id}`, `relationships/{relationship_id}`, and
+`scene_bindings/{twin_id}`, with only `(from_id,type)` and `(to_id,type)`
+composite relationship indexes. Per-source transactional last-event/sequence
+state supplies materialization idempotency; do not add a global event-ID
+collection or arbitrary multi-hop traversal.
+
+Scene deployment is conditional on `needs3DModel`. If false, omit all
+scene-specific components. If true, implement only the common GLB asset,
+scene-node-to-Twin binding, and latest-value overlay contract. On GCP, the
+browser calls an authenticated resource route in the custom Grafana backend
+plugin; the backend uses the Grafana workload identity to invoke the Cloud Run
+Twin API, whose separate identity reads and streams the exact Cloud Storage
+asset. Do not expose a public bucket/Twin API, mint signed asset URLs, or add a
+gateway. Gate the reviewed 100-MiB Large asset and overlay refresh on measured
+latency and memory before live activation.
+
+`provider(L3_hot) == provider(L4) == provider(L5)` is mandatory. Add three
+positive online-bundle fixtures and reject every unequal assignment before
+pricing. Exact service/software/provider/Helm versions and digests come from
+the complete-service implementation manifest.
+
+Register both typed visualization edges for every online bundle:
+
+```text
+L3 hot -- raw_history_query.v1 --> L5
+L4 ----- twin_context_query.v1 --> L5
+```
+
+Bind L5 readers exactly: AWS Managed Grafana workspace role to TwinMaker/S3;
+Azure Managed Grafana managed identity to ADX Viewer and Azure Digital Twins
+Data Reader; GKE Grafana Kubernetes service account through Workload Identity
+for GKE to dataset-scoped BigQuery Data Viewer, project-scoped BigQuery Job
+User, a custom role containing only `resourcemanager.projects.get`, and exact
+Cloud Run Invoker. Connector/Twin API runtimes keep separate least-privilege
+identities. Static cloud keys, anonymous endpoints, and shared bearer tokens
+fail preflight.
+
+Azure live readiness requires a supervised query proving that Managed
+Grafana's managed identity authenticates to ADX and is the caller token used
+by the ADX ADT-query plugin. The identity needs both ADX Viewer and Azure
+Digital Twins Data Reader. Offline activation retains
+`live_capacity_pending`; a failed supervised query marks the bundle
+`live_readiness_failed` and reopens the decision. Do not substitute an
+interactive dashboard-user token or static app secret.
+
+When 3D is selected, provision its Azure path separately: private Blob scene
+container, the exact documented 3D Scenes Studio CORS allowlist, and viewer
+user/group assignments for Azure Digital Twins Data Reader plus
+container-scoped Storage Blob Data Reader. Do not grant edit roles because the
+common PoC contract does not include scene editing. This user-scoped viewer is
+not a fallback for the Managed Grafana/ADX identity path.
+
+Enable the BigQuery and Cloud Resource Manager APIs for GCP L5. Configure the
+datasource with `authenticationType=gce`, bind the Grafana KSA/GSA through
+Workload Identity Federation for GKE, and on Standard GKE schedule the pod
+only where the GKE metadata server is enabled. GCP live readiness requires
+datasource `Save & test` and one bounded BigQuery query under that pod
+identity. Offline activation retains `live_capacity_pending`; failure marks
+the bundle `live_readiness_failed` and reopens the decision. A service-account
+JSON key is not a fallback.
+
+Add separate storage-transition routes for all six directed provider pairs at
+hot-to-cool and cool-to-archive. One source-provider scheduled finite job reads
+a closed writer-assigned five-minute `stored_at` batch when it reaches the
+configured cumulative age boundary and writes deterministic
+gzip-NDJSON objects to the
+destination object API. Same-provider cool-to-archive uses native object
+lifecycle. No storage-specific CDC stream, durable outbox, broker, permanent
+worker, DLQ, or checkpoint database is deployed. Window IDs, object keys,
+checksums, and immutable manifests provide idempotency and resume. These
+components do not reuse Eventing component IDs or broker payloads.
+
+For workload v2, define `H`, `C`, and `A` from the existing hot/cool/archive
+duration inputs as cumulative 30-day data-age boundaries: hot `[0,H)`, cool
+`[H,C)`, archive `[C,A)`, expiry at `A`, with `1 <= H < C < A`. Historical
+`@1` validation and calculation semantics remain byte-stable. Freeze
+five-minute batches, a 24-hour retry horizon, and a 48-hour source-expiry
+grace as resolved profile dimensions. Native hot
+retention and remote cool-source expiry include the grace; a batch incomplete
+after 24 hours emits `storage_transition_failed` and fails live readiness.
+Same-provider cool-to-archive lifecycle transitions after `C-H` from cool
+object creation. Archive expiry is `A-H` after same-provider cool-object
+creation or `A-C` after remote archive-object creation.
+
+These offsets are nominal for on-time export. A successful retry may shift
+physical lifecycle/cleanup by at most its delay inside the 24-hour horizon,
+while `stored_at` still removes the data from logical cool reads at `C` and all
+active reads at `A`. Persist scheduled/actual manifest timestamps and emit
+`storage_transition_degraded`; do not claim that object lifecycle backdates
+creation time.
+
+The storage job and other custom provider containers reuse one
+content-addressed registry support component per provider that actually
+deploys at least one such image: ECR, ACR Basic, or Artifact Registry. A
+managed-services-only provider receives no registry. Registry cost and cleanup
+are attributed exactly once outside the scientific responsibilities.
 
 ## 8. Runtime Adapters And Packages
 
@@ -593,11 +800,12 @@ device <-> BifroMQ 4.0.0-incubating on GKE
 Small uses three `e2-standard-8` broker nodes and three integration clients;
 Medium uses three broker nodes and six clients; Large uses twelve broker nodes,
 four dedicated integration-worker nodes, and 30 pods with ten 1-MiB/s clients
-each. All scenarios use three inbox replicas. Activation requires the approved
-64-KiB throughput, backpressure, reconnect-ordering-degradation,
-broker/integration-node-loss, and Pub/Sub-rejection gate against the pinned
-BifroMQ image. Pub/Sub, not an MQTT session, remains the durable cloud backbone
-for telemetry and command outcomes.
+each. All scenarios use three inbox replicas. GCP live readiness requires the
+approved 64-KiB-payload throughput, backpressure,
+reconnect-ordering-degradation, broker/integration-node-loss, and
+Pub/Sub-rejection gate against the pinned BifroMQ image. Offline activation
+retains `live_capacity_pending`. Pub/Sub, not an MQTT session, remains the
+durable cloud backbone for telemetry and command outcomes.
 
 Internal helper functions belonging to one logical component must not be
 split into new broker hops. Existing user-function extension slots bind to
@@ -701,6 +909,7 @@ tests. Otherwise the value must be explicit.
 Add stable codes:
 
 - `EVENTING_PROFILE_DECISION_INVALID`
+- `EVENTING_SCENARIO_REFERENCE_INVALID`
 - `EVENTING_BUNDLE_UNSUPPORTED`
 - `EVENTING_CAPABILITY_INCOMPLETE`
 - `EVENTING_PRICING_UNPUBLISHABLE`
@@ -758,29 +967,32 @@ units; no GCP-support or domain-event enable/disable control is rendered.
 |                      |               Storage                                 |
 |                      |                                                      |
 |                      | Functional coverage: Complete                         |
-|                      | L4/L5 bundles: AWS | Azure | GCP | co-located        |
+|                      | Online bundle: L3 hot + L4 + L5 | AWS/Azure/GCP      |
 +----------------------+------------------------------------------------------+
 | Back                       Draft saved                         Continue       |
 +-----------------------------------------------------------------------------+
 ```
 
-The following shared domain-event workload is present for both
+The following shared domain-event scenario is present for both
 `five-layer-baseline@2` and `six-layer-eventing@1`. It contains no
 enable/disable switch; profile selection changes architecture ownership, not
-whether the domain-event behavior exists.
+whether the domain-event behavior exists. Values come from the Management
+projection of the immutable Phase 8.8 package and are read-only.
 
-Domain-event workload task:
+Domain-event scenario task:
 
 ```text
 +--------------------------------------------------------------------------+
-| Domain-event workload                                                    |
-| Events / month       [ 10,000,000 ]  Average payload [ 16 ] KiB           |
-| Channels             [ 8 derived  ]  Peak rate       [ 250 ] events/s     |
-| Retention            [ 168        ]h Ordering        [ Per device      v ] |
-| Retry share          [ 0.5        ]% DLQ share       [ 0.05           ]%  |
-| Replay share         [ 1.0        ]% Routes          [ Graph-derived   ]  |
+| Domain-event scenario (required)                                         |
+| [ Small v1 ] [ Medium v1 selected ] [ Large v1 ]                         |
 |                                                                          |
-| Derived base deliveries: 40,300,000                       [Details v]     |
+| Events / month       10,000,000      Average payload  16 KiB              |
+| Peak rate            250 events/s    Retention        168 h               |
+| Ordering             Per device      Delivery         At least once       |
+| Active keys/devices  10,000/10,000   Max latency      10 s                |
+| Retry / DLQ / replay 0.5% / 0.05% / 1%                                   |
+|                                                                          |
+| Derived channels, consumers, fan-out and routes             [Details v]  |
 +--------------------------------------------------------------------------+
 ```
 
@@ -788,17 +1000,15 @@ Domain-event workload task:
 
 ```text
 +------------------------------------------+
-| Workload / Domain events              [v] |
+| Workload / Domain-event scenario      [v] |
 +------------------------------------------+
-| Events / month                           |
-| [ 10,000,000                          ]  |
-| Payload [ 16 ] KiB   Rule matches [1]%   |
-| Peak    [ 250 ]/s    Retention [ 168 ]h  |
-| Ordering [ Per device                 v]  |
-| Retry [0.5]%  DLQ [0.05]%  Replay [1]%   |
-| Workflow [25]%  Device command [25]%     |
-|                                          |
-| Derived channels, fan-out, routes   [v]  |
+| [Small] [Medium selected] [Large]         |
+| 10,000,000 events/month | 16 KiB          |
+| Peak 250/s | Retention 168 h | 10 s max   |
+| Per-device | At least once                |
+| Retry 0.5% | DLQ 0.05% | Replay 1%        |
+| 10,000 keys | 10,000 devices              |
+| Derived details                       [v] |
 +------------------------------------------+
 | Back                         Continue     |
 +------------------------------------------+
@@ -818,23 +1028,30 @@ WizardView [MODIFY]
         |-- ArchitectureProfileTask [REUSE/MODIFY new profiles]
         |   `-- ArchitectureProfileGraph [REUSE]
         |-- WorkloadTasks [MODIFY]
-        |   `-- EventingWorkloadSection [NEW]
-        |       |-- ValidatedNumberInput [REUSE]
-        |       |-- ValidatedDecimalInput [REUSE]
-        |       |-- OrderingScopeSelector [NEW]
+        |   `-- EventingScenarioSection [NEW]
+        |       |-- SegmentedButton<String> [REUSE Material]
         |       `-- CollapsibleSection [REUSE]
         |-- OptimizerReviewTask [REUSE/MODIFY typed Eventing rows]
         `-- ConfigurationReviewTask [REUSE/MODIFY typed Eventing edges]
 ```
 
-`OrderingScopeSelector` is new because the current workload controls have no
-closed semantic ordering enum. All other fields must reuse current form and
-evidence primitives.
+`EventingScenarioSection` is a dumb, stateless widget under
+`lib/features/configuration_workspace/presentation/workload/`. It receives the
+three server-returned `EventingScenarioSummary` values, the selected ID, an
+enabled flag, and `ValueChanged<String> onSelected`. It uses a Material
+`SegmentedButton`, existing theme/spacing tokens, and the existing
+`CollapsibleSection`; it contains no numeric editor and no network call. A
+missing/unknown selected ID is an inline blocking error, not a default to
+Small.
 
 ### 12.4 State And Accessibility
 
 - Wizard BLoC owns profile-dependent field visibility, validation, calculation,
   result selection, and profile-change invalidation.
+- `WizardEventingScenarioSelected(id)` updates only
+  `WizardState.eventingScenarioId`, clears the current calculation/selection,
+  and never rewrites core fields. Profile detail supplies the three typed
+  summaries; the run request submits only the selected ID.
 - Riverpod retains runtime/demo/API composition.
 - `ApiService` talks only to Management API.
 - demo/live interfaces remain identical.
@@ -854,8 +1071,9 @@ This includes all three shared bridge runtimes, the six directed route classes,
 and their `five-layer-baseline@2` embedded outbox/destination bindings because
 the five-layer profile must support remote responsibility edges independently
 of 8.9B. It also includes workload v2, all three complete L1-L5 provider
-bundles, all storage-transition routes, L4/L5 co-location, and removal of the
-legacy shared-token/direct-L3-visualization paths from new operations.
+bundles, both typed visualization reads, all minimal storage-transition routes,
+online-analytics co-location, and removal of the legacy shared-token and
+uncontracted visualization paths from new operations.
 Run two reviews, fix every finding, and create the clean 8.9A commit before
 opening the 8.9B branch. Historical `five-layer-baseline@1` golden evidence
 must remain unchanged.
@@ -900,7 +1118,8 @@ typed bindings, preflight, operation evidence, and offline provider tests.
 
 Must expose `five-layer-baseline@2` and `six-layer-eventing@1` as the two new
 selectable profiles, keep `five-layer-baseline@1` historical/read-only, and
-add shared Eventing workload fields, data-driven graph/review, profile
+add the shared Eventing scenario selector/read-only details, data-driven
+graph/review, profile
 invalidation, demo parity, accessibility, and all-platform gates.
 
 ### Slice G: Cross-Stack Offline Release Gate
@@ -909,8 +1128,9 @@ Must prove all-AWS, all-Azure, and provider-hosted all-GCP for each new profile,
 plus at least one complete mixed whole path assigning Eventing to each of AWS,
 Azure, and GCP, from workload through Optimizer, Management, Manifest v4,
 Deployer graph, package, permissions, and Terraform mock plan. The gate also
-proves historical `@1` all-GCP rejection, all six unequal L4/L5 rejections,
-baseline v2, and historical v1/v3 compatibility.
+proves historical `@1` all-GCP rejection, every unequal L3-hot/L4/L5 online
+bundle rejection, both query edges, baseline v2, and historical v1/v3
+compatibility.
 
 ## 14. Test Plan
 
@@ -930,14 +1150,22 @@ baseline v2, and historical v1/v3 compatibility.
 - at least one complete whole path assigning Eventing to each of AWS, Azure,
   and GCP;
 - historical `@1` all-GCP remains rejected;
-- all six unequal directed L4/L5 placements reject before cost;
-- all six directed event bridges and all six directed storage routes resolve;
+- every unequal L3-hot/L4/L5 online-analytics placement rejects before cost;
+- `raw_history_query.v1` and `twin_context_query.v1` resolve independently for
+  AWS, Azure, and GCP;
+- all six directed event bridges, six storage identity directions, and twelve
+  directed storage stage routes resolve;
 - mandatory capability, ordering, pricing, region, permission, formula, and
   specification rejection;
 - exact provider chunk/tier/capacity/retention/transfer boundaries;
+- workload-v2 storage volumes use `H`, `C-H`, and `A-C`, while the source
+  grace, minimum-duration charges, lifecycle operations, transfers, and
+  cross-cloud egress are independently priced;
 - exact `core-*-v2` workload fields, scenario values, and storage-batch
   capacity calculations;
-- no legacy Eventing feature flag in either new profile;
+- every field in the exact retired-field set is rejected by name for both new
+  profiles, while the valid workload-v2 plus approved Eventing-scenario
+  reference succeeds;
 - shared domain-event paths execute for both new profiles;
 - no `five-layer-baseline@2`/`six-layer-eventing@1` cross-ranking;
 - historical `five-layer-baseline@1` golden cost/graph remains unchanged;
@@ -949,7 +1177,10 @@ baseline v2, and historical v1/v3 compatibility.
 - profile selection/change preview and exact shared/layer-specific field
   invalidation;
 - workload-v2 persistence separates Twin/scene entities, aggregate dashboard
-  traffic, seats, and semantic update rates and rejects all five legacy flags;
+  traffic, seats, semantic update rates, and aggregate scene bytes, and rejects
+  every field in the exact retired-field set from the service-bundle closure;
+  the test assertion names every field so additions cannot silently bypass the
+  gate;
 - Eventing run/spec/resolution atomic persistence;
 - generic assignment/edge API projections;
 - selected-run readiness and invalidation;
@@ -961,8 +1192,14 @@ baseline v2, and historical v1/v3 compatibility.
 - every approved/rejected binding;
 - exact envelope behavior across provider adapters;
 - duplicate, retry, DLQ, replay, redrive, ordering, and bridge failure;
-- separate storage capture/outbox/batch/checkpoint paths, all six destination
-  identity routes, partial batches, checksum mismatch, and resume;
+- scheduled finite storage jobs, deterministic window/object manifests, all
+  six destination identity routes, partial objects, duplicate reruns, checksum
+  conflict, and resume;
+- absence of storage-specific CDC, outbox, broker, permanent worker, DLQ, and
+  checkpoint-database resources;
+- exact one-ID GCP custom-plugin allowlist, digest-pinned image artifact,
+  disabled development/plugin-admin modes, and rejection of any additional
+  unsigned plugin;
 - trust/destination allowlist, TLS, idempotency, and backpressure;
 - package determinism and secret/payload-free evidence;
 - permission contract and Terraform symbol drift;
@@ -988,6 +1225,21 @@ Extend `run_frontend_integration_tests()` in `thesis.sh` so the resolved host
 device also runs `integration_test/eventing_profile_workflow_test.dart`. The
 existing architecture profile test remains in the same credential-free real
 Management integration gate.
+
+Focused scenario-selector assertions are mandatory:
+
+| # | Type | Assertion |
+|---|---|---|
+| 1 | Happy/integration | Selecting Medium sends only `eventing-medium-v1`; the real Management run returns the matching scenario digest and exact canonical summary |
+| 2 | Happy/integration | Switching between the two new profiles retains the same supported scenario ID and produces profile-specific ownership without changing scenario values |
+| 3 | Unhappy/widget | Missing or unknown selected ID renders one blocking inline error and disables Continue; it never defaults to Small |
+| 4 | Unhappy/integration | A stale/unknown scenario or decision digest returns the stable Management error, creates no Optimizer run, and exposes no raw response |
+| 5 | Edge/BLoC | Changing the scenario clears the selected calculation and deployment readiness exactly once while leaving all core fields unchanged |
+| 6 | Edge/BLoC | Profile-change preview preserves a scenario supported by both new profiles and invalidates it when moving to historical `@1` |
+| 7 | Edge/widget | Compact width and 200% text show all three scenario labels and read-only units without overlap; semantics identify selected state |
+| 8 | Edge/widget | While profile detail is loading, the selector is disabled and no stale scenario summary is rendered |
+| 9 | Edge/integration | Demo and live Management adapters expose the same three IDs, values, units, and ordering |
+| 10 | Edge/API | Every retired or inline Eventing field is rejected by name while the valid scenario-reference request succeeds |
 
 ### Regression
 
@@ -1083,15 +1335,26 @@ profile or rewrite a Twin's selected profile.
       with mandatory embedded rule/action/workflow/command behavior.
 - [ ] `six-layer-eventing@1` is a closed-world, nonlinear, versioned profile.
 - [ ] Both new profiles implement the same domain-event flow, and neither
-      accepts the three legacy Eventing feature flags.
+      accepts any field from the exact retired-field set.
 - [ ] RDS v2 and Manifest v4 represent generic components and remain
       cross-project drift-gated.
 - [ ] Historical RDS v1/Manifest v2 and v3 behavior remains read/destroy
       compatible without enabling new operations.
 - [ ] Eventing workload, pricing, formulas, units, tiers, transfer, and
       deployment dimensions are exact and traceable.
+- [ ] Each new-profile run stores one approved Eventing scenario ID, digest,
+      and canonical snapshot; callers cannot submit inline Eventing values.
 - [ ] Functional completeness precedes cost for every provider and mixed path.
 - [ ] Baseline and Eventing candidates never share one optimization ranking.
+- [ ] L3 hot, L4, and L5 resolve as one of three reviewed online analytics
+      bundles, and every unequal placement fails before pricing.
+- [ ] `raw_history_query.v1` and `twin_context_query.v1` remain separate,
+      implemented, observable, and priced for all three providers.
+- [ ] Azure uses ADX plus ADT without an unneeded Cosmos hot-store duplicate.
+- [ ] GCP uses BigQuery plus a bounded Firestore Twin API without Spanner Graph
+      or a default dedicated Grafana node pool.
+- [ ] Storage transitions use finite scheduled jobs and deterministic manifests
+      without unproven CDC/outbox/broker/permanent-worker infrastructure.
 - [ ] Management stores generic immutable assignments/edges without new fixed
       provider/Eventing columns.
 - [ ] Every approved Eventing component, package, permission, output/input,
@@ -1105,8 +1368,9 @@ profile or rewrite a Twin's selected profile.
 - [ ] Flutter offers compact profile-aware workload and read-only review on
       Web, macOS, Windows, and Linux through Management only.
 - [ ] The real-Management `eventing_profile_workflow_test.dart` proves profile
-      selection, Eventing workload submission, resolved review, invalidation,
-      and safe failure states without mocked HTTP.
+      selection, Eventing scenario-reference submission and server resolution,
+      resolved review, invalidation, and safe failure states without mocked
+      HTTP.
 - [ ] Every admissible single-provider path, one complete path per Eventing
       provider, all explicit unsupported paths, mixed, negative, compatibility,
       package, permission, Terraform mock-plan, API, demo, UI, and

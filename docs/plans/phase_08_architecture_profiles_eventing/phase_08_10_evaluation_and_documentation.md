@@ -2,8 +2,8 @@
 title: "Phase 8.10: Evaluation Evidence And Final Documentation"
 description: "Implementation plan for reproducible profile evaluation evidence and complete current-system documentation without editing LaTeX."
 tags: [architecture, evaluation, reproducibility, documentation, thesis, issue-148]
-lastUpdated: "2026-07-20"
-version: "1.5"
+lastUpdated: "2026-07-21"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.5"
 - User-approved separation between product documentation, research evidence, and LaTeX
 - User-approved historical @1 reproduction and fair five-layer @2 versus
   six-layer comparison boundary
-EXTRACTED: 2026-07-20 | VERSION: 1.5
+EXTRACTED: 2026-07-21 | VERSION: 1.6
 -->
 
 # Phase 8.10: Evaluation Evidence And Final Documentation
@@ -43,8 +43,10 @@ item in this plan is mandatory.
 The evaluation composes the immutable Eventing decision with
 `phase-08-complete-service-bundles@1`. It must include the complete AWS,
 Azure, and provider-hosted GCP L1-L5 bundles, all six directed Eventing bridge
-routes, all six directed storage-transition routes, and the three co-located
-L4/L5 bundles. It must not reuse Event-domain capacity evidence as proof of
+routes, all six directed routes at each of the two storage transitions, and
+the three co-located L3-hot/L4/L5 online analytics bundles with both
+visualization reads. It must
+not reuse Event-domain capacity evidence as proof of
 complete-Twin capacity. Historical `@1` keeps its all-GCP negative result; both
 new profiles require an all-GCP positive result after implementation.
 
@@ -178,11 +180,14 @@ The scenario index must include:
    `six-layer-eventing@1`;
 3. `core-small-v2`, `core-medium-v2`, and `core-large-v2`, including separate
    Twin entity, scene entity, graph/state update, and aggregate dashboard
-   dimensions;
+   dimensions, fixed cumulative storage boundaries `H=1`, `C=3`, `A=12`
+   months, five-minute batches, 24-hour transition retry, and 48-hour source
+   grace;
 4. the explicit Small/Medium/Large pairing rule between Core Twin and
    Eventing scenario families;
 5. one explicitly selected representative thesis comparison workload;
-6. all provider region/currency assumptions;
+6. the fixed regions AWS `eu-central-1`, Azure `westeurope`, and GCP
+   `europe-west1`, plus currency assumptions;
 7. availability and evidence status for every candidate.
 
 For each scenario, freeze:
@@ -310,7 +315,8 @@ Never rank candidates from different profiles in one optimizer run. Compare
 the reported profile totals only through this separate cross-profile control:
 
 ```text
-same domain-event workload + same rule/action/workflow/command outcomes
+same eventingScenarioId + same canonical workload digest
+  + same rule/action/workflow/command outcomes
   -> five-layer-baseline@2 reported result
   -> six-layer-eventing@1 reported result
   -> functional-quality + topology + estimated-cost delta
@@ -337,8 +343,13 @@ For every scenario/profile:
 - federated selected total;
 - provider allocation per responsibility/component;
 - service, edge, transfer, source-owned transition-adapter/cross-cloud-bridge,
-  L4/L5 supporting bundle, fixed, variable, and minimum-capacity
+  online-analytics supporting bundle, both visualization reads, fixed,
+  variable, and minimum-capacity
   contributions;
+- non-overlapping workload-v2 storage residence (`H`, `C-H`, `A-C`), source
+  grace, provider minimum-duration charges, lifecycle requests, and one
+  transfer per storage stage; historical `@1` formulas remain reproduced
+  unchanged;
 - free quota and tier/rounding effect;
 - extra capability notes;
 - selected and rejected evidence/formula refs;

@@ -2,8 +2,8 @@
 title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
-lastUpdated: "2026-07-20"
-version: "1.3"
+lastUpdated: "2026-07-21"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.3"
 - twin2multicloud_flutter/lib/services/management_api.dart
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
-EXTRACTED: 2026-07-20 | VERSION: 1.3
+EXTRACTED: 2026-07-21 | VERSION: 1.4
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -70,8 +70,9 @@ active selectable profiles. Contract/widget fixtures may exercise populated
 states, but DemoManagementApi must not advertise a fake active profile.
 `five-layer-baseline@2` is first published by Phase 8.9A; six-layer follows in
 8.9B. Provider availability comes from the complete-service decision and must
-represent AWS, Azure, provider-hosted GCP, mixed L1-L3 placements, and the
-co-located L4/L5 constraint precisely.
+represent AWS, Azure, provider-hosted GCP, mixed L1/L2/cool/archive
+placements, the independent Six-layer Eventing placement, and the
+provider-local L3-hot/L4/L5 online analytics constraint precisely.
 
 ### Scope Boundary
 
@@ -365,8 +366,9 @@ Below `960`, reuse `ConfigurationTaskSelector` above the content:
 | Active v2                                |
 |------------------------------------------|
 | 5 responsibilities | 7+ components      |
-| AWS | Azure | GCP L4/L5 bundles          |
-| Mixed L1-L3 | L4/L5 co-located           |
+| AWS | Azure | GCP online bundles         |
+| Mixed L1/L2/cool/archive                  |
+| L3 hot + L4 + L5 provider-local          |
 |                                          |
 | [Overview] [Components]                  |
 |                                          |

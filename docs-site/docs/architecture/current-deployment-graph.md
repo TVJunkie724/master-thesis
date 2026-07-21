@@ -130,6 +130,39 @@ boundary and are used for provider API authorization.
   directly to a same-provider L3 hot reader. A path whose L5 provider differs
   from L3 hot lacks a current remote reader binding and is explicit unsafe debt.
 
+## Planned Successor Profiles — Not Implemented
+
+The reviewed target for `five-layer-baseline@2` and
+`six-layer-eventing@1` does not hide either visualization dependency. It plans
+two typed logical reads:
+
+```text
+L3 hot -> L5  raw telemetry/history
+L4     -> L5  Twin context/current state/relationships/scenes
+```
+
+For the first profile version, L3 hot, L4, and L5 are one provider-local online
+analytics bundle. L1, L2, L3 cool, L3 archive, and the Six-layer Eventing
+responsibility remain independently placeable. This target is planning only;
+it does not change the current capability matrix.
+
+The current GCP acquisition path starts at Pub/Sub and the simulator publishes
+to Pub/Sub directly. It is not a complete heterogeneous MQTT device boundary.
+The current GCP feedback template also imports the retired Cloud IoT client
+`google.cloud.iot_v1`, so it cannot prove the required command path. The new
+profiles plan BifroMQ on GKE as the MQTT boundary and retain Pub/Sub as the
+durable cloud backbone. BifroMQ is shared by both new profiles and is not an
+Event-Layer-only service.
+
+The planned PoC storage target uses finite scheduled batch jobs and native
+same-provider lifecycle rules. It does not add storage-specific CDC streams,
+outboxes, brokers, permanent workers, or checkpoint databases unless a later
+capacity test proves them necessary. In the successor workload, hot, cool, and
+archive durations are cumulative data-age boundaries: hot `[0,H)`, cool
+`[H,C)`, archive `[C,A)`, then expiry, with strict ordering for non-empty
+tiers. Five minutes is only the deterministic batch interval, not the
+hot-retention duration.
+
 The code-verified inventory contains 114 implementations, 64 package/template
 artifacts, 661 Terraform objects, and 90 runtime/deployment edges. It contains
 one fully evidenced predecessor finding:

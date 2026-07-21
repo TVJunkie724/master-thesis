@@ -637,8 +637,8 @@ gap as either zero cost or automatic incompatibility.
 
 This strengthens the distinction from catalogue-style service comparison:
 provider services are compared as complete deployable compositions, while
-cross-cloud event bridges, storage movers, and L4/L5 query bindings remain
-separate cost and failure boundaries.
+cross-cloud event bridges, finite storage jobs, L3-hot raw-history reads, and
+L4 Twin-context reads remain separate cost and failure boundaries.
 
 ## Citation-Ready Source List
 

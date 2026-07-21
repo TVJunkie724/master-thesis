@@ -2,8 +2,8 @@
 title: "Five-Layer Baseline Target Decision"
 description: "Evidence-backed Phase 8.1 decision for the paper-compatible five-layer Digital Twin baseline."
 tags: [architecture, baseline, digital-twin, phase-8, decision]
-lastUpdated: "2026-07-20"
-version: "1.1"
+lastUpdated: "2026-07-21"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.1"
 - docs/research/digital_twin_architecture_and_eventing_layer.md
 - docs/research/research_questions_and_evaluation_design.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_1_five_layer_baseline.md
-EXTRACTED: 2026-07-20 | VERSION: 1.1
+EXTRACTED: 2026-07-21 | VERSION: 1.2
 -->
 
 # Five-Layer Baseline Target Decision
@@ -38,8 +38,9 @@ The decision and its digests remain immutable historical/paper-compatible
 evidence. It is no longer the target for new calculate/deploy operations.
 `five-layer-baseline@2` carries the corrected complete service bundles,
 mandatory domain-event behavior, workload semantics, identities, and
-L4-to-L5 implementation. Existing `@1` records remain read/verify/destroy
-compatible and are never rewritten.
+typed L3-hot-to-L5 raw-history plus L4-to-L5 Twin-context implementations.
+Existing `@1` records remain read/verify/destroy compatible and are never
+rewritten.
 
 This is a historical target decision, not current runtime documentation.
 Phases 8.2-8.7 materialize its compatibility mapping and reusable dark
@@ -182,6 +183,10 @@ The decision neither changes prices nor introduces a new cost formula.
 - GCP L4/L5 support is absent from this historical `@1` evidence. The separate
   complete-service decision selects an explicit provider-hosted bundle only
   for the new profiles.
+- The `@1` removal of the uncontracted L3-to-L5 shortcut remains frozen
+  historical evidence. `five-layer-baseline@2` separately introduces a typed
+  L3-hot-to-L5 raw-history edge alongside L4-to-L5 Twin context and bundles L3
+  hot, L4, and L5 provider-locally; this does not rewrite the `@1` decision.
 - The optional error path remains visible but unsupported. A later profile may
   reintroduce it only through a separate reviewed contract.
 - Current fixed seven-slot compatibility remains during migration. It is not a

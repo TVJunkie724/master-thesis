@@ -1325,21 +1325,34 @@ Eventing decision alone cannot close:
 
 1. canonical asynchronous domain events use the approved source-owned broker
    bridge;
-2. hot/cool/archive data movement uses source-owned storage movers and direct
-   destination object-store APIs;
-3. L4-to-L5 remains a synchronous provider-local query/visualization bundle.
+2. hot/cool/archive data movement uses finite source-owned scheduled jobs and
+   direct destination object-store APIs;
+3. visualization has separate synchronous L3-hot-to-L5 raw-history and
+   L4-to-L5 Twin-context reads.
 
-The selected complete L4/L5 bundles are AWS IoT TwinMaker plus Amazon Managed
-Grafana, Azure Digital Twins plus Azure Data Explorer and Azure Managed
-Grafana, and a provider-hosted GCP bundle using a Cloud Run Twin API, Spanner
-Graph, BigQuery, and Grafana OSS on GKE. GCP therefore becomes a complete
+The selected complete online analytics bundles are AWS DynamoDB plus IoT
+TwinMaker and Amazon Managed Grafana, Azure Data Explorer plus Azure Digital
+Twins and Azure Managed Grafana, and a provider-hosted GCP bundle using
+BigQuery, a Cloud Run Twin API backed by bounded Firestore collections, and
+Grafana OSS on GKE. GCP therefore becomes a complete
 single-cloud implementation target for the new profiles without changing the
 historical all-GCP rejection in `five-layer-baseline@1`.
 
-`L4 != L5` remains outside the bounded v1 experiment because each selected
-visualization depends on provider-local datasource, identity, query, and scene
-components. This still permits every provider to send and receive on other
-resolved edges and permits arbitrary admissible L1-L3/Eventing placements.
+The comparison fixes AWS to `eu-central-1`, Azure to `westeurope`, and GCP to
+`europe-west1`; region selection is outside these profile versions. The new
+workload also treats hot, cool, and archive durations as cumulative data-age
+boundaries and prices non-overlapping residence intervals. This corrects the
+new-profile experiment without rewriting historical `@1` results.
+
+`provider(L3_hot) != provider(L4)` or `provider(L4) != provider(L5)` remains
+outside the bounded v1 experiment because each selected visualization depends
+on provider-local datasource, identity, query, and scene components. This
+still permits every provider to send and receive on other resolved edges and
+permits admissible L1/L2/cool/archive/Eventing placements.
+
+The PoC does not deploy storage-specific CDC/outbox/broker/permanent-worker
+pipelines, Cosmos beside ADX, Spanner Graph, or a dedicated GCP Grafana node
+pool without a failing capacity test that justifies them.
 
 The workload model now distinguishes Twin entities from 3D scene entities and
 aggregate workspace dashboard queries from monthly Grafana seats. Raw

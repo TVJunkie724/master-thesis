@@ -36,3 +36,11 @@ deployment execution require broader but still reviewed permissions.
 Schema validation, permission inventory, preflight adapters, pricing fixtures, and GCP
 tier tests are implemented. GCP L4/L5 equivalence and selected cross-cloud functions
 remain limited. Final policy completeness requires supervised project-level evidence.
+
+The reviewed Phase 8 successor plan is not implemented by this setup. It adds
+BifroMQ on GKE as the MQTT/command device boundary while retaining Pub/Sub as
+the durable cloud backbone, BigQuery as L3 hot history, a bounded
+Cloud Run/Firestore Twin API as L4, and Grafana on GKE as L5. The current
+Pub/Sub-direct simulator and retired `google.cloud.iot_v1` feedback template
+do not prove that target. Spanner Graph and a dedicated Grafana node pool are
+not part of the PoC target.

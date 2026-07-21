@@ -570,6 +570,12 @@ Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge
 different functional scopes into one ranking.
 
+Both new profiles freeze the same European region set (`eu-central-1`,
+`westeurope`, `europe-west1`) and interpret `H`, `C`, and `A` as cumulative
+data-age boundaries with `1 <= H < C < A`. Their storage cost intervals are
+therefore `H`, `C-H`, and `A-C`; the historical `@1` formula remains part of
+the separate reproduction rather than being rewritten.
+
 `useEventChecking`, `triggerNotificationWorkflow`, and
 `returnFeedbackToDevice` remain historical input fields only. The two new
 profiles always contain the corresponding components; typed rule/action
@@ -654,11 +660,19 @@ comparison:
 - Eventing scenarios determine canonical event volume, payload, fan-out,
   delivery, ordering, retry, replay, bridge, and concurrent-device bounds.
 
-The Eventing bridge and storage-transition mover are separate evaluated
-components. Three co-located L4/L5 bundles are admissible; the six unequal
-L4/L5 directions remain explicit negative candidates. This keeps the result
-space bounded while still evaluating all three single-cloud providers and
-mixed L1-L3/Eventing assignments.
+Runtime requests select one immutable `eventingScenarioId`; Management resolves
+and digest-checks the canonical Phase 8.8 object. The fair comparison supplies
+the same scenario ID and workload digest to both new profiles. Inline custom
+Eventing values require a later contract version and are not mislabeled as
+frozen v1 evidence.
+
+The Eventing bridge and storage-transition job are separate evaluated
+components. Three provider-local L3-hot/L4/L5 online analytics bundles are
+admissible; every unequal online assignment remains an explicit negative
+candidate. This keeps the result space bounded while still evaluating all
+three single-cloud providers and mixed L1/L2/cool/archive/Eventing
+assignments. The L5 contract measures raw-history reads from L3 hot separately
+from Twin-context reads from L4.
 
 ## Scope Decisions
 

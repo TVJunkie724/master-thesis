@@ -2,8 +2,8 @@
 title: "Phase 8.3: Provider Profiles And Deployment Component Catalog"
 description: "Implementation plan for explicit AWS, Azure, and GCP baseline implementations and a deterministic deployment component catalog."
 tags: [architecture, provider-profiles, component-catalog, deployer, optimizer, issue-150]
-lastUpdated: "2026-07-20"
-version: "1.2"
+lastUpdated: "2026-07-21"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.2"
 - GitHub issue #113 user-function extension prerequisite
 - Current provider capability, package registry, Terraform, permission, and resolved-deployment-specification matrices
 - 2-twin2clouds and 3-cloud-deployer provider implementations
-EXTRACTED: 2026-07-20 | VERSION: 1.2
+EXTRACTED: 2026-07-21 | VERSION: 1.3
 -->
 
 # Phase 8.3: Provider Profiles And Deployment Component Catalog
@@ -39,9 +39,10 @@ blocker. Partial extension-slot metadata is forbidden.
 The completed baseline catalog is dark historical `@1` evidence. Its active
 lifecycle labels mean schema/catalog availability, not permission to create a
 new deployment. The catalog does not prove the current public
-Function/shared-token boundaries or direct L3-to-Grafana path admissible.
-Phase 8.9 must register new versioned AWS, Azure, and provider-hosted GCP
-components from the immutable complete-service decision package; it must not
+Function/shared-token boundaries or the uncontracted direct L3-to-Grafana
+binding admissible. Phase 8.9 must register new versioned AWS, Azure, and
+provider-hosted GCP components plus separate typed L3-hot-to-L5 and L4-to-L5
+edges from the immutable complete-service decision package; it must not
 mutate this catalog or reuse its unsupported claims as current service
 evaluation.
 

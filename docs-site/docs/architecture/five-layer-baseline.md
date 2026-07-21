@@ -2,16 +2,15 @@
 title: "Five-Layer Baseline Target"
 description: "Implementation status and approved target boundaries for five-layer-baseline@1."
 tags: [architecture, baseline, digital-twin, target]
-lastUpdated: "2026-07-19"
+lastUpdated: "2026-07-21"
 ---
 
 # Five-Layer Baseline Target
 
-!!! warning "Target design — not yet current runtime behavior"
-    Phase 8.1 approved this architecture decision; Phases 8.2 and 8.3 plus the
-    user-function prerequisite provide its shared contracts and exact provider
-    catalog. Phases 8.4-8.7 still have to make the complete baseline the
-    runtime path. See
+!!! warning "Historical target — not a new deployment profile"
+    Phase 8.1 approved and froze this `five-layer-baseline@1` decision.
+    Subsequent review keeps it immutable for read, reproduction, verification,
+    and destroy; it will not become the default new-Twin runtime. See
     [Current Deployment Graph](current-deployment-graph.md) for behavior that
     exists today.
 
@@ -49,9 +48,34 @@ Provider-native triggers may remain inside an approved component or edge. They
 do not create a general Eventing layer. The optional event-check and feedback
 topology remains explicitly unsupported in this baseline.
 
-## Support Status
+## Planned Five-Layer V2 Successor
 
-| Candidate | Current status |
+`five-layer-baseline@2` remains a five-responsibility architecture but always
+includes rule, action, workflow, notification, command, and outcome behavior
+inside the existing owners. It removes the Eventing feature flags and adds no
+sixth responsibility.
+
+Unlike the historical `@1` target, v2 models both visualization dependencies:
+
+```text
+L3 hot -> L5  raw telemetry/history
+L4     -> L5  Twin context/current state/relationships/scenes
+```
+
+Its first implementation version co-locates L3 hot, L4, and L5 as one AWS,
+Azure, or provider-hosted GCP online analytics bundle. L1, L2, L3 cool, and L3
+archive remain independently placeable. The v2 target is reviewed planning and
+is not selectable until the complete-service evidence and implementation gates
+pass.
+
+The three storage-duration inputs are cumulative age boundaries in v2: hot
+`[0,H)`, cool `[H,C)`, archive `[C,A)`, then expiry, with
+`1 <= H < C < A`. Storage cost therefore uses non-overlapping residence
+intervals. This correction does not rewrite historical `@1` results.
+
+## Historical @1 Support Status
+
+| Candidate | Frozen @1 status |
 |---|---|
 | All AWS | Blocked until the target L4-to-L5 binding is implemented |
 | All Azure | Blocked until the target L4-to-L5 binding is implemented |
@@ -62,6 +86,10 @@ Pricing evidence alone never makes a candidate deployable. The platform must
 first prove every mandatory component, edge, package, permission, binding, and
 formula reference.
 
+These frozen rows are evidence about `@1`, not implementation tasks that will
+reactivate it. The separately versioned v2 bundles close the new deployment
+paths.
+
 ## Compatibility
 
 Existing seven provider selections and resolved-deployment specifications
@@ -70,8 +98,8 @@ processors remain behind platform-owned wrappers. New extension artifacts and
 bindings use the reviewed #113 contract. Phase 8.3 now maps
 `processor.telemetry@1` to exact AWS, Azure, and GCP processing components,
 wrappers, adapters, Terraform inputs, and permission capabilities. Runtime
-execution still waits for persistence, Optimizer resolution, and Deployer
-graph compilation in Phases 8.4-8.6.
+execution remains historical/read-only; the generic persistence, Optimizer,
+and Deployer foundations are reused by the separately versioned v2 successor.
 
 The machine-readable target and research rationale are maintained in:
 

@@ -201,7 +201,9 @@ when work becomes actionable, then reference the issue here.
 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Planned | Deterministic component/binding graph before package and Terraform side effects |
 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Planned | Compact Management-API-only profile workflow for Web, macOS, Windows, and Linux |
 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Approved offline decision | Source-backed six-bundle capability/pricing package, exact bridge, all single/pair/three-provider scenarios, S/M/L calculations, implementation blueprint, and two zero-finding reviews; live identity/capacity gates remain |
-| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Blocked by decision gate | Executable `six-layer-eventing@1` through the same generic contracts |
+| Complete-service closure | Reviewed plan; user approval pending | PoC-focused L1-L5 bundles, provider-local L3-hot/L4/L5 analytics, dual visualization reads, finite storage jobs, workload v2, and complete-service evidence. Cosmos duplication, Spanner Graph, default dedicated Grafana nodes, and storage-specific CDC/outbox pipelines are not selected |
+| `five-layer-baseline@2` implementation | Planned after #138 and complete-service approval | Mandatory embedded domain events, three complete single-cloud targets, and admissible mixed L1/L2/cool/archive paths |
+| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Blocked by Five-layer v2 | Executable `six-layer-eventing@1` with the same L1-L5 behavior and an independent Eventing responsibility |
 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Planned | RQ-mapped reproducibility package and complete current-system documentation |
 
 ### Later: Platform Extensions

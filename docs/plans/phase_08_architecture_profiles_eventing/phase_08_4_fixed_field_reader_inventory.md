@@ -2,9 +2,16 @@
 title: "Phase 8.4 Fixed-Field Compatibility Inventory"
 description: "Tracked owners and removal phases for the remaining cheapest-layer, provider-key, and fixed-slot consumers."
 tags: [architecture, migration, compatibility, management-api, flutter]
-lastUpdated: "2026-07-20"
-version: "1.1"
+lastUpdated: "2026-07-21"
+version: "1.2"
 ---
+
+<!-- SOURCES:
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_4_management_persistence_migration.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
+- Current Optimizer, Management API, Deployer, and Flutter fixed-field consumers
+EXTRACTED: 2026-07-21 | VERSION: 1.2
+-->
 
 # Phase 8.4 Fixed-Field Compatibility Inventory
 
@@ -13,10 +20,11 @@ version: "1.1"
 The inventory remains valid for historical compatibility, but none of the
 listed fixed-field readers may become the execution SSOT for
 `five-layer-baseline@2` or `six-layer-eventing@1`. Phase 8.9 additionally
-isolates legacy Eventing flags, `allowGcpSelfHostedL4`,
-`allowGcpSelfHostedL5`, and the overloaded `entityCount` field. New profiles
-use the versioned complete-service workload and generic assignment/edge
-records.
+isolates the exact retired-field set from the complete-service closure: legacy
+Eventing flags, GCP capability switches, old scene/seat/dashboard inputs, and
+old Eventing/error workload surrogates. New profiles use workload v2, one
+server-resolved `eventingScenarioId`, and generic assignment/edge records; the
+retained `numberOfDeviceTypes` input continues to size distinct L2 processors.
 
 This inventory is the transition contract for the old seven-slot
 `cheapest_l*`, `layer_*_provider`, and Flutter fixed-slot projections. For an

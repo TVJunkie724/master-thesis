@@ -141,6 +141,41 @@ those rows cannot enter scoring or deployment. AWS/Azure L4/L5 are contract-test
 still await final supervised live-cloud E2E evidence. Cross-cloud glue behavior remains
 partly planned. See [Provider Capabilities](../architecture/provider-capabilities.md).
 
+The reviewed but unimplemented Phase 8 successor target closes GCP through a
+provider-hosted composition: BifroMQ/GKE plus Pub/Sub at the device boundary,
+BigQuery for raw history, a bounded Cloud Run/Firestore Twin API, and Grafana
+on GKE. Firestore is deliberately limited to point and one-hop relationship
+queries; arbitrary graph algorithms are not supported. The current Pub/Sub
+acquisition path and retired `google.cloud.iot_v1` feedback template do not
+provide this target today.
+
+The successor target also keeps L3 hot, L4, and L5 provider-local, exposes
+separate raw-history and Twin-context visualization reads, and uses finite
+scheduled storage jobs. Cross-provider online visualization, historical Twin
+graph analysis, Spanner Graph, duplicated Cosmos-plus-ADX storage, dedicated
+Grafana node pools, and storage-specific CDC/outbox/broker pipelines remain
+outside the PoC unless a versioned requirement or failing capacity test
+justifies them.
+
+The planned Azure Twin-context read also remains live-readiness-gated:
+official documentation covers Managed Grafana managed-identity access to ADX
+and the ADT query plugin's caller-token requirement separately, but the exact
+composed workspace-identity path still needs one supervised live proof. The
+offline target remains `live_capacity_pending`; it may not silently fall back
+to an interactive user or static secret.
+
+The GCP BigQuery datasource similarly requires a pre-live-readiness
+`Save & test` and bounded query through the GKE metadata server. The offline
+target remains `live_capacity_pending`. It uses Workload Identity Federation
+for GKE plus least-privilege BigQuery/project-read roles;
+a service-account JSON key is not an accepted fallback.
+
+The separate platform-owned GCP Twin/scene app plugin is not vendor-signed in
+the PoC. Grafana therefore receives one explicit unsigned-plugin allowlist ID
+for the digest-pinned artifact; development mode, additional unsigned IDs,
+runtime plugin download, and UI installation remain disabled. This bounded
+exception is a known provider-hosted GCP risk and must not be generalized.
+
 ### Simulator And Live Data Flow
 
 Simulator/session architecture exists, but selected bugs and provider-specific behavior

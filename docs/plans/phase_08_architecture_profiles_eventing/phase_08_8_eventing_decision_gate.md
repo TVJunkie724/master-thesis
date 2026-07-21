@@ -2,8 +2,8 @@
 title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate"
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
-lastUpdated: "2026-07-20"
-version: "1.9"
+lastUpdated: "2026-07-21"
+version: "1.10"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.9"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-20 | VERSION: 1.9
+EXTRACTED: 2026-07-21 | VERSION: 1.10
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -45,10 +45,10 @@ event-domain bundles, independent Event-Layer bundles, their six directed
 broker bridge routes, and Eventing scenario capacity/cost. It does not prove:
 
 - hot-to-cool or cool-to-archive cross-provider data movement;
-- native/provider-hosted L4/L5 service and datasource bindings;
+- provider-local L3-hot/L4/L5 service and dual datasource/query bindings;
 - complete Core Twin Small/Medium/Large capacity;
 - the predecessor public Function/shared-token runtime safe;
-- complete GCP L4/L5 support.
+- complete provider-hosted GCP online analytics support.
 
 Those concerns are owned by
 [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
