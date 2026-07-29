@@ -1327,16 +1327,22 @@ Eventing decision alone cannot close:
    bridge;
 2. hot/cool/archive data movement uses finite source-owned scheduled jobs and
    direct destination object-store APIs;
-3. visualization has separate synchronous L3-hot-to-L5 raw-history and
-   L4-to-L5 Twin-context reads.
+3. Five-layer v2 visualization uses a provider-local synchronous
+   L3-hot-to-L5 raw-history read, while selected state/model/relationship
+   changes reach an independently placed L4 through `twin_projection.v1`.
 
-The selected complete online analytics bundles are AWS DynamoDB plus IoT
-TwinMaker and Amazon Managed Grafana, Azure Data Explorer plus Azure Digital
-Twins and Azure Managed Grafana, and a provider-hosted GCP bundle using
-BigQuery, a Cloud Run Twin API backed by bounded Firestore collections, and
-Grafana OSS on GKE. GCP therefore becomes a complete
+The selected complete bundles are AWS DynamoDB plus Amazon Managed Grafana
+with IoT TwinMaker independently placeable, Azure Cosmos DB plus Azure Managed
+Grafana with Azure Digital Twins independently placeable, and a
+provider-hosted GCP bundle using BigQuery/Grafana OSS on GKE plus an
+independently placeable Cloud Run Twin API backed by bounded Firestore
+collections. GCP therefore becomes a complete
 single-cloud implementation target for the new profiles without changing the
 historical all-GCP rejection in `five-layer-baseline@1`.
+
+L4-to-L5 Twin context, 3D scenes, and the ADX migration are outside
+Five-layer v2. Six-layer implementation is separately deferred until the
+Five-layer L1-L5 evidence is frozen.
 
 The comparison fixes AWS to `eu-central-1`, Azure to `westeurope`, and GCP to
 `europe-west1`; region selection is outside these profile versions. The new
@@ -1344,20 +1350,21 @@ workload also treats hot, cool, and archive durations as cumulative data-age
 boundaries and prices non-overlapping residence intervals. This corrects the
 new-profile experiment without rewriting historical `@1` results.
 
-`provider(L3_hot) != provider(L4)` or `provider(L4) != provider(L5)` remains
-outside the bounded v1 experiment because each selected visualization depends
-on provider-local datasource, identity, query, and scene components. This
-still permits every provider to send and receive on other resolved edges and
-permits admissible L1/L2/cool/archive/Eventing placements.
+`provider(L3_hot) == provider(L5)` is the only visualization placement
+constraint. L4 remains independently placeable, yielding three single-cloud
+and six `L3-hot == L5 != L4` placements. This keeps the raw datasource local
+while retaining every directed local or cross-cloud Twin-projection path and
+all admissible L1/L2/cool/archive placements.
 
 The PoC does not deploy storage-specific CDC/outbox/broker/permanent-worker
 pipelines, Cosmos beside ADX, Spanner Graph, or a dedicated GCP Grafana node
 pool without a failing capacity test that justifies them.
 
-The workload model now distinguishes Twin entities from 3D scene entities and
-aggregate workspace dashboard queries from monthly Grafana seats. Raw
-telemetry is retained in the provider time-series backend; versioned semantic
-state/graph materialization prevents managed Twin graph APIs from becoming an
-accidental per-message ingestion bottleneck. Full details and current primary
-sources are in
+The workload model distinguishes Twin entities, selected semantic
+materialization rates, aggregate workspace dashboard queries, and monthly
+Grafana seats. Five-layer v2 has no scene/3D workload fields. Raw telemetry is
+retained in the provider hot store; versioned semantic state/graph
+materialization prevents managed Twin graph APIs from becoming an accidental
+per-message ingestion bottleneck. Full details and current primary sources are
+in
 [`phase_08_service_bundle_evaluation.md`](phase_08_service_bundle_evaluation.md).

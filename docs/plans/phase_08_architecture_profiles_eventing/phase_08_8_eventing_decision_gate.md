@@ -2,8 +2,8 @@
 title: "Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate"
 description: "Plan for the shared domain-event contract and evidence-backed embedded/Event-Layer decisions that gate five-layer-baseline@2 and six-layer-eventing@1."
 tags: [architecture, eventing, pricing, capabilities, evidence, thesis, issue-146]
-lastUpdated: "2026-07-21"
-version: "1.10"
+lastUpdated: "2026-07-29"
+version: "1.11"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.10"
 - User-approved functional-completeness-before-cost and curated-provider-bundle boundaries
 - User-approved historical @1, event-enabled five-layer @2, shared domain-event
   behavior, and removal of legacy Eventing flags from both new profiles
-EXTRACTED: 2026-07-21 | VERSION: 1.10
+EXTRACTED: 2026-07-29 | VERSION: 1.11
 -->
 
 # Phase 8.8: Eventing Parity, Functional, Capacity, And Cost Decision Gate
@@ -45,10 +45,11 @@ event-domain bundles, independent Event-Layer bundles, their six directed
 broker bridge routes, and Eventing scenario capacity/cost. It does not prove:
 
 - hot-to-cool or cool-to-archive cross-provider data movement;
-- provider-local L3-hot/L4/L5 service and dual datasource/query bindings;
+- provider-local L3-hot/L5 service, independent L4, raw datasource, and Twin-
+  projection bindings;
 - complete Core Twin Small/Medium/Large capacity;
 - the predecessor public Function/shared-token runtime safe;
-- complete provider-hosted GCP online analytics support.
+- complete provider-hosted GCP L3-hot/L5 and L4 support.
 
 Those concerns are owned by
 [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
@@ -135,7 +136,9 @@ device telemetry
 
 Storage lifecycle transitions remain storage-owned data-plane operations. They
 may emit bounded completion/control events but must not copy object payloads
-through an event broker. L4-to-L5 query/read behavior remains synchronous.
+through an event broker. The successor Five-layer v2 uses a synchronous local
+L3-hot-to-L5 read and an asynchronous `twin_projection.v1` route to L4; it
+does not claim L4-to-L5 behavior.
 Internal wrapper-to-user-function calls may remain in-process when they form
 one cohesive deployment component.
 

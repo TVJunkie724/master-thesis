@@ -149,20 +149,21 @@ queries; arbitrary graph algorithms are not supported. The current Pub/Sub
 acquisition path and retired `google.cloud.iot_v1` feedback template do not
 provide this target today.
 
-The successor target also keeps L3 hot, L4, and L5 provider-local, exposes
-separate raw-history and Twin-context visualization reads, and uses finite
-scheduled storage jobs. Cross-provider online visualization, historical Twin
-graph analysis, Spanner Graph, duplicated Cosmos-plus-ADX storage, dedicated
-Grafana node pools, and storage-specific CDC/outbox/broker pipelines remain
-outside the PoC unless a versioned requirement or failing capacity test
-justifies them.
+The successor target keeps L3 hot and L5 provider-local while allowing L4 to
+use any provider. It exposes one raw-history visualization read and carries
+selected state/model/relationship changes from L3 to L4 through a typed
+projection event. L4-to-L5 Twin context, 3D scenes, cross-provider raw
+visualization, historical Twin graph analysis, Spanner Graph, ADX migration,
+dedicated Grafana node pools, and storage-specific CDC/outbox/broker pipelines
+remain outside Five-layer v2 unless a later versioned requirement justifies
+them.
 
-The planned Azure Twin-context read also remains live-readiness-gated:
-official documentation covers Managed Grafana managed-identity access to ADX
-and the ADT query plugin's caller-token requirement separately, but the exact
-composed workspace-identity path still needs one supervised live proof. The
-offline target remains `live_capacity_pending`; it may not silently fall back
-to an interactive user or static secret.
+Azure retains Cosmos DB for L3 hot. Small and Medium select serverless; Large
+is admissible only after calculated autoscale RU/s, hot-storage minimum,
+20-GB-per-device logical-partition, and partitioned-mover proofs pass. ADX
+would provide stronger native time-series analytics and Managed Grafana
+integration, but selecting it would change a second experimental variable.
+Cosmos reader latency and autoscale behavior remain `live_capacity_pending`.
 
 The GCP BigQuery datasource similarly requires a pre-live-readiness
 `Save & test` and bounded query through the GKE metadata server. The offline
@@ -170,11 +171,12 @@ target remains `live_capacity_pending`. It uses Workload Identity Federation
 for GKE plus least-privilege BigQuery/project-read roles;
 a service-account JSON key is not an accepted fallback.
 
-The separate platform-owned GCP Twin/scene app plugin is not vendor-signed in
-the PoC. Grafana therefore receives one explicit unsigned-plugin allowlist ID
-for the digest-pinned artifact; development mode, additional unsigned IDs,
-runtime plugin download, and UI installation remain disabled. This bounded
-exception is a known provider-hosted GCP risk and must not be generalized.
+GCP Grafana uses a TLS `LoadBalancer` Service restricted to configured source
+CIDRs, generated access credentials, and a deployment-generated certificate
+whose fingerprint is returned as evidence. It deliberately does not add public
+DNS, a public-CA certificate, or IAP. Browser trust of the recorded certificate
+and CIDR reachability remain supervised PoC gates. No custom unsigned
+Twin/scene plugin is selected.
 
 ### Simulator And Live Data Flow
 

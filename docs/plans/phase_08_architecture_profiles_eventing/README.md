@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
-lastUpdated: "2026-07-22"
-version: "2.3"
+lastUpdated: "2026-07-29"
+version: "2.4"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "2.3"
 - docs/plans/resolved_deployment_specification/README.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, and #153
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-07-22 | VERSION: 2.3
+EXTRACTED: 2026-07-29 | VERSION: 2.4
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -23,8 +23,8 @@ EXTRACTED: 2026-07-22 | VERSION: 2.3
 |---|---|
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
-| Planning branch | `codex/phase-8-implementation-plans` |
-| Status | Phases 8.0 through 8.5 and prerequisite #113 implemented and locally reviewed; Phase 8.8 Eventing evidence approved; complete-service closure has two new zero-finding plan reviews and awaits user approval; Phase 8.6 compiler work remains dark |
+| Planning branch | `codex/phase-8-service-bundle-closure` |
+| Status | Phases 8.0 through 8.5 and prerequisite #113 implemented and locally reviewed; Phase 8.8 Eventing evidence approved; Five-layer v2 service closure has two fresh zero-finding reviews and awaits user approval; Phase 8.6 compiler work remains dark; Six-layer planning is deferred |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -79,15 +79,19 @@ complete-service closure
         |
         +--> complete AWS/Azure/provider-hosted-GCP bundles
         +--> finite scheduled storage transition jobs
-        +--> provider-local L3-hot/L4/L5 online analytics bundles
-        +--> typed L3-hot-to-L5 and L4-to-L5 reads
+        +--> provider-local L3-hot/L5 raw-visualization bundles
+        +--> independently placed L4
+        +--> typed L3-hot-to-L5 read and L3-hot-to-L4 projection
         +--> corrected workload and capacity semantics
         |
         v
-five-layer-baseline@2 + six-layer-eventing@1
+five-layer-baseline@2
         |
         v
-reproducible thesis evaluation evidence
+frozen Five-layer evidence
+        |
+        v
+later separately planned six-layer-eventing@1
 ```
 
 ## Fixed Scope Boundary
@@ -140,18 +144,19 @@ component catalog entries still own the exact executable resource mapping.
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Deterministic deployment graph and preflight | #151 |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Compact profile selection and read-only review | #152 |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Approved offline package: shared domain flow, six provider bundles, exact bridge, S/M/L costs, implementation manifest, and two zero-finding reviews | None for offline evidence; #152/#138 still gate 8.9A |
-| Service closure | New issue required before implementation | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) | PoC-focused AWS/Azure/provider-hosted-GCP L1-L5 bundles, provider-local L3-hot/L4/L5 analytics, dual visualization reads, finite storage jobs, corrected workload/capacity semantics, and immutable decision package | User approval; #146 evidence |
-| 8.9A | New implementation issue required before execution | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable `five-layer-baseline@2` with mandatory embedded domain-event behavior and complete service bundles | #138, #146, complete-service decision |
-| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable `six-layer-eventing@1` with the same domain-event behavior and an independent Eventing responsibility | 8.9A, #146 |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Historical `@1` reproduction plus fair `five-layer-baseline@2` versus `six-layer-eventing@1` evaluation | #140 and the 8.9A implementation issue |
+| Service closure / 8.9A plan | New issue required before implementation | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) | Cosmos-preserving Five-layer v2, provider-local L3-hot/L5, independent L4, nine online placements, one raw visualization read, Twin projection, finite storage jobs, workload v2, and immutable decision package | User approval; two fresh zero-finding reviews and #146 evidence complete |
+| 8.9A | New implementation issue required before execution | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) | Executable `five-layer-baseline@2` with mandatory embedded domain-event behavior and complete service bundles | #138, #146, complete-service decision |
+| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Deferred and requires a fresh plan after reviewed 8.9A; the current document is not executable authority | Reviewed 8.9A plus new user-approved Six-layer plan |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Deferred comparative evaluation; Five-layer v2 first produces frozen standalone evidence | Reviewed Six-layer implementation |
 
 Provider implementation work inside one phase may be parallelized only after
 the phase's shared contract is committed. AWS, Azure, and GCP must pass the same
 completion gate before the phase is closed.
 
-Phase 8.9A and 8.9B are separate implementation branches and commit series.
-The shared contract and `five-layer-baseline@2` gates must be committed and
-reviewed before the six-layer implementation begins.
+Phase 8.9A is the only currently planned implementation branch. Its shared
+contract and `five-layer-baseline@2` gates must be committed and reviewed
+before Six-layer is replanned. No 8.9B branch starts from this planning
+package.
 
 Phase 8.8 was completed as an offline evidence activity before Phase 8.6
 runtime activation. This does not reorder implementation dependencies:
@@ -166,7 +171,9 @@ Eventing implementation path until its reviewed evidence is published.
                      ^                                  |
                      |                                  +-> #138 --------+
                     #113                                                 |
-            #146 -> complete-service decision ---------------------------+-> 8.9A -> #140 -> #148 -> #112
+            #146 -> Five-layer service decision -------------------------+-> 8.9A
+                                                                          |
+                                                                          +-> later Six-layer replan -> #140 -> #148 -> #112
 ```
 
 The relationship direction is left-to-right: the issue on the right is blocked

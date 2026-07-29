@@ -132,19 +132,19 @@ boundary and are used for provider API authorization.
 
 ## Planned Successor Profiles — Not Implemented
 
-The reviewed target for `five-layer-baseline@2` and
-`six-layer-eventing@1` does not hide either visualization dependency. It plans
-two typed logical reads:
+The reviewed target for `five-layer-baseline@2` makes the executable raw
+dashboard path and the Twin projection explicit:
 
 ```text
 L3 hot -> L5  raw telemetry/history
-L4     -> L5  Twin context/current state/relationships/scenes
+L3 hot -> L4  selected current state/model/relationships
 ```
 
-For the first profile version, L3 hot, L4, and L5 are one provider-local online
-analytics bundle. L1, L2, L3 cool, L3 archive, and the Six-layer Eventing
-responsibility remain independently placeable. This target is planning only;
-it does not change the current capability matrix.
+For the first profile version, L3 hot and L5 are provider-local while L4 is
+independently placeable. L1, L2, L3 cool, and L3 archive also remain
+independent. L4-to-L5/3D visualization and Six-layer implementation are
+deferred. This target is planning only; it does not change the current
+capability matrix.
 
 The current GCP acquisition path starts at Pub/Sub and the simulator publishes
 to Pub/Sub directly. It is not a complete heterogeneous MQTT device boundary.

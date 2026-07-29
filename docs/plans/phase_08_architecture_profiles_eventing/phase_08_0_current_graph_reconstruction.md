@@ -2,8 +2,8 @@
 title: "Phase 8.0: Current Graph Reconstruction"
 description: "Implementation plan for a code-verified Function-and-Edge Matrix of the currently deployable Twin architecture."
 tags: [architecture, inventory, graph, contracts, evidence, issue-144]
-lastUpdated: "2026-07-21"
-version: "1.4"
+lastUpdated: "2026-07-29"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.4"
 - docs/plans/resolved_deployment_specification/README.md
 - 2-twin2clouds, twin2multicloud_backend, 3-cloud-deployer, and twin2multicloud_flutter current source trees
 - docs/research/digital_twin_architecture_and_eventing_layer.md
-EXTRACTED: 2026-07-21 | VERSION: 1.4
+EXTRACTED: 2026-07-29 | VERSION: 1.5
 -->
 
 # Phase 8.0: Current Graph Reconstruction
@@ -24,10 +24,12 @@ This phase is an immutable inventory of predecessor behavior. Its
 and shared-token evidence are intentionally not edited away. They are resolved
 only for the new executable profiles by
 [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
-That successor does not simply delete the L3 read: it replaces the mismatch
-with separate typed L3-hot-to-L5 raw-history and L4-to-L5 Twin-context edges.
-The inventory finding therefore remains historical evidence and is not an
-unresolved finding in the current Phase 8 target plan.
+That successor makes the implemented L3-hot-to-L5 raw-history read explicit,
+couples L3 hot with L5, and places L4 independently through the typed
+L3-hot-to-L4 `twin_projection.v1` event route. It does not claim L4-to-L5 or
+3D/Twin-context visualization. The inventory finding therefore remains
+historical evidence and is not an unresolved finding in the current Phase 8
+target plan.
 
 ## 0. Metadata
 

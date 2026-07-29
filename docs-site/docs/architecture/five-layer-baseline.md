@@ -2,7 +2,7 @@
 title: "Five-Layer Baseline Target"
 description: "Implementation status and approved target boundaries for five-layer-baseline@1."
 tags: [architecture, baseline, digital-twin, target]
-lastUpdated: "2026-07-21"
+lastUpdated: "2026-07-29"
 ---
 
 # Five-Layer Baseline Target
@@ -55,18 +55,30 @@ includes rule, action, workflow, notification, command, and outcome behavior
 inside the existing owners. It removes the Eventing feature flags and adds no
 sixth responsibility.
 
-Unlike the historical `@1` target, v2 models both visualization dependencies:
+Unlike the historical `@1` target, v2 makes the predecessor's executable raw
+dashboard path explicit and uses the mandatory embedded domain-event path for
+Twin projection:
 
 ```text
 L3 hot -> L5  raw telemetry/history
-L4     -> L5  Twin context/current state/relationships/scenes
+L3 hot -> L4  selected current state/model/relationships
 ```
 
-Its first implementation version co-locates L3 hot, L4, and L5 as one AWS,
-Azure, or provider-hosted GCP online analytics bundle. L1, L2, L3 cool, and L3
-archive remain independently placeable. The v2 target is reviewed planning and
-is not selectable until the complete-service evidence and implementation gates
-pass.
+Its first implementation version requires
+`provider(L3_hot) == provider(L5)` and places L4 independently. This yields
+three single-cloud and six `L3-hot == L5 != L4` placements. A remote
+L3-hot-to-L4 projection uses the reviewed short-lived cross-cloud event bridge;
+a local projection creates no bridge.
+
+L4-to-L5 Twin-context and 3D-scene visualization are not claimed by v2. They
+require a later versioned capability decision. Azure keeps Cosmos DB for L3
+hot: Small and Medium use serverless, while Large must pass a calculated
+autoscale RU/storage/partition proof. ADX remains an analytics-focused rejected
+alternative rather than an implicit migration.
+
+L1, L2, L3 cool, and L3 archive remain independently placeable. The v2 target
+is reviewed planning and is not selectable until the complete-service evidence
+and implementation gates pass.
 
 The three storage-duration inputs are cumulative age boundaries in v2: hot
 `[0,H)`, cool `[H,C)`, archive `[C,A)`, then expiry, with

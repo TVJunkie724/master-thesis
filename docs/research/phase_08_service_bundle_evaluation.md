@@ -1,9 +1,9 @@
 ---
-title: "Phase 8 Complete Twin Service-Bundle Evaluation"
-description: "PoC-focused functional, compatibility, identity, and capacity evaluation for five-layer-baseline@2 and six-layer-eventing@1."
+title: "Phase 8 Five-Layer v2 Service-Bundle Evaluation"
+description: "PoC-focused functional, placement, identity, and capacity evaluation for five-layer-baseline@2."
 tags: [architecture, digital-twin, eventing, multicloud, services, capacity, phase-8]
-lastUpdated: "2026-07-21"
-version: "1.2"
+lastUpdated: "2026-07-29"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -11,21 +11,24 @@ version: "1.2"
 - Current Optimizer workload presets and calculation semantics
 - Current Deployer Terraform/provider/runtime implementation
 - Primary AWS, Microsoft Azure, Google Cloud, and Grafana documentation linked below
-- User-approved functionality-first PoC rule and Small/Medium/Large evaluation
-EXTRACTED: 2026-07-21 | VERSION: 1.2
+- User-approved functionality-first PoC rule, L3-hot/L5 placement experiment,
+  Azure Cosmos DB continuity, and Small/Medium/Large evaluation
+EXTRACTED: 2026-07-29 | VERSION: 1.4
 -->
 
-# Phase 8 Complete Twin Service-Bundle Evaluation
+# Phase 8 Five-Layer v2 Service-Bundle Evaluation
 
 ## Evaluation Question
 
-Select one implementable service bundle per provider for two functionally
-aligned architecture profiles:
+Select one implementable service bundle per provider for
+`five-layer-baseline@2`: five scientific responsibilities with mandatory
+domain-event behavior embedded in their owners.
 
-- `five-layer-baseline@2`: five scientific responsibilities with mandatory
-  domain-event behavior embedded in their owners;
-- `six-layer-eventing@1`: the same L1-L5 behavior and workloads, with the same
-  domain-event contract owned by an independent Eventing responsibility.
+The current decision deliberately stops before selecting or implementing
+`six-layer-eventing@1`. When that profile is resumed, it must inherit the
+reviewed Five-layer v2 L1-L5 services, workload, and placement rules unchanged
+and receive a separate service/ownership review for its independent Eventing
+responsibility.
 
 The proof of concept is not a cost-minimization exercise. A service is selected
 when it closes the required function and has a credible theoretical
@@ -52,23 +55,25 @@ member in its fixed region and fail closed rather than substitute a region.
 |---|---|---|---|
 | L1 acquisition | IoT Core and IoT Commands | IoT Hub | BifroMQ `4.0.0-incubating` on GKE Standard, load balancer, ordered MQTT-to-Pub/Sub adapter |
 | L2 processing | Lambda and Step Functions Standard | Functions Flex Consumption and Logic Apps Consumption | Cloud Run and Workflows |
-| L3 hot/raw history | DynamoDB on-demand with a window-shard GSI | Azure Data Explorer with `stored_at` | BigQuery partitioned on `stored_at` and clustered by device ID |
+| L3 hot/raw history | DynamoDB on-demand with a window-shard GSI | Cosmos DB for NoSQL with `/device_id`, bounded time queries, and scenario-selected serverless/autoscale capacity | BigQuery partitioned on `stored_at` and clustered by device ID |
 | L3 cool | S3 Standard-IA | Blob Cool | Cloud Storage Nearline |
 | L3 archive | S3 Glacier Deep Archive | Blob Archive | Cloud Storage Archive |
-| L4 semantic Twin | IoT TwinMaker Standard pricing plan with Lambda external-data connector | Azure Digital Twins | Cloud Run Twin API/materializer with Firestore Native |
-| L5 visualization | Amazon Managed Grafana 12 with TwinMaker plugin/scene viewer | Azure Managed Grafana 12 with ADX datasource plus ADT context; 3D Scenes viewer when needed | One Grafana OSS 12 pod on GKE with Persistent Disk PVC, paid BigQuery Marketplace datasource, and minimal Twin API/scene panel |
+| L4 semantic Twin | IoT TwinMaker Standard pricing plan | Azure Digital Twins | Cloud Run Twin API/materializer with Firestore Native |
+| L5 visualization | Amazon Managed Grafana 12 with a provider-local typed raw-history reader datasource | Azure Managed Grafana 12 with the supported JSON API datasource and a provider-local Cosmos reader | One Grafana OSS 12 pod on GKE with Persistent Disk PVC and signed BigQuery datasource `3.2.0` |
 
 The selected GCP bundle is provider-hosted. It does not claim that Google
 offers a managed Digital Twin equivalent to TwinMaker or ADT. The implementation
 and cost model therefore include the Twin API, Firestore schema/indexes,
-Grafana deployment, plugin/panel, images, identity, logging, upgrades, and
+Grafana deployment, signed BigQuery plugin, image, identity, logging, upgrades, and
 cleanup.
 
 TwinMaker Standard is selected for Small, Medium, and Large because the Basic
 plan does not provide the required knowledge graph. Tiered bundles add a
 commitment/selection variable without adding PoC functionality, so they are
-not candidates. Standard-plan entities, data-access calls, queries, connector,
-scenes, and Grafana are all priced.
+not candidates. Standard-plan entities and queries are priced. A TwinMaker
+external-history connector and scene viewer are not mandatory Five-layer v2
+components because L5 reads raw history from its provider-local L3 hot bundle,
+not through L4.
 
 ### Profile Lifecycle
 
@@ -76,67 +81,79 @@ scenes, and Grafana are all priced.
 |---|---|---|
 | `five-layer-baseline@1` | Historical paper-compatible reference | Immutable; read, reproduce, verify, and destroy only |
 | `five-layer-baseline@2` | New five-responsibility control with mandatory embedded events | Implement first; offline activation only after complete-service gates |
-| `six-layer-eventing@1` | Treatment profile with an independent Event Layer | Branch from reviewed `@2`; activate only after its own gates |
+| `six-layer-eventing@1` | Later treatment profile with an independent Event Layer | Deferred; no implementation or activation decision in this evaluation |
 
 No implementation silently repairs `@1`. Its current public
 Function/shared-token boundary and L3/Grafana mismatch remain historical debt,
 not a target implementation.
 
-## Why The Online Analytics Bundle Is Co-Located
+## Why L3 Hot And L5 Are Coupled But L4 Is Independent
 
-The corrected common contract exposes two distinct visualization dependencies:
+The Five-layer v2 execution baseline exposes one mandatory visualization
+dependency and one independent Twin projection:
 
 ```text
 L3 hot -> L5: raw telemetry and historical aggregates
-L4     -> L5: Twin model, current state, relationships, and scenes
+L3 hot -> L4: selected current-state/model/relationship projections
 ```
 
-Direct L3 visualization is therefore not an architectural error. The error in
-the predecessor was that the Optimizer modeled only L4-to-L5 while the Deployer
-bound Grafana to L3 without a corresponding contract or cost edge.
+Direct L3 visualization is made explicit because it is the behavior the
+predecessor actually deploys for AWS and Azure. The predecessor error was not
+that Grafana read L3; it was that the Optimizer priced L4-to-L5 while the
+Deployer bound Grafana to L3 without a matching contract or cost edge.
 
-For v1, both profiles enforce:
+Five-layer v2 enforces:
 
 ```text
-provider(L3_hot) == provider(L4) == provider(L5)
+provider(L3_hot) == provider(L5)
+provider(L4) is independent
 ```
 
-This yields three reviewed online bundles. It avoids claiming twelve unproven
-cross-provider datasource paths: six directed L3-to-L5 combinations and six
-directed L4-to-L5 combinations. Managed Grafana plugin installation,
-short-lived cross-cloud authentication, query semantics, and 3D assets differ
-by provider; treating all pairings as interchangeable would be a separate
-integration study.
+This yields nine reviewed placements: three single-cloud
+`L3-hot == L4 == L5` cases and six deliberate
+`L3-hot == L5 != L4` cases. The raw dashboard path remains provider-local and
+therefore needs only three datasource implementations. The L4 placement
+experiment is carried by the typed `twin_projection.v1` edge. A remote
+projection reuses the approved short-lived six-direction domain-event bridge;
+a same-provider projection uses the local broker/trigger binding and creates
+no bridge.
 
-The restriction does not turn the profiles into single-cloud architectures.
-L1, L2, L3 cool, L3 archive, and the Six-layer Eventing responsibility remain
-independently assignable. Three complete single-cloud cases and all otherwise
-admissible mixed cases remain in Phase 8.10.
+L4-to-L5 Twin-context and 3D-scene visualization are not part of the common
+Five-layer v2 baseline. Adding them would reintroduce six independent
+cross-provider Grafana/Twin query integrations and would be a separate
+versioned capability experiment. `five-layer-baseline@1` remains the immutable
+paper-compatible reference with its historical L4-to-L5 target; v2 is
+explicitly the executable predecessor-compatible comparison profile. This
+deviation is reported as a construct-validity limitation, not hidden.
 
-The provider-local query identities are part of each bundle: Amazon Managed
-Grafana uses a workspace role for TwinMaker/S3; Azure Managed Grafana uses its
-managed identity with ADX Viewer and Azure Digital Twins Data Reader; GKE
-Grafana uses Workload Identity for GKE with dataset-scoped BigQuery Data
-Viewer, project-scoped BigQuery Job User, a custom role containing only
-`resourcemanager.projects.get`, and exact Cloud Run Invoker. Connector and
-Twin API runtimes use separate least-privilege identities. No cloud key or
-anonymous query endpoint is selected.
+The provider-local query identities are part of each bundle. AWS and Azure
+retain a typed read-only hot-reader API because their selected operational
+NoSQL stores do not provide a suitable secretless core datasource in the
+selected managed Grafana tier. Each datasource receives one generated,
+deployment-scoped, read-only credential stored only in Grafana secure
+datasource configuration and the provider endpoint; it is never a shared
+cross-cloud token, contract value, tfvars value, log field, or repository
+secret. GCP Grafana uses Workload Identity for GKE with dataset-scoped BigQuery
+Data Viewer, project-scoped BigQuery Job User, and the minimum project-read
+permission required by the plugin.
 
-The Azure identity composition remains an explicit live gate. Microsoft
-documents Managed Grafana managed-identity access to ADX and separately states
-that the ADX ADT-query plugin uses the caller's Entra token. The plan infers
-that the workspace identity can be that caller, but activation requires one
-supervised ADX query that reaches ADT with the workspace identity. A failure
-rejects/reopens the bundle rather than introducing an interactive user token
-or static client secret.
+The local reader credential is a conscious PoC compromise. Cross-cloud
+`twin_projection.v1` routes remain secretless and use the approved workload
+identity exchanges. Anonymous reader endpoints, the legacy
+`INTER_CLOUD_TOKEN`, one credential shared by deployments, and any
+L4-to-L5 fallback are forbidden.
 
-Azure 3D Scenes is a separate, intentionally user-scoped path rather than an
-ADT-query fallback. If `needs3DModel=true`, the private scene container uses
-the documented Studio CORS allowlist and viewer users/groups receive Azure
-Digital Twins Data Reader plus container-scoped Storage Blob Data Reader.
-Scene editing is not a PoC requirement, so no Blob Contributor/Owner role is
-granted. Preview status and interactive Entra sign-in remain visible
-limitations.
+The selected concrete path is deliberately small: AWS uses its hot-reader
+Lambda Function URL with a generated `X-Twin-Reader-Key` whose hash is stored
+by Lambda; Azure uses a Functions Flex HTTP route with a deployment-scoped
+Function key. The `marcusolsson-json-datasource` plugin stores those values
+only as secure header data. Both endpoints accept exactly one device, metric,
+bounded time range, aggregation bucket, result limit, and opaque continuation
+cursor. Raw queries are capped at 24 hours, aggregates at 31 days, and every
+response at 1,000 points/ten seconds. GCP needs no reader Function: its signed
+BigQuery datasource uses declarative, partition-filtered query templates with
+equivalent bounds. The AWS/Azure routes remain authenticated
+internet-reachable PoC read boundaries; private networking is not implied.
 
 For GCP, the BigQuery and Cloud Resource Manager APIs are enabled. The plugin
 uses authentication type `gce`; the Grafana pod is constrained to a Standard
@@ -158,47 +175,59 @@ The selected AWS path is the smallest change from the existing target:
 IoT Core -> Lambda/Step Functions -> DynamoDB
                                   -> S3 Standard-IA -> Glacier Deep Archive
 
-DynamoDB -- TwinMaker Lambda connector --+
-TwinMaker entity/component/scene APIs ----+-> Managed Grafana
+DynamoDB -- typed local raw-history reader --> Managed Grafana
+selected state/model projections -----------> TwinMaker
 ```
 
-TwinMaker explicitly supports Lambda data connectors for external stores such
-as DynamoDB. The TwinMaker Grafana plugin supplies a datasource and scene
-viewer. Raw data stays in L3; the connector does not imply one TwinMaker graph
-write per telemetry message.
-
-Selected supporting components are the connector Lambda, TwinMaker workspace
-and entities, S3 scene assets, Grafana workspace, plugin, datasource, IAM role,
-and Grafana 12 service-account automation. A separate AWS raw-query gateway or
-second Grafana datasource is not required.
+The typed reader preserves the current raw-dashboard responsibility and adds
+bounded query, pagination, correlation, and non-anonymous authorization.
+TwinMaker holds current semantic state and relationships but is not in the
+mandatory Grafana query path. Selected supporting components are the reader
+Lambda/API boundary, TwinMaker workspace/entities, Grafana workspace,
+datasource, reader credential, IAM roles, and Grafana 12 automation. Scene
+assets and the TwinMaker Grafana plugin are outside this profile version.
 
 ### Azure
 
-The earlier bundle used both Cosmos DB and ADX for online data. That duplicated
-storage for the PoC without a functional requirement. The corrected bundle is:
+The predecessor and Five-layer v2 use Cosmos DB as the Azure L3 hot store:
 
 ```text
-IoT Hub -> ADX raw time-series tables -> Managed Grafana
-             + ADT query context
-
-selected state/model changes -> ADT -> 3D Scenes/current Twin context
+IoT Hub -> Functions -> Cosmos DB -> typed local reader -> Managed Grafana
+                         |
+                         +-> selected state/model projection -> ADT
 ```
 
-ADX is the L3 hot time-series store and Grafana datasource. ADT owns the L4
-current graph and state. The ADX Azure Digital Twins query plugin can combine
-Twin context with time series. Optional 3D Scenes reads the ADT model and scene
-assets. Cosmos DB is not selected.
+Cosmos DB keeps the original operational NoSQL data model, existing
+writer/reader path, and comparable DynamoDB/Cosmos/BigQuery cost contrast. ADT
+owns current graph/state independently. The Cosmos container uses
+`/device_id`; hot-reader requests must include a bounded device/time range and
+route to that partition. The index includes only the query and lifecycle
+fields required by the profile.
 
-ADT data history through a dedicated Event Hub is not enabled by default.
-The common contract requires raw telemetry history and current Twin context,
-not a complete historical log of every graph mutation. If graph-history
-analysis becomes a research requirement, it is added as a versioned optional
-capability with its Event Hub and ADX tables priced explicitly.
+ADX was explicitly reconsidered. Its advantages are high-volume near-real-time
+time-series analytics, KQL, queued ingestion, and a native Managed Grafana
+datasource with managed identity. Those advantages would matter for an
+analytics-focused profile. They are not required by this baseline's bounded
+raw-history dashboard and would change the storage service, query language,
+ingestion path, and capacity model at the same time as the L4 placement
+experiment. ADX is therefore rejected for Five-layer v2, not declared
+inferior. A later analytics profile may compare Cosmos and ADX directly.
 
-This separation also answers why Azure still uses both Event Hubs and Service
-Bus in the independent Event Layer: ADX is the L3 database; Event Hubs is the
-retained high-volume Event-Layer stream; Service Bus is the ordered control,
-action, notification, and command queue. They serve different contracts.
+Serverless Cosmos is not claimed to sustain every scenario. Small and Medium
+use serverless. Large uses autoscale provisioned throughput, with maximum
+RU/s rounded to the next 1,000 above the greater of:
+
+```text
+peak writer RU/s + bounded dashboard RU/s + mover RU/s
+hot logical storage GiB * Azure minimum autoscale RU/s per GiB
+```
+
+with a floor of 1,000 maximum RU/s before rounding. The immutable decision
+package must calculate write/query RU from the
+canonical serialized document and recorded request-charge evidence. It must
+also prove each `/device_id` logical partition remains below the published
+20-GB limit. If the calculated capacity or partition proof fails, Azure Large
+is rejected; the implementation must not silently substitute ADX.
 
 ### GCP
 
@@ -214,7 +243,6 @@ device <-> BifroMQ on GKE <-> ordered adapter <-> Pub/Sub
 selected state/model changes -> Cloud Run Twin API -> Firestore
 
 Grafana on GKE -> BigQuery datasource
-               -> Twin API/scene datasource-panel
 ```
 
 BifroMQ is the MQTT device boundary. Pub/Sub is the durable cloud backbone; it
@@ -225,26 +253,15 @@ addition.
 BigQuery is selected for L3 hot because it supports streaming writes and the
 official Grafana datasource. Firestore is selected for L4 because the PoC
 query set is bounded to Twin/model lookup, current state, direct relationships,
-scene bindings, and idempotent materialization. Documents and indexed
-relationship collections are sufficient for 30,000 Twin entities and one-hop
-queries.
+and idempotent materialization. Documents and indexed relationship collections
+are sufficient for 30,000 Twin entities and one-hop queries.
 
 The frozen document model uses `models/{model_id}`, `twins/{twin_id}`,
 `twins/{twin_id}/sources/{source_id}`, `relationships/{relationship_id}`, and
-`scene_bindings/{twin_id}`. Only `(from_id, type)` and `(to_id, type)` composite
+no scene collection. Only `(from_id, type)` and `(to_id, type)` composite
 relationship indexes are required. Per-source state stores the last accepted
 event ID/sequence and updates transactionally, avoiding an unbounded global
 idempotency collection.
-
-Scene behavior is conditional and bounded across providers. With
-`needs3DModel=false`, no scene resource is created. When true, the PoC requires
-GLB assets, stable node-to-Twin bindings, and current-value overlays, not a
-scene editor. For GCP, the authenticated browser calls a Grafana
-backend-plugin resource route; that backend invokes the Cloud Run Twin API
-under the Grafana workload identity, and the Twin API streams the exact Cloud
-Storage asset using its own identity. No public bucket, signed URL, or separate
-gateway is selected. The 100-MiB Large asset and overlay refresh remain live
-latency/memory gates.
 
 Spanner Graph is rejected. It would add an Enterprise database and graph
 capacity model for graph algorithms and traversal requirements the PoC does
@@ -252,7 +269,7 @@ not have. The decision must be reopened if arbitrary multi-hop traversal or
 graph analytics becomes mandatory.
 
 Grafana runs on the BifroMQ GKE cluster when that cluster already exists.
-Otherwise the GCP online bundle creates one GKE Standard cluster. Grafana and
+Otherwise the GCP L3-hot/L5 bundle creates one GKE Standard cluster. Grafana and
 BifroMQ remain separate deployments/namespaces. Grafana uses one pod with
 scenario-derived CPU/RAM and a ReadWriteOnce Persistent Disk PVC for its
 minimal SQLite state; dashboards/datasources are provisioned declaratively. A
@@ -268,23 +285,23 @@ and Persistent Disk are priced.
 The BigQuery datasource uses `Google Metadata Server` authentication backed by
 Workload Identity for GKE. The plugin's separately named Workload Identity
 Federation mode is Grafana-Cloud-only and is not selected. No service-account
-JSON key is generated. Version `3.2.0` is a paid Marketplace plugin; its
-entitlement/license is frozen and priced as a fixed GCP L5 component instead of
-being hidden behind the open-source Grafana runtime. The signed self-hosted
-artifact and entitlement are mandatory activation evidence. If they are not
-obtainable, the all-GCP target fails closed and the datasource decision must be
-reopened; no unsigned or unlicensed BigQuery-plugin binary is accepted.
+JSON key is generated. Version `3.2.0` is the reviewed Grafana-maintained
+release. Current Grafana documentation does not identify it as an
+Enterprise-only datasource, so the plan assigns no invented plugin-license
+fee. The signed self-hosted artifact, version, digest, and applicable license
+notice are mandatory activation evidence. If the artifact is not obtainable,
+the all-GCP target fails closed and the datasource decision must be reopened;
+no unsigned or unverified BigQuery-plugin binary is accepted.
 
-The platform-owned Twin API/scene app plugin is different from that commercial
-datasource. Grafana does not load unsigned plugins by default. For this PoC,
-the reviewed custom artifact has the fixed ID
-`twin2multicloud-twin-app`, is copied into the content-addressed Grafana image,
-and is the only ID in `allow_loading_unsigned_plugins`. Development mode,
-general unsigned loading, runtime download, and UI plugin installation are
-disabled; a modified signed plugin is not accepted. This is a visible
-provider-hosted GCP risk and live-readiness gate, not a claim equivalent to a
-managed vendor plugin. A later version may replace the exact exception with a
-private signature.
+The GCP L5 path has no custom Twin/scene plugin because L4-to-L5 is outside the
+profile. Grafana is exposed through one GKE `LoadBalancer` Service with TLS
+terminated by Grafana, a deployment-generated certificate stored only in a
+Kubernetes Secret, generated Grafana credentials, and an explicit
+`loadBalancerSourceRanges` allowlist. The fixed-IP endpoint and certificate
+fingerprint are returned as deployment evidence. A public unrestricted
+service, plaintext HTTP, wildcard CIDR, or secret in a contract is rejected.
+The self-signed certificate and CIDR-scoped researcher access are explicit PoC
+limitations; a public DNS/certificate/IAP control plane is not added.
 
 ## Event Inventory And Profile Ownership
 
@@ -358,7 +375,7 @@ provider source and object-store adapters:
 | Source | Scheduled finite runtime | Hot source |
 |---|---|---|
 | AWS | EventBridge Scheduler starts an ECS/Fargate task; ECR stores the image | DynamoDB bounded time-window query |
-| Azure | Scheduled Container Apps Job; ACR Basic stores the image | ADX bounded time-window query/export |
+| Azure | Scheduled Container Apps Job; ACR Basic stores the image | Cosmos DB partition-key/time-window query/export |
 | GCP | Cloud Scheduler starts a Cloud Run Job; Artifact Registry stores the image | BigQuery bounded partition query/export |
 
 One content-addressed registry support component is reused by all selected
@@ -366,7 +383,7 @@ container images in a provider deployment and priced once. A provider with no
 selected platform-owned container receives no registry. It is supporting
 deployment infrastructure, not another scientific responsibility.
 
-For both new profiles, the three existing duration inputs are cumulative data
+For Five-layer v2, the three existing duration inputs are cumulative data
 age boundaries measured from provider-assigned `stored_at`: hot `[0,H)`, cool
 `[H,C)`, archive `[C,A)`, then expiry. Historical `@1` retains its frozen
 calculation and non-strict validation; workload v2 requires
@@ -387,8 +404,13 @@ checksum for the same key fails visibly. A late device event receives a later
 
 The source query is not an unbounded scan. AWS derives a `stored_at`
 window-shard GSI count from the scenario and prices its writes/storage/reads;
-ADX filters its typed `stored_at` column; BigQuery prunes its `stored_at`
-partition. Device ID remains the operational ordering/lookup dimension.
+Azure assigns the sorted deployment device IDs deterministically across finite
+tasks and queries each `/device_id` partition for the exact `stored_at`
+window; BigQuery prunes its `stored_at` partition. A Cosmos job task processes
+at most 1,000 device partitions and at most 512 MiB of canonical source input.
+The task count is the larger of the device-count and byte-size calculations,
+so the Large Azure path initially uses at least 30 tasks instead of hiding a
+cross-partition full scan.
 
 At age `C`, same-provider cool-to-archive uses the provider's native lifecycle
 rule, configured as `C-H` after cool-object creation. For a different archive
@@ -440,8 +462,6 @@ comparison.
 | Cool boundary `C` | 3 months | 3 months | 3 months |
 | Archive/expiry boundary `A` | 12 months | 12 months | 12 months |
 | Twin entities | 100 | 4,000 | 30,000 |
-| 3D scene entities | 0 | 0 | 1,200 |
-| Total 3D scene asset size | 0 MiB | 0 MiB | 100 MiB |
 | Aggregate dashboard refreshes/hour | 12 | 60 | 120 |
 | API calls/aggregate refresh | 1 | 10 | 100 |
 | Dashboard active hours/day | 1 | 4 | 8 |
@@ -450,11 +470,10 @@ comparison.
 | Twin-state materializations/s | 0.1 | 2.5 | 50 |
 | Twin graph/model updates/s | 0.01 | 0.1 | 1 |
 
-Dashboard refreshes are workspace-wide, not per seat. Twin entities and scene
-entities remain separate. The 1,200 Large scene entities are node/Twin
-bindings inside the 100-MiB aggregate GLB asset set, not 1,200 separate
-100-MiB files. State materializations and graph/model updates are synthetic
-capacity inputs; they are not inferred from every raw message.
+Dashboard refreshes are workspace-wide, not per seat. State materializations
+and graph/model updates are synthetic capacity inputs; they are not inferred
+from every raw message. Five-layer v2 has no scene workload fields because it
+does not claim L4-to-L5 or 3D visualization.
 
 ### Domain-Event Scenarios
 
@@ -474,8 +493,8 @@ digest-checks the canonical `eventing-workload.v1` object; neither Flutter nor
 the caller submits an editable copy. This is intentional PoC scope: that
 immutable schema marks each row as a bounded synthetic scenario. A future
 custom Eventing workload requires a new runtime-contract version instead of
-mislabeling edited values as frozen evidence. Both profiles always receive the
-same selected Eventing snapshot.
+mislabeling edited values as frozen evidence. A later Six-layer plan must reuse
+the same selected Eventing snapshot rather than define a second workload.
 
 ## Theoretical Capacity Evaluation
 
@@ -498,19 +517,23 @@ partition, bridge, and failure behavior remains pending.
 
 ### Azure
 
-- ADX is initialized with `Standard_E8ads_v5` capacity 2 for Small/Medium and
-  capacity 4 for Large. Queued ingestion is used where the scenario exceeds
-  the documented streaming-ingestion guidance.
+- Cosmos DB serverless covers the bounded Small and Medium write/query rates
+  subject to the published per-partition serverless ceiling. Large uses
+  autoscale provisioned throughput derived from measured RU/write,
+  bounded-reader/mover RU, and the storage-driven autoscale minimum.
+- `/device_id` distributes the 30,000-device workload. The decision package
+  proves the maximum canonical bytes per device over the one-month hot window
+  remain below 20 GB and rejects the scenario otherwise.
 - ADT's published Twin and query limits cover 30,000 entities and 3.3333
-  aggregate queries/s. Only 50 current-state materializations/s and one
-  graph/model update/s reach the semantic store in Large.
+  management queries/s. Only 50 current-state materializations/s and one
+  graph/model update/s reach the semantic store in Large; dashboard queries do
+  not pass through ADT.
 - Managed Grafana uses Standard X1 for Small/Medium and X2 for Large.
-- The optional 100-MiB Large scene asset remains within the reviewed 3D Scenes
-  guidance, but preview/product behavior remains a visible risk.
 - Event capacity remains governed by Phase 8.8 Event Hubs/Service Bus evidence.
 
-Decision: theoretically admissible for all sizes with ADX query/ingestion and
-3D behavior pending supervised evidence.
+Decision: theoretically admissible for all sizes only if the immutable Cosmos
+RU/partition calculator passes. Reader latency, autoscale behavior, and the
+partitioned Large export remain supervised live gates.
 
 ### GCP
 
@@ -524,13 +547,14 @@ Decision: theoretically admissible for all sizes with ADX query/ingestion and
   package.
 - Grafana uses one pod on the selected/shared GKE cluster, one incremental
   `e2-standard-4` node for Small/Medium or `e2-standard-8` for Large, and the
-  priced Persistent Disk PVC. An isolation-only node pool, shared database,
-  and multi-replica HA are not assumed.
+  priced Persistent Disk PVC and external load balancer. An isolation-only
+  node pool, shared database, public DNS/certificate service, and multi-replica
+  HA are not assumed.
 - Workload Identity for GKE supplies short-lived metadata credentials to both
   BigQuery and the Twin API path.
 
-Decision: theoretically admissible after the bounded Twin API and Grafana
-plugin/panel are implemented; live BifroMQ, BigQuery, Firestore, GKE, and
+Decision: theoretically admissible after the bounded Twin API and signed
+BigQuery datasource are implemented; live BifroMQ, BigQuery, Firestore, GKE, and
 failure behavior remains pending.
 
 ### Storage Jobs
@@ -542,6 +566,10 @@ Small, one for Medium, and three deterministic source partitions for Large,
 with at most 512 MiB input per task. A 64-MiB uncompressed object target yields
 approximately nineteen Large objects per window.
 
+For Azure Cosmos, the additional maximum of 1,000 device partitions per task
+raises the initial Large parallelism to at least 30 tasks. AWS and GCP retain
+the byte-derived three-task starting point.
+
 The calculation is reproducible, but source-query speed, compression,
 cross-cloud latency, and recovery time are live gates. A failure re-runs the
 same finite batch within the frozen 24-hour retry horizon; it does not justify
@@ -551,21 +579,22 @@ charges, lifecycle requests, stage transfer, and remote egress.
 
 ## Single-Cloud And Multicloud Result Space
 
-Both profiles must evaluate:
+Five-layer v2 must evaluate:
 
 - all AWS, all Azure, and all GCP;
-- every admissible L1/L2/online-bundle/cool/archive assignment;
-- for Six-layer, every admissible independent Event provider assignment;
+- every admissible L1/L2/L3-hot-plus-L5/L4/cool/archive assignment;
+- all nine L3-hot/L4/L5 placements, including the three single-cloud and six
+  `L3-hot == L5 != L4` cases;
 - all six directed domain-event bridges when a resolved event edge is remote;
 - all six directed hot-to-cool routes and all six directed cool-to-archive
   routes, sharing six trust directions;
 - same-provider no-bridge/no-cross-cloud-copy behavior while retaining the
   local hot export job and native cool-to-archive lifecycle;
-- every rejected online-analytics split with a stable reason.
+- every rejected `L3-hot != L5` split with a stable reason.
 
-The online bundle reduces the factorial space but does not predetermine a
-provider as sender or receiver. Direction remains a property of each resolved
-edge.
+The L3-hot/L5 bundle reduces only the raw-datasource space. L4 remains an
+independent sender/receiver target, so the six remote Twin-projection
+directions remain observable and costed.
 
 ## Rejected Alternatives
 
@@ -574,32 +603,36 @@ edge.
 | Keep public Function URLs and `INTER_CLOUD_TOKEN` | Static shared secret and mismatch with the workload-identity contract |
 | Treat Eventing proof as storage/query proof | Different payloads, APIs, permissions, acknowledgement, capacity, and cost |
 | Remove L3-to-L5 and force all telemetry through L4 | Hides raw-data ownership, overloads the semantic store, and contradicts provider visualization capabilities |
-| Allow L3/L4/L5 independent providers in v1 | Requires twelve unproven managed-Grafana datasource/authentication paths and changes the experiment |
-| Keep Cosmos DB beside ADX | Duplicates Azure online telemetry storage without a selected functional need |
+| Require L3/L4/L5 co-location | Removes the deliberate L4 placement variable and hides the six cross-cloud Twin-projection routes |
+| Allow L3 hot and L5 to differ | Requires six extra cross-cloud Grafana datasource/authentication paths unrelated to the selected L4 placement experiment |
+| Replace Cosmos DB with ADX in Five-layer v2 | ADX is stronger for high-volume interactive time-series analytics and native managed-identity Grafana, but the baseline does not require those capabilities; replacing the implemented operational store would change a second experimental variable |
+| Keep Cosmos DB serverless for Large | The published ceiling and lack of predictable throughput cannot justify the 5,000-write/s scenario; Large must use calculated autoscale or fail admission |
 | Keep Spanner Graph for GCP | Adds Enterprise graph infrastructure without a multi-hop graph requirement |
 | Give GCP Grafana a dedicated node pool by default | Adds capacity before a test demonstrates isolation is necessary |
 | Use Grafana JSON/Infinity as a universal cross-cloud adapter | No single reviewed secretless automation path across the selected managed/self-hosted Grafana environments |
 | Use Grafana BigQuery `workloadIdentityFederation` mode on GKE | That named mode is Grafana-Cloud-only; self-hosted GKE uses metadata-server authentication |
-| Enable Grafana development mode or generally allow unsigned plugins | Broader code-loading authority is unnecessary; the PoC permits only the digest-pinned `twin2multicloud-twin-app` ID |
+| Enable Grafana development mode or generally allow unsigned plugins | Broader code-loading authority is unnecessary; the PoC installs only the signed, version- and digest-pinned BigQuery datasource |
 | Implement storage with CDC, dedicated outboxes/brokers, and permanent workers | Production-scale complexity without a PoC requirement or failing test |
-| Use ADT data history for every raw message | Couples raw telemetry rate to semantic graph/history machinery |
-| Reuse `entityCount`/`average3DModelSizeInMB` beside v2 Twin/scene fields | Creates two conflicting capacity and cost sources; legacy fields remain historical-only |
+| Add L4-to-L5 and 3D scenes to the base | Changes the predecessor-compatible visualization contract and introduces six additional cross-cloud query integrations; requires a later profile version |
+| Retain `needs3DModel`, `sceneEntityCount`, `totalSceneAssetSizeMiB`, or `average3DModelSizeInMB` in Five-layer v2 | Claims a scene path the profile does not implement; the fields remain historical-only until a later visualization-capability version |
 | Reuse legacy dashboard, seat, Eventing, or error-handling inputs beside workload v2 and the selected Eventing scenario | Creates duplicate request-rate and capacity sources; new profiles reject the retired inputs while historical `@1` remains reproducible |
 | Let callers edit the immutable `eventing-workload.v1` evidence object inline | Its schema identifies bounded S/M/L synthetic scenarios; v1 accepts only a server-resolved scenario reference and reserves custom workloads for a new contract version |
 
 ## Offline Activation And Live-Readiness Gates
 
-No new profile activates offline until all of the following pass:
+Five-layer v2 does not activate offline until all of the following pass:
 
 1. immutable complete-provider bundle, workload, route, and component manifests;
 2. exact Eventing scenario reference/digest resolution plus formulas and
    ownership for every selected service;
-3. both visualization edges for all three online bundles;
+3. the provider-local L3-hot-to-L5 visualization edge for all three bundles
+   and stable rejection of L3-hot/L5 splits;
 4. all six domain-event routes, six storage trust directions, and twelve
    storage stage routes;
 5. same-provider route elision;
 6. minimal storage duplicate/failure/recovery tests;
-7. Small/Medium/Large deterministic calculations for both scenario families;
+7. Small/Medium/Large deterministic calculations for the core and referenced
+   embedded-event scenario, including Cosmos RU/partition proofs;
 8. OrbStack-backed cross-stack and Terraform no-apply/mock-plan gates;
 9. historical/Eventing digest-stability, docs, links, and secret scans;
 10. two new zero-finding reviews.
@@ -612,9 +645,6 @@ cleanup require separately approved supervised evidence.
 
 ### AWS
 
-- [AWS IoT TwinMaker data connectors](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/data-connector-interface.html)
-- [TwinMaker time-series connector flow](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/time-series-data-connectors.html)
-- [TwinMaker Grafana integration](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/grafana-integration.html)
 - [AWS IoT TwinMaker quotas](https://docs.aws.amazon.com/general/latest/gr/iot-twinmaker.html)
 - [AWS IoT TwinMaker pricing plans](https://aws.amazon.com/iot-twinmaker/pricing/)
 - [DynamoDB on-demand capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html)
@@ -625,12 +655,13 @@ cleanup require separately approved supervised evidence.
 
 ### Azure
 
-- [ADX ingestion from IoT Hub](https://learn.microsoft.com/en-us/azure/data-explorer/ingest-data-iot-hub-overview)
+- [Cosmos DB request units](https://learn.microsoft.com/en-us/azure/cosmos-db/request-units)
+- [Cosmos DB serverless performance](https://learn.microsoft.com/en-us/azure/cosmos-db/serverless-performance)
+- [Cosmos DB limits and autoscale minimums](https://learn.microsoft.com/en-us/azure/cosmos-db/concepts-limits)
+- [Cosmos DB partitioning](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning)
 - [Azure Digital Twins service limits](https://learn.microsoft.com/en-us/azure/digital-twins/reference-service-limits)
-- [Azure Digital Twins query plugin for ADX](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-data-explorer-plugin)
-- [Visualize ADX data with Grafana](https://learn.microsoft.com/en-us/azure/data-explorer/grafana)
-- [Managed Grafana data sources and managed identity](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-data-source-plugins-managed-identity)
-- [Azure Digital Twins 3D Scenes Studio](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-3d-scenes-studio)
+- [Azure Managed Grafana supported data sources](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-data-source-plugins-managed-identity)
+- [Azure Data Explorer overview](https://learn.microsoft.com/en-us/azure/data-explorer/data-explorer-overview)
 - [Azure Container Apps jobs](https://learn.microsoft.com/en-us/azure/container-apps/jobs)
 - [Azure Blob lifecycle management](https://learn.microsoft.com/en-us/azure/storage/blobs/lifecycle-management-policy-configure)
 - [Microsoft Entra workload identity federation](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-create-trust)
@@ -645,6 +676,7 @@ cleanup require separately approved supervised evidence.
 - [Cloud Storage lifecycle management](https://cloud.google.com/storage/docs/lifecycle)
 - [External workload identities](https://cloud.google.com/iam/docs/workload-identities)
 - [Grafana BigQuery datasource configuration](https://grafana.com/docs/plugins/grafana-bigquery-datasource/latest/configure/)
+- [Grafana JSON API datasource status](https://grafana.com/grafana/plugins/marcusolsson-json-datasource/)
 - [Grafana plugin signatures](https://grafana.com/docs/grafana/latest/administration/plugin-management/plugin-sign/)
 - [Grafana `allow_loading_unsigned_plugins` configuration](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#allow_loading_unsigned_plugins)
 

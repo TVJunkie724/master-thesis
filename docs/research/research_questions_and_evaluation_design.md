@@ -652,27 +652,30 @@ version/license, compute, identity, persistence, networking, operations,
 capacity, deployment, cleanup, and cost ownership are explicit. Absence of a
 single managed product is not itself a functional rejection.
 
-Two scenario families remain distinct and are paired by size for the final
-comparison:
+Two scenario families remain distinct. Five-layer v2 freezes its standalone
+evidence first; a later separately approved Six-layer plan may pair the same
+scenario snapshots by size for the final comparison:
 
 - Core Twin scenarios determine device telemetry, storage retention, Twin and
-  scene entities, semantic update bounds, and aggregate dashboard queries;
+  semantic update bounds, and aggregate raw-history dashboard queries;
 - Eventing scenarios determine canonical event volume, payload, fan-out,
   delivery, ordering, retry, replay, bridge, and concurrent-device bounds.
 
 Runtime requests select one immutable `eventingScenarioId`; Management resolves
-and digest-checks the canonical Phase 8.8 object. The fair comparison supplies
-the same scenario ID and workload digest to both new profiles. Inline custom
-Eventing values require a later contract version and are not mislabeled as
-frozen v1 evidence.
+and digest-checks the canonical Phase 8.8 object. Five-layer v2 persists the
+selected scenario ID and workload digest. A later fair comparison must reuse
+those exact values rather than recalculate the baseline. Inline custom Eventing
+values require a later contract version and are not mislabeled as frozen v1
+evidence.
 
 The Eventing bridge and storage-transition job are separate evaluated
-components. Three provider-local L3-hot/L4/L5 online analytics bundles are
-admissible; every unequal online assignment remains an explicit negative
-candidate. This keeps the result space bounded while still evaluating all
-three single-cloud providers and mixed L1/L2/cool/archive/Eventing
-assignments. The L5 contract measures raw-history reads from L3 hot separately
-from Twin-context reads from L4.
+components. Three provider-local L3-hot/L5 raw-visualization bundles combine
+with three independent L4 providers, yielding three single-cloud and six
+`L3-hot == L5 != L4` placements. Every `L3-hot != L5` assignment remains an
+explicit negative candidate. The L5 contract measures only bounded raw-
+history reads from L3 hot; selected state/model/relationship changes reach L4
+through `twin_projection.v1`. L4-to-L5 Twin context and 3D scenes are outside
+Five-layer v2 and require a later versioned capability decision.
 
 ## Scope Decisions
 

@@ -1,9 +1,9 @@
 ---
-title: "Phase 8.9: Implement The Event-Enabled Comparison Profiles"
-description: "Implementation plan for five-layer-baseline@2 and six-layer-eventing@1 using one approved domain-event contract and separate architecture ownership."
+title: "Phase 8.9B: Deferred Six-Layer Eventing Implementation Draft"
+description: "Suspended historical draft that must be rewritten after the reviewed five-layer-baseline@2 implementation."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-07-22"
-version: "1.9"
+lastUpdated: "2026-07-29"
+version: "1.10"
 ---
 
 <!-- SOURCES:
@@ -13,12 +13,34 @@ version: "1.9"
 - docs/research/digital_twin_architecture_and_eventing_layer.md
 - Existing resolved-deployment-specification, DeploymentManifest, provider, Terraform, and Flutter extension points
 - User-approved bounded six-layer profile with no arbitrary graph editor
-- User-approved event-enabled five-layer @2 comparison profile, shared
-  domain-event behavior, and separate 8.9A/8.9B implementation boundaries
-EXTRACTED: 2026-07-22 | VERSION: 1.9
+- User decision to plan and implement Five-layer v2 first and defer Six-layer
+  until the committed Five-layer baseline can be inherited without
+  reinterpretation
+EXTRACTED: 2026-07-29 | VERSION: 1.10
 -->
 
-# Phase 8.9: Implement The Event-Enabled Comparison Profiles
+# Phase 8.9B: Deferred Six-Layer Eventing Implementation Draft
+
+## Suspension Notice
+
+**Do not implement from this document.**
+
+The service matrix, L3-hot/L4/L5 co-location rule, dual visualization paths,
+ADX selection, scene requirements, workload fields, tests, and Definition of
+Done below describe the superseded pre-2026-07-29 comparison-profile draft.
+They remain visible only as planning provenance.
+
+The current executable Five-layer v2 authority is
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md). It
+keeps Azure Cosmos DB, requires `provider(L3_hot) == provider(L5)`, places L4
+independently, implements `L3 hot -> L5` raw visualization and
+`L3 hot -> L4` Twin projection, and excludes L4-to-L5/3D behavior.
+
+After Five-layer v2 is implemented, reviewed, and committed, this file must be
+rewritten from the committed L1-L5 contract. Only then may a separately
+approved 8.9B branch add the independent Eventing responsibility. Until that
+gate, every unchecked item and implementation instruction below is
+non-authoritative and #140 remains blocked.
 
 ## 0. Metadata
 

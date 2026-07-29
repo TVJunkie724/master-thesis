@@ -1,9 +1,9 @@
 ---
-title: "Phase 8.10: Evaluation Evidence And Final Documentation"
-description: "Implementation plan for reproducible profile evaluation evidence and complete current-system documentation without editing LaTeX."
+title: "Phase 8.10: Deferred Comparative Evaluation And Final Documentation"
+description: "Suspended comparative plan to be revised after Five-layer v2 and the later Six-layer profile are implemented."
 tags: [architecture, evaluation, reproducibility, documentation, thesis, issue-148]
-lastUpdated: "2026-07-21"
-version: "1.6"
+lastUpdated: "2026-07-29"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -14,12 +14,29 @@ version: "1.6"
 - Completed Phase 8.0-8.9 contracts, evidence, and verification outputs
 - docs-site current user, operator, developer, setup, architecture, and contract documentation
 - User-approved separation between product documentation, research evidence, and LaTeX
-- User-approved historical @1 reproduction and fair five-layer @2 versus
-  six-layer comparison boundary
-EXTRACTED: 2026-07-21 | VERSION: 1.6
+- User decision to freeze Five-layer v2 evidence before separately planning
+  the Six-layer comparison
+EXTRACTED: 2026-07-29 | VERSION: 1.7
 -->
 
-# Phase 8.10: Evaluation Evidence And Final Documentation
+# Phase 8.10: Deferred Comparative Evaluation And Final Documentation
+
+## Suspension Notice
+
+**Do not execute this comparative plan yet.**
+
+Its pre-2026-07-29 references to co-located L3-hot/L4/L5 bundles, dual
+visualization reads, ADX, scenes, and already-approved Six-layer behavior are
+superseded planning provenance. Five-layer v2 first produces immutable
+standalone evidence under
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md):
+three single-cloud placements, six `L3-hot == L5 != L4` placements, other
+admissible mixed paths, raw visualization, Twin projection, Cosmos capacity,
+provider-hosted GCP, costs, and explicit rejections.
+
+After Six-layer is separately planned and implemented from that committed
+L1-L5 baseline, this file must be rewritten for the fair comparison. Until
+then #148 remains blocked and the instructions below are non-authoritative.
 
 ## 0. Metadata
 

@@ -2,8 +2,8 @@
 title: "Phase 8.1: Harden And Freeze five-layer-baseline@1"
 description: "Decision plan for the explicit, paper-compatible five-layer baseline retained as immutable historical evidence."
 tags: [architecture, baseline, five-layer, decisions, thesis, issue-139]
-lastUpdated: "2026-07-21"
-version: "1.4"
+lastUpdated: "2026-07-29"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.4"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/plans/resolved_deployment_specification/README.md
 - EDTConf CloudDT paper and predecessor implementation provenance retained in the repository
-EXTRACTED: 2026-07-21 | VERSION: 1.4
+EXTRACTED: 2026-07-29 | VERSION: 1.5
 -->
 
 # Phase 8.1: Harden And Freeze `five-layer-baseline@1`
@@ -453,5 +453,7 @@ same Phase 8.0 inventory or a newer verified inventory.
 - `five-layer-baseline@1` is historical evidence. Its semantics must not be
   edited to obtain functional parity with Eventing; that role belongs to
   `five-layer-baseline@2`. The v2 successor adds mandatory embedded domain
-  events and separate typed L3-hot-to-L5 raw-history and L4-to-L5 Twin-context
-  edges through the complete-service decision; those are not `@1` changes.
+  events, an explicit provider-local L3-hot-to-L5 raw-history edge, and an
+  independently placed L4 reached through `twin_projection.v1`. It does not
+  claim L4-to-L5 or 3D/Twin-context visualization; those are v2 decisions and
+  do not change the immutable `@1` L4-to-L5 target evidence.

@@ -105,18 +105,19 @@ binding. GCP maps the supported L1-L3 subset and remains unsupported for a
 complete baseline because L4/L5 are absent.
 
 The reviewed successor contracts are not active yet. Phase 8.9A plans
-`five-layer-baseline@2` with mandatory embedded domain events and three
-provider-local `L3 hot + L4 + L5` online analytics bundles. Each bundle exposes
-an L3-hot-to-L5 raw-history edge and a separate L4-to-L5 Twin-context edge.
-Phase 8.9B then adds `six-layer-eventing@1` with identical L1-L5 behavior and
-an independent Eventing responsibility. Neither profile is selectable until
-its complete-service decision, RDS v2/Manifest v4, implementation, and offline
-activation gates pass.
+`five-layer-baseline@2` with mandatory embedded domain events, three
+provider-local `L3 hot + L5` raw-visualization bundles, and an independently
+assigned L4. It exposes an L3-hot-to-L5 raw-history edge and an
+L3-hot-to-L4 `twin_projection.v1` edge; L4-to-L5/3D is outside the version.
+Six-layer planning is deferred until this L1-L5 contract is implemented and
+reviewed. No new profile is selectable until its complete-service decision,
+RDS v2/Manifest v4, implementation, and offline activation gates pass.
 
-Both planned profiles require the same server-resolved S/M/L Eventing scenario
-reference. Clients will submit only `eventingScenarioId`; Management will pin
-the immutable scenario digest/snapshot. Inline Eventing values and historical
-feature switches are not part of the successor request contract.
+Five-layer v2 requires one server-resolved S/M/L Eventing scenario reference.
+Clients will submit only `eventingScenarioId`; Management will pin the
+immutable scenario digest/snapshot. A later Six-layer plan must reuse the same
+reference semantics. Inline Eventing values and historical feature switches
+are not part of the successor request contract.
 
 The catalog binds `processor.telemetry@1` inside the processing responsibility
 to the reviewed Python 3.11 provider adapters. Its catalog-completeness

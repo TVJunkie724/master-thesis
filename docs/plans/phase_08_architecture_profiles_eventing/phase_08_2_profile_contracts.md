@@ -2,8 +2,8 @@
 title: "Phase 8.2: Versioned Architecture Profile Contracts"
 description: "Implementation plan for shared closed-world architecture, provider implementation, component catalog, and resolved architecture contracts."
 tags: [architecture, contracts, json-schema, versioning, drift-gate, issue-149]
-lastUpdated: "2026-07-21"
-version: "1.3"
+lastUpdated: "2026-07-29"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.3"
 - contracts/resolved-deployment-specification
 - Existing cross-project contract synchronization and drift-gate patterns
 - User-approved ArchitectureProfile, ProviderImplementationProfile, DeploymentComponentCatalog, and ResolvedTwinArchitecture model
-EXTRACTED: 2026-07-21 | VERSION: 1.3
+EXTRACTED: 2026-07-29 | VERSION: 1.4
 -->
 
 # Phase 8.2: Versioned Architecture Profile Contracts
@@ -40,7 +40,8 @@ error codes, and drift gates are mandatory.
 The v1 contracts and `five-layer-baseline@1` fixtures remain byte-stable
 historical readers. They do not make the provider mappings executable.
 `five-layer-baseline@2`, the complete-provider bundle decision, workload v2,
-the provider-local online analytics rule, the two typed visualization edges,
+the provider-local L3-hot/L5 rule, independent L4 assignment, typed raw-
+visualization and Twin-projection edges,
 RDS v2, and Manifest v4 are additive versioned records owned by the
 complete-service closure and Phase 8.9. Unknown or cross-version combinations
 continue to fail closed; no v1 record is widened or rewritten.

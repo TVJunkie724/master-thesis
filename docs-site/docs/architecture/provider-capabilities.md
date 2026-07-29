@@ -51,21 +51,23 @@ supervised live-cloud E2E gate.
 
 The following target is reviewed planning, not current runtime capability:
 
-| Provider | L1 target | L3-hot/L4/L5 online analytics target | Status |
-|---|---|---|---|
-| AWS | IoT Core and IoT Commands | DynamoDB + IoT TwinMaker + Amazon Managed Grafana | planned, not selectable |
-| Azure | IoT Hub | Azure Data Explorer + Azure Digital Twins + Azure Managed Grafana | planned, not selectable |
-| GCP | BifroMQ on GKE + Pub/Sub | BigQuery + Cloud Run/Firestore Twin API + one Grafana pod/Persistent Disk on GKE with paid BigQuery plugin | planned, not selectable |
+| Provider | L1 target | L3-hot/L5 target | Independent L4 target | Status |
+|---|---|---|---|---|
+| AWS | IoT Core and IoT Commands | DynamoDB + typed local reader + Amazon Managed Grafana | IoT TwinMaker | planned, not selectable |
+| Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | planned, not selectable |
+| GCP | BifroMQ on GKE + Pub/Sub | BigQuery + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed BigQuery plugin `3.2.0` | Cloud Run/Firestore Twin API | planned, not selectable |
 
-Both `five-layer-baseline@2` and `six-layer-eventing@1` use the same L1-L5
-target. The Six-layer profile adds an independent Eventing responsibility; it
-does not add GCP's BifroMQ boundary only to that profile.
+`five-layer-baseline@2` is the only currently planned implementation. A later
+Six-layer plan must inherit its committed L1-L5 target unchanged; it does not
+add GCP's BifroMQ boundary only to that profile.
 
-The first target version keeps `provider(L3_hot) == provider(L4) ==
-provider(L5)` and models separate raw-history and Twin-context visualization
-reads. Cosmos DB beside ADX, Spanner Graph, a default dedicated Grafana node
-pool, and storage-specific CDC/outbox/broker pipelines are not selected for the
-PoC. None of these planning decisions changes a row above to `available`.
+The first target version keeps
+`provider(L3_hot) == provider(L5)` and places L4 independently. It models
+raw-history visualization from L3 hot and selected Twin projection from L3 hot
+to L4. L4-to-L5/3D visualization, ADX migration, Spanner Graph, a default
+dedicated Grafana node pool, and storage-specific CDC/outbox/broker pipelines
+are not selected for the PoC. None of these planning decisions changes a row
+above to `available`.
 
 ## Contract Semantics
 

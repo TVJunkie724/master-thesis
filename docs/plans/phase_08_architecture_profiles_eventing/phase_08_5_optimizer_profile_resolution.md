@@ -2,8 +2,8 @@
 title: "Phase 8.5: Optimizer Profile Resolution"
 description: "Implementation plan for profile-bounded functional-completeness resolution before cost ranking."
 tags: [architecture, optimizer, functional-completeness, strategy, cost, issue-151]
-lastUpdated: "2026-07-21"
-version: "1.3"
+lastUpdated: "2026-07-29"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.3"
 - Phase 8.3 provider implementation profiles and component catalog
 - Phase 8.4 Management API ingestion and persistence contract
 - Current Optimizer strategy, formula, pricing evidence, transfer-path, and resolved-deployment-specification implementations
-EXTRACTED: 2026-07-21 | VERSION: 1.3
+EXTRACTED: 2026-07-29 | VERSION: 1.4
 -->
 
 # Phase 8.5: Optimizer Profile Resolution
@@ -39,8 +39,9 @@ The completed resolver is generic default-off infrastructure and historical
 `@1` reproduction evidence. A priceable seven-slot candidate is not a complete
 new-profile architecture. Repository-backed activation requires the immutable
 complete-service decision, workload v2, corrected cross-cloud storage routes,
-provider-local L3-hot/L4/L5 online analytics bundles, separate raw-history and
-Twin-context query edges, and their capacity/cost contracts.
+provider-local L3-hot/L5 raw-visualization bundles, independent L4 placement,
+raw-history query and Twin-projection edges, and their capacity/cost
+contracts.
 Phase 8.6 does not satisfy these requirements by compiling the old catalog.
 
 ## 1. Outcome

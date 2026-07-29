@@ -2,8 +2,8 @@
 title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
-lastUpdated: "2026-07-21"
-version: "1.4"
+lastUpdated: "2026-07-29"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.4"
 - twin2multicloud_flutter/lib/services/management_api.dart
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
-EXTRACTED: 2026-07-21 | VERSION: 1.4
+EXTRACTED: 2026-07-29 | VERSION: 1.5
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -58,8 +58,8 @@ complete optimizer run, and reviews the immutable resolved components and
 bindings. The UI is not an infrastructure editor.
 
 Initially only implemented active profiles are returned. Do not render
-`six-layer-eventing@1` as disabled or "coming soon" before Phase 8.9 makes it
-real.
+`six-layer-eventing@1` as disabled or "coming soon" before its later,
+separately approved implementation makes it real.
 
 ### Corrective Activation Boundary
 
@@ -68,11 +68,13 @@ read/verify/destroy only. Therefore Phase 8.7 must fully implement and test the
 typed workflow while accepting that the live Management API can return zero
 active selectable profiles. Contract/widget fixtures may exercise populated
 states, but DemoManagementApi must not advertise a fake active profile.
-`five-layer-baseline@2` is first published by Phase 8.9A; six-layer follows in
-8.9B. Provider availability comes from the complete-service decision and must
+`five-layer-baseline@2` is first published by Phase 8.9A. Six-layer may follow
+only after a new post-8.9A plan. Provider availability comes from the
+complete-service decision and must
 represent AWS, Azure, provider-hosted GCP, mixed L1/L2/cool/archive
-placements, the independent Six-layer Eventing placement, and the
-provider-local L3-hot/L4/L5 online analytics constraint precisely.
+placements, the provider-local L3-hot/L5 constraint, and the independent L4
+placement precisely. Six-layer controls remain deferred until a later
+server-activated profile version.
 
 ### Scope Boundary
 
@@ -581,8 +583,9 @@ twin2multicloud_flutter/test/fixtures/architecture/
 
 `DemoManagementApi` must implement every `ArchitectureApi` method and mutate
 selection/revision/invalidation exactly like the live contract. It may show only
-implemented profiles; before Phase 8.9 that means the required no-active-profile
-state. Populated contract fixtures are test-only. Tests must fail if demo/live
+implemented profiles; before Phase 8.9A that means the required
+no-active-profile state.
+Populated contract fixtures are test-only. Tests must fail if demo/live
 interface methods or contract versions drift.
 
 ## 16. Implementation Slices
@@ -692,7 +695,7 @@ Edge:
 - keyboard-only flow;
 - light/dark contrast and focus;
 - single profile;
-- multiple active profiles after Phase 8.9;
+- multiple active profiles after a later Six-layer activation;
 - no graph overlap/blank pixels at supported sizes.
 
 ### Integration
@@ -707,7 +710,7 @@ Use the real Docker Management API:
 
 Unit tests may mock `ArchitectureApi`; integration tests may not mock HTTP.
 The first active-profile selection, complete-run, deployment-unlock, and real
-destructive profile-change integration cases belong to Phase 8.9. Phase 8.7
+destructive profile-change integration cases belong to Phase 8.9A. Phase 8.7
 must not expose an inactive or fake profile merely to exercise those paths.
 Extend `run_frontend_integration_tests()` in `thesis.sh` so the resolved host
 device runs `integration_test/architecture_profile_workflow_test.dart` after
