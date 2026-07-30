@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
-lastUpdated: "2026-07-29"
-version: "2.4"
+lastUpdated: "2026-07-30"
+version: "2.5"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "2.4"
 - docs/plans/resolved_deployment_specification/README.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, and #153
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-07-29 | VERSION: 2.4
+EXTRACTED: 2026-07-30 | VERSION: 2.5
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -144,7 +144,7 @@ component catalog entries still own the exact executable resource mapping.
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Deterministic deployment graph and preflight | #151 |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Compact profile selection and read-only review | #152 |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Approved offline package: shared domain flow, six provider bundles, exact bridge, S/M/L costs, implementation manifest, and two zero-finding reviews | None for offline evidence; #152/#138 still gate 8.9A |
-| Service closure / 8.9A plan | New issue required before implementation | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) | Cosmos-preserving Five-layer v2, provider-local L3-hot/L5, independent L4, nine online placements, one raw visualization read, Twin projection, finite storage jobs, workload v2, and immutable decision package | User approval; two fresh zero-finding reviews and #146 evidence complete |
+| Service closure / 8.9A plan | New issue required before implementation | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) | Cosmos-/Firestore-L3-preserving Five-layer v2, provider-local L3-hot/L5, independent L4, nine online placements, one bounded raw/rollup visualization read, Twin projection, finite storage jobs, workload v2, and immutable decision package | User approval; two fresh zero-finding reviews and #146 evidence complete |
 | 8.9A | New implementation issue required before execution | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) | Executable `five-layer-baseline@2` with mandatory embedded domain-event behavior and complete service bundles | #138, #146, complete-service decision |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Deferred and requires a fresh plan after reviewed 8.9A; the current document is not executable authority | Reviewed 8.9A plus new user-approved Six-layer plan |
 | 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Deferred comparative evaluation; Five-layer v2 first produces frozen standalone evidence | Reviewed Six-layer implementation |

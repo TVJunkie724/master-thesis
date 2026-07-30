@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
-lastUpdated: "2026-07-29"
-version: "3.4"
+lastUpdated: "2026-07-30"
+version: "3.5"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "3.4"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-29 | VERSION: 3.4
+EXTRACTED: 2026-07-30 | VERSION: 3.5
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -108,8 +108,12 @@ assumptions, the predecessor public Function/shared-token mechanism, conflated
 Twin/scene entity counts, and complete GCP support. User review then removed unneeded
 CDC/outbox/permanent-worker storage machinery, Spanner Graph, the default
 dedicated Grafana node pool, mandatory L4-to-L5/3D visualization, and the ADX
-migration. The corrected target keeps Cosmos DB, uses finite scheduled storage
-jobs, couples L3 hot with L5, and places L4 independently. It freezes
+migration. A follow-up correction also retains Firestore Native as GCP L3 hot
+instead of changing the existing storage model to BigQuery merely for its
+Grafana datasource; GCP Grafana now uses a typed Cloud Run reader and signed
+Infinity datasource. The corrected target keeps Cosmos DB and Firestore L3,
+uses finite scheduled storage jobs, couples L3 hot with L5, and places L4
+independently. It freezes
 `eu-central-1`/`westeurope`/`europe-west1`, uses
 cumulative hot/cool/archive boundaries with non-overlapping cost intervals,
 excludes L4-to-L5/3D paths from v2, and fails closed on unproven datasource

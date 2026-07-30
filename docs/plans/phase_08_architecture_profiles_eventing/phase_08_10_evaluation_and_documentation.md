@@ -2,8 +2,8 @@
 title: "Phase 8.10: Deferred Comparative Evaluation And Final Documentation"
 description: "Suspended comparative plan to be revised after Five-layer v2 and the later Six-layer profile are implemented."
 tags: [architecture, evaluation, reproducibility, documentation, thesis, issue-148]
-lastUpdated: "2026-07-29"
-version: "1.7"
+lastUpdated: "2026-07-30"
+version: "1.8"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.7"
 - User-approved separation between product documentation, research evidence, and LaTeX
 - User decision to freeze Five-layer v2 evidence before separately planning
   the Six-layer comparison
-EXTRACTED: 2026-07-29 | VERSION: 1.7
+EXTRACTED: 2026-07-30 | VERSION: 1.8
 -->
 
 # Phase 8.10: Deferred Comparative Evaluation And Final Documentation
@@ -61,8 +61,8 @@ The evaluation composes the immutable Eventing decision with
 `phase-08-complete-service-bundles@1`. It must include the complete AWS,
 Azure, and provider-hosted GCP L1-L5 bundles, all six directed Eventing bridge
 routes, all six directed routes at each of the two storage transitions, and
-the three co-located L3-hot/L4/L5 online analytics bundles with both
-visualization reads. It must
+the three single-cloud plus six `L3-hot == L5 != L4` placements with the
+provider-local raw-history read and typed Twin-projection edge. It must
 not reuse Event-domain capacity evidence as proof of
 complete-Twin capacity. Historical `@1` keeps its all-GCP negative result; both
 new profiles require an all-GCP positive result after implementation.
@@ -196,7 +196,8 @@ The scenario index must include:
    applied identically to `five-layer-baseline@2` and
    `six-layer-eventing@1`;
 3. `core-small-v2`, `core-medium-v2`, and `core-large-v2`, including separate
-   Twin entity, scene entity, graph/state update, and aggregate dashboard
+   Twin entity, selected state materialization, graph/model update, and
+   aggregate dashboard
    dimensions, fixed cumulative storage boundaries `H=1`, `C=3`, `A=12`
    months, five-minute batches, 24-hour transition retry, and 48-hour source
    grace;
@@ -360,7 +361,7 @@ For every scenario/profile:
 - federated selected total;
 - provider allocation per responsibility/component;
 - service, edge, transfer, source-owned transition-adapter/cross-cloud-bridge,
-  online-analytics supporting bundle, both visualization reads, fixed,
+  L3-hot/L5 supporting bundle, raw-history read, Twin-projection edge, fixed,
   variable, and minimum-capacity
   contributions;
 - non-overlapping workload-v2 storage residence (`H`, `C-H`, `A-C`), source

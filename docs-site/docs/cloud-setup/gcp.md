@@ -39,8 +39,10 @@ remain limited. Final policy completeness requires supervised project-level evid
 
 The reviewed Phase 8 successor plan is not implemented by this setup. It adds
 BifroMQ on GKE as the MQTT/command device boundary while retaining Pub/Sub as
-the durable cloud backbone, BigQuery as L3 hot history, a bounded
-Cloud Run/Firestore Twin API as L4, and Grafana on GKE as L5. The current
+the durable cloud backbone, Firestore Native Standard edition with timestamp
+shards as L3 hot history, a typed Cloud Run reader, a bounded Cloud Run Twin
+API backed by a separate Firestore database as L4, and Grafana on GKE as L5.
+The current
 Pub/Sub-direct simulator and retired `google.cloud.iot_v1` feedback template
-do not prove that target. Spanner Graph and a dedicated Grafana node pool are
-not part of the PoC target.
+do not prove that target. BigQuery, Spanner Graph, and a dedicated Grafana node
+pool are not part of the PoC target.

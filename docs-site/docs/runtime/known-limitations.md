@@ -143,11 +143,13 @@ partly planned. See [Provider Capabilities](../architecture/provider-capabilitie
 
 The reviewed but unimplemented Phase 8 successor target closes GCP through a
 provider-hosted composition: BifroMQ/GKE plus Pub/Sub at the device boundary,
-BigQuery for raw history, a bounded Cloud Run/Firestore Twin API, and Grafana
-on GKE. Firestore is deliberately limited to point and one-hop relationship
-queries; arbitrary graph algorithms are not supported. The current Pub/Sub
-acquisition path and retired `google.cloud.iot_v1` feedback template do not
-provide this target today.
+Firestore Native Standard edition for raw history, a typed Cloud Run reader, a
+bounded Cloud Run Twin API backed by a separate Firestore database, and Grafana
+on GKE.
+Firestore L3 uses scenario-derived timestamp shards; Firestore L4 is
+deliberately limited to point and one-hop relationship queries. Arbitrary graph
+algorithms are not supported. The current Pub/Sub acquisition path and retired
+`google.cloud.iot_v1` feedback template do not provide this target today.
 
 The successor target keeps L3 hot and L5 provider-local while allowing L4 to
 use any provider. It exposes one raw-history visualization read and carries
@@ -165,11 +167,18 @@ would provide stronger native time-series analytics and Managed Grafana
 integration, but selecting it would change a second experimental variable.
 Cosmos reader latency and autoscale behavior remain `live_capacity_pending`.
 
-The GCP BigQuery datasource similarly requires a pre-live-readiness
-`Save & test` and bounded query through the GKE metadata server. The offline
-target remains `live_capacity_pending`. It uses Workload Identity Federation
-for GKE plus least-privilege BigQuery/project-read roles;
-a service-account JSON key is not an accepted fallback.
+The GCP Infinity datasource similarly requires a pre-live-readiness
+`Save & test` plus bounded raw and hourly-rollup queries through the typed
+Cloud Run reader. The offline target remains `live_capacity_pending`. The
+reader has access only to the named L3 Firestore database; the Grafana pod
+receives no Firestore role or service-account JSON key.
+
+AWS and Azure currently use the Grafana JSON API datasource only as a
+time-bounded PoC dependency. Grafana has deprecated it and ends support on
+2027-02-01. The planned implementation therefore freezes and rechecks the
+managed-provider catalog/support evidence and rejects the affected bundle on
+absence, incompatibility, or support expiry; it does not silently change
+storage or datasource technology.
 
 GCP Grafana uses a TLS `LoadBalancer` Service restricted to configured source
 CIDRs, generated access credentials, and a deployment-generated certificate

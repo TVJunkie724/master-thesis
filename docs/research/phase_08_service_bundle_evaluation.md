@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle Evaluation"
 description: "PoC-focused functional, placement, identity, and capacity evaluation for five-layer-baseline@2."
 tags: [architecture, digital-twin, eventing, multicloud, services, capacity, phase-8]
-lastUpdated: "2026-07-29"
-version: "1.4"
+lastUpdated: "2026-07-30"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -12,8 +12,9 @@ version: "1.4"
 - Current Deployer Terraform/provider/runtime implementation
 - Primary AWS, Microsoft Azure, Google Cloud, and Grafana documentation linked below
 - User-approved functionality-first PoC rule, L3-hot/L5 placement experiment,
-  Azure Cosmos DB continuity, and Small/Medium/Large evaluation
-EXTRACTED: 2026-07-29 | VERSION: 1.4
+  Azure Cosmos DB and GCP Firestore L3 continuity, and Small/Medium/Large
+  evaluation
+EXTRACTED: 2026-07-30 | VERSION: 1.6
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle Evaluation
@@ -55,17 +56,17 @@ member in its fixed region and fail closed rather than substitute a region.
 |---|---|---|---|
 | L1 acquisition | IoT Core and IoT Commands | IoT Hub | BifroMQ `4.0.0-incubating` on GKE Standard, load balancer, ordered MQTT-to-Pub/Sub adapter |
 | L2 processing | Lambda and Step Functions Standard | Functions Flex Consumption and Logic Apps Consumption | Cloud Run and Workflows |
-| L3 hot/raw history | DynamoDB on-demand with a window-shard GSI | Cosmos DB for NoSQL with `/device_id`, bounded time queries, and scenario-selected serverless/autoscale capacity | BigQuery partitioned on `stored_at` and clustered by device ID |
+| L3 hot/raw history | DynamoDB on-demand with a window-shard GSI | Cosmos DB for NoSQL with `/device_id`, bounded time queries, and scenario-selected serverless/autoscale capacity | Firestore Native Standard edition with scattered event IDs, scenario-derived timestamp shards, bounded time queries, and selective indexes |
 | L3 cool | S3 Standard-IA | Blob Cool | Cloud Storage Nearline |
 | L3 archive | S3 Glacier Deep Archive | Blob Archive | Cloud Storage Archive |
-| L4 semantic Twin | IoT TwinMaker Standard pricing plan | Azure Digital Twins | Cloud Run Twin API/materializer with Firestore Native |
-| L5 visualization | Amazon Managed Grafana 12 with a provider-local typed raw-history reader datasource | Azure Managed Grafana 12 with the supported JSON API datasource and a provider-local Cosmos reader | One Grafana OSS 12 pod on GKE with Persistent Disk PVC and signed BigQuery datasource `3.2.0` |
+| L4 semantic Twin | IoT TwinMaker Standard pricing plan | Azure Digital Twins | Cloud Run Twin API/materializer with a separate named Firestore Native Standard edition database |
+| L5 visualization | Amazon Managed Grafana 12 with a provider-local typed raw-history reader datasource | Azure Managed Grafana 12 with the supported JSON API datasource and a provider-local Cosmos reader | One Grafana OSS 12 pod on GKE with Persistent Disk PVC, signed Infinity datasource, and a provider-local typed Firestore reader |
 
 The selected GCP bundle is provider-hosted. It does not claim that Google
 offers a managed Digital Twin equivalent to TwinMaker or ADT. The implementation
 and cost model therefore include the Twin API, Firestore schema/indexes,
-Grafana deployment, signed BigQuery plugin, image, identity, logging, upgrades, and
-cleanup.
+Grafana deployment, typed Cloud Run reader, signed Infinity plugin, image,
+identity, logging, upgrades, and cleanup.
 
 TwinMaker Standard is selected for Small, Medium, and Large because the Basic
 plan does not provide the required knowledge graph. Tiered bundles add a
@@ -133,9 +134,9 @@ selected managed Grafana tier. Each datasource receives one generated,
 deployment-scoped, read-only credential stored only in Grafana secure
 datasource configuration and the provider endpoint; it is never a shared
 cross-cloud token, contract value, tfvars value, log field, or repository
-secret. GCP Grafana uses Workload Identity for GKE with dataset-scoped BigQuery
-Data Viewer, project-scoped BigQuery Job User, and the minimum project-read
-permission required by the plugin.
+secret. GCP follows the same bounded-reader pattern: the Grafana pod has no
+Firestore role, while the typed Cloud Run reader has read access only to the
+named L3 database.
 
 The local reader credential is a conscious PoC compromise. Cross-cloud
 `twin_projection.v1` routes remain secretless and use the approved workload
@@ -149,21 +150,66 @@ by Lambda; Azure uses a Functions Flex HTTP route with a deployment-scoped
 Function key. The `marcusolsson-json-datasource` plugin stores those values
 only as secure header data. Both endpoints accept exactly one device, metric,
 bounded time range, aggregation bucket, result limit, and opaque continuation
-cursor. Raw queries are capped at 24 hours, aggregates at 31 days, and every
-response at 1,000 points/ten seconds. GCP needs no reader Function: its signed
-BigQuery datasource uses declarative, partition-filtered query templates with
-equivalent bounds. The AWS/Azure routes remain authenticated
-internet-reachable PoC read boundaries; private networking is not implied.
+cursor. Raw queries are capped at 24 hours, aggregates at 30 days, and every
+response at 1,000 points/ten seconds. GCP uses the signed
+`yesoreyeram-infinity-datasource` and the same generated
+`X-Twin-Reader-Key` pattern against a typed Cloud Run reader. Infinity is
+maintained by Grafana Labs, supports server-side API-key headers, allowed-host
+restriction, backend parsing, and GET-only operation. The three routes remain
+authenticated internet-reachable PoC read boundaries; private networking is
+not implied.
 
-For GCP, the BigQuery and Cloud Resource Manager APIs are enabled. The plugin
-uses authentication type `gce`; the Grafana pod is constrained to a Standard
-GKE node with the GKE metadata server enabled. Google documents compatibility
-for existing Compute Engine metadata-server clients through Workload Identity
-Federation for GKE, while Grafana documents metadata authentication and the
-project-read permission. The composed path is nevertheless verified with
-plugin `Save & test` and one bounded query before live readiness. Offline
-activation keeps the bundle `live_capacity_pending`; a failed supervised query
-reopens the bundle rather than allowing a JSON service-account key.
+Grafana now deprecates the JSON API datasource and ends support on 2027-02-01.
+It remains admissible only as a time-bounded thesis-PoC dependency: the
+complete-service package freezes the plugin ID, selected version,
+Grafana-12 compatibility, the Amazon Managed Grafana catalog result, and Azure
+Managed Grafana Standard support evidence. Deployment preflight repeats those
+checks, and the affected bundle fails closed if the plugin is absent,
+incompatible, or past the support date. Infinity is not assumed to exist in
+either managed-provider catalog and may not be substituted without a new
+reviewed decision. GCP can select Infinity because that Grafana runtime and
+its content-addressed plugin image are owned by this deployment.
+
+All providers store idempotent hourly rollups inside the selected L3 service so
+the 30-day aggregate query reads at most 720 documents/items and stays inside
+the one-month hot-data boundary. The raw write and rollup update occur in one
+DynamoDB transaction, one Cosmos transactional batch inside `/device_id`, or
+one Firestore transaction. This adds no service
+family, worker, broker, or pipeline, but its operations and storage are priced.
+AWS uses a separate rollup table, Azure uses typed items in the existing
+container, and GCP uses a separate collection in the L3 database. Rollups
+expire with hot data plus the failure-evidence grace and are not exported to
+object storage. Their UTC bucket is derived from provider-owned `stored_at`;
+the original device `event_time` remains available only on raw points.
+Each provider uses raw create-if-absent plus version/ETag-guarded rollup update
+inside its native transaction, with at most three conflict retries. Duplicate
+raw IDs succeed without another rollup increment; an exhausted transaction
+fails before durable acknowledgement.
+
+Reader capacity uses
+`max(2, ceil(aggregate_query_rate_per_second * 10 * 1.25))`, yielding
+2/3/42 maximum concurrent requests for Small/Medium/Large. Lambda reserved
+concurrency, Functions Flex maximum instances with HTTP concurrency one, and
+Cloud Run maximum instances with container concurrency one enforce that
+boundary without another gateway or rate-limiter service.
+The initial reader memory is 512 MiB on all providers, with 1 vCPU on Cloud
+Run. Admission proves the relevant AWS concurrency, Azure Flex regional
+memory/core, and GCP regional CPU/memory quotas; latency and memory remain
+supervised live gates.
+
+For GCP, Infinity is provisioned with the exact Cloud Run base URL as an
+allowed host, the generated key in `secureJsonData`, backend parsing, and
+dangerous HTTP methods disabled. Because the plugin cannot mint Google ID
+tokens, Cloud Run sets `invoker_iam_disabled=true` while the application
+rejects requests without the constant-time validated deployment key. An
+organization policy that forbids this boundary makes GCP unsupported for this
+profile rather than adding another gateway. The reader
+service account receives `roles/datastore.viewer` through an IAM condition for
+the exact L3 Firestore database; the Grafana pod receives no database role or
+JSON service-account key. The composed path is verified with plugin
+`Save & test`, one bounded raw query, and one 30-day hourly-rollup query before
+live readiness. Offline activation keeps the bundle `live_capacity_pending`; a
+failed supervised query reopens the bundle.
 
 ## Provider Evaluation
 
@@ -198,7 +244,7 @@ IoT Hub -> Functions -> Cosmos DB -> typed local reader -> Managed Grafana
 ```
 
 Cosmos DB keeps the original operational NoSQL data model, existing
-writer/reader path, and comparable DynamoDB/Cosmos/BigQuery cost contrast. ADT
+writer/reader path, and comparable DynamoDB/Cosmos/Firestore cost contrast. ADT
 owns current graph/state independently. The Cosmos container uses
 `/device_id`; hot-reader requests must include a bounded device/time range and
 route to that partition. The index includes only the query and lifecycle
@@ -238,11 +284,11 @@ boundaries:
 device <-> BifroMQ on GKE <-> ordered adapter <-> Pub/Sub
                                                 |
                                                 +-> Cloud Run/Workflows
-                                                +-> BigQuery raw history
+                                                +-> Firestore raw history
 
-selected state/model changes -> Cloud Run Twin API -> Firestore
+selected state/model changes -> Cloud Run Twin API -> separate Firestore DB
 
-Grafana on GKE -> BigQuery datasource
+Grafana on GKE -> Infinity datasource -> Cloud Run reader -> Firestore
 ```
 
 BifroMQ is the MQTT device boundary. Pub/Sub is the durable cloud backbone; it
@@ -250,11 +296,47 @@ does not expose a general MQTT device interface. The pair is shared by Five-
 layer v2 and Six-layer v1 whenever GCP owns L1, so BifroMQ is not a Six-layer
 addition.
 
-BigQuery is selected for L3 hot because it supports streaming writes and the
-official Grafana datasource. Firestore is selected for L4 because the PoC
-query set is bounded to Twin/model lookup, current state, direct relationships,
-and idempotent materialization. Documents and indexed relationship collections
-are sufficient for 30,000 Twin entities and one-hop queries.
+Firestore Native Standard edition remains L3 hot, matching the existing
+deployer, writer, reader, mover, Optimizer, and pricing model instead of
+changing the storage technology merely to gain a native Grafana datasource.
+Raw documents use
+scattered deterministic IDs. Small and Medium use one timestamp shard; Large
+uses sixteen, derived from
+`next_power_of_two(ceil(peak_raw_writes_per_second / 400))`. The reader and
+mover issue a finite query per shard and merge the results. This deliberately
+keeps planned raw writes below 80% of Firestore's documented 500-writes/s
+limit for a sequentially indexed field.
+
+The shard is
+`uint32_be(sha256(deployment_id || 0x00 || event_id)[0:4]) mod shard_count`.
+Reader cursors bind the provider, deployment, query digest, fifteen-minute
+expiry, and every per-shard continuation position in HMAC-authenticated
+base64url canonical JSON, so pagination cannot widen the original query.
+
+The L3 database contains
+`telemetry/{sha256(deployment_id,event_id)}` and
+`hourly_rollups/{sha256(device_id,metric,bucket_start)}`. Single-field indexes
+for `stored_at`, `event_time`, `timestamp_shard`, and rollup `bucket_start` are
+disabled. Composite indexes cover
+`(device_id, metric, timestamp_shard, stored_at)`,
+`(timestamp_shard, stored_at)`, and
+`(device_id, metric, bucket_start)`. The raw event create and current
+hourly-rollup update run in one transaction, so an already accepted event
+cannot increment the aggregate twice.
+
+When GCP also owns L4, the bounded Twin API uses a second named Firestore
+database. The separation preserves independent L3/L4 placement, identity,
+lifecycle, indexes, and cost ownership without adding another service family.
+Firestore supports multiple databases per project; the decision package and
+deployment preflight require existing databases plus the selected one or two
+new databases to remain within the current 100-database project quota, and
+account for the fact that only one database receives the free tier.
+
+The writer, reader, storage mover, and Twin API use separate service accounts.
+`roles/datastore.user` is condition-scoped to the exact database for each
+writer/mover/Twin runtime; the reader uses condition-scoped
+`roles/datastore.viewer`. No runtime identity spans both L3 and L4 databases,
+and the broader deployment identity is not injected into a runtime.
 
 The frozen document model uses `models/{model_id}`, `twins/{twin_id}`,
 `twins/{twin_id}/sources/{source_id}`, `relationships/{relationship_id}`, and
@@ -282,16 +364,14 @@ one-node zonal cluster when no GCP L1 cluster exists. The initial allocation is
 `e2-standard-4` for Small/Medium and `e2-standard-8` for Large; both the node
 and Persistent Disk are priced.
 
-The BigQuery datasource uses `Google Metadata Server` authentication backed by
-Workload Identity for GKE. The plugin's separately named Workload Identity
-Federation mode is Grafana-Cloud-only and is not selected. No service-account
-JSON key is generated. Version `3.2.0` is the reviewed Grafana-maintained
-release. Current Grafana documentation does not identify it as an
-Enterprise-only datasource, so the plan assigns no invented plugin-license
-fee. The signed self-hosted artifact, version, digest, and applicable license
-notice are mandatory activation evidence. If the artifact is not obtainable,
-the all-GCP target fails closed and the datasource decision must be reopened;
-no unsigned or unverified BigQuery-plugin binary is accepted.
+The signed Infinity datasource is maintained by Grafana Labs and talks only to
+the typed Cloud Run reader. Its exact version, artifact digest, and applicable
+license notice are frozen in the complete-service package rather than guessed
+in this evaluation. The base URL is allowlisted, the generated reader key is
+stored in `secureJsonData`, backend parsing is used, and dangerous HTTP methods
+are disabled. The Cloud Run service stores only the key hash and uses a
+read-only identity scoped to the named L3 database. The Grafana pod receives no
+Firestore role or service-account JSON key.
 
 The GCP L5 path has no custom Twin/scene plugin because L4-to-L5 is outside the
 profile. Grafana is exposed through one GKE `LoadBalancer` Service with TLS
@@ -302,6 +382,12 @@ fingerprint are returned as deployment evidence. A public unrestricted
 service, plaintext HTTP, wildcard CIDR, or secret in a contract is rejected.
 The self-signed certificate and CIDR-scoped researcher access are explicit PoC
 limitations; a public DNS/certificate/IAP control plane is not added.
+
+BigQuery remains a rejected analytics alternative for this baseline. It would
+provide SQL analytics and a dedicated Grafana datasource, but it would replace
+the already implemented operational L3 store and change ingestion, query,
+retention, movement, pricing, and identity at the same time as the L4 placement
+experiment. A later analytics-focused profile can compare it explicitly.
 
 ## Event Inventory And Profile Ownership
 
@@ -376,7 +462,7 @@ provider source and object-store adapters:
 |---|---|---|
 | AWS | EventBridge Scheduler starts an ECS/Fargate task; ECR stores the image | DynamoDB bounded time-window query |
 | Azure | Scheduled Container Apps Job; ACR Basic stores the image | Cosmos DB partition-key/time-window query/export |
-| GCP | Cloud Scheduler starts a Cloud Run Job; Artifact Registry stores the image | BigQuery bounded partition query/export |
+| GCP | Cloud Scheduler starts a Cloud Run Job; Artifact Registry stores the image | Firestore bounded timestamp-shard/time-window query |
 
 One content-addressed registry support component is reused by all selected
 container images in a provider deployment and priced once. A provider with no
@@ -406,11 +492,11 @@ The source query is not an unbounded scan. AWS derives a `stored_at`
 window-shard GSI count from the scenario and prices its writes/storage/reads;
 Azure assigns the sorted deployment device IDs deterministically across finite
 tasks and queries each `/device_id` partition for the exact `stored_at`
-window; BigQuery prunes its `stored_at` partition. A Cosmos job task processes
-at most 1,000 device partitions and at most 512 MiB of canonical source input.
-The task count is the larger of the device-count and byte-size calculations,
-so the Large Azure path initially uses at least 30 tasks instead of hiding a
-cross-partition full scan.
+window; GCP queries each finite Firestore timestamp shard for that exact
+window. A Cosmos job task processes at most 1,000 device partitions and at
+most 512 MiB of canonical source input. The task count is the larger of the
+device-count and byte-size calculations, so the Large Azure path initially
+uses at least 30 tasks instead of hiding a cross-partition full scan.
 
 At age `C`, same-provider cool-to-archive uses the provider's native lifecycle
 rule, configured as `C-H` after cool-object creation. For a different archive
@@ -473,7 +559,9 @@ comparison.
 Dashboard refreshes are workspace-wide, not per seat. State materializations
 and graph/model updates are synthetic capacity inputs; they are not inferred
 from every raw message. Five-layer v2 has no scene workload fields because it
-does not claim L4-to-L5 or 3D visualization.
+does not claim L4-to-L5 or 3D visualization. Its canonical PoC telemetry
+record contains exactly one visualized numeric metric/value pair, so each
+accepted raw record causes exactly one hourly-rollup update.
 
 ### Domain-Event Scenarios
 
@@ -539,36 +627,45 @@ partitioned Large export remain supervised live gates.
 
 - BifroMQ, Pub/Sub, Cloud Run event workers, and bridge capacity remain exactly
   as frozen by Phase 8.8.
-- BigQuery Storage Write API committed/default streams make acknowledged data
-  queryable with the selected at-least-once/idempotency contract.
-- Firestore receives at most the synthetic 50 state materializations/s plus one
-  graph/model update/s in Large, not all 5,000 raw messages/s. Required
-  composite indexes and one-hop query limits are frozen in the decision
-  package.
+- Firestore L3 receives 5,000 raw creates/s and 5,000 distributed
+  hourly-rollup updates/s in Large. Sixteen timestamp shards keep planned raw
+  index writes below 400/s per shard; scattered IDs, exact composite indexes,
+  gradual load ramp, transaction retries, reads, storage, and deletes remain
+  explicit decision/live evidence.
+- The separate Firestore L4 database receives at most the synthetic 50 state
+  materializations/s plus one graph/model update/s in Large, not all 5,000 raw
+  messages/s. Required relationship indexes and one-hop query limits are
+  frozen separately from L3.
 - Grafana uses one pod on the selected/shared GKE cluster, one incremental
   `e2-standard-4` node for Small/Medium or `e2-standard-8` for Large, and the
   priced Persistent Disk PVC and external load balancer. An isolation-only
   node pool, shared database, public DNS/certificate service, and multi-replica
   HA are not assumed.
-- Workload Identity for GKE supplies short-lived metadata credentials to both
-  BigQuery and the Twin API path.
+- The typed Cloud Run reader is limited to one database, device, metric, time
+  range, result size, and ten-second request. The Grafana pod receives no
+  Firestore credential.
 
-Decision: theoretically admissible after the bounded Twin API and signed
-BigQuery datasource are implemented; live BifroMQ, BigQuery, Firestore, GKE, and
-failure behavior remains pending.
+Decision: theoretically admissible after the sharded Firestore path, bounded
+Twin API, typed reader, and signed Infinity datasource are implemented; live
+BifroMQ, Firestore, GKE, reader, and failure behavior remains pending.
 
 ### Storage Jobs
 
 Large core traffic is exactly 4,000 KiB/s (3.90625 MiB/s), or 1,200,000 KiB
 (1,171.875 MiB, approximately 1.145 GiB) per five-minute batch before
 transport overhead. The initial plan uses one task/batch for
-Small, one for Medium, and three deterministic source partitions for Large,
-with at most 512 MiB input per task. A 64-MiB uncompressed object target yields
-approximately nineteen Large objects per window.
+Small, one for Medium, and at least three deterministic source partitions for
+Large, with at most 512 MiB canonical serialized input per task. Three is the
+payload-only lower bound; the package freezes
+`ceil(canonical_serialized_batch_bytes / 512 MiB)`. A 64-MiB uncompressed
+object target similarly yields at least nineteen Large objects per window and
+is recalculated from canonical bytes.
 
 For Azure Cosmos, the additional maximum of 1,000 device partitions per task
 raises the initial Large parallelism to at least 30 tasks. AWS and GCP retain
-the byte-derived three-task starting point.
+the byte-derived, no-fewer-than-three-task starting point. GCP assigns its
+sixteen timestamp shards deterministically across the calculated tasks and
+never performs an unbounded collection scan.
 
 The calculation is reproducible, but source-query speed, compression,
 cross-cloud latency, and recovery time are live gates. A failure re-runs the
@@ -606,12 +703,14 @@ directions remain observable and costed.
 | Require L3/L4/L5 co-location | Removes the deliberate L4 placement variable and hides the six cross-cloud Twin-projection routes |
 | Allow L3 hot and L5 to differ | Requires six extra cross-cloud Grafana datasource/authentication paths unrelated to the selected L4 placement experiment |
 | Replace Cosmos DB with ADX in Five-layer v2 | ADX is stronger for high-volume interactive time-series analytics and native managed-identity Grafana, but the baseline does not require those capabilities; replacing the implemented operational store would change a second experimental variable |
+| Replace Firestore L3 with BigQuery in Five-layer v2 | BigQuery is stronger for analytical SQL and has a dedicated Grafana datasource, but replacing the implemented operational store would also change GCP ingestion, querying, movement, pricing, and identity during the L4 placement experiment |
 | Keep Cosmos DB serverless for Large | The published ceiling and lack of predictable throughput cannot justify the 5,000-write/s scenario; Large must use calculated autoscale or fail admission |
 | Keep Spanner Graph for GCP | Adds Enterprise graph infrastructure without a multi-hop graph requirement |
 | Give GCP Grafana a dedicated node pool by default | Adds capacity before a test demonstrates isolation is necessary |
 | Use Grafana JSON/Infinity as a universal cross-cloud adapter | No single reviewed secretless automation path across the selected managed/self-hosted Grafana environments |
-| Use Grafana BigQuery `workloadIdentityFederation` mode on GKE | That named mode is Grafana-Cloud-only; self-hosted GKE uses metadata-server authentication |
-| Enable Grafana development mode or generally allow unsigned plugins | Broader code-loading authority is unnecessary; the PoC installs only the signed, version- and digest-pinned BigQuery datasource |
+| Let Grafana read Firestore directly | There is no selected native Firestore datasource; giving the visualization pod database credentials would also bypass the common bounded query contract |
+| Use the deprecated JSON API plugin for new self-hosted GCP Grafana | The Grafana-maintained Infinity plugin supplies the needed backend parser, API-key header, allowed-host, and current maintenance path; JSON API remains only a time-bounded managed-AWS/Azure PoC dependency through 2027-01-31 |
+| Enable Grafana development mode or generally allow unsigned plugins | Broader code-loading authority is unnecessary; the PoC installs only the signed, version- and digest-pinned Infinity datasource |
 | Implement storage with CDC, dedicated outboxes/brokers, and permanent workers | Production-scale complexity without a PoC requirement or failing test |
 | Add L4-to-L5 and 3D scenes to the base | Changes the predecessor-compatible visualization contract and introduces six additional cross-cloud query integrations; requires a later profile version |
 | Retain `needs3DModel`, `sceneEntityCount`, `totalSceneAssetSizeMiB`, or `average3DModelSizeInMB` in Five-layer v2 | Claims a scene path the profile does not implement; the fields remain historical-only until a later visualization-capability version |
@@ -632,7 +731,8 @@ Five-layer v2 does not activate offline until all of the following pass:
 5. same-provider route elision;
 6. minimal storage duplicate/failure/recovery tests;
 7. Small/Medium/Large deterministic calculations for the core and referenced
-   embedded-event scenario, including Cosmos RU/partition proofs;
+   embedded-event scenario, including Cosmos RU/partition proofs and
+   Firestore timestamp-shard/index/database-quota proofs;
 8. OrbStack-backed cross-stack and Terraform no-apply/mock-plan gates;
 9. historical/Eventing digest-stability, docs, links, and secret scans;
 10. two new zero-finding reviews.
@@ -648,6 +748,7 @@ cleanup require separately approved supervised evidence.
 - [AWS IoT TwinMaker quotas](https://docs.aws.amazon.com/general/latest/gr/iot-twinmaker.html)
 - [AWS IoT TwinMaker pricing plans](https://aws.amazon.com/iot-twinmaker/pricing/)
 - [DynamoDB on-demand capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html)
+- [AWS Lambda reserved concurrency](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html)
 - [EventBridge Scheduler for ECS tasks](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/tasks-scheduled-eventbridge-scheduler.html)
 - [S3 lifecycle management](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lifecycle-mgmt.html)
 - [AWS outbound identity federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_outbound.html)
@@ -661,6 +762,7 @@ cleanup require separately approved supervised evidence.
 - [Cosmos DB partitioning](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning)
 - [Azure Digital Twins service limits](https://learn.microsoft.com/en-us/azure/digital-twins/reference-service-limits)
 - [Azure Managed Grafana supported data sources](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-data-source-plugins-managed-identity)
+- [Azure Functions Flex Consumption scaling and concurrency](https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan)
 - [Azure Data Explorer overview](https://learn.microsoft.com/en-us/azure/data-explorer/data-explorer-overview)
 - [Azure Container Apps jobs](https://learn.microsoft.com/en-us/azure/container-apps/jobs)
 - [Azure Blob lifecycle management](https://learn.microsoft.com/en-us/azure/storage/blobs/lifecycle-management-policy-configure)
@@ -670,13 +772,22 @@ cleanup require separately approved supervised evidence.
 ### GCP And Grafana
 
 - [Firestore document data model](https://cloud.google.com/firestore/native/docs/data-model)
-- [BigQuery Storage Write API](https://cloud.google.com/bigquery/docs/write-api-streaming)
-- [Workload Identity Federation for GKE](https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity)
+- [Firestore Native best practices](https://cloud.google.com/firestore/native/docs/best-practices)
+- [Firestore sharded timestamps](https://cloud.google.com/firestore/native/docs/solutions/shard-timestamp)
+- [Firestore quotas and limits](https://cloud.google.com/firestore/quotas)
+- [Firestore multiple-database management](https://cloud.google.com/firestore/docs/manage-databases)
+- [Firestore server-client IAM](https://cloud.google.com/firestore/docs/security/iam)
+- [Cloud Run public invocation](https://cloud.google.com/run/docs/authenticating/public)
+- [Cloud Run service identity](https://cloud.google.com/run/docs/securing/service-identity)
+- [Cloud Run request concurrency](https://cloud.google.com/run/docs/about-concurrency)
 - [Scheduled Cloud Run jobs](https://cloud.google.com/run/docs/execute/jobs-on-schedule)
 - [Cloud Storage lifecycle management](https://cloud.google.com/storage/docs/lifecycle)
 - [External workload identities](https://cloud.google.com/iam/docs/workload-identities)
-- [Grafana BigQuery datasource configuration](https://grafana.com/docs/plugins/grafana-bigquery-datasource/latest/configure/)
+- [BigQuery overview](https://cloud.google.com/bigquery/docs/introduction)
+- [Grafana Infinity datasource configuration](https://grafana.com/docs/plugins/yesoreyeram-infinity-datasource/latest/configure/)
+- [Grafana Infinity datasource installation](https://grafana.com/docs/plugins/yesoreyeram-infinity-datasource/latest/installation/)
 - [Grafana JSON API datasource status](https://grafana.com/grafana/plugins/marcusolsson-json-datasource/)
+- [Amazon Managed Grafana plugin catalog and lifecycle](https://docs.aws.amazon.com/grafana/latest/userguide/grafana-plugins.html)
 - [Grafana plugin signatures](https://grafana.com/docs/grafana/latest/administration/plugin-management/plugin-sign/)
 - [Grafana `allow_loading_unsigned_plugins` configuration](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#allow_loading_unsigned_plugins)
 

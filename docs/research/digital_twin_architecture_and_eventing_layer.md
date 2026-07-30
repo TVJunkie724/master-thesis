@@ -1334,9 +1334,9 @@ Eventing decision alone cannot close:
 The selected complete bundles are AWS DynamoDB plus Amazon Managed Grafana
 with IoT TwinMaker independently placeable, Azure Cosmos DB plus Azure Managed
 Grafana with Azure Digital Twins independently placeable, and a
-provider-hosted GCP bundle using BigQuery/Grafana OSS on GKE plus an
-independently placeable Cloud Run Twin API backed by bounded Firestore
-collections. GCP therefore becomes a complete
+provider-hosted GCP bundle using Firestore Native Standard edition, a typed
+Cloud Run reader, and Grafana OSS on GKE plus an independently placeable Cloud Run Twin API
+backed by a separate bounded Firestore database. GCP therefore becomes a complete
 single-cloud implementation target for the new profiles without changing the
 historical all-GCP rejection in `five-layer-baseline@1`.
 

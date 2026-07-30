@@ -2,8 +2,8 @@
 title: "Phase 8.9B: Deferred Six-Layer Eventing Implementation Draft"
 description: "Suspended historical draft that must be rewritten after the reviewed five-layer-baseline@2 implementation."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-07-29"
-version: "1.10"
+lastUpdated: "2026-07-30"
+version: "1.11"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.10"
 - User decision to plan and implement Five-layer v2 first and defer Six-layer
   until the committed Five-layer baseline can be inherited without
   reinterpretation
-EXTRACTED: 2026-07-29 | VERSION: 1.10
+EXTRACTED: 2026-07-30 | VERSION: 1.11
 -->
 
 # Phase 8.9B: Deferred Six-Layer Eventing Implementation Draft
@@ -25,10 +25,10 @@ EXTRACTED: 2026-07-29 | VERSION: 1.10
 
 **Do not implement from this document.**
 
-The service matrix, L3-hot/L4/L5 co-location rule, dual visualization paths,
-ADX selection, scene requirements, workload fields, tests, and Definition of
-Done below describe the superseded pre-2026-07-29 comparison-profile draft.
-They remain visible only as planning provenance.
+The service matrix, BigQuery L3 selection, L3-hot/L4/L5 co-location rule, dual
+visualization paths, ADX selection, scene requirements, workload fields, tests,
+and Definition of Done below describe the superseded pre-2026-07-29
+comparison-profile draft. They remain visible only as planning provenance.
 
 The current executable Five-layer v2 authority is
 [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md). It

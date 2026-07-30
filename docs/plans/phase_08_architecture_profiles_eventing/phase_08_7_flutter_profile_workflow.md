@@ -2,8 +2,8 @@
 title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
-lastUpdated: "2026-07-29"
-version: "1.5"
+lastUpdated: "2026-07-30"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "1.5"
 - twin2multicloud_flutter/lib/services/management_api.dart
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
-EXTRACTED: 2026-07-29 | VERSION: 1.5
+EXTRACTED: 2026-07-30 | VERSION: 1.6
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -337,9 +337,9 @@ no-active-profile state instead.
 | User Logic         l |                                                      |
 | Optimize...        l | [Overview] [Components]                Active v2     |
 | Deployment...      l |                                                      |
-|                      |  Ingestion --> Processing --> Storage                 |
-|                      |                         |       |                      |
-|                      |                         +--> Twin --> Visualization    |
+|                      |  Ingestion -> Processing -> Storage -> Visualization  |
+|                      |                              |                        |
+|                      |                              +-> Twin                |
 |                      |                                                      |
 |                      | Functional coverage                                  |
 |                      | Required capabilities complete                        |
@@ -370,7 +370,7 @@ Below `960`, reuse `ConfigurationTaskSelector` above the content:
 | 5 responsibilities | 7+ components      |
 | AWS | Azure | GCP online bundles         |
 | Mixed L1/L2/cool/archive                  |
-| L3 hot + L4 + L5 provider-local          |
+| L3 hot + L5 local | L4 independent       |
 |                                          |
 | [Overview] [Components]                  |
 |                                          |
@@ -378,7 +378,9 @@ Below `960`, reuse `ConfigurationTaskSelector` above the content:
 |    |                                     |
 | Processing                               |
 |    |                                     |
-| Storage ----> Twin ----> Visualization   |
+| Storage ----> Visualization              |
+|    |                                     |
+|    +--------> Twin                       |
 |                                          |
 | Functional coverage                      |
 | Required capabilities complete           |

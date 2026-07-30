@@ -55,7 +55,7 @@ The following target is reviewed planning, not current runtime capability:
 |---|---|---|---|---|
 | AWS | IoT Core and IoT Commands | DynamoDB + typed local reader + Amazon Managed Grafana | IoT TwinMaker | planned, not selectable |
 | Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | planned, not selectable |
-| GCP | BifroMQ on GKE + Pub/Sub | BigQuery + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed BigQuery plugin `3.2.0` | Cloud Run/Firestore Twin API | planned, not selectable |
+| GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API with a separate Firestore Native Standard edition database | planned, not selectable |
 
 `five-layer-baseline@2` is the only currently planned implementation. A later
 Six-layer plan must inherit its committed L1-L5 target unchanged; it does not
