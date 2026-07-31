@@ -174,6 +174,9 @@ the generator version and input digest and must not be manually edited.
 - the approved Eventing implementation-component-manifest version and digest;
 - the complete-service decision, provider-bundle, workload-v2, capacity,
   storage-route, and implementation-component-manifest versions/digests;
+- the `deployment-access.v1` contract, deterministic L4 seed revision,
+  Grafana dashboard revision, interactive-role binding evidence, and safe
+  per-surface readiness codes for every evaluated placement;
 - scenario and source-ledger digests;
 - currency and price observation/effective dates;
 - region policy;
@@ -449,6 +452,8 @@ Capture named, machine-readable gate results for:
 - Manifest/graph/package preflight;
 - Terraform validate/native/mock-plan;
 - API ownership and redaction;
+- all nine Five-layer v2 L3/L4/L5 access fixtures with exact L4/L5 service,
+  auth mode, HTTPS URL classification, and secret-free readiness;
 - Flutter Web/macOS/Windows/Linux;
 - demo/live interface parity;
 - strict docs.
@@ -478,6 +483,9 @@ The protocol must define:
 - explicit confirmation points;
 - preflight and expected resource inventory;
 - deployment, runtime verification, log/evidence collection;
+- for every approved Five-layer v2 placement, opening both the provider-owned
+  L4 semantic Twin surface and L5 raw/rollup Grafana surface, verifying the
+  deterministic content, and recording only redacted result codes/screenshots;
 - Eventing publish/delivery/retry/DLQ/replay checks where applicable;
 - destroy and independent cleanup verification;
 - abort/rollback criteria;
@@ -486,6 +494,12 @@ The protocol must define:
 
 Execution remains blocked by the user-led manual visual audit and separate
 explicit approval.
+
+The full Five-layer v2 live protocol contains all three single-cloud and all
+six `L3-hot == L5 != L4` placements. An approved execution may run a smaller
+subset for cost/time reasons, but the evidence must name the omitted rows and
+must not generalize live accessibility to them. Offline contract evidence
+still covers all nine.
 
 ### 11.1 Security And Privacy Boundary
 

@@ -122,11 +122,25 @@ is [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md),
 with research evidence in
 [`phase_08_service_bundle_evaluation.md`](../../research/phase_08_service_bundle_evaluation.md).
 
+The subsequent post-deployment access review found one more functional gap:
+resource outputs alone do not guarantee that the researcher can sign into and
+inspect L4 and L5. The corrected boundary now requires a typed Layer Access
+section in Twin Overview, provider-native interactive identity bindings,
+deterministic semantic L4 content, and one raw/rollup Grafana dashboard in all
+nine L3/L4/L5 placements. AWS uses TwinMaker console plus Managed Grafana,
+Azure uses ADT Explorer plus Managed Grafana, and GCP adds a minimal
+IAP-protected Cloud Run Twin Explorer beside Grafana OSS. GCP uses one
+Firestore database per deployment with separate L3/L4 collection contracts;
+the weaker database-wide IAM isolation is an explicit PoC limitation. The
+binding feasibility and implementation order are frozen in
+[`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md).
+
 ## Immediate Next Action
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. obtain explicit user approval for the corrected complete-service closure;
+1. complete two fresh zero-finding reviews of the corrected complete-service
+   and layer-access closure, then obtain explicit implementation approval;
 2. build and commit the immutable complete-service decision package;
 3. return to the existing Phase 8.6 implementation worktree and read
    [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)

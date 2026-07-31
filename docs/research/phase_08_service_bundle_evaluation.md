@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle Evaluation"
 description: "PoC-focused functional, placement, identity, and capacity evaluation for five-layer-baseline@2."
 tags: [architecture, digital-twin, eventing, multicloud, services, capacity, phase-8]
-lastUpdated: "2026-07-30"
-version: "1.6"
+lastUpdated: "2026-07-31"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.6"
 - User-approved functionality-first PoC rule, L3-hot/L5 placement experiment,
   Azure Cosmos DB and GCP Firestore L3 continuity, and Small/Medium/Large
   evaluation
-EXTRACTED: 2026-07-30 | VERSION: 1.6
+EXTRACTED: 2026-07-31 | VERSION: 1.7
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle Evaluation
@@ -59,7 +59,7 @@ member in its fixed region and fail closed rather than substitute a region.
 | L3 hot/raw history | DynamoDB on-demand with a window-shard GSI | Cosmos DB for NoSQL with `/device_id`, bounded time queries, and scenario-selected serverless/autoscale capacity | Firestore Native Standard edition with scattered event IDs, scenario-derived timestamp shards, bounded time queries, and selective indexes |
 | L3 cool | S3 Standard-IA | Blob Cool | Cloud Storage Nearline |
 | L3 archive | S3 Glacier Deep Archive | Blob Archive | Cloud Storage Archive |
-| L4 semantic Twin | IoT TwinMaker Standard pricing plan | Azure Digital Twins | Cloud Run Twin API/materializer with a separate named Firestore Native Standard edition database |
+| L4 semantic Twin | IoT TwinMaker Standard pricing plan | Azure Digital Twins | Cloud Run Twin API/materializer and read-only IAP-protected Twin Explorer backed by the deployment Firestore Native database |
 | L5 visualization | Amazon Managed Grafana 12 with a provider-local typed raw-history reader datasource | Azure Managed Grafana 12 with the supported JSON API datasource and a provider-local Cosmos reader | One Grafana OSS 12 pod on GKE with Persistent Disk PVC, signed Infinity datasource, and a provider-local typed Firestore reader |
 
 The selected GCP bundle is provider-hosted. It does not claim that Google
@@ -127,6 +127,29 @@ paper-compatible reference with its historical L4-to-L5 target; v2 is
 explicitly the executable predecessor-compatible comparison profile. This
 deviation is reported as a construct-validity limitation, not hidden.
 
+## Why Layer Links Also Need Interactive Identity
+
+Terraform can create an L4/L5 resource without making it usable in a human
+browser. Deployment API credentials are not AWS Identity Center, Microsoft
+Entra, Google/IAP, or Grafana login credentials. The evaluated bundle therefore
+includes both the browser surface and its interactive access binding:
+
+| Layer | AWS | Azure | GCP |
+|---|---|---|---|
+| L4 | TwinMaker console plus Identity Center read assignment | ADT Explorer plus Data Reader | Read-only Cloud Run Twin Explorer plus direct IAP |
+| L5 | Managed Grafana plus Identity Center workspace association | Managed Grafana plus Grafana role | Grafana OSS plus generated human Viewer account |
+
+AWS Identity Center activation and first-time GCP IAP configuration in a
+project without an organization can require account-owner action. This makes
+universal unattended user provisioning an invalid claim, but does not make the
+deployment inaccessible: preflight validates the external prerequisite, then
+Terraform binds the selected existing principal. Azure role binding and GCP
+IAP policy binding are likewise separate from the runtime workload identities.
+
+The complete nine-placement and one-time GCP Viewer credential boundary is
+frozen in
+[`phase_08_layer_access_handoff.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
+
 The provider-local query identities are part of each bundle. AWS and Azure
 retain a typed read-only hot-reader API because their selected operational
 NoSQL stores do not provide a suitable secretless core datasource in the
@@ -136,7 +159,8 @@ datasource configuration and the provider endpoint; it is never a shared
 cross-cloud token, contract value, tfvars value, log field, or repository
 secret. GCP follows the same bounded-reader pattern: the Grafana pod has no
 Firestore role, while the typed Cloud Run reader has read access only to the
-named L3 database.
+named deployment database and its application exposes only the L3 query
+contract.
 
 The local reader credential is a conscious PoC compromise. Cross-cloud
 `twin_projection.v1` routes remain secretless and use the approved workload
@@ -205,8 +229,9 @@ rejects requests without the constant-time validated deployment key. An
 organization policy that forbids this boundary makes GCP unsupported for this
 profile rather than adding another gateway. The reader
 service account receives `roles/datastore.viewer` through an IAM condition for
-the exact L3 Firestore database; the Grafana pod receives no database role or
-JSON service-account key. The composed path is verified with plugin
+the deployment Firestore database; the reader application allowlists only L3
+collections and the Grafana pod receives no database role or JSON
+service-account key. The composed path is verified with plugin
 `Save & test`, one bounded raw query, and one 30-day hourly-rollup query before
 live readiness. Offline activation keeps the bundle `live_capacity_pending`; a
 failed supervised query reopens the bundle.
@@ -286,7 +311,7 @@ device <-> BifroMQ on GKE <-> ordered adapter <-> Pub/Sub
                                                 +-> Cloud Run/Workflows
                                                 +-> Firestore raw history
 
-selected state/model changes -> Cloud Run Twin API -> separate Firestore DB
+selected state/model changes -> Cloud Run Twin API -> L4 collections
 
 Grafana on GKE -> Infinity datasource -> Cloud Run reader -> Firestore
 ```
@@ -324,19 +349,20 @@ disabled. Composite indexes cover
 hourly-rollup update run in one transaction, so an already accepted event
 cannot increment the aggregate twice.
 
-When GCP also owns L4, the bounded Twin API uses a second named Firestore
-database. The separation preserves independent L3/L4 placement, identity,
-lifecycle, indexes, and cost ownership without adding another service family.
-Firestore supports multiple databases per project; the decision package and
-deployment preflight require existing databases plus the selected one or two
-new databases to remain within the current 100-database project quota, and
-account for the fact that only one database receives the free tier.
+The PoC creates one named Firestore database per deployment. When GCP owns both
+L3 and L4, their collection groups, indexes, code paths, service accounts,
+operations, and cost attribution remain distinct inside that database. When it
+owns only one responsibility, only that responsibility's collections exist.
+This avoids a second database resource that adds no PoC capability.
 
 The writer, reader, storage mover, and Twin API use separate service accounts.
-`roles/datastore.user` is condition-scoped to the exact database for each
-writer/mover/Twin runtime; the reader uses condition-scoped
-`roles/datastore.viewer`. No runtime identity spans both L3 and L4 databases,
-and the broader deployment identity is not injected into a runtime.
+`roles/datastore.user` is condition-scoped to the deployment database for each
+writer/mover/Twin runtime; readers use condition-scoped
+`roles/datastore.viewer`. Firestore server libraries bypass Security Rules and
+the relevant IAM boundary is the database, so application collection/query
+allowlists do not provide strict IAM isolation between L3 and L4. That weaker
+isolation is an accepted and reported PoC tradeoff. The broader deployment
+identity is not injected into a runtime.
 
 The frozen document model uses `models/{model_id}`, `twins/{twin_id}`,
 `twins/{twin_id}/sources/{source_id}`, `relationships/{relationship_id}`, and
@@ -370,18 +396,28 @@ license notice are frozen in the complete-service package rather than guessed
 in this evaluation. The base URL is allowlisted, the generated reader key is
 stored in `secureJsonData`, backend parsing is used, and dangerous HTTP methods
 are disabled. The Cloud Run service stores only the key hash and uses a
-read-only identity scoped to the named L3 database. The Grafana pod receives no
-Firestore role or service-account JSON key.
+read-only identity scoped to the deployment database plus an L3-only
+application contract. The Grafana pod receives no Firestore role or
+service-account JSON key.
 
 The GCP L5 path has no custom Twin/scene plugin because L4-to-L5 is outside the
 profile. Grafana is exposed through one GKE `LoadBalancer` Service with TLS
 terminated by Grafana, a deployment-generated certificate stored only in a
-Kubernetes Secret, generated Grafana credentials, and an explicit
-`loadBalancerSourceRanges` allowlist. The fixed-IP endpoint and certificate
-fingerprint are returned as deployment evidence. A public unrestricted
-service, plaintext HTTP, wildcard CIDR, or secret in a contract is rejected.
-The self-signed certificate and CIDR-scoped researcher access are explicit PoC
-limitations; a public DNS/certificate/IAP control plane is not added.
+Kubernetes Secret, separate internal Admin and human Viewer credentials, and
+an explicit `loadBalancerSourceRanges` allowlist. The fixed-IP endpoint,
+Viewer username, and certificate fingerprint are safe deployment evidence.
+The Viewer password is rotated and revealed once through an owner-scoped
+Management operation; the Admin and datasource secrets never leave their
+runtime boundary. A public unrestricted service, plaintext HTTP, wildcard
+CIDR, or secret in a contract is rejected. The self-signed certificate and
+CIDR-scoped researcher access are explicit PoC limitations; a public
+DNS/certificate/GKE-IAP control plane is not added.
+
+GCP L4 adds one separate, read-only Cloud Run Twin Explorer service protected
+by direct IAP. It reuses the L4 image/read model and scales to zero. Keeping it
+separate from the materializer is functionally necessary: interactive IAP
+must not intercept workload-identity projection traffic. It is not a second
+Twin service, scene stack, or general Firestore console.
 
 BigQuery remains a rejected analytics alternative for this baseline. It would
 provide SQL analytics and a dedicated Grafana datasource, but it would replace
@@ -632,7 +668,7 @@ partitioned Large export remain supervised live gates.
   index writes below 400/s per shard; scattered IDs, exact composite indexes,
   gradual load ramp, transaction retries, reads, storage, and deletes remain
   explicit decision/live evidence.
-- The separate Firestore L4 database receives at most the synthetic 50 state
+- The Firestore L4 collection group receives at most the synthetic 50 state
   materializations/s plus one graph/model update/s in Large, not all 5,000 raw
   messages/s. Required relationship indexes and one-hop query limits are
   frozen separately from L3.
@@ -706,6 +742,7 @@ directions remain observable and costed.
 | Replace Firestore L3 with BigQuery in Five-layer v2 | BigQuery is stronger for analytical SQL and has a dedicated Grafana datasource, but replacing the implemented operational store would also change GCP ingestion, querying, movement, pricing, and identity during the L4 placement experiment |
 | Keep Cosmos DB serverless for Large | The published ceiling and lack of predictable throughput cannot justify the 5,000-write/s scenario; Large must use calculated autoscale or fail admission |
 | Keep Spanner Graph for GCP | Adds Enterprise graph infrastructure without a multi-hop graph requirement |
+| Keep two Firestore databases in the PoC | Adds a second database resource solely for stronger IAM isolation; one database is sufficient for the selected functionality, while the weaker database-wide IAM boundary is explicitly accepted |
 | Give GCP Grafana a dedicated node pool by default | Adds capacity before a test demonstrates isolation is necessary |
 | Use Grafana JSON/Infinity as a universal cross-cloud adapter | No single reviewed secretless automation path across the selected managed/self-hosted Grafana environments |
 | Let Grafana read Firestore directly | There is no selected native Firestore datasource; giving the visualization pod database credentials would also bypass the common bounded query contract |
@@ -745,6 +782,9 @@ cleanup require separately approved supervised evidence.
 
 ### AWS
 
+- [AWS IoT TwinMaker console and concepts](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/what-is-twinmaker.html)
+- [Amazon Managed Grafana authentication](https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html)
+- [Amazon Managed Grafana user roles](https://docs.aws.amazon.com/grafana/latest/userguide/Grafana-user-roles.html)
 - [AWS IoT TwinMaker quotas](https://docs.aws.amazon.com/general/latest/gr/iot-twinmaker.html)
 - [AWS IoT TwinMaker pricing plans](https://aws.amazon.com/iot-twinmaker/pricing/)
 - [DynamoDB on-demand capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html)
@@ -756,6 +796,9 @@ cleanup require separately approved supervised evidence.
 
 ### Azure
 
+- [Azure Digital Twins Explorer](https://learn.microsoft.com/en-us/azure/digital-twins/how-to-use-azure-digital-twins-explorer)
+- [Azure Digital Twins security and data roles](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-security)
+- [Azure Managed Grafana user and identity roles](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-manage-access-permissions-users-identities)
 - [Cosmos DB request units](https://learn.microsoft.com/en-us/azure/cosmos-db/request-units)
 - [Cosmos DB serverless performance](https://learn.microsoft.com/en-us/azure/cosmos-db/serverless-performance)
 - [Cosmos DB limits and autoscale minimums](https://learn.microsoft.com/en-us/azure/cosmos-db/concepts-limits)
@@ -777,6 +820,8 @@ cleanup require separately approved supervised evidence.
 - [Firestore quotas and limits](https://cloud.google.com/firestore/quotas)
 - [Firestore multiple-database management](https://cloud.google.com/firestore/docs/manage-databases)
 - [Firestore server-client IAM](https://cloud.google.com/firestore/docs/security/iam)
+- [Firestore server-library Security Rules boundary](https://cloud.google.com/firestore/native/docs/security/rules-conditions)
+- [Direct IAP for Cloud Run](https://cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run)
 - [Cloud Run public invocation](https://cloud.google.com/run/docs/authenticating/public)
 - [Cloud Run service identity](https://cloud.google.com/run/docs/securing/service-identity)
 - [Cloud Run request concurrency](https://cloud.google.com/run/docs/about-concurrency)

@@ -2,8 +2,8 @@
 title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
-lastUpdated: "2026-07-17"
-version: "1.6"
+lastUpdated: "2026-07-31"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -46,7 +46,14 @@ the current god classes.
 | Dedicated Pricing Review Center | Full pricing registry editor |
 | Wizard Step 1/2/3 cleanup | Rewriting optimizer formulas from Flutter |
 | Twin Overview deployment/preflight hardening | Introducing RBAC before the platform has a role model |
+| Post-deployment L4/L5 Layer Access handoff | Embedding provider consoles or automating browser sessions |
 | Cross-cutting error/loading/empty/accessibility gates | Mobile support |
+
+## Concepts
+
+- [Twin Layer Access Handoff](concepts/CONCEPT_TWIN_LAYER_ACCESS_HANDOFF.md)
+  extends the existing Twin Overview with typed L4/L5 links, identity/readiness
+  evidence, and one bounded GCP Viewer credential workflow.
 
 ## Target State
 
@@ -78,6 +85,7 @@ Flutter App
 |
 `-- Twin Overview
     |-- deploy/destroy/preflight state
+    |-- L4 semantic Twin and L5 raw/rollup access
     |-- structured logs and outputs
     |-- simulator/test utility diagnostics
     `-- permission-set readiness visibility
@@ -87,8 +95,10 @@ Flutter App
 
 - Flutter talks to the Management API only.
 - Every async feature has loading, empty, error, and permission/blocked states.
-- Secret values, credential file paths, OpenAI keys, and admin credentials are
-  never rendered or accepted by Flutter outside explicit user upload forms.
+- Cloud/deployment credentials, credential file paths, OpenAI keys, provider
+  tokens, reader keys, and Admin credentials are never rendered. The only
+  generated-secret exception is the explicit one-time GCP Grafana Viewer
+  reveal defined by Frontend Delta 8.6; it is never persisted in Flutter state.
 - Pricing refresh must identify the account/project/subscription used before a
   provider fetch starts.
 - The configuration workspace does not own pricing refresh.
@@ -108,7 +118,7 @@ Flutter App
 | 5 | Superseded | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Legacy Wizard Step 1 | Replaced by the configuration-workspace roadmap |
 | 6 | Done | [PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md](phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md) | Wizard Step 2 | Pricing readiness contract |
 | 7 | Done | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
-| 8 | Done | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [implementation plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) | Twin Overview | Typed deployment, readiness, preflight, log/output, simulator, and trace contracts |
+| 8 | Core done; 8.6 planned | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [operations plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) + [Layer Access plan](../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) | Twin Overview | Existing operation contracts plus planned [FR-001](../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md) |
 | 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
 | 9.1 | Local gates complete; platform CI pending | [Immutable Region-Scoped Pricing Catalogs](../../../2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md) | Pricing Review, calculation evidence, Twin Overview | Strict immutable references replace full pricing exports; compact evidence, honest legacy state, Web/macOS builds, and live local integration are verified |
 

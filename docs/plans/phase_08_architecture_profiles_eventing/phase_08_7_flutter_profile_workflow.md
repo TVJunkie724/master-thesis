@@ -82,6 +82,14 @@ server-activated profile version.
 |---|---|
 | Typed Management API capability/models, Wizard BLoC transitions, compact profile/task workflow, data-driven graph/read-only evidence, server-derived invalidation confirmation, demo parity, accessibility, and Web/macOS/Windows/Linux gates | Direct Optimizer/Deployer access, backend architecture decisions, infrastructure editing, arbitrary graph/layer controls, Eventing UI before activation, mobile targets, and live provider execution |
 
+Post-deployment L4/L5 Layer Access is deliberately not smuggled into this
+configuration issue. Phase 8.7 prepares and reviews the selected L4 and L5
+assignments before deployment. Phase 8.9A later adds the deployed browser
+links, interactive identity/readiness evidence, and GCP Viewer credential
+workflow to the existing Twin Overview under
+[`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md) and the
+dedicated Flutter implementation plan. Both flows use Management API only.
+
 ## 2. Existing Architecture Boundary
 
 Retain the current deliberate split:

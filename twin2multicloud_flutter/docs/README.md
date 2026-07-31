@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Flutter Documentation"
 description: "Index of Flutter planning pillars and implementation notes."
 tags: [flutter, documentation]
-lastUpdated: "2026-06-18"
-version: "1.2"
+lastUpdated: "2026-07-31"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -21,3 +21,6 @@ EXTRACTED: 2026-06-18 | VERSION: 1.2
 | Wizard | [ROADMAP_WIZARD.md](wizard/ROADMAP_WIZARD.md) | Digital Twin creation and editing flow. |
 | Frontend Architecture Refactoring | [ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md](frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md) | Cross-cutting architecture cleanup before feature-heavy UI delta work. |
 | Frontend Delta | [ROADMAP_FRONTEND_DELTA.md](frontend_delta/ROADMAP_FRONTEND_DELTA.md) | Cross-pillar UI alignment after backend, credential, pricing, and deployment refactors. |
+
+Cross-pillar Management API gaps are tracked in the central
+[Feature Request Tracker](feature-requests/FR_TRACKER.md).
