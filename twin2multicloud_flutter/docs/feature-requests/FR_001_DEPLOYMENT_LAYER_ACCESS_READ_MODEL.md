@@ -40,6 +40,9 @@ Access section from existing endpoints.
    credential.
 5. Return stable safe failure codes and preserve owner isolation as 404.
 6. Clear active access on destroy or superseding deployment.
+7. Serialize GCP Viewer rotation per deployment; concurrent calls return the
+   stable 409 `GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS` before mutation, and
+   no request/response body is logged.
 
 ## Acceptance
 

@@ -321,74 +321,44 @@ graph TD
 
 ### 3. Digital Twin View (read-only)
 
+The original wireframe below predates the implemented Twin Overview operation
+hardening. The current screen order is Navigation, Twin identity, Deployment
+Readiness, Deployment Actions, deployed-only Testing Utilities, redacted
+Terraform Outputs, Verification, and Configuration Review. Frontend Delta 8.6
+plans one deployed-only section between Readiness and Actions:
+
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Twin2MultiCloud                                    [User Avatar ▼] │  ← Header (same on all screens)
-├─────────────────────────────────────────────────────────────────────┤
-│  ← Back to Dashboard          Smart Home Digital Twin               │
-├─────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  ACTIONS (not collapsible)                                      ││
-│  │  [Edit Twin] [Deploy] [Destroy] [Check Status]                  ││
-│  │                                                                 ││
-│  │  Log Window (appears when action clicked):                      ││
-│  │  ┌────────────────────────────────────────────────────────────┐ ││
-│  │  │ > terraform init...                                        │ ││
-│  │  │ > terraform plan...                                        │ ││
-│  │  │ > terraform apply...                                       │ ││
-│  │  └────────────────────────────────────────────────────────────┘ ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Access & Links                                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │ Grafana:  https://xxx.grafana.aws.com   Login: admin@email.com ││
-│  │ IoT Hub:  https://xxx.azure.com                                ││
-│  │ Console:  [AWS ↗] [Azure ↗] [GCP ↗]                            ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Deployment Status                                                │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  State: 🟢 Deployed (2 days ago)                                ││
-│  │                                                                 ││
-│  │  L1 Data Acquisition  ───► AWS IoT Core                        ││
-│  │  L2 Processing        ───► AWS Lambda                          ││
-│  │  L3 Storage           ───► Azure Cosmos (hot) + AWS S3 (cold)  ││
-│  │  L4 Management        ───► Azure Digital Twins                 ││
-│  │  L5 Visualization     ───► AWS Grafana                         ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Configuration Files                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  ▸ config.json           v3  [View] [Download] [History ▼]     ││
-│  │  ▸ config_grafana.json   v1  [View] [Download] [History ▼]     ││
-│  │  ▸ payloads.json         v2  [View] [Download] [History ▼]     ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ User Functions                                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  ▸ processors/temp-sensor/     [View] [Download] [History ▼]   ││
-│  │  ▸ processors/humidity-sensor/ [View] [Download] [History ▼]   ││
-│  │  ▸ event-feedback/             [View] [Download] [History ▼]   ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Deployment History (TBD - keeping for now)                       │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  Dec 23, 2024 14:30  SUCCESS  "Added humidity sensor"          ││
-│  │  Dec 20, 2024 09:15  SUCCESS  "Initial deployment"             ││
-│  └─────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────┘
+Twin Overview
+|-- Deployment Readiness
+|-- Layer Access                              [planned: Frontend Delta 8.6]
+|   |-- L4 Semantic Twin
+|   |   `-- provider service, readiness, identity, Open Twin UI
+|   `-- L5 Raw & Rollups
+|       `-- provider Grafana, readiness, identity, Open Grafana
+|-- Deployment Actions and structured logs
+|-- Testing Utilities                         [deployed only]
+|-- Terraform Outputs                         [technical, redacted]
+|-- Deployment Verification
+`-- Configuration Review
 ```
 
 **Sections:**
-- **Header**: Twin2MultiCloud branding + user avatar (same on ALL screens)
-- **Actions** (NOT collapsible): Edit, Deploy, Destroy, Check Status → opens log window
-- **Access & Links** (▼): Grafana URL + login, cloud console links
-- **Deployment Status** (▼): State badge + layer→provider mapping
-- **Configuration Files** (▼): List with [View] [Download] [History ▼] actions
-- **User Functions** (▼): Grouped by type (processors, event-feedback, etc.)
-- **Deployment History** (▼): Timeline with status and description (TBD)
+- **Layer Access is typed:** it uses `deployment-access.v1`, not arbitrary
+  Terraform output keys. An available Five-layer v2 result contains exactly
+  one independently actionable L4 and L5 surface.
+- **L4 and L5 remain functionally separate:** L4 exposes semantic current
+  state/relationships; L5 exposes L3 raw history and rollups. There is no
+  implied L4-to-L5 or 3D path.
+- **Authentication is provider-owned:** AWS Identity Center, Microsoft Entra,
+  or GCP IAP is shown as an identity label, never as a provider password. GCP
+  Grafana alone has an explicit one-time human Viewer credential workflow.
+- **Generic outputs stay technical evidence:** they remain redacted and lower
+  in the page hierarchy.
 
-**[History ▼] dropdown**: Shows previous versions with description, allows rollback (UI details TBD)
+The binding concept and full responsive widget/state/API/test plan are
+[Twin Layer Access Handoff](twin2multicloud_flutter/docs/frontend_delta/concepts/CONCEPT_TWIN_LAYER_ACCESS_HANDOFF.md)
+and
+[its implementation plan](twin2multicloud_flutter/implementation_plans/2026-07-31_twin_layer_access_handoff.md).
 
 ---
 

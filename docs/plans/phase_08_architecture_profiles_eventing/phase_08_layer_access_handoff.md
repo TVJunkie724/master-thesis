@@ -77,6 +77,21 @@ the same image and read model but exposes read-only routes behind IAP. This
 separation prevents interactive IAP from blocking projection/materialization
 traffic and both services can scale to zero.
 
+The IaC path is concrete rather than aspirational. The frozen provider package
+must use the version-pinned equivalents of:
+
+| Provider | Required IaC primitive |
+|---|---|
+| AWS | IAM Identity Center permission-set/account assignment plus `aws_grafana_role_association` for the selected principal |
+| Azure | `azurerm_role_assignment` at the exact ADT and Managed Grafana resource scopes |
+| GCP | `google_cloud_run_v2_service` with `iap_enabled=true`, no anonymous invocation, IAP service-agent invoker binding, and the Cloud Run IAP principal policy |
+| Grafana content | Version-pinned Grafana provider/API with one deterministic folder, datasource, and `grafana_dashboard` revision |
+
+The complete-service package freezes provider versions and mock-plan evidence.
+If an exact primitive is unavailable in the pinned version, the affected
+bundle fails admission; implementation may not substitute a public endpoint
+or manual post-deployment role assignment.
+
 ## 2. Exact Post-Deployment Surfaces
 
 ### 2.1 L4 Semantic Twin
@@ -260,6 +275,13 @@ fingerprint. The Flutter reveal dialog warns that closing it discards the
 value. Reissuing the credential always rotates; there is no password-read
 endpoint.
 
+Rotation is serialized by one deployment-scoped server lock. A concurrent
+request returns `409 GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS` before mutation.
+The client never retries automatically. If the provider rotation succeeds but
+the response is lost, the researcher may explicitly rotate again; the newest
+successful credential wins. Neither request nor response bodies enter access
+logs, traces, metrics, or operation messages.
+
 ## 7. Deployer And Terraform Outputs
 
 Each selected L4/L5 implementation must produce a typed internal output bundle
@@ -305,6 +327,17 @@ Deployment must idempotently provision:
 
 The content revision/digest is part of deployment evidence so refresh,
 destroy, and redeploy are deterministic.
+
+The layer-access workload is explicit but intentionally small. Each Core
+Small/Medium/Large scenario resolves
+`l4InspectionSessionsPerMonth=12` and
+`l4ReadsPerInspectionSession=20`. These are fixed researcher-PoC dimensions,
+not user switches. The Optimizer prices the resulting 240 bounded L4 reads per
+month and the one-time content/bootstrap writes for TwinMaker, ADT, or the GCP
+Twin API/Explorer. GCP also prices the Cloud Run Explorer requests, duration,
+logs, and image storage. Interactive identity bindings and selected Grafana
+seats are included even when the provider charges zero for the control-plane
+binding.
 
 ## 9. Twin Overview Boundary
 
@@ -376,6 +409,7 @@ LAYER_ACCESS_CONTENT_PROVISIONING_FAILED
 LAYER_ACCESS_DATA_PROBE_FAILED
 LAYER_ACCESS_URL_INVALID
 GCP_GRAFANA_VIEWER_ROTATION_FAILED
+GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS
 ```
 
 Deployment may succeed technically while layer access is blocked only if the
@@ -385,7 +419,26 @@ with safe remediation. A new deployment cannot start when its required
 interactive principal or first-time IAP prerequisite is already known to be
 missing.
 
-## 12. Primary Provider Evidence
+## 12. Offline Feasibility Verification
+
+The implementation gate must prove without cloud credentials or `apply`:
+
+| Boundary | Mandatory offline evidence |
+|---|---|
+| Contract | JSON Schema/strict parser fixtures for all nine placements, unsupported historical access, destroyed state, invalid provider/auth pairs, invalid URLs, and secret-like fields |
+| AWS | Native/mock Terraform plan contains TwinMaker seed content, Identity Center permission/account assignment, Grafana association, safe URLs, and dashboard content; no password output |
+| Azure | Native/mock Terraform plan contains ADT/Grafana scoped role assignments, seed graph, safe Explorer/Grafana URLs, and dashboard content; no client secret output |
+| GCP | Native/mock Terraform plan contains exactly one Firestore database, separate L3/L4 collection indexes, materializer and IAP Explorer services, IAP invoker/principal bindings, Grafana Viewer/Admin separation, and no public L4 invocation |
+| Management | Owner/404 isolation, exactly-two-surface available response, zero-surface unsupported response, lifecycle invalidation, output allowlist, redaction, rotation serialization, and response-body log exclusion |
+| Flutter | Strict DTO/BLoC/widget/screen/demo tests plus real local Management integration over every placement; no output-key inference |
+| Documentation | `git diff --check`, internal-link validation, strict MkDocs, and secret/physical-identifier scan |
+
+The optional supervised live gate then proves what offline evidence cannot:
+resource availability in the fixed regions, actual provider login, L4 seed
+visibility, L5 dashboard queries, GCP TLS/fingerprint/CIDR behavior, role
+propagation, and cleanup. No row becomes `live_verified` from a mock plan.
+
+## 13. Primary Provider Evidence
 
 - [AWS IoT TwinMaker concepts and console capabilities](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/what-is-twinmaker.html)
 - [AWS IoT TwinMaker identity-policy examples](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/security_iam_id-based-policy-examples.html)
@@ -395,15 +448,20 @@ missing.
 - [Azure Digital Twins data-plane roles](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-security)
 - [Azure Managed Grafana access roles](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-manage-access-permissions-users-identities)
 - [Cloud Run direct IAP configuration](https://cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run)
+- [Cloud Run v2 Terraform `iap_enabled`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_v2_service)
+- [Provision IAP resources with Terraform](https://cloud.google.com/iap/docs/terraform)
 - [Firestore server-client IAM](https://cloud.google.com/firestore/docs/security/iam)
 - [Firestore Security Rules and server-library boundary](https://cloud.google.com/firestore/native/docs/security/rules-conditions)
+- [Amazon Managed Grafana Terraform role association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/grafana_role_association)
+- [Azure Terraform resource-scoped role assignment](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)
+- [Grafana dashboard Terraform resource](https://registry.terraform.io/providers/grafana/grafana/latest/docs/resources/dashboard)
 
 The GCP source explicitly records the non-automatable edge: first-time IAP in
 a project without an organization can require Cloud Console setup because
 OAuth clients cannot be created programmatically. That is why the plan exposes
 an admission prerequisite instead of claiming universal unattended setup.
 
-## 13. Definition Of Done
+## 14. Definition Of Done
 
 - [ ] The complete-service decision package contains this access contract and
       the one-Firestore tradeoff.
@@ -422,6 +480,10 @@ an admission prerequisite instead of claiming universal unattended setup.
       outputs as access configuration.
 - [ ] GCP Viewer credential rotation reveals only the human Viewer password
       once; no provisioning or reader secret crosses the Management boundary.
+- [ ] Rotation is serialized and non-retried, and the credential never enters
+      logs, state projections, metrics, or clipboard automatically.
+- [ ] L4 inspection reads, seed writes, GCP Explorer runtime, interactive
+      bindings, and mandatory human seats are priced rather than hidden.
 - [ ] Destroy and redeploy invalidate old URLs, bindings, credentials, and
       access evidence.
 - [ ] Offline tests make no live-cloud/browser claim.

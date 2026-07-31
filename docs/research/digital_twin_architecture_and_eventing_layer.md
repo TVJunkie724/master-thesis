@@ -1335,10 +1335,24 @@ The selected complete bundles are AWS DynamoDB plus Amazon Managed Grafana
 with IoT TwinMaker independently placeable, Azure Cosmos DB plus Azure Managed
 Grafana with Azure Digital Twins independently placeable, and a
 provider-hosted GCP bundle using Firestore Native Standard edition, a typed
-Cloud Run reader, and Grafana OSS on GKE plus an independently placeable Cloud Run Twin API
-backed by a separate bounded Firestore database. GCP therefore becomes a complete
-single-cloud implementation target for the new profiles without changing the
-historical all-GCP rejection in `five-layer-baseline@1`.
+Cloud Run reader, and Grafana OSS on GKE plus an independently placeable Cloud
+Run Twin API. The PoC creates one named Firestore database per deployment and
+keeps L3/L4 collections, indexes, code paths, identities, and cost attribution
+logically separate. Because server-library IAM is database-wide, this accepts
+a weaker isolation boundary than two databases; the tradeoff is reported
+rather than hidden. GCP therefore becomes a complete single-cloud
+implementation target for the new profiles without changing the historical
+all-GCP rejection in `five-layer-baseline@1`.
+
+The functional closure also includes post-deployment inspection. Every one of
+the nine L3/L4/L5 placements provides one authenticated L4 semantic Twin
+surface and one L5 raw/rollup Grafana surface. AWS uses TwinMaker console and
+Managed Grafana, Azure uses ADT Explorer and Managed Grafana, and GCP adds a
+bounded IAP-protected Cloud Run Twin Explorer beside Grafana OSS. Interactive
+browser identities are preflighted independently from deployment credentials;
+generic Terraform outputs are not a credential or access contract. Exact
+feasibility and residual limitations are recorded in
+[`phase_08_layer_access_handoff.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
 
 L4-to-L5 Twin context, 3D scenes, and the ADX migration are outside
 Five-layer v2. Six-layer implementation is separately deferred until the

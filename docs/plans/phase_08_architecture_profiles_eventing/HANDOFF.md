@@ -139,8 +139,8 @@ binding feasibility and implementation order are frozen in
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. complete two fresh zero-finding reviews of the corrected complete-service
-   and layer-access closure, then obtain explicit implementation approval;
+1. obtain explicit implementation approval for the reviewed complete-service
+   and layer-access closure;
 2. build and commit the immutable complete-service decision package;
 3. return to the existing Phase 8.6 implementation worktree and read
    [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)

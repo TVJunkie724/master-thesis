@@ -411,8 +411,11 @@ Reveal constructor:
 
 Use `AppSpacing.dialogContentMaxWidth`, standard Clipboard APIs consistent with
 `TerraformOutputsCard`, `SelectableText` for username, an obscured read-only
-password field, and explicit Copy buttons. No callback returns the password to
-the BLoC. The dialog object becomes unreachable on close.
+password field, and explicit Copy buttons. The visible warning must state that
+copying can retain the value in the operating system's clipboard/history and
+is a deliberate user action; the app never copies automatically. No callback
+returns the password to the BLoC. The dialog object becomes unreachable on
+close.
 
 ## 5. Responsive Behavior
 
@@ -521,6 +524,7 @@ third-party icon package may be introduced.
 | Open hover/focus/press | Standard Material button feedback; tooltip/label includes layer and service |
 | External launch failure | Safe existing top banner; launcher handle closes |
 | Rotation | GCP L5 action disables, replaces icon area with token-sized progress, and leaves Open behavior unchanged if current credential still works |
+| Concurrent rotation | The BLoC suppresses a second local request while busy; a server-side 409 from another session is rendered as “rotation already in progress” and is never auto-retried |
 | Rotation failure | Inline error on L5 card with retry action; no password/dialog |
 | Rotation success | Reveal dialog opens once; card returns to ready and shows the new rotation timestamp after canonical refresh if returned by the read model |
 | Expansion | Standard `ExpansionTile` animation; no custom duration |
@@ -652,6 +656,7 @@ focused extension]
 | 10 | Edge | Successful GCP rotation increments token, exposes transient value, and `Consumed` clears it without clearing snapshot |
 | 11 | Edge | Duplicate `Consumed` token is harmless and does not clear a newer credential |
 | 12 | Edge | Deploy success refreshes access once after canonical deployment completion |
+| 13 | Edge | A second rotation event while busy performs zero additional POST calls |
 
 ### 11.4 Panel widget tests
 
@@ -711,6 +716,7 @@ must not mock Dio/HTTP and must not deploy cloud resources.
 | 7 | Edge | Destroyed fixture returns no active access and Flutter clears cards |
 | 8 | Edge | GCP rotation returns a new credential/fingerprint and a second rotation invalidates/replaces it in fixture state without exposing Admin/reader values |
 | 9 | Edge | Generic outputs remain separately rendered and redacted after access load |
+| 10 | Edge | Concurrent rotation returns exact 409 code, performs one provider mutation, and the UI offers only an explicit later retry |
 
 ### 11.7 Mandatory commands and environment discipline
 
@@ -796,6 +802,9 @@ every broken link before commit.
       `url_launcher`, Dio, Deployer, Optimizer, Terraform, or cloud APIs.
 - [ ] GCP rotation is explicit, non-retried, Viewer-only, and one-time; Admin,
       datasource, provider, and reader secrets never cross the UI contract.
+- [ ] Local and server-side rotation concurrency is serialized; response
+      bodies and passwords never enter logs, metrics, traces, or banners, and
+      clipboard copy is explicit with a visible persistence warning.
 - [ ] Destroy, redeploy, navigation, retry, and stale-response races clear or
       ignore old access/credential data.
 - [ ] Desktop, narrow Web, compact Web, 640 px, 200% text scale, keyboard,
@@ -816,3 +825,10 @@ every broken link before commit.
       zero unresolved findings.
 - [ ] Builder/auditor handoff is emitted only after explicit **Approved** or
       **Genehmigt**.
+
+### Plan review record
+
+| Pass | Perspective | Result |
+|---|---|---|
+| 1 | Architect | Zero unresolved findings on 2026-07-31 after correcting unsupported-response cardinality, provider/IaC feasibility, access-vs-content Open gating, responsive hierarchy, identity prerequisites, one-Firestore isolation, and cost ownership |
+| 2 | Builder | All 20 mandatory plan-review criteria pass on 2026-07-31 with zero unresolved findings after adding exact DTO/API/BLoC/dialog contracts, rotation concurrency, clipboard warning, hard test assertions, real-Management integration, documentation phase, and commit/approval gates |

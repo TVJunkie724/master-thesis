@@ -588,7 +588,9 @@ comparison.
 | API calls/aggregate refresh | 1 | 10 | 100 |
 | Dashboard active hours/day | 1 | 4 | 8 |
 | Aggregate active-window query rate | 0.0033/s | 0.1667/s | 3.3333/s |
-| Monthly editor/viewer seats | 2/0 | 25/10 | 100/300 |
+| Monthly editor/viewer seats | 2/1 | 25/10 | 100/300 |
+| L4 inspection sessions/month | 12 | 12 | 12 |
+| L4 bounded reads/session | 20 | 20 | 20 |
 | Twin-state materializations/s | 0.1 | 2.5 | 50 |
 | Twin graph/model updates/s | 0.01 | 0.1 | 1 |
 
@@ -598,6 +600,13 @@ from every raw message. Five-layer v2 has no scene workload fields because it
 does not claim L4-to-L5 or 3D visualization. Its canonical PoC telemetry
 record contains exactly one visualized numeric metric/value pair, so each
 accepted raw record causes exactly one hourly-rollup update.
+
+The mandatory Small Viewer closes the post-deployment access requirement
+instead of treating the researcher as a free/unpriced operator. The twelve
+monthly L4 inspection sessions and twenty bounded reads per session are fixed
+researcher-PoC dimensions across all sizes. They price TwinMaker/ADT/Twin-API
+reads and GCP Explorer runtime without pretending that every Grafana seat also
+uses the semantic Twin UI.
 
 ### Domain-Event Scenarios
 

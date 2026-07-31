@@ -33,7 +33,7 @@ EXTRACTED: 2026-07-31 | VERSION: 1.8
 | Selection rule | Functionality and theoretical Small/Medium/Large admissibility first; cost is measured, not minimized |
 | PoC rule | Add only components required by the shared functional contract or by a measured capacity boundary |
 | LaTeX | Excluded without separate approval |
-| Review status | Layer-access feasibility correction added; fresh zero-finding review required before implementation |
+| Review status | Two fresh 2026-07-31 layer-access/implementation-plan reviews complete with zero unresolved findings; explicit implementation approval still required |
 
 Where an older Phase 8 plan conflicts with this corrective gate, this document
 controls new-profile implementation. Historical artifacts, digests, and
@@ -826,6 +826,21 @@ switches. The same is true for `visualizedNumericMetricsPerRecord=1`,
 dimensions together with raw/rollup read, write, transaction, index, storage,
 expiry, function-duration, and throttling cost ownership.
 
+Post-deployment L4 inspection adds two fixed PoC dimensions rather than new
+user inputs:
+
+```text
+l4InspectionSessionsPerMonth = 12
+l4ReadsPerInspectionSession = 20
+```
+
+All three Core scenario sizes therefore price 240 bounded semantic-Twin reads
+per month, their one-time seed writes, provider interactive-role bindings, and
+the GCP Twin Explorer Cloud Run requests/duration/logging/image support where
+selected. The mandatory first human access principal is included in the
+Grafana seat workload; no provider is allowed to hide it as a free deployment
+operator.
+
 Reject for new-profile requests:
 
 ```text
@@ -1203,6 +1218,8 @@ commands may receive cloud credentials or a live/apply flag.
 |---|---|---|
 | 1 | Revised Five-layer v2 architecture and concept consistency across service evaluation, every Phase 8 plan, Handoff, research design, and current docs | Pass on 2026-07-30 with zero unresolved findings after retaining Firestore L3, correcting stale L3/L4/L5 diagrams, and time-bounding the deprecated managed JSON API datasource |
 | 2 | Builder/API contract, workload math, identity/security, failure behavior, implementation sequence, compatibility, Flutter boundary, and testability | Pass on 2026-07-30 with zero unresolved findings; exact Firestore sharding/transactions, raw/rollup reader contract, plugin fail-closed gates, nine placements, capacity math, and credential-free integration commands are implementation-ready |
+| 3 | Layer-access architecture feasibility across AWS/Azure/GCP, all nine placements, single-cloud/multicloud identity, one-Firestore tradeoff, visible content, cost ownership, and live/offline claim boundary | Pass on 2026-07-31 with zero unresolved findings after adding interactive-principal preflight, direct Cloud Run IAP, safe Viewer rotation, explicit L4 inspection load, Small Viewer cost, and provider Terraform evidence |
+| 4 | Architect and builder review of concept hierarchy, FR/API datatypes, BLoC/Riverpod ownership, responsive widget tree, secret lifecycle, concurrency, accessibility, integration tests, documentation, and exact commit order | Pass on 2026-07-31 with all 20 plan-review criteria satisfied and zero unresolved findings |
 
 This service/architecture slice adds no new Flutter route, but it does add a
 typed Layer Access section to the existing Twin Overview. Its authoritative
@@ -1216,6 +1233,18 @@ Planning verification on 2026-07-30:
 
 - active Phase 8 cross-document service/placement consistency: pass;
 - actual Flutter Riverpod/BLoC ownership versus Phase 8.7: pass;
+- `git diff --check`: pass;
+- `./thesis.sh test deployment-contract --focused`: pass
+  (66 root, 40 Optimizer, 87 Management, and 73 Deployer/Terraform tests);
+- OrbStack MkDocs strict build: pass.
+
+Layer-access planning verification on 2026-07-31:
+
+- cross-document one-Firestore, L4/L5 service, identity, nine-placement, and
+  deferred-Six-layer consistency: pass;
+- provider-primary-source and Terraform primitive feasibility: pass;
+- Flutter plan dual review against all architect/builder criteria: pass with
+  zero unresolved findings;
 - `git diff --check`: pass;
 - `./thesis.sh test deployment-contract --focused`: pass
   (66 root, 40 Optimizer, 87 Management, and 73 Deployer/Terraform tests);
@@ -1241,6 +1270,7 @@ LAYER_ACCESS_CONTENT_PROVISIONING_FAILED
 LAYER_ACCESS_DATA_PROBE_FAILED
 LAYER_ACCESS_URL_INVALID
 GCP_GRAFANA_VIEWER_ROTATION_FAILED
+GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS
 PROFILE_WORKLOAD_V2_REQUIRED
 EVENTING_SCENARIO_REFERENCE_INVALID
 PROFILE_CAPACITY_EVIDENCE_INCOMPLETE
@@ -1311,6 +1341,8 @@ and correlation ID.
 - [ ] The configuration workspace blocks on missing AWS Identity Center,
       Azure Entra role-assignment, or GCP IAP prerequisites without asking for
       browser passwords.
+- [ ] The fixed monthly L4 inspection reads, seed operations, interactive
+      bindings, mandatory human seat, and GCP Explorer runtime are costed once.
 - [ ] Raw telemetry, materialized Twin state, and relationships retain distinct
       ownership and update rates.
 - [ ] Twin entities, dashboard traffic, and seats are separate; scene/3D fields
