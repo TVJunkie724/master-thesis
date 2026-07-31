@@ -3,11 +3,12 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-07-30"
-version: "3.5"
+version: "3.7"
 ---
 
 <!-- SOURCES:
 - docs/plans/phase_08_architecture_profiles_eventing/README.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - docs/research/digital_twin_architecture_and_eventing_layer.md
 - docs/research/research_questions_and_evaluation_design.md
 - docs/research/related_work_multicloud_cost_comparability_eventing.md
@@ -15,7 +16,7 @@ version: "3.5"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-30 | VERSION: 3.5
+EXTRACTED: 2026-07-31 | VERSION: 3.7
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -33,7 +34,7 @@ EXTRACTED: 2026-07-30 | VERSION: 3.5
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Phase 8.5 is default-off; Phase 8.8 approves Event-domain evidence only; the revised Five-layer v2 service closure is the corrective activation gate; Phase 8.6 may complete only as a dark generic compiler; Six-layer is deferred |
-| Next action | Obtain explicit user approval for the twice-reviewed Cosmos-preserving Five-layer v2 plan, then build the immutable decision package and finish/review the dark Phase 8.6 compiler boundary |
+| Next action | After explicit approval, build/review/commit the immutable complete-service decision package including `thesis-demo-v2`, then finish/review the dark Phase 8.6 compiler boundary |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -135,13 +136,30 @@ the weaker database-wide IAM isolation is an explicit PoC limitation. The
 binding feasibility and implementation order are frozen in
 [`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md).
 
+The subsequent credential review removed one more hidden prerequisite: a user
+must not manually construct a bounded deployment CloudConnection before Phase 8
+can deploy. When the resolved provider scope has no compatible connection, the
+Management API receives one request-scoped bootstrap credential, creates and
+validates the bounded deployment identity, persists only that CloudConnection,
+and stops retaining the bootstrap secret after the request. The current
+`thesis-demo-v1` permission packs remain bounded PoC baselines with documented
+scope gaps, not a formal least-privilege proof. Disposable credential
+revocation and mere application-side release are separate states. The
+bootstrap session ends at a validated connection; AWS L4 organization-instance
+activation, GCP no-organization/external OAuth, quota, billing, and policy
+actions belong to the later Twin deployment preflight and resume through the
+generated connection. Draft creation and calculation remain credential-free. The
+binding contract is
+[`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md).
+
 ## Immediate Next Action
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. obtain explicit implementation approval for the reviewed complete-service
-   and layer-access closure;
-2. build and commit the immutable complete-service decision package;
+1. obtain explicit implementation approval for the six-pass, zero-finding
+   complete-service, layer-access, and guided-bootstrap closure;
+2. build, review, and commit the immutable complete-service decision package,
+   including the provider `thesis-demo-v2` permission artifacts;
 3. return to the existing Phase 8.6 implementation worktree and read
    [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)
    in full;
@@ -168,15 +186,17 @@ Read these sources before implementation:
 
 1. [`README.md`](README.md), the Phase 8 mini-roadmap and execution order.
 2. The implementation plan for the current issue.
-3. [`docs/research/digital_twin_architecture_and_eventing_layer.md`](../../research/digital_twin_architecture_and_eventing_layer.md).
-4. [`docs/research/research_questions_and_evaluation_design.md`](../../research/research_questions_and_evaluation_design.md).
-5. [`docs/research/related_work_multicloud_cost_comparability_eventing.md`](../../research/related_work_multicloud_cost_comparability_eventing.md).
-6. [`docs/plans/resolved_deployment_specification/README.md`](../resolved_deployment_specification/README.md).
-7. [`docs-site/docs/contracts-and-data-flow/system-boundaries.md`](../../../docs-site/docs/contracts-and-data-flow/system-boundaries.md).
-8. [`docs-site/docs/architecture/refactoring-roadmap.md`](../../../docs-site/docs/architecture/refactoring-roadmap.md).
-9. `FRONTEND_ARCHITECTURE.md`, `integration_vision.md`, `ONBOARDING.md`, and
+3. [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md),
+   before any layer-access or deployment-credential work.
+4. [`docs/research/digital_twin_architecture_and_eventing_layer.md`](../../research/digital_twin_architecture_and_eventing_layer.md).
+5. [`docs/research/research_questions_and_evaluation_design.md`](../../research/research_questions_and_evaluation_design.md).
+6. [`docs/research/related_work_multicloud_cost_comparability_eventing.md`](../../research/related_work_multicloud_cost_comparability_eventing.md).
+7. [`docs/plans/resolved_deployment_specification/README.md`](../resolved_deployment_specification/README.md).
+8. [`docs-site/docs/contracts-and-data-flow/system-boundaries.md`](../../../docs-site/docs/contracts-and-data-flow/system-boundaries.md).
+9. [`docs-site/docs/architecture/refactoring-roadmap.md`](../../../docs-site/docs/architecture/refactoring-roadmap.md).
+10. `FRONTEND_ARCHITECTURE.md`, `integration_vision.md`, `ONBOARDING.md`, and
    each touched project's README before project-specific changes.
-10. Current source, tests, migrations, generated contracts, and GitHub issue
+11. Current source, tests, migrations, generated contracts, and GitHub issue
     state. Code is evidence of current behavior, not automatically the target.
 
 For provider services, prices, permissions, quotas, and APIs, verify current

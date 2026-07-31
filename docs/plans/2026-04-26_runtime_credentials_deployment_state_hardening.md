@@ -6,6 +6,8 @@
 
 **Aktueller Implementation Plan:** [`2026-05-19_credential_ssot_compose_split.md`](2026-05-19_credential_ssot_compose_split.md)
 
+**Verbindliche Phase-8-Ergaenzung:** [`phase_08_guided_cloud_bootstrap.md`](phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md)
+
 ---
 
 ## 1. Ziel
@@ -96,23 +98,43 @@ twin_provider_bindings
 
 ## 4. Credential Setup Flow
 
-Beim Erstellen oder Bearbeiten eines Twins waehlt der User vorhandene Cloud Connections aus dem Profil. Wenn keine passende Connection existiert, kann der User eine neue Cloud Connection erstellen.
+Ein Twin-Entwurf, die Workload-Beschreibung und die Berechnung bleiben
+credential-frei. Erst nachdem die immutable Architektur feststeht, waehlt der
+User in `Prepare deployment -> Cloud access` vorhandene Cloud Connections fuer
+die tatsaechlich benoetigten Provider. Alternativ kann derselbe Setup-Flow in
+`Settings -> Cloud Accounts & Access` vorab gestartet werden. Wenn keine
+passende Connection existiert, erzeugt der gefuehrte Bootstrap sie aus
+request-scoped Bootstrap-Autoritaet.
 
 ```text
-Twin erstellen
-  -> vorhandene CloudConnection waehlen
-  -> oder "+ Neue CloudConnection"
+Twin konfigurieren und Architektur auswaehlen
+  -> fuer benoetigten Provider vorhandene CloudConnection waehlen
+  -> oder "Cloud-Zugang einrichten"
       -> Provider und Scope waehlen
       -> Setup-Methode waehlen
+      -> provider-spezifische Anleitung fuer temporaere Bootstrap-Credentials
+      -> Bootstrap-Credentials nur in einem POST-Request uebergeben
       -> begrenzte Deployment-Identity erstellen
       -> Deployment-Identity validieren
       -> CloudConnection speichern
-      -> Admin-Credentials verwerfen
+      -> Bootstrap-Secret nicht persistieren und nach Request nicht behalten
+      -> disposable Credential widerrufen oder manuelle Loeschung anzeigen
+  -> Twin-spezifischen Deployment-Preflight ausfuehren
+     -> ready
+     -> oder auf konkrete Provider-Voraussetzung pausieren
+        -> User fuehrt externen Schritt aus
+        -> Recheck nur mit der gespeicherten CloudConnection
 ```
+
+Die Pause blockiert nur das Fertigstellen der Deployment-Vorbereitung. Twin-
+Entwurf und Berechnung bleiben gespeichert. Nach einem Recheck werden die
+Bootstrap-Credentials nicht erneut benoetigt.
 
 ### Setup-Methode A: Statisches Bootstrap-Skript
 
-Dies ist der bevorzugte Zielpfad fuer die erste saubere Umsetzung.
+Dies ist der implementierte, manuelle Stage-1-Kompatibilitaetspfad. Er bleibt
+waehrend der Einfuehrung des gefuehrten API-Flows verfuegbar, ist aber nicht der
+spaetere Flutter-Hauptpfad.
 
 Das Repository enthaelt versionierte, provider-spezifische Bootstrap-Artefakte:
 
@@ -139,16 +161,31 @@ Die App parametrisiert nur wenige Werte:
 
 Die Rechte-Definition bleibt statisch, versioniert, reviewbar und testbar.
 
-### Setup-Methode B: Guided One-Time Admin Setup
+### Setup-Methode B: Guided One-Time Bootstrap Setup
 
 Komfortmodus fuer lokale Demo und Thesis-Flow:
 
-1. User laedt Admin-Credentials hoch oder gibt sie ein.
-2. Backend nutzt sie nur im aktuellen Request.
-3. Backend erstellt eine begrenzte Deployment-Identity.
-4. Backend validiert die neue Identity.
-5. Backend speichert nur die begrenzte Cloud Connection.
-6. Backend verwirft Admin-Credentials sofort.
+1. Die UI zeigt eine versionierte Provider-Anleitung und die benoetigten
+   Bootstrap-Felder.
+2. Der User erstellt ein dediziertes temporaeres Credential oder waehlt
+   bewusst ein vorhandenes user-owned Admin-Credential.
+3. Der User laedt das Credential hoch oder gibt es ein.
+4. Das Backend nutzt es nur im aktuellen Request.
+5. Das Backend erstellt und validiert eine begrenzte Deployment-Identity.
+6. Das Backend speichert nur die begrenzte Cloud Connection.
+7. Das Backend persistiert das Bootstrap-Secret nicht, minimiert Kopien und
+   behaelt nach dem Request keine Referenz. Eine kryptographische Zeroization
+   von Python-/SDK-Strings wird nicht behauptet.
+8. Bei `dedicated_disposable` versucht das Backend den providerseitigen
+   Widerruf als letzte privilegierte Aktion; eine nicht vorzeitig widerrufbare
+   temporaere Session zeigt stattdessen ihre Provider-Ablaufzeit. Falls ein
+   langlebiges Credential nicht automatisch entfernt werden kann, pausiert der
+   Assistent auf einer exakten manuellen Loeschanweisung.
+9. Bei `existing_user_owned` veraendert das Backend das Credential nie und
+   erklaert ausdruecklich, dass es beim Provider gueltig bleibt.
+10. Nach `ready` laufen Identity-, Billing-, Quota- und Layer-Access-Checks im
+    getrennten Twin-Deployment-Preflight nur noch mit der generierten
+    CloudConnection. Settings endet bereits bei einer validierten Connection.
 
 Dieser Modus braucht harte Guardrails:
 
@@ -156,6 +193,19 @@ Dieser Modus braucht harte Guardrails:
 - Admin-Secrets werden nicht in Temp-Dateien geschrieben.
 - Admin-Secrets werden nie in DB-Feldern gespeichert.
 - Fehlerausgaben enthalten nur redacted Provider-Informationen.
+- Ein persistierter Bootstrap-Session-Datensatz enthaelt nur Owner, Provider,
+  sicheren Scope, Status, Finding Codes, CloudConnection-ID und
+  Credential-Disposal-Status.
+- `verworfen` und `providerseitig widerrufen` sind verschiedene, explizite
+  Zustaende. Die UI darf sie nicht gleichsetzen.
+- Cancel und manuelle Revocation-Bestaetigung erhalten niemals das Bootstrap-
+  Secret erneut. Twin-spezifischer Recheck wiederholt
+  `/twins/{twin_id}/deployment-preflight` mit der CloudConnection.
+
+Die vollstaendige State Machine, die manuellen AWS/Azure/GCP-Schritte, stabile
+Finding Codes, Idempotenz, Widerruf und die Implementierungsreihenfolge stehen
+im verbindlichen
+[`phase_08_guided_cloud_bootstrap.md`](phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md).
 
 ### Setup-Methode C: Bootstrap Delegation
 
@@ -275,6 +325,13 @@ Der Deployer akzeptiert langfristig nur dieses Manifest plus Runtime Credential 
 - Parameter-Contracts definieren.
 - Output-Format fuer App-Import vereinheitlichen.
 - Validierung pro Provider an CloudConnection binden.
+- Versionierte Provider-Anleitungen und Permission-Pack-Digests bereitstellen.
+- Request-only Bootstrap-Session, Idempotenz, Pause/Recheck/Cancel und stabile
+  Remediation Codes implementieren.
+- `dedicated_disposable` und `existing_user_owned` mit ehrlichem
+  Disposal-/Revocation-Status unterscheiden.
+- AWS Identity Center, Azure Entra und GCP IAP als vom Deployment-Credential
+  getrennte interaktive Identitaetsgrenze preflighten.
 
 ### Slice 5: Deployment Manifest und Workspace
 
@@ -286,7 +343,10 @@ Der Deployer akzeptiert langfristig nur dieses Manifest plus Runtime Credential 
 ### Slice 6: Flutter Integration
 
 - Wizard waehlt Cloud Connections statt Secret-Felder pro Twin zu speichern.
-- `+ Neue CloudConnection` wird eigener Setup-Flow.
+- Configuration Workspace und Settings verwenden denselben gefuehrten
+  Bootstrap-Setup-Flow.
+- Der Setup-Flow zeigt Provider-Anleitung, sichere Secret-Eingabe,
+  Pause/Recheck und Disposal-Acknowledgement; er ruft nur die Management API.
 - Twin-Konfiguration referenziert Cloud Connections und Provider-Bindings.
 - UI zeigt nur Status, Scope und Redacted Metadata.
 
@@ -298,6 +358,11 @@ Der Deployer akzeptiert langfristig nur dieses Manifest plus Runtime Credential 
 - Default-Compose startet ohne echte Cloud-Credentials.
 - Cloud-Modus ist explizit und nutzt `.secrets/local` oder CloudConnection-basierte Runtime-Kontexte.
 - Admin-Credentials werden durch Tests und Code-Review-Regeln von Persistenz ausgeschlossen.
+- Bootstrap-Credentials sind request-scoped; Disposal und providerseitiger
+  Widerruf werden wahrheitsgemaess getrennt ausgewiesen.
+- Ein Twin-spezifisches Provider-Prerequisite pausiert im Deployment-Preflight;
+  der erneute Preflight nutzt die erzeugte CloudConnection und fordert keine
+  Admin-Credentials erneut an.
 - Twins referenzieren Cloud Connections statt Credential-Payloads zu besitzen.
 - Der Deployer liest Credentials nicht mehr aus statisch gemounteten Repo-Dateien.
 - Deployment Workspaces sind pro Deployment isoliert und bereinigbar.

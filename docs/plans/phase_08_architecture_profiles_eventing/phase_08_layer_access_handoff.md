@@ -3,7 +3,7 @@ title: "Phase 8 Five-Layer v2 Layer Access Handoff"
 description: "Feasibility and implementation boundary for usable post-deployment L4 and L5 browser access."
 tags: [architecture, flutter, deployment, identity, digital-twin, grafana, phase-8]
 lastUpdated: "2026-07-31"
-version: "1.0"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -12,11 +12,12 @@ version: "1.0"
 - phase_08_6_deployer_graph_resolver.md
 - phase_08_7_flutter_profile_workflow.md
 - Current Management deployment-output and Twin Overview contracts
+- phase_08_guided_cloud_bootstrap.md
 - Primary AWS, Azure, GCP, and Grafana documentation listed in Section 12
 - User-approved PoC boundary: inspect both L4 and L5 after deployment, keep L4
   independent from the provider-local L3-hot/L5 bundle, and avoid unjustified
   production infrastructure
-EXTRACTED: 2026-07-31 | VERSION: 1.0
+EXTRACTED: 2026-07-31 | VERSION: 1.2
 -->
 
 # Phase 8 Five-Layer v2 Layer Access Handoff
@@ -54,10 +55,13 @@ domains, and automated browser login are outside scope.
 ## 1. Feasibility Result
 
 The target is feasible with one important qualification: cloud sign-in cannot
-be manufactured from the API credentials used for deployment. The user must
-already have, or activate, the selected provider's interactive identity
-facility. Terraform can then bind that principal to the deployed L4/L5
-resources.
+be manufactured from the API credentials used for deployment. The guided
+bootstrap creates the bounded deployment CloudConnection; the later deployment
+automates every supported role/resource binding. The user must still identify an existing
+interactive principal, explicitly request a built-in AWS Identity Center
+invitation where supported, or activate a provider facility for which no
+programmatic path exists. Terraform can then bind that principal to the
+deployed L4/L5 resources.
 
 | Requirement | Result | Boundary |
 |---|---|---|
@@ -67,7 +71,7 @@ resources.
 | L5 browser UI on AWS | Feasible | Amazon Managed Grafana workspace URL and IAM Identity Center workspace association |
 | L5 browser UI on Azure | Feasible | Azure Managed Grafana endpoint and Azure RBAC assignment |
 | L5 browser UI on GCP | Feasible | Existing Grafana OSS/GKE TLS endpoint plus a generated human Viewer credential |
-| Universal unattended identity bootstrap | Not feasible | AWS Identity Center and first-time/no-organization GCP IAP setup can require account-owner action; deployment preflight must expose and block on that prerequisite |
+| Universal unattended identity bootstrap | Not feasible | AWS L4 requires an Identity Center organization instance, and first-time/no-organization or external-user GCP IAP can require account-owner action; Twin deployment preflight must pause and resume around that prerequisite after bootstrap is complete |
 | Offline proof of browser sign-in | Not possible | Offline tests prove contracts and bindings only; a supervised live run proves the actual sign-in |
 
 The selected GCP Twin Explorer is deliberately a second Cloud Run service,
@@ -98,7 +102,7 @@ or manual post-deployment role assignment.
 
 | Provider | Selected surface | What the researcher can inspect | Human authentication |
 |---|---|---|---|
-| AWS | IoT TwinMaker console opened at the deployed workspace | Workspace, models/component types, entities, current component state, and relationships | Existing IAM Identity Center user/group receives an account assignment with a generated deployment-scoped read-only permission set |
+| AWS | IoT TwinMaker console opened at the deployed workspace | Workspace, models/component types, entities, current component state, and relationships | Existing IAM Identity Center user/group, or an explicitly invited built-in-directory user, receives an account assignment with a generated deployment-scoped read-only permission set |
 | Azure | Azure Digital Twins Explorer opened at the deployed instance | Models, twins, properties, graph relationships, and bounded queries | Existing Microsoft Entra principal receives `Azure Digital Twins Data Reader` on the instance |
 | GCP | Minimal read-only Twin Explorer on Cloud Run | Model list, twin list/detail, current source state, and direct incoming/outgoing relationships | Existing Google principal receives `roles/iap.httpsResourceAccessor` on the explorer service |
 
@@ -124,10 +128,14 @@ is not part of deployment success.
 
 The configuration workspace must collect or select only the principals needed
 by the resolved L4 and L5 providers. It does not ask for browser passwords.
+Deployment CloudConnections are reused or created through the binding guided
+flow in
+[`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md);
+they are not a manual prerequisite supplied by the user.
 
 | Provider | Safe configuration fields | Secret field | Preflight condition |
 |---|---|---|---|
-| AWS | Identity Center instance ARN, identity-store ID, principal type, principal ID, account ID, display label | None | Instance/principal exists; deployer principal may create permission sets, account assignments, and Grafana associations |
+| AWS | account ID, display label/email, principal type, and `existing` or explicit `invite_builtin` intent; discovered instance/store/principal IDs remain backend state | None | L4: organization instance exists; L5-only: compatible instance exists or can be created; selected principal exists or explicit built-in invitation succeeds; bounded deployer principal may create permission sets, account assignments, and Grafana associations |
 | Azure | Entra object ID and display label/UPN | None | Principal exists; deployer principal may assign ADT/Grafana roles |
 | GCP L4 | Google principal (`user:` or approved `group:` member) | None | Direct Cloud Run IAP is already initialized for the project or can be enabled automatically; an out-of-organization/no-organization user completes the documented first-time Cloud Console OAuth setup before preflight |
 | GCP L5 | Human Viewer username; default is deterministic and deployment-scoped | None before deploy | Deployer can create/rotate the Viewer credential inside the Grafana deployment |
@@ -137,10 +145,20 @@ inside that provider, but the two resource-role bindings remain distinct. In a
 two-provider placement the configuration requires one interactive principal
 for each involved provider. L3 alone adds no browser identity requirement.
 
-The platform must not create AWS, Entra, or Google user accounts silently.
-Account invitations, MFA, password recovery, and organization membership stay
-with the provider identity system. Preflight returns a specific remediation
-link/status when that external prerequisite is missing.
+The platform must not create AWS, Entra, or Google user accounts silently. It
+may create and invite a user in the built-in AWS Identity Center directory only
+after the user explicitly selects that behavior and confirms the email. Azure,
+Google, and external-IdP principals remain existing-identity inputs. Account
+invitations, MFA, password recovery, and organization membership stay with the
+provider identity system. Preflight returns a specific remediation link/status
+when that external prerequisite is missing.
+
+Bootstrap credentials are separate again: they are request-scoped authority
+used to create the bounded CloudConnection. The bootstrap flow persists only
+the generated connection and safe bootstrap-session state. Layer-access manual
+actions belong to the separate Twin deployment preflight; rerunning that
+preflight uses the generated connection, so administrator credentials are not
+retained or requested again.
 
 ## 4. All Nine L3/L4/L5 Placements
 
@@ -373,20 +391,26 @@ the next slice starts:
 
 1. **Decision package and contracts:** update the service catalog, one-
    Firestore decision, schemas, fixtures, failure codes, and all nine placement
-   expectations.
-2. **Management persistence/read model:** persist safe access evidence and add
+   expectations; publish immutable provider `thesis-demo-v2` permission
+   artifacts without modifying v1.
+2. **Guided cloud bootstrap prerequisite:** implement and review the contracts,
+   Management lifecycle, provider adapters consuming `thesis-demo-v2`,
+   generated CloudConnection, disposal/revocation status, and shared Flutter
+   setup flow defined in `phase_08_guided_cloud_bootstrap.md`. The later
+   deployment preflight owns layer-access pause/recheck findings.
+3. **Management persistence/read model:** persist safe access evidence and add
    the owner-scoped `deployment-access.v1` endpoint with no secret operation.
-3. **Deployer/Terraform provider surfaces:** implement AWS, Azure, and GCP L4
+4. **Deployer/Terraform provider surfaces:** implement AWS, Azure, and GCP L4
    links/content/role bindings and L5 dashboard/access outputs; implement GCP
    Viewer rotation last within this slice.
-4. **Flutter contract and state:** strict Dart models, Management API methods,
+5. **Flutter contract and state:** strict Dart models, Management API methods,
    demo parity, BLoC loading/retry/rotation states.
-5. **Flutter presentation:** responsive two-card section, external launching,
+6. **Flutter presentation:** responsive two-card section, external launching,
    one-time secret dialog, and accessibility behavior.
-6. **Offline integration and documentation:** Management-API integration
+7. **Offline integration and documentation:** Management-API integration
    fixtures for all nine placements, complete docs, and two zero-finding
    reviews.
-7. **Optional supervised live gate:** only with explicit approval and cloud
+8. **Optional supervised live gate:** only with explicit approval and cloud
    credentials, deploy each approved placement, sign into both surfaces, run a
    test message, capture redacted evidence, and destroy resources.
 
@@ -404,6 +428,7 @@ DEPLOYMENT_ACCESS_CONTRACT_INVALID
 INTERACTIVE_PRINCIPAL_REQUIRED
 INTERACTIVE_PRINCIPAL_NOT_FOUND
 INTERACTIVE_ROLE_BINDING_FAILED
+AWS_IDENTITY_CENTER_ORGANIZATION_INSTANCE_REQUIRED
 GCP_IAP_PREREQUISITE_REQUIRED
 LAYER_ACCESS_CONTENT_PROVISIONING_FAILED
 LAYER_ACCESS_DATA_PROBE_FAILED
@@ -470,6 +495,16 @@ an admission prerequisite instead of claiming universal unattended setup.
 - [ ] All nine placement fixtures pass, including all three single-cloud rows.
 - [ ] AWS, Azure, and GCP interactive identity prerequisites are preflighted
       independently from deployment credentials.
+- [ ] A missing deployment CloudConnection starts the guided bootstrap rather
+      than requiring the user to construct bounded deployment credentials
+      manually; request-only bootstrap authority creates the bounded
+      connection and is never deliberately retained after its execute request.
+- [ ] AWS L4 organization-instance activation, GCP no-organization/external
+      OAuth, quota, billing, and organization-policy actions pause with typed
+      remediation and resume through the generated CloudConnection.
+- [ ] Bootstrap-secret release, provider expiry, provider-side revocation,
+      manual cleanup, and user-owned non-revocation are distinct truthful
+      states.
 - [ ] Each L4 opens a usable semantic Twin UI with deterministic content.
 - [ ] Each L5 opens a usable Grafana dashboard with deterministic raw/rollup
       content and an honest no-data state.

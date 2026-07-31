@@ -2,8 +2,8 @@
 title: "Phase 8.9B: Deferred Six-Layer Eventing Implementation Draft"
 description: "Suspended historical draft that must be rewritten after the reviewed five-layer-baseline@2 implementation."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-07-30"
-version: "1.11"
+lastUpdated: "2026-07-31"
+version: "1.12"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,8 @@ version: "1.11"
 - User decision to plan and implement Five-layer v2 first and defer Six-layer
   until the committed Five-layer baseline can be inherited without
   reinterpretation
-EXTRACTED: 2026-07-30 | VERSION: 1.11
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
+EXTRACTED: 2026-07-31 | VERSION: 1.12
 -->
 
 # Phase 8.9B: Deferred Six-Layer Eventing Implementation Draft
@@ -41,6 +42,11 @@ rewritten from the committed L1-L5 contract. Only then may a separately
 approved 8.9B branch add the independent Eventing responsibility. Until that
 gate, every unchecked item and implementation instruction below is
 non-authoritative and #140 remains blocked.
+
+The rewrite must inherit the committed guided-cloud-bootstrap and Layer Access
+contracts unchanged. Six-layer adds Eventing ownership; it does not introduce
+a second credential setup, require manually constructed CloudConnections, or
+alter the AWS/Azure/GCP human sign-in prerequisites.
 
 ## 0. Metadata
 

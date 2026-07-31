@@ -15,6 +15,12 @@ implementation plans are authoritative.
   iOS, and Fuchsia are unsupported.
 - Operation logs use Management API SSE. A transport failure becomes a bounded
   reconnect/error state; it does not authorize a direct downstream call.
+- The implemented Configuration Workspace supersedes the historical
+  credential-first wizard below. Draft, workload, calculation, and architecture
+  review remain credential-free. Guided creation of a bounded deployment
+  CloudConnection is planned only in Prepare deployment and the shared Settings
+  entry point; see
+  [Configuration Workspace Phase 9](twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
 
 ## Architecture Overview
 
@@ -365,7 +371,10 @@ and
 ### 4. Create/Edit Twin Wizard
 
 > [!NOTE]
-> This wizard is used for both **creating new twins** and **editing existing twins**. All steps support caching/draft saving.
+> The following wireframes preserve the original design history. The current
+> application uses the dependency-aware Configuration Workspace. In particular,
+> credentials no longer gate draft creation or optimization; deployment access
+> is selected or bootstrapped only after architecture selection.
 
 #### Wizard Step Indicator
 

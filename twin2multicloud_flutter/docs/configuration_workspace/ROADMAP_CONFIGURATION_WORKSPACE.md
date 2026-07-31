@@ -2,9 +2,17 @@
 title: "Configuration Workspace Roadmap"
 description: "Incremental migration from the legacy three-step wizard to the dependency-aware configuration workspace."
 tags: [flutter, roadmap, configuration, wizard]
-lastUpdated: "2026-07-17"
-version: "1.1"
+lastUpdated: "2026-07-31"
+version: "1.2"
 ---
+
+<!-- SOURCES:
+- twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
+- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
+- twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
+EXTRACTED: 2026-07-31 | VERSION: 1.2
+-->
 
 # Configuration Workspace Roadmap
 
@@ -22,6 +30,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 6 | Done | Review and preflight | Summary, actionable findings, centralized fail-closed readiness, and distributed server validation provide one completion path; 387 tests pass. |
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 | 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
+| 9 | Planned | [Guided cloud access bootstrap](phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) shared by Prepare deployment and Settings | [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) provides strict guides/sessions; request-scoped bootstrap secrets never persist; generated bounded CloudConnections and truthful disposal/revocation states are covered; the existing Twin deployment preflight owns later provider-action resume. |
 
 ## Cross-Phase Definition Of Done
 
@@ -39,6 +48,12 @@ adds focused tests, receives two code reviews, and is committed independently.
 - The visible optimizer result, selected run, and resolved deployment
   specification retain one identity; a newer unselected run cannot inherit an
   older deployment selection.
+- Draft creation, workload entry, calculation, and architecture review remain
+  credential-free; the selected architecture determines which provider scopes
+  require deployment access.
+- Bootstrap secrets are request-only. Local release, successful provider-side
+  revocation, manual cleanup, and an existing user-owned credential remaining
+  valid are distinct outcomes.
 
 ## Compatibility Strategy
 
@@ -66,5 +81,6 @@ spread into new widgets.
 | Architecture | Tests for stale pricing, calculation errors, recalculation invalidation, and selected result restoration. |
 | Deployment selection | Strict specification parsing/digest tests, latest-run list/detail consistency, bounded selection retry, navigation gates, and responsive read-only summary coverage. |
 | Deployment preparation | Requirement-matrix tests across provider paths and optional 3D assets. |
+| Guided cloud access | Strict provider-guide/session models; request-secret non-persistence; duplicate suppression; restart/recheck; exact disposal/revocation outcomes; shared Settings/workspace result. |
 | Completion | Tests proving client readiness cannot bypass server validation or preflight. |
 | Accessibility | Semantic labels, keyboard traversal, focus recovery, and no overflow at supported desktop widths. |

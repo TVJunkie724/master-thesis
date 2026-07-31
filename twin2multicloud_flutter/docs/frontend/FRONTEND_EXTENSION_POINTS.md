@@ -1,3 +1,18 @@
+---
+title: "Frontend Extension Points"
+description: "Planned typed Flutter extension points without production-code TODO markers."
+tags: [flutter, architecture, extension-points]
+lastUpdated: "2026-07-31"
+version: "1.1"
+---
+
+<!-- SOURCES:
+- twin2multicloud_flutter/docs/frontend_delta/ROADMAP_FRONTEND_DELTA.md
+- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
+- twin2multicloud_flutter/docs/feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
+EXTRACTED: 2026-07-31 | VERSION: 1.1
+-->
+
 # Frontend Extension Points
 
 This document records planned Flutter extension points without leaving TODO
@@ -21,12 +36,20 @@ markers in production code.
 ## Cloud Account And Credential Display
 
 - CloudConnection selection remains the credential SSOT UI path.
-- Profile-level cloud account visibility can be added as a read-only overview
-  first: provider, account/project/subscription metadata, validation status, and
-  discard/revoke actions.
+- Profile-level cloud account visibility is the shared Settings entry point for
+  provider, account/project/subscription metadata, validation status, and the
+  planned guided bootstrap. Prepare deployment uses the same Management-owned
+  bootstrap feature after the selected architecture determines required
+  provider scopes, then continues through the separate Twin deployment-
+  preflight owner.
 - Admin/bootstrap credentials are not a persistent app credential type. They
-  are entered only for bootstrap flows and discarded after generated least-
-  privilege credentials have been stored by the backend.
+  are submitted only in the create-session request and are never restored.
+- The UI distinguishes local secret release, successful provider-side
+  revocation, required manual cleanup, and an existing user-owned credential
+  remaining valid. It never labels local disposal as revocation.
+- The binding concept and backend request are
+  [Guided Cloud Access Bootstrap](../configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
+  and [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
 
 ## Optimization Strategies
 

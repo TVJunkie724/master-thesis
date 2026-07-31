@@ -3,7 +3,7 @@ title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
 lastUpdated: "2026-07-31"
-version: "1.8"
+version: "1.10"
 ---
 
 <!-- SOURCES:
@@ -11,10 +11,11 @@ version: "1.8"
 - Phase 8.0-8.10 plans and handoff
 - Immutable Phase 8.8 Eventing decision package
 - Current Optimizer, Management, Deployer, Terraform, and Flutter behavior
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-07-31 | VERSION: 1.8
+EXTRACTED: 2026-07-31 | VERSION: 1.10
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -33,7 +34,7 @@ EXTRACTED: 2026-07-31 | VERSION: 1.8
 | Selection rule | Functionality and theoretical Small/Medium/Large admissibility first; cost is measured, not minimized |
 | PoC rule | Add only components required by the shared functional contract or by a measured capacity boundary |
 | LaTeX | Excluded without separate approval |
-| Review status | Two fresh 2026-07-31 layer-access/implementation-plan reviews complete with zero unresolved findings; explicit implementation approval still required |
+| Review status | Six review passes complete; the 2026-07-31 guided-bootstrap cross-plan concept and implementation-readiness reviews have zero unresolved findings; explicit implementation approval remains required |
 
 Where an older Phase 8 plan conflicts with this corrective gate, this document
 controls new-profile implementation. Historical artifacts, digests, and
@@ -362,12 +363,18 @@ binding in
 | L5 Azure | Azure Managed Grafana | Entra principal with Grafana role |
 | L5 GCP | Grafana OSS on GKE | Generated human Viewer credential, separate from internal Admin and datasource secrets |
 
-The configuration workspace preflights the required interactive principals.
-It never treats CloudConnection deployment credentials as browser passwords.
-AWS Identity Center activation and first-time/no-organization GCP IAP OAuth
-setup may require an account owner; a missing prerequisite blocks a new
-deployment with a typed remediation state. Offline tests cannot claim that a
-human browser sign-in succeeded.
+The configuration workspace reuses or creates the required bounded deployment
+CloudConnections through
+[`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md), then
+preflights the required interactive principals. The user never has to manually
+construct a bounded deployment CloudConnection, and the platform never treats a
+deployment credential as a browser password. Request-scoped bootstrap
+authority creates the bounded connection and is released before any external
+pause. AWS L4 organization-instance activation and first-time/no-organization
+or external-user GCP IAP OAuth setup can require an account owner; a missing
+prerequisite blocks deployment preparation with a typed remediation state and
+resumes through the generated CloudConnection. Offline tests cannot claim that
+a human browser sign-in succeeded.
 
 ## 4. Boundary Contracts
 
@@ -1036,6 +1043,14 @@ Twin/dashboard inputs, and explains the provider-local L3-hot/L5 bundle plus
 independent L4 placement. It does not offer scene/3D, inline Eventing, or
 Eventing/GCP capability flags.
 
+Creating the draft and selecting the immutable architecture remain
+credential-free. `Prepare deployment -> Cloud access` requests connections only
+for the resolved providers and reuses the same Management-owned guided
+bootstrap available from Settings. Bootstrap secrets never rehydrate; an
+bootstrap session ends at a validated bounded CloudConnection. The separate
+Twin deployment preflight then pauses on any external provider action and
+rechecks through that generated connection.
+
 After deployment, Twin Overview loads typed `deployment-access.v1` through the
 Management API and renders exactly one L4 and one L5 access card. Each card
 shows service/provider, HTTPS link, interactive identity/readiness, available
@@ -1061,6 +1076,16 @@ Add static catalog/Terraform implementations for:
 - provider-native interactive access bindings, deterministic seed content,
   typed safe L4/L5 output projection, and GCP Grafana Viewer rotation exactly
   as specified by `deployment-access.v1`;
+- generated deployment CloudConnections only; raw bootstrap credentials,
+  bootstrap sessions, and administrator secrets are forbidden in deployment
+  manifests, packages, tfvars, Terraform state, logs, and outputs;
+- immutable provider `thesis-demo-v2` deployment permission artifacts derived
+  from this complete-service graph; existing `thesis-demo-v1` files remain
+  unchanged and valid only for consumers that still require v1. Canonical new
+  manifests are
+  `3-cloud-deployer/docs/references/permission_sets/{aws,azure,gcp}_thesis_demo_v2.json`
+  with matching v2 scope reviews, provider policy/role inputs, and generated
+  drift copies;
 - the three finite storage-job runtimes, native lifecycle rules, and six
   directed storage trusts;
 - one provider registry support component where selected container images
@@ -1117,8 +1142,8 @@ storage jobs.
 
 Implement workload v2, RDS v2/Manifest v4, the three L3-hot/L5 bundles,
 independent L4 placement, raw-history read, Twin projection, minimal storage
-jobs, corrected identity, and `five-layer-baseline@2`. Review to zero findings
-and commit.
+jobs, corrected identity, provider `thesis-demo-v2` permission artifacts, and
+`five-layer-baseline@2`. Review to zero findings and commit.
 
 ### 8.9B
 
@@ -1139,13 +1164,19 @@ under changed L1-L5 assumptions.
 Implementation sequence and clean commits:
 
 1. commit this corrected plan/evaluation boundary;
-2. build, review, and commit the immutable complete-service decision package;
+2. build, review, and commit the immutable complete-service decision package,
+   including the three new `thesis-demo-v2` deployment permission artifacts
+   and their source/known-gap ledgers;
 3. finish/review/commit the dark Phase 8.6 compiler;
 4. create the reviewed foundation branch and integrate the compiler commit;
 5. implement/review/commit Phase 8.7;
-6. branch and implement/review/commit 8.9A Five-layer v2;
-7. stop and obtain a separately reviewed/approved Six-layer plan;
-8. only then branch for Six-layer and the comparative Phase 8.10 evaluation.
+6. branch and implement/review/commit the guided cloud-bootstrap prerequisite
+   in its declared shared-contract, Management, provider-adapter, Deployer,
+   Flutter, and documentation slices;
+7. branch and implement/review/commit 8.9A Five-layer v2 and its Layer Access
+   surfaces on that reviewed credential boundary;
+8. stop and obtain a separately reviewed/approved Six-layer plan;
+9. only then branch for Six-layer and the comparative Phase 8.10 evaluation.
 
 A later branch never starts from an unreviewed or dirty boundary.
 
@@ -1154,6 +1185,8 @@ A later branch never starts from an unreviewed or dirty boundary.
 Required offline gates include:
 
 - immutable `@1` and Eventing-package byte/digest stability;
+- immutable `thesis-demo-v1` permission artifacts plus exact v2
+  graph-to-`thesis-demo-v2` permission-inventory/digest drift tests;
 - schema/reference/digest/generated-copy drift tests;
 - all nine positive L3-hot/L4/L5 placements and every unequal L3-hot/L5
   rejection fixture;
@@ -1220,6 +1253,8 @@ commands may receive cloud credentials or a live/apply flag.
 | 2 | Builder/API contract, workload math, identity/security, failure behavior, implementation sequence, compatibility, Flutter boundary, and testability | Pass on 2026-07-30 with zero unresolved findings; exact Firestore sharding/transactions, raw/rollup reader contract, plugin fail-closed gates, nine placements, capacity math, and credential-free integration commands are implementation-ready |
 | 3 | Layer-access architecture feasibility across AWS/Azure/GCP, all nine placements, single-cloud/multicloud identity, one-Firestore tradeoff, visible content, cost ownership, and live/offline claim boundary | Pass on 2026-07-31 with zero unresolved findings after adding interactive-principal preflight, direct Cloud Run IAP, safe Viewer rotation, explicit L4 inspection load, Small Viewer cost, and provider Terraform evidence |
 | 4 | Architect and builder review of concept hierarchy, FR/API datatypes, BLoC/Riverpod ownership, responsive widget tree, secret lifecycle, concurrency, accessibility, integration tests, documentation, and exact commit order | Pass on 2026-07-31 with all 20 plan-review criteria satisfied and zero unresolved findings |
+| 5 | Guided-bootstrap cross-service concept review against the live OpenAPI, implemented manual script/import baseline, provider credential realities, selected Five-layer v2 services, and exact user/manual lifecycle | Pass on 2026-07-31 with zero unresolved findings after preserving the legacy path, separating bootstrap from Twin preflight, replacing least-privilege/zeroization overclaims, adding the user runbook, and distinguishing release/expiry/revocation/manual cleanup |
+| 6 | Guided-bootstrap architect/builder readiness review across strict guide/session datatypes, authority/deployment permission packs, `thesis-demo-v1` compatibility, new immutable `thesis-demo-v2`, BLoC/reuse/token boundaries, restart/concurrency, real-API fake-adapter integration, roadmaps, FR-002, and handoff | Pass on 2026-07-31 with zero unresolved findings; Builder remains blocked until FR-002 schemas/fixtures and an approved Architect implementation plan exist |
 
 This service/architecture slice adds no new Flutter route, but it does add a
 typed Layer Access section to the existing Twin Overview. Its authoritative
@@ -1250,6 +1285,18 @@ Layer-access planning verification on 2026-07-31:
   (66 root, 40 Optimizer, 87 Management, and 73 Deployer/Terraform tests);
 - OrbStack MkDocs strict build: pass.
 
+Guided-bootstrap planning verification on 2026-07-31:
+
+- live local Management OpenAPI inspection: pass; current manual
+  `/cloud-bootstrap/{provider}/plan`, `/cloud-bootstrap/import`, CloudConnection,
+  and Twin deployment-preflight boundaries are reflected accurately;
+- concept and dual architect/builder readiness reviews: pass with zero
+  unresolved findings;
+- changed-document local-link validation and `git diff --check`: pass;
+- `THESIS_DOCKER_CONTEXT=orbstack ./thesis.sh test deployment-contract --focused`:
+  pass (66 root, 40 Optimizer, 87 Management, and 73 Deployer/Terraform tests);
+- OrbStack MkDocs strict build: pass.
+
 ## 10. Failure Codes
 
 Add or update:
@@ -1262,10 +1309,23 @@ PROFILE_RAW_VISUALIZATION_COLOCATION_REQUIRED
 PROFILE_L4_TO_L5_NOT_SUPPORTED
 DEPLOYMENT_ACCESS_NOT_AVAILABLE
 DEPLOYMENT_ACCESS_CONTRACT_INVALID
+BOOTSTRAP_CREDENTIAL_REQUIRED
+BOOTSTRAP_CREDENTIAL_INVALID
+BOOTSTRAP_CREDENTIAL_REENTRY_REQUIRED
+BOOTSTRAP_AUTHORITY_PACK_MISMATCH
+BOOTSTRAP_GENERATED_DEPLOYMENT_PACK_MISMATCH
+BOOTSTRAP_IDENTITY_CREATION_FAILED
+BOOTSTRAP_CONNECTION_VALIDATION_FAILED
+BOOTSTRAP_MANUAL_REVOCATION_REQUIRED
+BOOTSTRAP_SESSION_CONFLICT
 INTERACTIVE_PRINCIPAL_REQUIRED
 INTERACTIVE_PRINCIPAL_NOT_FOUND
 INTERACTIVE_ROLE_BINDING_FAILED
+AWS_IDENTITY_CENTER_ORGANIZATION_INSTANCE_REQUIRED
 GCP_IAP_PREREQUISITE_REQUIRED
+PROVIDER_BILLING_ACTION_REQUIRED
+PROVIDER_QUOTA_ACTION_REQUIRED
+PROVIDER_ORGANIZATION_POLICY_BLOCKED
 LAYER_ACCESS_CONTENT_PROVISIONING_FAILED
 LAYER_ACCESS_DATA_PROBE_FAILED
 LAYER_ACCESS_URL_INVALID
@@ -1299,6 +1359,10 @@ and correlation ID.
 
 - [ ] The functionality-first service evaluation is source-backed and frozen.
 - [ ] `@1` and the Phase 8.8 Eventing evidence remain immutable.
+- [ ] Existing `thesis-demo-v1` provider permission artifacts remain immutable;
+      Five-layer v2 publishes new `thesis-demo-v2` artifacts whose inventories
+      cover every selected service, role binding, and preflight action, with
+      scope gaps documented rather than labelled least-privilege.
 - [ ] `@2` implements mandatory embedded domain behavior without flags.
 - [ ] AWS, Azure, and provider-hosted GCP have complete L1-L5 bundles.
 - [ ] L3-hot-to-L5 raw visualization and L3-hot-to-L4 Twin projection are
@@ -1338,9 +1402,19 @@ and correlation ID.
 - [ ] AWS TwinMaker, Azure Digital Twins Explorer, and the GCP Twin Explorer
       expose deterministic semantic content; every Grafana exposes the same
       logical raw/rollup dashboard.
-- [ ] The configuration workspace blocks on missing AWS Identity Center,
-      Azure Entra role-assignment, or GCP IAP prerequisites without asking for
-      browser passwords.
+- [ ] Missing deployment access starts the guided bootstrap and produces a
+      validated bounded CloudConnection; it never requires the user to build
+      bounded deployment credentials manually. Five-layer v2 requires the
+      exact `thesis-demo-v2` version/digest and rejects a v1 connection as
+      outdated without silently upgrading it.
+- [ ] Bootstrap-secret release, provider expiry, disposable provider-side
+      revocation/manual cleanup, and existing user-owned non-revocation are
+      distinct truthful states, and no bootstrap secret crosses into a
+      deployment package.
+- [ ] The configuration workspace blocks on missing AWS L4 Identity Center
+      organization-instance, Azure Entra principal/role-assignment, GCP IAP,
+      quota, billing, or organization-policy prerequisites without asking for
+      browser passwords; recheck uses the generated CloudConnection.
 - [ ] The fixed monthly L4 inspection reads, seed operations, interactive
       bindings, mandatory human seat, and GCP Explorer runtime are costed once.
 - [ ] Raw telemetry, materialized Twin state, and relationships retain distinct

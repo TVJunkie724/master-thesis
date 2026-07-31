@@ -3,7 +3,7 @@ title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
 lastUpdated: "2026-07-31"
-version: "1.7"
+version: "1.8"
 ---
 
 <!-- SOURCES:
@@ -15,6 +15,8 @@ version: "1.7"
 - docs/plans/provider_access_pricing_review/phase_04_dashboard_pricing_health_row.md
 - docs/plans/provider_access_pricing_review/phase_06_pricing_review_center_ui.md
 - docs/plans/provider_access_pricing_review/phase_07_optimizer_step2_cleanup.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
+- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/lib/screens/dashboard_screen.dart
 - twin2multicloud_flutter/lib/screens/settings_screen.dart
 - twin2multicloud_flutter/lib/screens/wizard/step2_optimizer.dart
@@ -22,7 +24,7 @@ version: "1.7"
 - twin2multicloud_flutter/lib/screens/twin_overview/twin_overview_screen.dart
 - twin2multicloud_flutter/lib/models/wizard_config_requests.dart
 - twin2multicloud_flutter/docs/frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md
-EXTRACTED: 2026-06-18 | VERSION: 1.1
+EXTRACTED: 2026-07-31 | VERSION: 1.8
 -->
 
 # Frontend Delta Roadmap
@@ -51,6 +53,9 @@ the current god classes.
 
 ## Concepts
 
+- [Guided Cloud Access Bootstrap](../configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
+  turns request-scoped provider authority into a reusable bounded deployment
+  CloudConnection and resumes exact provider-owned manual prerequisites.
 - [Twin Layer Access Handoff](concepts/CONCEPT_TWIN_LAYER_ACCESS_HANDOFF.md)
   extends the existing Twin Overview with typed L4/L5 links, identity/readiness
   evidence, and one bounded GCP Viewer credential workflow.
@@ -62,7 +67,9 @@ Flutter App
 |-- Settings / Profile
 |   `-- Cloud Accounts & Access
 |       |-- pricing credentials: user-scoped, minimal, visible metadata
-|       `-- deployment credentials: twin/project-scoped, preflight-visible
+|       |-- deployment credentials: user-owned, provider-target scoped,
+|       |   reusable and bound to Twins by ID
+|       `-- guided bootstrap: request-only authority -> bounded connection
 |
 |-- Dashboard
 |   |-- Platform Stat Cards
@@ -81,6 +88,7 @@ Flutter App
 |   |-- Describe workload
 |   |-- Choose architecture
 |   |-- Prepare deployment
+|   |   `-- select or bootstrap only the now-required provider access
 |   `-- Review configuration and preflight
 |
 `-- Twin Overview
@@ -102,6 +110,12 @@ Flutter App
 - Pricing refresh must identify the account/project/subscription used before a
   provider fetch starts.
 - The configuration workspace does not own pricing refresh.
+- Draft creation, workload description, calculation, and architecture review
+  do not require cloud credentials. Deployment access is selected or generated
+  only after the architecture fixes the required provider scopes.
+- Bootstrap secrets are request-only and never restored. Local release,
+  provider-side revocation, required manual cleanup, and continued validity of
+  an existing user-owned credential remain visibly distinct.
 - Reviewed pricing decisions are persisted through the Management API database.
 - BLoC owns feature state and side effects; widgets render state.
 - Each implementation phase must receive an architect implementation plan before
@@ -118,6 +132,7 @@ Flutter App
 | 5 | Superseded | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Legacy Wizard Step 1 | Replaced by the configuration-workspace roadmap |
 | 6 | Done | [PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md](phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md) | Wizard Step 2 | Pricing readiness contract |
 | 7 | Done | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
+| 7.1 | Planned | [Configuration Workspace Phase 9](../configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) | Shared Settings and Prepare deployment cloud-access bootstrap | Planned [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) |
 | 8 | Core done; 8.6 planned | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [operations plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) + [Layer Access plan](../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) | Twin Overview | Existing operation contracts plus planned [FR-001](../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md) |
 | 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
 | 9.1 | Local gates complete; platform CI pending | [Immutable Region-Scoped Pricing Catalogs](../../../2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md) | Pricing Review, calculation evidence, Twin Overview | Strict immutable references replace full pricing exports; compact evidence, honest legacy state, Web/macOS builds, and live local integration are verified |
@@ -137,10 +152,13 @@ The order is intentional:
 6. Keep pricing maintenance in its dedicated replacement surfaces.
 7. Preserve the typed optimizer and deployment contracts while reorganizing
    their inputs around user tasks.
-8. Harden Twin Overview deployment operations after credential/preflight state
+8. Implement the Management-owned guided bootstrap contract and its shared
+   Settings/workspace UI before relying on automatically generated deployment
+   connections.
+9. Harden Twin Overview deployment operations after credential/preflight state
    is visible.
-9. Run cross-cutting quality and thesis-evidence gates.
-10. Replace client-authored full pricing artifacts with compact, immutable,
+10. Run cross-cutting quality and thesis-evidence gates.
+11. Replace client-authored full pricing artifacts with compact, immutable,
     Management-owned catalog references after the backend catalog boundary is
     implemented.
 
