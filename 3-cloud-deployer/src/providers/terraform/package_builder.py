@@ -1,10 +1,14 @@
 """Stable facade for provider-specific Terraform function package builders."""
 
+import hashlib
+import json
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict, Mapping
 
-from src.function_registry import get_functions_for_provider_build as get_functions_for_provider_build
+from src.function_registry import (
+    get_functions_for_provider_build as get_functions_for_provider_build,
+)
 from src.providers.terraform.package_builders.aws import (
     _create_lambda_zip,
     build_aws_lambda_packages,
@@ -16,7 +20,9 @@ from src.providers.terraform.package_builders.azure import (
     _discover_azure_user_functions,
     _generate_main_function_app,
     _rewrite_azure_function_names,
+    azure_graph_package_ids,
     build_azure_function_packages,
+    build_azure_graph_bundles,
     build_azure_l0_bundle,
     build_azure_l1_bundle,
     build_azure_l2_bundle,
@@ -47,11 +53,22 @@ from src.providers.terraform.package_builders.user import (
 from src.provider_capabilities import validate_terraform_provider_capabilities
 from src.user_function_extensions.package_builder import (
     build_bound_extension_packages,
+    load_package_evidence,
 )
 from src.user_function_extensions.contracts import ExtensionContractError
+from src.architecture_profiles import ResolvedDeploymentGraph
+from src.core.secure_files import atomic_write_private_bytes
+from src.deployment_specification.errors import DeploymentSpecificationError
+from src.terraform_inputs.compatibility_projection import provider_projection
 
 logger = logging.getLogger(__name__)
 BUILD_DIR = ".build"
+DEPLOYER_ROOT = Path(__file__).resolve().parents[3]
+FUNCTION_SOURCE_PARTS = {
+    "aws": ("src", "providers", "aws", "lambda_functions"),
+    "azure": ("src", "providers", "azure", "azure_functions"),
+    "gcp": ("src", "providers", "gcp", "cloud_functions"),
+}
 
 
 def build_all_packages(
@@ -60,11 +77,19 @@ def build_all_packages(
     providers_config: dict,
     *,
     operation_id: str | None = None,
+    graph: ResolvedDeploymentGraph | None = None,
 ) -> Dict[str, Path]:
     """Build every provider and user-function package required by one deployment."""
     terraform_dir = Path(terraform_dir)
     project_path = Path(project_path)
     validate_terraform_provider_capabilities(providers_config)
+    selected_functions: dict[str, tuple[str, ...]] | None = None
+    expected_static_packages: set[str] = set()
+    if graph is not None:
+        _validate_graph_package_selection(graph, providers_config)
+        selected_functions, expected_static_packages = (
+            _selected_static_function_packages(graph)
+        )
 
     packages: Dict[str, Path] = {}
     extension_packages = build_bound_extension_packages(
@@ -73,23 +98,334 @@ def build_all_packages(
         correlation_id=operation_id,
     )
     packages.update(extension_packages)
-    if extension_packages:
-        raise ExtensionContractError(
-            "EXTENSION_BINDING_UNRESOLVED",
-            "deployment_component_catalog",
-            (
-                "The validated extension has no reviewed executable "
-                "deployment-component mapping."
-            ),
+    if graph is not None:
+        _validate_extension_package_selection(
+            graph,
+            project_path,
+            extension_packages,
             correlation_id=operation_id,
         )
-    packages.update(build_aws_lambda_packages(terraform_dir, project_path, providers_config))
-    packages.update(build_azure_function_packages(terraform_dir, project_path, providers_config))
-    packages.update(build_gcp_cloud_function_packages(terraform_dir, project_path, providers_config))
-    packages.update(build_user_packages(project_path, providers_config))
+        packages.update(
+            build_aws_lambda_packages(
+                terraform_dir,
+                project_path,
+                providers_config,
+                selected_function_names=selected_functions["aws"],
+            )
+        )
+        packages.update(
+            build_azure_graph_bundles(
+                project_path,
+                selected_functions["azure"],
+            )
+        )
+        packages.update(
+            build_gcp_cloud_function_packages(
+                terraform_dir,
+                project_path,
+                providers_config,
+                selected_function_names=selected_functions["gcp"],
+            )
+        )
+        expected_packages = expected_static_packages | {
+            f"extension:{item['slot_id']}" for item in _selected_extension_refs(graph)
+        }
+        if set(packages) != expected_packages:
+            raise DeploymentSpecificationError(
+                "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+                "packages",
+                "Built packages differ from the graph-selected artifact set",
+            )
+    else:
+        if extension_packages:
+            raise ExtensionContractError(
+                "EXTENSION_BINDING_UNRESOLVED",
+                "deployment_component_catalog",
+                (
+                    "The validated extension has no reviewed executable "
+                    "deployment-component mapping."
+                ),
+                correlation_id=operation_id,
+            )
+        packages.update(
+            build_aws_lambda_packages(
+                terraform_dir,
+                project_path,
+                providers_config,
+            )
+        )
+        packages.update(
+            build_azure_function_packages(
+                terraform_dir,
+                project_path,
+                providers_config,
+            )
+        )
+        packages.update(
+            build_gcp_cloud_function_packages(
+                terraform_dir,
+                project_path,
+                providers_config,
+            )
+        )
+        packages.update(build_user_packages(project_path, providers_config))
+    if graph is not None:
+        _write_graph_package_evidence(project_path, graph, packages)
 
     logger.info("Built %s function packages", len(packages))
     return packages
+
+
+def _validate_graph_package_selection(
+    graph: ResolvedDeploymentGraph,
+    providers_config: dict,
+) -> None:
+    expected = provider_projection(graph)
+    normalized_actual = {
+        key: ("google" if value == "gcp" else value)
+        for key, value in providers_config.items()
+        if key in expected
+    }
+    if normalized_actual != expected:
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+            "config_providers",
+            "Package provider projection differs from the resolved graph",
+        )
+    for artifact in _selected_artifacts(graph).values():
+        if (
+            not str(artifact["id"]).startswith("artifact.")
+            or not str(artifact["source_digest"]).startswith("sha256:")
+            or not str(artifact["builder_adapter_id"]).startswith("builder.")
+            or artifact["digest_policy"] != "sha256.canonical-source.v1"
+        ):
+            raise DeploymentSpecificationError(
+                "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+                f"graph.package_artifacts.{artifact['id']}",
+                "Graph package artifact metadata is incomplete",
+            )
+        if _artifact_source_digest(artifact) != artifact["source_digest"]:
+            raise DeploymentSpecificationError(
+                "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+                f"graph.package_artifacts.{artifact['id']}",
+                "Catalog package source digest is stale",
+            )
+
+
+def _selected_artifacts(
+    graph: ResolvedDeploymentGraph,
+) -> dict[str, Mapping[str, Any]]:
+    selected: dict[str, Mapping[str, Any]] = {}
+    for node in graph.nodes:
+        for artifact in node.package_artifacts:
+            artifact_id = str(artifact["id"])
+            previous = selected.setdefault(artifact_id, artifact)
+            if dict(previous) != dict(artifact):
+                raise DeploymentSpecificationError(
+                    "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+                    f"graph.package_artifacts.{artifact_id}",
+                    "Graph contains contradictory package artifact metadata",
+                )
+    return selected
+
+
+def _local_artifact_source(source: str) -> Path:
+    parts = Path(source).parts
+    if not parts or parts[0] != "3-cloud-deployer":
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+            "graph.package_artifacts.repository_source_path",
+            "Catalog package source is outside the Deployer repository",
+        )
+    path = DEPLOYER_ROOT.joinpath(*parts[1:])
+    if not path.exists() or path.is_symlink():
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+            "graph.package_artifacts.repository_source_path",
+            "Catalog package source is unavailable or unsafe",
+        )
+    return path
+
+
+def _artifact_source_digest(artifact: Mapping[str, Any]) -> str:
+    source = str(artifact["repository_source_path"])
+    source_path = _local_artifact_source(source)
+    paths = [source_path] if source_path.is_file() else sorted(source_path.rglob("*"))
+    digest = hashlib.sha256()
+    included = 0
+    for path in paths:
+        if path.is_symlink():
+            raise DeploymentSpecificationError(
+                "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+                f"graph.package_artifacts.{artifact['id']}",
+                "Catalog package source contains a symbolic link",
+            )
+        if (
+            not path.is_file()
+            or "__pycache__" in path.parts
+            or ".git" in path.parts
+            or path.suffix.lower() == ".zip"
+            or path.name.startswith(".git")
+            or path.name == ".DS_Store"
+        ):
+            continue
+        relative = (
+            source
+            if source_path.is_file()
+            else f"{source}/{path.relative_to(source_path).as_posix()}"
+        )
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+        included += 1
+    if included == 0:
+        raise DeploymentSpecificationError(
+            "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+            f"graph.package_artifacts.{artifact['id']}",
+            "Catalog package source is empty",
+        )
+    return f"sha256:{digest.hexdigest()}"
+
+
+def _selected_static_function_packages(
+    graph: ResolvedDeploymentGraph,
+) -> tuple[dict[str, tuple[str, ...]], set[str]]:
+    selected: dict[str, set[str]] = {
+        "aws": set(),
+        "azure": set(),
+        "gcp": set(),
+    }
+    package_ids: set[str] = set()
+    for artifact in _selected_artifacts(graph).values():
+        source_path = _local_artifact_source(str(artifact["repository_source_path"]))
+        relative = source_path.relative_to(DEPLOYER_ROOT)
+        provider = next(
+            (
+                candidate
+                for candidate, prefix in FUNCTION_SOURCE_PARTS.items()
+                if relative.parts[: len(prefix)] == prefix
+            ),
+            None,
+        )
+        if (
+            provider is None
+            or source_path.name == "_shared"
+            or artifact["platform_handler"]
+            in {
+                "provider.shared-runtime",
+                "provider-selected.user-package",
+                "terraform.managed",
+            }
+        ):
+            continue
+        selected[provider].add(source_path.name)
+        if provider != "azure":
+            package_ids.add(f"{provider}_{source_path.name}")
+    package_ids.update(azure_graph_package_ids(selected["azure"]))
+    return (
+        {
+            provider: tuple(sorted(functions))
+            for provider, functions in selected.items()
+        },
+        package_ids,
+    )
+
+
+def _selected_extension_refs(
+    graph: ResolvedDeploymentGraph,
+) -> list[Mapping[str, Any]]:
+    refs: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for node in graph.nodes:
+        for item in node.extension_artifact_refs:
+            identity = (str(item["slot_id"]), str(item["slot_version"]))
+            if identity in refs:
+                raise DeploymentSpecificationError(
+                    "DEPLOYMENT_GRAPH_BINDING_DUPLICATE",
+                    "graph.nodes.extension_artifact_refs",
+                    "Extension slot is selected more than once",
+                )
+            refs[identity] = item
+    return [refs[key] for key in sorted(refs)]
+
+
+def _validate_extension_package_selection(
+    graph: ResolvedDeploymentGraph,
+    project_path: Path,
+    packages: Dict[str, Path],
+    *,
+    correlation_id: str | None,
+) -> None:
+    expected = {
+        (
+            str(item["slot_id"]),
+            str(item["slot_version"]),
+            str(item["artifact_id"]),
+            str(item["artifact_digest"]),
+        )
+        for item in _selected_extension_refs(graph)
+    }
+    actual = {
+        (
+            str(item["slot_id"]),
+            str(item["slot_version"]),
+            str(item["artifact_id"]),
+            str(item["artifact_digest"]),
+        )
+        for item in load_package_evidence(project_path)
+    }
+    if actual != expected or len(packages) != len(expected):
+        raise ExtensionContractError(
+            "EXTENSION_BINDING_UNRESOLVED",
+            "deployment_component_catalog",
+            "Built extension packages differ from graph bindings.",
+            correlation_id=correlation_id,
+        )
+
+
+def _write_graph_package_evidence(
+    project_path: Path,
+    graph: ResolvedDeploymentGraph,
+    packages: Dict[str, Path],
+) -> None:
+    package_evidence = []
+    for package_id, path in sorted(packages.items()):
+        package_path = Path(path)
+        if not package_path.is_file() or package_path.is_symlink():
+            raise DeploymentSpecificationError(
+                "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
+                "packages",
+                "Built package evidence references an unavailable file",
+            )
+        package_evidence.append(
+            {
+                "package_id": package_id,
+                "sha256": hashlib.sha256(package_path.read_bytes()).hexdigest(),
+                "size_bytes": package_path.stat().st_size,
+            }
+        )
+    evidence = {
+        "evidence_version": "graph-package-evidence.v1",
+        "graph_id": graph.graph_id,
+        "graph_digest": graph.content_digest,
+        "selected_artifacts": [
+            {
+                "artifact_id": artifact["id"],
+                "artifact_version": artifact["version"],
+                "source_digest": artifact["source_digest"],
+                "builder_adapter_id": artifact["builder_adapter_id"],
+            }
+            for _, artifact in sorted(_selected_artifacts(graph).items())
+        ],
+        "built_packages": package_evidence,
+    }
+    output = project_path / ".twin2multicloud" / "graph" / "package-evidence.json"
+    atomic_write_private_bytes(
+        output,
+        (
+            json.dumps(evidence, ensure_ascii=True, indent=2, sort_keys=True) + "\n"
+        ).encode("utf-8"),
+    )
 
 
 __all__ = [

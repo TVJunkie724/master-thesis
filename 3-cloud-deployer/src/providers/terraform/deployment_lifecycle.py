@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
+STAGE_COMPLETED_MARKER = "T2MC_STAGE_COMPLETED:"
 
 
 class DeploymentLifecycleMixin:
@@ -27,6 +28,11 @@ class DeploymentLifecycleMixin:
         self._initialize_providers(context)
         self._validate_project()
         self._extension_operation_id = context.operation_id
+        self._resolved_deployment_graph = getattr(
+            context,
+            "resolved_deployment_graph",
+            None,
+        )
         self._build_packages()
         self._generate_tfvars()
 
@@ -77,8 +83,15 @@ class DeploymentLifecycleMixin:
         yield "[3/7] Validating project and building packages"
         self._validate_project()
         self._extension_operation_id = context.operation_id
+        self._resolved_deployment_graph = getattr(
+            context,
+            "resolved_deployment_graph",
+            None,
+        )
         self._build_packages()
+        yield f"{STAGE_COMPLETED_MARKER}package"
         self._generate_tfvars()
+        yield f"{STAGE_COMPLETED_MARKER}preplan"
 
         yield "[4/7] Terraform init"
         async for line in self.runner.init_async():
@@ -88,8 +101,10 @@ class DeploymentLifecycleMixin:
             yield line
 
         self._terraform_outputs = self.runner.output()
+        yield f"{STAGE_COMPLETED_MARKER}terraform"
         deployed_packages = self._record_applied_packages()
         yield f"[6/7] Recorded {deployed_packages} applied user function packages"
         yield "[7/7] Running SDK-owned post-deployment operations"
         await asyncio.to_thread(self._run_post_deployment, context)
+        yield f"{STAGE_COMPLETED_MARKER}postapply"
         yield "Terraform deployment complete"

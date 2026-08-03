@@ -39,6 +39,27 @@ def _simulator_headers(provider: str = "azure") -> dict[str, str]:
     }
 
 
+def _graph_evidence() -> dict[str, object]:
+    return {
+        "graph_schema_version": "resolved-deployment-graph.v1",
+        "graph_id": "graph-1",
+        "calculation_run_id": "run-1",
+        "graph_digest": "sha256:" + ("1" * 64),
+        "architecture_digest": "sha256:" + ("2" * 64),
+        "profile_id": "five-layer-baseline",
+        "profile_version": "1",
+        "catalog_id": "baseline",
+        "catalog_version": "1",
+        "catalog_digest": "sha256:" + ("3" * 64),
+        "specification_digest": "sha256:" + ("4" * 64),
+        "package_selection_digest": "sha256:" + ("5" * 64),
+        "node_count": 7,
+        "edge_count": 6,
+        "binding_count": 21,
+        "stage_ids": ["package", "preplan", "terraform", "postapply"],
+    }
+
+
 @pytest.mark.asyncio
 async def test_validate_deployer_complete_posts_exact_endpoint_and_payload():
     seen = {}
@@ -370,6 +391,7 @@ async def test_stage_operation_package_sends_canonical_multipart_contract():
         "operation_token": "a" * 43,
         "expires_at": "2099-01-01T00:00:00Z",
         "warnings": [],
+        "graph_evidence": _graph_evidence(),
     }
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -388,6 +410,28 @@ async def test_stage_operation_package_sends_canonical_multipart_contract():
 
 
 @pytest.mark.asyncio
+async def test_stage_operation_package_accepts_profile_owned_graph_cardinality():
+    evidence = _graph_evidence()
+    evidence.update({"node_count": 19, "edge_count": 27, "binding_count": 83})
+    payload = {
+        "project_name": "factory",
+        "operation_token": "a" * 43,
+        "expires_at": "2099-01-01T00:00:00Z",
+        "warnings": [],
+        "graph_evidence": evidence,
+    }
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    client = _client_with_handler(handler)
+
+    result = await client.stage_operation_package("factory", b"zip")
+
+    assert result["graph_evidence"]["edge_count"] == 27
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "payload",
     [
@@ -396,24 +440,34 @@ async def test_stage_operation_package_sends_canonical_multipart_contract():
             "operation_token": "a" * 43,
             "expires_at": "2099-01-01T00:00:00Z",
             "warnings": [],
+            "graph_evidence": _graph_evidence(),
         },
         {
             "project_name": "factory",
             "operation_token": "short",
             "expires_at": "2099-01-01T00:00:00Z",
             "warnings": [],
+            "graph_evidence": _graph_evidence(),
         },
         {
             "project_name": "factory",
             "operation_token": "a" * 43,
             "expires_at": "2020-01-01T00:00:00Z",
             "warnings": [],
+            "graph_evidence": _graph_evidence(),
         },
         {
             "project_name": "factory",
             "operation_token": "a" * 43,
             "expires_at": "2099-01-01T00:00:00Z",
             "warnings": [1],
+            "graph_evidence": _graph_evidence(),
+        },
+        {
+            "project_name": "factory",
+            "operation_token": "a" * 43,
+            "expires_at": "2099-01-01T00:00:00Z",
+            "warnings": [],
         },
     ],
 )

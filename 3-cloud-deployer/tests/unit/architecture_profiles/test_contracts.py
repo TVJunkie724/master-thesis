@@ -43,8 +43,8 @@ def test_deployer_registry_exposes_exact_dark_catalog_without_execution():
     processing = catalog.component("deployment.aws.processing")
 
     assert len(catalog.components) == 22
-    assert len(catalog.edges) == 33
-    assert len(catalog.artifacts) == 43
+    assert len(catalog.edges) == 36
+    assert len(catalog.artifacts) == 50
     assert processing["extension_slot_refs"][0]["id"] == "processor.telemetry"
     assert {
         binding["terraform_variable"]

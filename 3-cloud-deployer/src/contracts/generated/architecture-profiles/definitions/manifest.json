@@ -1,32 +1,32 @@
 {
   "counts": {
     "deployment_components": 22,
-    "edge_implementations": 33,
+    "edge_implementations": 36,
     "logical_components": 7,
     "logical_edges": 6,
-    "package_artifacts": 43,
+    "package_artifacts": 50,
     "provider_profiles": 3
   },
   "definition_digests": {
-    "catalog": "sha256:000a3ccf540634808a2e6dbb0e424db1810babf71ab2165049a2fe664d626477",
+    "catalog": "sha256:e3d7d349efb782b3c8397b9c611a914a65e3a83deefb1841da165d5daa4fb8f2",
     "profile": "sha256:dcac9d4c519c7624b74ba6f9e5b878b17553c828b6d6d8583754c34c6a2e4807",
     "providers": {
-      "aws": "sha256:6fd35a6e0376afdd922c8f087808247d396c8b7e819c00dfbb2fd3114de1fddb",
-      "azure": "sha256:8e1813352edd464e494975ac2e7a704e52b932665ec709ae60822c987e4ac1aa",
+      "aws": "sha256:d7ca380e9cba92a2d021df6111d0f9a80392d06d858be370631841e81573483a",
+      "azure": "sha256:043ddd3030dc14df58f6dd4ac1614ff518f10fc7917e52565739c601f585c2c7",
       "gcp": "sha256:167d71a1d17e04ada641cfda97c611ed4becd2f0601dd03b5cb5e95bfcc6408c"
     }
   },
   "manifest_version": "architecture-profile-definitions.v1",
   "source_digests": {
-    "architecture_inventory": "sha256:c8812f94523bd84e3c8e2cd05eb75f4fa696f4ef2c92b99933102b2fea1aade3",
+    "architecture_inventory": "sha256:665565c2195e6b52d7cd7153d31304a713294b1b3a22ef6cac7670e6f03479b8",
     "baseline_decision": "sha256:1227f56f13f9e3eb60387fec8c66c5b77e338ad81b7674f29bd137265f3c5642",
     "deployment_dimensions": "sha256:16b5212542f3e0a7805ea4a270df542dbfe135624efc3acafb5c9664d805aeac",
     "package_builders": {
-      "aws": "sha256:1e627fb6d81fbf21790ee6d07438748a248b42984ea357561f44b28840765c19",
-      "azure": "sha256:b1b08f9126fe514b35fcad83b7a56a55ac186d431486f1ff80cddc8661a8c656",
-      "common": "sha256:78e8ea9d3dbee830bfb577586284d9266c037a412a963b83b265c1fde0a404a4",
-      "gcp": "sha256:736d6d531ba5fcf2553ad082771d06ca5e49f4af5a90bce05dbaf922b738f81c",
-      "user": "sha256:521c92c3fc7f3ec052346ca6bd4ec9b9236a734dc5a98f1f3a0fad4dde9f36fe"
+      "aws": "sha256:dcf2ae20d56a42b01fe833bc6fe7f590df2917821ce7436ed0cb8838a4c8db0a",
+      "azure": "sha256:f69383268752eb164026e399847795da4a0990303f8875525d9b26fcbce56cf5",
+      "common": "sha256:6d2d7d4a2ef2578e895a847c95ebb33e4981a1ccfd3c84d98b9be3f8c5b03caf",
+      "gcp": "sha256:227071ca702da25462f96d96079874849f5b0a2c351e9733b459a8ccf2b7a07a",
+      "user": "sha256:9463585e256c83401e01970537f900df1a200d3d5ade7eb51c98ee226ccad281"
     },
     "pricing_registries": {
       "calculation_strategies": "sha256:5597f9902302a57300e8cc0472d58f5f6cf969e86a2d5547d7e285ada5d74405",

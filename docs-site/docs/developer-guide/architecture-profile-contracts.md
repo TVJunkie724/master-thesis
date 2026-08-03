@@ -100,5 +100,32 @@ The public API accepts only profile ID/version, revision, and a server-derived
 invalidation digest; assignments and infrastructure evidence remain
 server-owned.
 
-Optimizer calculation output, Deployer package/Terraform execution, and
-Flutter presentation remain staged for their reviewed later phases.
+Optimizer calculation output and Deployer package/Terraform execution are active.
+Flutter presentation remains the reviewed Phase 8.7 boundary.
+
+## Extending The Deployment Graph
+
+The Deployer does not generate Terraform or infer dependencies from source code.
+To extend one reviewed profile:
+
+1. register the deployment component, package artifact closure, ports,
+   permissions, runtime/error/observability/cleanup contracts, and exact
+   Terraform resource/variable/output symbols;
+2. register every compatible logical-edge implementation, including direction,
+   trust, transfer, delivery, cost, and any destination-owned support component;
+3. update the provider implementation mapping and source-digest inventory;
+4. regenerate architecture and Manifest v3 fixtures/copies;
+5. add negative graph tests plus an offline package/tfvars path;
+6. run `./thesis.sh test deployment-contract --focused`.
+
+The graph uses exactly four stages: `package`, `preplan`, `terraform`, and
+`postapply`. A separate apply stage requires a reviewed contract proving that a
+direct Terraform output/reference cannot represent the dependency. Runtime code
+must consume injected bindings; it may not reconstruct another component's name,
+ARN, URL, topic, key, or handler from a naming convention.
+
+Azure deserves one packaging-specific check: Terraform deploys aggregate Function
+App bundles. Graph selection therefore produces only the selected L0/L1/L2/L3
+aggregate bundles, and tfvars must reference the matching package evidence. AWS
+and GCP retain per-function archives. User extensions remain immutable,
+source-preserving packages bound to the registered `processor.telemetry@1` slot.

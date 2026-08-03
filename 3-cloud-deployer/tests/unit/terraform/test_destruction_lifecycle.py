@@ -41,6 +41,41 @@ def test_required_cleanup_without_context_fails_closed(tmp_path):
     assert result.success is False
 
 
+def test_v3_destroy_rebuilds_graph_packages_even_with_existing_tfvars(tmp_path):
+    strategy = _strategy(tmp_path)
+    strategy.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
+    strategy.tfvars_path.touch()
+    strategy._build_packages = MagicMock()
+    strategy._generate_tfvars = MagicMock()
+    graph = object()
+    context = SimpleNamespace(
+        operation_id="destroy-v3",
+        resolved_deployment_graph=graph,
+    )
+
+    assert strategy._prepare_destroy_inputs(context) is True
+
+    assert strategy._resolved_deployment_graph is graph
+    assert strategy._extension_operation_id == "destroy-v3"
+    strategy._build_packages.assert_called_once_with()
+    strategy._generate_tfvars.assert_not_called()
+
+
+def test_v2_destroy_keeps_historical_tfvars_path_without_package_rebuild(tmp_path):
+    strategy = _strategy(tmp_path)
+    strategy._build_packages = MagicMock()
+    strategy._generate_tfvars = MagicMock()
+    context = SimpleNamespace(
+        operation_id="destroy-v2",
+        resolved_deployment_graph=None,
+    )
+
+    assert strategy._prepare_destroy_inputs(context) is False
+
+    strategy._build_packages.assert_not_called()
+    strategy._generate_tfvars.assert_called_once_with()
+
+
 def test_cleanup_requests_use_resource_prefix_and_normalize_google(tmp_path):
     strategy = _strategy(tmp_path)
     strategy._get_terraform_outputs_safe = MagicMock(return_value={})

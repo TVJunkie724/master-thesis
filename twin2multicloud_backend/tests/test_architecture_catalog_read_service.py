@@ -21,15 +21,19 @@ def test_catalog_summary_is_typed_complete_and_dark():
     assert summary.functional_completeness_rule_count == 12
     assert summary.extension_slot_ids == ("processor.telemetry",)
     assert summary.deployment_component_count == 22
-    assert summary.edge_implementation_count == 33
-    assert summary.package_artifact_count == 43
+    assert summary.edge_implementation_count == 36
+    assert summary.package_artifact_count == 50
     assert summary.runtime_activation == "dark-read-only"
     assert [provider.provider for provider in summary.providers] == [
         "aws",
         "azure",
         "gcp",
     ]
-    assert all(provider.supported is False for provider in summary.providers)
+    assert [provider.supported for provider in summary.providers] == [
+        True,
+        True,
+        False,
+    ]
 
 
 def test_catalog_summary_is_frozen():

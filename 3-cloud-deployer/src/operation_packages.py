@@ -45,6 +45,7 @@ class StagedOperationPackage:
     token: str
     expires_at: datetime
     warnings: list[str]
+    graph_evidence: dict[str, object] | None = None
 
 
 class OperationPackageStore:
@@ -92,10 +93,25 @@ class OperationPackageStore:
                 package_path,
                 prevalidated=True,
             )
+            resolved_graph_evidence = None
+            if (package_path / "deployment_manifest.json").is_file():
+                from src.architecture_profiles import graph_evidence
+                from src.core.config_loader import ProjectConfigLoader
+                from src.terraform_inputs import translate_graph_inputs
+
+                bundle = ProjectConfigLoader().load_bundle_from_path(
+                    safe_name,
+                    package_path,
+                )
+                resolved_graph = bundle.resolved_deployment_graph
+                if resolved_graph is not None:
+                    translate_graph_inputs(resolved_graph)
+                    resolved_graph_evidence = graph_evidence(resolved_graph)
             metadata = {
                 "project_name": safe_name,
                 "created_at": now.isoformat(),
                 "expires_at": expires_at.isoformat(),
+                "graph_evidence": resolved_graph_evidence,
             }
             atomic_write_private_bytes(
                 package_path / METADATA_FILE,
@@ -115,6 +131,7 @@ class OperationPackageStore:
             token=token,
             expires_at=expires_at,
             warnings=list(warnings),
+            graph_evidence=resolved_graph_evidence,
         )
 
     @contextmanager

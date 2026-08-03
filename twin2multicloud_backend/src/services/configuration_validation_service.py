@@ -97,8 +97,8 @@ class ConfigurationValidationService:
             return errors
 
         required_providers = (
-            self.credential_resolution_service.required_providers_from_optimizer(
-                twin.optimizer_config
+            self.credential_resolution_service.required_providers_for_compatibility(
+                twin
             )
         )
         providers_to_validate = required_providers or configured_providers

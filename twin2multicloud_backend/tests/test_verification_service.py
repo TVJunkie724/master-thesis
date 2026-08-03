@@ -42,6 +42,17 @@ async def _prepare_project(_twin, _user_id):
     return PreparedDeploymentProject("verification-project", "operation-token")
 
 
+def _project_preparer(provider):
+    async def prepare(_twin, _user_id):
+        return PreparedDeploymentProject(
+            "verification-project",
+            "operation-token",
+            provider=provider,
+        )
+
+    return prepare
+
+
 def _closing_scheduler(scheduled):
     def schedule(coro):
         scheduled.append(coro)
@@ -106,7 +117,7 @@ async def test_verify_infrastructure_returns_mock_result_in_test_mode(db_session
 
 
 @pytest.mark.asyncio
-async def test_verify_infrastructure_uses_optimizer_provider(db_session):
+async def test_verify_infrastructure_uses_architecture_provider(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AZURE"))
@@ -118,7 +129,9 @@ async def test_verify_infrastructure_uses_optimizer_provider(db_session):
         return {"summary": {"healthy": True}, "checks": []}
 
     result = await _service(
-        db_session, infrastructure_verifier=verifier
+        db_session,
+        project_preparer=_project_preparer("azure"),
+        infrastructure_verifier=verifier,
     ).verify_infrastructure(
         twin.id,
         user.id,
@@ -143,7 +156,11 @@ async def test_verify_infrastructure_normalizes_google_alias_for_deployer_api(
         calls.append((prepared_project.resource_name, provider))
         return {"summary": {"healthy": True}, "checks": []}
 
-    await _service(db_session, infrastructure_verifier=verifier).verify_infrastructure(
+    await _service(
+        db_session,
+        project_preparer=_project_preparer("gcp"),
+        infrastructure_verifier=verifier,
+    ).verify_infrastructure(
         twin.id,
         user.id,
         test_mode=False,

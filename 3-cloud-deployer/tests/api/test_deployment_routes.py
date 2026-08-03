@@ -18,6 +18,7 @@ import rest_api
 from src.api import deployment
 from src.api.dependencies import validate_provider
 from src.api.operation_context import operation_project_path as real_operation_project_path
+from src.core.observability import OperationContext
 from src.deployment_specification.errors import DeploymentSpecificationError
 
 
@@ -87,6 +88,61 @@ def _project_storage_for(project_path: str | Path):
     storage = MagicMock(name="project_storage")
     storage.context.return_value.project_path = Path(project_path)
     return storage
+
+
+def test_prepare_context_rejects_historical_manifest_for_new_deploy():
+    context = MagicMock(name="historical_deployment_context")
+    context.resolved_deployment_graph = None
+    operation_context = OperationContext.create(
+        operation="deploy",
+        project_name="test_api_project",
+        provider="aws",
+    )
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        pytest.raises(
+            ValueError,
+            match="new deployment operations require DeploymentManifest v3",
+        ),
+    ):
+        deployment._prepare_deployment_context(
+            "test_api_project",
+            "aws",
+            "deploy",
+            operation_context,
+            Path("/projects/test_api_project"),
+        )
+
+
+def test_prepare_context_allows_historical_manifest_for_destroy():
+    context = MagicMock(name="historical_deployment_context")
+    context.resolved_deployment_graph = None
+    operation_context = OperationContext.create(
+        operation="destroy",
+        project_name="test_api_project",
+        provider="aws",
+    )
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+    ):
+        request, prepared_context = deployment._prepare_deployment_context(
+            "test_api_project",
+            "aws",
+            "destroy",
+            operation_context,
+            Path("/projects/test_api_project"),
+        )
+
+    assert request.provider == "aws"
+    assert prepared_context is context
 
 
 def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():

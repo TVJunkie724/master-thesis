@@ -18,7 +18,6 @@ from src.services import deployment_service
 from src.services.deployment_service import PreparedDeploymentProject
 from src.services.deployment_stream_service import create_session, get_session
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
-from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import (
     DownstreamServiceError,
@@ -78,7 +77,7 @@ class DeploymentVerificationService:
         prepared_project = await self._prepare_project(
             twin, user_id, "Failed to prepare project"
         )
-        provider = self._main_provider(twin)
+        provider = prepared_project.provider
         return await self.infrastructure_verifier(prepared_project, provider)
 
     async def start_dataflow_verification(
@@ -243,12 +242,6 @@ class DeploymentVerificationService:
                 "Request body must contain 'payload' with 'iotDeviceId' field"
             )
         return payload
-
-    @staticmethod
-    def _main_provider(twin: DigitalTwin) -> str:
-        if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-            return provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
-        return "aws"
 
     async def _verify_infrastructure_with_deployer(
         self,

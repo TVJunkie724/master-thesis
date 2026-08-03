@@ -19,8 +19,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
+from src.services.architecture_projection_service import (
+    compatibility_provider_for_component,
+    compatibility_required_providers,
+)
 from src.services.deployment_stream_service import create_session
 from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.service_errors import EntityNotFoundError
@@ -99,13 +102,15 @@ class TestDeploymentService:
             "sse_url": f"/sse/deploy/{session_id}",
         }
 
-    def build_mock_simulator_archive(self, twin_id: str, user_id: str) -> MockSimulatorArchive:
+    def build_mock_simulator_archive(
+        self, twin_id: str, user_id: str
+    ) -> MockSimulatorArchive:
         """Build the mock simulator archive used by UI development smoke flows."""
         twin = self.twin_repository.get_active_for_user(twin_id, user_id)
         if not twin:
             raise EntityNotFoundError("Twin not found")
 
-        l1_provider = self._optimizer_l1_provider(twin_id)
+        l1_provider = self._architecture_l1_provider(twin)
         resource_name = self._resource_name(twin)
 
         zip_buffer = io.BytesIO()
@@ -120,7 +125,9 @@ class TestDeploymentService:
             }
             archive.writestr("config.json", json.dumps(config, indent=2))
 
-            payloads = [{"temperature": 25.5, "humidity": 60, "device_id": "mock-device-1"}]
+            payloads = [
+                {"temperature": 25.5, "humidity": 60, "device_id": "mock-device-1"}
+            ]
             archive.writestr("payloads.json", json.dumps(payloads, indent=2))
 
             readme = f"""# IoT Device Simulator - {resource_name} ({l1_provider.upper()})
@@ -138,7 +145,9 @@ python src/main.py --project {resource_name}
 """
             archive.writestr("README.md", readme)
             archive.writestr("requirements.txt", "google-cloud-pubsub>=2.0.0\n")
-            archive.writestr("src/main.py", "# Mock simulator main.py\nprint('Mock simulator')\n")
+            archive.writestr(
+                "src/main.py", "# Mock simulator main.py\nprint('Mock simulator')\n"
+            )
 
         zip_buffer.seek(0)
         return MockSimulatorArchive(
@@ -149,23 +158,13 @@ python src/main.py --project {resource_name}
 
     @staticmethod
     def _configured_providers(twin) -> list[str]:
-        providers = ["aws"]
-        if not twin.deployer_config or not hasattr(twin.deployer_config, "layer_providers"):
-            return providers
+        providers = sorted(compatibility_required_providers(twin))
+        return providers or ["aws"]
 
-        layer_providers = twin.deployer_config.layer_providers or {}
-        unique_providers = []
-        for layer in ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider"]:
-            provider = layer_providers.get(layer)
-            if provider and provider not in unique_providers:
-                unique_providers.append(provider)
-        return unique_providers if unique_providers else providers
-
-    def _optimizer_l1_provider(self, twin_id: str) -> str:
-        optimizer_config = self.db.query(OptimizerConfiguration).filter_by(twin_id=twin_id).first()
-        if optimizer_config and optimizer_config.cheapest_l1:
-            return provider_id_for_deployer_api(optimizer_config.cheapest_l1)
-        return "gcp"
+    @staticmethod
+    def _architecture_l1_provider(twin) -> str:
+        provider = compatibility_provider_for_component(twin, "component.ingestion")
+        return provider_id_for_deployer_api(provider) if provider else "gcp"
 
     @staticmethod
     def _resource_name(twin) -> str:

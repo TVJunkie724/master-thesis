@@ -11,6 +11,8 @@ from src.models.deployment import Deployment
 class DeploymentRepository:
     """Centralizes deployment history and status persistence queries."""
 
+    _GRAPH_STAGE_ORDER = ("package", "preplan", "terraform", "postapply")
+
     def __init__(self, db: Session):
         self._db = db
 
@@ -21,7 +23,9 @@ class DeploymentRepository:
         operation_type: str,
         description: str | None = None,
         operation_id: str | None = None,
+        graph_evidence: dict[str, Any] | None = None,
     ) -> Deployment:
+        evidence = dict(graph_evidence or {})
         deployment = Deployment(
             twin_id=twin_id,
             session_id=session_id,
@@ -29,9 +33,77 @@ class DeploymentRepository:
             operation_id=operation_id,
             status="running",
             description=description,
+            architecture_digest=evidence.get("architecture_digest"),
+            graph_digest=evidence.get("graph_digest"),
+            profile_id=evidence.get("profile_id"),
+            profile_version=evidence.get("profile_version"),
+            catalog_id=evidence.get("catalog_id"),
+            catalog_version=evidence.get("catalog_version"),
+            completed_stage=None,
+            graph_validation=evidence or None,
         )
         self._db.add(deployment)
         return deployment
+
+    def mark_completed_stage(
+        self,
+        deployment: Deployment,
+        completed_stage: str,
+    ) -> Deployment:
+        """Persist monotonic bounded graph-stage progress."""
+
+        if completed_stage not in self._GRAPH_STAGE_ORDER:
+            raise ValueError("Unknown deployment graph stage")
+        current = deployment.completed_stage
+        if current is not None and (
+            self._GRAPH_STAGE_ORDER.index(completed_stage)
+            < self._GRAPH_STAGE_ORDER.index(current)
+        ):
+            raise ValueError("Deployment graph stage cannot move backwards")
+        deployment.completed_stage = completed_stage
+        return deployment
+
+    @staticmethod
+    def assert_graph_compatible(
+        deployment: Deployment,
+        graph_evidence: dict[str, Any],
+    ) -> None:
+        """Reject retries/destroy when immutable graph evidence changed."""
+
+        frozen = deployment.graph_validation
+        if isinstance(frozen, dict) and frozen:
+            expected: object = frozen
+            actual: object = graph_evidence
+        else:
+            expected = (
+                deployment.architecture_digest,
+                deployment.graph_digest,
+                deployment.profile_id,
+                deployment.profile_version,
+                deployment.catalog_id,
+                deployment.catalog_version,
+            )
+            actual = (
+                graph_evidence.get("architecture_digest"),
+                graph_evidence.get("graph_digest"),
+                graph_evidence.get("profile_id"),
+                graph_evidence.get("profile_version"),
+                graph_evidence.get("catalog_id"),
+                graph_evidence.get("catalog_version"),
+            )
+        if expected != actual:
+            from src.services.errors import DeploymentPackageBuildFailed
+
+            raise DeploymentPackageBuildFailed(
+                "Deployment graph evidence differs from the frozen operation",
+                [
+                    {
+                        "code": "DEPLOYMENT_GRAPH_RESUME_MISMATCH",
+                        "field": "graph_digest",
+                        "message": "DEPLOYMENT_GRAPH_RESUME_MISMATCH",
+                    }
+                ],
+            )
 
     def get_by_session_id(self, session_id: str) -> Deployment | None:
         return (
@@ -59,7 +131,9 @@ class DeploymentRepository:
 
     def latest_successful_deploy(self, twin_id: str) -> Deployment | None:
         """Return the latest successful real or test deployment for a twin."""
-        return self.get_latest_successful_outputs(twin_id, operation_types=["deploy", "test"])
+        return self.get_latest_successful_outputs(
+            twin_id, operation_types=["deploy", "test"]
+        )
 
     def get_latest_for_twin(self, twin_id: str) -> Deployment | None:
         return (
@@ -91,6 +165,8 @@ class DeploymentRepository:
         deployment.terraform_outputs = terraform_outputs
         deployment.error_code = None
         deployment.error_message = None
+        if deployment.graph_digest:
+            deployment.completed_stage = "postapply"
         deployment.completed_at = completed_at or datetime.now(timezone.utc)
         return deployment
 

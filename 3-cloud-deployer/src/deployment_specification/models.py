@@ -18,8 +18,10 @@ class ValidatedResolvedDeploymentSpecification:
 
 @dataclass(frozen=True, slots=True)
 class ValidatedDeploymentManifest:
-    """Manifest v2 bound to one validated specification and provider path."""
+    """Deployment manifest bound to validated immutable execution contracts."""
 
     manifest: Mapping[str, Any]
     specification: ValidatedResolvedDeploymentSpecification
     provider_by_slot: Mapping[str, str]
+    manifest_version: str
+    architecture: Mapping[str, Any] | None = None

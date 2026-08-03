@@ -20,8 +20,11 @@ from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
 from src.services.deployment_service import PreparedDeploymentProject
-from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
-from src.services.provider_contract import provider_id_for_deployer_api
+from src.services.errors import (
+    DeploymentPackageBuildFailed,
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+)
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import (
     DownstreamServiceError,
@@ -104,14 +107,10 @@ class SimulatorDownloadService:
             )
 
         twin = self._reload_for_download(twin_id, user_id)
-        if not twin.optimizer_config or not twin.optimizer_config.cheapest_l1:
-            raise EntityNotFoundError(
-                "Optimization not configured. Complete Step 2 first."
-            )
-
-        l1_provider = provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
         try:
             prepared_project = await self.project_preparer(twin, user_id)
+        except DeploymentPackageBuildFailed as exc:
+            raise ValidationError(redact_secret_like_text(exc.message)) from exc
         except DownstreamServiceError as exc:
             raise DownstreamServiceError(
                 status_code=exc.status_code,
@@ -126,6 +125,7 @@ class SimulatorDownloadService:
                 public_detail="Failed to prepare project for simulator download",
             ) from exc
 
+        l1_provider = prepared_project.provider
         archive = await self.simulator_fetcher(prepared_project, l1_provider)
         self._validate_archive(archive, expected_provider=l1_provider)
         return SimulatorDownload(

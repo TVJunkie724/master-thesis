@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _SDK_FALLBACK_POLICIES = frozenset({"never", "on_failure", "always"})
+STAGE_COMPLETED_MARKER = "T2MC_STAGE_COMPLETED:"
 
 
 @dataclass
@@ -53,6 +54,29 @@ class DestroyResult:
 
 class DestructionLifecycleMixin:
     """Destruction behavior shared by the stable strategy facade."""
+
+    def _prepare_destroy_inputs(
+        self,
+        context: "DeploymentContext | None",
+    ) -> bool:
+        """Rebuild graph-selected local packages before Terraform destroy."""
+
+        graph = (
+            getattr(context, "resolved_deployment_graph", None)
+            if context is not None
+            else None
+        )
+        self._resolved_deployment_graph = graph
+        self._extension_operation_id = (
+            getattr(context, "operation_id", None)
+            if context is not None
+            else None
+        )
+        if graph is not None:
+            self._build_packages()
+        if not self.tfvars_path.exists():
+            self._generate_tfvars()
+        return graph is not None
 
     @staticmethod
     def _validate_destroy_policy(
@@ -118,8 +142,7 @@ class DestructionLifecycleMixin:
             result.terraform_success = True
         else:
             try:
-                if not self.tfvars_path.exists():
-                    self._generate_tfvars()
+                self._prepare_destroy_inputs(context)
                 self.runner.init()
                 self.runner.destroy(var_file=str(self.tfvars_path))
                 result.terraform_success = True
@@ -152,10 +175,12 @@ class DestructionLifecycleMixin:
         self._ensure_context_credentials(context)
         if self._terraform_outputs is None:
             self._terraform_outputs = self._get_terraform_outputs_safe()
-        if not self.tfvars_path.exists():
-            self._generate_tfvars()
+        graph_packages_built = self._prepare_destroy_inputs(context)
 
         yield "Terraform destroy starting"
+        if graph_packages_built:
+            yield f"{STAGE_COMPLETED_MARKER}package"
+        yield f"{STAGE_COMPLETED_MARKER}preplan"
         yield "[1/4] Terraform init"
         async for line in self.runner.init_async():
             yield line
@@ -173,6 +198,7 @@ class DestructionLifecycleMixin:
         yield "[3/4] Terraform destroy"
         async for line in self.runner.destroy_async(str(self.tfvars_path)):
             yield line
+        yield f"{STAGE_COMPLETED_MARKER}terraform"
 
         yield "[4/4] Provider fallback cleanup"
         if context is not None:
@@ -190,6 +216,7 @@ class DestructionLifecycleMixin:
                 )
         else:
             yield "No context available; provider fallback cleanup skipped"
+        yield f"{STAGE_COMPLETED_MARKER}postapply"
         yield "Terraform destroy complete"
 
     def _cleanup_requests(self, context: "DeploymentContext", dry_run: bool) -> list[CleanupRequest]:

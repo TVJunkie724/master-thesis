@@ -334,7 +334,7 @@ def check_deployment_manifest(
         )
 
     version = manifest.get("manifest_version")
-    if version != CONSTANTS.DEPLOYMENT_MANIFEST_VERSION:
+    if version not in CONSTANTS.SUPPORTED_DEPLOYMENT_MANIFEST_VERSIONS:
         raise DeploymentSpecificationError(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
             "deployment_manifest.manifest_version",

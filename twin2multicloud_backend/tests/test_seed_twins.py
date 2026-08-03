@@ -95,7 +95,7 @@ async def test_seed_twins_use_cloud_connections_without_legacy_secret_duplicatio
     for twin in twins:
         with pytest.raises(
             DeploymentPackageBuildFailed,
-            match="optimizer run must be selected",
+                match="deployment-compatible optimizer run .* must be selected",
         ):
             build_deployment_package(twin, seed_user.id)
 

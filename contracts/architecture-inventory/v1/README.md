@@ -4,11 +4,13 @@
 five-layer baseline. It records current implementation evidence; it does not
 approve inherited components or make Phase 8.1 retain/replace/remove decisions.
 
-`five-layer-baseline-v1-decision.json` is the Phase 8.1 target-decision source
-of truth. It covers every current component and edge, but does not claim that
-the target is implemented. `baseline-decision.schema.json` and the semantic
-checker enforce its closed-world coverage, proofs, provider admissibility,
-binding sources, scope, and digest.
+`five-layer-baseline-v1-decision.json` is the immutable Phase 8.1 historical
+target-decision source of truth. It covers the components and edges of its
+Phase 8.0 evidence cut, but does not claim that the target is implemented.
+`baseline-decision.schema.json` and the semantic checker enforce its
+closed-world coverage, proofs, provider admissibility, binding sources, scope,
+content digest, and frozen Phase 8.0 source digest. Later current-graph drift
+does not rewrite this paper-compatible decision.
 
 ## Canonical form
 

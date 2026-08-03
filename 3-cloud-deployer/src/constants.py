@@ -11,7 +11,8 @@ CONFIG_PROVIDERS_FILE = "config_providers.json"
 CONFIG_OPTIMIZATION_FILE = "config_optimization.json"
 CONFIG_INTER_CLOUD_FILE = "config_inter_cloud.json"
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
-DEPLOYMENT_MANIFEST_VERSION = "2.0"
+DEPLOYMENT_MANIFEST_VERSION = "3.0"
+SUPPORTED_DEPLOYMENT_MANIFEST_VERSIONS = ("2.0", DEPLOYMENT_MANIFEST_VERSION)
 
 # Twin Hierarchy Files (provider-specific, optional)
 TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"

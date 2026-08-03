@@ -250,7 +250,7 @@
       ]
     }
   ],
-  "content_digest": "sha256:6fd35a6e0376afdd922c8f087808247d396c8b7e819c00dfbb2fd3114de1fddb",
+  "content_digest": "sha256:d7ca380e9cba92a2d021df6111d0f9a80392d06d858be370631841e81573483a",
   "edge_mappings": [
     {
       "catalog_input_port_id": "catalog.aws.port.archive-storage.write-in",
@@ -336,6 +336,23 @@
         "deployment.aws.processing"
       ],
       "transfer_route_class": "same_provider_same_region"
+    },
+    {
+      "catalog_input_port_id": "catalog.aws.port.visualization.query-in",
+      "catalog_output_port_id": "catalog.aws.port.twin-state.query-out",
+      "cost_owner_ids": [
+        "cost.twin-state-to-visualization"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.aws.visualization"
+      ],
+      "edge_id": "edge.twin-state-to-visualization",
+      "edge_implementation_id": "edge-implementation.aws.l4-to-l5",
+      "mechanism": "typed_synchronous_api",
+      "source_deployment_component_ids": [
+        "deployment.aws.twin-state"
+      ],
+      "transfer_route_class": "same_provider_same_region"
     }
   ],
   "implementation_profile_id": "provider-profile.aws.five-layer-baseline",
@@ -351,11 +368,6 @@
     "version": "1"
   },
   "schema_version": "provider-implementation-profile.v1",
-  "supported": false,
-  "unsupported_reasons": [
-    {
-      "message": "Typed L4-to-L5 datasource compilation remains owned by Phase 8.6.",
-      "reason_code": "profile-target-not-implemented"
-    }
-  ]
+  "supported": true,
+  "unsupported_reasons": []
 }

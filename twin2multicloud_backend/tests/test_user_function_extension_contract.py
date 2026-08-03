@@ -475,7 +475,12 @@ def test_new_deployment_blocks_legacy_source_and_omits_it_when_v1_is_bound():
     )
     credentials = DeploymentCredentials(providers=(), config_credentials={})
     with pytest.raises(DeploymentPackageBuildFailed) as exc:
-        _materialize_deployment_files(twin, {}, credentials)
+        _materialize_deployment_files(
+            twin,
+            {},
+            credentials,
+            optimizer_params={},
+        )
     assert "EXTENSION_BINDING_UNRESOLVED" in str(exc.value.errors)
 
     manifest = json.loads(
@@ -510,7 +515,12 @@ def test_new_deployment_blocks_legacy_source_and_omits_it_when_v1_is_bound():
         active=True,
     )
     twin.extension_bindings = [binding]
-    files = _materialize_deployment_files(twin, {}, credentials)
+    files = _materialize_deployment_files(
+        twin,
+        {},
+        credentials,
+        optimizer_params={},
+    )
     paths = {item.path for item in files}
     assert ".twin2multicloud/extensions/bindings.json" in paths
     assert not any("/processors/" in path for path in paths)

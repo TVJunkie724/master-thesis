@@ -187,12 +187,16 @@ async def stage_operation_package(
             clear_all_function_metadata(project_name)
         else:
             result = file_manager.create_project_from_zip(project_name, content)
-        return {
+        response = {
             "project_name": project_name,
             "operation_token": staged.token,
             "expires_at": staged.expires_at.isoformat(),
             "warnings": sorted(set([*staged.warnings, *result.get("warnings", [])])),
         }
+        graph_evidence = getattr(staged, "graph_evidence", None)
+        if graph_evidence is not None:
+            response["graph_evidence"] = graph_evidence
+        return response
     except ValueError as exc:
         if staged is not None:
             store.discard(staged.token)

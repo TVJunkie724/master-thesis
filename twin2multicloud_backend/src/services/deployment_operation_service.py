@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy.orm import Session, joinedload
 
 from src.models.twin import DigitalTwin, TwinState
+from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_service import (
     PreparedDeploymentProject,
@@ -24,7 +25,6 @@ from src.services.deployment_stream_service import (
     get_active_sessions_for_twin,
 )
 from src.services.errors import InvalidTwinStateTransition, OperationAlreadyInProgress
-from src.services.provider_contract import provider_id_for_deployer_api
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import (
     ConflictError,
@@ -155,7 +155,7 @@ class DeploymentOperationService:
                 status_code=500, public_detail="Failed to prepare project"
             ) from exc
 
-        provider = self._main_provider(twin)
+        provider = prepared_project.provider
         session_id = str(uuid.uuid4())
         operation = run_real_deploy_stream(
             session_id=session_id,
@@ -163,6 +163,7 @@ class DeploymentOperationService:
             resource_name=prepared_project.resource_name,
             provider=provider,
             operation_token=prepared_project.operation_token,
+            graph_evidence=prepared_project.graph_evidence,
         )
         await self._create_session_and_schedule(
             twin=twin,
@@ -231,7 +232,37 @@ class DeploymentOperationService:
 
         twin = self._reload_for_deployment(twin_id, user_id)
         try:
-            prepared_project = await self.project_preparer(twin, user_id)
+            frozen_deployment = DeploymentRepository(
+                self.db
+            ).get_latest_successful_outputs(
+                twin_id,
+                operation_types=["deploy"],
+            )
+            if (
+                frozen_deployment is not None
+                and isinstance(frozen_deployment.graph_validation, dict)
+                and self.project_preparer is prepare_project_for_deployment
+            ):
+                prepared_project = await self.project_preparer(
+                    twin,
+                    user_id,
+                    frozen_graph_evidence=frozen_deployment.graph_validation,
+                )
+            else:
+                prepared_project = await self.project_preparer(twin, user_id)
+            if (
+                frozen_deployment is not None
+                and frozen_deployment.graph_digest is not None
+            ):
+                if prepared_project.graph_evidence is None:
+                    raise ValueError(
+                        "DEPLOYMENT_GRAPH_RESUME_MISMATCH: "
+                        "destroy requires frozen graph evidence"
+                    )
+                DeploymentRepository.assert_graph_compatible(
+                    frozen_deployment,
+                    prepared_project.graph_evidence,
+                )
         except DownstreamServiceError as exc:
             safe_detail = redact_secret_like_text(exc.public_detail)
             logger.error(
@@ -264,7 +295,7 @@ class DeploymentOperationService:
                 public_detail="Failed to prepare project for destroy",
             ) from exc
 
-        provider = self._main_provider(twin)
+        provider = prepared_project.provider
         session_id = str(uuid.uuid4())
         operation = run_real_destroy_stream(
             session_id=session_id,
@@ -272,6 +303,7 @@ class DeploymentOperationService:
             resource_name=prepared_project.resource_name,
             provider=provider,
             operation_token=prepared_project.operation_token,
+            graph_evidence=prepared_project.graph_evidence,
         )
         await self._create_session_and_schedule(
             twin=twin,
@@ -341,12 +373,6 @@ class DeploymentOperationService:
         if not twin:
             raise EntityNotFoundError("Twin not found during reload")
         return twin
-
-    @staticmethod
-    def _main_provider(twin: DigitalTwin) -> str:
-        if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
-            return provider_id_for_deployer_api(twin.optimizer_config.cheapest_l1)
-        return "aws"
 
     def _start_deploy(self, twin: DigitalTwin, *, skip_state_validation: bool) -> None:
         try:

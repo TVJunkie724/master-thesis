@@ -31,3 +31,4 @@ material and must be reviewed, cited, and rewritten before they become thesis cl
 - [Digital Twin architecture and Eventing Layer](digital_twin_architecture_and_eventing_layer.md)
 - [Related work: multi-cloud cost, functional comparability, and event-driven Digital Twins](related_work_multicloud_cost_comparability_eventing.md)
 - [Research questions and evaluation design](research_questions_and_evaluation_design.md)
+- [Evaluation and observability concept](evaluation_and_observability_concept.md)

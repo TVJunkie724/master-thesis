@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import re
 from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Any, NoReturn
@@ -12,11 +13,13 @@ from typing import Any, NoReturn
 from jsonschema import Draft202012Validator, FormatChecker
 
 from .contract import (
+    HISTORICAL_MANIFEST_VERSION,
     MANIFEST_VERSION,
     PROVIDERS,
     SCHEMA_VERSION,
     SLOT_ORDER,
     load_contract,
+    load_manifest_schema,
 )
 from .errors import DeploymentSpecificationError
 from .models import (
@@ -38,6 +41,15 @@ SECRET_KEY_FRAGMENTS = (
     "token",
 )
 PROVIDER_ALIASES = {"google": "gcp"}
+LOGICAL_COMPONENT_TO_SLOT = {
+    "component.ingestion": "l1_ingestion",
+    "component.processing": "l2_processing",
+    "component.hot-storage": "l3_hot_storage",
+    "component.cool-storage": "l3_cool_storage",
+    "component.archive-storage": "l3_archive_storage",
+    "component.twin-state": "l4_twin_state",
+    "component.visualization": "l5_visualization",
+}
 
 
 def _fail(code: str, field: str, message: str) -> NoReturn:
@@ -77,20 +89,24 @@ def validate_deployment_manifest(
     raw_manifest: object,
     provider_config: Mapping[str, Any],
 ) -> ValidatedDeploymentManifest:
-    """Validate Manifest v2 and bind it to the selected provider path."""
+    """Validate a v3 execution manifest or a frozen historical v2 manifest."""
 
     if not isinstance(raw_manifest, Mapping):
         _fail(
             "DEPLOYMENT_MANIFEST_REQUIRED",
             "deployment_manifest",
-            "DeploymentManifest v2 is required for deployment operations",
+            "DeploymentManifest is required for deployment operations",
         )
-    if raw_manifest.get("manifest_version") != MANIFEST_VERSION:
+    version = raw_manifest.get("manifest_version")
+    if version not in {MANIFEST_VERSION, HISTORICAL_MANIFEST_VERSION}:
         _fail(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
             "deployment_manifest.manifest_version",
             "DeploymentManifest version is unsupported",
         )
+    architecture = None
+    if version == MANIFEST_VERSION:
+        architecture = _validate_manifest_v3(raw_manifest)
 
     specification = validate_resolved_deployment_specification(
         raw_manifest.get("resolved_deployment_specification")
@@ -123,9 +139,14 @@ def validate_deployment_manifest(
             "Deployment manifest provider path is missing",
         )
 
+    architecture_provider_by_slot = (
+        _providers_from_architecture(architecture) if architecture is not None else None
+    )
     for slot_id in SLOT_ORDER:
         deployer_key = registry["slots"][slot_id]["deployer_key"]
-        configured = _normalize_provider(provider_config.get(deployer_key), deployer_key)
+        configured = _normalize_provider(
+            provider_config.get(deployer_key), deployer_key
+        )
         manifested = _normalize_provider(
             manifest_providers.get(deployer_key),
             f"deployment_manifest.providers.{deployer_key}",
@@ -136,7 +157,21 @@ def validate_deployment_manifest(
                 f"deployment_manifest.providers.{deployer_key}",
                 "Deployment manifest provider differs from project configuration",
             )
+        if (
+            architecture_provider_by_slot is not None
+            and manifested != architecture_provider_by_slot[slot_id]
+        ):
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                f"deployment_manifest.providers.{deployer_key}",
+                "Deployment provider projection differs from resolved architecture",
+            )
         provider_by_slot[slot_id] = configured
+    if version == MANIFEST_VERSION:
+        _validate_manifest_v3_metadata(
+            raw_manifest,
+            set(provider_by_slot.values()),
+        )
 
     _validate_components(
         list(specification.specification["components"]),
@@ -148,7 +183,271 @@ def validate_deployment_manifest(
         manifest=MappingProxyType(dict(raw_manifest)),
         specification=specification,
         provider_by_slot=MappingProxyType(provider_by_slot),
+        manifest_version=str(version),
+        architecture=(
+            MappingProxyType(dict(architecture)) if architecture is not None else None
+        ),
     )
+
+
+def _validate_manifest_v3(
+    raw_manifest: Mapping[str, Any],
+) -> dict[str, Any]:
+    _scan_manifest_payload(raw_manifest)
+    serialized = canonical_json(raw_manifest)
+    if len(serialized.encode("utf-8")) > MAX_CANONICAL_BYTES * 4:
+        _fail(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest",
+            "DeploymentManifest exceeds the size limit",
+        )
+    errors = sorted(
+        Draft202012Validator(
+            load_manifest_schema(),
+            format_checker=FormatChecker(),
+        ).iter_errors(json.loads(serialized)),
+        key=lambda error: [str(part) for part in error.absolute_path],
+    )
+    if errors:
+        location = ".".join(str(part) for part in errors[0].absolute_path)
+        _fail(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            f"deployment_manifest.{location}".rstrip("."),
+            "DeploymentManifest does not match schema v3",
+        )
+
+    architecture = raw_manifest.get("resolved_twin_architecture")
+    if not isinstance(architecture, Mapping):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_MISSING",
+            "deployment_manifest.resolved_twin_architecture",
+            "Resolved architecture is required",
+        )
+    from src.architecture_profiles import contracts
+    from src.architecture_profiles.contracts import calculate_digest
+    from src.architecture_profiles.registry import ArchitectureProfileRegistry
+
+    expected_digest = calculate_digest(architecture)
+    actual_digest = architecture.get("content_digest")
+    manifest_digest = raw_manifest.get("resolved_twin_architecture_digest")
+    if (
+        not isinstance(actual_digest, str)
+        or not isinstance(manifest_digest, str)
+        or not hmac.compare_digest(actual_digest, expected_digest)
+        or not hmac.compare_digest(manifest_digest, expected_digest)
+    ):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_DIGEST_MISMATCH",
+            "deployment_manifest.resolved_twin_architecture_digest",
+            "Resolved architecture digest does not match its content",
+        )
+
+    run_id = raw_manifest.get("calculation_run_id")
+    specification = raw_manifest.get("resolved_deployment_specification")
+    specification_ref = architecture.get("deployment_specification_ref")
+    if (
+        architecture.get("calculation_run_id") != run_id
+        or not isinstance(specification, Mapping)
+        or specification.get("calculation_run_id") != run_id
+        or not isinstance(specification_ref, Mapping)
+        or specification_ref.get("calculation_run_id") != run_id
+        or specification_ref.get("schema_version")
+        != specification.get("schema_version")
+        or specification_ref.get("digest")
+        != raw_manifest.get("resolved_deployment_specification_digest")
+    ):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+            "deployment_manifest.calculation_run_id",
+            "Manifest architecture and deployment specification references differ",
+        )
+
+    registry = ArchitectureProfileRegistry()
+    linked_documents = (
+        registry.profile,
+        *registry.providers.values(),
+        registry.catalog,
+    )
+    try:
+        contracts.read_contract(
+            architecture,
+            linked_documents=linked_documents,
+        )
+    except contracts.ContractError as exc:
+        contract_code = str(getattr(exc, "code", ""))
+        contract_path = str(getattr(exc, "path", ""))
+        if contract_code == "ARCH_EDGE_UNAVAILABLE":
+            code = "DEPLOYMENT_GRAPH_EDGE_UNRESOLVED"
+        elif contract_code == "ARCH_DUPLICATE_ID" and "resolved_edges" in contract_path:
+            code = "DEPLOYMENT_GRAPH_BINDING_DUPLICATE"
+        elif contract_code == "ARCH_GRAPH_CYCLE_FORBIDDEN":
+            code = "DEPLOYMENT_GRAPH_CYCLE_FORBIDDEN"
+        elif contract_code == "ARCH_COMPONENT_UNAVAILABLE":
+            code = "DEPLOYMENT_GRAPH_NODE_UNRESOLVED"
+        elif contract_code == "ARCH_EXTENSION_BINDING_INVALID":
+            code = "DEPLOYMENT_GRAPH_BINDING_INCOMPATIBLE"
+        else:
+            code = "DEPLOYMENT_ARCHITECTURE_INVALID"
+        _fail(
+            code,
+            "deployment_manifest.resolved_twin_architecture",
+            "Resolved architecture does not satisfy its pinned contract",
+        )
+    profile_ref = architecture.get("architecture_profile_ref")
+    catalog_ref = raw_manifest.get("compatibility", {}).get("component_catalog_ref")
+    expected_profile = {
+        "id": registry.profile["profile_id"],
+        "version": registry.profile["profile_version"],
+        "digest": registry.profile["content_digest"],
+    }
+    expected_catalog = {
+        "id": registry.catalog["catalog_id"],
+        "version": registry.catalog["catalog_version"],
+        "digest": registry.catalog["content_digest"],
+    }
+    if profile_ref != expected_profile or catalog_ref != expected_catalog:
+        _fail(
+            "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+            "deployment_manifest.compatibility",
+            "Manifest profile or component catalog reference is unsupported",
+        )
+    return json.loads(canonical_json(architecture))
+
+
+def _scan_manifest_payload(
+    value: object,
+    *,
+    path: str = "$",
+    depth: int = 0,
+) -> None:
+    """Reject secret-bearing fields while allowing credential source metadata."""
+
+    if depth > MAX_RECURSION_DEPTH:
+        _fail(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest",
+            "DeploymentManifest exceeds the nesting limit",
+        )
+    forbidden_fragments = {
+        "accesskeyid",
+        "apikey",
+        "clientsecret",
+        "connectionstring",
+        "password",
+        "privatekey",
+        "refreshtoken",
+        "secretaccesskey",
+        "sessiontoken",
+    }
+    allowed_metadata_keys = {
+        "containssecretpayloads",
+        "platformruntimesecretreference",
+        "secretbearingfiles",
+    }
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            normalized = str(key).strip().lower()
+            compact = re.sub(r"[^a-z0-9]", "", normalized)
+            if compact not in allowed_metadata_keys and any(
+                fragment in compact for fragment in forbidden_fragments
+            ):
+                _fail(
+                    "DEPLOYMENT_MANIFEST_INVALID",
+                    path,
+                    "Secret-bearing fields are forbidden in DeploymentManifest v3",
+                )
+            _scan_manifest_payload(
+                nested,
+                path=f"{path}.{key}",
+                depth=depth + 1,
+            )
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            _scan_manifest_payload(
+                nested,
+                path=f"{path}[{index}]",
+                depth=depth + 1,
+            )
+
+
+def _validate_manifest_v3_metadata(
+    manifest: Mapping[str, Any],
+    architecture_providers: set[str],
+) -> None:
+    package = manifest["package"]
+    files = set(package["files"])
+    required_files = set(package["required_files"])
+    secret_files = set(package["secret_bearing_files"])
+    if not required_files <= files or not secret_files <= files:
+        _fail(
+            "DEPLOYMENT_MANIFEST_INVALID",
+            "deployment_manifest.package",
+            "Manifest package file sets are inconsistent",
+        )
+    credentials = manifest["credentials"]
+    credential_providers = {
+        _normalize_provider(
+            provider,
+            "deployment_manifest.credentials.providers",
+        )
+        for provider in credentials["providers"]
+    }
+    credential_sources = {
+        _normalize_provider(
+            provider,
+            "deployment_manifest.credentials.sources",
+        )
+        for provider in credentials["sources"]
+    }
+    if (
+        credential_providers != architecture_providers
+        or credential_sources != architecture_providers
+        or credentials["contains_secret_payloads"] is not False
+    ):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+            "deployment_manifest.credentials",
+            "Credential metadata differs from architecture provider ownership",
+        )
+
+
+def _providers_from_architecture(
+    architecture: Mapping[str, Any],
+) -> dict[str, str]:
+    providers: dict[str, str] = {}
+    assignments = architecture.get("component_assignments")
+    if not isinstance(assignments, list):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_INVALID",
+            "deployment_manifest.resolved_twin_architecture.component_assignments",
+            "Resolved architecture assignments are invalid",
+        )
+    for assignment in assignments:
+        if not isinstance(assignment, Mapping):
+            continue
+        slot_id = LOGICAL_COMPONENT_TO_SLOT.get(
+            str(assignment.get("logical_component_id"))
+        )
+        if slot_id is None or slot_id in providers:
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_INVALID",
+                "deployment_manifest.resolved_twin_architecture.component_assignments",
+                "Resolved architecture component assignment is unknown or duplicated",
+            )
+        providers[slot_id] = _normalize_provider(
+            assignment.get("provider"),
+            (
+                "deployment_manifest.resolved_twin_architecture."
+                f"component_assignments.{slot_id}.provider"
+            ),
+        )
+    if set(providers) != set(SLOT_ORDER):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_INVALID",
+            "deployment_manifest.resolved_twin_architecture.component_assignments",
+            "Resolved architecture does not cover every baseline component",
+        )
+    return providers
 
 
 def validate_resolved_deployment_specification(
@@ -272,12 +571,8 @@ def _required_transition_component_ids(
     provider_by_slot: Mapping[str, str],
 ) -> list[str]:
     return [
-        transition["component_by_provider"][
-            provider_by_slot[transition["source_slot"]]
-        ]
-        for transition in registry["transition_runtime_policy"][
-            "transitions"
-        ]
+        transition["component_by_provider"][provider_by_slot[transition["source_slot"]]]
+        for transition in registry["transition_runtime_policy"]["transitions"]
     ]
 
 
@@ -337,17 +632,12 @@ def _validate_components(
     if actual_transition_ids != expected_transition_ids:
         _fail(
             "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-            (
-                "resolved_deployment_specification.components."
-                "transition_runtime"
-            ),
+            ("resolved_deployment_specification.components.transition_runtime"),
             "Transition runtimes do not match their source storage providers",
         )
     expected_component_ids.extend(expected_transition_ids)
 
-    component_by_provider = registry["cross_cloud_glue_policy"][
-        "component_by_provider"
-    ]
+    component_by_provider = registry["cross_cloud_glue_policy"]["component_by_provider"]
     expected_glue_ids = [
         component_by_provider[provider]
         for provider in _required_glue_providers(registry, provider_by_slot)
@@ -363,7 +653,9 @@ def _validate_components(
             "Cross-cloud receiver components do not match the selected path",
         )
     expected_component_ids.extend(expected_glue_ids)
-    if [component["component_id"] for component in components] != expected_component_ids:
+    if [
+        component["component_id"] for component in components
+    ] != expected_component_ids:
         _fail(
             "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
             "resolved_deployment_specification.components",
@@ -522,7 +814,9 @@ def _validate_dimension_value(
         if expected_type == "boolean"
         else isinstance(value, str)
     )
-    field = f"resolved_deployment_specification.components.{component_id}.{dimension_id}"
+    field = (
+        f"resolved_deployment_specification.components.{component_id}.{dimension_id}"
+    )
     if not valid_type:
         _fail(
             "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",

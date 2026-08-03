@@ -12,7 +12,8 @@ from jsonschema import Draft202012Validator
 
 SCHEMA_VERSION = "resolved-deployment-specification.v1"
 REGISTRY_VERSION = "resolved-deployment-dimensions.v1"
-MANIFEST_VERSION = "2.0"
+MANIFEST_VERSION = "3.0"
+HISTORICAL_MANIFEST_VERSION = "2.0"
 PROVIDERS = ("aws", "azure", "gcp")
 SLOT_ORDER = (
     "l1_ingestion",
@@ -29,6 +30,13 @@ CONTRACT_ROOT = (
     / "generated"
     / "resolved-deployment-specification"
     / "v1"
+)
+MANIFEST_CONTRACT_ROOT = (
+    Path(__file__).resolve().parents[1]
+    / "contracts"
+    / "generated"
+    / "deployment-manifest"
+    / "v3"
 )
 
 
@@ -50,3 +58,15 @@ def load_contract() -> tuple[dict[str, Any], dict[str, Any]]:
     if registry.get("specification_schema_version") != SCHEMA_VERSION:
         raise RuntimeError("Resolved deployment schema and registry versions differ")
     return schema, registry
+
+
+@lru_cache(maxsize=1)
+def load_manifest_schema() -> dict[str, Any]:
+    """Load the synchronized DeploymentManifest v3 schema."""
+
+    try:
+        schema = json.loads((MANIFEST_CONTRACT_ROOT / "schema.json").read_text("utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("DeploymentManifest v3 contract is unavailable") from exc
+    Draft202012Validator.check_schema(schema)
+    return schema

@@ -181,13 +181,11 @@ class CostCalculationRunService:
             )
             _validate_optimizer_aws_selection_context(result, aws_context)
             cheapest_path = self._extract_cheapest_path(result)
-            deployment_specification = (
-                _validate_optimizer_deployment_specification(
-                    result,
-                    run_id=run_id,
-                    cheapest_path=cheapest_path,
-                    catalog_context=catalog_context,
-                )
+            deployment_specification = _validate_optimizer_deployment_specification(
+                result,
+                run_id=run_id,
+                cheapest_path=cheapest_path,
+                catalog_context=catalog_context,
             )
             result_items = self._build_result_items(
                 result,
@@ -236,16 +234,10 @@ class CostCalculationRunService:
                 total_monthly_cost=contract["total_monthly_cost"],
                 currency=contract["currency"],
                 optimization_profile_id=contract["optimization_profile_id"],
-                optimization_profile_version=(
-                    contract["optimization_profile_version"]
-                ),
+                optimization_profile_version=(contract["optimization_profile_version"]),
                 scoring_strategy_id=contract["scoring_strategy_id"],
-                calculation_model_version=contract[
-                    "calculation_model_version"
-                ],
-                pricing_registry_version=contract[
-                    "pricing_registry_version"
-                ],
+                calculation_model_version=contract["calculation_model_version"],
+                pricing_registry_version=contract["pricing_registry_version"],
                 pricing_evidence_version=pricing_evidence_version,
                 pricing_run_reference=aws_context.source_refresh_run_id,
                 pricing_catalog_context_json=catalog_context.canonical_json(),
@@ -255,7 +247,7 @@ class CostCalculationRunService:
                 config,
                 params=persisted_params,
                 result=result,
-                cheapest_path=cheapest_path,
+                cheapest_path=None,
                 pricing_catalog_context=catalog_context,
                 calculated_at=now,
             )
@@ -267,9 +259,7 @@ class CostCalculationRunService:
                     run=run,
                     catalog_context=catalog_context,
                     result_items=result_items,
-                    linked_architecture_documents=(
-                        self.linked_architecture_documents
-                    ),
+                    linked_architecture_documents=(self.linked_architecture_documents),
                 )
             except (
                 ArchitectureDomainError,
@@ -313,9 +303,7 @@ class CostCalculationRunService:
                 pricing_evidence_version=pricing_evidence_version,
                 pricing_run_reference=aws_context.source_refresh_run_id,
                 pricing_catalog_context_json=catalog_context.canonical_json(),
-                deployment_specification_json=(
-                    deployment_specification.canonical_json
-                ),
+                deployment_specification_json=(deployment_specification.canonical_json),
                 deployment_specification_digest=deployment_specification.digest,
                 deployment_specification_version=(
                     deployment_specification.schema_version
@@ -374,9 +362,7 @@ class CostCalculationRunService:
                 expected_catalog_context=catalog_context,
                 expected_result=result,
             )
-            result["resolvedDeploymentSpecification"] = (
-                deployment.specification
-            )
+            result["resolvedDeploymentSpecification"] = deployment.specification
             run.result_summary_json = _json_dumps(result)
             run.cheapest_path_json = _json_dumps(cheapest_path)
             run.deployment_specification_json = deployment.canonical_json
@@ -387,9 +373,7 @@ class CostCalculationRunService:
             run.completed_at = datetime.now(timezone.utc)
             self.db.add(run)
             for item in result_items or []:
-                self.db.add(
-                    CostCalculationResultItem(run_id=run.id, **item)
-                )
+                self.db.add(CostCalculationResultItem(run_id=run.id, **item))
             ResolvedArchitectureService(self.db).persist(
                 run=run,
                 raw_architecture=resolved_twin_architecture,
@@ -409,10 +393,13 @@ class CostCalculationRunService:
                 ),
             )
             self._persist_failed_run(run, str(error_code))
-            if isinstance(exc, (
-                ArchitectureDomainError,
-                ResolvedDeploymentSpecificationError,
-            )):
+            if isinstance(
+                exc,
+                (
+                    ArchitectureDomainError,
+                    ResolvedDeploymentSpecificationError,
+                ),
+            ):
                 raise
             raise
         self.db.refresh(run)
@@ -432,10 +419,7 @@ class CostCalculationRunService:
             with self.db.no_autoflush:
                 optimizer_config_id = (
                     self.db.query(OptimizerConfiguration.id)
-                    .filter(
-                        OptimizerConfiguration.id
-                        == source.optimizer_config_id
-                    )
+                    .filter(OptimizerConfiguration.id == source.optimizer_config_id)
                     .scalar()
                 )
         failed = CostCalculationRun(
@@ -522,9 +506,7 @@ class CostCalculationRunService:
             .all()
         )
         active = {
-            (item.slot_id, item.slot_version): item
-            for item in bindings
-            if item.active
+            (item.slot_id, item.slot_version): item for item in bindings if item.active
         }
         if set(active) != set(slots):
             raise ArchitectureDomainError(
@@ -569,9 +551,12 @@ class CostCalculationRunService:
                     "An architecture extension configuration is invalid.",
                     http_status=422,
                 ) from exc
-            configuration_digest = "sha256:" + hashlib.sha256(
-                canonical_json(configuration).encode("utf-8")
-            ).hexdigest()
+            configuration_digest = (
+                "sha256:"
+                + hashlib.sha256(
+                    canonical_json(configuration).encode("utf-8")
+                ).hexdigest()
+            )
             projected_bindings.append(
                 {
                     "slotId": binding.slot_id,
@@ -601,9 +586,9 @@ class CostCalculationRunService:
         aws_context: ResolvedAwsTwinMakerPricingContext,
         pricing_evidence_version: str | None,
     ) -> CostCalculationRun:
-        selection = ResolvedArchitectureService(
-            self.db
-        ).repository.get_selection(twin.id, user_id)
+        selection = ResolvedArchitectureService(self.db).repository.get_selection(
+            twin.id, user_id
+        )
         profile = ArchitectureProfileService.get_definition(
             selection.profile_id,
             selection.profile_version,
@@ -614,21 +599,15 @@ class CostCalculationRunService:
             twin_id=twin.id,
             user_id=user_id,
             optimizer_config_id=(
-                twin.optimizer_config.id
-                if twin.optimizer_config is not None
-                else None
+                twin.optimizer_config.id if twin.optimizer_config is not None else None
             ),
             status=FAILED,
             params_json=_json_dumps(persisted_params),
             currency=persisted_params.get("currency", "USD"),
             optimization_profile_id=bundle["optimization_strategy_id"],
-            optimization_profile_version=bundle[
-                "optimization_strategy_version"
-            ],
+            optimization_profile_version=bundle["optimization_strategy_version"],
             scoring_strategy_id=bundle["scoring_strategy_id"],
-            calculation_model_version=bundle[
-                "calculation_strategy_version"
-            ],
+            calculation_model_version=bundle["calculation_strategy_version"],
             pricing_evidence_version=pricing_evidence_version,
             pricing_run_reference=aws_context.source_refresh_run_id,
             pricing_catalog_context_json=catalog_context.canonical_json(),
@@ -757,18 +736,14 @@ class CostCalculationRunService:
                 "transfer_pricing_context": (
                     raw_transfer_pricing if transfer_pricing is not None else {}
                 ),
-                "transition_runtime_context_available": (
-                    transfer_pricing is not None
-                ),
+                "transition_runtime_context_available": (transfer_pricing is not None),
                 "transition_runtime_context": (
                     _dict_or_empty(result.get("transitionRuntimeContext"))
                     if transfer_pricing is not None
                     else {}
                 ),
                 "transition_runtime_costs": (
-                    _numeric_dict_or_empty(
-                        result.get("transitionRuntimeCosts")
-                    )
+                    _numeric_dict_or_empty(result.get("transitionRuntimeCosts"))
                     if transfer_pricing is not None
                     else {}
                 ),
@@ -858,13 +833,10 @@ class CostCalculationRunService:
                 action="run.selection",
                 outcome=(
                     "succeeded"
-                    if run.architecture_compatibility_status
-                    == ARCHITECTURE_READY
+                    if run.architecture_compatibility_status == ARCHITECTURE_READY
                     else "legacy-compatibility"
                 ),
-                profile_id=(
-                    selection.profile_id if selection is not None else None
-                ),
+                profile_id=(selection.profile_id if selection is not None else None),
                 profile_version=(
                     selection.profile_version if selection is not None else None
                 ),
@@ -876,8 +848,7 @@ class CostCalculationRunService:
                 resolution_digest=run.resolved_architecture_digest,
                 result_code=(
                     None
-                    if run.architecture_compatibility_status
-                    == ARCHITECTURE_READY
+                    if run.architecture_compatibility_status == ARCHITECTURE_READY
                     else "ARCH_LEGACY_NOT_RESOLVABLE"
                 ),
                 correlation_id=current_request_id(),
@@ -1118,14 +1089,15 @@ class CostCalculationRunService:
         *,
         params: dict[str, Any],
         result: dict[str, Any],
-        cheapest_path: dict[str, Any],
+        cheapest_path: dict[str, Any] | None,
         pricing_catalog_context: PricingCatalogContext,
         calculated_at: datetime,
     ) -> None:
         config.params = _json_dumps(params)
         config.result_json = _json_dumps(result)
         config.pricing_catalog_context_json = pricing_catalog_context.canonical_json()
-        self._apply_cheapest_path(config, cheapest_path)
+        if cheapest_path is not None:
+            self._apply_cheapest_path(config, cheapest_path)
         config.calculated_at = calculated_at
         self.db.add(config)
 
@@ -1264,7 +1236,8 @@ def validate_persisted_run_deployment_specification(
     if run.deployment_compatibility_status != READY:
         error_code = (
             "LEGACY_RUN_NOT_DEPLOYABLE"
-            if run.deployment_compatibility_status in {
+            if run.deployment_compatibility_status
+            in {
                 None,
                 LEGACY_NOT_DEPLOYABLE,
             }
@@ -1302,9 +1275,7 @@ def validate_persisted_run_deployment_specification(
             "run the optimizer again before deployment.",
             error_code="DEPLOYMENT_SPECIFICATION_METADATA_MISMATCH",
         )
-    summary_specification = stored_result.get(
-        "resolvedDeploymentSpecification"
-    )
+    summary_specification = stored_result.get("resolvedDeploymentSpecification")
     if (
         not isinstance(summary_specification, Mapping)
         or canonical_json(summary_specification) != validated.canonical_json

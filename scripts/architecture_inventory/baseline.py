@@ -13,6 +13,9 @@ from .canonical import content_digest, pretty_json
 SCHEMA_VERSION = "five-layer-baseline-decision.v1"
 PROFILE_ID = "five-layer-baseline"
 PROFILE_VERSION = "1"
+FROZEN_SOURCE_INVENTORY_DIGEST = (
+    "sha256:c8812f94523bd84e3c8e2cd05eb75f4fa696f4ef2c92b99933102b2fea1aade3"
+)
 DECISION_PATH = Path(
     "contracts/architecture-inventory/v1/five-layer-baseline-v1-decision.json"
 )
@@ -1425,7 +1428,15 @@ def _check_digest(raw: str, decision: dict[str, Any]) -> None:
 def _check_source_digest(
     inventory: dict[str, Any], decision: dict[str, Any]
 ) -> None:
-    if decision["source_inventory_digest"] != inventory["content_digest"]:
+    """Keep the historical decision pinned while the current graph advances.
+
+    Phase 8.1 was derived from the Phase 8.0 evidence cut. The live inventory
+    still undergoes its own source-tree drift checks, but later migration work
+    must not rewrite the immutable paper-compatible decision merely because
+    its audited consumers change.
+    """
+
+    if decision["source_inventory_digest"] != FROZEN_SOURCE_INVENTORY_DIGEST:
         raise BaselineDecisionError(
             "SOURCE_INVENTORY_STALE", ["source_inventory_digest"]
         )

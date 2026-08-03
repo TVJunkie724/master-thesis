@@ -1576,7 +1576,7 @@
     "twin2multicloud_flutter/lib/widgets/architecture_graph.dart",
     "twin2multicloud_flutter/lib/widgets/file_inputs/config_visualization_block.dart"
   ],
-  "audited_source_tree_digest": "sha256:f439e866803570703365ee40709231c482eb909ae52862ca40415de4e7b62bc9",
+  "audited_source_tree_digest": "sha256:294f4cc0ebcb6ab76e81119810fbf436d6cb466f9d23dd381e7779e8c9b05b27",
   "components": [
     {
       "component_id": "component.function.archive-writer",
@@ -6123,7 +6123,7 @@
       ]
     }
   ],
-  "content_digest": "sha256:c8812f94523bd84e3c8e2cd05eb75f4fa696f4ef2c92b99933102b2fea1aade3",
+  "content_digest": "sha256:0819e53e15e037da5e85f43f5ca26ad0621442eccfad937b81493afb6f26a5e8",
   "cost_owners": [
     {
       "cost_kind": "transfer",
@@ -9738,16 +9738,8 @@
         "twin2multicloud_backend/src/models/optimizer_config.py#cheapest_l1",
         "twin2multicloud_backend/src/services/cost_calculation_run_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/credential_resolution_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/deployment_operation_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/deployment_read_service.py#cheapest_l3_hot",
-        "twin2multicloud_backend/src/services/deployment_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/optimizer_config_projection.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/optimizer_configuration_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/project_zip_extraction_service.py#cheapest_l2",
-        "twin2multicloud_backend/src/services/resolved_architecture_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/simulator_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/test_deployment_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/verification_service.py#cheapest_l1"
+        "twin2multicloud_backend/src/services/resolved_architecture_service.py#cheapest_l1"
       ],
       "failure_mode": "Selected-run persistence and deployment projection diverge.",
       "phase_8_owner": "Phase 8.4 through 8.7 compatibility migration",
@@ -9756,16 +9748,8 @@
         "twin2multicloud_backend/src/models/optimizer_config.py#cheapest_l1",
         "twin2multicloud_backend/src/services/cost_calculation_run_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/credential_resolution_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/deployment_operation_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/deployment_read_service.py#cheapest_l3_hot",
-        "twin2multicloud_backend/src/services/deployment_service.py#cheapest_l1",
         "twin2multicloud_backend/src/services/optimizer_config_projection.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/optimizer_configuration_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/project_zip_extraction_service.py#cheapest_l2",
-        "twin2multicloud_backend/src/services/resolved_architecture_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/simulator_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/test_deployment_service.py#cheapest_l1",
-        "twin2multicloud_backend/src/services/verification_service.py#cheapest_l1"
+        "twin2multicloud_backend/src/services/resolved_architecture_service.py#cheapest_l1"
       ]
     },
     {
@@ -9780,9 +9764,8 @@
       "convention": "Deployment config uses seven layer_*_provider keys and maps GCP to google.",
       "current_consumers": [
         "contracts/resolved-deployment-specification/v1/deployment-dimensions.json#slots",
-        "twin2multicloud_backend/src/services/deployment_read_service.py#layer_3_hot_provider",
         "twin2multicloud_backend/src/services/deployment_service.py#layer_1_provider",
-        "twin2multicloud_backend/src/services/test_deployment_service.py#layer_1_provider",
+        "twin2multicloud_backend/src/services/twin_export_service.py#layer_1_provider",
         "twin2multicloud_flutter/lib/features/configuration_workspace/presentation/deployment/deployment_config_section.dart#layer_1_provider",
         "twin2multicloud_flutter/lib/widgets/file_inputs/config_visualization_block.dart#layer_1_provider"
       ],
@@ -9790,9 +9773,8 @@
       "phase_8_owner": "Phase 8.2 through 8.6",
       "source_references": [
         "contracts/resolved-deployment-specification/v1/deployment-dimensions.json#slots",
-        "twin2multicloud_backend/src/services/deployment_read_service.py#layer_3_hot_provider",
         "twin2multicloud_backend/src/services/deployment_service.py#layer_1_provider",
-        "twin2multicloud_backend/src/services/test_deployment_service.py#layer_1_provider",
+        "twin2multicloud_backend/src/services/twin_export_service.py#layer_1_provider",
         "twin2multicloud_flutter/lib/features/configuration_workspace/presentation/deployment/deployment_config_section.dart#layer_1_provider",
         "twin2multicloud_flutter/lib/widgets/file_inputs/config_visualization_block.dart#layer_1_provider"
       ]
@@ -9899,7 +9881,7 @@
       ]
     }
   ],
-  "generated_at": "2026-07-20T16:50:33Z",
+  "generated_at": "2026-08-03T23:32:39Z",
   "inventory_id": "current-five-layer-implementation",
   "paper_model_references": [
     "docs/research/digital_twin_architecture_and_eventing_layer.md",
@@ -10096,7 +10078,7 @@
     }
   ],
   "schema_version": "architecture-inventory.v1",
-  "source_commit": "28a76ea6c3726ef4cc5d7c578c95bfe85ecad64f",
+  "source_commit": "626e907a2c3c32f121e94e9244b5b5846f9fc0cf",
   "terraform_objects": [
     {
       "binding_role": "dependency",

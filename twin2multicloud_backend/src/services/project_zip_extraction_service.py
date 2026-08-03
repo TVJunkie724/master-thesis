@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-import json
 import logging
 from typing import Any
 
@@ -106,46 +105,23 @@ class ProjectZipExtractionService:
             "skip_credentials": True,
             "skip_config_files": [],
         }
+        from src.services.architecture_projection_service import (
+            compatibility_provider_for_component,
+        )
 
-        if not twin.optimizer_config:
-            return validation_context
-
-        opt_config = twin.optimizer_config
-        calc_result = self._parse_calculation_result(opt_config.result_json)
-
-        l2 = self._resolve_layer(opt_config.cheapest_l2, calc_result, "L2")
-        l4 = self._resolve_layer(opt_config.cheapest_l4, calc_result, "L4")
+        l2 = compatibility_provider_for_component(twin, "component.processing")
+        l4 = compatibility_provider_for_component(twin, "component.twin-state")
         if l2:
             validation_context["l2_provider"] = l2
         if l4:
             validation_context["l4_provider"] = l4
         logger.info(
-            "upload-zip: resolved providers for twin %s - l2=%s, l4=%s (columns: l2=%s l4=%s)",
+            "upload-zip: resolved architecture providers for twin %s - l2=%s, l4=%s",
             twin.id,
             l2,
             l4,
-            opt_config.cheapest_l2,
-            opt_config.cheapest_l4,
         )
         return validation_context
-
-    @staticmethod
-    def _parse_calculation_result(result_json: str | None) -> dict[str, Any]:
-        if not result_json:
-            return {}
-        try:
-            return (json.loads(result_json) or {}).get("calculationResult", {}) or {}
-        except (ValueError, TypeError):
-            return {}
-
-    @staticmethod
-    def _resolve_layer(
-        column_value: str | None, calc_result: dict[str, Any], calc_key: str
-    ) -> str | None:
-        if column_value:
-            return column_value.lower()
-        raw = calc_result.get(calc_key)
-        return raw.lower() if isinstance(raw, str) and raw else None
 
     def _save_scene_glb_if_present(
         self, twin_id: str, user_id: str, result: dict[str, Any]

@@ -8,6 +8,11 @@ client = TestClient(app)
 
 
 def test_catalog_api_exposes_reference_then_exact_snapshot():
+    repository = get_pricing_catalog_repository()
+    baseline_snapshot = repository.resolve_baseline(
+        "azure",
+        require_fresh=False,
+    )
     baseline_response = client.get("/pricing/catalogs/baseline/azure")
 
     assert baseline_response.status_code == 200
@@ -27,7 +32,9 @@ def test_catalog_api_exposes_reference_then_exact_snapshot():
     )
     assert reference_response.status_code == 200
     assert reference_response.json()["reference"] == reference
-    assert reference_response.json()["isFresh"] is True
+    assert reference_response.json()["isFresh"] is (
+        not repository.is_stale(baseline_snapshot.reference)
+    )
 
     snapshot_response = client.get(
         "/pricing/catalogs/azure/westeurope/snapshots/"

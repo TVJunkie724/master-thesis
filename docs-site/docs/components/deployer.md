@@ -15,7 +15,9 @@ Flutter-facing orchestration.
 | `src/core/` | context, paths, storage, registry, workspace, observability, secure files |
 | `src/providers/` | provider protocol and AWS/Azure/GCP implementations |
 | `src/providers/terraform/` | Terraform lifecycle, package builders, runtime outcomes |
-| `src/deployment_specification/` | Manifest v2 binding, generated contract validation, typed tfvars translation |
+| `src/deployment_specification/` | Manifest v2 historical reader and strict Manifest v3 validation |
+| `src/architecture_profiles/` | deterministic nodes, edges, bindings, stages, and graph evidence |
+| `src/terraform_inputs/` | graph-based allowlisted Terraform input translation |
 | `src/configuration_validation/`, `src/validation/` | aggregate package/config validation |
 | `src/project_archive/` | archive extraction and security policy |
 | `src/operation_packages.py` | staged immutable package/token lifecycle |
@@ -27,23 +29,29 @@ Flutter-facing orchestration.
 ## Canonical Contract
 
 The Management API sends one validated ZIP containing `deployment_manifest.json`
-version `2.0`, the frozen `ResolvedDeploymentSpecification v1`, and the exact
-generated/project artifacts for an operation. The Deployer:
+version `3.0`, the frozen `ResolvedTwinArchitecture v1`,
+`ResolvedDeploymentSpecification v1`, and the exact generated/project
+artifacts for an operation. The Deployer:
 
 1. applies upload limits and safe archive policy;
-2. validates the archive inventory, manifest/specification digest, provider
-   path, closed-world components, dimensions, and formula/evidence bindings;
-3. writes a runtime project definition;
-4. stages exact bytes as an operation package;
-5. returns a token and package metadata;
+2. validates the archive inventory, both contract digests, run/profile/catalog
+   cross-links, derived provider projection, and extension bindings;
+3. compiles every architecture assignment and logical edge into one
+   deterministic `ResolvedDeploymentGraph v1`;
+4. rejects missing, duplicate, incompatible, stale, unauthorized, or cyclic
+   graph bindings before package/Terraform side effects;
+5. stages exact bytes and returns a one-use token plus bounded graph evidence;
 6. requires the token for deploy/destroy;
 7. acquires it exclusively and invalidates it after use;
-8. translates only allowlisted `deployable_selection` dimensions into typed,
-   collision-free Terraform variables.
+8. builds exactly the catalog-selected static and extension packages;
+9. translates only graph-owned, allowlisted `deployable_selection` dimensions
+   into typed, collision-free Terraform variables;
+10. records monotonic `package`, `preplan`, `terraform`, and `postapply`
+    completion markers.
 
 Legacy layer-specific endpoints and the interactive CLI are historical, not canonical
-application interfaces. Legacy manifests remain inspectable through diagnostic
-paths but are not deployable.
+application interfaces. Manifest v2 remains a historical reader only. A new
+deploy/redeploy/destroy package requires v3, and invalid v3 never falls back.
 
 The component list contains the seven fixed baseline slots, followed by exactly
 two source-owned storage transition runtimes and then any required
@@ -90,7 +98,9 @@ Terraform is retained because infrastructure state, planning, idempotence, and d
 semantics fit the problem. Files are an implementation artifact inside an isolated
 operation workspace, not the user-facing source of truth.
 
-Generated tfvars are private and deterministic. Usage tiers, account-scoped
+Generated tfvars are private and deterministic. The translator checks that every
+emitted key is declared by the Terraform root module and that catalog resource,
+variable, and output symbols exist. Usage tiers, account-scoped
 plans, and non-deployable formula assumptions never become Terraform
 variables. Unknown mappings, provider drift, digest drift, contradictory
 targets, or collisions with legacy configuration fail before package,
@@ -304,7 +314,8 @@ Coverage includes API contracts, archive attacks/limits, storage, operation toke
 workspace cleanup/sync, validation aggregation, Terraform lifecycles, providers,
 permission checks, logging/redaction, simulator sessions, status, and verification.
 
-The cross-stack no-apply gate additionally validates all 50 allowlisted
+The cross-stack no-apply gate additionally validates the full Manifest v3 →
+graph → extension/static package → tfvars chain, all 50 allowlisted
 Terraform targets, all 27 hot/cool/archive provider triples, Azure IoT Hub
 F1/S1/S2/S3 capacity propagation, source-owned storage movers, receiver-owned
 cross-cloud glue, and three native Terraform mock plans:
@@ -327,6 +338,8 @@ plans, state, or provider credentials and never runs `terraform apply`.
 - evolve manifests with a new version and compatibility/validation tests.
 - extend a deployable dimension only through the canonical generated registry,
   provider Terraform variable/resource contract, and cross-stack drift tests.
+- add or change a graph component/edge only through a versioned catalog entry;
+  functions may not derive another component's resource identity by convention.
 
 ## Evolution And Gaps
 

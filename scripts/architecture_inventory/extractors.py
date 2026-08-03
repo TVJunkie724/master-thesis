@@ -73,21 +73,6 @@ MANAGEMENT_CHEAPEST_CONSUMERS = {
         "cheapest_l4",
         "cheapest_l5",
     ),
-    "twin2multicloud_backend/src/services/deployment_operation_service.py": (
-        "cheapest_l1",
-    ),
-    "twin2multicloud_backend/src/services/deployment_read_service.py": (
-        "cheapest_l3_hot",
-    ),
-    "twin2multicloud_backend/src/services/deployment_service.py": (
-        "cheapest_l1",
-        "cheapest_l2",
-        "cheapest_l3_archive",
-        "cheapest_l3_cool",
-        "cheapest_l3_hot",
-        "cheapest_l4",
-        "cheapest_l5",
-    ),
     "twin2multicloud_backend/src/services/optimizer_config_projection.py": (
         "cheapest_l1",
         "cheapest_l2",
@@ -97,13 +82,6 @@ MANAGEMENT_CHEAPEST_CONSUMERS = {
         "cheapest_l4",
         "cheapest_l5",
     ),
-    "twin2multicloud_backend/src/services/optimizer_configuration_service.py": (
-        "cheapest_l1",
-    ),
-    "twin2multicloud_backend/src/services/project_zip_extraction_service.py": (
-        "cheapest_l2",
-        "cheapest_l4",
-    ),
     "twin2multicloud_backend/src/services/resolved_architecture_service.py": (
         "cheapest_l1",
         "cheapest_l2",
@@ -113,23 +91,20 @@ MANAGEMENT_CHEAPEST_CONSUMERS = {
         "cheapest_l4",
         "cheapest_l5",
     ),
-    "twin2multicloud_backend/src/services/simulator_service.py": ("cheapest_l1",),
-    "twin2multicloud_backend/src/services/test_deployment_service.py": ("cheapest_l1",),
-    "twin2multicloud_backend/src/services/verification_service.py": ("cheapest_l1",),
 }
 MANAGEMENT_CHEAPEST_EXPIRY = {
     "twin2multicloud_backend/src/models/optimizer_config.py": "retained-history",
     "twin2multicloud_backend/src/services/resolved_architecture_service.py": (
         "retained-history"
     ),
-    "twin2multicloud_backend/src/services/cost_calculation_run_service.py": "8.6",
+    "twin2multicloud_backend/src/services/cost_calculation_run_service.py": (
+        "retained-history"
+    ),
+    "twin2multicloud_backend/src/services/credential_resolution_service.py": "8.7",
     "twin2multicloud_backend/src/api/routes/twin_operations.py": "8.7",
     "twin2multicloud_backend/src/services/optimizer_config_projection.py": "8.7",
 }
 PROVIDER_KEY_CONSUMERS = {
-    "twin2multicloud_backend/src/services/deployment_read_service.py": (
-        "layer_3_hot_provider",
-    ),
     "twin2multicloud_backend/src/services/deployment_service.py": (
         "layer_1_provider",
         "layer_2_provider",
@@ -139,10 +114,14 @@ PROVIDER_KEY_CONSUMERS = {
         "layer_4_provider",
         "layer_5_provider",
     ),
-    "twin2multicloud_backend/src/services/test_deployment_service.py": (
+    "twin2multicloud_backend/src/services/twin_export_service.py": (
         "layer_1_provider",
         "layer_2_provider",
+        "layer_3_archive_provider",
+        "layer_3_cold_provider",
         "layer_3_hot_provider",
+        "layer_4_provider",
+        "layer_5_provider",
     ),
     (
         "twin2multicloud_flutter/lib/features/configuration_workspace/"

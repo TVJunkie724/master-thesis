@@ -3602,7 +3602,7 @@
       }
     }
   ],
-  "content_digest": "sha256:000a3ccf540634808a2e6dbb0e424db1810babf71ab2165049a2fe664d626477",
+  "content_digest": "sha256:e3d7d349efb782b3c8397b9c611a914a65e3a83deefb1841da165d5daa4fb8f2",
   "edge_implementations": [
     {
       "compatibility": {
@@ -3675,8 +3675,8 @@
         "dependency_keys": [
           "dependency.aws.function-cold-to-archive-mover-to-archive-writer"
         ],
-        "destination_input_id": "binding.aws.function-cold-to-archive-mover-to-archive-writer.destination",
-        "source_output_id": "binding.aws.function-cold-to-archive-mover-to-archive-writer.source"
+        "destination_input_id": "catalog.aws.port.archive-storage.write-in",
+        "source_output_id": "output.aws-s3-archive-bucket"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -3755,8 +3755,8 @@
         "dependency_keys": [
           "dependency.aws.function-dispatcher-to-processor-wrapper"
         ],
-        "destination_input_id": "binding.aws.function-dispatcher-to-processor-wrapper.destination",
-        "source_output_id": "binding.aws.function-dispatcher-to-processor-wrapper.source"
+        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
+        "source_output_id": "output.aws-l1-dispatcher-function-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -3835,8 +3835,8 @@
         "dependency_keys": [
           "dependency.aws.function-hot-to-cold-mover-to-cold-writer"
         ],
-        "destination_input_id": "binding.aws.function-hot-to-cold-mover-to-cold-writer.destination",
-        "source_output_id": "binding.aws.function-hot-to-cold-mover-to-cold-writer.source"
+        "destination_input_id": "catalog.aws.port.cool-storage.write-in",
+        "source_output_id": "output.aws-s3-cold-bucket"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -3915,8 +3915,8 @@
         "dependency_keys": [
           "dependency.aws.function-processor-wrapper-to-persister"
         ],
-        "destination_input_id": "binding.aws.function-processor-wrapper-to-persister.destination",
-        "source_output_id": "binding.aws.function-processor-wrapper-to-persister.source"
+        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
+        "source_output_id": "output.aws-l2-persister-function-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -3995,8 +3995,8 @@
         "dependency_keys": [
           "dependency.aws.l1-to-l2"
         ],
-        "destination_input_id": "binding.aws.l1-to-l2.destination",
-        "source_output_id": "binding.aws.l1-to-l2.source"
+        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
+        "source_output_id": "output.aws-l1-dispatcher-function-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4075,8 +4075,8 @@
         "dependency_keys": [
           "dependency.aws.l2-to-l3-hot"
         ],
-        "destination_input_id": "binding.aws.l2-to-l3-hot.destination",
-        "source_output_id": "binding.aws.l2-to-l3-hot.source"
+        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
+        "source_output_id": "output.aws-l2-persister-function-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4155,8 +4155,8 @@
         "dependency_keys": [
           "dependency.aws.l3-cool-to-l3-archive"
         ],
-        "destination_input_id": "binding.aws.l3-cool-to-l3-archive.destination",
-        "source_output_id": "binding.aws.l3-cool-to-l3-archive.source"
+        "destination_input_id": "catalog.aws.port.archive-storage.write-in",
+        "source_output_id": "output.aws-s3-cold-bucket"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4235,8 +4235,8 @@
         "dependency_keys": [
           "dependency.aws.l3-hot-to-l3-cool"
         ],
-        "destination_input_id": "binding.aws.l3-hot-to-l3-cool.destination",
-        "source_output_id": "binding.aws.l3-hot-to-l3-cool.source"
+        "destination_input_id": "catalog.aws.port.cool-storage.write-in",
+        "source_output_id": "output.aws-dynamodb-table-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4315,8 +4315,88 @@
         "dependency_keys": [
           "dependency.aws.l3-hot-to-l4"
         ],
-        "destination_input_id": "binding.aws.l3-hot-to-l4.destination",
-        "source_output_id": "binding.aws.l3-hot-to-l4.source"
+        "destination_input_id": "catalog.aws.port.twin-state.update-in",
+        "source_output_id": "output.aws-dynamodb-table-name"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.provider-account",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.runtime.aws.l4-to-l5"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "not_applicable",
+        "idempotency": "required",
+        "mode": "synchronous",
+        "ordering": "not_required",
+        "replay": "not_supported",
+        "retry_policy": "bounded_backoff",
+        "timeout_policy": "bounded"
+      },
+      "destination_component_ids": [
+        "deployment.aws.visualization"
+      ],
+      "destination_input_port_id": "catalog.aws.port.visualization.query-in",
+      "edge_implementation_id": "edge-implementation.aws.l4-to-l5",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "transfer_tier_cost"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.twin-state-to-visualization"
+      ],
+      "mechanism": "typed_synchronous_api",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "twin-query-result.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing-intent.transfer.egress_gb"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.thesis-demo-v1.observability"
+      ],
+      "source_component_ids": [
+        "deployment.aws.twin-state"
+      ],
+      "source_output_port_id": "catalog.aws.port.twin-state.query-out",
+      "terraform_binding": {
+        "dependency_keys": [
+          "dependency.aws.l4-to-l5"
+        ],
+        "destination_input_id": "catalog.aws.port.visualization.query-in",
+        "source_output_id": "output.aws-twinmaker-workspace-id"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4395,8 +4475,8 @@
         "dependency_keys": [
           "dependency.azure.function-cold-to-archive-mover-to-archive-writer"
         ],
-        "destination_input_id": "binding.azure.function-cold-to-archive-mover-to-archive-writer.destination",
-        "source_output_id": "binding.azure.function-cold-to-archive-mover-to-archive-writer.source"
+        "destination_input_id": "catalog.azure.port.archive-storage.write-in",
+        "source_output_id": "output.azure-archive-storage-account"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4475,8 +4555,8 @@
         "dependency_keys": [
           "dependency.azure.function-dispatcher-to-processor-wrapper"
         ],
-        "destination_input_id": "binding.azure.function-dispatcher-to-processor-wrapper.destination",
-        "source_output_id": "binding.azure.function-dispatcher-to-processor-wrapper.source"
+        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
+        "source_output_id": "output.azure-iothub-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4555,8 +4635,8 @@
         "dependency_keys": [
           "dependency.azure.function-hot-to-cold-mover-to-cold-writer"
         ],
-        "destination_input_id": "binding.azure.function-hot-to-cold-mover-to-cold-writer.destination",
-        "source_output_id": "binding.azure.function-hot-to-cold-mover-to-cold-writer.source"
+        "destination_input_id": "catalog.azure.port.cool-storage.write-in",
+        "source_output_id": "output.azure-storage-account-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4635,8 +4715,8 @@
         "dependency_keys": [
           "dependency.azure.function-processor-wrapper-to-persister"
         ],
-        "destination_input_id": "binding.azure.function-processor-wrapper-to-persister.destination",
-        "source_output_id": "binding.azure.function-processor-wrapper-to-persister.source"
+        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
+        "source_output_id": "output.azure-l2-function-app-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4715,8 +4795,8 @@
         "dependency_keys": [
           "dependency.azure.l1-to-l2"
         ],
-        "destination_input_id": "binding.azure.l1-to-l2.destination",
-        "source_output_id": "binding.azure.l1-to-l2.source"
+        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
+        "source_output_id": "output.azure-iothub-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4795,8 +4875,8 @@
         "dependency_keys": [
           "dependency.azure.l2-to-l3-hot"
         ],
-        "destination_input_id": "binding.azure.l2-to-l3-hot.destination",
-        "source_output_id": "binding.azure.l2-to-l3-hot.source"
+        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
+        "source_output_id": "output.azure-l2-function-app-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4875,8 +4955,8 @@
         "dependency_keys": [
           "dependency.azure.l3-cool-to-l3-archive"
         ],
-        "destination_input_id": "binding.azure.l3-cool-to-l3-archive.destination",
-        "source_output_id": "binding.azure.l3-cool-to-l3-archive.source"
+        "destination_input_id": "catalog.azure.port.archive-storage.write-in",
+        "source_output_id": "output.azure-storage-account-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -4955,8 +5035,8 @@
         "dependency_keys": [
           "dependency.azure.l3-hot-to-l3-cool"
         ],
-        "destination_input_id": "binding.azure.l3-hot-to-l3-cool.destination",
-        "source_output_id": "binding.azure.l3-hot-to-l3-cool.source"
+        "destination_input_id": "catalog.azure.port.cool-storage.write-in",
+        "source_output_id": "output.azure-cosmos-account-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5035,8 +5115,88 @@
         "dependency_keys": [
           "dependency.azure.l3-hot-to-l4"
         ],
-        "destination_input_id": "binding.azure.l3-hot-to-l4.destination",
-        "source_output_id": "binding.azure.l3-hot-to-l4.source"
+        "destination_input_id": "catalog.azure.port.twin-state.update-in",
+        "source_output_id": "output.azure-cosmos-account-name"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.provider-account",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.five-layer-baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.runtime.azure.l4-to-l5"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "not_applicable",
+        "idempotency": "required",
+        "mode": "synchronous",
+        "ordering": "not_required",
+        "replay": "not_supported",
+        "retry_policy": "bounded_backoff",
+        "timeout_policy": "bounded"
+      },
+      "destination_component_ids": [
+        "deployment.azure.visualization"
+      ],
+      "destination_input_port_id": "catalog.azure.port.visualization.query-in",
+      "edge_implementation_id": "edge-implementation.azure.l4-to-l5",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "transfer_tier_cost"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.twin-state-to-visualization"
+      ],
+      "mechanism": "typed_synchronous_api",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "twin-query-result.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing-intent.transfer.egress_gb"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.thesis-demo-v1.observability"
+      ],
+      "source_component_ids": [
+        "deployment.azure.twin-state"
+      ],
+      "source_output_port_id": "catalog.azure.port.twin-state.query-out",
+      "terraform_binding": {
+        "dependency_keys": [
+          "dependency.azure.l4-to-l5"
+        ],
+        "destination_input_id": "catalog.azure.port.visualization.query-in",
+        "source_output_id": "output.azure-adt-instance-name"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5201,8 +5361,8 @@
         "dependency_keys": [
           "dependency.gcp.function-cold-to-archive-mover-to-archive-writer"
         ],
-        "destination_input_id": "binding.gcp.function-cold-to-archive-mover-to-archive-writer.destination",
-        "source_output_id": "binding.gcp.function-cold-to-archive-mover-to-archive-writer.source"
+        "destination_input_id": "catalog.gcp.port.archive-storage.write-in",
+        "source_output_id": "output.gcp-archive-bucket"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5281,8 +5441,8 @@
         "dependency_keys": [
           "dependency.gcp.function-dispatcher-to-processor-wrapper"
         ],
-        "destination_input_id": "binding.gcp.function-dispatcher-to-processor-wrapper.destination",
-        "source_output_id": "binding.gcp.function-dispatcher-to-processor-wrapper.source"
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
+        "source_output_id": "output.gcp-pubsub-telemetry-topic"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5361,8 +5521,8 @@
         "dependency_keys": [
           "dependency.gcp.function-hot-to-cold-mover-to-cold-writer"
         ],
-        "destination_input_id": "binding.gcp.function-hot-to-cold-mover-to-cold-writer.destination",
-        "source_output_id": "binding.gcp.function-hot-to-cold-mover-to-cold-writer.source"
+        "destination_input_id": "catalog.gcp.port.cool-storage.write-in",
+        "source_output_id": "output.gcp-cold-bucket"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5441,8 +5601,8 @@
         "dependency_keys": [
           "dependency.gcp.function-processor-wrapper-to-persister"
         ],
-        "destination_input_id": "binding.gcp.function-processor-wrapper-to-persister.destination",
-        "source_output_id": "binding.gcp.function-processor-wrapper-to-persister.source"
+        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
+        "source_output_id": "output.gcp-persister-url"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5521,8 +5681,8 @@
         "dependency_keys": [
           "dependency.gcp.l1-to-l2"
         ],
-        "destination_input_id": "binding.gcp.l1-to-l2.destination",
-        "source_output_id": "binding.gcp.l1-to-l2.source"
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
+        "source_output_id": "output.gcp-pubsub-telemetry-topic"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5601,8 +5761,8 @@
         "dependency_keys": [
           "dependency.gcp.l2-to-l3-hot"
         ],
-        "destination_input_id": "binding.gcp.l2-to-l3-hot.destination",
-        "source_output_id": "binding.gcp.l2-to-l3-hot.source"
+        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
+        "source_output_id": "output.gcp-persister-url"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5681,8 +5841,8 @@
         "dependency_keys": [
           "dependency.gcp.l3-cool-to-l3-archive"
         ],
-        "destination_input_id": "binding.gcp.l3-cool-to-l3-archive.destination",
-        "source_output_id": "binding.gcp.l3-cool-to-l3-archive.source"
+        "destination_input_id": "catalog.gcp.port.archive-storage.write-in",
+        "source_output_id": "output.gcp-cold-bucket"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5761,8 +5921,8 @@
         "dependency_keys": [
           "dependency.gcp.l3-hot-to-l3-cool"
         ],
-        "destination_input_id": "binding.gcp.l3-hot-to-l3-cool.destination",
-        "source_output_id": "binding.gcp.l3-hot-to-l3-cool.source"
+        "destination_input_id": "catalog.gcp.port.cool-storage.write-in",
+        "source_output_id": "output.gcp-firestore-database"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -5933,8 +6093,8 @@
         "dependency_keys": [
           "dependency.mixed.l1-to-l2"
         ],
-        "destination_input_id": "binding.mixed.l1-to-l2.destination",
-        "source_output_id": "binding.mixed.l1-to-l2.source"
+        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
+        "source_output_id": "output.aws-l1-dispatcher-function-name"
       },
       "transfer_route_class": "cross_provider",
       "trust_contract_ref": {
@@ -6019,8 +6179,8 @@
         "dependency_keys": [
           "dependency.mixed.l2-to-l3-hot"
         ],
-        "destination_input_id": "binding.mixed.l2-to-l3-hot.destination",
-        "source_output_id": "binding.mixed.l2-to-l3-hot.source"
+        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
+        "source_output_id": "output.azure-l2-function-app-name"
       },
       "transfer_route_class": "cross_provider",
       "trust_contract_ref": {
@@ -6099,8 +6259,8 @@
         "dependency_keys": [
           "dependency.mixed.l3-cool-to-l3-archive"
         ],
-        "destination_input_id": "binding.mixed.l3-cool-to-l3-archive.destination",
-        "source_output_id": "binding.mixed.l3-cool-to-l3-archive.source"
+        "destination_input_id": "catalog.gcp.port.archive-storage.write-in",
+        "source_output_id": "output.gcp-cold-bucket"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -6179,8 +6339,8 @@
         "dependency_keys": [
           "dependency.mixed.l3-hot-to-l3-cool"
         ],
-        "destination_input_id": "binding.mixed.l3-hot-to-l3-cool.destination",
-        "source_output_id": "binding.mixed.l3-hot-to-l3-cool.source"
+        "destination_input_id": "catalog.gcp.port.cool-storage.write-in",
+        "source_output_id": "output.gcp-firestore-database"
       },
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -6265,8 +6425,94 @@
         "dependency_keys": [
           "dependency.mixed.l3-hot-to-l4"
         ],
-        "destination_input_id": "binding.mixed.l3-hot-to-l4.destination",
-        "source_output_id": "binding.mixed.l3-hot-to-l4.source"
+        "destination_input_id": "catalog.aws.port.twin-state.update-in",
+        "source_output_id": "output.gcp-firestore-database"
+      },
+      "transfer_route_class": "cross_provider",
+      "trust_contract_ref": {
+        "id": "trust.cross-provider",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.azure.five-layer-baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.runtime.mixed.l4-to-l5"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "not_applicable",
+        "idempotency": "required",
+        "mode": "synchronous",
+        "ordering": "not_required",
+        "replay": "not_supported",
+        "retry_policy": "bounded_backoff",
+        "timeout_policy": "bounded"
+      },
+      "destination_component_ids": [
+        "deployment.azure.visualization"
+      ],
+      "destination_input_port_id": "catalog.azure.port.visualization.query-in",
+      "edge_implementation_id": "edge-implementation.mixed.l4-to-l5",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "transfer_tier_cost"
+      ],
+      "glue_component_ids": [
+        "deployment.azure.cross-cloud-glue"
+      ],
+      "logical_edge_ids": [
+        "edge.twin-state-to-visualization"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "twin-query-result.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing-intent.transfer.egress_gb"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.thesis-demo-v1.l0-glue"
+      ],
+      "source_component_ids": [
+        "deployment.aws.twin-state"
+      ],
+      "source_output_port_id": "catalog.aws.port.twin-state.query-out",
+      "terraform_binding": {
+        "dependency_keys": [
+          "dependency.mixed.l4-to-l5"
+        ],
+        "destination_input_id": "catalog.azure.port.visualization.query-in",
+        "source_output_id": "output.aws-twinmaker-workspace-id"
       },
       "transfer_route_class": "cross_provider",
       "trust_contract_ref": {
@@ -6562,6 +6808,10 @@
         {
           "id": "artifact.aws.shared-runtime",
           "version": "1"
+        },
+        {
+          "id": "artifact.aws.hot-storage-last-entry",
+          "version": "1"
         }
       ],
       "digest_policy": "sha256.canonical-source.v1",
@@ -6583,7 +6833,7 @@
       "user_source_policy": "platform_only"
     },
     {
-      "artifact_id": "artifact.aws.ingestion",
+      "artifact_id": "artifact.aws.hot-storage-last-entry",
       "artifact_version": "1",
       "builder_adapter_id": "builder.aws.static.v1",
       "compatibility": {
@@ -6612,8 +6862,86 @@
         "**/*"
       ],
       "platform_handler": "lambda_function.lambda_handler",
+      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/hot-reader-last-entry",
+      "source_digest": "sha256:b7f3b7d9b5299e3f4bcecb3cde3f2487773778e5bb34effb4520fabb3da9eba3",
+      "supported_runtimes": [
+        "runtime.aws.python311"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.aws.ingestion",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.aws.static.v1",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.aws.shared-runtime",
+          "version": "1"
+        },
+        {
+          "id": "artifact.aws.ingestion-connector",
+          "version": "1"
+        }
+      ],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**",
+        "**/*.zip",
+        "**/.git*",
+        "**/.DS_Store"
+      ],
+      "included_paths": [
+        "**/*"
+      ],
+      "platform_handler": "lambda_function.lambda_handler",
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/dispatcher",
       "source_digest": "sha256:4b65af3c87e6f4aa4621a646ca22c2add6252ca880869aafa51ca56451b01a5f",
+      "supported_runtimes": [
+        "runtime.aws.python311"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.aws.ingestion-connector",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.aws.static.v1",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.aws.shared-runtime",
+          "version": "1"
+        }
+      ],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**",
+        "**/*.zip",
+        "**/.git*",
+        "**/.DS_Store"
+      ],
+      "included_paths": [
+        "**/*"
+      ],
+      "platform_handler": "lambda_function.lambda_handler",
+      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/connector",
+      "source_digest": "sha256:7170a4e5e51e70e4d1acfcc714fd4194d304dc10bd0c524715d216d134f30f27",
       "supported_runtimes": [
         "runtime.aws.python311"
       ],
@@ -6746,6 +7074,10 @@
         {
           "id": "artifact.aws.shared-runtime",
           "version": "1"
+        },
+        {
+          "id": "artifact.aws.twin-state-last-entry",
+          "version": "1"
         }
       ],
       "digest_policy": "sha256.canonical-source.v1",
@@ -6761,6 +7093,43 @@
       "platform_handler": "lambda_function.lambda_handler",
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/digital-twin-data-connector",
       "source_digest": "sha256:410f69121a017902e6ba5c81407a962c1e8e699c365ac30d494d93dea9eedbbd",
+      "supported_runtimes": [
+        "runtime.aws.python311"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.aws.twin-state-last-entry",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.aws.static.v1",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.aws.shared-runtime",
+          "version": "1"
+        }
+      ],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**",
+        "**/*.zip",
+        "**/.git*",
+        "**/.DS_Store"
+      ],
+      "included_paths": [
+        "**/*"
+      ],
+      "platform_handler": "lambda_function.lambda_handler",
+      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/digital-twin-data-connector-last-entry",
+      "source_digest": "sha256:bda54978ee9821f84de216081e4fd34aad061f34236d71acee7da961c84dc6df",
       "supported_runtimes": [
         "runtime.aws.python311"
       ],
@@ -6792,7 +7161,7 @@
       ],
       "platform_handler": "terraform.managed",
       "repository_source_path": "3-cloud-deployer/src/providers/terraform/package_builders/aws.py",
-      "source_digest": "sha256:2d7bf6c452560bde0cb208f77903bc1f6c43fda836bdd89ce19d0674e7cff20f",
+      "source_digest": "sha256:cbff6b48ca9b1aa9b113a9e155a26bc1436dcac1e6d2cd4973d71423fd0821a4",
       "supported_runtimes": [
         "runtime.terraform-managed"
       ],
@@ -7049,6 +7418,10 @@
         {
           "id": "artifact.azure.shared-runtime",
           "version": "1"
+        },
+        {
+          "id": "artifact.azure.hot-storage-last-entry",
+          "version": "1"
         }
       ],
       "digest_policy": "sha256.canonical-source.v1",
@@ -7070,7 +7443,7 @@
       "user_source_policy": "platform_only"
     },
     {
-      "artifact_id": "artifact.azure.ingestion",
+      "artifact_id": "artifact.azure.hot-storage-last-entry",
       "artifact_version": "1",
       "builder_adapter_id": "builder.azure.static.v1",
       "compatibility": {
@@ -7099,8 +7472,86 @@
         "**/*"
       ],
       "platform_handler": "function_app.main",
+      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/hot-reader-last-entry",
+      "source_digest": "sha256:f639587c995bf261578251e16c724d09bcaf9c4097564f0cc9795fae2ed81aa5",
+      "supported_runtimes": [
+        "runtime.azure.python311"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.azure.ingestion",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.azure.static.v1",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.azure.shared-runtime",
+          "version": "1"
+        },
+        {
+          "id": "artifact.azure.ingestion-connector",
+          "version": "1"
+        }
+      ],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**",
+        "**/*.zip",
+        "**/.git*",
+        "**/.DS_Store"
+      ],
+      "included_paths": [
+        "**/*"
+      ],
+      "platform_handler": "function_app.main",
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/dispatcher",
       "source_digest": "sha256:2604c8a6520ad1e7b8b949bb7f00ace078d85b93bbbfde719e758d6f42574dde",
+      "supported_runtimes": [
+        "runtime.azure.python311"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.azure.ingestion-connector",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.azure.static.v1",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.azure.shared-runtime",
+          "version": "1"
+        }
+      ],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**",
+        "**/*.zip",
+        "**/.git*",
+        "**/.DS_Store"
+      ],
+      "included_paths": [
+        "**/*"
+      ],
+      "platform_handler": "function_app.main",
+      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/connector",
+      "source_digest": "sha256:f6b00625beb9f0d90bea17ed4df64c16759339f0c1c976b33aed557e3282440d",
       "supported_runtimes": [
         "runtime.azure.python311"
       ],
@@ -7279,7 +7730,7 @@
       ],
       "platform_handler": "terraform.managed",
       "repository_source_path": "3-cloud-deployer/src/providers/terraform/package_builders/azure.py",
-      "source_digest": "sha256:69b692a4cb9f1ce3e31727e29ceebccb71aef1f4c65a3b8758496ab4f8e50908",
+      "source_digest": "sha256:e699042e7954acdb77eb67f2fe52e7162e46d766dfebbc6901342b9fddeedb4d",
       "supported_runtimes": [
         "runtime.terraform-managed"
       ],
@@ -7570,6 +8021,10 @@
         {
           "id": "artifact.gcp.shared-runtime",
           "version": "1"
+        },
+        {
+          "id": "artifact.gcp.hot-storage-last-entry",
+          "version": "1"
         }
       ],
       "digest_policy": "sha256.canonical-source.v1",
@@ -7591,7 +8046,7 @@
       "user_source_policy": "platform_only"
     },
     {
-      "artifact_id": "artifact.gcp.ingestion",
+      "artifact_id": "artifact.gcp.hot-storage-last-entry",
       "artifact_version": "1",
       "builder_adapter_id": "builder.gcp.static.v1",
       "compatibility": {
@@ -7620,8 +8075,86 @@
         "**/*"
       ],
       "platform_handler": "main.main",
+      "repository_source_path": "3-cloud-deployer/src/providers/gcp/cloud_functions/hot-reader-last-entry",
+      "source_digest": "sha256:acdbe2ff5a080007e80d6046df123f2955961b6bb38d3fae5b303eb8a8df0222",
+      "supported_runtimes": [
+        "runtime.gcp.python311"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.gcp.ingestion",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.gcp.static.v1",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.gcp.shared-runtime",
+          "version": "1"
+        },
+        {
+          "id": "artifact.gcp.ingestion-connector",
+          "version": "1"
+        }
+      ],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**",
+        "**/*.zip",
+        "**/.git*",
+        "**/.DS_Store"
+      ],
+      "included_paths": [
+        "**/*"
+      ],
+      "platform_handler": "main.main",
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/cloud_functions/dispatcher",
       "source_digest": "sha256:d6cac80b6273dfa8f3d210d7cfba92c826ebbff04fd5bbb90d1b1682910000b5",
+      "supported_runtimes": [
+        "runtime.gcp.python311"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.gcp.ingestion-connector",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.gcp.static.v1",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.gcp.shared-runtime",
+          "version": "1"
+        }
+      ],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**",
+        "**/*.zip",
+        "**/.git*",
+        "**/.DS_Store"
+      ],
+      "included_paths": [
+        "**/*"
+      ],
+      "platform_handler": "main.main",
+      "repository_source_path": "3-cloud-deployer/src/providers/gcp/cloud_functions/connector",
+      "source_digest": "sha256:4df25b2ab4d8a89a06c5366fecebd0691584c72743f4272a67f61918669ee986",
       "supported_runtimes": [
         "runtime.gcp.python311"
       ],

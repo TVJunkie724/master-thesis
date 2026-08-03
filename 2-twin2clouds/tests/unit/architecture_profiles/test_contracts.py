@@ -47,9 +47,9 @@ def test_optimizer_registry_projects_fail_closed_provider_capabilities():
     assert registry.profile["profile_id"] == "five-layer-baseline"
     assert len(registry.profile["optimization_slot_ids"]) == 7
     assert len(registry.profile["functional_completeness_rules"]) == 12
-    assert aws.supported is False
+    assert aws.supported is True
     assert aws.missing_capability_ids == ()
-    assert aws.reason_codes == ("profile-target-not-implemented",)
+    assert aws.reason_codes == ()
     assert gcp.missing_capability_ids == (
         "capability.twin-state",
         "capability.visualization",
