@@ -3,7 +3,7 @@ title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
 lastUpdated: "2026-08-03"
-version: "1.11"
+version: "1.13"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ version: "1.11"
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-08-03 | VERSION: 1.11
+EXTRACTED: 2026-08-03 | VERSION: 1.13
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -37,7 +37,7 @@ EXTRACTED: 2026-08-03 | VERSION: 1.11
 | Selection rule | Provider service bundles are chosen for required functionality and theoretical Small/Medium/Large admissibility, not lowest service price; after that freeze, the Optimizer still ranks complete placement candidates by estimated cost within one profile |
 | PoC rule | Add only components required by the shared functional contract or by a measured capacity boundary |
 | LaTeX | Excluded without separate approval |
-| Review status | Six prior review passes complete; the 2026-07-31 guided-bootstrap cross-plan reviews had zero unresolved findings; implementation was explicitly authorized on 2026-08-03 and is now governed by the reviewed execution plan |
+| Review status | Six prior planning passes plus three complete-service package reviews have zero unresolved findings; implementation was explicitly authorized on 2026-08-03 and is governed by the reviewed execution plan |
 
 Where an older Phase 8 plan conflicts with this corrective gate, this document
 controls new-profile implementation. Historical artifacts, digests, and
@@ -47,7 +47,8 @@ The immutable `phase-08-eventing-implementation@1` package remains unchanged.
 It proves the domain-event behavior and bridge primitives reused by embedded
 Five-layer v2 ownership, not the complete Twin and not a Six-layer runtime
 approval. Before Phase 8.9A implementation, this plan produces a separate immutable
-`phase-08-complete-service-bundles@1` package. Runtime activation requires both
+`phase-08-complete-service-bundles@1` package, now approved at the offline
+decision boundary. Runtime activation requires both
 digests and fails closed on conflicting ownership, identity, service, route, or
 version data.
 
@@ -972,7 +973,7 @@ projection, broker, bridge, identity, and storage-job behavior stays
 
 ## 6. Immutable Complete-Service Decision Package
 
-Before Phase 8.9A runtime changes, create:
+Before Phase 8.9A runtime changes, the repository now contains:
 
 ```text
 docs/research/evidence/phase_08_service_bundles/
@@ -995,7 +996,8 @@ scripts/phase_08_service_bundles/
   tests/
 ```
 
-The component manifest pins every logical/deployment component, service or
+The approved package contains 72 selected components. Its component manifest
+pins every logical/deployment component, service or
 software version, image/chart/plugin digest, license, Terraform resource,
 runtime package, port, output/input, permission, formula, capacity dimension,
 file target, and test owner. Version-dependent values are refreshed from
@@ -1005,10 +1007,10 @@ versions.
 The validator rejects unresolved/duplicate ownership, disagreement with the
 immutable Eventing package, missing capacity or pricing dimensions, unknown
 identity rules, missing single-cloud/mixed routes, secret-like data, and any
-historical `@1` digest change. The future package status becomes `approved`
-only after source refresh, deterministic calculations, schema/reference
-validation, and its own two zero-finding reviews. The plan reviews recorded
-below do not pre-approve that not-yet-built package.
+historical `@1` digest change. Its status is `approved` for offline
+implementation authority after source refresh, deterministic calculations,
+schema/reference/digest validation, and two zero-finding reviews. It explicitly
+retains `live_capacity_pending` and does not activate either runtime profile.
 
 ## 7. Cross-Stack Changes
 
@@ -1097,6 +1099,25 @@ Add static catalog/Terraform implementations for:
 - one provider registry support component where selected container images
   require it, reused and priced once;
 - the unchanged immutable embedded and Event-Layer bundles.
+
+The exact provider boundary is frozen in the complete-service component
+manifest. AWS IoT Commands uses `awscc_iot_command`. TwinMaker creates only
+the workspace with `awscc_iottwinmaker_workspace`; component types, entities,
+and relationships retain the bounded post-Terraform AWS SDK lifecycle. The
+Google provider must move from the current v5 constraint to
+`>= 7.22.0, < 8.0.0` for the reviewed Worker Pool and direct Cloud Run IAP
+resources. GKE objects use Kubernetes provider `>= 2.38.0, < 3.0.0`.
+
+The Deployer orchestrates three automatic stages under one deployment trace:
+
+1. create cloud-provider resources, including GKE;
+2. after the cluster endpoint and short-lived credentials exist, apply
+   BifroMQ/Grafana Kubernetes resources;
+3. execute bounded SDK and Grafana plugin/datasource provisioning.
+
+This stage boundary follows the provider initialization constraint; it is not
+a new manual prerequisite, product-grade control plane, or separate user
+workflow.
 
 Every graph edge resolves from logical edge to catalog implementation to
 source output, optional trust/route component, destination input, and exact
@@ -1263,6 +1284,9 @@ commands may receive cloud credentials or a live/apply flag.
 | 4 | Architect and builder review of concept hierarchy, FR/API datatypes, BLoC/Riverpod ownership, responsive widget tree, secret lifecycle, concurrency, accessibility, integration tests, documentation, and exact commit order | Pass on 2026-07-31 with all 20 plan-review criteria satisfied and zero unresolved findings |
 | 5 | Guided-bootstrap cross-service concept review against the live OpenAPI, implemented manual script/import baseline, provider credential realities, selected Five-layer v2 services, and exact user/manual lifecycle | Pass on 2026-07-31 with zero unresolved findings after preserving the legacy path, separating bootstrap from Twin preflight, replacing least-privilege/zeroization overclaims, adding the user runbook, and distinguishing release/expiry/revocation/manual cleanup |
 | 6 | Guided-bootstrap architect/builder readiness review across strict guide/session datatypes, authority/deployment permission packs, `thesis-demo-v1` compatibility, new immutable `thesis-demo-v2`, BLoC/reuse/token boundaries, restart/concurrency, real-API fake-adapter integration, roadmaps, FR-002, and handoff | Pass on 2026-07-31 with zero unresolved findings; Builder remains blocked until FR-002 schemas/fixtures and an approved Architect implementation plan exist |
+| 7 | Complete-service package architecture review across Five-layer/Six-layer parity, 72 component decisions, all nine online placements, every local/remote route class, current service/plugin facts, and the bounded thesis-PoC exclusions | Pass on 2026-08-03 with zero unresolved findings after removing the fabricated JSON API support date, pinning Grafana/Infinity/BifroMQ artifacts, and retaining explicit live-readiness gates |
+| 8 | Complete-service package builder review across deterministic S/M/L formulas, generated manifests, exactly-once cost ownership, `thesis-demo-v1` stability, `thesis-demo-v2` scope evidence, byte digests, source references, secret scanning, and drift-gate integration | Pass on 2026-08-03 with zero unresolved findings; package tests plus the composed offline validator pass without cloud credentials |
+| 9 | Complete-service IaC feasibility review across exact Terraform/SDK bindings, provider-version floors, GKE apply ordering, direct Cloud Run IAP, and closed edge contracts | Pass on 2026-08-03 with zero unresolved findings after replacing fictitious AWS bindings, adding the IAP service-agent binding and deployer policy permissions, recording the Google-provider upgrade, and keeping Kubernetes application as an automatic second stage |
 
 This service/architecture slice adds no new Flutter route, but it does add a
 typed Layer Access section to the existing Twin Overview. Its authoritative
@@ -1365,9 +1389,12 @@ and correlation ID.
 
 ## 11. Definition Of Done
 
-- [ ] The functionality-first service evaluation is source-backed and frozen.
-- [ ] `@1` and the Phase 8.8 Eventing evidence remain immutable.
-- [ ] Existing `thesis-demo-v1` provider permission artifacts remain immutable;
+- [x] `phase-08-complete-service-bundles@1` is frozen, digest-checked, covered
+      by the deployment-contract gate, and approved only for offline
+      implementation authority.
+- [x] The functionality-first service evaluation is source-backed and frozen.
+- [x] `@1` and the Phase 8.8 Eventing evidence remain immutable.
+- [x] Existing `thesis-demo-v1` provider permission artifacts remain immutable;
       Five-layer v2 publishes new `thesis-demo-v2` artifacts whose inventories
       cover every selected service, role binding, and preflight action, with
       scope gaps documented rather than labelled least-privilege.

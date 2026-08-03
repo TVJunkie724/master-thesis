@@ -1,0 +1,113 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "workload-scenarios",
+  "unit_contract": {
+    "month_seconds": 2592000,
+    "kib_bytes": 1024,
+    "mib_bytes": 1048576,
+    "gib_bytes": 1073741824,
+    "storage_month_days": 30
+  },
+  "scenario_pairing": [
+    {
+      "core_scenario_id": "core-small-v2",
+      "eventing_scenario_id": "eventing-small-v1"
+    },
+    {
+      "core_scenario_id": "core-medium-v2",
+      "eventing_scenario_id": "eventing-medium-v1"
+    },
+    {
+      "core_scenario_id": "core-large-v2",
+      "eventing_scenario_id": "eventing-large-v1"
+    }
+  ],
+  "core_scenarios": [
+    {
+      "scenario_id": "core-small-v2",
+      "size": "small",
+      "device_count": 100,
+      "telemetry_interval_seconds": 120,
+      "average_payload_kib": 0.25,
+      "average_telemetry_per_second": 0.8333333333333334,
+      "messages_per_month": 2160000,
+      "hot_boundary_months": 1,
+      "cool_boundary_months": 3,
+      "archive_boundary_months": 12,
+      "twin_entity_count": 100,
+      "aggregate_dashboard_refreshes_per_hour": 12,
+      "api_calls_per_aggregate_dashboard_refresh": 1,
+      "dashboard_active_hours_per_day": 1,
+      "monthly_editor_seats": 2,
+      "monthly_viewer_seats": 1,
+      "twin_state_materializations_per_second": 0.1,
+      "twin_graph_updates_per_second": 0.01
+    },
+    {
+      "scenario_id": "core-medium-v2",
+      "size": "medium",
+      "device_count": 4000,
+      "telemetry_interval_seconds": 30,
+      "average_payload_kib": 0.5,
+      "average_telemetry_per_second": 133.33333333333334,
+      "messages_per_month": 345600000,
+      "hot_boundary_months": 1,
+      "cool_boundary_months": 3,
+      "archive_boundary_months": 12,
+      "twin_entity_count": 4000,
+      "aggregate_dashboard_refreshes_per_hour": 60,
+      "api_calls_per_aggregate_dashboard_refresh": 10,
+      "dashboard_active_hours_per_day": 4,
+      "monthly_editor_seats": 25,
+      "monthly_viewer_seats": 10,
+      "twin_state_materializations_per_second": 2.5,
+      "twin_graph_updates_per_second": 0.1
+    },
+    {
+      "scenario_id": "core-large-v2",
+      "size": "large",
+      "device_count": 30000,
+      "telemetry_interval_seconds": 6,
+      "average_payload_kib": 0.8,
+      "average_telemetry_per_second": 5000,
+      "messages_per_month": 12960000000,
+      "hot_boundary_months": 1,
+      "cool_boundary_months": 3,
+      "archive_boundary_months": 12,
+      "twin_entity_count": 30000,
+      "aggregate_dashboard_refreshes_per_hour": 120,
+      "api_calls_per_aggregate_dashboard_refresh": 100,
+      "dashboard_active_hours_per_day": 8,
+      "monthly_editor_seats": 100,
+      "monthly_viewer_seats": 300,
+      "twin_state_materializations_per_second": 50,
+      "twin_graph_updates_per_second": 1
+    }
+  ],
+  "fixed_dimensions": {
+    "l4_inspection_sessions_per_month": 12,
+    "l4_reads_per_inspection_session": 20,
+    "visualized_numeric_metrics_per_record": 1,
+    "rollup_bucket_seconds": 3600,
+    "reader_timeout_seconds": 10,
+    "reader_maximum_points": 1000,
+    "storage_batch_interval_minutes": 5,
+    "storage_task_max_input_mib": 512,
+    "storage_object_max_uncompressed_mib": 64,
+    "storage_transfer_retry_horizon_hours": 24,
+    "storage_source_expiry_grace_hours": 48,
+    "azure_mover_max_device_partitions_per_task": 1000
+  },
+  "eventing_dependency": {
+    "package_id": "phase-08-eventing-implementation@1",
+    "decision_path": "docs/research/evidence/phase_08_eventing/decision.json",
+    "decision_byte_digest": "sha256:d6913db74bbcdaa758e7a05f16f2755760247521ad1b2067d99dccee5c8a637f",
+    "scenario_ids": [
+      "eventing-small-v1",
+      "eventing-medium-v1",
+      "eventing-large-v1"
+    ]
+  }
+}

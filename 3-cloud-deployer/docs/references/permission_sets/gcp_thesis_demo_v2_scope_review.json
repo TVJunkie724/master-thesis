@@ -1,0 +1,26 @@
+{
+  "provider": "gcp",
+  "permission_set_version": "thesis-demo-v2",
+  "review_status": "approved_for_offline_implementation",
+  "reviewed_on": "2026-08-03",
+  "source_manifest": "gcp_thesis_demo_v2.json",
+  "scope_classes": {
+    "project_deployment": "Selected service resources and runtime identities live in one supplied project.",
+    "resource_candidate": "Bindings move to named deployment resources where Google IAM supports that scope.",
+    "bootstrap_excluded": "Project creation, billing attachment, API enablement, and custom-role creation stay outside the retained deployment identity.",
+    "database_wide_poc_limit": "Firestore IAM is database-wide; application contracts isolate the L3/L4 collection groups."
+  },
+  "findings": [],
+  "accepted_gaps": [
+    "Project IAM mutation remains broad until resource-level bindings pass a supervised smoke.",
+    "Cloud Run worker pools are Preview, fixed-size, and non-autoscaling for the Large Six-layer scenario.",
+    "No organization, project-creation, or billing authority is retained."
+  ],
+  "activation_gates": [
+    "manifest digest matches phase-08-complete-service-bundles@1",
+    "gcloud list-testable-permissions accepts every custom-role input",
+    "worker-pool region and Terraform provider preflight succeeds when Large Six-layer is selected",
+    "direct Cloud Run IAP provider schema, service-agent invoker binding, and IAP policy permissions pass preflight",
+    "supervised deploy/destroy smoke records no missing permission"
+  ]
+}

@@ -96,6 +96,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             [
                 "Compose model",
                 "Verification images",
+                "Phase 8 decision evidence",
                 "Canonical contract and root tests",
                 "Optimizer formula-to-selection drift",
                 "Management persistence-to-manifest drift",
@@ -120,6 +121,22 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertIn(
             "scripts.tests.test_user_function_extension_contract_sync",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_eventing/validate_decision_package.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_eventing/calculate_scenarios.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_service_bundles/validate_decision_package.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_service_bundles/freeze_decision.py",
             rendered,
         )
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)

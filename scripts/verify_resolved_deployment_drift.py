@@ -188,6 +188,29 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             ),
         ),
         Stage(
+            "Phase 8 decision evidence",
+            _compose_run(
+                project,
+                "3cloud-deployer",
+                "sh",
+                "-lc",
+                (
+                    "python scripts/phase_08_eventing/calculate_scenarios.py --check "
+                    "&& python scripts/phase_08_eventing/validate_decision_package.py "
+                    "&& python -m unittest discover "
+                    "-s scripts/phase_08_eventing/tests -p 'test_*.py' "
+                    "&& python scripts/phase_08_service_bundles/calculate_capacity.py "
+                    "&& python scripts/phase_08_service_bundles/generate_manifests.py "
+                    "&& python scripts/phase_08_service_bundles/freeze_decision.py "
+                    "&& python scripts/phase_08_service_bundles/validate_decision_package.py "
+                    "&& python scripts/phase_08_service_bundles/verify_sources.py "
+                    "&& python -m unittest discover "
+                    "-s scripts/phase_08_service_bundles/tests -p 'test_*.py'"
+                ),
+                root_mount=True,
+            ),
+        ),
+        Stage(
             "Canonical contract and root tests",
             _compose_run(
                 project,

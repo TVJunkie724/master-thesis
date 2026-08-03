@@ -1,0 +1,25 @@
+{
+  "provider": "aws",
+  "permission_set_version": "thesis-demo-v2",
+  "review_status": "approved_for_offline_implementation",
+  "reviewed_on": "2026-08-03",
+  "source_manifest": "aws_thesis_demo_v2.json",
+  "scope_classes": {
+    "account_discovery": "Wildcard resource scope is expected for identity and catalog discovery.",
+    "create_before_arn": "Create actions remain wildcard-scoped until the created ARN exists.",
+    "deployment_prefix_candidate": "Lifecycle actions target twin2mc-* resources after supervised ARN validation.",
+    "conditioned_pass_role": "iam:PassRole is constrained by iam:PassedToService."
+  },
+  "findings": [],
+  "accepted_gaps": [
+    "The offline manifest is bounded by service/action family and region but is not a formal least-privilege proof.",
+    "IAM Identity Center setup is an interactive-account prerequisite and cannot be inferred from deployment credentials.",
+    "Provider-side Access Analyzer and CloudTrail evidence require an explicitly approved live run."
+  ],
+  "activation_gates": [
+    "manifest digest matches phase-08-complete-service-bundles@1",
+    "IAM Access Analyzer validate-policy succeeds",
+    "all required actions pass the credential self-check",
+    "supervised no-op or deploy/destroy smoke records no missing action"
+  ]
+}

@@ -1,0 +1,3183 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "implementation-component-manifest",
+  "bundle_digest": "sha256:58267b3fcaba5acbaf6f27f2461ff5a145c1aa890bcff1534300391588c1547d",
+  "route_digest": "sha256:e08ae2b6c2a1933adae54c5fed04b949b269b856f535b96787170e8820d32fee",
+  "profile_targets": [
+    "five-layer-baseline@2",
+    "six-layer-eventing@1"
+  ],
+  "terraform_provider_requirements": {
+    "terraform": {
+      "verified_version": "1.7.5",
+      "version_constraint": ">= 1.6.0, < 2.0.0",
+      "reason": "repository baseline and provider compatibility"
+    },
+    "aws": {
+      "source": "hashicorp/aws",
+      "verified_version": "5.100.0",
+      "version_constraint": ">= 5.92.0, < 6.0.0",
+      "reason": "retain the reviewed repository AWS v5 baseline"
+    },
+    "awscc": {
+      "source": "hashicorp/awscc",
+      "verified_version": "1.78.0",
+      "version_constraint": ">= 1.78.0, < 2.0.0",
+      "reason": "awscc_iot_command and awscc_iottwinmaker_workspace are verified in 1.78.0"
+    },
+    "azurerm": {
+      "source": "hashicorp/azurerm",
+      "verified_version": "4.67.0",
+      "version_constraint": ">= 4.27.0, < 5.0.0",
+      "reason": "azurerm_function_app_flex_consumption is verified in 4.27.0"
+    },
+    "google": {
+      "source": "hashicorp/google",
+      "verified_version": "7.22.0",
+      "version_constraint": ">= 7.22.0, < 8.0.0",
+      "reason": "worker-pool and direct Cloud Run IAP resources are verified together in 7.22.0"
+    },
+    "kubernetes": {
+      "source": "hashicorp/kubernetes",
+      "verified_version": "2.38.0",
+      "version_constraint": ">= 2.38.0, < 3.0.0",
+      "reason": "declarative BifroMQ and Grafana GKE workloads"
+    }
+  },
+  "terraform_apply_stages": [
+    {
+      "stage": 1,
+      "owner": "cloud_provider_resources",
+      "includes": "GKE cluster and all non-Kubernetes provider resources"
+    },
+    {
+      "stage": 2,
+      "owner": "kubernetes_resources",
+      "includes": "BifroMQ, adapter, Grafana, services, PVC and TLS bindings",
+      "precondition": "stage_1_cluster_endpoint_and_short_lived_credentials_available"
+    },
+    {
+      "stage": 3,
+      "owner": "bounded_post_terraform_operations",
+      "includes": "TwinMaker children and Grafana plugin/datasource provisioning"
+    }
+  ],
+  "components": [
+    {
+      "component_id": "apache.bifromq-4.0.0-incubating-on-gke-standard",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_container_cluster",
+        "kubernetes_deployment_v1"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::apache.bifromq-4.0.0-incubating-on-gke-standard",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        1883,
+        8883
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/apache_bifromq_4_0_0_incubating_on_gke_standard"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "cluster_and_node_hours"
+      ],
+      "artifact_refs": [
+        "apache-bifromq-linux-amd64"
+      ]
+    },
+    {
+      "component_id": "aws.amazon-managed-grafana-12",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_grafana_workspace"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.amazon-managed-grafana-12",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_amazon_managed_grafana_12"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_or_compute_and_seats"
+      ]
+    },
+    {
+      "component_id": "aws.cloudwatch",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_cloudwatch_log_group"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.cloudwatch",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_cloudwatch"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "aws.dynamodb-on-demand-hourly-rollup",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_dynamodb_table"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.dynamodb-on-demand-hourly-rollup",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "output_contracts": [
+        "raw_history_query.v1",
+        "twin_projection.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_dynamodb_on_demand_hourly_rollup"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "read_write_request_units"
+      ]
+    },
+    {
+      "component_id": "aws.dynamodb-on-demand-raw",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_dynamodb_table"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.dynamodb-on-demand-raw",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "output_contracts": [
+        "raw_history_query.v1",
+        "twin_projection.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_dynamodb_on_demand_raw"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "read_write_request_units"
+      ]
+    },
+    {
+      "component_id": "aws.ecr-if-container-selected",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_ecr_repository"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.ecr-if-container-selected",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_ecr_if_container_selected"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "aws.ecs-fargate-storage-mover",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_ecs_cluster",
+        "aws_ecs_task_definition"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.ecs-fargate-storage-mover",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_ecs_fargate_storage_mover"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "aws.eventbridge-scheduler",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_scheduler_schedule"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.eventbridge-scheduler",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_eventbridge_scheduler"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "aws.iam-identity-center-layer-access",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_ssoadmin_permission_set",
+        "aws_ssoadmin_account_assignment"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.iam-identity-center-layer-access",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_iam_identity_center_layer_access"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "aws.iot-commands",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "awscc_iot_command"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.iot-commands",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_iot_commands"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "aws.iot-core",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_iot_thing",
+        "aws_iot_topic_rule"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.iot-core",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_iot_core"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "aws.iot-twinmaker-standard",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "awscc_iottwinmaker_workspace"
+      ],
+      "post_terraform_operations": [
+        "aws_sdk_iottwinmaker_component_type_entity_and_relationship_lifecycle"
+      ],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.iot-twinmaker-standard",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "twin_projection.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_iot_twinmaker_standard"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "aws.kinesis-data-streams",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_kinesis_stream"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.kinesis-data-streams",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_kinesis_data_streams"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "shard_hours_and_payload_units"
+      ]
+    },
+    {
+      "component_id": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2"
+      ],
+      "terraform_resource_types": [
+        "aws_kinesis_stream"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_kinesis_only_for_reviewed_remote_telemetry_edge"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "shard_hours_and_payload_units"
+      ]
+    },
+    {
+      "component_id": "aws.lambda",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_lambda_function"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.lambda",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_lambda"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_gib_seconds"
+      ]
+    },
+    {
+      "component_id": "aws.lambda-event-adapter",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2"
+      ],
+      "terraform_resource_types": [
+        "aws_lambda_function"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.lambda-event-adapter",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_lambda_event_adapter"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_gib_seconds"
+      ]
+    },
+    {
+      "component_id": "aws.lambda-event-worker",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_lambda_function"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.lambda-event-worker",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_lambda_event_worker"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_gib_seconds"
+      ]
+    },
+    {
+      "component_id": "aws.lambda-raw-history-reader",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_lambda_function",
+        "aws_lambda_function_url"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.lambda-raw-history-reader",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_lambda_raw_history_reader"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_gib_seconds"
+      ]
+    },
+    {
+      "component_id": "aws.s3-event-failure-store",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_s3_bucket"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.s3-event-failure-store",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_s3_event_failure_store"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "aws.s3-glacier-deep-archive",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l3_archive"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_s3_bucket_lifecycle_configuration"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.s3-glacier-deep-archive",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_s3_glacier_deep_archive"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "aws.s3-standard-ia",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l3_cool"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_s3_bucket",
+        "aws_s3_bucket_lifecycle_configuration"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.s3-standard-ia",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_s3_standard_ia"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "aws.sns-fifo",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_sns_topic"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.sns-fifo",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_sns_fifo"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "publishes_and_delivery"
+      ]
+    },
+    {
+      "component_id": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2"
+      ],
+      "terraform_resource_types": [
+        "aws_sns_topic"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_sns_fifo_only_for_reviewed_remote_control_edge"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "publishes_and_delivery"
+      ]
+    },
+    {
+      "component_id": "aws.sqs-fifo",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "embedded_event",
+        "event_layer"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_sqs_queue"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.sqs-fifo",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_sqs_fifo"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests"
+      ]
+    },
+    {
+      "component_id": "aws.step-functions-standard",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_sfn_state_machine"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.step-functions-standard",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_step_functions_standard"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_instance_duration"
+      ]
+    },
+    {
+      "component_id": "azure.acr-basic-if-container-selected",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_container_registry"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.acr-basic-if-container-selected",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_acr_basic_if_container_selected"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "azure.blob-archive",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l3_archive"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_storage_management_policy"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.blob-archive",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_blob_archive"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "azure.blob-cool",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l3_cool"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_storage_account",
+        "azurerm_storage_container"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.blob-cool",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_blob_cool"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "azure.container-apps-scheduled-storage-job",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_container_app_environment",
+        "azurerm_container_app_job"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.container-apps-scheduled-storage-job",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_container_apps_scheduled_storage_job"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "azure.cosmos-db-nosql-raw-and-rollup",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_cosmosdb_account",
+        "azurerm_cosmosdb_sql_database",
+        "azurerm_cosmosdb_sql_container"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.cosmos-db-nosql-raw-and-rollup",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "output_contracts": [
+        "raw_history_query.v1",
+        "twin_projection.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_cosmos_db_nosql_raw_and_rollup"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "request_units"
+      ]
+    },
+    {
+      "component_id": "azure.digital-twins",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_digital_twins_instance"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.digital-twins",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "twin_projection.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_digital_twins"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "azure.entra-layer-access-bindings",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_role_assignment"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.entra-layer-access-bindings",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_entra_layer_access_bindings"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "azure.event-hubs-dedicated-large",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_eventhub_cluster",
+        "azurerm_eventhub_namespace",
+        "azurerm_eventhub"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.event-hubs-dedicated-large",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_event_hubs_dedicated_large"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "throughput_or_capacity_units"
+      ]
+    },
+    {
+      "component_id": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2"
+      ],
+      "terraform_resource_types": [
+        "azurerm_eventhub_namespace",
+        "azurerm_eventhub"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_event_hubs_only_for_reviewed_remote_telemetry_edge"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "throughput_or_capacity_units"
+      ]
+    },
+    {
+      "component_id": "azure.event-hubs-standard-small-medium",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_eventhub_namespace",
+        "azurerm_eventhub"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.event-hubs-standard-small-medium",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_event_hubs_standard_small_medium"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "throughput_or_capacity_units"
+      ]
+    },
+    {
+      "component_id": "azure.functions-flex-consumption",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_function_app_flex_consumption"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.functions-flex-consumption",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_functions_flex_consumption"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_instance_duration"
+      ]
+    },
+    {
+      "component_id": "azure.functions-flex-event-adapter",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2"
+      ],
+      "terraform_resource_types": [
+        "azurerm_function_app_flex_consumption"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.functions-flex-event-adapter",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_functions_flex_event_adapter"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_instance_duration"
+      ]
+    },
+    {
+      "component_id": "azure.functions-flex-event-worker",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_function_app_flex_consumption"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.functions-flex-event-worker",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_functions_flex_event_worker"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_instance_duration"
+      ]
+    },
+    {
+      "component_id": "azure.functions-flex-raw-history-reader",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_function_app_flex_consumption"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.functions-flex-raw-history-reader",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_functions_flex_raw_history_reader"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_and_instance_duration"
+      ]
+    },
+    {
+      "component_id": "azure.iot-hub",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_iothub"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.iot-hub",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_iot_hub"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "azure.log-analytics-shared-workspace",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_log_analytics_workspace"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.log-analytics-shared-workspace",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_log_analytics_shared_workspace"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "azure.logic-apps-consumption",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_logic_app_workflow"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.logic-apps-consumption",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_logic_apps_consumption"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "azure.managed-grafana-12-standard",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_dashboard_grafana"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.managed-grafana-12-standard",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_managed_grafana_12_standard"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_or_compute_and_seats"
+      ]
+    },
+    {
+      "component_id": "azure.monitor",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_monitor_diagnostic_setting"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.monitor",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_monitor"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_and_retention"
+      ]
+    },
+    {
+      "component_id": "azure.service-bus-standard",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "embedded_event",
+        "event_layer"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_servicebus_namespace",
+        "azurerm_servicebus_queue",
+        "azurerm_servicebus_topic"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.service-bus-standard",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_service_bus_standard"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "messaging_units_and_operations"
+      ]
+    },
+    {
+      "component_id": "gcp.artifact-registry-if-container-selected",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_artifact_registry_repository"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.artifact-registry-if-container-selected",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_artifact_registry_if_container_selected"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-logging",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [],
+      "post_terraform_operations": [
+        "provider_platform_capability_no_resource"
+      ],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-logging",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_logging"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_and_retention"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-monitoring",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [],
+      "post_terraform_operations": [
+        "provider_platform_capability_no_resource"
+      ],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-monitoring",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1",
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_monitoring"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_and_retention"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-event-adapter",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_service"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-event-adapter",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_event_adapter"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-event-service-small-medium",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_service"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-event-service-small-medium",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_event_service_small_medium"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-iap-twin-explorer",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_service",
+        "google_cloud_run_v2_service_iam_member",
+        "google_iap_web_cloud_run_service_iam_member"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-iap-twin-explorer",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "twin_projection.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_iap_twin_explorer"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-raw-history-reader",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_service"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-raw-history-reader",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_raw_history_reader"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-service",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_service"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-service",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_service"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-storage-job",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_job"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-storage-job",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_storage_job"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-twin-api-materializer",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_service"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-twin-api-materializer",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "twin_projection.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_twin_api_materializer"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-run-worker-pool-fixed-large",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_run_v2_worker_pool"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-run-worker-pool-fixed-large",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_worker_pool_fixed_large"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests_cpu_memory_duration"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-scheduler",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_cloud_scheduler_job"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-scheduler",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_scheduler"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-storage-archive",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l3_archive"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_storage_bucket"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-storage-archive",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_storage_archive"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "gcp.cloud-storage-nearline",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l3_cool"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_storage_bucket"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.cloud-storage-nearline",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_storage_nearline"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ]
+    },
+    {
+      "component_id": "gcp.direct-iap-layer-access",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_iap_web_cloud_run_service_iam_member"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.direct-iap-layer-access",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_direct_iap_layer_access"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "gcp.external-load-balancer",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "kubernetes_service_v1"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.external-load-balancer",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_external_load_balancer"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "rule_hours_and_processed_bytes"
+      ]
+    },
+    {
+      "component_id": "gcp.firestore-native-standard-bounded-twin",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_firestore_database",
+        "google_firestore_index"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.firestore-native-standard-bounded-twin",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "twin_projection.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_firestore_native_standard_bounded_twin"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "document_operations_and_storage"
+      ]
+    },
+    {
+      "component_id": "gcp.firestore-native-standard-raw-and-rollup",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_firestore_database",
+        "google_firestore_field",
+        "google_firestore_index"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.firestore-native-standard-raw-and-rollup",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "output_contracts": [
+        "raw_history_query.v1",
+        "twin_projection.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_firestore_native_standard_raw_and_rollup"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "document_operations_and_storage"
+      ]
+    },
+    {
+      "component_id": "gcp.grafana-tls-load-balancer",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "support"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "kubernetes_service_v1",
+        "kubernetes_secret_v1"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.grafana-tls-load-balancer",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "storage_transition.v1"
+      ],
+      "output_contracts": [
+        "storage_transition.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_grafana_tls_load_balancer"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_or_compute_and_seats",
+        "rule_hours_and_processed_bytes"
+      ]
+    },
+    {
+      "component_id": "gcp.ordered-mqtt-pubsub-adapter",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "kubernetes_deployment_v1"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.ordered-mqtt-pubsub-adapter",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        1883,
+        8883
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_ordered_mqtt_pubsub_adapter"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "message_delivery_bytes"
+      ]
+    },
+    {
+      "component_id": "gcp.persistent-disk-rwo",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_compute_disk",
+        "kubernetes_persistent_volume_claim_v1"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.persistent-disk-rwo",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_persistent_disk_rwo"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "gcp.pubsub-separated-embedded-topics",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2"
+      ],
+      "terraform_resource_types": [
+        "google_pubsub_topic",
+        "google_pubsub_subscription"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.pubsub-separated-embedded-topics",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_pubsub_separated_embedded_topics"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "message_delivery_bytes"
+      ]
+    },
+    {
+      "component_id": "gcp.pubsub-separated-event-layer-topics",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_pubsub_topic",
+        "google_pubsub_subscription"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.pubsub-separated-event-layer-topics",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "output_contracts": [
+        "canonical-domain-event.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_pubsub_separated_event_layer_topics"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "message_delivery_bytes"
+      ]
+    },
+    {
+      "component_id": "gcp.workflows",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "google_workflows_workflow"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::gcp.workflows",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "resolved-deployment-specification.v2"
+      ],
+      "output_contracts": [
+        "canonical-telemetry.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/gcp_workflows"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ]
+    },
+    {
+      "component_id": "grafana.marcusolsson-json-datasource",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [],
+      "post_terraform_operations": [
+        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
+      ],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::grafana.marcusolsson-json-datasource",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/grafana_marcusolsson_json_datasource"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_or_compute_and_seats"
+      ]
+    },
+    {
+      "component_id": "grafana.oss-12-on-gke",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "kubernetes_deployment_v1",
+        "kubernetes_service_v1"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::grafana.oss-12-on-gke",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "content_addressed_repository_package",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/grafana_oss_12_on_gke"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_or_compute_and_seats",
+        "cluster_and_node_hours"
+      ],
+      "artifact_refs": [
+        "grafana-oss-multiarch"
+      ]
+    },
+    {
+      "component_id": "grafana.yesoreyeram-infinity-datasource",
+      "provider": "gcp",
+      "region": "europe-west1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [],
+      "post_terraform_operations": [
+        "content_addressed_image_build_and_datasource_provisioning"
+      ],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::grafana.yesoreyeram-infinity-datasource",
+      "permission_set_refs": [
+        "gcp_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/gcp/grafana_yesoreyeram_infinity_datasource"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_or_compute_and_seats"
+      ],
+      "artifact_refs": [
+        "infinity-plugin-linux-amd64"
+      ]
+    }
+  ],
+  "edge_contracts": [
+    "raw_history_query.v1",
+    "twin_projection.v1",
+    "storage_transition.v1",
+    "canonical-domain-event.v1"
+  ],
+  "route_classes": [
+    "raw_history_query",
+    "twin_projection_local",
+    "twin_projection_cross_cloud",
+    "storage_hot_to_cool_local",
+    "storage_hot_to_cool_cross_cloud",
+    "storage_cool_to_archive_local",
+    "storage_cool_to_archive_cross_cloud",
+    "domain_event_cross_cloud",
+    "domain_event_local"
+  ],
+  "permission_artifacts": [
+    "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_v2.json",
+    "3-cloud-deployer/docs/references/permission_sets/azure_thesis_demo_v2.json",
+    "3-cloud-deployer/docs/references/permission_sets/gcp_thesis_demo_v2.json"
+  ],
+  "runtime_target_roots": [
+    "contracts/architecture-profiles/definitions",
+    "2-twin2clouds/backend",
+    "twin2multicloud_backend",
+    "3-cloud-deployer",
+    "twin2multicloud_flutter"
+  ],
+  "activation_rule": "both_eventing_and_complete_service_digests_must_match"
+}

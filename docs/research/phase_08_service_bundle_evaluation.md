@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle Evaluation"
 description: "PoC-focused functional, placement, identity, and capacity evaluation for five-layer-baseline@2."
 tags: [architecture, digital-twin, eventing, multicloud, services, capacity, phase-8]
-lastUpdated: "2026-07-31"
-version: "1.7"
+lastUpdated: "2026-08-03"
+version: "1.9"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.7"
 - User-approved functionality-first PoC rule, L3-hot/L5 placement experiment,
   Azure Cosmos DB and GCP Firestore L3 continuity, and Small/Medium/Large
   evaluation
-EXTRACTED: 2026-07-31 | VERSION: 1.7
+EXTRACTED: 2026-08-03 | VERSION: 1.9
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle Evaluation
@@ -25,11 +25,11 @@ Select one implementable service bundle per provider for
 `five-layer-baseline@2`: five scientific responsibilities with mandatory
 domain-event behavior embedded in their owners.
 
-The current decision deliberately stops before selecting or implementing
-`six-layer-eventing@1`. When that profile is resumed, it must inherit the
+This evaluation selects the complete Five-layer v2 boundary. The immutable
+complete-service package also records the already reviewed Six-layer service
+delta, but does not activate it: `six-layer-eventing@1` must inherit the
 reviewed Five-layer v2 L1-L5 services, workload, and placement rules unchanged
-and receive a separate service/ownership review for its independent Eventing
-responsibility.
+and execute only on its separate branch after Five-layer review.
 
 The proof of concept is not a cost-minimization exercise. A service is selected
 when it closes the required function and has a credible theoretical
@@ -46,9 +46,10 @@ useful in a production system.
 The evaluated region set is fixed, not optimized: AWS `eu-central-1`, Azure
 `westeurope`, and GCP `europe-west1`. It is identical to the immutable Eventing
 scenarios. All regional components owned by a provider stay in that region;
-only declared remote edges incur cross-cloud transfer. The later immutable
-complete-service package must prove availability and pricing of every selected
-member in its fixed region and fail closed rather than substitute a region.
+only declared remote edges incur cross-cloud transfer. The immutable
+[`phase-08-complete-service-bundles@1`](evidence/phase_08_service_bundles/README.md)
+package freezes availability/pricing ownership for every selected member and
+fails closed rather than substitute a region or service.
 
 ### Common L1-L5 Service Matrix
 
@@ -82,7 +83,7 @@ not through L4.
 |---|---|---|
 | `five-layer-baseline@1` | Historical paper-compatible reference | Immutable; read, reproduce, verify, and destroy only |
 | `five-layer-baseline@2` | New five-responsibility control with mandatory embedded events | Implement first; offline activation only after complete-service gates |
-| `six-layer-eventing@1` | Later treatment profile with an independent Event Layer | Deferred; no implementation or activation decision in this evaluation |
+| `six-layer-eventing@1` | Later treatment profile with an independent Event Layer | Service delta approved offline; implementation remains deferred until reviewed Five-layer v2 |
 
 No implementation silently repairs `@1`. Its current public
 Function/shared-token boundary and L3/Grafana mismatch remain historical debt,
@@ -184,9 +185,9 @@ authenticated internet-reachable PoC read boundaries; private networking is
 not implied.
 
 Grafana marks the JSON API datasource as being in maintenance mode and
-recommends Infinity for new work. The upstream page does not publish the
-previously assumed 2027-02-01 hard end date, so the decision must not invent
-one. JSON API remains admissible only as a frozen thesis-PoC dependency: the
+recommends Infinity for new work. The upstream page publishes no fixed hard
+support-end date, so the decision must not invent one. JSON API remains
+admissible only as a frozen thesis-PoC dependency: the
 complete-service package records the plugin ID, selected version,
 Grafana-12 compatibility, the Amazon Managed Grafana catalog result, and Azure
 Managed Grafana Standard support evidence. Deployment preflight repeats those
@@ -757,7 +758,7 @@ directions remain observable and costed.
 | Give GCP Grafana a dedicated node pool by default | Adds capacity before a test demonstrates isolation is necessary |
 | Use Grafana JSON/Infinity as a universal cross-cloud adapter | No single reviewed secretless automation path across the selected managed/self-hosted Grafana environments |
 | Let Grafana read Firestore directly | There is no selected native Firestore datasource; giving the visualization pod database credentials would also bypass the common bounded query contract |
-| Use the deprecated JSON API plugin for new self-hosted GCP Grafana | The Grafana-maintained Infinity plugin supplies the needed backend parser, API-key header, allowed-host, and current maintenance path; JSON API remains only a time-bounded managed-AWS/Azure PoC dependency through 2027-01-31 |
+| Use the maintenance-only JSON API plugin for new self-hosted GCP Grafana | The Grafana-maintained Infinity plugin supplies the needed backend parser, API-key header, allowed-host, and current maintenance path; JSON API remains only a frozen managed-AWS/Azure PoC dependency whose exact catalog availability and Grafana-12 compatibility are checked before mutation |
 | Enable Grafana development mode or generally allow unsigned plugins | Broader code-loading authority is unnecessary; the PoC installs only the signed, version- and digest-pinned Infinity datasource |
 | Implement storage with CDC, dedicated outboxes/brokers, and permanent workers | Production-scale complexity without a PoC requirement or failing test |
 | Add L4-to-L5 and 3D scenes to the base | Changes the predecessor-compatible visualization contract and introduces six additional cross-cloud query integrations; requires a later profile version |

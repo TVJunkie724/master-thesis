@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-03"
-version: "3.8"
+version: "3.9"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "3.8"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 3.8
+EXTRACTED: 2026-08-03 | VERSION: 3.9
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -34,8 +34,8 @@ EXTRACTED: 2026-08-03 | VERSION: 3.8
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.5 is default-off; Phase 8.8 approves Event-domain evidence; implementation was authorized on 2026-08-03; the revised Five-layer v2 service closure is the corrective activation gate; Phase 8.6 must first complete as a dark generic compiler; Six-layer is planned as a later strict delta |
-| Next action | Commit the reviewed planning package, build/review/commit the immutable complete-service decision including `thesis-demo-v2`, then finish/review the existing dark Phase 8.6 compiler boundary |
+| Implementation status | Phase 8.5 is default-off; Phase 8.8 and `phase-08-complete-service-bundles@1` are approved offline; implementation was authorized on 2026-08-03; Phase 8.6 must now complete as a dark generic compiler before profile UI/bootstrap/Five-layer activation; Six-layer remains a later strict delta |
+| Next action | Commit the reviewed complete-service package and `thesis-demo-v2` manifests, then finish/review the existing dark Phase 8.6 compiler boundary without activating a profile |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -157,10 +157,10 @@ binding contract is
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. commit the 2026-08-03 concept, cross-stack execution plan, Flutter plans,
-   and corrected Six-layer delta plan after their zero-finding review;
-2. build, review, and commit the immutable complete-service decision package,
-   including the provider `thesis-demo-v2` permission artifacts;
+1. retain the committed 2026-08-03 concept, cross-stack execution plan,
+   Flutter plans, and corrected Six-layer delta plan;
+2. retain the approved immutable complete-service decision package and
+   provider `thesis-demo-v2` permission artifacts without runtime activation;
 3. return to the existing Phase 8.6 implementation worktree and read
    [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)
    in full;

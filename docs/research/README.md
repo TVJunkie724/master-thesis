@@ -30,5 +30,6 @@ material and must be reviewed, cited, and rewritten before they become thesis cl
 - [Resolved deployment reproducibility evidence](resolved_deployment_reproducibility.md)
 - [Digital Twin architecture and Eventing Layer](digital_twin_architecture_and_eventing_layer.md)
 - [Phase 8 complete Twin service-bundle evaluation](phase_08_service_bundle_evaluation.md)
+- [Phase 8 immutable complete-service decision package](evidence/phase_08_service_bundles/README.md)
 - [Related work: multi-cloud cost, functional comparability, and event-driven Digital Twins](related_work_multicloud_cost_comparability_eventing.md)
 - [Research questions and evaluation design](research_questions_and_evaluation_design.md)
