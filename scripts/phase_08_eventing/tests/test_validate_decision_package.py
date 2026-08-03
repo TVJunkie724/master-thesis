@@ -37,6 +37,22 @@ class DecisionPackageValidationTest(unittest.TestCase):
             any("duplicate file ownership path" in error for error in errors)
         )
 
+    def test_planning_collision_check_rejects_an_implemented_new_target(
+        self,
+    ) -> None:
+        errors: list[str] = []
+
+        VALIDATOR.validate_manifest(
+            copy.deepcopy(self.artifacts),
+            errors,
+            require_new_targets_absent=True,
+        )
+
+        self.assertIn(
+            "new target already exists: scripts/sync_deployment_manifest_contract.py",
+            errors,
+        )
+
     def test_incomplete_bridge_route_matrix_is_rejected(self) -> None:
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]

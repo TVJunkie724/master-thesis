@@ -620,6 +620,16 @@ docker run --rm -i -v "$PWD:/workspace" -w /workspace \
   python scripts/phase_08_eventing/validate_decision_package.py --strict
 ```
 
+The immutable `file_ownership.operation` values describe the delta from the
+decision freeze. Once implementation has started, an owned `new` path is
+therefore expected to exist. The optional planning-time collision check is
+kept separate and is only valid before that transition:
+
+```bash
+python scripts/phase_08_eventing/validate_decision_package.py \
+  --strict --check-planned-target-absence
+```
+
 Approval allows Phase 8.9 implementation planning to be consumed. Profile
 activation remains fail-closed until the six directed live identity exchanges,
 provider preflight, ordering/failure tests, and supervised Large-capacity

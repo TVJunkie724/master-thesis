@@ -625,6 +625,8 @@ def validate_coverage(
 def validate_manifest(
     artifacts: dict[str, Any],
     errors: list[str],
+    *,
+    require_new_targets_absent: bool = False,
 ) -> None:
     manifest = artifacts["implementation-component-manifest.json"]
     capability = artifacts["provider-capability-matrix.json"]
@@ -936,7 +938,11 @@ def validate_manifest(
         path = REPOSITORY_ROOT / row["path"]
         if row["operation"] == "modify" and not path.exists():
             errors.append(f"modify target does not exist: {row['path']}")
-        if row["operation"] == "new" and path.exists():
+        if (
+            require_new_targets_absent
+            and row["operation"] == "new"
+            and path.exists()
+        ):
             errors.append(f"new target already exists: {row['path']}")
     referenced_implementation_paths = {
         row["architecture_definition_path"]
@@ -1045,7 +1051,11 @@ def load_artifacts() -> dict[str, Any]:
     }
 
 
-def validate(strict: bool = True) -> list[str]:
+def validate(
+    strict: bool = True,
+    *,
+    require_new_targets_absent: bool = False,
+) -> list[str]:
     artifacts = load_artifacts()
     errors: list[str] = []
     validate_schemas(artifacts, errors)
@@ -1053,7 +1063,11 @@ def validate(strict: bool = True) -> list[str]:
         validate_secrets(name, document, errors)
     validate_reference_integrity(artifacts, errors)
     validate_coverage(artifacts, errors)
-    validate_manifest(artifacts, errors)
+    validate_manifest(
+        artifacts,
+        errors,
+        require_new_targets_absent=require_new_targets_absent,
+    )
     validate_reproducibility(artifacts, errors)
     validate_decision(artifacts, errors)
     if strict:
@@ -1106,6 +1120,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict", action="store_true")
     parser.add_argument(
+        "--check-planned-target-absence",
+        action="store_true",
+        help=(
+            "Planning-time collision check. Do not use after implementation "
+            "of the immutable manifest has started."
+        ),
+    )
+    parser.add_argument(
         "--refresh-artifact-digests",
         action="store_true",
         help="Explicitly rewrite manifest dependency digests.",
@@ -1124,7 +1146,10 @@ def main() -> int:
         refresh_artifact_digests()
     if args.refresh_decision_digests:
         refresh_decision_digests()
-    errors = validate(strict=args.strict)
+    errors = validate(
+        strict=args.strict,
+        require_new_targets_absent=args.check_planned_target_absence,
+    )
     if errors:
         for error in errors:
             print(f"error: {error}")
