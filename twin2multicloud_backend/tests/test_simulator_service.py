@@ -13,12 +13,20 @@ from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
-from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    DownstreamServiceError,
+    ValidationError,
+)
 from src.services.simulator_service import SimulatorDownloadService
+from src.services.deployment_service import PreparedDeploymentProject
 
 
 def _create_user(db) -> User:
-    user = User(email="simulator-service@example.test", name="Simulator Service", auth_provider="google")
+    user = User(
+        email="simulator-service@example.test",
+        name="Simulator Service",
+        auth_provider="google",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -34,7 +42,22 @@ def _create_twin(db, user: User, state: TwinState = TwinState.DEPLOYED) -> Digit
 
 
 async def _prepare_project(_twin, _user_id):
-    return "simulator-project"
+    return PreparedDeploymentProject(
+        "simulator-project",
+        "operation-token",
+        provider="aws",
+    )
+
+
+def _project_preparer(provider):
+    async def prepare(_twin, _user_id):
+        return PreparedDeploymentProject(
+            "simulator-project",
+            "operation-token",
+            provider=provider,
+        )
+
+    return prepare
 
 
 def _zip_bytes() -> bytes:
@@ -62,7 +85,9 @@ async def _fetch_simulator(_resource_name, provider):
     return _archive(provider)
 
 
-def _service(db, *, project_preparer=_prepare_project, simulator_fetcher=_fetch_simulator):
+def _service(
+    db, *, project_preparer=_prepare_project, simulator_fetcher=_fetch_simulator
+):
     return SimulatorDownloadService(
         db=db,
         twin_repository=TwinRepository(db),
@@ -72,10 +97,14 @@ def _service(db, *, project_preparer=_prepare_project, simulator_fetcher=_fetch_
 
 
 @pytest.mark.asyncio
-async def test_download_fetches_deployer_archive_for_optimizer_l1(db_session):
+async def test_download_fetches_deployer_archive_for_architecture_l1(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(DeployerConfiguration(twin_id=twin.id, deployer_digital_twin_name="simulator-project"))
+    db_session.add(
+        DeployerConfiguration(
+            twin_id=twin.id, deployer_digital_twin_name="simulator-project"
+        )
+    )
     db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="GCP"))
     db_session.commit()
     fetch_calls = []
@@ -84,7 +113,11 @@ async def test_download_fetches_deployer_archive_for_optimizer_l1(db_session):
         fetch_calls.append((resource_name, provider))
         return _archive(provider)
 
-    archive = await _service(db_session, simulator_fetcher=fetcher).download(
+    archive = await _service(
+        db_session,
+        project_preparer=_project_preparer("gcp"),
+        simulator_fetcher=fetcher,
+    ).download(
         twin_id=twin.id,
         user_id=user.id,
         test_mode=False,
@@ -92,14 +125,20 @@ async def test_download_fetches_deployer_archive_for_optimizer_l1(db_session):
 
     assert archive.filename == "simulator_simulator-project_gcp.zip"
     assert archive.content.getvalue() == _zip_bytes()
-    assert fetch_calls == [("simulator-project", "gcp")]
+    assert [(project.resource_name, provider) for project, provider in fetch_calls] == [
+        ("simulator-project", "gcp")
+    ]
 
 
 @pytest.mark.asyncio
 async def test_download_normalizes_google_alias_for_deployer_api(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(DeployerConfiguration(twin_id=twin.id, deployer_digital_twin_name="simulator-project"))
+    db_session.add(
+        DeployerConfiguration(
+            twin_id=twin.id, deployer_digital_twin_name="simulator-project"
+        )
+    )
     db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
     db_session.commit()
     fetch_calls = []
@@ -108,14 +147,20 @@ async def test_download_normalizes_google_alias_for_deployer_api(db_session):
         fetch_calls.append((resource_name, provider))
         return _archive(provider)
 
-    archive = await _service(db_session, simulator_fetcher=fetcher).download(
+    archive = await _service(
+        db_session,
+        project_preparer=_project_preparer("gcp"),
+        simulator_fetcher=fetcher,
+    ).download(
         twin_id=twin.id,
         user_id=user.id,
         test_mode=False,
     )
 
     assert archive.filename == "simulator_simulator-project_gcp.zip"
-    assert fetch_calls == [("simulator-project", "gcp")]
+    assert [(project.resource_name, provider) for project, provider in fetch_calls] == [
+        ("simulator-project", "gcp")
+    ]
 
 
 @pytest.mark.asyncio
@@ -124,16 +169,23 @@ async def test_download_rejects_non_deployed_twin(db_session):
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
 
     with pytest.raises(ValidationError):
-        await _service(db_session).download(twin_id=twin.id, user_id=user.id, test_mode=False)
+        await _service(db_session).download(
+            twin_id=twin.id, user_id=user.id, test_mode=False
+        )
 
 
 @pytest.mark.asyncio
-async def test_download_rejects_missing_optimizer_l1(db_session):
+async def test_download_does_not_require_fixed_optimizer_l1(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    with pytest.raises(EntityNotFoundError):
-        await _service(db_session).download(twin_id=twin.id, user_id=user.id, test_mode=False)
+    archive = await _service(db_session).download(
+        twin_id=twin.id,
+        user_id=user.id,
+        test_mode=False,
+    )
+
+    assert archive.provider == "aws"
 
 
 @pytest.mark.asyncio
@@ -182,7 +234,9 @@ async def test_download_uses_mock_archive_in_test_mode_without_optimizer(db_sess
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    archive = await _service(db_session).download(twin_id=twin.id, user_id=user.id, test_mode=True)
+    archive = await _service(db_session).download(
+        twin_id=twin.id, user_id=user.id, test_mode=True
+    )
 
     assert archive.filename == "simulator_simulator-service-twin_gcp.zip"
     assert archive.media_type == "application/zip"

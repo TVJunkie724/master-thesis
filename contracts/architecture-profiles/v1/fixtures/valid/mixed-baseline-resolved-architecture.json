@@ -236,7 +236,7 @@
       "service_id": "azure.visualization"
     }
   ],
-  "content_digest": "sha256:af28a6e106a49964a344ae1bfd5ae2b5835d796200b78146c38fc1dfee764660",
+  "content_digest": "sha256:537be780bd9eb3e1c3657262a74b2127ffc64db23c6fffe0747d640ec57efee8",
   "cost_summary": {
     "component_totals": [
       {
@@ -357,7 +357,7 @@
       "capability.visualization"
     ],
     "status": "complete",
-    "validation_digest": "sha256:4d68f547f62b695f14801f46ad5ed20cd329c88151a115a3966c3fecba61a12a",
+    "validation_digest": "sha256:e37cf05a742125cf2cc5b94119b0f5ccdb2821151ef6c9c5bf11027f82c9218e",
     "validator_version": "1"
   },
   "optimization_bundle_ref": {

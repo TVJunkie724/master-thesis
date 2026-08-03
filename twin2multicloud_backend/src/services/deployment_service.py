@@ -44,7 +44,14 @@ from src.services.errors import (
 from src.services.cost_calculation_run_service import (
     validate_persisted_run_deployment_specification,
 )
-from src.services.provider_contract import provider_id_for_deployer_project
+from src.services.architecture_contract_service import (
+    calculate_digest as calculate_architecture_digest,
+)
+from src.services.provider_contract import (
+    normalize_provider_id,
+    provider_id_for_deployer_api,
+    provider_id_for_deployer_project,
+)
 from src.services.service_errors import DownstreamServiceError
 from src.services.twin_lifecycle_service import TwinLifecycleService
 
@@ -55,7 +62,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
-DEPLOYMENT_MANIFEST_VERSION = "2.0"
+DEPLOYMENT_MANIFEST_VERSION = "3.0"
+RESOLVED_GRAPH_VERSION = "resolved-deployment-graph.v1"
+PACKAGE_BUILDER_VERSION = "graph-package-builder.v1"
+TERRAFORM_INPUT_CONTRACT_VERSION = "graph-terraform-inputs.v1"
+ARCHITECTURE_CONTRACT_ROOT = (
+    Path(__file__).resolve().parents[1]
+    / "contracts"
+    / "generated"
+    / "architecture-profiles"
+    / "definitions"
+)
 REQUIRED_DEPLOYER_CONFIG_FILES = [
     "config.json",
     "config_iot_devices.json",
@@ -76,6 +93,7 @@ PROJECT_PATH_PATTERN = re.compile(r"(/[^\s:]+/upload/[^\s:]+)")
 WORKSPACE_PATH_PATTERN = re.compile(
     r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)"
 )
+STAGE_COMPLETED_MARKER = "T2MC_STAGE_COMPLETED:"
 
 
 @dataclass(frozen=True)
@@ -116,11 +134,22 @@ class DeploymentPackage:
 
 
 @dataclass(frozen=True)
+class SelectedDeploymentContracts:
+    """Immutable selected contracts that own one executable package."""
+
+    run: Any
+    architecture: dict[str, Any]
+    specification: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class PreparedDeploymentProject:
     """Opaque Deployer context prepared for one operation."""
 
     resource_name: str
     operation_token: str
+    provider: str = "aws"
+    graph_evidence: dict[str, Any] | None = None
 
 
 def build_deploy_config(twin) -> dict:
@@ -173,17 +202,20 @@ def build_deploy_config(twin) -> dict:
         if dc.event_action_contents:
             config["event_actions"] = json.loads(dc.event_action_contents)
 
-    # Add from optimizer config
+    # Add the architecture-derived compatibility path. Historical fixed
+    # columns are never executable inputs.
     if twin.optimizer_config:
         oc = twin.optimizer_config
+        contracts = _selected_deployment_contracts(twin)
+        provider_config = _build_providers_config(contracts.architecture)
         config["layers"] = {
-            "l1": oc.cheapest_l1,
-            "l2": oc.cheapest_l2,
-            "l3_hot": oc.cheapest_l3_hot,
-            "l3_cool": oc.cheapest_l3_cool,
-            "l3_archive": oc.cheapest_l3_archive,
-            "l4": oc.cheapest_l4,
-            "l5": oc.cheapest_l5,
+            "l1": provider_config["layer_1_provider"],
+            "l2": provider_config["layer_2_provider"],
+            "l3_hot": provider_config["layer_3_hot_provider"],
+            "l3_cool": provider_config["layer_3_cold_provider"],
+            "l3_archive": provider_config["layer_3_archive_provider"],
+            "l4": provider_config["layer_4_provider"],
+            "l5": provider_config["layer_5_provider"],
         }
         if oc.result_json:
             config["optimizer_result"] = json.loads(oc.result_json)
@@ -263,6 +295,31 @@ def _result_message(
     return success_message if result and result.success else failure_message
 
 
+def _completed_stage_from_log(message: str | None) -> str | None:
+    """Extract one bounded Deployer lifecycle stage marker."""
+
+    if not isinstance(message, str) or not message.startswith(
+        STAGE_COMPLETED_MARKER
+    ):
+        return None
+    stage = message.removeprefix(STAGE_COMPLETED_MARKER)
+    return stage if stage in {"package", "preplan", "terraform", "postapply"} else None
+
+
+def _persist_completed_stage(session_factory, session_id: str, stage: str) -> None:
+    """Atomically advance persisted deployment progress for retry diagnostics."""
+
+    db = session_factory()
+    try:
+        repository = DeploymentRepository(db)
+        deployment = repository.get_by_session_id(session_id)
+        if deployment is not None:
+            repository.mark_completed_stage(deployment, stage)
+            db.commit()
+    finally:
+        db.close()
+
+
 async def run_real_deploy_stream(
     session_id: str,
     twin_id: str,
@@ -270,6 +327,7 @@ async def run_real_deploy_stream(
     provider: str,
     operation_token: str,
     deployer_client: DeployerClient | None = None,
+    graph_evidence: dict[str, Any] | None = None,
 ):
     """
     Background task that subscribes to Deployer SSE and forwards logs.
@@ -295,6 +353,7 @@ async def run_real_deploy_stream(
         twin_id=twin_id,
         session_id=session_id,
         operation_type="deploy",
+        graph_evidence=graph_evidence,
     )
     db.commit()
     db.close()
@@ -323,6 +382,14 @@ async def run_real_deploy_stream(
                     if result.success and result.outputs:
                         terraform_outputs = result.outputs
                 elif log_message:
+                    completed_stage = _completed_stage_from_log(log_message)
+                    if completed_stage is not None:
+                        _persist_completed_stage(
+                            SessionLocal,
+                            session_id,
+                            completed_stage,
+                        )
+                        continue
                     logger.info(
                         "Deployment stream: %s",
                         log_message,
@@ -458,6 +525,7 @@ async def run_real_destroy_stream(
     provider: str,
     operation_token: str,
     deployer_client: DeployerClient | None = None,
+    graph_evidence: dict[str, Any] | None = None,
 ):
     """
     Background task that subscribes to Deployer destroy SSE and forwards logs.
@@ -482,6 +550,7 @@ async def run_real_destroy_stream(
         twin_id=twin_id,
         session_id=session_id,
         operation_type="destroy",
+        graph_evidence=graph_evidence,
     )
     db.commit()
     db.close()
@@ -507,6 +576,14 @@ async def run_real_destroy_stream(
                 if result:
                     terminal_result = result
                 elif log_message:
+                    completed_stage = _completed_stage_from_log(log_message)
+                    if completed_stage is not None:
+                        _persist_completed_stage(
+                            SessionLocal,
+                            session_id,
+                            completed_stage,
+                        )
+                        continue
                     logger.info(
                         "Destroy stream: %s",
                         log_message,
@@ -636,7 +713,12 @@ async def run_real_destroy_stream(
 # ============================================================================
 
 
-def build_project_zip(twin, user_id: str) -> io.BytesIO:
+def build_project_zip(
+    twin,
+    user_id: str,
+    *,
+    calculation_run_id: str | None = None,
+) -> io.BytesIO:
     """
     Build a ZIP file containing all configuration files for the Deployer.
 
@@ -647,7 +729,11 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
     Returns:
         BytesIO containing the ZIP file
     """
-    package = build_deployment_package(twin, user_id)
+    package = build_deployment_package(
+        twin,
+        user_id,
+        calculation_run_id=calculation_run_id,
+    )
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -665,17 +751,41 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
 # ============================================================================
 
 
-def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
+def build_deployment_package(
+    twin,
+    user_id: str,
+    *,
+    calculation_run_id: str | None = None,
+) -> DeploymentPackage:
     """Materialize the Deployer package from persisted backend state."""
-    _ensure_optimizer_topology_is_executable(twin.optimizer_config)
-    deployment_specification = _selected_deployment_specification(twin)
-    providers = _build_providers_config(twin)
-    _validate_manifest_provider_path(
-        providers,
-        deployment_specification.specification,
+    contracts = _selected_deployment_contracts(
+        twin,
+        calculation_run_id=calculation_run_id,
     )
-    deployment_credentials = _build_deployment_credentials(twin, user_id)
-    files = _materialize_deployment_files(twin, providers, deployment_credentials)
+    optimizer_params = _validated_run_params(contracts.run)
+    _ensure_optimizer_params_are_executable(optimizer_params)
+    providers = _build_providers_config(contracts.architecture)
+    _validate_architecture_specification_path(
+        providers,
+        contracts.architecture,
+        contracts.specification,
+    )
+    required_providers = {
+        normalize_provider_id(provider)
+        for key, provider in providers.items()
+        if key.endswith("_provider") and provider
+    }
+    deployment_credentials = _build_deployment_credentials(
+        twin,
+        user_id,
+        required_providers=required_providers,
+    )
+    files = _materialize_deployment_files(
+        twin,
+        providers,
+        deployment_credentials,
+        optimizer_params=optimizer_params,
+    )
     binary_files = _materialize_binary_files(twin, providers)
     file_names = sorted(
         [file.path for file in files]
@@ -692,7 +802,8 @@ def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
         file_names,
         secret_bearing_files,
         extension_references=extension_references,
-        deployment_specification=deployment_specification.specification,
+        resolved_architecture=contracts.architecture,
+        deployment_specification=contracts.specification,
     )
     files = files + (
         DeploymentPackageFile(
@@ -707,13 +818,19 @@ def _materialize_deployment_files(
     twin,
     providers: dict,
     deployment_credentials: DeploymentCredentials,
+    *,
+    optimizer_params: dict[str, Any],
 ) -> tuple[DeploymentPackageFile, ...]:
     """Return the text/JSON files required by the Deployer package contract."""
     dc = twin.deployer_config
     oc = twin.optimizer_config
     files: list[DeploymentPackageFile] = [
         DeploymentPackageFile(
-            "config.json", json.dumps(_build_main_config(twin), indent=2)
+            "config.json",
+            json.dumps(
+                _build_main_config(twin, optimizer_params=optimizer_params),
+                indent=2,
+            ),
         ),
         DeploymentPackageFile("config_providers.json", json.dumps(providers, indent=2)),
     ]
@@ -759,13 +876,15 @@ def _materialize_deployment_files(
         )
     )
 
-    if oc:
-        files.append(
-            DeploymentPackageFile(
-                "config_optimization.json",
-                json.dumps(_build_optimization_config(oc), indent=2),
-            )
+    files.append(
+        DeploymentPackageFile(
+            "config_optimization.json",
+            json.dumps(
+                _build_optimization_config_from_params(optimizer_params),
+                indent=2,
+            ),
         )
+    )
     if dc:
         extension_files = _materialize_extension_bindings(twin)
         has_validated_extensions = bool(extension_files)
@@ -882,9 +1001,7 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
                 "An active extension binding does not match its immutable artifact.",
             )
 
-        artifact_root = (
-            f".twin2multicloud/extensions/artifacts/{artifact.id}"
-        )
+        artifact_root = f".twin2multicloud/extensions/artifacts/{artifact.id}"
         manifest_path = f"{artifact_root}/manifest.json"
         source_root = f"{artifact_root}/source"
         files.append(
@@ -974,8 +1091,8 @@ def _materialize_deployer_artifacts(
             )
         )
 
-    if dc.state_machine_content and oc and oc.cheapest_l2:
-        l2 = provider_id_for_deployer_project(oc.cheapest_l2)
+    if dc.state_machine_content:
+        l2 = providers.get("layer_2_provider")
         filenames = {
             "aws": "state_machines/aws_step_function.json",
             "azure": "state_machines/azure_logic_app.json",
@@ -1217,16 +1334,23 @@ def get_resource_name(twin) -> str:
     return twin.name.lower().replace(" ", "-")
 
 
-def _build_main_config(twin) -> dict:
+def _build_main_config(
+    twin,
+    *,
+    optimizer_params: dict[str, Any] | None = None,
+) -> dict:
     """Build the main config.json content."""
-    # Storage durations from optimizer params (months → days)
+    # Executable packages pass the immutable calculation-run parameter snapshot.
+    # The optional fallback keeps this helper usable for historical read/tests.
     hot_days = 30  # default: 1 month
     cold_days = 90  # default: 3 months
-    if twin.optimizer_config and twin.optimizer_config.params:
+    params = optimizer_params
+    if params is None and twin.optimizer_config and twin.optimizer_config.params:
         params = _json_object_from_content(
             twin.optimizer_config.params,
             "optimizer_config.params",
         )
+    if params is not None:
         hot_days = _months_to_days(params.get("hotStorageDurationInMonths"), 1)
         cold_days = _months_to_days(params.get("coolStorageDurationInMonths"), 3)
 
@@ -1245,31 +1369,46 @@ def _build_main_config(twin) -> dict:
     }
 
 
-def _build_providers_config(twin) -> dict:
-    """
-    Build config_providers.json from OptimizerConfiguration.
+def _build_providers_config(
+    resolved_architecture: dict[str, Any],
+) -> dict[str, str]:
+    """Derive the baseline HCL compatibility projection from graph ownership."""
 
-    NOTE: Provider values are stored as uppercase ("AWS", "AZURE", "GCP")
-    but the Deployer expects lowercase. We convert here.
-    """
-    if not twin.optimizer_config:
-        return {}
-
-    oc = twin.optimizer_config
-
-    return {
-        "layer_1_provider": provider_id_for_deployer_project(oc.cheapest_l1),
-        "layer_2_provider": provider_id_for_deployer_project(oc.cheapest_l2),
-        "layer_3_hot_provider": provider_id_for_deployer_project(oc.cheapest_l3_hot),
-        "layer_3_cold_provider": provider_id_for_deployer_project(
-            oc.cheapest_l3_cool
-        ),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
-        "layer_3_archive_provider": provider_id_for_deployer_project(
-            oc.cheapest_l3_archive
-        ),
-        "layer_4_provider": provider_id_for_deployer_project(oc.cheapest_l4),
-        "layer_5_provider": provider_id_for_deployer_project(oc.cheapest_l5),
+    key_by_component = {
+        "component.ingestion": "layer_1_provider",
+        "component.processing": "layer_2_provider",
+        "component.hot-storage": "layer_3_hot_provider",
+        "component.cool-storage": "layer_3_cold_provider",
+        "component.archive-storage": "layer_3_archive_provider",
+        "component.twin-state": "layer_4_provider",
+        "component.visualization": "layer_5_provider",
     }
+    providers: dict[str, str] = {}
+    for assignment in resolved_architecture.get("component_assignments", []):
+        logical_id = assignment.get("logical_component_id")
+        key = key_by_component.get(logical_id)
+        if key is None or key in providers:
+            raise DeploymentPackageBuildFailed(
+                "The selected architecture provider projection is invalid",
+                [
+                    {
+                        "field": "resolved_twin_architecture.component_assignments",
+                        "message": "Unknown or duplicate baseline component",
+                    }
+                ],
+            )
+        providers[key] = provider_id_for_deployer_project(assignment.get("provider"))
+    if set(providers) != set(key_by_component.values()):
+        raise DeploymentPackageBuildFailed(
+            "The selected architecture provider projection is incomplete",
+            [
+                {
+                    "field": "resolved_twin_architecture.component_assignments",
+                    "message": "Every baseline component must be assigned once",
+                }
+            ],
+        )
+    return providers
 
 
 def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]:
@@ -1283,9 +1422,18 @@ def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]
     return resolved.config_credentials, resolved.gcp_credentials_json
 
 
-def _build_deployment_credentials(twin, user_id: str) -> DeploymentCredentials:
+def _build_deployment_credentials(
+    twin,
+    user_id: str,
+    *,
+    required_providers: set[str] | None = None,
+) -> DeploymentCredentials:
     """Resolve deployment credentials once for config files and manifest metadata."""
-    return CredentialResolutionService().resolve_deployment_credentials(twin, user_id)
+    return CredentialResolutionService().resolve_deployment_credentials(
+        twin,
+        user_id,
+        required_providers=required_providers,
+    )
 
 
 def _build_deployment_manifest(
@@ -1296,6 +1444,7 @@ def _build_deployment_manifest(
     secret_bearing_files: list[str] | None = None,
     *,
     extension_references: Sequence[dict[str, str]] = (),
+    resolved_architecture: dict[str, Any],
     deployment_specification: dict[str, Any],
 ) -> dict[str, Any]:
     """
@@ -1324,6 +1473,8 @@ def _build_deployment_manifest(
         },
         "providers": _remove_empty_values(providers),
         "calculation_run_id": deployment_specification["calculation_run_id"],
+        "resolved_twin_architecture_digest": resolved_architecture["content_digest"],
+        "resolved_twin_architecture": resolved_architecture,
         "resolved_deployment_specification_digest": (
             deployment_specification["digest"]
         ),
@@ -1341,30 +1492,50 @@ def _build_deployment_manifest(
             ),
             "bindings": normalized_extension_references,
         },
+        "compatibility": {
+            "component_catalog_ref": _component_catalog_ref(),
+            "graph_resolver_version": RESOLVED_GRAPH_VERSION,
+            "package_builder_version": PACKAGE_BUILDER_VERSION,
+            "terraform_input_contract_version": (TERRAFORM_INPUT_CONTRACT_VERSION),
+        },
     }
 
 
-def _selected_deployment_specification(twin):
-    runs = getattr(twin, "cost_calculation_runs", None)
-    selected = [
-        run
-        for run in runs or ()
-        if getattr(run, "selected_for_deployment_at", None) is not None
-    ]
+def _selected_deployment_contracts(
+    twin,
+    *,
+    calculation_run_id: str | None = None,
+) -> SelectedDeploymentContracts:
+    try:
+        runs = tuple(getattr(twin, "cost_calculation_runs", None) or ())
+    except TypeError:
+        runs = ()
+    selected = (
+        [run for run in runs if getattr(run, "id", None) == calculation_run_id]
+        if calculation_run_id is not None
+        else [
+            run
+            for run in runs
+            if getattr(run, "selected_for_deployment_at", None) is not None
+        ]
+    )
     if len(selected) != 1:
         raise DeploymentPackageBuildFailed(
-            "Exactly one deployment-compatible optimizer run must be selected",
+            (
+                "Exactly one deployment-compatible optimizer run with "
+                "a resolved architecture must be selected"
+            ),
             [
                 {
+                    "code": "DEPLOYMENT_ARCHITECTURE_MISSING",
                     "field": "cost_calculation_run",
-                    "message": (
-                        "Select one current optimizer run before deployment"
-                    ),
+                    "message": ("The frozen or selected optimizer run is unavailable"),
                 }
             ],
         )
     try:
-        return validate_persisted_run_deployment_specification(selected[0])
+        run = selected[0]
+        specification = validate_persisted_run_deployment_specification(run)
     except CostCalculationRunSelectionError as exc:
         raise DeploymentPackageBuildFailed(
             "The selected optimizer run is not deployment-compatible",
@@ -1376,9 +1547,85 @@ def _selected_deployment_specification(twin):
             ],
         ) from exc
 
+    record = getattr(run, "resolved_architecture", None)
+    if (
+        getattr(run, "architecture_compatibility_status", None) != "ready"
+        or record is None
+        or getattr(record, "functional_completeness_status", None) != "complete"
+    ):
+        raise DeploymentPackageBuildFailed(
+            "The selected optimizer run has no deployment-ready architecture",
+            [
+                {
+                    "code": "DEPLOYMENT_ARCHITECTURE_MISSING",
+                    "field": "resolved_twin_architecture",
+                    "message": "DEPLOYMENT_ARCHITECTURE_MISSING",
+                }
+            ],
+        )
+    try:
+        architecture = json.loads(record.canonical_json)
+    except (AttributeError, json.JSONDecodeError, TypeError) as exc:
+        raise DeploymentPackageBuildFailed(
+            "The selected optimizer architecture is invalid",
+            [
+                {
+                    "field": "resolved_twin_architecture",
+                    "message": "DEPLOYMENT_ARCHITECTURE_INVALID",
+                }
+            ],
+        ) from exc
+    expected_digest = calculate_architecture_digest(architecture)
+    if (
+        architecture.get("content_digest") != expected_digest
+        or getattr(record, "content_digest", None) != expected_digest
+        or getattr(run, "resolved_architecture_digest", None) != expected_digest
+    ):
+        raise DeploymentPackageBuildFailed(
+            "The selected optimizer architecture digest is invalid",
+            [
+                {
+                    "field": "resolved_twin_architecture_digest",
+                    "message": "DEPLOYMENT_ARCHITECTURE_DIGEST_MISMATCH",
+                }
+            ],
+        )
+    deployment_ref = architecture.get("deployment_specification_ref")
+    if (
+        architecture.get("calculation_run_id") != run.id
+        or specification.specification.get("calculation_run_id") != run.id
+        or not isinstance(deployment_ref, dict)
+        or deployment_ref.get("calculation_run_id") != run.id
+        or deployment_ref.get("schema_version") != specification.schema_version
+        or deployment_ref.get("digest") != specification.digest
+    ):
+        raise DeploymentPackageBuildFailed(
+            "The selected architecture and deployment specification differ",
+            [
+                {
+                    "field": "resolved_twin_architecture.deployment_specification_ref",
+                    "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                }
+            ],
+        )
+    return SelectedDeploymentContracts(
+        run=run,
+        architecture=architecture,
+        specification=dict(specification.specification),
+    )
 
-def _validate_manifest_provider_path(
+
+def _selected_deployment_specification(twin):
+    """Historical test/helper facade; executable packages use both contracts."""
+
+    return validate_persisted_run_deployment_specification(
+        _selected_deployment_contracts(twin).run
+    )
+
+
+def _validate_architecture_specification_path(
     providers: dict[str, Any],
+    architecture: dict[str, Any],
     specification: dict[str, Any],
 ) -> None:
     expected_by_key: dict[str, str] = {}
@@ -1404,11 +1651,84 @@ def _validate_manifest_provider_path(
     actual = _remove_empty_values(providers)
     if actual != expected_by_key:
         raise DeploymentPackageBuildFailed(
-            "Optimizer provider projection differs from the selected specification",
+            "Architecture provider projection differs from the selected specification",
             [
                 {
                     "field": "providers",
-                    "message": "Re-select or recalculate the optimizer run",
+                    "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                }
+            ],
+        )
+    if actual != _build_providers_config(architecture):
+        raise DeploymentPackageBuildFailed(
+            "Manifest provider projection differs from the selected architecture",
+            [
+                {
+                    "field": "providers",
+                    "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                }
+            ],
+        )
+
+
+def _component_catalog_ref() -> dict[str, str]:
+    path = (
+        ARCHITECTURE_CONTRACT_ROOT
+        / "component-catalogs"
+        / "baseline"
+        / "1"
+        / "catalog.json"
+    )
+    try:
+        catalog = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            "id": catalog["catalog_id"],
+            "version": catalog["catalog_version"],
+            "digest": catalog["content_digest"],
+        }
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise DeploymentPackageBuildFailed(
+            "The deployment component catalog is unavailable",
+            [
+                {
+                    "field": "compatibility.component_catalog_ref",
+                    "message": "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+                }
+            ],
+        ) from exc
+
+
+def _validate_returned_graph_evidence(
+    evidence: dict[str, Any],
+    contracts: SelectedDeploymentContracts,
+) -> None:
+    """Bind Deployer preflight evidence to the exact selected contracts."""
+
+    profile_ref = contracts.architecture.get("architecture_profile_ref")
+    catalog_ref = _component_catalog_ref()
+    expected = {
+        "graph_schema_version": RESOLVED_GRAPH_VERSION,
+        "calculation_run_id": contracts.run.id,
+        "architecture_digest": contracts.architecture["content_digest"],
+        "profile_id": (
+            profile_ref.get("id") if isinstance(profile_ref, dict) else None
+        ),
+        "profile_version": (
+            profile_ref.get("version") if isinstance(profile_ref, dict) else None
+        ),
+        "catalog_id": catalog_ref["id"],
+        "catalog_version": catalog_ref["version"],
+        "catalog_digest": catalog_ref["digest"],
+        "specification_digest": contracts.specification["digest"],
+    }
+    if any(evidence.get(key) != value for key, value in expected.items()):
+        raise DeploymentPackageBuildFailed(
+            "Deployer graph evidence differs from the selected contracts",
+            [
+                {
+                    "code": "DEPLOYMENT_GRAPH_RESUME_MISMATCH",
+                    "field": "graph_evidence",
+                    "message": "DEPLOYMENT_GRAPH_RESUME_MISMATCH",
                 }
             ],
         )
@@ -1448,16 +1768,46 @@ def _build_optimization_config(oc) -> dict:
     input_params = {}
     if oc.params:
         params = _json_object_from_content(oc.params, "optimizer_config.params")
-        _ensure_optimizer_topology_is_executable(oc, params=params)
-        input_params = {
-            "useEventChecking": params.get("useEventChecking") is True,
-            "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow")
-            is True,
-            "returnFeedbackToDevice": params.get("returnFeedbackToDevice") is True,
-            "integrateErrorHandling": params.get("integrateErrorHandling") is True,
-            "needs3DModel": params.get("needs3DModel") is True,
-        }
+        return _build_optimization_config_from_params(
+            params,
+            field_prefix="optimizer_config.params",
+        )
     return {"result": {"inputParamsUsed": input_params}}
+
+
+def _build_optimization_config_from_params(
+    params: dict[str, Any],
+    *,
+    field_prefix: str = "cost_calculation_run.params_json",
+) -> dict[str, dict[str, dict[str, bool]]]:
+    """Project immutable calculation parameters into the Deployer flag contract."""
+
+    _ensure_optimizer_params_are_executable(params, field_prefix=field_prefix)
+    input_params = {
+        "useEventChecking": params.get("useEventChecking") is True,
+        "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow")
+        is True,
+        "returnFeedbackToDevice": params.get("returnFeedbackToDevice") is True,
+        "integrateErrorHandling": params.get("integrateErrorHandling") is True,
+        "needs3DModel": params.get("needs3DModel") is True,
+    }
+    return {"result": {"inputParamsUsed": input_params}}
+
+
+def _validated_run_params(run: Any) -> dict[str, Any]:
+    """Load the immutable calculation input snapshot used by deploy/retry/destroy."""
+
+    raw_params = getattr(run, "params_json", None)
+    if not isinstance(raw_params, str):
+        _raise_package_error(
+            "cost_calculation_run.params_json",
+            "DEPLOYMENT_ARCHITECTURE_INVALID",
+            "The selected optimizer run has no immutable parameter snapshot.",
+        )
+    return _json_object_from_content(
+        raw_params,
+        "cost_calculation_run.params_json",
+    )
 
 
 def _ensure_optimizer_topology_is_executable(
@@ -1477,12 +1827,26 @@ def _ensure_optimizer_topology_is_executable(
         )
     )
     try:
-        ensure_executable_error_handling_topology(
-            resolved_params.get(ERROR_HANDLING_FIELD)
+        _ensure_optimizer_params_are_executable(
+            resolved_params,
+            field_prefix="optimizer_config.params",
         )
+    except DeploymentPackageBuildFailed:
+        raise
+
+
+def _ensure_optimizer_params_are_executable(
+    params: dict[str, Any],
+    *,
+    field_prefix: str = "cost_calculation_run.params_json",
+) -> None:
+    """Validate topology flags from one immutable or legacy parameter document."""
+
+    try:
+        ensure_executable_error_handling_topology(params.get(ERROR_HANDLING_FIELD))
     except ValueError:
         _raise_package_error(
-            f"optimizer_config.params.{ERROR_HANDLING_FIELD}",
+            f"{field_prefix}.{ERROR_HANDLING_FIELD}",
             UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
             UNSUPPORTED_ERROR_HANDLING_MESSAGE,
         )
@@ -1518,9 +1882,7 @@ async def upload_project_to_deployer(
     except ExternalServiceError as exc:
         upstream_status = exc.upstream_status_code
         status_code = (
-            upstream_status
-            if upstream_status in {400, 409, 413, 422}
-            else 502
+            upstream_status if upstream_status in {400, 409, 413, 422} else 502
         )
         raise DownstreamServiceError(
             status_code=status_code,
@@ -1532,7 +1894,10 @@ async def upload_project_to_deployer(
 
 
 async def prepare_project_for_deployment(
-    twin, user_id: str
+    twin,
+    user_id: str,
+    *,
+    frozen_graph_evidence: dict[str, Any] | None = None,
 ) -> PreparedDeploymentProject:
     """
     Main entry point: Prepare and upload project to Deployer.
@@ -1545,19 +1910,53 @@ async def prepare_project_for_deployment(
         Opaque operation-scoped Deployer project context
     """
     resource_name = get_resource_name(twin)  # DRY: reuse helper
+    frozen_run_id = (
+        frozen_graph_evidence.get("calculation_run_id")
+        if isinstance(frozen_graph_evidence, dict)
+        else None
+    )
+    contracts = _selected_deployment_contracts(
+        twin,
+        calculation_run_id=(frozen_run_id if isinstance(frozen_run_id, str) else None),
+    )
+    providers = _build_providers_config(contracts.architecture)
 
     # Build ZIP
-    zip_data = build_project_zip(twin, user_id)
+    zip_data = build_project_zip(
+        twin,
+        user_id,
+        calculation_run_id=contracts.run.id,
+    )
 
     # Upload to Deployer
     result = await upload_project_to_deployer(resource_name, zip_data)
     operation_token = result.get("operation_token")
     if not isinstance(operation_token, str) or not operation_token:
         raise DeploymentPackageBuildFailed(
-            "Deployer did not return an operation package token"
+            "Deployer did not return an operation package token",
+            [
+                {
+                    "field": "operation_token",
+                    "message": "The staged operation response is incomplete",
+                }
+            ],
         )
+    graph_evidence = result.get("graph_evidence")
+    if not isinstance(graph_evidence, dict):
+        raise DeploymentPackageBuildFailed(
+            "Deployer did not return graph preflight evidence",
+            [
+                {
+                    "field": "graph_evidence",
+                    "message": "The staged operation response is incomplete",
+                }
+            ],
+        )
+    _validate_returned_graph_evidence(graph_evidence, contracts)
 
     return PreparedDeploymentProject(
         resource_name=resource_name,
         operation_token=operation_token,
+        provider=provider_id_for_deployer_api(providers["layer_1_provider"]),
+        graph_evidence=graph_evidence,
     )

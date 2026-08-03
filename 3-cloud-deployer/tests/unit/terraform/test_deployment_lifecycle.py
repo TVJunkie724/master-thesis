@@ -105,6 +105,14 @@ def test_streaming_deployment_uses_same_canonical_order(tmp_path):
 
     assert "init output" in lines
     assert "apply output" in lines
+    assert [
+        line for line in lines if line.startswith("T2MC_STAGE_COMPLETED:")
+    ] == [
+        "T2MC_STAGE_COMPLETED:package",
+        "T2MC_STAGE_COMPLETED:preplan",
+        "T2MC_STAGE_COMPLETED:terraform",
+        "T2MC_STAGE_COMPLETED:postapply",
+    ]
     assert events == [
         "validate",
         "providers",

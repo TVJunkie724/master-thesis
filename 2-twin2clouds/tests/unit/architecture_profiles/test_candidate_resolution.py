@@ -183,7 +183,7 @@ def test_component_without_required_extension_slot_is_not_admissible():
     assert raised.value.code == "ARCH_COMPONENT_CANDIDATE_MISSING"
 
 
-def test_repository_profiles_cannot_bypass_unsupported_state():
+def test_repository_profiles_are_eligible_after_graph_compiler_activation():
     registry = ArchitectureProfileRegistry()
     context = build_resolution_context(
         registry=registry,
@@ -205,10 +205,7 @@ def test_repository_profiles_cannot_bypass_unsupported_state():
     )
     strategy = FiveLayerCompletePathStrategy(registry.profile)
 
-    with pytest.raises(ArchitectureResolutionError) as raised:
-        strategy.validate_request(context)
-
-    assert raised.value.code == "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
+    strategy.validate_request(context)
 
 
 def test_missing_layer_execution_input_has_stable_workload_code():

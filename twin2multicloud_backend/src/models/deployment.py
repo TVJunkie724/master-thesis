@@ -26,6 +26,14 @@ class Deployment(Base):
     terraform_outputs = Column(JSON, nullable=True)
     error_code = Column(String, nullable=True)
     error_message = Column(Text, nullable=True)
+    architecture_digest = Column(String(71), nullable=True)
+    graph_digest = Column(String(71), nullable=True)
+    profile_id = Column(String(128), nullable=True)
+    profile_version = Column(String(32), nullable=True)
+    catalog_id = Column(String(128), nullable=True)
+    catalog_version = Column(String(32), nullable=True)
+    completed_stage = Column(String(32), nullable=True)
+    graph_validation = Column(JSON, nullable=True)
     logs = Column(Text, nullable=True)  # Legacy, kept for compatibility
     
     # Relationships

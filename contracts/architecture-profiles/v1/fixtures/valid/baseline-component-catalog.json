@@ -2013,7 +2013,7 @@
       }
     }
   ],
-  "content_digest": "sha256:5c8aa6b11e32ae5a18bcc40b55ccff54a940b49035c0e41815e9f21cd73d8bb5",
+  "content_digest": "sha256:be7ffb2609dcd6b785beab2a8f63d7395ba6b4a5b267fe4e0196ce498f62135a",
   "edge_implementations": [
     {
       "compatibility": {
@@ -3061,7 +3061,7 @@
       ],
       "platform_handler": "handler.aws.platform",
       "repository_source_path": "3-cloud-deployer/src",
-      "source_digest": "sha256:07d35dda3f41ae9072d19a0a852b45ca29c047ffb0df56dcf41a59698b7b8eec",
+      "source_digest": "sha256:40622633b1770d42f6e01f43a2e0afae8d6d26a5eb8b75c43453c44b23b68bad",
       "supported_runtimes": [
         "runtime.aws.managed"
       ],
@@ -3090,7 +3090,7 @@
       ],
       "platform_handler": "handler.azure.platform",
       "repository_source_path": "3-cloud-deployer/src",
-      "source_digest": "sha256:48bf9246850cd41296ec9a31a4aacf6c2f3ceb4a54713afb4da3205c67811364",
+      "source_digest": "sha256:0022ede20de796126f4cfb4cf97bb1f94cb8496296ebf910bf149f965c200b95",
       "supported_runtimes": [
         "runtime.azure.managed"
       ],

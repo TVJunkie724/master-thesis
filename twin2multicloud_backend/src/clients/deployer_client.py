@@ -261,6 +261,7 @@ def _validate_operation_package_response(
     project_name = payload.get("project_name")
     raw_expiry = payload.get("expires_at")
     warnings = payload.get("warnings", [])
+    graph_evidence = payload.get("graph_evidence")
     if project_name != expected_project_name:
         raise ExternalServiceError(
             "Deployer API operation package project mismatch",
@@ -295,7 +296,74 @@ def _validate_operation_package_response(
             "Deployer API returned invalid operation package warnings",
             public_detail="Deployer returned an invalid operation package contract.",
         )
+    required_graph_fields = {
+        "graph_schema_version",
+        "graph_id",
+        "calculation_run_id",
+        "graph_digest",
+        "architecture_digest",
+        "profile_id",
+        "profile_version",
+        "catalog_id",
+        "catalog_version",
+        "catalog_digest",
+        "specification_digest",
+        "package_selection_digest",
+        "node_count",
+        "edge_count",
+        "binding_count",
+        "stage_ids",
+    }
+    digest_pattern = re.compile(r"^sha256:[0-9a-f]{64}$")
+    if (
+        not isinstance(graph_evidence, dict)
+        or set(graph_evidence) != required_graph_fields
+        or graph_evidence.get("graph_schema_version") != "resolved-deployment-graph.v1"
+        or not all(
+            isinstance(graph_evidence.get(field), str)
+            and digest_pattern.fullmatch(graph_evidence[field]) is not None
+            for field in (
+                "graph_digest",
+                "architecture_digest",
+                "catalog_digest",
+                "specification_digest",
+                "package_selection_digest",
+            )
+        )
+        or not isinstance(graph_evidence.get("calculation_run_id"), str)
+        or not graph_evidence["calculation_run_id"]
+        or not all(
+            isinstance(graph_evidence.get(field), str)
+            and bool(graph_evidence[field])
+            for field in (
+                "graph_id",
+                "profile_id",
+                "profile_version",
+                "catalog_id",
+                "catalog_version",
+            )
+        )
+        or not _bounded_graph_count(graph_evidence.get("node_count"), 1, 256)
+        or not _bounded_graph_count(graph_evidence.get("edge_count"), 0, 512)
+        or not _bounded_graph_count(graph_evidence.get("binding_count"), 1, 2048)
+        or graph_evidence.get("stage_ids")
+        != ["package", "preplan", "terraform", "postapply"]
+    ):
+        raise ExternalServiceError(
+            "Deployer API omitted validated deployment graph evidence",
+            public_detail="Deployer returned an invalid operation package contract.",
+        )
     return payload
+
+
+def _bounded_graph_count(value: object, minimum: int, maximum: int) -> bool:
+    """Validate a topology-neutral, bounded graph evidence counter."""
+
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, int)
+        and minimum <= value <= maximum
+    )
 
 
 def _parse_simulator_archive(

@@ -220,13 +220,16 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 (
                     "python scripts/sync_resolved_deployment_contract.py --check "
                     "&& python scripts/sync_architecture_profile_contracts.py --check "
+                    "&& python scripts/sync_deployment_manifest_contract.py --check "
                     "&& python scripts/sync_user_function_extension_contracts.py --check "
                     "&& python -m unittest "
                     "scripts.tests.test_resolved_deployment_contract_sync "
                     "scripts.tests.test_architecture_profile_contract_sync "
                     "scripts.tests.test_user_function_extension_contract_sync "
                     "scripts.tests.test_verify_resolved_deployment_drift "
-                    "scripts.tests.test_thesis_entrypoint"
+                    "scripts.tests.test_thesis_entrypoint "
+                    "&& python -m pytest -q "
+                    "scripts/tests/test_deployment_manifest_contract_sync.py"
                 ),
                 root_mount=True,
             ),
@@ -236,12 +239,18 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             _compose_run(
                 project,
                 "2twin2clouds",
-                "python",
-                "-m",
-                "pytest",
-                "-q",
-                "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
-                "tests/unit/test_resolved_deployment_contract.py",
+                "sh",
+                "-lc",
+                (
+                    "cd /app "
+                    "&& python /workspace/scripts/"
+                    "generate_deployment_manifest_fixtures.py --check "
+                    "&& python -m pytest -q "
+                    "tests/unit/calculation_v2/"
+                    "test_deployment_drift_matrix.py "
+                    "tests/unit/test_resolved_deployment_contract.py"
+                ),
+                root_mount=True,
                 environment=(
                     "PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",
                 ),
@@ -283,8 +292,15 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "&& python -m pytest -q "
                     "tests/unit/deployment_specification/"
                     "test_deployment_drift_matrix.py "
+                    "tests/unit/architecture_profiles/"
+                    "test_graph_resolver.py "
+                    "tests/unit/terraform/"
+                    "test_graph_compatibility_projection.py "
+                    "tests/unit/test_operation_packages.py "
+                    "tests/unit/terraform/test_build_all_packages.py "
                     "tests/unit/terraform/test_deployment_target_bindings.py "
                     "tests/unit/terraform/test_native_mock_plans.py "
+                    "tests/unit/terraform/test_tfvars_generator.py "
                     "tests/unit/test_resolved_deployment_contract.py "
                     "tests/unit/test_user_function_extensions.py"
                 ),

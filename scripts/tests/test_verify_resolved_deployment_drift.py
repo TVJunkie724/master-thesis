@@ -141,6 +141,18 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
         self.assertIn(
+            "tests/unit/terraform/test_build_all_packages.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/unit/terraform/test_graph_compatibility_projection.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/unit/terraform/test_tfvars_generator.py",
+            rendered,
+        )
+        self.assertIn(
             "tests/test_user_function_extension_contract.py",
             rendered,
         )

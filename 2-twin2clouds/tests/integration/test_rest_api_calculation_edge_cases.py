@@ -20,6 +20,13 @@ from backend.pricing_catalog_resolver import ResolvedPricingCatalogs
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _legacy_calculation_tests_opt_out_of_architecture_resolution(monkeypatch):
+    """Keep non-architecture endpoint tests scoped to their original boundary."""
+
+    monkeypatch.setenv("ARCHITECTURE_PROFILE_RESOLUTION_ENABLED", "false")
+
+
 def _catalog_context() -> PricingCatalogContext:
     repository = get_pricing_catalog_repository()
     return PricingCatalogContext(
@@ -333,9 +340,9 @@ def test_architecture_resolution_gate_off_rejects_profile_fields(
     mock_resolve_pricing,
     monkeypatch,
 ):
-    monkeypatch.delenv(
+    monkeypatch.setenv(
         "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
-        raising=False,
+        "false",
     )
 
     response = client.put(

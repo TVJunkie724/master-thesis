@@ -13,10 +13,7 @@ class DeploymentComponentCatalog:
     def __init__(self, registry: ArchitectureProfileRegistry | None = None) -> None:
         document = (registry or ArchitectureProfileRegistry()).catalog
         self._components = MappingProxyType(
-            {
-                item["deployment_component_id"]: item
-                for item in document["components"]
-            }
+            {item["deployment_component_id"]: item for item in document["components"]}
         )
         self._edges = MappingProxyType(
             {

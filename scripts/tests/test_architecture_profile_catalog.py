@@ -98,8 +98,8 @@ def test_completeness_gate_checks_every_repository_binding():
         "version": "1",
         "digest": report["catalog"]["digest"],
         "deployment_components": 22,
-        "edge_implementations": 33,
-        "package_artifacts": 43,
+        "edge_implementations": 36,
+        "package_artifacts": 50,
         "terraform_resources": 51,
     }
     assert report["fixtures"]["scenario.all-gcp"] == {
@@ -237,11 +237,22 @@ def test_definition_manifest_pins_decision_and_catalog_digests():
         / "1"
         / "catalog.json"
     )
+    inventory = _read(
+        ROOT
+        / "contracts"
+        / "architecture-inventory"
+        / "v1"
+        / "current-graph.json"
+    )
     assert (
         manifest["source_digests"]["baseline_decision"]
         == decision["content_digest"]
     )
     assert manifest["definition_digests"]["catalog"] == catalog["content_digest"]
+    assert (
+        manifest["source_digests"]["architecture_inventory"]
+        == inventory["content_digest"]
+    )
     assert set(manifest["source_digests"]["package_builders"]) == {
         "aws",
         "azure",

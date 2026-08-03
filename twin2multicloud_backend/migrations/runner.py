@@ -62,6 +62,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "022_resolved_twin_architecture",
         "migrations.add_resolved_twin_architecture",
     ),
+    Migration(
+        "023_deployment_graph_evidence",
+        "migrations.add_deployment_graph_evidence",
+    ),
 )
 
 

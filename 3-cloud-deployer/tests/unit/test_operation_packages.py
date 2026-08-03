@@ -10,6 +10,11 @@ import zipfile
 
 import pytest
 
+from src.architecture_profiles.contracts import (
+    calculate_digest,
+    calculate_resolution_id,
+)
+from src.core.config_loader import ProjectConfigLoader
 from src.core.project_storage import ProjectStorage
 from src.operation_packages import (
     LOCK_FILE,
@@ -17,7 +22,10 @@ from src.operation_packages import (
     OperationPackageError,
     OperationPackageStore,
 )
+from src.providers.terraform.package_builder import build_all_packages
 from src.runtime_state import RuntimeStateStore
+from src.tfvars_generator import generate_tfvars
+from src.user_function_extensions.contracts import runtime as extension_runtime
 
 
 def _archive() -> bytes:
@@ -28,6 +36,132 @@ def _archive() -> bytes:
             "config_credentials.json",
             '{"aws":{"aws_secret_access_key":"operation-secret"}}',
         )
+    return buffer.getvalue()
+
+
+def _v3_archive() -> bytes:
+    manifest_path = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "contracts"
+        / "generated"
+        / "deployment-manifest"
+        / "v3"
+        / "fixtures"
+        / "valid"
+        / "all-aws.json"
+    )
+    manifest = json.loads(manifest_path.read_text("utf-8"))
+    manifest["twin"]["resource_name"] = "factory"
+    extension_root = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "contracts"
+        / "generated"
+        / "user-function-extension"
+        / "v1"
+    )
+    extension_manifest = json.loads(
+        (extension_root / "examples" / "valid-artifact.json").read_text("utf-8")
+    )
+    source_root = extension_root / "examples" / "source" / "valid"
+    architecture = manifest["resolved_twin_architecture"]
+    architecture_binding = architecture["extension_bindings"][0]
+    architecture_binding["artifact_id"] = extension_manifest["artifact_id"]
+    architecture_binding["artifact_digest"] = extension_manifest["artifact_digest"]
+    architecture["resolution_id"] = calculate_resolution_id(architecture)
+    architecture["content_digest"] = calculate_digest(architecture)
+    manifest["resolved_twin_architecture_digest"] = architecture["content_digest"]
+    artifact_root = (
+        f".twin2multicloud/extensions/artifacts/{extension_manifest['artifact_id']}"
+    )
+    manifest_path_in_archive = f"{artifact_root}/manifest.json"
+    source_path_in_archive = f"{artifact_root}/source"
+    binding_digest = extension_runtime.binding_digest(
+        twin_id=manifest["twin"]["id"],
+        slot_id=extension_manifest["slot_id"],
+        slot_version=extension_manifest["slot_version"],
+        artifact_id=extension_manifest["artifact_id"],
+        artifact_digest=extension_manifest["artifact_digest"],
+    )
+    binding = {
+        "slot_id": extension_manifest["slot_id"],
+        "slot_version": extension_manifest["slot_version"],
+        "artifact_id": extension_manifest["artifact_id"],
+        "artifact_digest": extension_manifest["artifact_digest"],
+        "binding_digest": binding_digest,
+        "manifest_path": manifest_path_in_archive,
+        "source_root": source_path_in_archive,
+    }
+    binding_index_path = ".twin2multicloud/extensions/bindings.json"
+    binding_index = {
+        "schema_version": "twin-extension-binding-index.v1",
+        "twin_id": manifest["twin"]["id"],
+        "bindings": [binding],
+    }
+    manifest["extensions"] = {
+        "binding_index": binding_index_path,
+        "bindings": [
+            {
+                key: binding[key]
+                for key in (
+                    "slot_id",
+                    "slot_version",
+                    "artifact_id",
+                    "artifact_digest",
+                    "binding_digest",
+                )
+            }
+        ],
+    }
+    extension_files = {
+        manifest_path_in_archive: extension_runtime.canonical_json(
+            extension_manifest
+        ),
+        binding_index_path: extension_runtime.canonical_json(binding_index),
+        **{
+            f"{source_path_in_archive}/{path.name}": path.read_text("utf-8")
+            for path in source_root.iterdir()
+            if path.is_file()
+        },
+    }
+    manifest["package"]["files"] = sorted(
+        {*manifest["package"]["files"], *extension_files}
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(
+            "config.json",
+            json.dumps(
+                {
+                    "digital_twin_name": "factory",
+                    "hot_storage_size_in_days": 30,
+                    "cold_storage_size_in_days": 90,
+                    "mode": "debug",
+                }
+            ),
+        )
+        archive.writestr(
+            "config_credentials.json",
+            json.dumps(
+                {
+                    "aws": {
+                        "aws_access_key_id": "test",
+                        "aws_secret_access_key": "operation-secret",
+                        "aws_region": "eu-central-1",
+                    }
+                }
+            ),
+        )
+        archive.writestr(
+            "config_providers.json",
+            json.dumps(manifest["providers"]),
+        )
+        archive.writestr("config_iot_devices.json", "[]")
+        archive.writestr("config_events.json", "[]")
+        for path, content in extension_files.items():
+            archive.writestr(path, content)
+        archive.writestr("deployment_manifest.json", json.dumps(manifest))
     return buffer.getvalue()
 
 
@@ -99,6 +233,78 @@ def test_stage_rejects_invalid_contract_before_creating_package_root(
         store.stage("factory", _archive())
 
     assert not store.root.exists()
+
+
+def test_stage_v3_compiles_graph_and_returns_bounded_evidence(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        "file_manager.validator.validate_project_zip",
+        lambda _archive, **_kwargs: [],
+    )
+    store, _durable, _runtime_state_store = _store(tmp_path)
+
+    staged = store.stage("factory", _v3_archive())
+
+    assert staged.graph_evidence is not None
+    assert staged.graph_evidence["graph_schema_version"] == (
+        "resolved-deployment-graph.v1"
+    )
+    assert staged.graph_evidence["node_count"] == 7
+    assert staged.graph_evidence["edge_count"] == 6
+    assert staged.graph_evidence["binding_count"] >= 21
+    metadata = json.loads(
+        (store.root / staged.token / METADATA_FILE).read_text("utf-8")
+    )
+    assert metadata["graph_evidence"] == staged.graph_evidence
+
+
+def test_v3_operation_package_drives_real_graph_packages_and_tfvars(
+    monkeypatch,
+    tmp_path,
+):
+    """Exercise Manifest v3 through graph compilation, packages, and tfvars."""
+    monkeypatch.setattr(
+        "file_manager.validator.validate_project_zip",
+        lambda _archive, **_kwargs: [],
+    )
+    store, _durable, _runtime_state_store = _store(tmp_path)
+    staged = store.stage("factory", _v3_archive())
+    terraform_dir = Path(__file__).resolve().parents[2] / "src" / "terraform"
+
+    with store.acquire("factory", staged.token) as acquired:
+        context = ProjectConfigLoader().create_context_from_path(
+            "factory",
+            acquired,
+            "aws",
+            operation_id="phase-8.6-offline",
+        )
+        packages = build_all_packages(
+            terraform_dir,
+            acquired,
+            context.config.providers,
+            operation_id=context.operation_id,
+            graph=context.resolved_deployment_graph,
+        )
+        tfvars_path = acquired / "terraform" / "generated.tfvars.json"
+        generate_tfvars(str(acquired), str(tfvars_path))
+        tfvars = json.loads(tfvars_path.read_text("utf-8"))
+
+        assert set(packages) == {
+            item["package_id"]
+            for item in json.loads(
+                (
+                    acquired
+                    / ".twin2multicloud"
+                    / "graph"
+                    / "package-evidence.json"
+                ).read_text("utf-8")
+            )["built_packages"]
+        }
+        assert tfvars["layer_1_provider"] == "aws"
+        assert tfvars["layer_5_provider"] == "aws"
+        assert tfvars["aws_l1_lambda_memory_mb"] == 256
 
 
 def test_acquire_rejects_cross_project_and_concurrent_use(monkeypatch, tmp_path):

@@ -136,14 +136,25 @@ index enforces this invariant in addition to the application transaction. Packag
 generation revalidates the stored object and requires its provider path to equal the
 persisted Optimizer projection before decrypting credentials or materializing files.
 
-The Management API builds `deployment_manifest.json` version `2.0`, embedding the
-exact calculation run ID, specification object, and digest. It submits exact archive
-bytes to the Deployer, receives an operation-package token, and uses that token for
-the deploy/destroy operation. It does not write into Deployer templates directly.
-The Deployer revalidates Manifest v2, the specification digest, provider path,
-components, dimensions, and formula/evidence bindings before staging runtime
-state. It translates only allowlisted deployment selections into typed tfvars;
-unknown or drifting contracts fail closed.
+The Management API builds `deployment_manifest.json` version `3.0`, embedding the
+exact calculation run ID, immutable architecture and specification objects/digests,
+pinned catalog compatibility, derived provider projection, credential-source
+metadata, and immutable extension references. Storage durations and feature flags
+come from the selected run's immutable `params_json`, not the currently editable
+Optimizer configuration. Fixed `cheapest_l*` columns are historical projections and
+cannot influence executable packages.
+
+It submits exact archive bytes to the Deployer, receives an operation-package token
+and bounded graph evidence, validates that evidence, and persists it with the
+deployment. The Deployer compiles the graph and revalidates packages/tfvars before
+Terraform. Management records monotonic graph-stage completion from the stream.
+Retry and destroy compare the complete frozen evidence, including architecture,
+specification, catalog, graph, and package-selection digests. Destroy selects the
+recorded calculation run rather than the latest selection. Drift fails with
+`DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
+
+Manifest v2 remains readable for historical compatibility only. New operations
+require v3; no invalid-v3-to-v2 or fixed-field fallback exists.
 
 ## Database Startup And Migrations
 
@@ -161,6 +172,8 @@ Migration `022` adds pinned Twin architecture selections, immutable canonical
 run resolutions and derived component/edge projections, conservatively
 classifies legacy runs, deselects non-resolvable history, and installs
 immutability and append-only audit guards.
+Migration `023_deployment_graph_evidence` adds bounded graph/profile/catalog/stage
+evidence to operation records without inventing evidence for history.
 
 SQLite is the local single-node storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.

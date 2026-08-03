@@ -80,6 +80,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
             self.project_path,
             self._load_providers_config(),
             operation_id=getattr(self, "_extension_operation_id", None),
+            graph=getattr(self, "_resolved_deployment_graph", None),
         )
 
     def _validate_project(self) -> None:

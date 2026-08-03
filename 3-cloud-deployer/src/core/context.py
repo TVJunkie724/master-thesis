@@ -24,6 +24,7 @@ from pathlib import Path
 if TYPE_CHECKING:
     from .protocols import CloudProvider
     from src.deployment_specification import ValidatedDeploymentManifest
+    from src.architecture_profiles import ResolvedDeploymentGraph
 
 
 @dataclass
@@ -211,6 +212,9 @@ class DeploymentContext:
     validated_deployment_manifest: Optional[
         "ValidatedDeploymentManifest"
     ] = None
+
+    # Deterministic graph compiled from Manifest v3 before package/Terraform work.
+    resolved_deployment_graph: Optional["ResolvedDeploymentGraph"] = None
     
     # Currently active layer (for logging context)
     active_layer: Optional[int | str] = None

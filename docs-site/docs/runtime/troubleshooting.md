@@ -61,6 +61,31 @@ Inspect configuration completion, CloudConnection validation, deployment preflig
 artifact validation, and current twin state. A twin in `deploying`/`destroying` already
 has an active operation; use status/history rather than starting another.
 
+## Manifest Or Deployment Graph Preflight Fails
+
+New operations require DeploymentManifest v3. Do not downgrade the archive to v2 or
+copy values from `cheapest_l*` fields. Use the stable code to locate the owning
+contract:
+
+| Code family | Check |
+|---|---|
+| `DEPLOYMENT_MANIFEST_*` | v3 schema/version, bounded inventory, secret-free manifest |
+| `DEPLOYMENT_ARCHITECTURE_*` | selected run, architecture/specification cross-links and digests |
+| `DEPLOYMENT_PROFILE_CATALOG_MISMATCH` | exact generated profile/catalog copies and digests |
+| `DEPLOYMENT_GRAPH_NODE_*`, `EDGE_*`, `BINDING_*`, `CYCLE_*` | registered component, edge, port, trust, and binding ownership |
+| `DEPLOYMENT_PACKAGE_CATALOG_MISMATCH` | selected artifact source/builder and deterministic package evidence |
+| `DEPLOYMENT_TERRAFORM_BINDING_INVALID` | catalog variable/resource/output symbol and value type |
+| `DEPLOYMENT_GRAPH_RESUME_MISMATCH` | retry/destroy differs from the successful operation's frozen evidence |
+
+Run the safe gate from the repository root:
+
+```bash
+./thesis.sh test deployment-contract --focused
+```
+
+Errors expose bounded IDs and a correlation ID. Do not add physical resource names,
+tfvars, credentials, provider responses, or source code to an issue.
+
 ## An Azure Runtime Request Fails
 
 Use the stable `error.code` to distinguish invalid input, authentication,

@@ -109,7 +109,7 @@ def test_fixed_field_consumer_allowlist_is_complete(repository_root):
     verified = verify_allowlisted_anchors(repository_root)
 
     assert len(verified) == sum(len(entry["anchors"]) for entry in ALLOWLISTED_ANCHORS)
-    assert len({entry["path"] for entry in ALLOWLISTED_ANCHORS}) == 20
+    assert len({entry["path"] for entry in ALLOWLISTED_ANCHORS}) == 14
     assert all(entry["owner"] for entry in ALLOWLISTED_ANCHORS)
     assert all(entry["rationale"] for entry in ALLOWLISTED_ANCHORS)
     assert all(entry["expiry_phase"] for entry in ALLOWLISTED_ANCHORS)

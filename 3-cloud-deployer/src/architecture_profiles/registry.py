@@ -24,9 +24,7 @@ def _read(path: Path) -> dict[str, Any]:
 
 def _freeze(value: Any) -> Any:
     if isinstance(value, dict):
-        return MappingProxyType(
-            {key: _freeze(item) for key, item in value.items()}
-        )
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
     if isinstance(value, list):
         return tuple(_freeze(item) for item in value)
     return value
@@ -37,18 +35,10 @@ class ArchitectureProfileRegistry:
 
     def __init__(self) -> None:
         profile = _read(
-            DEFINITIONS_ROOT
-            / "profiles"
-            / "five-layer-baseline"
-            / "1"
-            / "profile.json"
+            DEFINITIONS_ROOT / "profiles" / "five-layer-baseline" / "1" / "profile.json"
         )
         catalog = _read(
-            DEFINITIONS_ROOT
-            / "component-catalogs"
-            / "baseline"
-            / "1"
-            / "catalog.json"
+            DEFINITIONS_ROOT / "component-catalogs" / "baseline" / "1" / "catalog.json"
         )
         providers = {
             provider: _read(
@@ -64,14 +54,10 @@ class ArchitectureProfileRegistry:
         documents = (profile, *providers.values(), catalog)
         contracts.read_contract_bundle(documents)
         self._profile = _freeze(
-            contracts.read_contract(
-                profile, linked_documents=documents
-            ).document
+            contracts.read_contract(profile, linked_documents=documents).document
         )
         self._catalog = _freeze(
-            contracts.read_contract(
-                catalog, linked_documents=documents
-            ).document
+            contracts.read_contract(catalog, linked_documents=documents).document
         )
         self._providers = MappingProxyType(
             {

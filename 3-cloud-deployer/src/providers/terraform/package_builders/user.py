@@ -315,7 +315,9 @@ def build_user_packages(
     return packages
 
 
-def get_user_package_path(project_path: Path, function_name: str, provider: str) -> Path:
+def get_user_package_path(
+    project_path: Path, function_name: str, provider: str
+) -> Path:
     """Return the canonical pre-built user package path."""
     validate_path_component(function_name, "function name")
     validate_path_component(provider, "provider name")

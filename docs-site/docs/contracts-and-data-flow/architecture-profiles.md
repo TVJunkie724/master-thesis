@@ -1,12 +1,12 @@
 # Architecture Profile Contracts
 
-Phases 8.2 through 8.5 provide a versioned, closed-world contract boundary,
+Phases 8.2 through 8.6 provide a versioned, closed-world contract boundary,
 repository-owned production definitions, profile-bounded Optimizer resolution,
-and Management-owned persistence for reviewed Twin architectures. Profile
+Management-owned persistence, and deterministic Deployer graph compilation for reviewed Twin architectures. Profile
 list/detail/select/preview APIs and owner-scoped resolved-architecture reads
-are active. Optimizer emission and Management admission are implemented behind
-a default-off gate. Deployer graph execution, runtime activation, Terraform,
-and Flutter presentation remain staged for later phases.
+are active. Optimizer emission, Management admission, Manifest v3, AWS/Azure
+provider support, graph-selected packages, and graph-derived Terraform inputs
+are active by default. Flutter presentation remains the Phase 8.7 boundary.
 
 ## Four Separate Records
 
@@ -55,10 +55,11 @@ their run, profile, optimization-bundle, pricing, deployment, cost, extension,
 and digest cross-links before one atomic commit. A malformed response persists
 only bounded failed-run metadata and never becomes a legacy success.
 
-`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` defaults to `false` in both services.
-The repository provider profiles remain unsupported until Phase 8.6. The
-supported fixtures prove the resolver and persistence path without bypassing
-that runtime state.
+`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` defaults to `false` in the Optimizer
+and Management API while the graph compiler remains dark/read-only. Explicitly
+setting it to `true` enables architecture-aware calculation and deployment
+admission for controlled Phase 8 verification; a failed enabled resolution does
+not fall back to a legacy deployment result.
 
 ## Management Persistence
 
@@ -95,14 +96,13 @@ layer.
 
 ## Registered Baseline Realization
 
-The Phase 8.3 catalog contains 22 reviewed deployment bundles covering all 42
-deployment-dimension components, 33 Phase 8.1 decision-traced edge
-implementations, 43 content-addressed platform/shared artifacts, and 51
-explicitly owned Terraform resources. AWS and Azure each map all seven logical
-components and the five Phase 8.3-owned baseline edges. They remain fail-closed with
-`PROFILE_TARGET_NOT_IMPLEMENTED` until Phase 8.6 compiles the typed L4-to-L5
-binding. GCP maps the supported L1-L3 subset and remains unsupported for a
-complete baseline because L4/L5 are absent.
+The active catalog contains 22 reviewed deployment components, 36 edge
+implementations, 50 content-addressed platform/shared artifacts, and explicit
+Terraform resource/variable/output ownership. AWS and Azure each map all seven
+logical components and all six baseline edges, including the typed L4-to-L5
+binding. Their profiles are supported after the Phase 8.6 graph/package/Terraform
+gate. GCP maps the L1-L3 subset and remains unsupported for a complete baseline
+because reviewed L4/L5 implementations are absent.
 
 The reviewed successor contracts are not active yet. Phase 8.9A plans
 `five-layer-baseline@2` with mandatory embedded domain events, three

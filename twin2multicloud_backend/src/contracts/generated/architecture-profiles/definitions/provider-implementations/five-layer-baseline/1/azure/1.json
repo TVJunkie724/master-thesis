@@ -251,7 +251,7 @@
       ]
     }
   ],
-  "content_digest": "sha256:8e1813352edd464e494975ac2e7a704e52b932665ec709ae60822c987e4ac1aa",
+  "content_digest": "sha256:043ddd3030dc14df58f6dd4ac1614ff518f10fc7917e52565739c601f585c2c7",
   "edge_mappings": [
     {
       "catalog_input_port_id": "catalog.azure.port.archive-storage.write-in",
@@ -337,6 +337,23 @@
         "deployment.azure.processing"
       ],
       "transfer_route_class": "same_provider_same_region"
+    },
+    {
+      "catalog_input_port_id": "catalog.azure.port.visualization.query-in",
+      "catalog_output_port_id": "catalog.azure.port.twin-state.query-out",
+      "cost_owner_ids": [
+        "cost.twin-state-to-visualization"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.visualization"
+      ],
+      "edge_id": "edge.twin-state-to-visualization",
+      "edge_implementation_id": "edge-implementation.azure.l4-to-l5",
+      "mechanism": "typed_synchronous_api",
+      "source_deployment_component_ids": [
+        "deployment.azure.twin-state"
+      ],
+      "transfer_route_class": "same_provider_same_region"
     }
   ],
   "implementation_profile_id": "provider-profile.azure.five-layer-baseline",
@@ -352,11 +369,6 @@
     "version": "1"
   },
   "schema_version": "provider-implementation-profile.v1",
-  "supported": false,
-  "unsupported_reasons": [
-    {
-      "message": "Typed L4-to-L5 datasource compilation remains owned by Phase 8.6.",
-      "reason_code": "profile-target-not-implemented"
-    }
-  ]
+  "supported": true,
+  "unsupported_reasons": []
 }

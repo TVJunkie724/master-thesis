@@ -377,8 +377,9 @@ anchors across 19 source consumers.
 
 Phase 8.4 subsequently added the server-owned
 `resolved_architecture_service.py` compatibility projection to that executable
-allowlist. The current drift gate therefore verifies 100 anchors across 20
-source files, as tracked in
+allowlist. The Phase 8.6 migration has since reduced the remaining executable
+legacy surface; the current drift gate verifies 88 anchors across 14 source
+files, as tracked in
 [`phase_08_4_fixed_field_reader_inventory.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_4_fixed_field_reader_inventory.md);
 the Phase 8.0 count above remains the historical cut rather than being silently
 rewritten.

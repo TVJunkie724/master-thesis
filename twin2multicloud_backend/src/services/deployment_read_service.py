@@ -56,7 +56,10 @@ class DeploymentReadService:
         twin = self._require_twin(twin_id, user_id)
         active_session = None
 
-        if active_session_provider and twin.state in (TwinState.DEPLOYING, TwinState.DESTROYING):
+        if active_session_provider and twin.state in (
+            TwinState.DEPLOYING,
+            TwinState.DESTROYING,
+        ):
             sessions = await active_session_provider(twin_id)
             if sessions:
                 session = sessions[0]
@@ -98,8 +101,12 @@ class DeploymentReadService:
             "operation_id": deployment.operation_id,
             "operation_type": deployment.operation_type,
             "status": deployment.status,
-            "started_at": deployment.started_at.isoformat() if deployment.started_at else None,
-            "completed_at": deployment.completed_at.isoformat() if deployment.completed_at else None,
+            "started_at": deployment.started_at.isoformat()
+            if deployment.started_at
+            else None,
+            "completed_at": deployment.completed_at.isoformat()
+            if deployment.completed_at
+            else None,
             "error_code": deployment.error_code,
             "error_message": deployment.error_message,
         }
@@ -112,8 +119,10 @@ class DeploymentReadService:
 
     @staticmethod
     def _uses_gcp_firestore(twin: DigitalTwin) -> bool:
-        provider_candidates = [
-            getattr(getattr(twin, "optimizer_config", None), "cheapest_l3_hot", None),
-            getattr(getattr(twin, "deployer_config", None), "layer_3_hot_provider", None),
-        ]
-        return any(is_gcp_provider(provider) for provider in provider_candidates if provider)
+        from src.services.architecture_projection_service import (
+            compatibility_provider_for_component,
+        )
+
+        return is_gcp_provider(
+            compatibility_provider_for_component(twin, "component.hot-storage")
+        )

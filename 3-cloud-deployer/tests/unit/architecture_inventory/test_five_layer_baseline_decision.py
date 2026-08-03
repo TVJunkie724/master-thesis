@@ -190,6 +190,14 @@ def test_stale_source_inventory_digest_is_rejected(inventory, decision):
         _check_source_digest(inventory, decision)
 
 
+def test_current_inventory_may_advance_without_rewriting_historical_decision(
+    inventory, decision
+):
+    inventory["content_digest"] = "sha256:" + ("f" * 64)
+
+    _check_source_digest(inventory, decision)
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

@@ -525,6 +525,57 @@ PERSISTER_BINDINGS = {
     },
 }
 
+AUXILIARY_ARTIFACTS = {
+    "aws": (
+        (
+            "ingestion-connector",
+            "ingestion",
+            "3-cloud-deployer/src/providers/aws/lambda_functions/connector",
+            "lambda_function.lambda_handler",
+        ),
+        (
+            "hot-storage-last-entry",
+            "hot-storage",
+            "3-cloud-deployer/src/providers/aws/lambda_functions/hot-reader-last-entry",
+            "lambda_function.lambda_handler",
+        ),
+        (
+            "twin-state-last-entry",
+            "twin-state",
+            "3-cloud-deployer/src/providers/aws/lambda_functions/digital-twin-data-connector-last-entry",
+            "lambda_function.lambda_handler",
+        ),
+    ),
+    "azure": (
+        (
+            "ingestion-connector",
+            "ingestion",
+            "3-cloud-deployer/src/providers/azure/azure_functions/connector",
+            "function_app.main",
+        ),
+        (
+            "hot-storage-last-entry",
+            "hot-storage",
+            "3-cloud-deployer/src/providers/azure/azure_functions/hot-reader-last-entry",
+            "function_app.main",
+        ),
+    ),
+    "gcp": (
+        (
+            "ingestion-connector",
+            "ingestion",
+            "3-cloud-deployer/src/providers/gcp/cloud_functions/connector",
+            "main.main",
+        ),
+        (
+            "hot-storage-last-entry",
+            "hot-storage",
+            "3-cloud-deployer/src/providers/gcp/cloud_functions/hot-reader-last-entry",
+            "main.main",
+        ),
+    ),
+}
+
 EXTENSION_ARTIFACTS = (
     (
         "aws",
@@ -722,6 +773,24 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
             PERSISTER_BINDINGS[provider],
         )
         artifacts.append(persister_artifact)
+        auxiliary_by_owner: dict[str, list[dict[str, Any]]] = {}
+        for (
+            auxiliary_name,
+            owner_name,
+            auxiliary_source,
+            auxiliary_handler,
+        ) in AUXILIARY_ARTIFACTS[provider]:
+            auxiliary = _artifact(
+                root,
+                provider,
+                auxiliary_name,
+                {
+                    "source": auxiliary_source,
+                    "handler": auxiliary_handler,
+                },
+            )
+            artifacts.append(auxiliary)
+            auxiliary_by_owner.setdefault(owner_name, []).append(auxiliary)
         for logical_id, slot, name in PROFILE_COMPONENTS:
             binding = COMPONENT_BINDINGS.get(provider, {}).get(name)
             if binding is None:
@@ -739,6 +808,23 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
                             "id": persister_artifact["artifact_id"],
                             "version": "1",
                         },
+                    ],
+                }
+            elif name in auxiliary_by_owner:
+                artifact_binding = {
+                    **binding,
+                    "dependency_artifact_refs": [
+                        {
+                            "id": f"artifact.{provider}.shared-runtime",
+                            "version": "1",
+                        },
+                        *(
+                            {
+                                "id": item["artifact_id"],
+                                "version": item["artifact_version"],
+                            }
+                            for item in auxiliary_by_owner[name]
+                        ),
                     ],
                 }
             artifact = _artifact(root, provider, name, artifact_binding)
@@ -1128,6 +1214,7 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
             "edge.cool-to-archive-storage"
         ),
         "l3-hot-to-l4": "edge.hot-storage-to-twin-state",
+        "l4-to-l5": "edge.twin-state-to-visualization",
     }
     logical_edge_contracts = {
         edge["edge_id"]: edge for edge in profile["edges"]
@@ -1153,7 +1240,15 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
     phase_edges = [
         item
         for item in decision["edge_decisions"]
-        if item["implementation_owner_phase"] == "Phase 8.3"
+        if (
+            item["implementation_owner_phase"] == "Phase 8.3"
+            or (
+                item["implementation_owner_phase"] == "Phase 8.6"
+                and str(item.get("target_edge_id") or "").endswith(
+                    "l4-to-l5"
+                )
+            )
+        )
     ]
     for edge_decision in phase_edges:
         decision_edge_id = edge_decision["target_edge_id"]
@@ -1248,6 +1343,19 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
             f"catalog.{destination_provider}.{destination_port}"
         )
         is_platform = provider_scope == "platform"
+        source_component = component_by_id.get(source_component_id)
+        declared_source_output_id = (
+            source_component["terraform_binding"]["outputs"][0]["output_id"]
+            if logical_edge_id is not None
+            and source_component is not None
+            and source_component["terraform_binding"]["outputs"]
+            else f"binding.{edge_slug}.source"
+        )
+        declared_destination_input_id = (
+            destination_port_id
+            if logical_edge_id is not None
+            else f"binding.{edge_slug}.destination"
+        )
         edges.append(
             {
                 "edge_implementation_id": f"edge-implementation.{edge_slug}",
@@ -1263,8 +1371,8 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
                 "source_output_port_id": source_port_id,
                 "destination_input_port_id": destination_port_id,
                 "terraform_binding": {
-                    "source_output_id": f"binding.{edge_slug}.source",
-                    "destination_input_id": f"binding.{edge_slug}.destination",
+                    "source_output_id": declared_source_output_id,
+                    "destination_input_id": declared_destination_input_id,
                     "dependency_keys": [f"dependency.{edge_slug}"],
                 },
                 "transfer_route_class": (
@@ -1386,6 +1494,7 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
             for mapping in mappings
             for capability in mapping["provided_capability_ids"]
         }
+        supported = provider in {"aws", "azure"}
         profile_document = {
             "schema_version": "provider-implementation-profile.v1",
             "implementation_profile_id": PROVIDER_METADATA[provider]["profile_id"],
@@ -1405,7 +1514,7 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
                 "id": f"permission-set.{provider}.thesis-demo-v1",
                 "version": "1",
             },
-            "supported": False,
+            "supported": supported,
             "component_mappings": mappings,
             "edge_mappings": edge_mappings,
             "capability_claims": {
@@ -1417,12 +1526,20 @@ def build_definitions(root: Path, sync: Any) -> dict[str, Any]:
                     f"evidence.{provider}.phase-8-1-baseline-decision"
                 ],
             },
-            "unsupported_reasons": [
-                {
-                    "reason_code": PROVIDER_METADATA[provider]["blocked_code"],
-                    "message": PROVIDER_METADATA[provider]["blocked_message"],
-                }
-            ],
+            "unsupported_reasons": (
+                []
+                if supported
+                else [
+                    {
+                        "reason_code": PROVIDER_METADATA[provider][
+                            "blocked_code"
+                        ],
+                        "message": PROVIDER_METADATA[provider][
+                            "blocked_message"
+                        ],
+                    }
+                ]
+            ),
             "compatibility": {
                 "compatible_catalog_versions": [
                     {"id": "baseline-component-catalog", "version": "1"}
@@ -1546,11 +1663,20 @@ def write_definitions(root: Path, sync: Any) -> None:
             / "five-layer-baseline-v1-decision.json"
         ).read_text(encoding="utf-8")
     )
+    inventory = json.loads(
+        (
+            root
+            / "contracts"
+            / "architecture-inventory"
+            / "v1"
+            / "current-graph.json"
+        ).read_text(encoding="utf-8")
+    )
     manifest = {
         "manifest_version": "architecture-profile-definitions.v1",
         "source_digests": {
             "baseline_decision": decision["content_digest"],
-            "architecture_inventory": decision["source_inventory_digest"],
+            "architecture_inventory": inventory["content_digest"],
             "deployment_dimensions": sync._file_digest(
                 root
                 / "contracts"

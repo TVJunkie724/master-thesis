@@ -45,9 +45,9 @@ def _file_digest(path: Path) -> str:
 
 def _repository_root(start: Path) -> Path:
     for candidate in (start, *start.parents):
-        if (
-            candidate / "contracts" / "architecture-profiles"
-        ).is_dir() and (candidate / "3-cloud-deployer" / "src" / "terraform").is_dir():
+        if (candidate / "contracts" / "architecture-profiles").is_dir() and (
+            candidate / "3-cloud-deployer" / "src" / "terraform"
+        ).is_dir():
             return candidate
     _fail(
         "CATALOG_PACKAGE_REFERENCE_INVALID",
@@ -201,8 +201,7 @@ def check_catalog_completeness(
         definition_digests["profile"] != profile["content_digest"]
         or definition_digests["catalog"] != catalog["content_digest"]
         or any(
-            definition_digests["providers"][provider]
-            != document["content_digest"]
+            definition_digests["providers"][provider] != document["content_digest"]
             for provider, document in providers.items()
         )
     ):
@@ -256,11 +255,7 @@ def check_catalog_completeness(
         / "deployment-dimensions.json"
     )
     extension_registry_path = (
-        root
-        / "contracts"
-        / "user-function-extension"
-        / "v1"
-        / "registry.json"
+        root / "contracts" / "user-function-extension" / "v1" / "registry.json"
     )
     if source_digests["deployment_dimensions"] != _file_digest(
         deployment_dimensions_path
@@ -304,8 +299,7 @@ def check_catalog_completeness(
             responsibility["responsibility_id"]
             for responsibility in decision["required_responsibilities"]
         ]
-        or list(profile["optimization_slot_ids"])
-        != decision["optimization_slots"]
+        or list(profile["optimization_slot_ids"]) != decision["optimization_slots"]
         or list(profile["functional_completeness_rules"])
         != decision["functional_completeness_rules"]
         or len(profile["responsibilities"]) != 5
@@ -349,9 +343,9 @@ def check_catalog_completeness(
         for formula_id in formula_set["formulas"]
     }
     intent_registry = yaml.safe_load(
-        (
-            root / "2-twin2clouds" / "pricing_registry" / "intents.yaml"
-        ).read_text(encoding="utf-8")
+        (root / "2-twin2clouds" / "pricing_registry" / "intents.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     intent_ids = set(intent_registry["intents"])
     pricing_root = root / "2-twin2clouds" / "pricing_registry"
@@ -387,9 +381,7 @@ def check_catalog_completeness(
             "Unknown optimization bundle",
         )
     exact_bundle_fields = {
-        "calculation_strategy_id": optimization_declaration[
-            "calculation_strategy_id"
-        ],
+        "calculation_strategy_id": optimization_declaration["calculation_strategy_id"],
         "formula_set_id": optimization_declaration["formula_set_id"],
         "scoring_strategy_id": optimization_declaration["scoring_strategy_id"],
         "workload_contract_id": optimization_declaration["workload_contract_id"],
@@ -401,14 +393,11 @@ def check_catalog_completeness(
                 f"profile.optimization_bundle.{field}",
                 f"Expected current registry ID {expected}",
             )
-    calculation = calculation_strategies.get(
-        optimization["calculation_strategy_id"]
-    )
+    calculation = calculation_strategies.get(optimization["calculation_strategy_id"])
     if (
         calculation is None
         or calculation["formula_set_id"] != optimization["formula_set_id"]
-        or calculation["workload_contract_id"]
-        != optimization["workload_contract_id"]
+        or calculation["workload_contract_id"] != optimization["workload_contract_id"]
         or calculation["calculation_model_id"] not in service_models
         or optimization["formula_set_id"] not in formula_sets
         or optimization["workload_contract_id"] not in workload_contracts
@@ -426,10 +415,7 @@ def check_catalog_completeness(
         artifact["artifact_id"]: artifact for artifact in catalog["package_artifacts"]
     }
     _check_unique(
-        (
-            artifact["artifact_id"]
-            for artifact in catalog["package_artifacts"]
-        ),
+        (artifact["artifact_id"] for artifact in catalog["package_artifacts"]),
         "CATALOG_DUPLICATE_OWNERSHIP",
         "catalog.package_artifacts.artifact_id",
     )
@@ -488,18 +474,14 @@ def check_catalog_completeness(
                 component_id,
                 "Unknown Terraform input variable",
             )
-        output_symbols = {
-            item["terraform_output"] for item in binding["outputs"]
-        }
+        output_symbols = {item["terraform_output"] for item in binding["outputs"]}
         if output_symbols - outputs:
             _fail(
                 "CATALOG_TERRAFORM_REFERENCE_INVALID",
                 component_id,
                 "Unknown Terraform output",
             )
-        expected_input_ids = {
-            item["input_id"] for item in binding["input_bindings"]
-        }
+        expected_input_ids = {item["input_id"] for item in binding["input_bindings"]}
         if expected_input_ids != set(binding["allowed_input_variable_ids"]):
             _fail(
                 "CATALOG_DEPLOYMENT_BINDING_INVALID",
@@ -537,8 +519,7 @@ def check_catalog_completeness(
                 )
             for dimension in specification.get("dimensions", {}).values():
                 if (
-                    dimension["classification"]
-                    in {"account_scope", "usage_tier"}
+                    dimension["classification"] in {"account_scope", "usage_tier"}
                     and "terraform_target" in dimension
                 ):
                     _fail(
@@ -594,8 +575,7 @@ def check_catalog_completeness(
         item["target_implementation_id"]
         for item in decision["component_decisions"]
         if item["action"] == "retain"
-        and item["implementation_owner_phase"]
-        in {"Phase 8.3", "Phase 8.3 after #113"}
+        and item["implementation_owner_phase"] in {"Phase 8.3", "Phase 8.3 after #113"}
     }
     _check_unique(
         decision_component_owners,
@@ -613,13 +593,15 @@ def check_catalog_completeness(
         "CATALOG_DUPLICATE_OWNERSHIP",
         "catalog.components.terraform_binding.resource_addresses",
     )
-    logical_edges = {
-        edge["edge_id"]: edge for edge in profile["edges"]
-    }
+    logical_edges = {edge["edge_id"]: edge for edge in profile["edges"]}
     decision_edges = {
         item["target_edge_id"]: item
         for item in decision["edge_decisions"]
         if item["implementation_owner_phase"] == "Phase 8.3"
+        or (
+            item["implementation_owner_phase"] == "Phase 8.6"
+            and str(item.get("target_edge_id") or "").endswith("l4-to-l5")
+        )
     }
     catalog_component_ids = {
         component["deployment_component_id"] for component in catalog["components"]
@@ -636,8 +618,7 @@ def check_catalog_completeness(
             != decision_edge["payload_envelope"]["schema_id"]
             or edge["payload_contract_ref"]["version"]
             != decision_edge["payload_envelope"]["version"]
-            or edge["trust_contract_ref"]["id"]
-            != decision_edge["trust_boundary_id"]
+            or edge["trust_contract_ref"]["id"] != decision_edge["trust_boundary_id"]
         ):
             _fail(
                 "CATALOG_EDGE_MISSING",
@@ -673,10 +654,10 @@ def check_catalog_completeness(
                 )
         if edge["logical_edge_ids"]:
             logical = logical_edges[edge["logical_edge_ids"][0]]
-            if (
-                edge["payload_contract_ref"]["id"] != logical["edge_contract_id"]
-                or dict(edge["delivery_requirements"])
-                != dict(logical["delivery_requirements"])
+            if edge["payload_contract_ref"]["id"] != logical[
+                "edge_contract_id"
+            ] or dict(edge["delivery_requirements"]) != dict(
+                logical["delivery_requirements"]
             ):
                 _fail(
                     "CATALOG_EDGE_MISSING",
@@ -690,8 +671,7 @@ def check_catalog_completeness(
                 capability = parts[-1].replace("-", "_")
                 if (
                     permission_provider not in permission_capabilities
-                    or capability
-                    not in permission_capabilities[permission_provider]
+                    or capability not in permission_capabilities[permission_provider]
                 ):
                     _fail(
                         "CATALOG_PERMISSION_REFERENCE_INVALID",
@@ -793,23 +773,36 @@ def check_catalog_completeness(
             )
 
     expected_provider_shapes = {
-        "aws": (7, 5, "profile-target-not-implemented"),
-        "azure": (7, 5, "profile-target-not-implemented"),
-        "gcp": (5, 4, "profile-provider-capability-incomplete"),
+        "aws": (7, 6, True, None),
+        "azure": (7, 6, True, None),
+        "gcp": (5, 4, False, "profile-provider-capability-incomplete"),
     }
     provider_report = {}
-    for provider, (components, edges, reason) in expected_provider_shapes.items():
+    for provider, (
+        components,
+        edges,
+        supported,
+        reason,
+    ) in expected_provider_shapes.items():
         document = providers[provider]
+        actual_reasons = document["unsupported_reasons"]
         actual = (
             len(document["component_mappings"]),
             len(document["edge_mappings"]),
-            document["unsupported_reasons"][0]["reason_code"],
+            document["supported"],
+            (
+                actual_reasons[0]["reason_code"]
+                if len(actual_reasons) == 1
+                else None
+            ),
         )
-        if actual != (components, edges, reason) or document["supported"]:
+        if actual != (components, edges, supported, reason) or (
+            supported and actual_reasons
+        ):
             _fail(
                 "PROVIDER_PROFILE_INCOMPLETE",
                 provider,
-                "Provider status differs from the Phase 8.1 admissibility decision",
+                "Provider status differs from the reviewed Phase 8.6 compiler gate",
             )
         for mapping in document["component_mappings"]:
             if any(
@@ -822,7 +815,7 @@ def check_catalog_completeness(
                     "Provider profile references an unknown service model",
                 )
         provider_report[provider] = {
-            "supported": False,
+            "supported": supported,
             "component_mappings": components,
             "edge_mappings": edges,
             "missing_capability_ids": list(
@@ -835,8 +828,7 @@ def check_catalog_completeness(
     for path in sorted((DEFINITIONS_ROOT / "fixtures").rglob("*.json")):
         fixture = _read_json(path)
         if (
-            fixture["architecture_profile_ref"]["digest"]
-            != profile["content_digest"]
+            fixture["architecture_profile_ref"]["digest"] != profile["content_digest"]
             or fixture["catalog_ref"]["digest"] != catalog["content_digest"]
         ):
             _fail(
