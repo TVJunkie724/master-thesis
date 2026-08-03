@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
-lastUpdated: "2026-07-31"
-version: "1.10"
+lastUpdated: "2026-08-03"
+version: "1.11"
 ---
 
 <!-- SOURCES:
@@ -12,10 +12,13 @@ version: "1.10"
 - Immutable Phase 8.8 Eventing decision package
 - Current Optimizer, Management, Deployer, Terraform, and Flutter behavior
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
+- Current official Grafana, AWS Managed Grafana, Azure Managed Grafana, Lambda
+  Function URL, and Firestore database/IAM documentation checked on 2026-08-03
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-07-31 | VERSION: 1.10
+EXTRACTED: 2026-08-03 | VERSION: 1.11
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -29,12 +32,12 @@ EXTRACTED: 2026-07-31 | VERSION: 1.10
 | Decision evidence | [`phase_08_service_bundle_evaluation.md`](../../research/phase_08_service_bundle_evaluation.md) |
 | Historical profile | `five-layer-baseline@1`, immutable read/verify/destroy only |
 | New profile | `five-layer-baseline@2` |
-| Deferred profile | `six-layer-eventing@1`; plan only after reviewed Five-layer v2 implementation |
+| Sequential profile | `six-layer-eventing@1`; its v2 plan is complete but its branch starts only from reviewed Five-layer v2 |
 | Local environment | OrbStack; no live cloud execution |
-| Selection rule | Functionality and theoretical Small/Medium/Large admissibility first; cost is measured, not minimized |
+| Selection rule | Provider service bundles are chosen for required functionality and theoretical Small/Medium/Large admissibility, not lowest service price; after that freeze, the Optimizer still ranks complete placement candidates by estimated cost within one profile |
 | PoC rule | Add only components required by the shared functional contract or by a measured capacity boundary |
 | LaTeX | Excluded without separate approval |
-| Review status | Six review passes complete; the 2026-07-31 guided-bootstrap cross-plan concept and implementation-readiness reviews have zero unresolved findings; explicit implementation approval remains required |
+| Review status | Six prior review passes complete; the 2026-07-31 guided-bootstrap cross-plan reviews had zero unresolved findings; implementation was explicitly authorized on 2026-08-03 and is now governed by the reviewed execution plan |
 
 Where an older Phase 8 plan conflicts with this corrective gate, this document
 controls new-profile implementation. Historical artifacts, digests, and
@@ -133,10 +136,12 @@ Every Five-layer v2 provider bundle must supply:
 12. theoretical Small/Medium/Large capacity evidence with unresolved live
     behavior labeled honestly.
 
-Six-layer planning is intentionally deferred. When resumed, it must reuse the
-reviewed Five-layer v2 L1-L5 contract unchanged and evaluate only the ownership
-and placement delta introduced by an independent Eventing responsibility. This
-document neither activates nor pre-approves that profile.
+Six-layer implementation remains sequentially deferred until reviewed 8.9A,
+but its delta plan is now complete in
+[`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md).
+It must reuse the committed Five-layer v2 L1-L5 digest unchanged and add only
+the ownership and placement delta introduced by the independent Eventing
+responsibility. This Five-layer document does not activate that profile.
 
 The immutable Phase 8.8 Six-layer row remains research provenance only. It is
 not an instruction to implement Six-layer in 8.9A.
@@ -198,19 +203,20 @@ not another scientific layer:
 | Azure | Functions Flex HTTP route with `AuthLevel.FUNCTION` | Standard-tier `marcusolsson-json-datasource`; one deployment-scoped Function key in `secureJsonData.httpHeaderValue1` under header `x-functions-key` |
 | GCP | Cloud Run HTTPS service with application-level reader-key validation and a read-only Firestore identity | Signed `yesoreyeram-infinity-datasource`; `jsonData.httpHeaderName1=X-Twin-Reader-Key`, one generated 256-bit deployment-scoped key in `secureJsonData.httpHeaderValue1`; the service stores only its hash |
 
-The JSON API datasource is a deliberately time-bounded PoC dependency, not a
-long-term platform recommendation. Grafana now marks it deprecated and states
-that support ends on 2027-02-01. The complete-service package must freeze its
-plugin ID, selected version, Grafana-12 compatibility evidence, and the
-provider-specific availability evidence: the exact version in the Amazon
-Managed Grafana plugin catalog and JSON API support in Azure Managed Grafana
-Standard. Deployment preflight repeats the catalog/support check before any
-workspace mutation and `Save & test` plus the bounded raw/rollup queries are
-live-readiness gates. If the plugin is unavailable, incompatible, or the
-current date is on or after 2027-02-01, the affected AWS/Azure L3-hot/L5 bundle
+The JSON API datasource is a deliberately bounded PoC dependency, not a
+long-term platform recommendation. Grafana marks it as maintenance-only and
+recommends Infinity for new functionality, but the current primary
+documentation does not publish a fixed support-end date. The
+complete-service package must therefore freeze its plugin ID, selected
+version, Grafana-12 compatibility evidence, and provider-specific availability
+evidence: the exact version in the Amazon Managed Grafana plugin catalog and
+JSON API support in Azure Managed Grafana Standard. Deployment preflight
+repeats the catalog/support check before any workspace mutation and `Save &
+test` plus the bounded raw/rollup queries are live-readiness gates. If the
+plugin is unavailable or incompatible, the affected AWS/Azure L3-hot/L5 bundle
 is unsupported until a newly reviewed datasource decision replaces it.
-Implementation must not silently substitute Infinity, ADX, or another
-storage/query path.
+Implementation must not invent a calendar expiry or silently substitute
+Infinity, ADX, or another storage/query path.
 
 The three HTTPS routes are internet-reachable PoC read boundaries. AWS and
 Azure use managed Grafana outside a selected private network; GCP deliberately
@@ -1147,16 +1153,17 @@ jobs, corrected identity, provider `thesis-demo-v2` permission artifacts, and
 
 ### 8.9B
 
-Deferred. Do not branch or implement `six-layer-eventing@1` as part of this
-plan. After 8.9A is implemented and reviewed, reopen the Six-layer service and
-ownership evaluation against the exact committed Five-layer v2 L1-L5
-baseline. That later plan may reuse the immutable Phase 8.8 evidence but must
-receive explicit user approval and its own zero-finding reviews.
+Out of scope for this Five-layer branch. Do not branch or implement
+`six-layer-eventing@1` as part of 8.9A. After 8.9A is implemented and reviewed,
+execute the separately reviewed
+[`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md)
+against the exact committed Five-layer v2 L1-L5 digest and run its own
+zero-finding reviews.
 
 ### 8.10
 
-Deferred until the later Six-layer plan is approved and implemented. Five-
-layer v2 must first emit its own reproducible three single-cloud, six
+Sequentially blocked until Six-layer is implemented and reviewed. Five-layer
+v2 must first emit its own reproducible three single-cloud, six
 L3-hot/L5-versus-L4, mixed-path, rejection, capacity, and cost evidence. The
 later comparative phase uses that frozen evidence rather than recalculating it
 under changed L1-L5 assumptions.
@@ -1195,7 +1202,8 @@ Required offline gates include:
 - bounded GCP Twin query contract and a negative arbitrary-traversal fixture;
 - exact 1/1/16 Firestore timestamp-shard resolution, deterministic shard hash,
   required index exemptions/composites, finite fan-out/merge, cursor
-  query-binding/expiry/tamper rejection, and two-database IAM isolation;
+  query-binding/expiry/tamper rejection, and one-database L3/L4 identity
+  separation with the documented database-wide IAM limitation;
 - DynamoDB/Cosmos/Firestore raw-plus-hourly-rollup success, duplicate,
   transaction rollback, 30-day/720-point bound, hot expiry, and
   no-cool/archive-rollup fixtures;
@@ -1249,7 +1257,7 @@ commands may receive cloud credentials or a live/apply flag.
 
 | Pass | Scope | Result |
 |---|---|---|
-| 1 | Revised Five-layer v2 architecture and concept consistency across service evaluation, every Phase 8 plan, Handoff, research design, and current docs | Pass on 2026-07-30 with zero unresolved findings after retaining Firestore L3, correcting stale L3/L4/L5 diagrams, and time-bounding the deprecated managed JSON API datasource |
+| 1 | Revised Five-layer v2 architecture and concept consistency across service evaluation, every Phase 8 plan, Handoff, research design, and current docs | Pass on 2026-07-30 with zero unresolved findings after retaining Firestore L3 and correcting stale L3/L4/L5 diagrams; the 2026-08-03 review corrected the unsupported JSON API end-date claim to maintenance-mode plus frozen availability/version evidence |
 | 2 | Builder/API contract, workload math, identity/security, failure behavior, implementation sequence, compatibility, Flutter boundary, and testability | Pass on 2026-07-30 with zero unresolved findings; exact Firestore sharding/transactions, raw/rollup reader contract, plugin fail-closed gates, nine placements, capacity math, and credential-free integration commands are implementation-ready |
 | 3 | Layer-access architecture feasibility across AWS/Azure/GCP, all nine placements, single-cloud/multicloud identity, one-Firestore tradeoff, visible content, cost ownership, and live/offline claim boundary | Pass on 2026-07-31 with zero unresolved findings after adding interactive-principal preflight, direct Cloud Run IAP, safe Viewer rotation, explicit L4 inspection load, Small Viewer cost, and provider Terraform evidence |
 | 4 | Architect and builder review of concept hierarchy, FR/API datatypes, BLoC/Riverpod ownership, responsive widget tree, secret lifecycle, concurrency, accessibility, integration tests, documentation, and exact commit order | Pass on 2026-07-31 with all 20 plan-review criteria satisfied and zero unresolved findings |
@@ -1276,7 +1284,7 @@ Planning verification on 2026-07-30:
 Layer-access planning verification on 2026-07-31:
 
 - cross-document one-Firestore, L4/L5 service, identity, nine-placement, and
-  deferred-Six-layer consistency: pass;
+  sequential-Six-layer inheritance consistency: pass;
 - provider-primary-source and Terraform primitive feasibility: pass;
 - Flutter plan dual review against all architect/builder criteria: pass with
   zero unresolved findings;
@@ -1385,9 +1393,9 @@ and correlation ID.
 - [ ] The signed Infinity plugin artifact, applicable license notice, version,
       and digest are frozen, or GCP fails closed pending a new datasource
       decision.
-- [ ] The deprecated JSON API datasource remains before its 2027-02-01 support
-      end, its exact AWS/Azure availability and Grafana-12 compatibility are
-      frozen, and deployment preflight fails closed on absence or expiry.
+- [ ] The maintenance-only JSON API datasource has exact AWS/Azure availability
+      and Grafana-12 compatibility evidence frozen, and deployment preflight
+      fails closed when the selected plugin version is absent or incompatible.
 - [ ] Storage uses finite scheduled jobs and deterministic object manifests;
       unproven CDC/outbox/broker pipelines are absent.
 - [ ] All six event routes and all twelve storage stage routes use the six
@@ -1428,7 +1436,7 @@ and correlation ID.
 - [ ] Live uncertainty remains visible and no offline check claims live proof.
 - [ ] Optimizer, Management, Deployer, Terraform, Flutter, research, and MkDocs
       responsibilities agree.
-- [ ] 8.9A uses a clean branch, commits, and review cycle; 8.9B remains
-      explicitly deferred.
+- [ ] 8.9A uses a clean branch, commits, and review cycle; 8.9B starts only from
+      its reviewed digest under the separate v2 plan.
 - [ ] Two fresh reviews find zero unresolved findings.
 - [ ] This corrected planning boundary is committed before implementation.

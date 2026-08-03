@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
-lastUpdated: "2026-07-30"
-version: "3.7"
+lastUpdated: "2026-08-03"
+version: "3.8"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,8 @@ version: "3.7"
 - Phase 8.0 current graph, Phase 8.1 five-layer baseline decision, Phase 8.2
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
-EXTRACTED: 2026-07-31 | VERSION: 3.7
+- GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
+EXTRACTED: 2026-08-03 | VERSION: 3.8
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -33,8 +34,8 @@ EXTRACTED: 2026-07-31 | VERSION: 3.7
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.5 is default-off; Phase 8.8 approves Event-domain evidence only; the revised Five-layer v2 service closure is the corrective activation gate; Phase 8.6 may complete only as a dark generic compiler; Six-layer is deferred |
-| Next action | After explicit approval, build/review/commit the immutable complete-service decision package including `thesis-demo-v2`, then finish/review the dark Phase 8.6 compiler boundary |
+| Implementation status | Phase 8.5 is default-off; Phase 8.8 approves Event-domain evidence; implementation was authorized on 2026-08-03; the revised Five-layer v2 service closure is the corrective activation gate; Phase 8.6 must first complete as a dark generic compiler; Six-layer is planned as a later strict delta |
+| Next action | Commit the reviewed planning package, build/review/commit the immutable complete-service decision including `thesis-demo-v2`, then finish/review the existing dark Phase 8.6 compiler boundary |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -156,8 +157,8 @@ binding contract is
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. obtain explicit implementation approval for the six-pass, zero-finding
-   complete-service, layer-access, and guided-bootstrap closure;
+1. commit the 2026-08-03 concept, cross-stack execution plan, Flutter plans,
+   and corrected Six-layer delta plan after their zero-finding review;
 2. build, review, and commit the immutable complete-service decision package,
    including the provider `thesis-demo-v2` permission artifacts;
 3. return to the existing Phase 8.6 implementation worktree and read
@@ -309,10 +310,11 @@ string conventions or user functions constructing another resource's identity.
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Deterministic Deployer graph |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Compact profile workflow |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Shared domain-event contract plus approved or rejected embedded/Event-Layer decision package |
-| Service closure | New issue required before implementation | Complete AWS/Azure/provider-hosted-GCP bundles, storage routes, workload/capacity semantics, and immutable decision package |
-| 8.9A | New implementation issue required before execution | Executable `five-layer-baseline@2` with complete service bundles |
-| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Deferred; executable outcome requires a new plan after reviewed 8.9A |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Deferred; historical `@1` reproduction plus fair `@2` versus six-layer evaluation |
+| Service closure | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Complete AWS/Azure/provider-hosted-GCP bundles, storage routes, workload/capacity semantics, and immutable decision package |
+| Guided bootstrap | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | Request-scoped bootstrap authority and reusable bounded CloudConnections |
+| 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Executable `five-layer-baseline@2` with complete service bundles |
+| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Planned strict Event Layer delta; branch starts only from reviewed 8.9A |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Planned after reviewed Six-layer; historical `@1` reproduction plus fair `@2` versus Six-layer evaluation |
 
 Native dependency direction:
 

@@ -2,16 +2,18 @@
 title: "Configuration Workspace Roadmap"
 description: "Incremental migration from the legacy three-step wizard to the dependency-aware configuration workspace."
 tags: [flutter, roadmap, configuration, wizard]
-lastUpdated: "2026-07-31"
-version: "1.2"
+lastUpdated: "2026-08-03"
+version: "1.3"
 ---
 
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
+- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
+- twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
-EXTRACTED: 2026-07-31 | VERSION: 1.2
+EXTRACTED: 2026-08-03 | VERSION: 1.3
 -->
 
 # Configuration Workspace Roadmap
@@ -19,6 +21,15 @@ EXTRACTED: 2026-07-31 | VERSION: 1.2
 The [target concept](CONCEPT_CONFIGURATION_WORKSPACE.md) is implemented in
 small vertical phases. Every phase preserves persisted configuration contracts,
 adds focused tests, receives two code reviews, and is committed independently.
+
+## Concepts
+
+- [Configuration Workspace](CONCEPT_CONFIGURATION_WORKSPACE.md) defines the
+  shared task-oriented shell and dependency-aware journey.
+- [Architecture Profile Experiment](concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md)
+  defines the Five-layer v2/Six-layer v1 thesis comparison workflow.
+- [Guided Cloud Access Bootstrap](concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
+  defines request-scoped bootstrap authority and bounded CloudConnections.
 
 | Phase | Status | Scope | Completion gate |
 |---|---|---|---|
@@ -30,6 +41,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 6 | Done | Review and preflight | Summary, actionable findings, centralized fail-closed readiness, and distributed server validation provide one completion path; 387 tests pass. |
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 | 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
+| 8.1 | Planned | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md) for `five-layer-baseline@2` and `six-layer-eventing@1` | Strict profile/workload-v2 contracts, mandatory immutable event scenario, profile-local complete-candidate calculation, generic resolved review, historical `@1` compatibility, and credential-free real-Management integration pass. |
 | 9 | Planned | [Guided cloud access bootstrap](phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) shared by Prepare deployment and Settings | [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) provides strict guides/sessions; request-scoped bootstrap secrets never persist; generated bounded CloudConnections and truthful disposal/revocation states are covered; the existing Twin deployment preflight owns later provider-action resume. |
 
 ## Cross-Phase Definition Of Done
@@ -80,7 +92,7 @@ spread into new widgets.
 | Workload | Round-trip tests proving every `CalcParams` field survives task navigation and presets. |
 | Architecture | Tests for stale pricing, calculation errors, recalculation invalidation, and selected result restoration. |
 | Deployment selection | Strict specification parsing/digest tests, latest-run list/detail consistency, bounded selection retry, navigation gates, and responsive read-only summary coverage. |
-| Deployment preparation | Requirement-matrix tests across provider paths and optional 3D assets. |
+| Deployment preparation | Requirement-matrix tests across provider paths; scene/3D assets remain historical-profile compatibility only and are absent from Five-layer v2/Six-layer v1. |
 | Guided cloud access | Strict provider-guide/session models; request-secret non-persistence; duplicate suppression; restart/recheck; exact disposal/revocation outcomes; shared Settings/workspace result. |
 | Completion | Tests proving client readiness cannot bypass server validation or preflight. |
 | Accessibility | Semantic labels, keyboard traversal, focus recovery, and no overflow at supported desktop widths. |

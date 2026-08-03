@@ -2,8 +2,8 @@
 title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
-lastUpdated: "2026-07-30"
-version: "1.6"
+lastUpdated: "2026-08-03"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,8 @@ version: "1.6"
 - twin2multicloud_flutter/lib/services/management_api.dart
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
-EXTRACTED: 2026-07-30 | VERSION: 1.6
+- twin2multicloud_flutter/implementation_plans/2026-08-03_architecture_profile_experiment.md
+EXTRACTED: 2026-08-03 | VERSION: 1.7
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -68,13 +69,15 @@ read/verify/destroy only. Therefore Phase 8.7 must fully implement and test the
 typed workflow while accepting that the live Management API can return zero
 active selectable profiles. Contract/widget fixtures may exercise populated
 states, but DemoManagementApi must not advertise a fake active profile.
-`five-layer-baseline@2` is first published by Phase 8.9A. Six-layer may follow
-only after a new post-8.9A plan. Provider availability comes from the
+`five-layer-baseline@2` is first published by Phase 8.9A. Six-layer follows
+only after the reviewed post-8.9A branch gate in its v2 plan. Provider availability comes from the
 complete-service decision and must
 represent AWS, Azure, provider-hosted GCP, mixed L1/L2/cool/archive
 placements, the provider-local L3-hot/L5 constraint, and the independent L4
-placement precisely. Six-layer controls remain deferred until a later
-server-activated profile version.
+placement precisely. Six-layer controls remain hidden until the later
+server-activated profile version; the client does not show “coming soon”. The
+current widget/data-type implementation authority is
+`twin2multicloud_flutter/implementation_plans/2026-08-03_architecture_profile_experiment.md`.
 
 ### Scope Boundary
 

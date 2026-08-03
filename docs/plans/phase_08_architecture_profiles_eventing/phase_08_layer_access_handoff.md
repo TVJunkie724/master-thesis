@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Layer Access Handoff"
 description: "Feasibility and implementation boundary for usable post-deployment L4 and L5 browser access."
 tags: [architecture, flutter, deployment, identity, digital-twin, grafana, phase-8]
-lastUpdated: "2026-07-31"
-version: "1.2"
+lastUpdated: "2026-08-03"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.2"
 - User-approved PoC boundary: inspect both L4 and L5 after deployment, keep L4
   independent from the provider-local L3-hot/L5 bundle, and avoid unjustified
   production infrastructure
-EXTRACTED: 2026-07-31 | VERSION: 1.2
+EXTRACTED: 2026-08-03 | VERSION: 1.3
 -->
 
 # Phase 8 Five-Layer v2 Layer Access Handoff
@@ -44,8 +44,9 @@ implementation:
    interactive principal is bound;
 7. the requirement applies to all three single-cloud placements and all six
    `L3-hot == L5 != L4` placements;
-8. Six-layer planning remains deferred. It must inherit this L1-L5 access
-   contract unchanged when it is replanned.
+8. Six-layer implementation starts only after reviewed 8.9A and inherits this
+   L1-L5 access contract unchanged; its reviewed plan adds no Event Layer
+   administration card.
 
 This is PoC infrastructure, not an enterprise access portal. It adds only the
 smallest provider support needed to inspect the two scientific layers. Custom

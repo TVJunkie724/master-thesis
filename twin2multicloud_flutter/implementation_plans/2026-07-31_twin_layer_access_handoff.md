@@ -11,8 +11,9 @@
 - **Session/commit prefix:** `[AI-0731-LACC]` for this planning slice. The
   implementation branch must retain that prefix or record its replacement in
   the branch handoff before the first commit.
-- **Approval gate:** every step below is mandatory, but builder execution stays
-  blocked until the user says **Approved** or **Genehmigt** after plan review.
+- **Authorization:** every step below is mandatory. The user explicitly
+  authorized concept, planning, and implementation on 2026-08-03; the plan's
+  zero-finding review remains the builder gate.
 
 ## 1. Summary
 
@@ -823,8 +824,9 @@ every broken link before commit.
       zero-finding review before the next slice.
 - [ ] Two final reviews pass from both architect and builder perspectives with
       zero unresolved findings.
-- [ ] Builder/auditor handoff is emitted only after explicit **Approved** or
-      **Genehmigt**.
+- [ ] Builder/auditor handoff is emitted only after the integrated Phase 8.9A
+      base commit exists and the already authorized plan still passes its
+      zero-finding preflight review.
 
 ### Plan review record
 

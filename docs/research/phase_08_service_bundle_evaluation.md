@@ -183,16 +183,18 @@ restriction, backend parsing, and GET-only operation. The three routes remain
 authenticated internet-reachable PoC read boundaries; private networking is
 not implied.
 
-Grafana now deprecates the JSON API datasource and ends support on 2027-02-01.
-It remains admissible only as a time-bounded thesis-PoC dependency: the
-complete-service package freezes the plugin ID, selected version,
+Grafana marks the JSON API datasource as being in maintenance mode and
+recommends Infinity for new work. The upstream page does not publish the
+previously assumed 2027-02-01 hard end date, so the decision must not invent
+one. JSON API remains admissible only as a frozen thesis-PoC dependency: the
+complete-service package records the plugin ID, selected version,
 Grafana-12 compatibility, the Amazon Managed Grafana catalog result, and Azure
 Managed Grafana Standard support evidence. Deployment preflight repeats those
-checks, and the affected bundle fails closed if the plugin is absent,
-incompatible, or past the support date. Infinity is not assumed to exist in
-either managed-provider catalog and may not be substituted without a new
-reviewed decision. GCP can select Infinity because that Grafana runtime and
-its content-addressed plugin image are owned by this deployment.
+checks, and the affected bundle fails closed if the plugin is absent or
+incompatible. Infinity is not assumed to exist in either managed-provider
+catalog and may not be substituted without a new reviewed decision. GCP can
+select Infinity because that Grafana runtime and its content-addressed plugin
+image are owned by this deployment.
 
 All providers store idempotent hourly rollups inside the selected L3 service so
 the 30-day aggregate query reads at most 720 documents/items and stays inside

@@ -2,8 +2,8 @@
 title: "FR-002 Guided Cloud Access Bootstrap Contract"
 description: "Management API and provider-adapter contract required for request-scoped bootstrap authority, generated CloudConnections, and resumable manual prerequisites."
 tags: [flutter, feature-request, management-api, deployer, credentials, bootstrap]
-lastUpdated: "2026-07-31"
-version: "1.1"
+lastUpdated: "2026-08-03"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -12,14 +12,15 @@ version: "1.1"
 - docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md
 - docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md
 - Current Management API OpenAPI contract on 2026-07-31
-EXTRACTED: 2026-07-31 | VERSION: 1.1
+- GitHub issue #154
+EXTRACTED: 2026-08-03 | VERSION: 1.2
 -->
 
 # FR-002 Guided Cloud Access Bootstrap Contract
 
 ## Status
 
-**Planned.** Target components are `twin2multicloud_backend` and
+**Planned in [#154](https://github.com/TVJunkie724/master-thesis/issues/154).** Target components are `twin2multicloud_backend` and
 `3-cloud-deployer`. Flutter Phase 9 is blocked until the contract, strict
 fixtures, provider adapters, and request-secret security tests are committed.
 
