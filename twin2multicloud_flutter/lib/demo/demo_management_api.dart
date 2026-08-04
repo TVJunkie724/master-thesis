@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 import '../core/result.dart';
+import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
 import '../models/cloud_access_inventory.dart';
@@ -19,6 +20,7 @@ import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user_function_extension.dart';
@@ -87,6 +89,96 @@ class DemoManagementApi implements ManagementApi {
       if (themePreference != null) 'theme_preference': themePreference,
     });
     return store.user;
+  }
+
+  @override
+  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
+    await _pause();
+    return const [];
+  }
+
+  @override
+  Future<ArchitectureProfileDetail> getArchitectureProfile(
+    String profileId,
+    String profileVersion,
+  ) async {
+    await _pause();
+    throw const DemoApiException(
+      'ARCH_PROFILE_NOT_ACTIVE',
+      'No architecture profile is active in this implementation phase.',
+    );
+  }
+
+  @override
+  Future<TwinArchitectureSelection> getTwinArchitectureSelection(
+    String twinId,
+  ) async {
+    await _pause();
+    final twin = store.twin(twinId);
+    final selectedAt = DateTime.parse(twin['created_at'].toString()).toUtc();
+    final updatedAt = DateTime.parse(twin['updated_at'].toString()).toUtc();
+    return TwinArchitectureSelection(
+      twinId: twinId,
+      profileRef: const PinnedArchitectureReference(
+        id: 'five-layer-baseline',
+        version: '1',
+        digest:
+            'sha256:dcac9d4c519c7624b74ba6f9e5b878b17553c828b6d6d8583754c34c6a2e4807',
+      ),
+      revision: 1,
+      selectedAt: selectedAt,
+      updatedAt: updatedAt,
+      selectedByUserId: store.user['id'].toString(),
+    );
+  }
+
+  @override
+  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
+    String twinId,
+    ArchitectureProfileChangePreviewRequest request,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    throw const DemoApiException(
+      'ARCH_PROFILE_NOT_ACTIVE',
+      'No architecture profile is active in this implementation phase.',
+    );
+  }
+
+  @override
+  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
+    String twinId,
+    ArchitectureProfileSelectRequest request,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    throw const DemoApiException(
+      'ARCH_PROFILE_NOT_ACTIVE',
+      'No architecture profile is active in this implementation phase.',
+    );
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    throw const DemoApiException(
+      'ARCH_RESOLUTION_NOT_SELECTED',
+      'No resolved architecture is selected for this Twin.',
+    );
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(
+    String runId,
+  ) async {
+    await _pause();
+    throw const DemoApiException(
+      'ARCH_LEGACY_NOT_RESOLVABLE',
+      'The historical demo run has no native resolved architecture.',
+    );
   }
 
   @override

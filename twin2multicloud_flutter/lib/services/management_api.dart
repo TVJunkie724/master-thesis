@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../core/result.dart';
+import '../models/architecture_profile.dart';
 import '../models/authentication.dart';
 import '../models/user.dart';
 import '../models/calc_params.dart';
@@ -16,6 +17,7 @@ import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user_function_extension.dart';
@@ -143,6 +145,33 @@ abstract interface class OptimizationApi {
   );
 
   Future<OptimizerConfigData?> getOptimizerConfig(String twinId);
+}
+
+abstract interface class ArchitectureApi {
+  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles();
+
+  Future<ArchitectureProfileDetail> getArchitectureProfile(
+    String profileId,
+    String profileVersion,
+  );
+
+  Future<TwinArchitectureSelection> getTwinArchitectureSelection(String twinId);
+
+  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
+    String twinId,
+    ArchitectureProfileChangePreviewRequest request,
+  );
+
+  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
+    String twinId,
+    ArchitectureProfileSelectRequest request,
+  );
+
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  );
+
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(String runId);
 }
 
 abstract interface class DeploymentConfigurationApi {
@@ -273,6 +302,7 @@ abstract interface class ManagementApi
         PricingApi,
         PlatformCapabilityApi,
         OptimizationApi,
+        ArchitectureApi,
         DeploymentConfigurationApi,
         UserFunctionExtensionApi,
         DeploymentLifecycleApi,

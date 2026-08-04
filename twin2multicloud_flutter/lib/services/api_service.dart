@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import '../core/result.dart';
+import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
 import '../models/cloud_access_inventory.dart';
@@ -16,6 +17,7 @@ import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
 import '../models/user_function_extension.dart';
@@ -405,6 +407,11 @@ class ApiService implements ManagementApi {
         'Invalid API contract: twins response must be an array.',
       );
     }
+    if (data.length > 32) {
+      throw const FormatException(
+        'Invalid API contract: architecture profile catalog is too large.',
+      );
+    }
     return List<Twin>.unmodifiable(
       data.indexed.map(
         (entry) => Twin.fromJson(_contractMap(entry.$2, 'twins[${entry.$1}]')),
@@ -564,6 +571,147 @@ class ApiService implements ManagementApi {
   Future<Map<String, dynamic>> getRegionsStatus() async {
     final response = await _dio.get('/optimizer/regions-status');
     return response.data;
+  }
+
+  @override
+  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
+    final response = await _dio.get('/architecture-profiles');
+    final data = response.data;
+    if (data is! List) {
+      throw const FormatException(
+        'Invalid API contract: architecture profiles must be an array.',
+      );
+    }
+    final profiles = data.indexed
+        .map(
+          (entry) => ArchitectureProfileSummary.fromJson(
+            _contractMap(entry.$2, 'architecture profiles[${entry.$1}]'),
+          ),
+        )
+        .toList(growable: false);
+    final identities = profiles
+        .map((item) => '${item.profileId}@${item.profileVersion}')
+        .toSet();
+    if (identities.length != profiles.length) {
+      throw const FormatException(
+        'Invalid API contract: architecture profile versions must be unique.',
+      );
+    }
+    return List.unmodifiable(profiles);
+  }
+
+  @override
+  Future<ArchitectureProfileDetail> getArchitectureProfile(
+    String profileId,
+    String profileVersion,
+  ) async {
+    final response = await _dio.get(
+      '/architecture-profiles/$profileId/versions/$profileVersion',
+    );
+    final detail = ArchitectureProfileDetail.fromJson(
+      _contractMap(response.data, 'architecture profile detail'),
+    );
+    if (detail.summary.profileId != profileId ||
+        detail.summary.profileVersion != profileVersion) {
+      throw const FormatException(
+        'Invalid API contract: architecture profile identity differs.',
+      );
+    }
+    return detail;
+  }
+
+  @override
+  Future<TwinArchitectureSelection> getTwinArchitectureSelection(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/architecture-profile');
+    final selection = TwinArchitectureSelection.fromJson(
+      _contractMap(response.data, 'Twin architecture selection'),
+    );
+    if (selection.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: architecture selection Twin differs.',
+      );
+    }
+    return selection;
+  }
+
+  @override
+  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
+    String twinId,
+    ArchitectureProfileChangePreviewRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/architecture-profile/change-preview',
+      data: request.toJson(),
+    );
+    final preview = ArchitectureProfileChangePreview.fromJson(
+      _contractMap(response.data, 'architecture profile change preview'),
+    );
+    if (preview.target.id != request.profileId ||
+        preview.target.version != request.profileVersion ||
+        preview.expectedRevision != request.expectedRevision) {
+      throw const FormatException(
+        'Invalid API contract: architecture change preview context differs.',
+      );
+    }
+    return preview;
+  }
+
+  @override
+  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
+    String twinId,
+    ArchitectureProfileSelectRequest request,
+  ) async {
+    final response = await _dio.put(
+      '/twins/$twinId/architecture-profile',
+      data: request.toJson(),
+    );
+    final result = ArchitectureProfileSelectionResult.fromJson(
+      _contractMap(response.data, 'architecture profile selection result'),
+    );
+    if (result.selection.twinId != twinId ||
+        result.selection.profileRef.id != request.profileId ||
+        result.selection.profileRef.version != request.profileVersion) {
+      throw const FormatException(
+        'Invalid API contract: architecture selection result context differs.',
+      );
+    }
+    return result;
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/resolved-architecture');
+    final resolved = ResolvedTwinArchitectureRead.fromJson(
+      _contractMap(response.data, 'selected resolved architecture'),
+    );
+    if (resolved.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: resolved architecture Twin differs.',
+      );
+    }
+    return resolved;
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(
+    String runId,
+  ) async {
+    final response = await _dio.get(
+      '/optimizer-runs/$runId/resolved-architecture',
+    );
+    final resolved = ResolvedTwinArchitectureRead.fromJson(
+      _contractMap(response.data, 'run resolved architecture'),
+    );
+    if (resolved.calculationRunId != runId) {
+      throw const FormatException(
+        'Invalid API contract: resolved architecture run differs.',
+      );
+    }
+    return resolved;
   }
 
   /// Run, validate, and persist one optimizer calculation through Management.
