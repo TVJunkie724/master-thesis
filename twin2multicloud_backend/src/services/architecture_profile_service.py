@@ -54,6 +54,10 @@ DEFINITIONS_ROOT = (
 )
 DEFAULT_PROFILE_ID = "five-layer-baseline"
 DEFAULT_PROFILE_VERSION = "1"
+# Runtime activation is deliberately independent from the immutable contract
+# lifecycle field.  The historical @1 definition remains byte-stable while no
+# new profile is selectable until Phase 8.9A publishes @2 atomically.
+RUNTIME_SELECTABLE_PROFILE_REFS: frozenset[tuple[str, str]] = frozenset()
 MAX_ACTIVE_PROFILE_VERSIONS = 32
 PROFILE_ID_PATTERN = re.compile(
     r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
@@ -176,9 +180,15 @@ class ArchitectureProfileService:
 
     @staticmethod
     def default_reference() -> PinnedArchitectureReference:
+        """Return the pinned historical migration/default reference.
+
+        This is not proof that the profile is runtime-selectable. New-profile
+        mutations must pass ``get_selectable_definition`` instead.
+        """
         profile = ArchitectureProfileService.get_definition(
             DEFAULT_PROFILE_ID,
             DEFAULT_PROFILE_VERSION,
+            require_active=False,
         )
         return PinnedArchitectureReference(
             id=profile["profile_id"],
@@ -209,11 +219,15 @@ class ArchitectureProfileService:
         root = DEFINITIONS_ROOT / "profiles"
         for path in sorted(root.glob("*/*/profile.json")):
             profile = _read_json(path)
-            if profile.get("lifecycle_status") != "active":
-                continue
-            validated = self.get_definition(
+            reference = (
                 str(profile.get("profile_id")),
                 str(profile.get("profile_version")),
+            )
+            if reference not in RUNTIME_SELECTABLE_PROFILE_REFS:
+                continue
+            validated = self.get_selectable_definition(
+                reference[0],
+                reference[1],
             )
             profiles.append(self._summary(validated))
         profiles.sort(key=lambda item: (item.profile_id, int(item.profile_version)))
@@ -228,7 +242,7 @@ class ArchitectureProfileService:
         profile_id: str,
         profile_version: str,
     ) -> ArchitectureProfileDetailResponse:
-        profile = self.get_definition(profile_id, profile_version)
+        profile = self.get_selectable_definition(profile_id, profile_version)
         summary = self._summary(profile)
         nodes = [
             ArchitectureVisualizationNode(
@@ -255,6 +269,29 @@ class ArchitectureProfileService:
             logical_edges=profile["edges"],
             visualization=ArchitectureVisualization(nodes=nodes, edges=edges),
         )
+
+    @staticmethod
+    def get_selectable_definition(
+        profile_id: str,
+        profile_version: str,
+    ) -> dict[str, Any]:
+        """Load a reviewed definition only when its runtime gate is active."""
+        profile = ArchitectureProfileService.get_definition(
+            profile_id,
+            profile_version,
+            require_active=False,
+        )
+        if (
+            profile_id,
+            profile_version,
+        ) not in RUNTIME_SELECTABLE_PROFILE_REFS or profile.get(
+            "lifecycle_status"
+        ) != "active":
+            raise architecture_error(
+                "ARCH_PROFILE_NOT_ACTIVE",
+                "The architecture profile version is not active.",
+            )
+        return profile
 
     def get_selection(
         self,
@@ -285,7 +322,7 @@ class ArchitectureProfileService:
                 "ARCH_SELECTION_REVISION_CONFLICT",
                 "The architecture selection revision is stale.",
             )
-        target = self.get_definition(profile_id, profile_version)
+        target = self.get_selectable_definition(profile_id, profile_version)
         return self._build_preview(selection, target)
 
     def select_profile(
@@ -326,7 +363,7 @@ class ArchitectureProfileService:
                 "The architecture selection revision is stale.",
             )
 
-        target = self.get_definition(profile_id, profile_version)
+        target = self.get_selectable_definition(profile_id, profile_version)
         preview = self._build_preview(selection, target)
         if preview.invalidation_digest != invalidation_digest:
             self._audit_rejection(

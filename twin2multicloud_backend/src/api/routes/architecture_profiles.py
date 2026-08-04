@@ -59,6 +59,7 @@ async def list_architecture_profiles(
     responses={
         401: ERROR_RESPONSES[401],
         404: ARCHITECTURE_ERROR_RESPONSES[404],
+        409: ARCHITECTURE_ERROR_RESPONSES[409],
     },
 )
 async def get_architecture_profile(

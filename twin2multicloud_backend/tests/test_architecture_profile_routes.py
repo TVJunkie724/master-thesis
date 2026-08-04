@@ -14,7 +14,7 @@ from tests.architecture_test_data import linked_architecture_fixture_documents
 from tests.test_resolved_architecture_service import _state
 
 
-def test_profile_routes_and_idempotent_selection_round_trip(
+def test_profile_routes_keep_historical_selection_read_only_before_activation(
     authenticated_client,
     db_session,
 ):
@@ -38,14 +38,9 @@ def test_profile_routes_and_idempotent_selection_round_trip(
     )
 
     assert listed.status_code == 200
-    assert [
-        (item["profile_id"], item["profile_version"])
-        for item in listed.json()
-    ] == [("five-layer-baseline", "1")]
-    assert detail.status_code == 200
-    assert len(detail.json()["visualization"]["nodes"]) == 7
-    assert "terraform_binding" not in detail.text
-    assert "package_artifact" not in detail.text
+    assert listed.json() == []
+    assert detail.status_code == 409
+    assert detail.json()["error_code"] == "ARCH_PROFILE_NOT_ACTIVE"
     assert selection.status_code == 200
     assert selection.json()["revision"] == 1
     db_session.expire_all()
@@ -68,21 +63,8 @@ def test_profile_routes_and_idempotent_selection_round_trip(
             "expected_revision": 1,
         },
     )
-    assert preview.status_code == 200
-    assert preview.json()["incompatible_workload_fields"] == []
-
-    selected = client.put(
-        f"/twins/{twin_id}/architecture-profile",
-        headers=headers,
-        json={
-            "profile_id": "five-layer-baseline",
-            "profile_version": "1",
-            "expected_revision": 1,
-            "invalidation_digest": preview.json()["invalidation_digest"],
-        },
-    )
-    assert selected.status_code == 200
-    assert selected.json()["revision"] == 1
+    assert preview.status_code == 409
+    assert preview.json()["error_code"] == "ARCH_PROFILE_NOT_ACTIVE"
 
     unresolved = client.get(
         f"/twins/{twin_id}/resolved-architecture",

@@ -24,6 +24,22 @@ from src.services.architecture_contract_service import calculate_digest
 from src.services.architecture_profile_service import ArchitectureProfileService
 
 
+@pytest.fixture(autouse=True)
+def _activate_profiles_used_by_transaction_tests(monkeypatch):
+    """Keep mutation tests focused while production activation stays empty."""
+    monkeypatch.setattr(
+        "src.services.architecture_profile_service."
+        "RUNTIME_SELECTABLE_PROFILE_REFS",
+        frozenset(
+            {
+                ("five-layer-baseline", "1"),
+                ("minimal-profile", "1"),
+                ("concurrent-profile", "1"),
+            }
+        ),
+    )
+
+
 def _user(db_session):
     from src.models.user import User
 
@@ -53,7 +69,25 @@ def _twin_with_selection(db_session):
     return user, twin
 
 
-def test_catalog_lists_only_active_profiles_and_safe_detail():
+def test_catalog_excludes_historical_profile_until_runtime_activation(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "src.services.architecture_profile_service."
+        "RUNTIME_SELECTABLE_PROFILE_REFS",
+        frozenset(),
+    )
+    service = ArchitectureProfileService()
+
+    profiles = service.list_profiles()
+
+    assert profiles == []
+    with pytest.raises(ArchitectureDomainError) as historical:
+        service.get_profile("five-layer-baseline", "1")
+    assert historical.value.code == "ARCH_PROFILE_NOT_ACTIVE"
+
+
+def test_runtime_activated_catalog_returns_safe_detail():
     service = ArchitectureProfileService()
 
     profiles = service.list_profiles()
@@ -154,6 +188,11 @@ def test_active_profile_catalog_bound_fails_closed(
     monkeypatch.setattr(
         "src.services.architecture_profile_service.DEFINITIONS_ROOT",
         root,
+    )
+    monkeypatch.setattr(
+        "src.services.architecture_profile_service."
+        "RUNTIME_SELECTABLE_PROFILE_REFS",
+        frozenset(profiles),
     )
     monkeypatch.setattr(
         ArchitectureProfileService,
