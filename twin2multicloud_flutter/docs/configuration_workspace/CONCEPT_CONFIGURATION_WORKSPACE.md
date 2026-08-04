@@ -1,17 +1,27 @@
 ---
 title: "Configuration Workspace Target"
-description: "Enterprise-grade UX and architecture target for configuring a Twin2MultiCloud digital twin."
+description: "Thesis-PoC UX and architecture target for configuring a Twin2MultiCloud digital twin."
 tags: [flutter, configuration, wizard, ux, architecture]
-lastUpdated: "2026-07-12"
-version: "1.0"
+lastUpdated: "2026-08-03"
+version: "1.1"
 ---
+
+<!-- SOURCES:
+- FRONTEND_ARCHITECTURE.md
+- integration_vision.md
+- twin2multicloud_flutter/docs/configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md
+- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
+- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
+- User-approved Master-thesis PoC boundary from the 2026-08-03 planning conversation
+EXTRACTED: 2026-08-03 | VERSION: 1.1
+-->
 
 # Configuration Workspace Target
 
 ## Decision
 
 Replace the fixed three-step wizard with an intent-driven, dependency-aware
-configuration workspace. The workspace guides users through five business
+configuration workspace. The workspace guides users through six focused
 phases without exposing backend file names, storage boundaries, or deployment
 implementation details as navigation concepts.
 
@@ -20,17 +30,23 @@ tasks can be revisited directly. Tasks whose prerequisites are missing remain
 visible with a concise reason. Tasks that do not apply to the selected
 architecture are marked as not required rather than silently disappearing.
 
+| In scope | Out of scope |
+|---|---|
+| Guided Twin identity, reviewed architecture profile, workload, required user logic, profile-local optimization, deployment readiness, and preflight | General infrastructure authoring, arbitrary provider/SKU selection, enterprise governance, automatic cloud deployment during configuration, and mobile targets |
+
 ## User Journey
 
-1. **Define twin**: name and execution mode.
-2. **Describe workload**: device traffic, processing, retention, and twin
+1. **Define twin**: name and execution mode, then persist the draft identity.
+2. **Architecture**: select one active reviewed profile and inspect its
+   responsibilities and logical flow.
+3. **Workload**: device traffic, processing, retention, and twin
    capabilities.
-3. **Choose architecture**: confirm pricing readiness, calculate alternatives,
+4. **User Logic**: bind only extension slots required by the selected profile.
+5. **Optimize and review**: confirm pricing readiness, calculate alternatives,
    review the recommendation, and verify the immutable deployment selection.
-4. **Prepare deployment**: bind deployment access for selected providers and
-   supply data contracts, user logic, and required assets.
-5. **Review configuration**: inspect the complete configuration, resolve
-   readiness findings, run authoritative preflight validation, and finish.
+6. **Deployment review**: bind deployment access for selected providers,
+   supply data contracts and required assets, inspect readiness findings, run
+   authoritative preflight validation, and finish.
 
 Deployment itself remains an explicit Twin Overview operation. Finishing the
 workspace creates a deployment-ready configuration; it does not deploy cloud
@@ -64,22 +80,25 @@ not become the new journey source of truth.
 ```text
 Configuration workspace
 |-- Define twin
-|-- Describe workload
+|-- Architecture
+|   |-- Select profile
+|   `-- Understand architecture
+|-- Workload
 |   |-- Scenario and currency
 |   |-- Device traffic
 |   |-- Processing
 |   |-- Retention
 |   `-- Twin capabilities
-|-- Choose architecture
+|-- User Logic
+|   `-- Bind user logic
+|-- Optimize and review
 |   |-- Pricing readiness
 |   |-- Calculate alternatives
-|   `-- Review recommendation
-|-- Prepare deployment
-|   |-- Cloud access
-|   |-- Data contracts
-|   |-- User logic
-|   `-- Twin assets
-`-- Review configuration
+|   `-- Compare and select
+`-- Deployment review
+    |-- Cloud access
+    |-- Data contracts
+    |-- Twin assets
     |-- Summary
     |-- Readiness findings
     `-- Validation and preflight
@@ -150,7 +169,7 @@ must not simulate generation or introduce client-side placeholder artifacts.
 ## Thesis Rationale
 
 The target separates user intent, optimization, deployment preparation, and
-runtime operation. This makes the five-layer research architecture visible
+runtime operation. This makes the selected research architecture visible
 through business tasks while keeping provider-specific implementation detail
 behind typed contracts. The dependency model also makes invalidation and
 conditional requirements explainable, which is essential for reproducible

@@ -3,7 +3,7 @@ title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
 lastUpdated: "2026-08-03"
-version: "1.7"
+version: "1.8"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.7"
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
 - twin2multicloud_flutter/implementation_plans/2026-08-03_architecture_profile_experiment.md
-EXTRACTED: 2026-08-03 | VERSION: 1.7
+EXTRACTED: 2026-08-03 | VERSION: 1.8
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -717,7 +717,8 @@ Use the real Docker Management API:
 
 - create/load a new Twin and verify the no-active-profile blocking state;
 - load a migrated historical `@1` Twin and verify read-only presentation;
-- reject selection or calculation attempts against historical `@1`;
+- reject historical `@1` detail and profile-change targets while the Flutter
+  journey blocks new calculation and deployment from the empty active catalog;
 - cross-user resource access remains hidden;
 - no direct Optimizer/Deployer request occurs.
 
@@ -725,6 +726,10 @@ Unit tests may mock `ArchitectureApi`; integration tests may not mock HTTP.
 The first active-profile selection, complete-run, deployment-unlock, and real
 destructive profile-change integration cases belong to Phase 8.9A. Phase 8.7
 must not expose an inactive or fake profile merely to exercise those paths.
+Direct Management migration/rejection of legacy `@1` optimizer-run creation is
+also activated atomically in 8.9A when `five-layer-baseline@2` becomes active;
+removing the compatibility calculation path earlier would break the existing
+historical API without yet providing its replacement.
 Extend `run_frontend_integration_tests()` in `thesis.sh` so the resolved host
 device runs `integration_test/architecture_profile_workflow_test.dart` after
 the existing Management readiness test. The script remains credential-free.

@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-03"
-version: "4.0"
+version: "4.1"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.0"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 4.0
+EXTRACTED: 2026-08-03 | VERSION: 4.1
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -34,8 +34,8 @@ EXTRACTED: 2026-08-03 | VERSION: 4.0
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.6 is implemented and zero-finding reviewed as a dark generic compiler on the approved complete-service foundation; Phase 8.5 admission and all new profiles remain default-off; Six-layer remains a later strict delta |
-| Next action | Implement and review Phase 8.7's compact Flutter profile workflow without profile activation, then implement guided bootstrap before Five-layer v2 |
+| Implementation status | Phase 8.7 Flutter profile workflow is implemented locally on the reviewed dark Phase 8.6 foundation; real/demo catalogs remain empty and all new profiles remain default-off pending the final integrated gate |
+| Next action | Complete the Phase 8.7 review/gate and commit, then implement guided bootstrap before Five-layer v2 |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -167,12 +167,13 @@ binding contract is
 Do not activate a profile. Complete these boundaries in order:
 
 1. retain the committed 2026-08-03 concept, cross-stack execution plans,
-   immutable complete-service decision, and reviewed dark Phase 8.6 compiler;
-2. implement Phase 8.7's compact Management-API-only Flutter profile
-   selection and read-only resolution review for Web and desktop;
+   immutable complete-service decision, reviewed dark Phase 8.6 compiler, and
+   implemented Phase 8.7 Flutter workflow;
+2. finish Phase 8.7's integrated Management-API-only Flutter review for Web
+   and desktop;
 3. keep `five-layer-baseline@1`, Phase 8.5 admission, and all new profile
-   execution default-off throughout Phase 8.7;
-4. review Phase 8.7 to zero findings and commit its boundary;
+   execution default-off throughout that gate;
+4. commit the zero-finding Phase 8.7 boundary;
 5. implement and review guided cloud bootstrap / #154 on that foundation;
 6. implement and review `five-layer-baseline@2` / 8.9A including Layer Access;
 7. freeze the reviewed Five-layer v2 digest before starting the separate

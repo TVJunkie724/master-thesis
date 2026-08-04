@@ -523,27 +523,59 @@ run_frontend_integration_tests() {
     fail "Frontend integration tests must run without cloud credential overlays."
 
   bootstrap_local_runtime_secrets
+  local required_services=(2twin2clouds 3cloud-deployer management-api)
+  local running_before
+  running_before="$(compose_cmd ps --services --filter status=running)"
+  local started_services=()
+  local service
+  for service in "${required_services[@]}"; do
+    if ! grep -Fxq "$service" <<<"$running_before"; then
+      started_services+=("$service")
+    fi
+  done
 
-  info "Starting credential-free services for read-only Flutter integration tests."
-  compose_cmd up -d 2twin2clouds 3cloud-deployer management-api
-  info "Restarting services so bind-mounted API contracts match the current source."
-  compose_cmd restart 2twin2clouds 3cloud-deployer management-api
-  write_flutter_config
-  smoke_app
+  local integration_status
+  set +e
+  (
+    set -e
+    if [ "${#started_services[@]}" -gt 0 ]; then
+      info "Starting missing credential-free services for read-only Flutter integration tests."
+      compose_cmd up -d --no-recreate "${started_services[@]}"
+    else
+      info "Using the already-running credential-free integration services unchanged."
+    fi
+    write_flutter_config
+    smoke_app
 
-  local host_device
-  host_device="$(resolve_host_desktop_device)" || exit $?
-  info "Running the Management API readiness contract on $host_device."
-  (cd "$FLUTTER_DIR" && flutter test \
-    integration_test/management_api_readiness_test.dart \
-    -d "$host_device" \
-    --dart-define-from-file=config/dev.json \
-    --dart-define="TEST_OPTIMIZER_API_BASE_URL=http://localhost:${THESIS_OPTIMIZER_PORT}")
-  info "Running the user-function extension contract on $host_device."
-  (cd "$FLUTTER_DIR" && flutter test \
-    integration_test/user_function_extension_contract_test.dart \
-    -d "$host_device" \
-    --dart-define-from-file=config/dev.json)
+    local host_device
+    host_device="$(resolve_host_desktop_device)" || exit $?
+    info "Running the Management API readiness contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/management_api_readiness_test.dart \
+      -d "$host_device" \
+      --dart-define-from-file=config/dev.json \
+      --dart-define="TEST_OPTIMIZER_API_BASE_URL=http://localhost:${THESIS_OPTIMIZER_PORT}")
+    info "Running the architecture-profile boundary contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/architecture_profile_workflow_test.dart \
+      -d "$host_device" \
+      --dart-define-from-file=config/dev.json)
+    info "Running the user-function extension contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/user_function_extension_contract_test.dart \
+      -d "$host_device" \
+      --dart-define-from-file=config/dev.json)
+  )
+  integration_status=$?
+  set -e
+
+  if [ "${#started_services[@]}" -gt 0 ]; then
+    info "Stopping only services started by this integration run: ${started_services[*]}"
+    compose_cmd stop "${started_services[@]}" || true
+  else
+    info "Leaving all integration services running because they predated this run."
+  fi
+  return "$integration_status"
 }
 
 run_deployment_contract_tests() {

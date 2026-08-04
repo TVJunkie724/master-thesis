@@ -7,7 +7,8 @@ import '../core/result.dart';
 
 typedef DemoClock = DateTime Function();
 
-class DemoApiException implements UserFacingException {
+class DemoApiException implements CodedUserFacingException {
+  @override
   final String code;
   @override
   final String message;

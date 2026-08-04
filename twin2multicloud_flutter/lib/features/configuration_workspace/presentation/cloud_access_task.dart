@@ -15,11 +15,7 @@ class CloudAccessTask extends StatelessWidget {
       builder: (context, state) {
         final bloc = context.read<WizardBloc>();
         final providers = CloudProvider.values
-            .where(
-              (provider) => state.layerProviders.values.any(
-                (required) => required == provider.name.toUpperCase(),
-              ),
-            )
+            .where(state.requiredDeploymentProviders.contains)
             .toList(growable: false);
 
         return SingleChildScrollView(

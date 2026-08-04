@@ -3,7 +3,7 @@ title: "Architecture Profile Experiment"
 description: "A bounded Configuration Workspace experience for selecting, comparing, and deploying the Five-layer v2 and Six-layer v1 thesis profiles."
 tags: [flutter, configuration-workspace, architecture-profiles, eventing, thesis]
 lastUpdated: "2026-08-03"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.1"
 - twin2multicloud_flutter/docs/configuration_workspace/RESOLVED_DEPLOYMENT_REVIEW.md
 - FRONTEND_ARCHITECTURE.md
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-03 | VERSION: 1.1
+EXTRACTED: 2026-08-03 | VERSION: 1.2
 -->
 
 # Architecture Profile Experiment
@@ -74,34 +74,39 @@ enterprise topology editor or cloud-governance product.
 
 ## Experience Model
 
-The existing five Configuration Workspace phases remain. Profile selection is
-added at the beginning of **Describe workload**, because the selected profile
-defines which workload fields are valid. The remaining journey stays familiar:
+The Configuration Workspace exposes profile selection as its own phase before
+workload because the selected profile defines the valid fields and extension
+slots. The bounded journey is:
 
 ```text
 Define Twin
     |
     v
-Describe Workload
+Architecture
     |-- choose reviewed profile
+    `-- inspect and acknowledge its logical flow
+    |
+    v
+Workload
     |-- choose core Small / Medium / Large preset or edit supported core fields
     `-- choose required immutable event Small / Medium / Large scenario
     |
     v
-Choose Architecture
+User Logic
+    `-- bind only profile-required extension slots
+    |
+    v
+Optimize and Review
     |-- verify price/evidence readiness
     |-- calculate complete alternatives inside the selected profile
     `-- select one immutable resolved deployment run
     |
     v
-Prepare Deployment
+Deployment Review
     |-- guided cloud bootstrap for missing selected-provider access
-    |-- data contracts and user logic
-    `-- profile-supported Twin assets only
-    |
-    v
-Review Configuration
+    |-- data contracts
     |-- profile, workload, providers, services, edges, tiering, and readiness
+    |-- profile-supported Twin assets only
     `-- Management API validation and deployment preflight
     |
     v

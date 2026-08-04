@@ -199,7 +199,7 @@ when work becomes actionable, then reference the issue here.
 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Implemented locally, review complete | Migration 022, revisioned profile selection/invalidation, immutable canonical resolution plus component/edge projections, owner-scoped read APIs, audit evidence, and fixed-field transition inventory |
 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Implemented locally, review complete | Default-off functional-completeness gate, profile-local ranking, immutable resolution, and Management admission boundary |
 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Implemented locally, review complete | Dark Manifest v3 compiler with deterministic component/binding graph, package preflight, typed Terraform projection, and frozen operation evidence before side effects |
-| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Planned | Compact Management-API-only profile workflow for Web, macOS, Windows, and Linux |
+| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Implemented locally; final gate pending | Strict Management-API-only catalog/selection/resolution workflow, truthful empty/historical state, revisioned invalidation, responsive typed graph, and generic resolved review for Web and desktop |
 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Approved offline decision | Source-backed six-bundle capability/pricing package, exact bridge, all single/pair/three-provider scenarios, S/M/L calculations, implementation blueprint, and two zero-finding reviews; live identity/capacity gates remain |
 | Complete-service closure / Five-layer v2 plan | Approved immutable offline decision | PoC-focused L1-L5 bundles with Cosmos DB and Firestore retained for Azure/GCP L3 hot, provider-local L3-hot/L5, independent L4, three local plus six split online placements, raw visualization, Twin projection, finite storage jobs, workload v2, and complete-service evidence. L4-to-L5/3D, ADX/BigQuery migration, Spanner Graph, default dedicated Grafana nodes, and storage-specific CDC/outbox pipelines are not selected |
 | `five-layer-baseline@2` implementation | Planned after #138 and complete-service approval | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, and admissible mixed L1/L2/cool/archive paths |
@@ -228,9 +228,10 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Continue Phase 8 with
-   [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138)
-   from the reviewed, default-off #152 graph-compiler boundary.
+1. Complete the integrated review of
+   [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138),
+   then continue with guided bootstrap from the reviewed, default-off #152
+   graph-compiler boundary.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
@@ -238,7 +239,8 @@ when work becomes actionable, then reference the issue here.
    drift gate fail and requires a reconciled Phase 8.1 decision digest.
 3. Keep the #113 user-function execution contract, Phase 8.3 slot mappings,
    Phase 8.4 persistence contract, Phase 8.5 immutable resolution output, and
-   Phase 8.6 graph compiler stable while Phase 8.7 adds the compact UI.
+   Phase 8.6 graph compiler stable while the implemented Phase 8.7 UI passes
+   its final gate.
 4. Follow the reviewed
    `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
    skipping its baseline, contract, migration, functional-completeness,

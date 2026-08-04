@@ -126,6 +126,32 @@ class ThesisEntrypointTests(unittest.TestCase):
 
         self.assertLess(dependency_resolution, formatting)
 
+    def test_frontend_integration_preserves_preexisting_services(self) -> None:
+        script = SCRIPT.read_text(encoding="utf-8")
+        integration_gate = script.split(
+            "run_frontend_integration_tests() {", 1
+        )[1].split("run_deployment_contract_tests() {", 1)[0]
+
+        self.assertIn(
+            'compose_cmd ps --services --filter status=running',
+            integration_gate,
+        )
+        self.assertIn('started_services+=("$service")', integration_gate)
+        self.assertIn(
+            'compose_cmd up -d --no-recreate "${started_services[@]}"',
+            integration_gate,
+        )
+        self.assertNotIn(
+            'compose_cmd up -d "${required_services[@]}"',
+            integration_gate,
+        )
+        self.assertIn(
+            'compose_cmd stop "${started_services[@]}"',
+            integration_gate,
+        )
+        self.assertNotIn("compose_cmd down", integration_gate)
+        self.assertNotIn("compose_cmd restart", integration_gate)
+
 
 if __name__ == "__main__":
     unittest.main()

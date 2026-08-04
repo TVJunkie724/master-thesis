@@ -12,6 +12,7 @@ import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 import '../fixtures/typed_api_fixtures.dart';
+import '../fixtures/architecture_wizard_fixture.dart';
 
 final class _MockApiService extends Mock implements ApiService {}
 
@@ -32,6 +33,12 @@ void main() {
   setUp(() {
     api = _MockApiService();
     when(() => api.getPricingHealth()).thenAnswer((_) async => _health());
+    when(() => api.getRunResolvedArchitecture(any())).thenAnswer((invocation) {
+      final runId = invocation.positionalArguments.single as String;
+      return Future.value(
+        resolvedArchitectureFixture(runId: runId, twinId: 'new-twin'),
+      );
+    });
     when(() => api.selectOptimizerRunForDeployment(any(), any())).thenAnswer((
       invocation,
     ) async {
@@ -59,7 +66,7 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) async => run);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
@@ -89,7 +96,7 @@ void main() {
         if (runAttempts == 1) throw Exception('optimizer unavailable');
         return TypedApiFixtures.optimizerRun(twinId: 'new-twin');
       });
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -117,7 +124,7 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) => completer.future);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
@@ -166,10 +173,7 @@ void main() {
           selectedForDeploymentAt: selectedAt,
         );
       });
-      final bloc = WizardBloc(
-        api: api,
-        logger: AppLogger(sink: logSink),
-      );
+      final bloc = _bloc(api, logger: AppLogger(sink: logSink));
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -206,7 +210,7 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) async => run);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
@@ -239,7 +243,7 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) async => run);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
@@ -270,7 +274,7 @@ void main() {
       when(
         () => api.createOptimizerRun('new-twin', any()),
       ).thenAnswer((_) async => run);
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -315,7 +319,7 @@ void main() {
       when(
         () => api.createOptimizerRun('new-twin', any()),
       ).thenAnswer((_) => pendingRun.future);
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -360,7 +364,7 @@ void main() {
       when(
         () => api.selectOptimizerRunForDeployment('new-twin', 'run-123'),
       ).thenAnswer((_) => pendingSelection.future);
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -430,7 +434,7 @@ void main() {
         if (attempts == 1) throw Exception('verification unavailable');
         return retry.future;
       });
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -467,7 +471,7 @@ void main() {
   );
 
   test('blank create-mode name blocks twin and optimizer calls', () async {
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc, twinName: '   ');
 
@@ -479,6 +483,13 @@ void main() {
     verifyNever(() => api.createOptimizerRun(any(), any()));
   });
 }
+
+WizardBloc _bloc(_MockApiService api, {AppLogger logger = const AppLogger()}) =>
+    WizardBloc(
+      api: api,
+      logger: logger,
+      initialState: architectureReadyWizardState(persisted: false),
+    );
 
 Future<void> _prepare(
   WizardBloc bloc, {

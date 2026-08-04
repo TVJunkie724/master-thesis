@@ -30,9 +30,9 @@ reviewed. The Phase 8.8 offline decision package also
 freezes the event-enabled five-layer control, the six-layer treatment, six
 provider bundles, the exact source-owned cross-cloud bridge, and its
 Small/Medium/Large evidence without claiming runtime or live-cloud support.
-Phase 8.7's compact Flutter profile workflow is next, followed by guided cloud
-bootstrap and Five-layer v2; runtime profile activation remains dark until
-those gates pass. Credential,
+Phase 8.7's compact Flutter profile workflow is implemented locally with the
+runtime catalog still empty. Guided cloud bootstrap and Five-layer v2 follow;
+runtime profile activation remains dark until those gates pass. Credential,
 remaining Optimizer coverage, manual UI audit, and external authentication work
 remain independently tracked in their GitHub milestones rather than inferred
 from one global "current phase" label.

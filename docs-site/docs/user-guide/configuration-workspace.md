@@ -1,6 +1,6 @@
 # Configuration Workspace
 
-The workspace replaces one long three-page form with five phases and smaller tasks.
+The workspace replaces one long three-page form with six focused phases and smaller tasks.
 The sidebar provides orientation, completion/attention status, and direct access to
 navigable tasks; blocked tasks explain their prerequisite.
 
@@ -9,10 +9,11 @@ navigable tasks; blocked tasks explain their prerequisite.
 | Phase | Tasks |
 |---|---|
 | Define twin | identity and mode |
-| Describe workload | scenario/currency, device traffic, processing, retention, twin capabilities |
-| Choose architecture | pricing readiness, calculate alternatives, review recommendation |
-| Prepare deployment | cloud access, data contracts, user logic, twin assets |
-| Review configuration | summary, readiness findings, validation/preflight |
+| Architecture | select profile, understand architecture |
+| Workload | scenario/currency, device traffic, processing, retention, twin capabilities |
+| User Logic | bind profile-required user logic |
+| Optimize and review | pricing readiness, calculate alternatives, compare and select |
+| Deployment review | cloud access, data contracts, twin assets, summary, readiness findings, validation/preflight |
 
 The conceptual phases replace the old UX, but typed backend contracts retain legacy
 step projections internally where needed for compatibility.
@@ -21,7 +22,8 @@ step projections internally where needed for compatibility.
 
 ```text
 twin identity
-   -> complete workload
+   -> active profile selected and its logical flow visited
+      -> complete workload and required user logic
       -> pricing ready enough to calculate
          -> calculation result / verified deployment selection
             -> required provider cloud access
@@ -32,6 +34,14 @@ twin identity
 Users may revisit completed tasks. A material configuration edit can invalidate a
 calculation, readiness result, or `configured` state. The workspace shows the next
 recommended task rather than pretending downstream results remain current.
+
+The active profile list is owned by Management. During the Phase 8.7
+infrastructure step it is intentionally empty: historical Five-layer v1 Twins
+remain readable, but no replacement profile is shown as disabled or “coming
+soon.” Five-layer v2 and Six-layer v1 appear only when their complete runtime
+implementations are activated. A profile change first shows the exact
+server-calculated workload, user-logic, run, and readiness invalidations and
+requires explicit confirmation.
 
 ## Calculation And Evidence
 

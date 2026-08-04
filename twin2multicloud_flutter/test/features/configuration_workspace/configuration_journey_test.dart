@@ -8,6 +8,7 @@ import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 
 import '../../fixtures/typed_api_fixtures.dart';
+import '../../fixtures/architecture_wizard_fixture.dart';
 
 void main() {
   group('ConfigurationJourney', () {
@@ -35,31 +36,51 @@ void main() {
         ConfigurationTaskStatus.blocked,
       );
       expect(
+        journey.task(ConfigurationTaskId.selectProfile).blockingReason,
+        'Save the Twin draft first',
+      );
+      expect(
         journey.task(ConfigurationTaskId.cloudAccess).blockingReason,
         'Calculate an architecture first',
       );
     });
 
-    test('moves a named draft to workload description without credentials', () {
+    test('keeps a named but unpersisted draft at Twin identity', () {
       final journey = ConfigurationJourney.fromWizardState(
         const WizardState(status: WizardStatus.ready, twinName: 'Factory twin'),
       );
 
+      expect(journey.recommendedTaskId, ConfigurationTaskId.defineTwin);
       expect(
-        journey.recommendedTaskId,
-        ConfigurationTaskId.scenarioAndCurrency,
+        journey.task(ConfigurationTaskId.selectProfile).status,
+        ConfigurationTaskStatus.blocked,
+      );
+    });
+
+    test('surfaces the truthful empty catalog after the draft is saved', () {
+      final journey = ConfigurationJourney.fromWizardState(
+        const WizardState(
+          status: WizardStatus.ready,
+          twinId: 'twin-1',
+          twinName: 'Factory twin',
+          architectureCatalogPhase: ArchitectureCatalogPhase.empty,
+        ),
+      );
+
+      expect(journey.recommendedTaskId, ConfigurationTaskId.selectProfile);
+      expect(
+        journey.task(ConfigurationTaskId.selectProfile).status,
+        ConfigurationTaskStatus.current,
       );
       expect(
         journey.task(ConfigurationTaskId.deviceTraffic).status,
-        ConfigurationTaskStatus.available,
+        ConfigurationTaskStatus.blocked,
       );
     });
 
     test('surfaces pricing attention before architecture calculation', () {
       final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
+        architectureReadyWizardState().copyWith(
           calcParams: CalcParams.defaultParams(),
           pricingHealthError: 'Unavailable',
         ),
@@ -74,14 +95,16 @@ void main() {
 
     test('requires access only for providers in selected architecture', () {
       final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
+        architectureReadyWizardState().copyWith(
           calcParams: CalcParams.defaultParams(),
           pricingHealth: _healthyPricing(),
           calcResult: _result(const ['L1_AWS', 'L2_AWS', 'L4_AZURE']),
           deploymentRun: TypedApiFixtures.deploymentRun(
             selectedForDeploymentAt: TypedApiFixtures.timestamp,
+          ),
+          resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
+          resolvedArchitecture: resolvedArchitectureFixture(
+            provider: CloudProvider.aws,
           ),
         ),
       );
@@ -106,10 +129,7 @@ void main() {
       'preserves an available requested task instead of forcing linearity',
       () {
         final journey = ConfigurationJourney.fromWizardState(
-          const WizardState(
-            status: WizardStatus.ready,
-            twinName: 'Factory twin',
-          ),
+          architectureReadyWizardState(),
           requestedTaskId: ConfigurationTaskId.retention,
         );
 
@@ -119,9 +139,7 @@ void main() {
     );
 
     test('finish readiness includes access, artifacts and invalidation', () {
-      final ready = WizardState(
-        status: WizardStatus.ready,
-        twinName: 'Factory twin',
+      final ready = architectureReadyWizardState().copyWith(
         calcParams: CalcParams.defaultParams(),
         calcResult: _result(const [
           'L1_GCP',
@@ -142,6 +160,10 @@ void main() {
         deploymentRun: TypedApiFixtures.deploymentRun(
           selectedForDeploymentAt: TypedApiFixtures.timestamp,
         ),
+        resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
+        resolvedArchitecture: resolvedArchitectureFixture(
+          provider: CloudProvider.gcp,
+        ),
       );
 
       expect(ready.isConfigurationReadyForFinish, isTrue);
@@ -156,7 +178,24 @@ void main() {
         isFalse,
       );
 
-      final extensionRequired = ready.copyWith(
+      final extensionBase =
+          architectureReadyWizardState(withExtensionSlot: true).copyWith(
+            calcParams: ready.calcParams,
+            calcResult: ready.calcResult,
+            selectedCloudConnectionIds: ready.selectedCloudConnectionIds,
+            deployerDigitalTwinName: ready.deployerDigitalTwinName,
+            configEventsJson: ready.configEventsJson,
+            configIotDevicesJson: ready.configIotDevicesJson,
+            configJsonValidated: true,
+            configEventsValidated: true,
+            configIotDevicesValidated: true,
+            payloadsJson: ready.payloadsJson,
+            payloadsValidated: true,
+            deploymentRun: ready.deploymentRun,
+            resolvedArchitecturePhase: ready.resolvedArchitecturePhase,
+            resolvedArchitecture: ready.resolvedArchitecture,
+          );
+      final extensionRequired = extensionBase.copyWith(
         extensionSlots: const [_extensionSlot],
       );
       expect(extensionRequired.isConfigurationReadyForFinish, isFalse);
@@ -164,7 +203,7 @@ void main() {
         ConfigurationJourney.fromWizardState(
           extensionRequired,
         ).task(ConfigurationTaskId.userLogic).status,
-        ConfigurationTaskStatus.available,
+        ConfigurationTaskStatus.current,
       );
 
       final binding = TwinExtensionBinding(
@@ -199,9 +238,7 @@ void main() {
 
     test('blocks deployment tasks until the latest run is selected', () {
       final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
+        architectureReadyWizardState().copyWith(
           calcParams: CalcParams.defaultParams(),
           pricingHealth: _healthyPricing(),
           calcResult: _result(const ['L1_AWS']),

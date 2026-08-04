@@ -21,6 +21,15 @@ implementation plans are authoritative.
   CloudConnection is planned only in Prepare deployment and the shared Settings
   entry point; see
   [Configuration Workspace Phase 9](twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
+- `WizardBloc` owns the server-driven architecture catalog, pinned selection,
+  detail acknowledgement, revisioned invalidation preview, stale-conflict
+  recovery, and resolved-run review. The visible order is Define twin,
+  Architecture, Workload, User Logic, Optimize and review, Deployment review.
+  Workload and calculation fail closed while no active profile is published.
+- Logical graphs are typed and read-only: wide/medium layouts use bounded
+  Sugiyama overview/component projections; compact layouts list only declared
+  labeled edges. Flutter never invents topology or offers infrastructure
+  editing.
 
 ## Architecture Overview
 

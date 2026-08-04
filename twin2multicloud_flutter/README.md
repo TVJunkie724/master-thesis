@@ -64,3 +64,17 @@ boundary between build support and signed distribution packages.
 
 Flutter must call the Management API only. Direct calls to Optimizer or
 Deployer service ports are architecture defects.
+
+## Architecture Profile Workflow
+
+The Configuration Workspace now owns a typed, server-driven profile boundary:
+save the Twin identity, select an active profile, inspect its logical flow,
+then enter workload and user logic before optimization. Profile changes use a
+revisioned Management preview and display only the invalidations returned by
+the server. Selected runs are reviewed through immutable resolved component,
+edge, tiering, bridge, cost, and digest DTOs.
+
+Until Five-layer v2 is activated, the real and demo catalogs are deliberately
+empty and the historical Five-layer v1 selection is read-only. Populated
+Five-/Six-layer states exist only as strict test fixtures in this phase; the UI
+does not advertise a capability that the PoC cannot yet execute.

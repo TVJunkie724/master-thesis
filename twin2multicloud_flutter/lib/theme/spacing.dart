@@ -116,6 +116,42 @@ abstract class AppSpacing {
   /// Stable provider column width in resolved deployment rows.
   static const double resolvedDeploymentProviderColumnWidth = 96;
 
+  /// Stable label column width in generic resolved-architecture evidence.
+  static const double resolvedArchitectureEvidenceLabelWidth = 140;
+
+  /// Stable label column width in the configuration summary.
+  static const double configurationSummaryLabelWidth = 180;
+
+  /// Logical architecture graph switches to its exact edge-list projection.
+  static const double logicalProfileFlowCompactBreakpoint = 720;
+
+  /// Stable logical architecture node width in the bounded graph viewport.
+  static const double logicalProfileFlowNodeWidth = 190;
+
+  /// Stable logical architecture graph viewport height.
+  static const double logicalProfileFlowViewportHeight = 320;
+
+  /// Minimum zoom for the bounded logical architecture graph.
+  static const double logicalProfileFlowMinScale = 0.5;
+
+  /// Default zoom for the bounded logical architecture graph.
+  static const double logicalProfileFlowDefaultScale = 1;
+
+  /// Maximum zoom for the bounded logical architecture graph.
+  static const double logicalProfileFlowMaxScale = 2;
+
+  /// Keyboard/button zoom increment for the logical architecture graph.
+  static const double logicalProfileFlowScaleStep = 0.25;
+
+  /// Graph edge stroke width.
+  static const double logicalProfileFlowEdgeWidth = 1;
+
+  /// Compact progress-indicator stroke width inside an action button.
+  static const double compactProgressIndicatorStrokeWidth = 2;
+
+  /// Maximum text scaling that still uses fixed resolved-review columns.
+  static const double resolvedArchitectureWideTextScaleLimit = 1.3;
+
   /// Maximum width for confirmation-dialog content.
   static const double dialogContentMaxWidth = 480;
 

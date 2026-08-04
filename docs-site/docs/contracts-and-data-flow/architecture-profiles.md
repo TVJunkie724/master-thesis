@@ -113,6 +113,13 @@ Six-layer planning is deferred until this L1-L5 contract is implemented and
 reviewed. No new profile is selectable until its complete-service decision,
 RDS v2/Manifest v4, implementation, and offline activation gates pass.
 
+Flutter Phase 8.7 now consumes the seven owner-scoped Management profile,
+selection, preview/change, and resolved-architecture reads through strict Dart
+DTOs. The Configuration Workspace renders the truthful empty active catalog
+and historical read-only selection until Five-layer v2 activation. Populated
+Five-/Six-layer UI states are contract fixtures only; neither Demo nor the live
+adapter advertises an inactive profile.
+
 Five-layer v2 requires one server-resolved S/M/L Eventing scenario reference.
 Clients will submit only `eventingScenarioId`; Management will pin the
 immutable scenario digest/snapshot. A later Six-layer plan must reuse the same

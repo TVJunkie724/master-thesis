@@ -476,8 +476,11 @@ No direct request to ports 5003 or 5004 is permitted.
 Integration tests must start the Docker stack through the repository wrapper,
 use authenticated Management API :5005, create no cloud resource, and assert:
 the empty active catalog; historical `@1` read-only selection/resolution;
-rejected historical selection/calculation; ownership isolation; and absence of
-direct ports 5003/5004 in the Flutter client. Populated Five-/Six-layer,
+rejected historical detail/profile-change targets; Flutter calculation and
+deployment blocked by the empty active catalog; ownership isolation; and
+absence of direct ports 5003/5004 in the Flutter client. Direct Management
+rejection/migration of legacy `@1` calculation is installed atomically with
+the selectable `five-layer-baseline@2` replacement in 8.9A. Populated Five-/Six-layer,
 profile-change, and optimizer-run paths are contract/BLoC/widget fixtures in
 this phase. Their first real HTTP integration belongs to 8.9A/8.9B.
 

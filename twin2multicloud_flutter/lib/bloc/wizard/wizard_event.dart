@@ -2,7 +2,10 @@
 // Events for the Wizard BLoC state machine
 
 import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
+
+import '../../models/architecture_profile.dart';
 import '../../models/calc_params.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
@@ -33,6 +36,58 @@ class WizardInitEdit extends WizardEvent {
 
 class WizardProviderCapabilitiesLoadRequested extends WizardEvent {
   const WizardProviderCapabilitiesLoadRequested();
+}
+
+class WizardArchitectureProfilesLoadRequested extends WizardEvent {
+  const WizardArchitectureProfilesLoadRequested();
+}
+
+class WizardArchitectureProfileDetailLoadRequested extends WizardEvent {
+  final PinnedArchitectureReference profileRef;
+
+  const WizardArchitectureProfileDetailLoadRequested(this.profileRef);
+
+  @override
+  List<Object?> get props => [profileRef];
+}
+
+class WizardArchitectureUnderstandingAcknowledged extends WizardEvent {
+  const WizardArchitectureUnderstandingAcknowledged();
+}
+
+class WizardArchitectureProfileSelected extends WizardEvent {
+  final PinnedArchitectureReference profileRef;
+
+  const WizardArchitectureProfileSelected(this.profileRef);
+
+  @override
+  List<Object?> get props => [profileRef];
+}
+
+class WizardArchitectureProfileChangeConfirmed extends WizardEvent {
+  const WizardArchitectureProfileChangeConfirmed();
+}
+
+class WizardArchitectureProfileChangeCancelled extends WizardEvent {
+  const WizardArchitectureProfileChangeCancelled();
+}
+
+class WizardResolvedArchitectureLoadRequested extends WizardEvent {
+  final String? runId;
+
+  const WizardResolvedArchitectureLoadRequested({this.runId});
+
+  @override
+  List<Object?> get props => [runId];
+}
+
+class WizardResolvedArchitectureRetried extends WizardEvent {
+  final String? runId;
+
+  const WizardResolvedArchitectureRetried({this.runId});
+
+  @override
+  List<Object?> get props => [runId];
 }
 
 // ============================================================

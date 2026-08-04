@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../bloc/wizard/wizard_state.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/resolved_deployment_specification.dart';
+import '../../models/resolved_twin_architecture.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import 'deployment_selection_status.dart';
+import 'resolved_architecture_review.dart';
 
 class ResolvedDeploymentSummary extends StatelessWidget {
   final ResolvedDeploymentReview review;
   final bool isSelecting;
   final VoidCallback? onRetrySelection;
   final VoidCallback onRecalculateArchitecture;
+  final ResolvedArchitecturePhase architecturePhase;
+  final ResolvedTwinArchitectureRead? resolvedArchitecture;
+  final String? resolvedArchitectureError;
+  final VoidCallback? onRetryResolvedArchitecture;
 
   const ResolvedDeploymentSummary({
     super.key,
@@ -18,6 +25,10 @@ class ResolvedDeploymentSummary extends StatelessWidget {
     required this.isSelecting,
     required this.onRetrySelection,
     required this.onRecalculateArchitecture,
+    this.architecturePhase = ResolvedArchitecturePhase.idle,
+    this.resolvedArchitecture,
+    this.resolvedArchitectureError,
+    this.onRetryResolvedArchitecture,
   });
 
   @override
@@ -37,6 +48,13 @@ class ResolvedDeploymentSummary extends StatelessWidget {
             review: review,
             isSelecting: isSelecting,
             onRetry: onRetrySelection,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ResolvedArchitectureReview(
+            phase: architecturePhase,
+            resolved: resolvedArchitecture,
+            error: resolvedArchitectureError,
+            onRetry: onRetryResolvedArchitecture,
           ),
           if (specification != null) ...[
             _SpecificationOverview(specification: specification),

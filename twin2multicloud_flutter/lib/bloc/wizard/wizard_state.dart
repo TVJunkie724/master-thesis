@@ -2,10 +2,13 @@
 // State for the Wizard BLoC state machine
 
 import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
+
+import '../../models/architecture_profile.dart';
+import '../../models/architecture_path.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
-import '../../models/architecture_path.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/deployer_config.dart';
@@ -13,6 +16,7 @@ import '../../models/optimizer_config.dart';
 import '../../models/pricing_health.dart';
 import '../../models/provider_capability.dart';
 import '../../models/resolved_deployment_specification.dart';
+import '../../models/resolved_twin_architecture.dart';
 import '../../models/user_function_extension.dart';
 import '../../utils/twin_state_utils.dart';
 
@@ -27,6 +31,21 @@ enum WizardMode { create, edit }
 enum WizardStatus { initial, loading, ready, saving, error }
 
 enum SceneGlbCommandPhase { idle, uploading, deleting }
+
+enum ArchitectureCatalogPhase { initial, loading, ready, empty, error }
+
+enum ArchitectureDetailPhase { idle, loading, ready, error }
+
+enum ArchitectureChangePhase {
+  idle,
+  previewing,
+  awaitingConfirmation,
+  submitting,
+  conflict,
+  error,
+}
+
+enum ResolvedArchitecturePhase { idle, loading, ready, incompatible, error }
 
 /// Source of credential data
 enum CredentialSource {
@@ -144,6 +163,23 @@ class WizardState extends Equatable {
   final bool providerCapabilitiesLoading;
   final String? providerCapabilitiesError;
 
+  // === Architecture profile workflow ===
+  final ArchitectureCatalogPhase architectureCatalogPhase;
+  final List<ArchitectureProfileSummary> architectureProfiles;
+  final String? architectureCatalogError;
+  final TwinArchitectureSelection? architectureSelection;
+  final ArchitectureDetailPhase architectureDetailPhase;
+  final ArchitectureProfileDetail? architectureProfileDetail;
+  final String? architectureDetailError;
+  final bool architectureDetailAcknowledged;
+  final ArchitectureChangePhase architectureChangePhase;
+  final ArchitectureProfileChangePreview? architectureChangePreview;
+  final String? architectureChangeError;
+  final Set<String> architectureInvalidatedWorkloadFieldIds;
+  final ResolvedArchitecturePhase resolvedArchitecturePhase;
+  final ResolvedTwinArchitectureRead? resolvedArchitecture;
+  final String? resolvedArchitectureError;
+
   // === Persistent Data: Step 3 Section 2 ===
   final String?
   deployerDigitalTwinName; // config.json digital_twin_name (separate from Step 1 name)
@@ -247,6 +283,21 @@ class WizardState extends Equatable {
     this.providerCapabilities,
     this.providerCapabilitiesLoading = false,
     this.providerCapabilitiesError,
+    this.architectureCatalogPhase = ArchitectureCatalogPhase.initial,
+    this.architectureProfiles = const [],
+    this.architectureCatalogError,
+    this.architectureSelection,
+    this.architectureDetailPhase = ArchitectureDetailPhase.idle,
+    this.architectureProfileDetail,
+    this.architectureDetailError,
+    this.architectureDetailAcknowledged = false,
+    this.architectureChangePhase = ArchitectureChangePhase.idle,
+    this.architectureChangePreview,
+    this.architectureChangeError,
+    this.architectureInvalidatedWorkloadFieldIds = const {},
+    this.resolvedArchitecturePhase = ResolvedArchitecturePhase.idle,
+    this.resolvedArchitecture,
+    this.resolvedArchitectureError,
     this.deployerDigitalTwinName,
     this.configEventsJson,
     this.configIotDevicesJson,
@@ -302,14 +353,59 @@ class WizardState extends Equatable {
   bool get canModify => TwinStateUtils.canEdit(twinState);
 
   /// Legacy persistence gate for entering workload configuration.
-  bool get canProceedToStep2 => twinName?.trim().isNotEmpty == true;
+  bool get canProceedToStep2 =>
+      twinId != null &&
+      twinName?.trim().isNotEmpty == true &&
+      architectureWorkflowReady;
+
+  ArchitectureProfileSummary? get selectedArchitectureSummary {
+    final selected = architectureSelection?.profileRef;
+    if (selected == null) return null;
+    for (final profile in architectureProfiles) {
+      if (_sameArchitectureRef(profile.ref, selected)) return profile;
+    }
+    return null;
+  }
+
+  bool get hasActiveArchitectureProfile => selectedArchitectureSummary != null;
+
+  bool get hasHistoricalArchitectureSelection =>
+      architectureSelection != null && !hasActiveArchitectureProfile;
+
+  bool get architectureWorkflowReady {
+    final selected = architectureSelection?.profileRef;
+    final detail = architectureProfileDetail?.summary.ref;
+    return architectureCatalogPhase == ArchitectureCatalogPhase.ready &&
+        selected != null &&
+        detail != null &&
+        _sameArchitectureRef(selected, detail) &&
+        architectureDetailAcknowledged;
+  }
+
+  Set<String> get architectureWorkloadFieldIds => Set.unmodifiable(
+    architectureProfileDetail?.summary.workloadFieldIds ?? const <String>{},
+  );
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 =>
       calcResult != null &&
       !isCalculating &&
       !isSelectingDeploymentRun &&
-      deploymentReview.ready;
+      deploymentReview.ready &&
+      resolvedArchitectureReadyForSelectedRun;
+
+  bool get resolvedArchitectureReadyForSelectedRun {
+    if (!hasActiveArchitectureProfile) return true;
+    final resolved = resolvedArchitecture;
+    final run = deploymentRun;
+    final selected = architectureSelection?.profileRef;
+    return resolvedArchitecturePhase == ResolvedArchitecturePhase.ready &&
+        resolved != null &&
+        run != null &&
+        selected != null &&
+        resolved.calculationRunId == run.id &&
+        _sameArchitectureRef(resolved.architecture.profileRef, selected);
+  }
 
   ResolvedDeploymentReview get deploymentReview =>
       ResolvedDeploymentReview.fromRun(
@@ -363,6 +459,18 @@ class WizardState extends Equatable {
             extensionBinding(slot.slotId) != null,
       );
 
+  bool get architectureExtensionBindingsReady {
+    final requiredSlots = architectureProfileDetail?.summary.extensionSlots;
+    if (requiredSlots == null) return false;
+    if (requiredSlots.isEmpty) return true;
+    return requiredSlots.every(
+      (required) =>
+          extensionPhase(required.slotId) == UserFunctionWorkflowPhase.bound &&
+          extensionBinding(required.slotId)?.slotVersion ==
+              required.slotVersion,
+    );
+  }
+
   Map<String, DeployerArtifactValidationFeedback> feedbackWithout(
     String artifactId,
   ) => Map.unmodifiable(
@@ -393,6 +501,9 @@ class WizardState extends Equatable {
   bool get canRequestCalculation =>
       calcParams != null &&
       isCalcFormValid &&
+      architectureWorkflowReady &&
+      architectureInvalidatedWorkloadFieldIds.isEmpty &&
+      architectureExtensionBindingsReady &&
       !isCalculating &&
       !isSelectingDeploymentRun &&
       pricingCanCalculate;
@@ -420,9 +531,27 @@ class WizardState extends Equatable {
       'GCP',
   };
 
-  /// Set of required provider names (from optimizer result) that are NOT configured
+  Set<CloudProvider> get requiredDeploymentProviders {
+    if (hasActiveArchitectureProfile) {
+      if (!resolvedArchitectureReadyForSelectedRun) return const {};
+      return resolvedArchitecture!.architecture.providers;
+    }
+    return Set.unmodifiable(
+      layerProviders.values.map((value) {
+        final canonical = value.toLowerCase();
+        return CloudProvider.values.firstWhere(
+          (provider) => provider.name == canonical,
+        );
+      }),
+    );
+  }
+
+  /// Set of required provider names from the selected immutable architecture
+  /// that are not configured.
   Set<String> get unconfiguredProviders {
-    final required = layerProviders.values.toSet();
+    final required = requiredDeploymentProviders
+        .map((provider) => provider.name.toUpperCase())
+        .toSet();
     return required.difference(configuredProviders);
   }
 
@@ -442,11 +571,13 @@ class WizardState extends Equatable {
 
   bool get isConfigurationReadyForFinish =>
       twinName?.trim().isNotEmpty == true &&
+      architectureWorkflowReady &&
       calcResult != null &&
       deploymentReview.ready &&
+      resolvedArchitectureReadyForSelectedRun &&
       unconfiguredProviders.isEmpty &&
       deployerReadiness.ready &&
-      (!extensionContractActive || extensionBindingsReady) &&
+      architectureExtensionBindingsReady &&
       !step3Invalidated;
 
   DeployerConfigData get deployerConfigData => DeployerConfigData(
@@ -655,6 +786,29 @@ class WizardState extends Equatable {
     bool? providerCapabilitiesLoading,
     String? providerCapabilitiesError,
     bool clearProviderCapabilitiesError = false,
+    ArchitectureCatalogPhase? architectureCatalogPhase,
+    List<ArchitectureProfileSummary>? architectureProfiles,
+    String? architectureCatalogError,
+    bool clearArchitectureCatalogError = false,
+    TwinArchitectureSelection? architectureSelection,
+    bool clearArchitectureSelection = false,
+    ArchitectureDetailPhase? architectureDetailPhase,
+    ArchitectureProfileDetail? architectureProfileDetail,
+    String? architectureDetailError,
+    bool? architectureDetailAcknowledged,
+    bool clearArchitectureProfileDetail = false,
+    bool clearArchitectureDetailError = false,
+    ArchitectureChangePhase? architectureChangePhase,
+    ArchitectureProfileChangePreview? architectureChangePreview,
+    String? architectureChangeError,
+    Set<String>? architectureInvalidatedWorkloadFieldIds,
+    bool clearArchitectureChangePreview = false,
+    bool clearArchitectureChangeError = false,
+    ResolvedArchitecturePhase? resolvedArchitecturePhase,
+    ResolvedTwinArchitectureRead? resolvedArchitecture,
+    String? resolvedArchitectureError,
+    bool clearResolvedArchitecture = false,
+    bool clearResolvedArchitectureError = false,
     String? deployerDigitalTwinName,
     String? configEventsJson,
     String? configIotDevicesJson,
@@ -777,6 +931,44 @@ class WizardState extends Equatable {
       providerCapabilitiesError: clearProviderCapabilitiesError
           ? null
           : (providerCapabilitiesError ?? this.providerCapabilitiesError),
+      architectureCatalogPhase:
+          architectureCatalogPhase ?? this.architectureCatalogPhase,
+      architectureProfiles: architectureProfiles ?? this.architectureProfiles,
+      architectureCatalogError: clearArchitectureCatalogError
+          ? null
+          : (architectureCatalogError ?? this.architectureCatalogError),
+      architectureSelection: clearArchitectureSelection
+          ? null
+          : (architectureSelection ?? this.architectureSelection),
+      architectureDetailPhase:
+          architectureDetailPhase ?? this.architectureDetailPhase,
+      architectureProfileDetail: clearArchitectureProfileDetail
+          ? null
+          : (architectureProfileDetail ?? this.architectureProfileDetail),
+      architectureDetailError: clearArchitectureDetailError
+          ? null
+          : (architectureDetailError ?? this.architectureDetailError),
+      architectureDetailAcknowledged:
+          architectureDetailAcknowledged ?? this.architectureDetailAcknowledged,
+      architectureChangePhase:
+          architectureChangePhase ?? this.architectureChangePhase,
+      architectureChangePreview: clearArchitectureChangePreview
+          ? null
+          : (architectureChangePreview ?? this.architectureChangePreview),
+      architectureChangeError: clearArchitectureChangeError
+          ? null
+          : (architectureChangeError ?? this.architectureChangeError),
+      architectureInvalidatedWorkloadFieldIds:
+          architectureInvalidatedWorkloadFieldIds ??
+          this.architectureInvalidatedWorkloadFieldIds,
+      resolvedArchitecturePhase:
+          resolvedArchitecturePhase ?? this.resolvedArchitecturePhase,
+      resolvedArchitecture: clearResolvedArchitecture
+          ? null
+          : (resolvedArchitecture ?? this.resolvedArchitecture),
+      resolvedArchitectureError: clearResolvedArchitectureError
+          ? null
+          : (resolvedArchitectureError ?? this.resolvedArchitectureError),
       deployerDigitalTwinName:
           deployerDigitalTwinName ?? this.deployerDigitalTwinName,
       configEventsJson: configEventsJson ?? this.configEventsJson,
@@ -886,6 +1078,21 @@ class WizardState extends Equatable {
     providerCapabilities,
     providerCapabilitiesLoading,
     providerCapabilitiesError,
+    architectureCatalogPhase,
+    architectureProfiles,
+    architectureCatalogError,
+    architectureSelection,
+    architectureDetailPhase,
+    architectureProfileDetail,
+    architectureDetailError,
+    architectureDetailAcknowledged,
+    architectureChangePhase,
+    architectureChangePreview,
+    architectureChangeError,
+    architectureInvalidatedWorkloadFieldIds,
+    resolvedArchitecturePhase,
+    resolvedArchitecture,
+    resolvedArchitectureError,
     deployerDigitalTwinName, // FIXED: was missing
     configEventsJson,
     configIotDevicesJson,
@@ -931,3 +1138,11 @@ class WizardState extends Equatable {
     step3Invalidated,
   ];
 }
+
+bool _sameArchitectureRef(
+  PinnedArchitectureReference left,
+  PinnedArchitectureReference right,
+) =>
+    left.id == right.id &&
+    left.version == right.version &&
+    left.digest == right.digest;

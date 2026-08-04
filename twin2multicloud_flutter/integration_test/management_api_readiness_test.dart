@@ -10,6 +10,8 @@ const _serverOwnedOptimizerFields = {
   'calculationRunId',
   'providerPricingCatalogs',
   'providerPricingContexts',
+  'architectureProfile',
+  'extensionBindings',
 };
 const _forbiddenPayloadKeys = {
   'access_key_id',

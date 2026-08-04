@@ -15,7 +15,8 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         if (!state.canProceedToStep2) {
           emit(
             newState.copyWith(
-              errorMessage: 'Enter a twin name before continuing',
+              errorMessage:
+                  'Save the Twin and select an active architecture profile before continuing',
             ),
           );
           return;
@@ -80,7 +81,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
   void _onGoToStep(WizardGoToStep event, Emitter<WizardState> emit) {
     final reachable = switch (event.step) {
       0 => true,
-      1 => state.twinName?.trim().isNotEmpty == true,
+      1 => state.canProceedToStep2,
       2 => state.canProceedToStep3,
       _ => false,
     };
@@ -146,6 +147,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
   ) {
     final inputsChanged =
         state.calcParams?.hasSameCalculationInputs(event.params) != true;
+    if (inputsChanged) _resolvedArchitectureGeneration++;
     emit(
       state.copyWith(
         calcParams: event.params,
@@ -160,6 +162,11 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         isSelectingDeploymentRun: inputsChanged
             ? false
             : state.isSelectingDeploymentRun,
+        resolvedArchitecturePhase: inputsChanged
+            ? ResolvedArchitecturePhase.idle
+            : state.resolvedArchitecturePhase,
+        clearResolvedArchitecture: inputsChanged,
+        clearResolvedArchitectureError: inputsChanged,
         clearError: inputsChanged,
         clearSuccess: inputsChanged,
       ),
@@ -185,6 +192,33 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
     if (state.calcParams == null) {
       emit(
         state.copyWith(errorMessage: 'Configure calculation parameters first'),
+      );
+      return;
+    }
+    if (!state.architectureWorkflowReady) {
+      emit(
+        state.copyWith(
+          errorMessage:
+              'Select and load an active architecture profile before calculating.',
+        ),
+      );
+      return;
+    }
+    if (state.architectureInvalidatedWorkloadFieldIds.isNotEmpty) {
+      emit(
+        state.copyWith(
+          errorMessage:
+              'Review the workload fields invalidated by the profile change before calculating.',
+        ),
+      );
+      return;
+    }
+    if (!state.architectureExtensionBindingsReady) {
+      emit(
+        state.copyWith(
+          errorMessage:
+              'Bind and validate the required user logic before calculating.',
+        ),
       );
       return;
     }
@@ -243,7 +277,9 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       final result = response.result;
 
       // Check for unconfigured providers in optimal path
-      final unconfigured = _getUnconfiguredProviders(result.cheapestPath);
+      final unconfigured = state.hasActiveArchitectureProfile
+          ? const <String>{}
+          : _getUnconfiguredProviders(result.cheapestPath);
 
       // Check if new result invalidates Step 3 config
       // Invalidation occurs when: hasSection3Data AND inputParamsUsed changed
@@ -266,6 +302,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
             'Deployment access is missing for: ${unconfigured.join(", ")}. Open Cloud access to continue.';
       }
 
+      _resolvedArchitectureGeneration++;
       emit(
         state.copyWith(
           isCalculating: false,
@@ -279,6 +316,9 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           clearSuccess:
               invalidatesStep3, // Clear success message when warning appears
           clearDeploymentRunSelectionError: true,
+          resolvedArchitecturePhase: ResolvedArchitecturePhase.idle,
+          clearResolvedArchitecture: true,
+          clearResolvedArchitectureError: true,
         ),
       );
       await _selectDeploymentRun(
@@ -351,6 +391,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           clearError: true,
         ),
       );
+      add(WizardResolvedArchitectureLoadRequested(runId: selectedRun.id));
     } catch (error) {
       if (state.deploymentRun != run || !state.isSelectingDeploymentRun) {
         return;
@@ -603,6 +644,10 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         successMessage: 'Changes discarded',
       ),
     );
+    final savedRun = state.savedDeploymentRun;
+    if (savedRun != null) {
+      add(WizardResolvedArchitectureLoadRequested(runId: savedRun.id));
+    }
   }
 
   // Combined handlers to avoid race condition
