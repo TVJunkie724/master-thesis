@@ -197,6 +197,53 @@ def test_all_provider_execute_paths_create_one_valid_bounded_connection(
         assert submitted_secrets[provider] not in stored_connection.encrypted_payload
 
 
+def test_generated_v2_connection_alone_passes_normal_deployment_preflight(
+    auth_client,
+    monkeypatch,
+):
+    session = _session(auth_client, "aws", key="create-aws-preflight-0001")
+    ready = _execute(
+        auth_client,
+        session,
+        "aws",
+        key="execute-aws-preflight-0001",
+    )
+    submitted_secret = _credential("aws")["secret_access_key"]
+    seen: dict[str, dict] = {}
+
+    async def fake_validate(provider, optimizer_credentials, deployer_credentials):
+        seen["optimizer"] = optimizer_credentials
+        seen["deployer"] = deployer_credentials
+        return {
+            "provider": provider,
+            "valid": True,
+            "optimizer": {"valid": True, "message": "optimizer access passed"},
+            "deployer": {
+                "valid": True,
+                "message": "deployer access passed",
+                "permissions": [],
+            },
+        }
+
+    monkeypatch.setattr(
+        "src.api.routes.cloud_connections.perform_dual_validation",
+        fake_validate,
+    )
+    response = auth_client.post(
+        f"/cloud-connections/{ready['connection']['id']}/preflight"
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["ready"] is True
+    assert result["permission_set_status"] == "matched"
+    assert result["expected_permission_set_version"] == "thesis-demo-v2"
+    assert result["supplied_permission_set_version"] == "thesis-demo-v2"
+    assert seen["deployer"]["permission_set_version"] == "thesis-demo-v2"
+    assert seen["deployer"]["aws_secret_access_key"] != submitted_secret
+    assert submitted_secret not in json.dumps(seen, sort_keys=True)
+
+
 def test_execute_is_idempotent_and_does_not_create_a_second_connection(auth_client, db):
     session = _session(auth_client, "aws", key="create-aws-idempotency-01")
     ready = _execute(

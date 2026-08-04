@@ -12,7 +12,7 @@ AWS_PAYLOAD = {
     "aws_access_key_id": "AKIATESTTEST",
     "aws_secret_access_key": "secretkey123456789",
     "aws_region": "eu-central-1",
-    "permission_set_version": "thesis-demo-v1",
+    "permission_set_version": "thesis-demo-v2",
 }
 
 AZURE_PAYLOAD = {
@@ -23,14 +23,14 @@ AZURE_PAYLOAD = {
     "azure_region": "westeurope",
     "azure_region_iothub": "westeurope",
     "azure_region_digital_twin": "westeurope",
-    "permission_set_version": "thesis-demo-v1",
+    "permission_set_version": "thesis-demo-v2",
 }
 
 GCP_PAYLOAD = {
     "gcp_project_id": "demo-project",
     "gcp_credentials_file": '{"type":"service_account","client_email":"deployer@demo-project.iam.gserviceaccount.com","private_key":"super-secret-key"}',
     "gcp_region": "europe-west1",
-    "permission_set_version": "thesis-demo-v1",
+    "permission_set_version": "thesis-demo-v2",
 }
 
 
@@ -48,8 +48,8 @@ def test_aws_preflight_passes_when_checker_is_valid(mock_check):
     assert response.status_code == 200
     data = response.json()
     assert data["provider"] == "aws"
-    assert data["expected_permission_set_version"] == "thesis-demo-v1"
-    assert data["supplied_permission_set_version"] == "thesis-demo-v1"
+    assert data["expected_permission_set_version"] == "thesis-demo-v2"
+    assert data["supplied_permission_set_version"] == "thesis-demo-v2"
     assert data["permission_set_status"] == "matched"
     assert data["ready"] is True
     assert data["status"] == "passed"
@@ -75,7 +75,7 @@ def test_preflight_fails_missing_permission_set_version(mock_check):
     assert data["permission_set_status"] == "missing"
     assert data["checks"][0]["code"] == "OUTDATED_PERMISSION_SET"
     assert data["checks"][0]["details"] == {
-        "expected_permission_set_version": "thesis-demo-v1",
+        "expected_permission_set_version": "thesis-demo-v2",
         "supplied_permission_set_version": None,
         "permission_set_status": "missing",
     }

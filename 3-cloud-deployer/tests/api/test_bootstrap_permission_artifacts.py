@@ -45,7 +45,7 @@ def test_aws_scope_review_covers_every_policy_statement_and_required_action():
     )
 
     assert review["provider"] == "aws"
-    assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert review["permission_set_version"] == "thesis-demo-v1"
     assert review["validation_level"] == "offline_pre_e2e"
     assert review["requires_e2e_before_final"] is True
 
@@ -161,7 +161,7 @@ def test_azure_scope_review_covers_every_role_action_and_data_action():
     )
 
     assert review["provider"] == "azure"
-    assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert review["permission_set_version"] == "thesis-demo-v1"
     assert review["validation_level"] == "offline_pre_e2e"
     assert review["requires_e2e_before_final"] is True
 
@@ -205,7 +205,7 @@ def test_gcp_scope_review_covers_every_custom_role_permission():
     )
 
     assert review["provider"] == "gcp"
-    assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert review["permission_set_version"] == "thesis-demo-v1"
     assert review["validation_level"] == "offline_pre_e2e"
     assert review["requires_e2e_before_final"] is True
 
@@ -243,7 +243,7 @@ def test_gcp_workflows_api_and_permissions_are_in_permission_contract():
     assert "pubsub.topics.setIamPolicy" in required_permissions
 
 
-def test_permission_set_artifacts_bind_current_version_to_reference_artifacts():
+def test_legacy_v1_artifacts_remain_bound_to_reference_artifacts():
     expected = {
         "aws": "aws_deployer_policy.json",
         "azure": "azure_custom_role.json",
@@ -255,7 +255,7 @@ def test_permission_set_artifacts_bind_current_version_to_reference_artifacts():
             (PERMISSION_SET_DIR / f"{provider}_thesis_demo_v1.json").read_text()
         )
         assert artifact["provider"] == provider
-        assert artifact["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+        assert artifact["permission_set_version"] == "thesis-demo-v1"
         assert artifact["status"] == "validated"
         assert artifact["capabilities"]
         assert artifact["known_gaps"]
@@ -271,11 +271,11 @@ def test_permission_set_artifacts_bind_current_version_to_reference_artifacts():
             assert (ROOT / container_path).exists()
 
 
-def test_permission_inventory_matches_current_terraform_provider_types():
+def test_legacy_permission_inventory_matches_current_v1_terraform_provider_types():
     inventory = json.loads(
         (PERMISSION_SET_DIR / "deployer_permission_inventory.json").read_text()
     )
-    assert inventory["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert inventory["permission_set_version"] == "thesis-demo-v1"
 
     expected_prefixes = {
         "aws": ("aws_",),
@@ -293,6 +293,34 @@ def test_permission_inventory_matches_current_terraform_provider_types():
 
         inventory_types = set(inventory["providers"][provider]["terraform_types"])
         assert inventory_types == actual_types
+
+
+def test_active_v2_permission_manifests_are_frozen_and_scope_reviewed():
+    inventory = json.loads(
+        (PERMISSION_SET_DIR / "deployer_permission_inventory_v2.json").read_text()
+    )
+    assert inventory["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert inventory["status"] == "frozen_offline_contract"
+
+    for provider in ("aws", "azure", "gcp"):
+        artifact = json.loads(
+            (PERMISSION_SET_DIR / f"{provider}_thesis_demo_v2.json").read_text()
+        )
+        review = json.loads(
+            (
+                PERMISSION_SET_DIR
+                / f"{provider}_thesis_demo_v2_scope_review.json"
+            ).read_text()
+        )
+        assert artifact["provider"] == provider
+        assert artifact["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+        assert artifact["status"] == "frozen_offline_contract"
+        assert artifact["capabilities"]
+        assert artifact["known_gaps"]
+        assert review["provider"] == provider
+        assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+        assert review["review_status"] == "approved_for_offline_implementation"
+        assert review["findings"] == []
 
 
 def _aws_allowed_actions(policy: dict) -> set[str]:

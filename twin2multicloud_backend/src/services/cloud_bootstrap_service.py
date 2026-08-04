@@ -6,8 +6,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.schemas.cloud_bootstrap import CloudBootstrapPlanRequest, CloudBootstrapPlanResponse
-from src.services.permission_sets import active_permission_set_version
 from src.services.provider_contract import normalize_provider_id
+
+
+# The manual CLI-script path is the preserved historical fallback. Guided
+# bootstrap owns the current thesis-demo-v2 contract and does not call it.
+LEGACY_MANUAL_PERMISSION_SET_VERSION = "thesis-demo-v1"
 
 
 @dataclass(frozen=True)
@@ -70,7 +74,7 @@ class CloudBootstrapService:
             script_path=spec.script_path,
             required_tool=spec.required_tool,
             output_auth_type=spec.output_auth_type,
-            permission_set_version=active_permission_set_version(normalized_provider),
+            permission_set_version=LEGACY_MANUAL_PERMISSION_SET_VERSION,
             dry_run_command=base_command,
             apply_command=[*base_command, "--apply"],
             rotation_flag=spec.rotation_flag,

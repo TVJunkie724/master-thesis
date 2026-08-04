@@ -8,7 +8,7 @@ from typing import Literal
 CloudProvider = Literal["aws", "azure", "gcp"]
 PermissionSetStatus = Literal["matched", "missing", "outdated"]
 
-ACTIVE_PERMISSION_SET_VERSION = "thesis-demo-v1"
+ACTIVE_PERMISSION_SET_VERSION = "thesis-demo-v2"
 
 
 @dataclass(frozen=True)
