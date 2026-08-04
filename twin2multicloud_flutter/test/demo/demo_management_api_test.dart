@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
+import 'package:twin2multicloud_flutter/models/cloud_bootstrap.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
@@ -104,6 +105,176 @@ void main() {
           ),
         ),
         throwsDemoCode('DEMO_CONNECTION_CREDENTIALS_REQUIRED'),
+      );
+    });
+
+    test('guided bootstrap demo matches deterministic fake disposal', () async {
+      final target = CloudBootstrapTarget.aws(
+        accountId: '123456789012',
+        region: 'eu-central-1',
+      );
+      final guide = await api.getCloudBootstrapGuide(CloudProvider.aws, target);
+      final draft = await api.createCloudBootstrapSession(
+        guide: guide,
+        entryPoint: CloudBootstrapEntryPoint.settings,
+        displayName: 'Demo AWS deployment access',
+        idempotencyKey: 'demo-create-bootstrap-0001',
+      );
+      final resumed = await api.createCloudBootstrapSession(
+        guide: guide,
+        entryPoint: CloudBootstrapEntryPoint.settings,
+        displayName: 'Ignored duplicate display name',
+        idempotencyKey: 'demo-create-bootstrap-0002',
+      );
+      expect(resumed.id, draft.id);
+      const submittedSecret = 'submitted-demo-bootstrap-secret';
+      final connectionCount = store.cloudConnections.length;
+      final ready = await api.executeCloudBootstrapSession(
+        draft.id,
+        CloudBootstrapExecuteRequest(
+          expectedRevision: draft.revision,
+          idempotencyKey: 'demo-execute-bootstrap-0001',
+          credentialOrigin: CloudBootstrapCredentialOrigin.dedicatedDisposable,
+          credential: const {
+            'provider': 'aws',
+            'access_key_id': 'AKIAEXAMPLE00000001',
+            'secret_access_key': submittedSecret,
+          },
+        ),
+      );
+      final replay = await api.executeCloudBootstrapSession(
+        draft.id,
+        CloudBootstrapExecuteRequest(
+          expectedRevision: draft.revision,
+          idempotencyKey: 'demo-execute-bootstrap-0001',
+          credentialOrigin: CloudBootstrapCredentialOrigin.dedicatedDisposable,
+          credential: const {
+            'provider': 'aws',
+            'access_key_id': 'AKIAREPLAY0000000000',
+            'secret_access_key': 'different-replay-secret',
+          },
+        ),
+      );
+
+      expect(ready.state, CloudBootstrapSessionState.ready);
+      expect(ready.disposalStatus, 'revoked');
+      expect(ready.connection?.permissionSetVersion, 'thesis-demo-v2');
+      expect(replay.connection?.id, ready.connection?.id);
+      expect(store.cloudConnections, hasLength(connectionCount + 1));
+      expect(
+        store.cloudConnections.toString(),
+        isNot(contains(submittedSecret)),
+      );
+    });
+
+    test(
+      'guided bootstrap demo enforces re-entry and manual cleanup',
+      () async {
+        final awsTarget = CloudBootstrapTarget.aws(
+          accountId: '123456789012',
+          region: 'eu-central-1',
+        );
+        final awsGuide = await api.getCloudBootstrapGuide(
+          CloudProvider.aws,
+          awsTarget,
+        );
+        final awsDraft = await api.createCloudBootstrapSession(
+          guide: awsGuide,
+          entryPoint: CloudBootstrapEntryPoint.settings,
+          displayName: 'AWS re-entry',
+          idempotencyKey: 'demo-create-reentry-0001',
+        );
+        final rejected = await api.executeCloudBootstrapSession(
+          awsDraft.id,
+          CloudBootstrapExecuteRequest(
+            expectedRevision: awsDraft.revision,
+            idempotencyKey: 'demo-execute-rejected-0001',
+            credentialOrigin:
+                CloudBootstrapCredentialOrigin.dedicatedDisposable,
+            credential: const {
+              'provider': 'aws',
+              'access_key_id': 'ZZZZEXAMPLE00000001',
+              'secret_access_key': 'submitted-invalid-secret',
+            },
+          ),
+        );
+        expect(
+          rejected.state,
+          CloudBootstrapSessionState.credentialReentryRequired,
+        );
+        expect(rejected.finding?.code, 'BOOTSTRAP_CREDENTIAL_INVALID');
+
+        final azureTarget = CloudBootstrapTarget.azure(
+          tenantId: 'tenant-demo',
+          subscriptionId: 'subscription-demo',
+          region: 'westeurope',
+          bootstrapCredentialKeyId: 'manual-key-demo',
+        );
+        final azureGuide = await api.getCloudBootstrapGuide(
+          CloudProvider.azure,
+          azureTarget,
+        );
+        final azureDraft = await api.createCloudBootstrapSession(
+          guide: azureGuide,
+          entryPoint: CloudBootstrapEntryPoint.settings,
+          displayName: 'Azure manual cleanup',
+          idempotencyKey: 'demo-create-manual-0001',
+        );
+        final pending = await api.executeCloudBootstrapSession(
+          azureDraft.id,
+          CloudBootstrapExecuteRequest(
+            expectedRevision: azureDraft.revision,
+            idempotencyKey: 'demo-execute-manual-0001',
+            credentialOrigin:
+                CloudBootstrapCredentialOrigin.dedicatedDisposable,
+            credential: const {
+              'provider': 'azure',
+              'tenant_id': 'tenant-demo',
+              'subscription_id': 'subscription-demo',
+              'client_id': 'client-demo',
+              'client_secret': 'submitted-azure-secret',
+            },
+          ),
+        );
+        expect(
+          pending.state,
+          CloudBootstrapSessionState.manualRevocationRequired,
+        );
+        expect(pending.safeCredentialIdentifier, 'manual-key-demo');
+        expect(pending.finding?.code, 'BOOTSTRAP_MANUAL_REVOCATION_REQUIRED');
+        expect(pending.finding?.remediationUrl?.scheme, 'https');
+        final ready = await api.acknowledgeCloudBootstrapRevocation(
+          pending.id,
+          pending.revision,
+        );
+        expect(ready.state, CloudBootstrapSessionState.ready);
+        expect(ready.disposalStatus, 'revoked');
+      },
+    );
+
+    test('filters active and terminal bootstrap sessions exactly', () async {
+      final guide = await api.getCloudBootstrapGuide(
+        CloudProvider.aws,
+        CloudBootstrapTarget.aws(
+          accountId: '123456789012',
+          region: 'eu-central-1',
+        ),
+      );
+      final draft = await api.createCloudBootstrapSession(
+        guide: guide,
+        entryPoint: CloudBootstrapEntryPoint.settings,
+        displayName: 'Filtered bootstrap',
+        idempotencyKey: 'create-filter-session-0001',
+      );
+
+      expect(await api.listCloudBootstrapSessions(active: true), [draft]);
+      expect(await api.listCloudBootstrapSessions(active: false), isEmpty);
+
+      await api.cancelCloudBootstrapSession(draft.id, draft.revision);
+      expect(await api.listCloudBootstrapSessions(active: true), isEmpty);
+      expect(
+        (await api.listCloudBootstrapSessions(active: false)).single.state,
+        CloudBootstrapSessionState.cancelled,
       );
     });
 

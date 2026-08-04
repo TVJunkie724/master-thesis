@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/user.dart';
+import '../models/cloud_bootstrap.dart';
+import '../models/cloud_connection.dart';
 import '../bloc/cloud_access/cloud_access.dart';
+import '../features/cloud_bootstrap/cloud_bootstrap_dialog.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/twins_provider.dart';
@@ -137,15 +140,28 @@ class _SettingsCloudAccessScopeState
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _cloudAccessBloc,
-      child: _SettingsContent(user: widget.user),
+      child: _SettingsContent(
+        user: widget.user,
+        onSetupDeployment: (context, provider) => showCloudBootstrapFlow(
+          context: context,
+          api: ref.read(apiServiceProvider),
+          provider: provider,
+          entryPoint: CloudBootstrapEntryPoint.settings,
+        ),
+      ),
     );
   }
 }
 
 class _SettingsContent extends StatelessWidget {
   final User user;
+  final Future<CloudBootstrapConnectionSummary?> Function(
+    BuildContext context,
+    CloudProvider provider,
+  )
+  onSetupDeployment;
 
-  const _SettingsContent({required this.user});
+  const _SettingsContent({required this.user, required this.onSetupDeployment});
 
   @override
   Widget build(BuildContext context) {
@@ -202,6 +218,8 @@ class _SettingsContent extends StatelessWidget {
                   onDelete: (entry) => context.read<CloudAccessBloc>().add(
                     CloudAccessDeleteRequested(entry.connectionId!),
                   ),
+                  onSetupDeployment: (provider) =>
+                      _openBootstrap(context, provider),
                 ),
               ),
             ],
@@ -209,6 +227,16 @@ class _SettingsContent extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openBootstrap(
+    BuildContext context,
+    CloudProvider provider,
+  ) async {
+    final connection = await onSetupDeployment(context, provider);
+    if (connection != null && context.mounted) {
+      context.read<CloudAccessBloc>().add(const CloudAccessReloadRequested());
+    }
   }
 }
 

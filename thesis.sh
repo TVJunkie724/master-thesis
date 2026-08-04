@@ -565,6 +565,20 @@ run_frontend_integration_tests() {
       integration_test/user_function_extension_contract_test.dart \
       -d "$host_device" \
       --dart-define-from-file=config/dev.json)
+    info "Running the guided cloud-bootstrap contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/guided_cloud_bootstrap_flow_test.dart \
+      -d "$host_device" \
+      --dart-define-from-file=config/dev.json)
+
+    local bootstrap_sentinel="phase8-submitted-bootstrap-secret-never-persist"
+    if compose_cmd logs management-api 2>&1 | grep -Fq "$bootstrap_sentinel"; then
+      fail "Guided bootstrap submitted secret was found in Management API logs."
+    fi
+    if compose_cmd exec -T management-api sh -c \
+      "grep -aFq '$bootstrap_sentinel' /app/data/app.db /app/data/app.db-wal /app/data/app.db-shm 2>/dev/null"; then
+      fail "Guided bootstrap submitted secret was found in Management persistence."
+    fi
   )
   integration_status=$?
   set -e

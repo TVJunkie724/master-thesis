@@ -1,6 +1,6 @@
 abstract class CloudConnectionStrings {
   static const title = 'Cloud Connections';
-  static const newConnection = 'New connection';
+  static const newConnection = 'Import existing (advanced)';
   static const selectConnection = 'Select connection';
   static const validate = 'Check';
   static const unbind = 'Unbind';

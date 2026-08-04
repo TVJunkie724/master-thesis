@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../bloc/wizard/wizard.dart';
+import '../../cloud_bootstrap/cloud_bootstrap_dialog.dart';
+import '../../../models/cloud_bootstrap.dart';
 import '../../../models/cloud_connection.dart';
+import '../../../providers/runtime_providers.dart';
 import '../../../theme/spacing.dart';
 import '../../../widgets/cloud_connections/cloud_connections_group.dart';
 
-class CloudAccessTask extends StatelessWidget {
+class CloudAccessTask extends ConsumerWidget {
   const CloudAccessTask({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return BlocBuilder<WizardBloc, WizardState>(
       builder: (context, state) {
         final bloc = context.read<WizardBloc>();
@@ -37,6 +41,54 @@ class CloudAccessTask extends StatelessWidget {
                     'Bind deployment access only for providers used by the selected architecture.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Required by the selected architecture',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          for (final provider in providers)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.cloud_outlined),
+                              title: Text(provider.label),
+                              subtitle: Text(
+                                state.selectedCloudConnectionIds[provider] ==
+                                        null
+                                    ? 'Bounded deployment access is missing.'
+                                    : 'Bounded deployment access selected.',
+                              ),
+                              trailing:
+                                  state.selectedCloudConnectionIds[provider] ==
+                                      null
+                                  ? FilledButton(
+                                      onPressed: state.twinId == null
+                                          ? null
+                                          : () => _openBootstrap(
+                                              context,
+                                              ref,
+                                              provider,
+                                              state.twinId!,
+                                            ),
+                                      child: const Text('Set up access'),
+                                    )
+                                  : const Icon(Icons.check_circle_outline),
+                            ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Provider prerequisites are checked later by deployment preflight; administrator authority is not requested again.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -75,5 +127,25 @@ class CloudAccessTask extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _openBootstrap(
+    BuildContext context,
+    WidgetRef ref,
+    CloudProvider provider,
+    String twinId,
+  ) async {
+    final connection = await showCloudBootstrapFlow(
+      context: context,
+      api: ref.read(apiServiceProvider),
+      provider: provider,
+      entryPoint: CloudBootstrapEntryPoint.twinPrepare,
+      twinId: twinId,
+    );
+    if (connection != null && context.mounted) {
+      final bloc = context.read<WizardBloc>();
+      bloc.add(const WizardCloudConnectionsLoadRequested());
+      bloc.add(WizardCloudConnectionSelected(provider, connection.id));
+    }
   }
 }

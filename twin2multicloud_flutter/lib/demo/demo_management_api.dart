@@ -8,6 +8,7 @@ import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
 import '../models/cloud_access_inventory.dart';
+import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
@@ -37,6 +38,7 @@ class DemoManagementApi implements ManagementApi {
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
   final List<UserFunctionArtifact> _extensionArtifacts = [];
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
+  final Map<String, Map<String, dynamic>> _bootstrapSessions = {};
 
   DemoManagementApi({
     required this.store,
@@ -453,6 +455,332 @@ class DemoManagementApi implements ManagementApi {
       'schema_version': 'cloud-access-inventory.v1',
       'providers': providers,
     });
+  }
+
+  @override
+  Future<CloudBootstrapGuide> getCloudBootstrapGuide(
+    CloudProvider provider,
+    CloudBootstrapTarget target,
+  ) async {
+    await _pause();
+    if (provider != target.provider) {
+      throw const DemoApiException(
+        'BOOTSTRAP_TARGET_INVALID',
+        'Bootstrap provider and target must match.',
+      );
+    }
+    return CloudBootstrapGuide.fromJson(_demoBootstrapGuide(provider, target));
+  }
+
+  @override
+  Future<CloudBootstrapSession> createCloudBootstrapSession({
+    required CloudBootstrapGuide guide,
+    required CloudBootstrapEntryPoint entryPoint,
+    required String displayName,
+    String? twinId,
+    required String idempotencyKey,
+  }) async {
+    await _pause();
+    final replay = _bootstrapSessions.values.where(
+      (item) => item['_idempotency_key'] == idempotencyKey,
+    );
+    if (replay.isNotEmpty) {
+      return CloudBootstrapSession.fromJson(
+        _demoBootstrapResponse(replay.first),
+      );
+    }
+    final existing = _bootstrapSessions.values.where(
+      (item) =>
+          item['provider'] == guide.provider.apiValue &&
+          item['target'].toString() == guide.target.toJson().toString() &&
+          !{'ready', 'failed', 'cancelled', 'expired'}.contains(item['state']),
+    );
+    if (existing.isNotEmpty) {
+      return CloudBootstrapSession.fromJson(
+        _demoBootstrapResponse(existing.first),
+      );
+    }
+    if (entryPoint == CloudBootstrapEntryPoint.twinPrepare) {
+      if (twinId == null) {
+        throw const DemoApiException(
+          'BOOTSTRAP_TWIN_REQUIRED',
+          'Prepare deployment requires a Twin.',
+        );
+      }
+      store.twin(twinId);
+    }
+    final sequence = store.nextId('bootstrap').hashCode.abs().toString();
+    final id =
+        '00000000-0000-4000-8000-${sequence.padLeft(12, '0').substring(0, 12)}';
+    final now = store.clock().toUtc().toIso8601String();
+    final session = <String, dynamic>{
+      'schema_version': 'cloud-bootstrap-session.v1',
+      'id': id,
+      'provider': guide.provider.apiValue,
+      'target': guide.target.toJson(),
+      'entry_point': entryPoint.apiValue,
+      if (twinId != null) 'twin_id': twinId,
+      'display_name': displayName,
+      'revision': 1,
+      'state': 'draft',
+      'guide_digest': guide.guideDigest,
+      'bootstrap_authority_pack': _demoBootstrapPack(
+        guide.provider,
+        authority: true,
+        detailed: false,
+      ),
+      'generated_deployment_pack': _demoBootstrapPack(
+        guide.provider,
+        authority: false,
+        detailed: false,
+      ),
+      'command_permissions': ['execute', 'cancel'],
+      'created_at': now,
+      'updated_at': now,
+      '_idempotency_key': idempotencyKey,
+    };
+    _bootstrapSessions[id] = session;
+    return CloudBootstrapSession.fromJson(_demoBootstrapResponse(session));
+  }
+
+  @override
+  Future<List<CloudBootstrapSession>> listCloudBootstrapSessions({
+    CloudProvider? provider,
+    bool active = true,
+  }) async {
+    await _pause();
+    final terminal = {'ready', 'failed', 'cancelled', 'expired'};
+    return _bootstrapSessions.values
+        .where(
+          (item) =>
+              (provider == null || item['provider'] == provider.apiValue) &&
+              (active
+                  ? !terminal.contains(item['state'])
+                  : terminal.contains(item['state'])),
+        )
+        .map(
+          (item) =>
+              CloudBootstrapSession.fromJson(_demoBootstrapResponse(item)),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<CloudBootstrapSession> getCloudBootstrapSession(
+    String sessionId,
+  ) async {
+    await _pause();
+    return _demoBootstrapSession(sessionId);
+  }
+
+  @override
+  Future<CloudBootstrapSession> executeCloudBootstrapSession(
+    String sessionId,
+    CloudBootstrapExecuteRequest request,
+  ) async {
+    await _pause();
+    final session = _bootstrapSessions[sessionId];
+    if (session == null) {
+      request.dispose();
+      throw const DemoApiException(
+        'BOOTSTRAP_SESSION_NOT_FOUND',
+        'Bootstrap session was not found.',
+      );
+    }
+    late final Map<String, dynamic> command;
+    try {
+      command = request.takeJson();
+    } finally {
+      request.dispose();
+    }
+    final expectedRevision = command['expected_revision'];
+    final idempotencyKey = command['idempotency_key']?.toString();
+    final origin = command['credential_origin'].toString();
+    final submittedCredential = command['credential'];
+    if (session['_execute_idempotency_key'] == idempotencyKey) {
+      if (submittedCredential is Map) submittedCredential.clear();
+      command.clear();
+      return _demoBootstrapSession(sessionId);
+    }
+    if (expectedRevision != session['revision']) {
+      if (submittedCredential is Map) submittedCredential.clear();
+      command.clear();
+      throw const DemoApiException(
+        'BOOTSTRAP_SESSION_CONFLICT',
+        'Bootstrap session changed; check the latest result.',
+      );
+    }
+    if (!(session['command_permissions'] as List).contains('execute') ||
+        submittedCredential is! Map) {
+      if (submittedCredential is Map) submittedCredential.clear();
+      command.clear();
+      throw const DemoApiException(
+        'BOOTSTRAP_SESSION_CONFLICT',
+        'Bootstrap execution is no longer available.',
+      );
+    }
+    final provider = CloudProvider.fromApiValue(session['provider'].toString());
+    final credential = Map<String, dynamic>.from(submittedCredential);
+    final target = Map<String, dynamic>.from(session['target'] as Map);
+    final safeIdentifier = _demoBootstrapSafeIdentifier(
+      provider,
+      target,
+      credential,
+    );
+    final failure = _demoBootstrapCredentialFailure(
+      provider,
+      target,
+      credential,
+    );
+    final manualCleanup = _demoBootstrapNeedsManualCleanup(
+      provider,
+      target,
+      safeIdentifier,
+    );
+    final hasProviderExpiry =
+        provider == CloudProvider.aws &&
+        credential['session_token'] != null &&
+        target['session_expires_at'] != null;
+    submittedCredential.clear();
+    credential.clear();
+    command.clear();
+    session['_execute_idempotency_key'] = idempotencyKey;
+    if (failure != null) {
+      final now = store.clock().toUtc().toIso8601String();
+      session
+        ..['revision'] = (session['revision'] as int) + 2
+        ..['state'] = 'credential_reentry_required'
+        ..['credential_origin'] = origin
+        ..['disposal_status'] = 'released_after_failure'
+        ..['safe_credential_identifier'] = safeIdentifier
+        ..['finding'] = {
+          'code': 'BOOTSTRAP_CREDENTIAL_INVALID',
+          'severity': 'error',
+          'title': 'Bootstrap could not complete',
+          'message': failure,
+          'blocking': true,
+          'action': 'Review the target and explicitly re-enter the credential.',
+        }
+        ..['command_permissions'] = ['execute', 'cancel']
+        ..['updated_at'] = now;
+      return _demoBootstrapSession(sessionId);
+    }
+    final connectionId = store.nextId('demo-${provider.apiValue}-bootstrap');
+    final now = store.clock().toUtc().toIso8601String();
+    final connection = <String, dynamic>{
+      'id': connectionId,
+      'provider': provider.apiValue,
+      'purpose': 'deployment',
+      'scope': 'user',
+      'is_default_for_pricing': false,
+      'display_name': session['display_name'],
+      'auth_type': _defaultAuthType(provider),
+      'permission_set_version': 'thesis-demo-v2',
+      'cloud_scope': Map<String, dynamic>.from(session['target'] as Map)
+        ..remove('provider'),
+      'payload_fingerprint': '$connectionId-fingerprint',
+      'payload_summary': {'generated_by': 'demo_bootstrap'},
+      'validation_status': 'valid',
+      'validation_message': 'Demo bootstrap validation passed.',
+      'last_validated_at': now,
+      'last_used_at': null,
+      'created_at': now,
+      'updated_at': now,
+    };
+    store.addCloudConnection(connection);
+    final disposable = origin == 'dedicated_disposable';
+    final disposalStatus = !disposable
+        ? 'not_retained_user_managed'
+        : hasProviderExpiry
+        ? 'expires_at_provider'
+        : manualCleanup
+        ? 'manual_revocation_required'
+        : 'revoked';
+    session
+      ..['revision'] = (session['revision'] as int) + 2
+      ..['state'] = disposalStatus == 'manual_revocation_required'
+          ? 'manual_revocation_required'
+          : 'ready'
+      ..['credential_origin'] = origin
+      ..['disposal_status'] = disposalStatus
+      ..['safe_credential_identifier'] = safeIdentifier
+      ..['credential_expires_at'] = hasProviderExpiry
+          ? target['session_expires_at']
+          : null
+      ..['finding'] = disposalStatus == 'manual_revocation_required'
+          ? {
+              'code': 'BOOTSTRAP_MANUAL_REVOCATION_REQUIRED',
+              'severity': 'error',
+              'title': 'Manual credential cleanup required',
+              'message':
+                  'Provider-side deletion of the displayed temporary credential was not durably confirmed.',
+              'blocking': true,
+              'action':
+                  'Delete the displayed credential in the provider console, then acknowledge the cleanup.',
+              'remediation_url': _demoBootstrapRemediationUrl(provider),
+            }
+          : null
+      ..['connection'] = {
+        'id': connectionId,
+        'provider': provider.apiValue,
+        'purpose': 'deployment',
+        'display_name': session['display_name'],
+        'cloud_scope': connection['cloud_scope'],
+        'permission_set_version': 'thesis-demo-v2',
+        'validation_status': 'valid',
+      }
+      ..['command_permissions'] = disposalStatus == 'manual_revocation_required'
+          ? ['acknowledge_manual_revocation']
+          : <String>[]
+      ..['updated_at'] = now;
+    return _demoBootstrapSession(sessionId);
+  }
+
+  @override
+  Future<CloudBootstrapSession> acknowledgeCloudBootstrapRevocation(
+    String sessionId,
+    int expectedRevision,
+  ) async {
+    await _pause();
+    final session = _bootstrapSessions[sessionId];
+    if (session == null ||
+        session['state'] != 'manual_revocation_required' ||
+        session['revision'] != expectedRevision) {
+      throw const DemoApiException(
+        'BOOTSTRAP_SESSION_CONFLICT',
+        'Bootstrap cleanup acknowledgement is no longer available.',
+      );
+    }
+    session
+      ..['revision'] = expectedRevision + 1
+      ..['state'] = 'ready'
+      ..['disposal_status'] = 'revoked'
+      ..['command_permissions'] = <String>[]
+      ..['updated_at'] = store.clock().toUtc().toIso8601String();
+    return _demoBootstrapSession(sessionId);
+  }
+
+  @override
+  Future<CloudBootstrapSession> cancelCloudBootstrapSession(
+    String sessionId,
+    int expectedRevision,
+  ) async {
+    await _pause();
+    final session = _bootstrapSessions[sessionId];
+    if (session == null ||
+        session['revision'] != expectedRevision ||
+        !(session['command_permissions'] as List).contains('cancel')) {
+      throw const DemoApiException(
+        'BOOTSTRAP_SESSION_CONFLICT',
+        'Bootstrap session changed before cancellation.',
+      );
+    }
+    session
+      ..['revision'] = expectedRevision + 1
+      ..['state'] = 'cancelled'
+      ..['command_permissions'] = ['start_new']
+      ..['updated_at'] = store.clock().toUtc().toIso8601String();
+    return _demoBootstrapSession(sessionId);
   }
 
   @override
@@ -2628,6 +2956,205 @@ class DemoManagementApi implements ManagementApi {
       'calculationSource': 'fresh',
     };
   }
+
+  Map<String, dynamic> _demoBootstrapGuide(
+    CloudProvider provider,
+    CloudBootstrapTarget target,
+  ) {
+    return {
+      'schema_version': 'cloud-bootstrap-guide.v1',
+      'guide_digest': _demoBootstrapDigest('${provider.apiValue}-guide'),
+      'provider': provider.apiValue,
+      'execution_mode': 'deterministic_fake',
+      'target': target.toJson(),
+      'bootstrap_authority_pack': _demoBootstrapPack(
+        provider,
+        authority: true,
+        detailed: true,
+      ),
+      'generated_deployment_pack': _demoBootstrapPack(
+        provider,
+        authority: false,
+        detailed: true,
+      ),
+      'credential_fields': switch (provider) {
+        CloudProvider.aws => [
+          _demoCredentialField('access_key_id', 'Access key ID', 'identifier'),
+          _demoCredentialField(
+            'secret_access_key',
+            'Secret access key',
+            'secret',
+          ),
+          _demoCredentialField(
+            'session_token',
+            'Session token',
+            'secret',
+            required: false,
+          ),
+        ],
+        CloudProvider.azure => [
+          _demoCredentialField('tenant_id', 'Tenant ID', 'identifier'),
+          _demoCredentialField(
+            'subscription_id',
+            'Subscription ID',
+            'identifier',
+          ),
+          _demoCredentialField('client_id', 'Client ID', 'identifier'),
+          _demoCredentialField('client_secret', 'Client secret', 'secret'),
+        ],
+        CloudProvider.gcp => [
+          _demoCredentialField(
+            'service_account_json',
+            'Service-account JSON',
+            'json',
+          ),
+        ],
+      },
+      'credential_origins': ['dedicated_disposable', 'existing_user_owned'],
+      'preparation_steps': [
+        {
+          'id': 'prepare_authority',
+          'title': 'Prepare temporary authority',
+          'description':
+              'Follow the provider instructions and create a dedicated short-lived bootstrap credential.',
+          'expected_outcome':
+              'The temporary authority is ready for one request.',
+          'official_url': 'https://example.com/${provider.apiValue}/bootstrap',
+        },
+      ],
+      'known_blockers': <Map<String, dynamic>>[],
+      'legacy_fallback_available': true,
+    };
+  }
+
+  Map<String, dynamic> _demoBootstrapPack(
+    CloudProvider provider, {
+    required bool authority,
+    required bool detailed,
+  }) {
+    final version = authority ? '1' : 'thesis-demo-v2';
+    return {
+      'id': authority
+          ? 'bootstrap.${provider.apiValue}.admin-v1'
+          : '${provider.apiValue}.thesis-demo-v2',
+      'version': version,
+      'digest': _demoBootstrapDigest('${provider.apiValue}-$version'),
+      if (detailed) ...{
+        'scope_summary': authority
+            ? 'Temporary demo bootstrap authority.'
+            : 'Bounded demo deployment identity.',
+        'limitations': ['Demo mode creates no provider resources.'],
+        'artifact_url': 'https://example.com/${provider.apiValue}/permissions',
+      },
+    };
+  }
+
+  Map<String, dynamic> _demoCredentialField(
+    String id,
+    String label,
+    String inputType, {
+    bool required = true,
+  }) {
+    return {
+      'id': id,
+      'label': label,
+      'input_type': inputType,
+      'required': required,
+      'redaction_rule': inputType == 'json'
+          ? 'private_key_document'
+          : inputType == 'secret'
+          ? 'secret'
+          : 'identifier',
+    };
+  }
+
+  String _demoBootstrapDigest(String value) =>
+      'sha256:${sha256.convert(utf8.encode(value))}';
+
+  String _demoBootstrapRemediationUrl(
+    CloudProvider provider,
+  ) => switch (provider) {
+    CloudProvider.aws =>
+      'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html',
+    CloudProvider.azure =>
+      'https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal',
+    CloudProvider.gcp => 'https://cloud.google.com/iam/docs/keys-create-delete',
+  };
+
+  CloudBootstrapSession _demoBootstrapSession(String sessionId) {
+    final session = _bootstrapSessions[sessionId];
+    if (session == null) {
+      throw const DemoApiException(
+        'BOOTSTRAP_SESSION_NOT_FOUND',
+        'Bootstrap session was not found.',
+      );
+    }
+    return CloudBootstrapSession.fromJson(_demoBootstrapResponse(session));
+  }
+
+  Map<String, dynamic> _demoBootstrapResponse(Map<dynamic, dynamic> session) {
+    return _copyMap(session)
+      ..remove('_idempotency_key')
+      ..remove('_execute_idempotency_key');
+  }
+
+  String _demoBootstrapSafeIdentifier(
+    CloudProvider provider,
+    Map<String, dynamic> target,
+    Map<String, dynamic> credential,
+  ) => switch (provider) {
+    CloudProvider.aws => credential['access_key_id']?.toString() ?? 'unknown',
+    CloudProvider.azure =>
+      target['bootstrap_credential_key_id']?.toString() ??
+          credential['client_id']?.toString() ??
+          'unknown',
+    CloudProvider.gcp => credential['private_key_id']?.toString() ?? 'unknown',
+  };
+
+  String? _demoBootstrapCredentialFailure(
+    CloudProvider provider,
+    Map<String, dynamic> target,
+    Map<String, dynamic> credential,
+  ) {
+    if (credential['provider'] != provider.apiValue) {
+      return 'The submitted credential provider does not match the target.';
+    }
+    return switch (provider) {
+      CloudProvider.aws
+          when !(credential['access_key_id']?.toString().startsWith('AKIA') ==
+                  true ||
+              credential['access_key_id']?.toString().startsWith('ASIA') ==
+                  true) =>
+        'The AWS access-key identifier has an unsupported shape.',
+      CloudProvider.aws
+          when credential['session_token'] != null &&
+              target['session_expires_at'] == null =>
+        'An AWS session credential requires its provider-issued expiry.',
+      CloudProvider.azure
+          when credential['tenant_id'] != target['tenant_id'] ||
+              credential['subscription_id'] != target['subscription_id'] =>
+        'The Azure credential scope does not match the selected tenant and subscription.',
+      CloudProvider.gcp
+          when credential['project_id'] !=
+              (target['project_id'] ?? target['bootstrap_project_id']) =>
+        'The GCP credential project does not match the selected bootstrap project.',
+      _ => null,
+    };
+  }
+
+  bool _demoBootstrapNeedsManualCleanup(
+    CloudProvider provider,
+    Map<String, dynamic> target,
+    String safeIdentifier,
+  ) => switch (provider) {
+    CloudProvider.aws => safeIdentifier.toUpperCase().contains('MANUAL'),
+    CloudProvider.azure =>
+      target['bootstrap_credential_key_id'] == null ||
+          (target['bootstrap_credential_key_id'] as String)
+              .toLowerCase()
+              .contains('manual'),
+    CloudProvider.gcp => safeIdentifier.toLowerCase().contains('manual'),
+  };
 
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(value)) as Map);
