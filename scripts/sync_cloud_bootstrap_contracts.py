@@ -109,6 +109,18 @@ def validate_source() -> str:
         errors = sorted(validator.iter_errors(document), key=lambda error: list(error.path))
         if errors:
             raise ValueError(f"Valid fixture {name} failed: {errors[0].message}")
+        if name == "aws-guide.json":
+            declared = document.pop("guide_digest")
+            calculated = "sha256:" + hashlib.sha256(
+                json.dumps(
+                    document,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            ).hexdigest()
+            if declared != calculated:
+                raise ValueError("Valid guide fixture digest does not match its content")
     invalid = {
         "guide-secret-value.json": Draft202012Validator(guide_schema),
         "session-secret-value.json": Draft202012Validator(session_schema),

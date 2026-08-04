@@ -149,9 +149,6 @@ class CloudBootstrapPackReference(BaseModel):
     id: str
     version: str
     digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    scope_summary: str | None = None
-    limitations: list[str] | None = None
-    artifact_url: str | None = Field(default=None, pattern=r"^https://")
 
 
 class CloudBootstrapGuidePackReference(CloudBootstrapPackReference):
@@ -198,6 +195,7 @@ class CloudBootstrapGuideResponse(BaseModel):
     schema_version: Literal["cloud-bootstrap-guide.v1"] = "cloud-bootstrap-guide.v1"
     guide_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     provider: CloudProvider
+    execution_mode: Literal["disabled", "deterministic_fake"]
     target: CloudBootstrapTarget
     bootstrap_authority_pack: CloudBootstrapGuidePackReference
     generated_deployment_pack: CloudBootstrapGuidePackReference
@@ -245,19 +243,19 @@ class AWSBootstrapCredential(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: Literal["aws"] = "aws"
-    access_key_id: SecretStr
-    secret_access_key: SecretStr
-    session_token: SecretStr | None = None
+    access_key_id: SecretStr = Field(min_length=16, max_length=128)
+    secret_access_key: SecretStr = Field(min_length=16, max_length=256)
+    session_token: SecretStr | None = Field(default=None, min_length=16, max_length=4096)
 
 
 class AzureBootstrapCredential(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: Literal["azure"] = "azure"
-    tenant_id: SecretStr
-    subscription_id: SecretStr
-    client_id: SecretStr
-    client_secret: SecretStr
+    tenant_id: SecretStr = Field(min_length=1, max_length=128)
+    subscription_id: SecretStr = Field(min_length=1, max_length=128)
+    client_id: SecretStr = Field(min_length=1, max_length=128)
+    client_secret: SecretStr = Field(min_length=8, max_length=4096)
 
 
 class GCPBootstrapCredential(BaseModel):
@@ -266,10 +264,10 @@ class GCPBootstrapCredential(BaseModel):
     provider: Literal["gcp"] = "gcp"
     type: Literal["service_account"]
     project_id: str
-    private_key_id: SecretStr
-    private_key: SecretStr
+    private_key_id: SecretStr = Field(min_length=1, max_length=256)
+    private_key: SecretStr = Field(min_length=16, max_length=16384)
     client_email: str
-    client_id: SecretStr
+    client_id: SecretStr = Field(min_length=1, max_length=256)
     auth_uri: str | None = None
     token_uri: str | None = None
     auth_provider_x509_cert_url: str | None = None

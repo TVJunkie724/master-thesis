@@ -43,10 +43,6 @@ class CloudConnectionService:
         request: CloudConnectionCreate,
         audit: CredentialSecurityEventDraft | None = None,
     ) -> CloudConnectionResponse:
-        connection_id = str(uuid.uuid4())
-        payload = self._normalize_payload(request)
-        payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        fingerprint = self.fingerprint_payload(request.provider, payload)
         make_pricing_default = False
         if request.purpose == "pricing":
             existing_default = self._repo.get_default_pricing(user_id, request.provider)
@@ -54,26 +50,36 @@ class CloudConnectionService:
             if request.is_default_for_pricing:
                 self._repo.clear_pricing_defaults(user_id, request.provider)
 
-        connection = CloudConnection(
-            id=connection_id,
-            user_id=user_id,
-            provider=request.provider,
-            purpose=request.purpose,
-            scope=request.scope,
-            is_default_for_pricing=make_pricing_default,
-            display_name=request.display_name,
-            cloud_scope=json.dumps(request.cloud_scope, sort_keys=True),
-            auth_type=request.auth_type or self._default_auth_type(request.provider),
-            permission_set_version=request.permission_set_version,
-            encrypted_payload=encrypt_scoped(payload_json, user_id, connection_id),
-            payload_fingerprint=fingerprint,
-            validation_status="untested",
+        connection = self._new_connection(
+            user_id,
+            request,
+            make_pricing_default=make_pricing_default,
         )
         self._repo.add(connection)
-        self._append_audit(audit, resource_id=connection_id)
+        self._append_audit(audit, resource_id=connection.id)
         self._commit_default_change()
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
+
+    def stage_deployment_connection(
+        self,
+        user_id: str,
+        request: CloudConnectionCreate,
+        audit: CredentialSecurityEventDraft | None = None,
+    ) -> CloudConnection:
+        """Stage a generated deployment connection in the caller transaction."""
+
+        if request.purpose != "deployment" or request.is_default_for_pricing:
+            raise ValueError("Bootstrap may stage only deployment Cloud Connections")
+        connection = self._new_connection(
+            user_id,
+            request,
+            make_pricing_default=False,
+        )
+        self._repo.add(connection)
+        self._append_audit(audit, resource_id=connection.id)
+        self._db.flush()
+        return connection
 
     def update_connection(
         self,
@@ -147,13 +153,22 @@ class CloudConnectionService:
         result: dict[str, Any],
         audit: CredentialSecurityEventDraft | None = None,
     ) -> None:
+        self.stage_validation_result(connection, result)
+        self._append_audit(audit, resource_id=connection.id)
+        self._commit_audited_change()
+        self._db.refresh(connection)
+
+    def stage_validation_result(
+        self,
+        connection: CloudConnection,
+        result: dict[str, Any],
+    ) -> None:
+        """Apply validation state without committing the caller transaction."""
+
         connection.validation_status = "valid" if result.get("valid") else "invalid"
         connection.validation_message = self._validation_message(result)
         connection.last_validated_at = datetime.utcnow()
         connection.updated_at = datetime.utcnow()
-        self._append_audit(audit, resource_id=connection.id)
-        self._commit_audited_change()
-        self._db.refresh(connection)
 
     def record_successful_use(self, connection: CloudConnection) -> None:
         connection.last_used_at = datetime.utcnow()
@@ -194,6 +209,32 @@ class CloudConnectionService:
         except SQLAlchemyError as exc:
             self._db.rollback()
             raise CredentialAuditWriteFailed("Credential transaction could not be audited") from exc
+
+    def _new_connection(
+        self,
+        user_id: str,
+        request: CloudConnectionCreate,
+        *,
+        make_pricing_default: bool,
+    ) -> CloudConnection:
+        connection_id = str(uuid.uuid4())
+        payload = self._normalize_payload(request)
+        payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return CloudConnection(
+            id=connection_id,
+            user_id=user_id,
+            provider=request.provider,
+            purpose=request.purpose,
+            scope=request.scope,
+            is_default_for_pricing=make_pricing_default,
+            display_name=request.display_name,
+            cloud_scope=json.dumps(request.cloud_scope, sort_keys=True),
+            auth_type=request.auth_type or self._default_auth_type(request.provider),
+            permission_set_version=request.permission_set_version,
+            encrypted_payload=encrypt_scoped(payload_json, user_id, connection_id),
+            payload_fingerprint=self.fingerprint_payload(request.provider, payload),
+            validation_status="untested",
+        )
 
     def to_response(self, connection: CloudConnection, user_id: str) -> CloudConnectionResponse:
         payload = self.decrypt_payload(connection, user_id)

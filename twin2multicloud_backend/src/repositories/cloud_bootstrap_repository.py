@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session, joinedload
 
 from src.models.cloud_bootstrap_session import (
@@ -84,3 +86,22 @@ class CloudBootstrapRepository:
         elif active is False:
             query = query.filter(~CloudBootstrapSession.state.in_(ACTIVE_BOOTSTRAP_STATES))
         return query.order_by(CloudBootstrapSession.updated_at.desc()).all()
+
+    def list_stale_leases(
+        self,
+        user_id: str,
+        cutoff: datetime,
+    ) -> list[CloudBootstrapSession]:
+        return (
+            self._db.query(CloudBootstrapSession)
+            .options(joinedload(CloudBootstrapSession.connection))
+            .filter(
+                CloudBootstrapSession.user_id == user_id,
+                CloudBootstrapSession.state.in_(
+                    ("bootstrap_running", "disposal_running")
+                ),
+                CloudBootstrapSession.lease_started_at.is_not(None),
+                CloudBootstrapSession.lease_started_at <= cutoff,
+            )
+            .all()
+        )

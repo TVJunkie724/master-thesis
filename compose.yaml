@@ -26,6 +26,7 @@ services:
       - TWIN2CLOUDS_MODE=INFO
       - PRICING_CATALOG_STORE_ROOT=/var/lib/twin2multicloud-optimizer/pricing-catalogs
       - ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=${ARCHITECTURE_PROFILE_RESOLUTION_ENABLED:-false}
+      - CLOUD_BOOTSTRAP_ADAPTER_MODE=${CLOUD_BOOTSTRAP_ADAPTER_MODE:-deterministic_fake}
     tty: true
     networks:
       - my_master_thesis_network

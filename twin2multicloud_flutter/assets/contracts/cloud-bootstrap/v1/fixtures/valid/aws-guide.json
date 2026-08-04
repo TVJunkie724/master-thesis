@@ -1,7 +1,8 @@
 {
   "schema_version": "cloud-bootstrap-guide.v1",
-  "guide_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "guide_digest": "sha256:b5c0e19d69147c875d84def25f7f93254b64d0f7f37768ec69a8909ada630d73",
   "provider": "aws",
+  "execution_mode": "deterministic_fake",
   "target": {
     "provider": "aws",
     "account_id": "123456789012",

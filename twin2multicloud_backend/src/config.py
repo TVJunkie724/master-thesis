@@ -4,6 +4,7 @@ import ipaddress
 import re
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
@@ -85,7 +86,7 @@ class Settings(BaseSettings):
     CREDENTIAL_RATE_LIMIT_STORAGE_URI: str = "memory://"
     CREDENTIAL_WRITE_RATE_LIMIT: str = "10/minute"
     CREDENTIAL_VALIDATION_RATE_LIMIT: str = "6/minute"
-    CREDENTIAL_BOOTSTRAP_RATE_LIMIT: str = "5/minute"
+    CREDENTIAL_BOOTSTRAP_RATE_LIMIT: str = "20/minute"
 
     # Sensitive immutable source reads share the production credential limiter
     # storage while retaining a separate actor namespace and quota.
@@ -110,6 +111,11 @@ class Settings(BaseSettings):
     OPTIMIZER_URL: str = "http://master-thesis-2twin2clouds-1:8000"
     DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES: int = Field(default=1440, gt=0)
     ARCHITECTURE_PROFILE_RESOLUTION_ENABLED: bool = False
+    CLOUD_BOOTSTRAP_ADAPTER_MODE: Literal[
+        "disabled",
+        "deterministic_fake",
+    ] = "disabled"
+    CLOUD_BOOTSTRAP_LEASE_TIMEOUT_SECONDS: int = Field(default=300, ge=30, le=3600)
     
     # GLB File Storage (for scene.glb uploads)
     UPLOAD_DIR: str = "./uploads"

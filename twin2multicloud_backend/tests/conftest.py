@@ -15,6 +15,7 @@ os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("DEBUG", "true")
 os.environ.setdefault("DEV_AUTH_ENABLED", "true")
 os.environ.setdefault("DEV_AUTH_TOKEN", "dev-token")
+os.environ.setdefault("CLOUD_BOOTSTRAP_ADAPTER_MODE", "deterministic_fake")
 os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-with-at-least-32-characters")
 os.environ.setdefault(
     "ENCRYPTION_KEY",

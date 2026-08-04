@@ -1,6 +1,94 @@
 {
   "components": {
     "schemas": {
+      "AWSBootstrapCredential": {
+        "additionalProperties": false,
+        "properties": {
+          "access_key_id": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Access Key Id",
+            "type": "string",
+            "writeOnly": true
+          },
+          "provider": {
+            "const": "aws",
+            "default": "aws",
+            "title": "Provider",
+            "type": "string"
+          },
+          "secret_access_key": {
+            "format": "password",
+            "maxLength": 256,
+            "minLength": 16,
+            "title": "Secret Access Key",
+            "type": "string",
+            "writeOnly": true
+          },
+          "session_token": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 4096,
+                "minLength": 16,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Token"
+          }
+        },
+        "required": [
+          "access_key_id",
+          "secret_access_key"
+        ],
+        "title": "AWSBootstrapCredential",
+        "type": "object"
+      },
+      "AWSBootstrapTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "pattern": "^[0-9]{12}$",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "aws",
+            "default": "aws",
+            "title": "Provider",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Region",
+            "type": "string"
+          },
+          "session_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Expires At"
+          }
+        },
+        "required": [
+          "account_id",
+          "region"
+        ],
+        "title": "AWSBootstrapTarget",
+        "type": "object"
+      },
       "AWSCredentials": {
         "additionalProperties": false,
         "properties": {
@@ -76,6 +164,591 @@
           "operation_type"
         ],
         "title": "ActiveDeploymentSessionResponse",
+        "type": "object"
+      },
+      "ArchitectureErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "fix_suggestion": {
+            "title": "Fix Suggestion",
+            "type": "string"
+          },
+          "http_status": {
+            "title": "Http Status",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "fix_suggestion",
+          "http_status",
+          "request_id"
+        ],
+        "title": "ArchitectureErrorResponse",
+        "type": "object"
+      },
+      "ArchitectureExtensionSlotSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "logical_component_id": {
+            "title": "Logical Component Id",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "slot_version": {
+            "title": "Slot Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id",
+          "slot_version",
+          "logical_component_id"
+        ],
+        "title": "ArchitectureExtensionSlotSummary",
+        "type": "object"
+      },
+      "ArchitectureProfileChangePreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          },
+          "deployment_readiness_sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deployment Readiness Sections",
+            "type": "array"
+          },
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "incompatible_extension_bindings": {
+            "items": {
+              "$ref": "#/components/schemas/IncompatibleExtensionBinding"
+            },
+            "title": "Incompatible Extension Bindings",
+            "type": "array"
+          },
+          "incompatible_workload_fields": {
+            "items": {
+              "$ref": "#/components/schemas/IncompatibleWorkloadField"
+            },
+            "title": "Incompatible Workload Fields",
+            "type": "array"
+          },
+          "invalidation_digest": {
+            "title": "Invalidation Digest",
+            "type": "string"
+          },
+          "selected_calculation_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Calculation Run Id"
+          },
+          "target": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          }
+        },
+        "required": [
+          "current",
+          "target",
+          "expected_revision",
+          "incompatible_workload_fields",
+          "incompatible_extension_bindings",
+          "selected_calculation_run_id",
+          "deployment_readiness_sections",
+          "invalidation_digest"
+        ],
+        "title": "ArchitectureProfileChangePreviewResponse",
+        "type": "object"
+      },
+      "ArchitectureProfileChangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "profile_id": {
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "maxLength": 32,
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Profile Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_version",
+          "expected_revision"
+        ],
+        "title": "ArchitectureProfileChangeRequest",
+        "type": "object"
+      },
+      "ArchitectureProfileDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available_providers": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureProviderSummary"
+            },
+            "title": "Available Providers",
+            "type": "array"
+          },
+          "capability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capability Ids",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "extension_slots": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureExtensionSlotSummary"
+            },
+            "title": "Extension Slots",
+            "type": "array"
+          },
+          "lifecycle_status": {
+            "const": "active",
+            "title": "Lifecycle Status",
+            "type": "string"
+          },
+          "logical_components": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Logical Components",
+            "type": "array"
+          },
+          "logical_edges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Logical Edges",
+            "type": "array"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "title": "Profile Version",
+            "type": "string"
+          },
+          "responsibilities": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureResponsibilitySummary"
+            },
+            "title": "Responsibilities",
+            "type": "array"
+          },
+          "unsupported_providers": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureProviderSummary"
+            },
+            "title": "Unsupported Providers",
+            "type": "array"
+          },
+          "visualization": {
+            "$ref": "#/components/schemas/ArchitectureVisualization"
+          },
+          "workload_contract_ref": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_version",
+          "profile_digest",
+          "display_name",
+          "description",
+          "lifecycle_status",
+          "responsibilities",
+          "capability_ids",
+          "workload_contract_ref",
+          "available_providers",
+          "unsupported_providers",
+          "extension_slots",
+          "logical_components",
+          "logical_edges",
+          "visualization"
+        ],
+        "title": "ArchitectureProfileDetailResponse",
+        "type": "object"
+      },
+      "ArchitectureProfileSelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "invalidation_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Invalidation Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "maxLength": 32,
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Profile Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_version",
+          "expected_revision",
+          "invalidation_digest"
+        ],
+        "title": "ArchitectureProfileSelectionRequest",
+        "type": "object"
+      },
+      "ArchitectureProfileSelectionResult": {
+        "additionalProperties": false,
+        "properties": {
+          "cleared_workload_field_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cleared Workload Field Ids",
+            "type": "array"
+          },
+          "deployment_readiness_state": {
+            "enum": [
+              "unchanged",
+              "invalidated"
+            ],
+            "title": "Deployment Readiness State",
+            "type": "string"
+          },
+          "invalidated_calculation_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidated Calculation Run Id"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/TwinArchitectureSelectionResponse"
+          },
+          "unbound_extension_slot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unbound Extension Slot Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "selection",
+          "revision",
+          "invalidated_calculation_run_id",
+          "unbound_extension_slot_ids",
+          "cleared_workload_field_ids",
+          "deployment_readiness_state"
+        ],
+        "title": "ArchitectureProfileSelectionResult",
+        "type": "object"
+      },
+      "ArchitectureProfileSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available_providers": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureProviderSummary"
+            },
+            "title": "Available Providers",
+            "type": "array"
+          },
+          "capability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capability Ids",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "extension_slots": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureExtensionSlotSummary"
+            },
+            "title": "Extension Slots",
+            "type": "array"
+          },
+          "lifecycle_status": {
+            "const": "active",
+            "title": "Lifecycle Status",
+            "type": "string"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "title": "Profile Version",
+            "type": "string"
+          },
+          "responsibilities": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureResponsibilitySummary"
+            },
+            "title": "Responsibilities",
+            "type": "array"
+          },
+          "unsupported_providers": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureProviderSummary"
+            },
+            "title": "Unsupported Providers",
+            "type": "array"
+          },
+          "workload_contract_ref": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_version",
+          "profile_digest",
+          "display_name",
+          "description",
+          "lifecycle_status",
+          "responsibilities",
+          "capability_ids",
+          "workload_contract_ref",
+          "available_providers",
+          "unsupported_providers",
+          "extension_slots"
+        ],
+        "title": "ArchitectureProfileSummaryResponse",
+        "type": "object"
+      },
+      "ArchitectureProviderSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "title": "Profile Version",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "supported",
+          "profile_id",
+          "profile_version",
+          "reason_codes"
+        ],
+        "title": "ArchitectureProviderSummary",
+        "type": "object"
+      },
+      "ArchitectureResponsibilitySummary": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capability Ids",
+            "type": "array"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "responsibility_id": {
+            "title": "Responsibility Id",
+            "type": "string"
+          },
+          "workload_field_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Workload Field Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "responsibility_id",
+          "display_name",
+          "required",
+          "capability_ids",
+          "workload_field_ids"
+        ],
+        "title": "ArchitectureResponsibilitySummary",
+        "type": "object"
+      },
+      "ArchitectureVisualization": {
+        "additionalProperties": false,
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureVisualizationEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ArchitectureVisualizationNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes",
+          "edges"
+        ],
+        "title": "ArchitectureVisualization",
+        "type": "object"
+      },
+      "ArchitectureVisualizationEdge": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "title": "Destination",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "destination"
+        ],
+        "title": "ArchitectureVisualizationEdge",
+        "type": "object"
+      },
+      "ArchitectureVisualizationNode": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "responsibility_id": {
+            "title": "Responsibility Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "responsibility_id"
+        ],
+        "title": "ArchitectureVisualizationNode",
         "type": "object"
       },
       "AuthExchangeStatus": {
@@ -260,6 +933,105 @@
         "title": "AuthStartResponse",
         "type": "object"
       },
+      "AzureBootstrapCredential": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Client Id",
+            "type": "string",
+            "writeOnly": true
+          },
+          "client_secret": {
+            "format": "password",
+            "maxLength": 4096,
+            "minLength": 8,
+            "title": "Client Secret",
+            "type": "string",
+            "writeOnly": true
+          },
+          "provider": {
+            "const": "azure",
+            "default": "azure",
+            "title": "Provider",
+            "type": "string"
+          },
+          "subscription_id": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Subscription Id",
+            "type": "string",
+            "writeOnly": true
+          },
+          "tenant_id": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tenant Id",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "tenant_id",
+          "subscription_id",
+          "client_id",
+          "client_secret"
+        ],
+        "title": "AzureBootstrapCredential",
+        "type": "object"
+      },
+      "AzureBootstrapTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrap_credential_key_id": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bootstrap Credential Key Id"
+          },
+          "provider": {
+            "const": "azure",
+            "default": "azure",
+            "title": "Provider",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Region",
+            "type": "string"
+          },
+          "subscription_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Subscription Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "subscription_id",
+          "region"
+        ],
+        "title": "AzureBootstrapTarget",
+        "type": "object"
+      },
       "AzureCredentials": {
         "additionalProperties": false,
         "properties": {
@@ -316,6 +1088,50 @@
         "title": "AzureCredentials",
         "type": "object"
       },
+      "Body_createUserFunctionArtifact": {
+        "properties": {
+          "metadata": {
+            "contentMediaType": "application/octet-stream",
+            "description": "UTF-8 JSON client metadata",
+            "title": "Metadata",
+            "type": "string"
+          },
+          "source_archive": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Source ZIP",
+            "title": "Source Archive",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "source_archive"
+        ],
+        "title": "Body_createUserFunctionArtifact",
+        "type": "object"
+      },
+      "Body_importLegacyUserFunctionArtifact": {
+        "properties": {
+          "metadata": {
+            "contentMediaType": "application/octet-stream",
+            "description": "UTF-8 JSON client metadata",
+            "title": "Metadata",
+            "type": "string"
+          },
+          "source_archive": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Reviewed replacement ZIP",
+            "title": "Source Archive",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "source_archive"
+        ],
+        "title": "Body_importLegacyUserFunctionArtifact",
+        "type": "object"
+      },
       "Body_uploadProjectZip": {
         "properties": {
           "file": {
@@ -344,6 +1160,28 @@
           "file"
         ],
         "title": "Body_uploadSceneGlb",
+        "type": "object"
+      },
+      "Body_validateUserFunctionArtifact": {
+        "properties": {
+          "metadata": {
+            "contentMediaType": "application/octet-stream",
+            "description": "UTF-8 JSON client metadata",
+            "title": "Metadata",
+            "type": "string"
+          },
+          "source_archive": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Source ZIP",
+            "title": "Source Archive",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "source_archive"
+        ],
+        "title": "Body_validateUserFunctionArtifact",
         "type": "object"
       },
       "BoundCloudConnectionSummary": {
@@ -829,6 +1667,426 @@
         "title": "CloudAccessProviderInventory",
         "type": "object"
       },
+      "CloudBootstrapConnectionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "cloud_scope": {
+            "additionalProperties": true,
+            "title": "Cloud Scope",
+            "type": "object"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "permission_set_version": {
+            "title": "Permission Set Version",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "purpose": {
+            "const": "deployment",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "validation_status": {
+            "enum": [
+              "valid",
+              "invalid",
+              "untested"
+            ],
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "purpose",
+          "display_name",
+          "cloud_scope",
+          "permission_set_version",
+          "validation_status"
+        ],
+        "title": "CloudBootstrapConnectionSummary",
+        "type": "object"
+      },
+      "CloudBootstrapCredentialField": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9_]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_type": {
+            "enum": [
+              "identifier",
+              "secret",
+              "json"
+            ],
+            "title": "Input Type",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "redaction_rule": {
+            "enum": [
+              "identifier",
+              "secret",
+              "private_key_document"
+            ],
+            "title": "Redaction Rule",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "input_type",
+          "required",
+          "redaction_rule"
+        ],
+        "title": "CloudBootstrapCredentialField",
+        "type": "object"
+      },
+      "CloudBootstrapCredentialOrigin": {
+        "enum": [
+          "dedicated_disposable",
+          "existing_user_owned"
+        ],
+        "title": "CloudBootstrapCredentialOrigin",
+        "type": "string"
+      },
+      "CloudBootstrapDisposalStatus": {
+        "enum": [
+          "revoked",
+          "expires_at_provider",
+          "manual_revocation_required",
+          "not_retained_user_managed",
+          "released_after_failure"
+        ],
+        "title": "CloudBootstrapDisposalStatus",
+        "type": "string"
+      },
+      "CloudBootstrapEntryPoint": {
+        "enum": [
+          "settings",
+          "twin_prepare"
+        ],
+        "title": "CloudBootstrapEntryPoint",
+        "type": "string"
+      },
+      "CloudBootstrapExecuteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "credential": {
+            "discriminator": {
+              "mapping": {
+                "aws": "#/components/schemas/AWSBootstrapCredential",
+                "azure": "#/components/schemas/AzureBootstrapCredential",
+                "gcp": "#/components/schemas/GCPBootstrapCredential"
+              },
+              "propertyName": "provider"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AWSBootstrapCredential"
+              },
+              {
+                "$ref": "#/components/schemas/AzureBootstrapCredential"
+              },
+              {
+                "$ref": "#/components/schemas/GCPBootstrapCredential"
+              }
+            ],
+            "title": "Credential"
+          },
+          "credential_origin": {
+            "$ref": "#/components/schemas/CloudBootstrapCredentialOrigin"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "pattern": "^[A-Za-z0-9._:-]{16,128}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "idempotency_key",
+          "credential_origin",
+          "credential"
+        ],
+        "title": "CloudBootstrapExecuteRequest",
+        "type": "object"
+      },
+      "CloudBootstrapFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "code": {
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "remediation_url": {
+            "anyOf": [
+              {
+                "pattern": "^https://",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation Url"
+          },
+          "severity": {
+            "default": "error",
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "title",
+          "message",
+          "blocking",
+          "action"
+        ],
+        "title": "CloudBootstrapFinding",
+        "type": "object"
+      },
+      "CloudBootstrapGuidePackReference": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_url": {
+            "pattern": "^https://",
+            "title": "Artifact Url",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "scope_summary": {
+            "title": "Scope Summary",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest",
+          "scope_summary",
+          "limitations",
+          "artifact_url"
+        ],
+        "title": "CloudBootstrapGuidePackReference",
+        "type": "object"
+      },
+      "CloudBootstrapGuideRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AWSBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/AzureBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "title": "CloudBootstrapGuideRequest",
+        "type": "object"
+      },
+      "CloudBootstrapGuideResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrap_authority_pack": {
+            "$ref": "#/components/schemas/CloudBootstrapGuidePackReference"
+          },
+          "credential_fields": {
+            "items": {
+              "$ref": "#/components/schemas/CloudBootstrapCredentialField"
+            },
+            "title": "Credential Fields",
+            "type": "array"
+          },
+          "credential_origins": {
+            "default": [
+              "dedicated_disposable",
+              "existing_user_owned"
+            ],
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "dedicated_disposable",
+                "type": "string"
+              },
+              {
+                "const": "existing_user_owned",
+                "type": "string"
+              }
+            ],
+            "title": "Credential Origins",
+            "type": "array"
+          },
+          "execution_mode": {
+            "enum": [
+              "disabled",
+              "deterministic_fake"
+            ],
+            "title": "Execution Mode",
+            "type": "string"
+          },
+          "generated_deployment_pack": {
+            "$ref": "#/components/schemas/CloudBootstrapGuidePackReference"
+          },
+          "guide_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Guide Digest",
+            "type": "string"
+          },
+          "known_blockers": {
+            "items": {
+              "$ref": "#/components/schemas/CloudBootstrapFinding"
+            },
+            "title": "Known Blockers",
+            "type": "array"
+          },
+          "legacy_fallback_available": {
+            "const": true,
+            "default": true,
+            "title": "Legacy Fallback Available",
+            "type": "boolean"
+          },
+          "preparation_steps": {
+            "items": {
+              "$ref": "#/components/schemas/CloudBootstrapInstruction"
+            },
+            "title": "Preparation Steps",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "cloud-bootstrap-guide.v1",
+            "default": "cloud-bootstrap-guide.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AWSBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/AzureBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "guide_digest",
+          "provider",
+          "execution_mode",
+          "target",
+          "bootstrap_authority_pack",
+          "generated_deployment_pack",
+          "credential_fields",
+          "preparation_steps",
+          "known_blockers"
+        ],
+        "title": "CloudBootstrapGuideResponse",
+        "type": "object"
+      },
       "CloudBootstrapImportRequest": {
         "additionalProperties": false,
         "description": "Import generated bootstrap output as a CloudConnection.",
@@ -859,6 +2117,67 @@
           "connection"
         ],
         "title": "CloudBootstrapImportResponse",
+        "type": "object"
+      },
+      "CloudBootstrapInstruction": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "expected_outcome": {
+            "title": "Expected Outcome",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-z0-9_]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "official_url": {
+            "pattern": "^https://",
+            "title": "Official Url",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "expected_outcome",
+          "official_url"
+        ],
+        "title": "CloudBootstrapInstruction",
+        "type": "object"
+      },
+      "CloudBootstrapPackReference": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest"
+        ],
+        "title": "CloudBootstrapPackReference",
         "type": "object"
       },
       "CloudBootstrapPlanRequest": {
@@ -1028,6 +2347,319 @@
         ],
         "title": "CloudBootstrapPlanResponse",
         "type": "object"
+      },
+      "CloudBootstrapRevisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "CloudBootstrapRevisionRequest",
+        "type": "object"
+      },
+      "CloudBootstrapSessionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrap_authority_pack_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Bootstrap Authority Pack Digest",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "entry_point": {
+            "$ref": "#/components/schemas/CloudBootstrapEntryPoint"
+          },
+          "generated_deployment_pack_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Generated Deployment Pack Digest",
+            "type": "string"
+          },
+          "guide_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Guide Digest",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "pattern": "^[A-Za-z0-9._:-]{16,128}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AWSBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/AzureBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
+              }
+            ],
+            "title": "Target"
+          },
+          "twin_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin Id"
+          }
+        },
+        "required": [
+          "provider",
+          "target",
+          "entry_point",
+          "display_name",
+          "guide_digest",
+          "bootstrap_authority_pack_digest",
+          "generated_deployment_pack_digest",
+          "idempotency_key"
+        ],
+        "title": "CloudBootstrapSessionCreateRequest",
+        "type": "object"
+      },
+      "CloudBootstrapSessionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CloudBootstrapSessionListResponse",
+        "type": "object"
+      },
+      "CloudBootstrapSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrap_authority_pack": {
+            "$ref": "#/components/schemas/CloudBootstrapPackReference"
+          },
+          "command_permissions": {
+            "items": {
+              "enum": [
+                "execute",
+                "recheck",
+                "acknowledge_manual_revocation",
+                "cancel",
+                "start_new"
+              ],
+              "type": "string"
+            },
+            "title": "Command Permissions",
+            "type": "array"
+          },
+          "connection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CloudBootstrapConnectionSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Expires At"
+          },
+          "credential_origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CloudBootstrapCredentialOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "disposal_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CloudBootstrapDisposalStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entry_point": {
+            "$ref": "#/components/schemas/CloudBootstrapEntryPoint"
+          },
+          "finding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CloudBootstrapFinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generated_deployment_pack": {
+            "$ref": "#/components/schemas/CloudBootstrapPackReference"
+          },
+          "guide_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Guide Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "safe_credential_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safe Credential Identifier"
+          },
+          "schema_version": {
+            "const": "cloud-bootstrap-session.v1",
+            "default": "cloud-bootstrap-session.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CloudBootstrapState"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AWSBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/AzureBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
+              },
+              {
+                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
+              }
+            ],
+            "title": "Target"
+          },
+          "twin_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "target",
+          "entry_point",
+          "twin_id",
+          "display_name",
+          "revision",
+          "state",
+          "guide_digest",
+          "bootstrap_authority_pack",
+          "generated_deployment_pack",
+          "command_permissions",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CloudBootstrapSessionResponse",
+        "type": "object"
+      },
+      "CloudBootstrapState": {
+        "enum": [
+          "draft",
+          "bootstrap_running",
+          "generated_connection_ready",
+          "disposal_running",
+          "manual_revocation_required",
+          "credential_reentry_required",
+          "ready",
+          "failed",
+          "cancelled",
+          "expired"
+        ],
+        "title": "CloudBootstrapState",
+        "type": "string"
       },
       "CloudConnectionCreate": {
         "additionalProperties": false,
@@ -1749,6 +3381,14 @@
       },
       "CostCalculationRunDetailResponse": {
         "properties": {
+          "architecture_compatibility_status": {
+            "enum": [
+              "ready",
+              "legacy_not_resolvable"
+            ],
+            "title": "Architecture Compatibility Status",
+            "type": "string"
+          },
           "calculation_model_version": {
             "anyOf": [
               {
@@ -1923,6 +3563,28 @@
             ],
             "title": "Pricing Run Reference"
           },
+          "resolved_architecture_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Architecture Digest"
+          },
+          "resolved_architecture_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Architecture Version"
+          },
           "resolved_deployment_specification": {
             "anyOf": [
               {
@@ -2001,6 +3663,7 @@
           "optimization_profile_id",
           "scoring_strategy_id",
           "deployment_compatibility_status",
+          "architecture_compatibility_status",
           "created_at",
           "params"
         ],
@@ -2031,6 +3694,14 @@
       },
       "CostCalculationRunSummaryResponse": {
         "properties": {
+          "architecture_compatibility_status": {
+            "enum": [
+              "ready",
+              "legacy_not_resolvable"
+            ],
+            "title": "Architecture Compatibility Status",
+            "type": "string"
+          },
           "calculation_model_version": {
             "anyOf": [
               {
@@ -2200,6 +3871,28 @@
             ],
             "title": "Pricing Run Reference"
           },
+          "resolved_architecture_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Architecture Digest"
+          },
+          "resolved_architecture_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Architecture Version"
+          },
           "scoring_strategy_id": {
             "title": "Scoring Strategy Id",
             "type": "string"
@@ -2249,6 +3942,7 @@
           "optimization_profile_id",
           "scoring_strategy_id",
           "deployment_compatibility_status",
+          "architecture_compatibility_status",
           "created_at"
         ],
         "title": "CostCalculationRunSummaryResponse",
@@ -2263,6 +3957,11 @@
           "cloud_connection.preflight",
           "cloud_bootstrap.plan",
           "cloud_bootstrap.import",
+          "cloud_bootstrap.guide",
+          "cloud_bootstrap.session_create",
+          "cloud_bootstrap.execute",
+          "cloud_bootstrap.acknowledge_revocation",
+          "cloud_bootstrap.cancel",
           "credentials.validate_inline",
           "credentials.validate_stored"
         ],
@@ -3992,6 +5691,99 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "ExtensionSlotListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "user-function-extension-slot-list.v1",
+            "default": "user-function-extension-slot-list.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionSlotResponse"
+            },
+            "title": "Slots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slots"
+        ],
+        "title": "ExtensionSlotListResponse",
+        "type": "object"
+      },
+      "ExtensionSlotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_schema": {
+            "additionalProperties": true,
+            "title": "Configuration Schema",
+            "type": "object"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "entrypoint": {
+            "const": "process",
+            "title": "Entrypoint",
+            "type": "string"
+          },
+          "permission_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permission Capabilities",
+            "type": "array"
+          },
+          "resource_limits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Resource Limits",
+            "type": "object"
+          },
+          "runtime_id": {
+            "const": "python311",
+            "title": "Runtime Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "user-function-extension-slot.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "secret_policy": {
+            "const": "forbidden",
+            "title": "Secret Policy",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "slot_version": {
+            "title": "Slot Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "slot_id",
+          "slot_version",
+          "display_name",
+          "entrypoint",
+          "runtime_id",
+          "configuration_schema",
+          "resource_limits",
+          "permission_capabilities",
+          "secret_policy"
+        ],
+        "title": "ExtensionSlotResponse",
+        "type": "object"
+      },
       "FieldError": {
         "description": "Describes a validation error for a specific request field.\n\nUse this to understand exactly which field failed validation\nand what values would be acceptable.",
         "example": {
@@ -4058,6 +5850,119 @@
         "title": "FieldError",
         "type": "object"
       },
+      "GCPBootstrapCredential": {
+        "additionalProperties": false,
+        "properties": {
+          "auth_provider_x509_cert_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Provider X509 Cert Url"
+          },
+          "auth_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Uri"
+          },
+          "client_email": {
+            "title": "Client Email",
+            "type": "string"
+          },
+          "client_id": {
+            "format": "password",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Client Id",
+            "type": "string",
+            "writeOnly": true
+          },
+          "client_x509_cert_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client X509 Cert Url"
+          },
+          "private_key": {
+            "format": "password",
+            "maxLength": 16384,
+            "minLength": 16,
+            "title": "Private Key",
+            "type": "string",
+            "writeOnly": true
+          },
+          "private_key_id": {
+            "format": "password",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Private Key Id",
+            "type": "string",
+            "writeOnly": true
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "gcp",
+            "default": "gcp",
+            "title": "Provider",
+            "type": "string"
+          },
+          "token_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Uri"
+          },
+          "type": {
+            "const": "service_account",
+            "title": "Type",
+            "type": "string"
+          },
+          "universe_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Universe Domain"
+          }
+        },
+        "required": [
+          "type",
+          "project_id",
+          "private_key_id",
+          "private_key",
+          "client_email",
+          "client_id"
+        ],
+        "title": "GCPBootstrapCredential",
+        "type": "object"
+      },
       "GCPCredentials": {
         "additionalProperties": false,
         "properties": {
@@ -4103,6 +6008,98 @@
         "title": "GCPCredentials",
         "type": "object"
       },
+      "GCPExistingProjectBootstrapTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "const": "existing_project",
+            "default": "existing_project",
+            "title": "Mode",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "gcp",
+            "default": "gcp",
+            "title": "Provider",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "region"
+        ],
+        "title": "GCPExistingProjectBootstrapTarget",
+        "type": "object"
+      },
+      "GCPOrganizationBootstrapTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_account_id": {
+            "pattern": "^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$",
+            "title": "Billing Account Id",
+            "type": "string"
+          },
+          "bootstrap_project_id": {
+            "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
+            "title": "Bootstrap Project Id",
+            "type": "string"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "mode": {
+            "const": "organization",
+            "default": "organization",
+            "title": "Mode",
+            "type": "string"
+          },
+          "organization_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "gcp",
+            "default": "gcp",
+            "title": "Provider",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bootstrap_project_id",
+          "organization_id",
+          "billing_account_id",
+          "region"
+        ],
+        "title": "GCPOrganizationBootstrapTarget",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4133,6 +6130,49 @@
           "database"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "IncompatibleExtensionBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "slot_version": {
+            "title": "Slot Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id",
+          "slot_version",
+          "artifact_id"
+        ],
+        "title": "IncompatibleExtensionBinding",
+        "type": "object"
+      },
+      "IncompatibleWorkloadField": {
+        "additionalProperties": false,
+        "properties": {
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "display_label"
+        ],
+        "title": "IncompatibleWorkloadField",
         "type": "object"
       },
       "InlineValidationRequest": {
@@ -4491,6 +6531,30 @@
           }
         },
         "title": "OptimizerParamsUpdate",
+        "type": "object"
+      },
+      "PinnedArchitectureReference": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest"
+        ],
+        "title": "PinnedArchitectureReference",
         "type": "object"
       },
       "PlatformCapabilitySourceHealth": {
@@ -6523,6 +8587,60 @@
         "title": "RedeployReadinessResponse",
         "type": "object"
       },
+      "ResolvedArchitectureReadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "architecture": {
+            "$ref": "#/components/schemas/ResolvedTwinArchitectureContract"
+          },
+          "architecture_compatibility_status": {
+            "enum": [
+              "ready",
+              "legacy_not_resolvable"
+            ],
+            "title": "Architecture Compatibility Status",
+            "type": "string"
+          },
+          "calculation_run_id": {
+            "title": "Calculation Run Id",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "native_v1",
+              "reconstructed_v1"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "selected_for_deployment_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected For Deployment At"
+          },
+          "twin_id": {
+            "title": "Twin Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "twin_id",
+          "calculation_run_id",
+          "selected_for_deployment_at",
+          "architecture_compatibility_status",
+          "origin",
+          "architecture"
+        ],
+        "title": "ResolvedArchitectureReadResponse",
+        "type": "object"
+      },
       "ResolvedDeploymentArchitectureProfile": {
         "additionalProperties": false,
         "properties": {
@@ -6797,6 +8915,114 @@
         "title": "ResolvedDeploymentSpecification",
         "type": "object"
       },
+      "ResolvedTwinArchitectureContract": {
+        "additionalProperties": false,
+        "description": "Typed top-level v1 resolution; nested data stays contract-owned.",
+        "properties": {
+          "architecture_profile_ref": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          },
+          "calculation_run_id": {
+            "title": "Calculation Run Id",
+            "type": "string"
+          },
+          "component_assignments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Component Assignments",
+            "type": "array"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "cost_summary": {
+            "additionalProperties": true,
+            "title": "Cost Summary",
+            "type": "object"
+          },
+          "deployment_specification_ref": {
+            "additionalProperties": true,
+            "title": "Deployment Specification Ref",
+            "type": "object"
+          },
+          "extension_bindings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Extension Bindings",
+            "type": "array"
+          },
+          "functional_completeness": {
+            "additionalProperties": true,
+            "title": "Functional Completeness",
+            "type": "object"
+          },
+          "optimization_bundle_ref": {
+            "additionalProperties": true,
+            "title": "Optimization Bundle Ref",
+            "type": "object"
+          },
+          "pricing_evidence_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pricing Evidence Refs",
+            "type": "array"
+          },
+          "provider_profile_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Provider Profile Refs",
+            "type": "array"
+          },
+          "resolution_id": {
+            "title": "Resolution Id",
+            "type": "string"
+          },
+          "resolved_edges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Resolved Edges",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "resolved-twin-architecture.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "workload_contract_ref": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          }
+        },
+        "required": [
+          "schema_version",
+          "resolution_id",
+          "calculation_run_id",
+          "architecture_profile_ref",
+          "optimization_bundle_ref",
+          "provider_profile_refs",
+          "workload_contract_ref",
+          "pricing_evidence_refs",
+          "component_assignments",
+          "resolved_edges",
+          "extension_bindings",
+          "deployment_specification_ref",
+          "cost_summary",
+          "functional_completeness",
+          "content_digest"
+        ],
+        "title": "ResolvedTwinArchitectureContract",
+        "type": "object"
+      },
       "SceneGlbUploadResponse": {
         "description": "Scene GLB upload acknowledgement.",
         "properties": {
@@ -6814,6 +9040,57 @@
           "size_mb"
         ],
         "title": "SceneGlbUploadResponse",
+        "type": "object"
+      },
+      "TwinArchitectureSelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "title": "Profile Version",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "selected_at": {
+            "format": "date-time",
+            "title": "Selected At",
+            "type": "string"
+          },
+          "selected_by_user_id": {
+            "title": "Selected By User Id",
+            "type": "string"
+          },
+          "twin_id": {
+            "title": "Twin Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "twin_id",
+          "profile_id",
+          "profile_version",
+          "profile_digest",
+          "revision",
+          "selected_at",
+          "updated_at",
+          "selected_by_user_id"
+        ],
+        "title": "TwinArchitectureSelectionResponse",
         "type": "object"
       },
       "TwinCloudConnectionRefs": {
@@ -7229,6 +9506,143 @@
         "title": "TwinCreate",
         "type": "object"
       },
+      "TwinExtensionBindingListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TwinExtensionBindingResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "twin-extension-binding-list.v1",
+            "default": "twin-extension-binding-list.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "TwinExtensionBindingListResponse",
+        "type": "object"
+      },
+      "TwinExtensionBindingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "artifact_digest": {
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "binding_digest": {
+            "title": "Binding Digest",
+            "type": "string"
+          },
+          "binding_id": {
+            "title": "Binding Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "twin-extension-binding.v1",
+            "default": "twin-extension-binding.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "slot_version": {
+            "title": "Slot Version",
+            "type": "string"
+          },
+          "twin_id": {
+            "title": "Twin Id",
+            "type": "string"
+          },
+          "unbound_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unbound At"
+          }
+        },
+        "required": [
+          "binding_id",
+          "twin_id",
+          "slot_id",
+          "slot_version",
+          "artifact_id",
+          "artifact_digest",
+          "binding_digest",
+          "active",
+          "revision",
+          "created_at",
+          "unbound_at"
+        ],
+        "title": "TwinExtensionBindingResponse",
+        "type": "object"
+      },
+      "TwinExtensionBindingUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "slot_version": {
+            "maxLength": 10,
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Slot Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "slot_version"
+        ],
+        "title": "TwinExtensionBindingUpdate",
+        "type": "object"
+      },
       "TwinResponse": {
         "properties": {
           "created_at": {
@@ -7337,6 +9751,202 @@
           }
         },
         "title": "TwinUpdate",
+        "type": "object"
+      },
+      "UserFunctionArtifactListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserFunctionArtifactResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "user-function-artifact-list.v1",
+            "default": "user-function-artifact-list.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "UserFunctionArtifactListResponse",
+        "type": "object"
+      },
+      "UserFunctionArtifactResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_digest": {
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "artifact_state": {
+            "enum": [
+              "valid",
+              "legacy_unvalidated"
+            ],
+            "title": "Artifact State",
+            "type": "string"
+          },
+          "configuration": {
+            "additionalProperties": true,
+            "title": "Configuration",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "declared_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Declared Capabilities",
+            "type": "array"
+          },
+          "dependency_count": {
+            "title": "Dependency Count",
+            "type": "integer"
+          },
+          "runtime_id": {
+            "title": "Runtime Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "slot_version": {
+            "title": "Slot Version",
+            "type": "string"
+          },
+          "source_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Files",
+            "type": "array"
+          },
+          "validator_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validator Version"
+          }
+        },
+        "required": [
+          "schema_version",
+          "artifact_id",
+          "artifact_state",
+          "artifact_digest",
+          "slot_id",
+          "slot_version",
+          "runtime_id",
+          "configuration",
+          "declared_capabilities",
+          "validator_version",
+          "source_files",
+          "dependency_count",
+          "created_at"
+        ],
+        "title": "UserFunctionArtifactResponse",
+        "type": "object"
+      },
+      "UserFunctionValidationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_digest": {
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "runtime_id": {
+            "title": "Runtime Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "user-function-validation-result.v1",
+            "default": "user-function-validation-result.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "slot_version": {
+            "title": "Slot Version",
+            "type": "string"
+          },
+          "source_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Files",
+            "type": "array"
+          },
+          "valid": {
+            "const": true,
+            "default": true,
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "artifact_digest",
+          "slot_id",
+          "slot_version",
+          "runtime_id",
+          "source_files",
+          "dependencies",
+          "checks"
+        ],
+        "title": "UserFunctionValidationResponse",
         "type": "object"
       },
       "UserPreferencesUpdate": {
@@ -7452,6 +10062,227 @@
           }
         },
         "summary": "Root"
+      }
+    },
+    "/architecture-profiles": {
+      "get": {
+        "operationId": "listArchitectureProfiles",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArchitectureProfileSummaryResponse"
+                  },
+                  "title": "Response Listarchitectureprofiles",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List active reviewed architecture profile versions",
+        "tags": [
+          "architecture-profiles"
+        ]
+      }
+    },
+    "/architecture-profiles/{profile_id}/versions/{profile_version}": {
+      "get": {
+        "operationId": "getArchitectureProfileVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "title": "Profile Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_version",
+            "required": true,
+            "schema": {
+              "title": "Profile Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureProfileDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The owner-scoped architecture resource was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The architecture state conflicts with the requested operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get one active reviewed architecture profile version",
+        "tags": [
+          "architecture-profiles"
+        ]
+      }
+    },
+    "/architecture/extension-slots": {
+      "get": {
+        "operationId": "listExtensionSlots",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSlotListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List reviewed user-function extension slots",
+        "tags": [
+          "user-function-extensions"
+        ]
       }
     },
     "/auth/google/callback": {
@@ -8116,6 +10947,699 @@
           }
         },
         "summary": "Import generated bootstrap output as a CloudConnection",
+        "tags": [
+          "cloud-bootstrap"
+        ]
+      }
+    },
+    "/cloud-bootstrap/sessions": {
+      "get": {
+        "operationId": "listCloudBootstrapSessions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBootstrapSessionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List safe owner-scoped bootstrap sessions",
+        "tags": [
+          "cloud-bootstrap"
+        ]
+      },
+      "post": {
+        "operationId": "createCloudBootstrapSession",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudBootstrapSessionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "CONFLICT",
+                  "fix_suggestion": "Check the current state of the resource before performing this action",
+                  "http_status": 409,
+                  "message": "Resource already exists or state transition not allowed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - The request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Create or resume one owner-scoped guided bootstrap session",
+        "tags": [
+          "cloud-bootstrap"
+        ]
+      }
+    },
+    "/cloud-bootstrap/sessions/{session_id}": {
+      "get": {
+        "operationId": "getCloudBootstrapSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one safe owner-scoped bootstrap session",
+        "tags": [
+          "cloud-bootstrap"
+        ]
+      }
+    },
+    "/cloud-bootstrap/sessions/{session_id}/acknowledge-manual-revocation": {
+      "post": {
+        "operationId": "acknowledgeCloudBootstrapManualRevocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudBootstrapRevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "CONFLICT",
+                  "fix_suggestion": "Check the current state of the resource before performing this action",
+                  "http_status": 409,
+                  "message": "Resource already exists or state transition not allowed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - The request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Record explicit user acknowledgement of provider-side cleanup",
+        "tags": [
+          "cloud-bootstrap"
+        ]
+      }
+    },
+    "/cloud-bootstrap/sessions/{session_id}/cancel": {
+      "post": {
+        "operationId": "cancelCloudBootstrapSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudBootstrapRevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "CONFLICT",
+                  "fix_suggestion": "Check the current state of the resource before performing this action",
+                  "http_status": 409,
+                  "message": "Resource already exists or state transition not allowed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - The request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Cancel a bootstrap session that has no generated connection",
+        "tags": [
+          "cloud-bootstrap"
+        ]
+      }
+    },
+    "/cloud-bootstrap/sessions/{session_id}/execute": {
+      "post": {
+        "operationId": "executeCloudBootstrapSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudBootstrapExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "CONFLICT",
+                  "fix_suggestion": "Check the current state of the resource before performing this action",
+                  "http_status": 409,
+                  "message": "Resource already exists or state transition not allowed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - The request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Execute one synchronous request-scoped bootstrap command",
+        "tags": [
+          "cloud-bootstrap"
+        ]
+      }
+    },
+    "/cloud-bootstrap/{provider}/guide": {
+      "post": {
+        "operationId": "getCloudBootstrapGuide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudBootstrapGuideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBootstrapGuideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "VALIDATION_ERROR",
+                  "field_errors": [
+                    {
+                      "field": "numberOfDevices",
+                      "message": "Must be positive",
+                      "received_value": "0"
+                    }
+                  ],
+                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
+                  "http_status": 422,
+                  "message": "Request validation failed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation Error - Request body failed schema validation"
+          }
+        },
+        "summary": "Build safe provider-specific guided bootstrap instructions",
         "tags": [
           "cloud-bootstrap"
         ]
@@ -9215,6 +12739,100 @@
         "summary": "Health check endpoint",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/optimizer-runs/{run_id}/resolved-architecture": {
+      "get": {
+        "operationId": "getOptimizerRunResolvedArchitecture",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedArchitectureReadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The owner-scoped architecture resource was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The architecture state conflicts with the requested operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get the immutable architecture of one owner-scoped calculation run",
+        "tags": [
+          "architecture-profiles"
         ]
       }
     },
@@ -11371,6 +14989,306 @@
         ]
       }
     },
+    "/twins/{twin_id}/architecture-profile": {
+      "get": {
+        "operationId": "getTwinArchitectureProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinArchitectureSelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The owner-scoped architecture resource was not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get the pinned architecture profile selected for a Twin",
+        "tags": [
+          "architecture-profiles"
+        ]
+      },
+      "put": {
+        "operationId": "selectTwinArchitectureProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchitectureProfileSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureProfileSelectionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The architecture selection cannot be changed in its current state"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The owner-scoped architecture resource was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The architecture state conflicts with the requested operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select an active profile using revision and preview digest",
+        "tags": [
+          "architecture-profiles"
+        ]
+      }
+    },
+    "/twins/{twin_id}/architecture-profile/change-preview": {
+      "post": {
+        "operationId": "previewTwinArchitectureProfileChange",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchitectureProfileChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureProfileChangePreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The owner-scoped architecture resource was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The architecture state conflicts with the requested operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview exact server-derived profile-change invalidations",
+        "tags": [
+          "architecture-profiles"
+        ]
+      }
+    },
     "/twins/{twin_id}/can-redeploy": {
       "get": {
         "description": "Checks deployment cooldown readiness, including the GCP Firestore cooldown rule, before a destroyed twin is redeployed.",
@@ -13356,6 +17274,226 @@
         ]
       }
     },
+    "/twins/{twin_id}/extension-bindings": {
+      "get": {
+        "operationId": "listTwinExtensionBindings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinExtensionBindingListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List active owner-scoped Twin extension bindings",
+        "tags": [
+          "user-function-extensions"
+        ]
+      }
+    },
+    "/twins/{twin_id}/extension-bindings/{slot_id}": {
+      "delete": {
+        "operationId": "unbindTwinExtensionArtifact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slot_id",
+            "required": true,
+            "schema": {
+              "title": "Slot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "slot_version",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]*$",
+              "title": "Slot Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expected Revision"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deactivate one Twin extension binding without deleting history",
+        "tags": [
+          "user-function-extensions"
+        ]
+      },
+      "put": {
+        "operationId": "bindTwinExtensionArtifact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slot_id",
+            "required": true,
+            "schema": {
+              "title": "Slot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwinExtensionBindingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinExtensionBindingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind one validated immutable artifact to a reviewed slot",
+        "tags": [
+          "user-function-extensions"
+        ]
+      }
+    },
     "/twins/{twin_id}/log-trace/start": {
       "post": {
         "description": "Sends or simulates a traceable IoT test message for a deployed twin and returns trace metadata plus the optional SSE session contract.",
@@ -14588,6 +18726,100 @@
         ]
       }
     },
+    "/twins/{twin_id}/resolved-architecture": {
+      "get": {
+        "operationId": "getSelectedTwinResolvedArchitecture",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedArchitectureReadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The owner-scoped architecture resource was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
+                }
+              }
+            },
+            "description": "The architecture state conflicts with the requested operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get the immutable architecture of the selected calculation run",
+        "tags": [
+          "architecture-profiles"
+        ]
+      }
+    },
     "/twins/{twin_id}/simulator/download": {
       "get": {
         "description": "Downloads a ready-to-run simulator archive for the optimized L1 provider of a deployed twin.",
@@ -14922,6 +19154,378 @@
         "summary": "Verify deployed infrastructure",
         "tags": [
           "twins"
+        ]
+      }
+    },
+    "/user-function-artifacts": {
+      "get": {
+        "operationId": "listUserFunctionArtifacts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFunctionArtifactListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List owner-scoped immutable artifacts without source text",
+        "tags": [
+          "user-function-extensions"
+        ]
+      },
+      "post": {
+        "operationId": "createUserFunctionArtifact",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_createUserFunctionArtifact"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFunctionArtifactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate and create one immutable user-function artifact",
+        "tags": [
+          "user-function-extensions"
+        ]
+      }
+    },
+    "/user-function-artifacts/validate": {
+      "post": {
+        "operationId": "validateUserFunctionArtifact",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateUserFunctionArtifact"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFunctionValidationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate a user-function artifact without persisting it",
+        "tags": [
+          "user-function-extensions"
+        ]
+      }
+    },
+    "/user-function-artifacts/{artifact_id}": {
+      "get": {
+        "operationId": "getUserFunctionArtifact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFunctionArtifactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get owner-scoped artifact metadata without source text",
+        "tags": [
+          "user-function-extensions"
+        ]
+      }
+    },
+    "/user-function-artifacts/{artifact_id}/source": {
+      "get": {
+        "operationId": "downloadUserFunctionArtifactSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download owner-only deterministic source ZIP",
+        "tags": [
+          "user-function-extensions"
+        ]
+      }
+    },
+    "/user-function-artifacts/{legacy_artifact_id}/import": {
+      "post": {
+        "operationId": "importLegacyUserFunctionArtifact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "legacy_artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Legacy Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_importLegacyUserFunctionArtifact"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFunctionArtifactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Explicitly validate a replacement for one owner-scoped legacy artifact",
+        "tags": [
+          "user-function-extensions"
         ]
       }
     }

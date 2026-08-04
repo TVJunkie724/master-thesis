@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from src.config import settings
@@ -46,6 +48,7 @@ from src.security.user_function_rate_limit import (
 )
 from src.services.auth_flow_service import AuthFlowError
 from src.services.architecture_errors import ArchitectureDomainError
+from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 
 initialize_database_schema(engine, settings.DATABASE_URL)
 
@@ -96,6 +99,44 @@ async def architecture_domain_error_handler(
             "request_id": current_request_id(),
         },
     )
+
+
+@app.exception_handler(CloudBootstrapDomainError)
+async def cloud_bootstrap_domain_error_handler(
+    _request: Request,
+    exc: CloudBootstrapDomainError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.http_status,
+        content={
+            "error_code": exc.code,
+            "message": exc.message,
+            "fix_suggestion": exc.fix_suggestion,
+            "http_status": exc.http_status,
+            "request_id": current_request_id(),
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(
+    request: Request,
+    exc: RequestValidationError,
+):
+    if request.url.path.startswith("/cloud-bootstrap/sessions/") and request.url.path.endswith(
+        "/execute"
+    ):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error_code": "BOOTSTRAP_CREDENTIAL_INVALID",
+                "message": "The bootstrap execute request is invalid.",
+                "fix_suggestion": "Review the provider guide and re-enter every required field.",
+                "http_status": 422,
+                "request_id": current_request_id(),
+            },
+        )
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.exception_handler(CredentialRateLimitExceeded)

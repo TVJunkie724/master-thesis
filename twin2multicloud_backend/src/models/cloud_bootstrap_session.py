@@ -134,3 +134,7 @@ class CloudBootstrapSession(Base):
     owner = relationship("User", back_populates="cloud_bootstrap_sessions")
     twin = relationship("DigitalTwin")
     connection = relationship("CloudConnection")
+    __mapper_args__ = {
+        "version_id_col": revision,
+        "version_id_generator": False,
+    }

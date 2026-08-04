@@ -34,6 +34,34 @@ def test_management_json_contracts_have_response_models():
         ("/auth/providers", "get"): "#/components/schemas/AuthProvidersResponse",
         ("/health", "get"): "#/components/schemas/HealthResponse",
         (
+            "/cloud-bootstrap/{provider}/guide",
+            "post",
+        ): "#/components/schemas/CloudBootstrapGuideResponse",
+        (
+            "/cloud-bootstrap/sessions",
+            "post",
+        ): "#/components/schemas/CloudBootstrapSessionResponse",
+        (
+            "/cloud-bootstrap/sessions",
+            "get",
+        ): "#/components/schemas/CloudBootstrapSessionListResponse",
+        (
+            "/cloud-bootstrap/sessions/{session_id}",
+            "get",
+        ): "#/components/schemas/CloudBootstrapSessionResponse",
+        (
+            "/cloud-bootstrap/sessions/{session_id}/execute",
+            "post",
+        ): "#/components/schemas/CloudBootstrapSessionResponse",
+        (
+            "/cloud-bootstrap/sessions/{session_id}/acknowledge-manual-revocation",
+            "post",
+        ): "#/components/schemas/CloudBootstrapSessionResponse",
+        (
+            "/cloud-bootstrap/sessions/{session_id}/cancel",
+            "post",
+        ): "#/components/schemas/CloudBootstrapSessionResponse",
+        (
             "/twins/{twin_id}/can-redeploy",
             "get",
         ): "#/components/schemas/RedeployReadinessResponse",
