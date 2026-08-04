@@ -2,8 +2,8 @@
 title: "Phase 8 Guided Cloud Bootstrap And Manual Prerequisites"
 description: "Binding cross-service plan for turning request-scoped bootstrap authority into reusable bounded CloudConnections while exposing the few unavoidable provider actions."
 tags: [phase-8, credentials, bootstrap, cloud-connections, identity, preflight, security]
-lastUpdated: "2026-07-31"
-version: "1.1"
+lastUpdated: "2026-08-04"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -20,7 +20,7 @@ version: "1.1"
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_02_PROFILE_CLOUD_ACCESS.md
 - AWS IAM Identity Center, Microsoft Azure RBAC, and Google Cloud IAM/IAP primary documentation linked in section 13
-EXTRACTED: 2026-07-31 | VERSION: 1.1
+EXTRACTED: 2026-08-04 | VERSION: 1.2
 -->
 
 # Phase 8 Guided Cloud Bootstrap And Manual Prerequisites
@@ -363,9 +363,12 @@ The guide contract contains:
 | `legacy_fallback_available` | `true` while the implemented script/import path remains supported |
 
 The session-create request contains only guide digest, both permission-pack
-digests, entry point, optional Twin ID, safe target/region, credential origin,
-display name, and client idempotency key. The execute request contains exactly
-one strict discriminated credential object:
+digests, entry point, optional Twin ID, safe target/region, display name, and
+client idempotency key. Credential origin is selected together with the
+one-use credential at execute time, so an abandoned draft never claims an
+origin or disposal obligation that was not actually submitted. The execute
+request contains that origin and exactly one strict discriminated credential
+object:
 
 | Provider | Execute-only secret fields |
 |---|---|
