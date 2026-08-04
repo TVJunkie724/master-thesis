@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-08-03"
-version: "2.9"
+version: "3.0"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.9"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, #153, #154, and #155
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-08-03 | VERSION: 2.9
+EXTRACTED: 2026-08-03 | VERSION: 3.0
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -25,7 +25,7 @@ EXTRACTED: 2026-08-03 | VERSION: 2.9
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Status | Phases 8.0 through 8.5 and prerequisite #113 implemented and locally reviewed; Phase 8.8 Eventing evidence and the immutable complete-service package are approved offline; the user authorized bounded Phase 8 implementation on 2026-08-03; Phase 8.6 compiler work remains dark and unfinished; Five-layer v2, guided bootstrap, Flutter, and Six-layer implementation must execute in reviewed order |
+| Status | Phases 8.0 through 8.6 and prerequisite #113 are implemented and locally reviewed; Phase 8.6 is a dark generic compiler, not profile activation; Phase 8.8 Eventing evidence and the immutable complete-service package are approved offline; Phase 8.7 Flutter, guided bootstrap, Five-layer v2, and Six-layer must execute in reviewed order |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -150,7 +150,7 @@ component catalog entries still own the exact executable resource mapping.
 | 8.3 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | [`phase_08_3_provider_profiles_component_catalog.md`](phase_08_3_provider_profiles_component_catalog.md) | Implemented dark/read-only provider profiles, exact component/edge/package/Terraform registries, unsupported fixtures, and #113 slot mapping | #149, #113 |
 | 8.4 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | [`phase_08_4_management_persistence_migration.md`](phase_08_4_management_persistence_migration.md) | Implemented migration 022, revisioned profile selection, immutable resolution persistence/API, and tracked compatibility projections | #150 |
 | 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | [`phase_08_5_optimizer_profile_resolution.md`](phase_08_5_optimizer_profile_resolution.md) | Implemented default-off profile-bounded complete-path optimization and immutable architecture output | #142 |
-| 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Deterministic deployment graph and preflight | #151 |
+| 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Implemented dark Manifest v3 graph compiler, binding/package preflight, typed Terraform projection, and frozen operation evidence | #151 |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Compact profile selection and read-only review | #152 |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Approved offline package: shared domain flow, six provider bundles, exact bridge, S/M/L costs, implementation manifest, and two zero-finding reviews | None for offline evidence; #152/#138 still gate 8.9A |
 | Guided bootstrap closure | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md) | Provider-guided request-only bootstrap authority creates reusable bounded CloudConnections and distinguishes release, provider expiry, revocation, and manual cleanup; the subsequent Twin deployment preflight owns exact AWS/Azure/GCP prerequisite pause/recheck | Complete-service permission-pack freeze, then implementation before Layer Access/8.9A can claim deployable user access |
@@ -170,7 +170,8 @@ reviewed 8.9A digest rather than guessing or duplicating L1-L5.
 
 Phase 8.8 was completed as an offline evidence activity before Phase 8.6
 runtime activation. This does not reorder implementation dependencies:
-Phase 8.6 and Phase 8.7 remain mandatory predecessors of Phase 8.9A.
+Phase 8.6 is complete and remains a mandatory predecessor; Phase 8.7 is the
+next unfinished predecessor of Phase 8.9A.
 Accordingly, #146 is no longer natively blocked by #152; it still blocks the
 Eventing implementation path until its reviewed evidence is published.
 

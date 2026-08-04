@@ -3,7 +3,7 @@ title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
 lastUpdated: "2026-08-03"
-version: "1.13"
+version: "1.14"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ version: "1.13"
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-08-03 | VERSION: 1.13
+EXTRACTED: 2026-08-03 | VERSION: 1.14
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -1191,12 +1191,13 @@ under changed L1-L5 assumptions.
 
 Implementation sequence and clean commits:
 
-1. commit this corrected plan/evaluation boundary;
-2. build, review, and commit the immutable complete-service decision package,
+1. completed: commit this corrected plan/evaluation boundary;
+2. completed: build, review, and commit the immutable complete-service decision package,
    including the three new `thesis-demo-v2` deployment permission artifacts
    and their source/known-gap ledgers;
-3. finish/review/commit the dark Phase 8.6 compiler;
-4. create the reviewed foundation branch and integrate the compiler commit;
+3. completed: finish/review/commit the dark Phase 8.6 compiler;
+4. completed: create the reviewed foundation branch and integrate the compiler
+   commit;
 5. implement/review/commit Phase 8.7;
 6. branch and implement/review/commit the guided cloud-bootstrap prerequisite
    in its declared shared-contract, Management, provider-adapter, Deployer,

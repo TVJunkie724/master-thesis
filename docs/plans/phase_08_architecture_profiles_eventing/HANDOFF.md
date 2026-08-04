@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-03"
-version: "3.9"
+version: "4.0"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "3.9"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 3.9
+EXTRACTED: 2026-08-03 | VERSION: 4.0
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -30,12 +30,12 @@ EXTRACTED: 2026-08-03 | VERSION: 3.9
 | Integration branch | `master` |
 | Planning base | `626e907a` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Locally completed implementation | Phase 8.0 / #144 through Phase 8.5 / #151, plus prerequisite #113; open issues remain open until publication/merge |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.6 / #152, plus prerequisite #113; open issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.5 is default-off; Phase 8.8 and `phase-08-complete-service-bundles@1` are approved offline; implementation was authorized on 2026-08-03; Phase 8.6 must now complete as a dark generic compiler before profile UI/bootstrap/Five-layer activation; Six-layer remains a later strict delta |
-| Next action | Commit the reviewed complete-service package and `thesis-demo-v2` manifests, then finish/review the existing dark Phase 8.6 compiler boundary without activating a profile |
+| Implementation status | Phase 8.6 is implemented and zero-finding reviewed as a dark generic compiler on the approved complete-service foundation; Phase 8.5 admission and all new profiles remain default-off; Six-layer remains a later strict delta |
+| Next action | Implement and review Phase 8.7's compact Flutter profile workflow without profile activation, then implement guided bootstrap before Five-layer v2 |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -90,6 +90,15 @@ The repository-backed runtime path remains deliberately dark. Phase 8.6
 provides the typed Deployer graph compiler but does not promote the historical
 provider profiles. New-profile activation belongs to Phase 8.9A after the
 complete-service decision.
+
+Phase 8.6 now also provides synchronized DeploymentManifest v3 contracts,
+deterministic graph/stage/binding compilation, graph-owned package selection,
+typed allowlisted Terraform inputs, frozen graph evidence in Management and
+Deployer operation state, selected-architecture-first compatibility
+projections, and historical v2 read/destroy support without invalid-v3
+fallback. Its integrated 14-stage credential-free gate passed all decision,
+contract, Optimizer, Management, Deployer, Flutter, MkDocs, security, and
+static checks. Activation remains deliberately default-off.
 
 Phase 8.8 is approved independently as an offline evidence gate. Its twelve
 schema-validated artifacts freeze `five-layer-baseline@2`,
@@ -157,29 +166,17 @@ binding contract is
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. retain the committed 2026-08-03 concept, cross-stack execution plan,
-   Flutter plans, and corrected Six-layer delta plan;
-2. retain the approved immutable complete-service decision package and
-   provider `thesis-demo-v2` permission artifacts without runtime activation;
-3. return to the existing Phase 8.6 implementation worktree and read
-   [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md)
-   in full;
-4. verify the Phase 8.5 default-off Optimizer/Management architecture output
-   and the Phase 8.4 fixed-field reader inventory;
-5. finish Manifest v3, deterministic graph/binding resolution, package
-   selection, typed Terraform input translation, and frozen operation evidence
-   as a dark compiler;
-6. do not promote `@1` or the current AWS/Azure runtime;
-7. remove executable `cheapest_l*`/`layer_*_provider` ownership while retaining
-   historical read/destroy compatibility;
-8. run the named contract, Management, Deployer, package, security, Terraform
-   no-apply, compatibility, and regression gates;
-9. run two zero-finding reviews;
-10. update current docs, evidence, roadmap, and issue #152;
-11. commit the complete dark Phase 8.6 boundary;
-12. create the reviewed integrated foundation from the complete-service
-    decision commit plus the clean Phase 8.6 compiler commit, rerun both review
-    suites, and start Phase 8.7 only from that integrated boundary.
+1. retain the committed 2026-08-03 concept, cross-stack execution plans,
+   immutable complete-service decision, and reviewed dark Phase 8.6 compiler;
+2. implement Phase 8.7's compact Management-API-only Flutter profile
+   selection and read-only resolution review for Web and desktop;
+3. keep `five-layer-baseline@1`, Phase 8.5 admission, and all new profile
+   execution default-off throughout Phase 8.7;
+4. review Phase 8.7 to zero findings and commit its boundary;
+5. implement and review guided cloud bootstrap / #154 on that foundation;
+6. implement and review `five-layer-baseline@2` / 8.9A including Layer Access;
+7. freeze the reviewed Five-layer v2 digest before starting the separate
+   Six-layer delta; then complete Phase 8.10 evaluation.
 
 ## Required Reading Order
 
@@ -307,7 +304,7 @@ string conventions or user functions constructing another resource's identity.
 | 8.3 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Explicit provider and deployer realization |
 | 8.4 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Runtime SSOT and migration |
 | 8.5 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Functional-total path optimization |
-| 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Deterministic Deployer graph |
+| 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Implemented dark deterministic Deployer graph, binding/package preflight, typed Terraform projection, and frozen graph evidence |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Compact profile workflow |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Shared domain-event contract plus approved or rejected embedded/Event-Layer decision package |
 | Service closure | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Complete AWS/Azure/provider-hosted-GCP bundles, storage routes, workload/capacity semantics, and immutable decision package |

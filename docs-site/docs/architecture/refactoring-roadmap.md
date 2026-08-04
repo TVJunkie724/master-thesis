@@ -198,10 +198,10 @@ when work becomes actionable, then reference the issue here.
 | [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Implemented locally, review complete | Dark/read-only AWS/Azure/GCP profiles; 22 reviewed deployment bundles covering all 42 deployment-dimension components, 33 decision-traced edges, 43 deterministic artifacts, 51 parser-verified Terraform resources, explicit unsupported states, and #113 slot binding |
 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Implemented locally, review complete | Migration 022, revisioned profile selection/invalidation, immutable canonical resolution plus component/edge projections, owner-scoped read APIs, audit evidence, and fixed-field transition inventory |
 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Implemented locally, review complete | Default-off functional-completeness gate, profile-local ranking, immutable resolution, and Management admission boundary |
-| [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Planned | Deterministic component/binding graph before package and Terraform side effects |
+| [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Implemented locally, review complete | Dark Manifest v3 compiler with deterministic component/binding graph, package preflight, typed Terraform projection, and frozen operation evidence before side effects |
 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Planned | Compact Management-API-only profile workflow for Web, macOS, Windows, and Linux |
 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Approved offline decision | Source-backed six-bundle capability/pricing package, exact bridge, all single/pair/three-provider scenarios, S/M/L calculations, implementation blueprint, and two zero-finding reviews; live identity/capacity gates remain |
-| Complete-service closure / Five-layer v2 plan | Two fresh zero-finding reviews complete; user approval pending | PoC-focused L1-L5 bundles with Cosmos DB and Firestore retained for Azure/GCP L3 hot, provider-local L3-hot/L5, independent L4, three local plus six split online placements, raw visualization, Twin projection, finite storage jobs, workload v2, and complete-service evidence. L4-to-L5/3D, ADX/BigQuery migration, Spanner Graph, default dedicated Grafana nodes, and storage-specific CDC/outbox pipelines are not selected |
+| Complete-service closure / Five-layer v2 plan | Approved immutable offline decision | PoC-focused L1-L5 bundles with Cosmos DB and Firestore retained for Azure/GCP L3 hot, provider-local L3-hot/L5, independent L4, three local plus six split online placements, raw visualization, Twin projection, finite storage jobs, workload v2, and complete-service evidence. L4-to-L5/3D, ADX/BigQuery migration, Spanner Graph, default dedicated Grafana nodes, and storage-specific CDC/outbox pipelines are not selected |
 | `five-layer-baseline@2` implementation | Planned after #138 and complete-service approval | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, and admissible mixed L1/L2/cool/archive paths |
 | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Deferred pending reviewed Five-layer v2 | Requires a new plan based on the committed Five-layer v2 L1-L5 contract; the old combined 8.9 draft is not executable authority |
 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Deferred pending reviewed Six-layer implementation | RQ-mapped reproducibility package and complete current-system documentation |
@@ -229,16 +229,16 @@ when work becomes actionable, then reference the issue here.
 ## Next Recommended Sequence
 
 1. Continue Phase 8 with
-   [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152)
-   from the reviewed, default-off #151 Optimizer/Management boundary.
+   [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138)
+   from the reviewed, default-off #152 graph-compiler boundary.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
    backlog work. Any covered source change must make the Phase 8.0 inventory
    drift gate fail and requires a reconciled Phase 8.1 decision digest.
 3. Keep the #113 user-function execution contract, Phase 8.3 slot mappings,
-   Phase 8.4 persistence contract, and Phase 8.5 immutable resolution output
-   stable while Phase 8.6 adds the typed Deployer graph boundary.
+   Phase 8.4 persistence contract, Phase 8.5 immutable resolution output, and
+   Phase 8.6 graph compiler stable while Phase 8.7 adds the compact UI.
 4. Follow the reviewed
    `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
    skipping its baseline, contract, migration, functional-completeness,
