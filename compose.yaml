@@ -26,7 +26,6 @@ services:
       - TWIN2CLOUDS_MODE=INFO
       - PRICING_CATALOG_STORE_ROOT=/var/lib/twin2multicloud-optimizer/pricing-catalogs
       - ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=${ARCHITECTURE_PROFILE_RESOLUTION_ENABLED:-false}
-      - CLOUD_BOOTSTRAP_ADAPTER_MODE=${CLOUD_BOOTSTRAP_ADAPTER_MODE:-deterministic_fake}
     tty: true
     networks:
       - my_master_thesis_network
@@ -78,6 +77,7 @@ services:
       - DEPLOYER_URL=http://3cloud-deployer:8000
       - DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES=${DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES:-1440}
       - ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=${ARCHITECTURE_PROFILE_RESOLUTION_ENABLED:-false}
+      - CLOUD_BOOTSTRAP_ADAPTER_MODE=${CLOUD_BOOTSTRAP_ADAPTER_MODE:-deterministic_fake}
       - UPLOAD_DIR=/app/uploads
     secrets:
       - source: management_api_jwt_secret
