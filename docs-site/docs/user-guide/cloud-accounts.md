@@ -26,7 +26,27 @@ The API returns metadata and validation results, never the stored plaintext payl
 
 ## Bootstrap A Scoped Connection
 
-The current bootstrap is a manual, versioned static-script workflow:
+The shared guided flow is available from **Settings -> Cloud Accounts &
+Access** and **Prepare deployment -> Cloud access**:
+
+1. choose provider and safe account/subscription/project target;
+2. review the provider-owned preparation steps and the bootstrap/deployment
+   permission packs;
+3. create the safe owner-scoped session;
+4. submit the temporary provider credential once;
+5. inspect the returned bounded `thesis-demo-v2` deployment connection and the
+   distinct local-release/provider-revocation state;
+6. complete and explicitly acknowledge manual provider cleanup when requested;
+7. from Prepare deployment, continue with the separate Twin preflight.
+
+The credential exists only in the synchronous execute request. It is never
+restored into Flutter state or persisted by Management. Resume, cancel,
+recheck, start-new, and credential re-entry remain available without claiming
+that local release equals provider revocation.
+
+The local PoC uses deterministic adapters and creates no live cloud identity or
+resource. Production adapters are disabled. For supervised live-provider work,
+the compatible manual, versioned static-script workflow remains available:
 
 1. request the provider bootstrap plan through the authenticated Management API;
 2. review the returned dry-run command and cloud scope;
@@ -35,11 +55,10 @@ The current bootstrap is a manual, versioned static-script workflow:
 5. store its generated deployment CloudConnection JSON only in an ignored local path;
 6. import that generated connection and validate it before binding it to a twin.
 
-The Management API never receives or persists the administrator credential. Current
-bootstrap scripts create deployment identities only. AWS and GCP pricing connections
-are created/imported separately; Azure pricing uses its public API path.
-Flutter does not currently expose the bootstrap plan/import workflow, so operators use
-the Management OpenAPI/HTTP boundary for these two steps.
+The manual `plan`/`import` endpoints never receive the administrator credential;
+authentication remains in the provider CLI. Current bootstrap scripts create
+deployment identities only. AWS and GCP pricing connections are created/imported
+separately; Azure pricing uses its public API path.
 
 See [Cloud Setup](../cloud-setup/index.md) for provider-specific commands and security
 rules.

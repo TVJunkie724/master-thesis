@@ -2,8 +2,8 @@
 title: "Phase 9: Guided Cloud Access Bootstrap"
 description: "Plan the shared Settings and configuration-workspace delivery of request-scoped provider bootstrap and resumable manual prerequisites."
 tags: [flutter, configuration-workspace, settings, credentials, bootstrap]
-lastUpdated: "2026-07-31"
-version: "1.1"
+lastUpdated: "2026-08-05"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -11,10 +11,21 @@ version: "1.1"
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/docs/feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
-EXTRACTED: 2026-07-31 | VERSION: 1.1
+EXTRACTED: 2026-08-05 | VERSION: 1.2
 -->
 
 # Phase 9: Guided Cloud Access Bootstrap
+
+## Status
+
+**Implemented and zero-finding reviewed for the offline thesis PoC.** The
+shared Settings/Prepare deployment flow, strict models, one-use credential
+request, safe resume/recheck/cancel behavior, manual-revocation
+acknowledgement, demo parity, and real local Management API integration are
+complete. `deterministic_fake` creates no provider resources; production
+remains `disabled` until a separately reviewed live adapter and supervised
+cloud gate exist. See the
+[implementation record](../implementation/guided_cloud_access_bootstrap.md).
 
 ## Summary
 

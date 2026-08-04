@@ -2,15 +2,15 @@
 title: "Frontend Extension Points"
 description: "Planned typed Flutter extension points without production-code TODO markers."
 tags: [flutter, architecture, extension-points]
-lastUpdated: "2026-07-31"
-version: "1.1"
+lastUpdated: "2026-08-05"
+version: "1.2"
 ---
 
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/frontend_delta/ROADMAP_FRONTEND_DELTA.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/docs/feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
-EXTRACTED: 2026-07-31 | VERSION: 1.1
+EXTRACTED: 2026-08-05 | VERSION: 1.2
 -->
 
 # Frontend Extension Points
@@ -38,7 +38,7 @@ markers in production code.
 - CloudConnection selection remains the credential SSOT UI path.
 - Profile-level cloud account visibility is the shared Settings entry point for
   provider, account/project/subscription metadata, validation status, and the
-  planned guided bootstrap. Prepare deployment uses the same Management-owned
+  implemented offline guided bootstrap. Prepare deployment uses the same Management-owned
   bootstrap feature after the selected architecture determines required
   provider scopes, then continues through the separate Twin deployment-
   preflight owner.
@@ -50,6 +50,9 @@ markers in production code.
 - The binding concept and backend request are
   [Guided Cloud Access Bootstrap](../configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
   and [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
+- Deterministic provider adapters close the local PoC lifecycle without cloud
+  mutation. Production remains disabled; live provider identity creation stays
+  behind the reviewed external scripts and supervised validation.
 
 ## Optimization Strategies
 

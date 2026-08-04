@@ -51,6 +51,20 @@ a one-time polling exchange. Production tokens stay in process memory and are cl
 on logout or session expiry. Live UIBK activation still requires the institutional
 federation setup documented in the docs site.
 
+## Guided Deployment Access
+
+Settings and Prepare deployment share one Management-owned guided bootstrap
+flow. It renders provider preparation and permission-pack evidence, accepts the
+temporary bootstrap credential only for one execute request, and returns a
+bounded encrypted deployment CloudConnection. Resume, cancel, recheck,
+credential re-entry, and manual provider-cleanup acknowledgement use the same
+owner-scoped session.
+
+The local demo and integration runtime use deterministic AWS, Azure, and GCP
+adapters and create no cloud resource. Production adapters remain disabled and
+fail closed; the versioned external provider scripts plus secure import remain
+the supervised live-provider path.
+
 ## Quality Checks
 
 ```bash

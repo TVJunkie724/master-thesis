@@ -54,7 +54,7 @@ FastAPI route
 | `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
-| `/cloud-bootstrap` | secret-free manual bootstrap plans and generated deployment-connection import |
+| `/cloud-bootstrap` | safe guides, owner-scoped session lifecycle, request-only execute, manual cleanup acknowledgement, and compatible manual plan/import |
 | `/cloud-access` | account-level capability inventory |
 | `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
 | `/optimizer/pricing-refresh` | provider refresh run lifecycle |
@@ -82,6 +82,7 @@ User
   |     +-- Deployment -- DeploymentLog
   |     +-- DeploymentPreflightCache
   +-- CloudConnection
+  +-- CloudBootstrapSession
 
 PricingRefreshRun
 PricingCandidateReport
@@ -102,7 +103,12 @@ never return the decrypted payload. Purpose distinguishes deployment and pricing
 one user-level pricing default is enforced per provider.
 
 Credential mutation/validation/bootstrap operations are rate limited and audited.
-Downstream validation messages are redacted before response or persistence.
+`CloudBootstrapSession` persists safe scope, pack, finding, disposal, revision,
+and connection-summary state only. Bootstrap credentials exist only in the
+sensitive execute request and are excluded from diagnostics and persistence.
+The deterministic offline adapters create no cloud resources; production
+provider adapters fail closed. Downstream validation messages are redacted
+before response or persistence.
 
 ## Provider Capability Aggregation
 

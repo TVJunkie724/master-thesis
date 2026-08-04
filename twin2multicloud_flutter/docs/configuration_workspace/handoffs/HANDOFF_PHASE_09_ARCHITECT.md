@@ -136,9 +136,10 @@ Out of scope:
 
 ## 7. Dependencies
 
-- FR-002 is planned and blocks Flutter implementation. The current live
-  OpenAPI exposes only manual bootstrap `plan`/`import`, not the guide/session
-  operations.
+- FR-002 and its Flutter implementation are complete for the deterministic
+  offline PoC. The OpenAPI exposes both the guide/session lifecycle and the
+  compatible manual `plan`/`import` operations. Production provider adapters
+  remain disabled.
 - The Phase 8 decision package and immutable provider `thesis-demo-v2` packs
   must exist before FR-002 provider adapters; Flutter does not select or author
   permission-pack versions.

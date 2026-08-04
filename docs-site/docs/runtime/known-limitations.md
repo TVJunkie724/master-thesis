@@ -43,11 +43,13 @@ development auth is deliberately not a production substitute.
 
 ### Credential Operations
 
-Versioned provider bootstrap scripts and encrypted import are implemented. Fully
-automated in-app administrator bootstrap is not implemented: the app provides a
-secret-free Management API plan/import workflow while provider administration stays
-in the external CLI session. Flutter does not currently expose that workflow.
-Encryption-key rotation requires explicit re-encryption tooling.
+The shared in-app guide/session lifecycle, request-only credential boundary,
+generated encrypted deployment connection, disposal states, and deterministic
+AWS/Azure/GCP adapters are implemented. Those adapters are an offline
+simulation and create no provider identity or resource; production adapters
+remain disabled and fail closed. Versioned scripts plus encrypted import remain
+the supervised live-provider path. Encryption-key rotation requires explicit
+re-encryption tooling.
 
 ### Provider Permissions
 

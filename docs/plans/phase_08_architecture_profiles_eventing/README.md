@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
-lastUpdated: "2026-08-03"
-version: "3.2"
+lastUpdated: "2026-08-05"
+version: "3.3"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "3.2"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, #153, #154, and #155
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-08-03 | VERSION: 3.2
+EXTRACTED: 2026-08-05 | VERSION: 3.3
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -25,7 +25,7 @@ EXTRACTED: 2026-08-03 | VERSION: 3.2
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Status | Phases 8.0 through 8.7 and prerequisite #113 are implemented and locally reviewed; Phase 8.8 Eventing evidence and the immutable complete-service package are approved offline; guided bootstrap, Five-layer v2, and Six-layer remain in reviewed order |
+| Status | Phases 8.0 through 8.7, prerequisite #113, and the offline guided-bootstrap closure are implemented and locally reviewed; Phase 8.8 Eventing evidence and the immutable complete-service package are approved offline; Five-layer v2 and Six-layer remain in reviewed order |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -153,9 +153,9 @@ component catalog entries still own the exact executable resource mapping.
 | 8.6 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | [`phase_08_6_deployer_graph_resolver.md`](phase_08_6_deployer_graph_resolver.md) | Implemented dark Manifest v3 graph compiler, binding/package preflight, typed Terraform projection, and frozen operation evidence | #151 |
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Implemented and zero-finding reviewed locally: strict empty/historical catalog boundary, revisioned profile workflow, responsive typed graph, and generic resolved review | #152 |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Approved offline package: shared domain flow, six provider bundles, exact bridge, S/M/L costs, implementation manifest, and two zero-finding reviews | None for offline evidence; #152/#138 still gate 8.9A |
-| Guided bootstrap closure | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md) | Provider-guided request-only bootstrap authority creates reusable bounded CloudConnections and distinguishes release, provider expiry, revocation, and manual cleanup; the subsequent Twin deployment preflight owns exact AWS/Azure/GCP prerequisite pause/recheck | Complete-service permission-pack freeze, then implementation before Layer Access/8.9A can claim deployable user access |
-| Service closure / 8.9A plan | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) + [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) + [`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md) | Approved [`phase-08-complete-service-bundles@1`](../../research/evidence/phase_08_service_bundles/README.md): 72 components, nine online placements, exact local/remote route classes, S/M/L capacity evidence, cost ownership, source ledger, and `thesis-demo-v2` permission manifests; runtime remains dark | Decision complete; #152/#138 and guided-bootstrap implementation remain gates, and #146 evidence is approved |
-| 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) | Executable `five-layer-baseline@2` with mandatory embedded domain-event behavior and complete service bundles | #152, #138, #146 and guided-bootstrap integration; complete-service decision is approved |
+| Guided bootstrap closure | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md) | Implemented and zero-finding reviewed offline: request-only bootstrap authority, safe owner sessions, deterministic AWS/Azure/GCP adapters, generated encrypted `thesis-demo-v2` CloudConnections, truthful disposal, shared Flutter flow, and real local-stack secret-persistence scan. Live provider adapters remain disabled. | Complete; Five-layer v2 is the next runtime branch |
+| Service closure / 8.9A plan | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) + [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) + [`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md) | Approved [`phase-08-complete-service-bundles@1`](../../research/evidence/phase_08_service_bundles/README.md): 72 components, nine online placements, exact local/remote route classes, S/M/L capacity evidence, cost ownership, source ledger, and `thesis-demo-v2` permission manifests; runtime remains dark | Decision and predecessor gates complete; implementation is next, and #146 evidence is approved |
+| 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) | Executable `five-layer-baseline@2` with mandatory embedded domain-event behavior and complete service bundles | #152, #138, #146, and guided-bootstrap integration are complete locally; begin on a separate branch |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable strict Event Layer delta over the reviewed Five-layer v2 commit | Reviewed 8.9A digest; the plan is now executable authority after that branch gate |
 | 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Planned deterministic historical-v1/Five-v2/Six-v1 evidence and current documentation | Reviewed Six-layer implementation |
 
@@ -170,8 +170,8 @@ reviewed 8.9A digest rather than guessing or duplicating L1-L5.
 
 Phase 8.8 was completed as an offline evidence activity before Phase 8.6
 runtime activation. This does not reorder implementation dependencies:
-Phase 8.6 and Phase 8.7 are complete local predecessors; guided bootstrap is
-the next unfinished predecessor of Phase 8.9A.
+Phase 8.6, Phase 8.7, and the offline guided-bootstrap closure are complete
+local predecessors. Phase 8.9A is the next unfinished implementation phase.
 Accordingly, #146 is no longer natively blocked by #152; it still blocks the
 Eventing implementation path until its reviewed evidence is published.
 

@@ -103,7 +103,9 @@ without being folded into this plan.
   their Flutter adapters.
 - Complete-service decision and Six-layer Eventing manifest: determine catalog
   content; clients do not duplicate them.
-- Guided bootstrap Phase 9 and Twin layer access remain separately planned.
+- Guided bootstrap Phase 9 was a separate deliverable and is now implemented
+  for the deterministic offline PoC; Twin layer access remains separately
+  planned.
 
 ## 8. Open Questions
 

@@ -2,8 +2,8 @@
 title: "Phase 8 Guided Cloud Bootstrap And Manual Prerequisites"
 description: "Binding cross-service plan for turning request-scoped bootstrap authority into reusable bounded CloudConnections while exposing the few unavoidable provider actions."
 tags: [phase-8, credentials, bootstrap, cloud-connections, identity, preflight, security]
-lastUpdated: "2026-08-04"
-version: "1.2"
+lastUpdated: "2026-08-05"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -19,8 +19,8 @@ version: "1.2"
 - Current Management API OpenAPI contract on 2026-07-31
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_02_PROFILE_CLOUD_ACCESS.md
-- AWS IAM Identity Center, Microsoft Azure RBAC, and Google Cloud IAM/IAP primary documentation linked in section 13
-EXTRACTED: 2026-08-04 | VERSION: 1.2
+- AWS IAM Identity Center, Microsoft Azure RBAC, and Google Cloud IAM/IAP primary documentation linked in section 15
+EXTRACTED: 2026-08-05 | VERSION: 1.3
 -->
 
 # Phase 8 Guided Cloud Bootstrap And Manual Prerequisites
@@ -86,10 +86,10 @@ POST /cloud-bootstrap/{provider}/plan
   -> purpose=deployment CloudConnection
 ```
 
-That contract is implemented and remains a compatibility fallback while the
-guided lifecycle is built. This plan does not relabel it as automated. The new
-session contract is additive; Flutter Phase 9 uses the new guide/session
-contract and does not execute a local script or provider CLI. The legacy
+That contract is implemented and remains a compatibility fallback beside the
+offline guided lifecycle. The new session contract is additive; Flutter Phase
+9 uses the new guide/session contract and does not execute a local script or
+provider CLI. The legacy
 `plan` and `import` endpoints may be deprecated only after all three guided
 provider adapters, migration tests, and documentation pass. Removing them is
 not part of this phase.
@@ -113,9 +113,8 @@ reviewable PoC baselines, not a formal least-privilege result. Existing and new
 documented permission-scope gaps remain visible thesis limitations.
 
 The current scripts assume that the already authenticated CLI principal can
-perform their setup calls; the repository does **not** yet publish a distinct
-machine-checkable permission pack for that initial authority. Guided bootstrap
-therefore adds one reviewed provider artifact before any session code:
+perform their setup calls. Guided bootstrap now publishes a distinct reviewed,
+machine-checkable permission pack for that initial authority:
 
 ```text
 bootstrap.aws.admin-v1
@@ -604,7 +603,7 @@ Prerequisite: the immutable Five-layer v2 decision package and its three
 The bootstrap branch consumes their IDs/digests and does not invent or mutate
 deployment permissions.
 
-The future implementation proceeds in independently reviewed commits:
+The offline implementation was delivered in independently reviewed commits:
 
 1. **Contracts and fixtures:** create and review all three
    `bootstrap.<provider>.admin-v1` authority artifacts; add bootstrap
@@ -614,9 +613,10 @@ The future implementation proceeds in independently reviewed commits:
    idempotency, generated CloudConnection persistence, execute/cancel/manual-
    revocation acknowledgement, audit events, and disposal status. Keep the
    current manual `plan`/`import` endpoints compatible.
-3. **Provider bootstrap adapters:** AWS, Azure, and GCP identity creation,
-   permission binding, validation, cleanup/revocation behavior, and mock
-   provider evidence.
+3. **Provider bootstrap adapters:** deterministic AWS, Azure, and GCP lifecycle
+   simulation, including permission binding, validation, cleanup/revocation
+   behavior, and mock-provider evidence. The production adapter remains
+   `disabled`; real identity creation is an optional supervised live gate.
 4. **Deployer admission integration:** consume generated CloudConnections,
    extend the existing Twin deployment preflight with identity/quota/billing/
    manual prerequisites, and prohibit raw bootstrap credentials in packages
@@ -627,13 +627,25 @@ The future implementation proceeds in independently reviewed commits:
 6. **Documentation and offline quality gate:** docs-site setup guides, contract
    generation/drift gates, complete safe suites, security scans, and two
    zero-finding reviews.
-7. **Optional supervised live gate:** separately approved provider setup,
-   bootstrap, recheck, one supported deployment, L4/L5 sign-in, redacted
-   evidence, and destroy per provider context.
+7. **Optional supervised live gate, not executed:** separately approved
+   provider setup, bootstrap, recheck, one supported deployment, L4/L5 sign-in,
+   redacted evidence, and destroy per provider context.
 
-No commit may mix provider bootstrap support with Five-layer service-resource
-implementation. The shared contract lands before provider adapters; all three
-providers close before the UI claims universal guided setup.
+No commit mixed provider bootstrap support with Five-layer service-resource
+implementation. The shared contract landed before the provider adapters; all
+three deterministic providers closed before the UI exposed the shared guided
+setup.
+
+### 12.1 Completion Status
+
+The request/response contracts, owner-scoped sessions, request-only credential
+boundary, generated `thesis-demo-v2` deployment CloudConnections, Deployer
+admission, both Flutter entry points, deterministic provider adapters, manual
+cleanup acknowledgement, and compatibility fallback are implemented. The
+production adapter fails closed and therefore makes no live-provider claim.
+
+The implementation and review evidence is recorded in
+[`guided_cloud_access_bootstrap.md`](../../../twin2multicloud_flutter/docs/configuration_workspace/implementation/guided_cloud_access_bootstrap.md).
 
 ## 13. Verification Matrix
 
@@ -669,8 +681,9 @@ real bootstrap credentials or reach a live provider.
 - A user can create and calculate a Twin without any cloud credential.
 - After architecture selection, the UI requests access only for providers in
   the immutable deployment decision.
-- A user with valid bootstrap authority can obtain a validated bounded
-  deployment CloudConnection without manually constructing it.
+- In the offline PoC adapter, a user can exercise creation of a validated
+  bounded deployment CloudConnection without manually constructing it. A live
+  provider result remains subject to the optional supervised gate.
 - The bootstrap secret is never deliberately retained after its execute request
   and never enters durable application state, storage, packages, logs, traces,
   metrics, retry payloads, or error payloads; no cryptographic memory-

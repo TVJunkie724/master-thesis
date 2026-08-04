@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
-lastUpdated: "2026-08-03"
-version: "4.2"
+lastUpdated: "2026-08-05"
+version: "4.3"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.2"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 4.2
+EXTRACTED: 2026-08-05 | VERSION: 4.3
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -30,12 +30,12 @@ EXTRACTED: 2026-08-03 | VERSION: 4.2
 | Integration branch | `master` |
 | Planning base | `626e907a` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Locally completed implementation | Phase 8.0 / #144 through Phase 8.7 / #138, plus prerequisite #113; open issues remain open until publication/merge |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.7 / #138, prerequisite #113, and the offline guided-bootstrap closure / #154; open issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.7 Flutter profile workflow is committed and zero-finding reviewed on the dark Phase 8.6 foundation; real/demo catalogs remain empty and all new profiles remain default-off |
-| Next action | Implement and review guided bootstrap before Five-layer v2 |
+| Implementation status | Guided bootstrap contracts, safe persistence, deterministic adapters, generated v2 CloudConnection admission, shared Flutter flow, and offline integration are committed and zero-finding reviewed; real/demo architecture catalogs remain empty and all new profiles remain default-off |
+| Next action | Branch from this reviewed boundary and implement `five-layer-baseline@2` / 8.9A |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -162,19 +162,28 @@ generated connection. Draft creation and calculation remain credential-free. The
 binding contract is
 [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md).
 
+The offline PoC implementation is complete on
+`codex/phase-8-guided-bootstrap`. It provides strict synchronized contracts,
+owner-scoped safe sessions, request-only credential handling, deterministic
+AWS/Azure/GCP adapter behavior, encrypted generated `thesis-demo-v2`
+CloudConnections, Deployer admission, and one shared Flutter flow from Settings
+and Prepare deployment. Production remains fail-closed: no live provider
+adapter is enabled, no cloud identity was created, and the existing reviewed
+manual script/import path remains the supervised provider path. The isolated
+OrbStack gate proved that the submitted sentinel was absent from Management
+logs and SQLite persistence.
+
 ## Immediate Next Action
 
 Do not activate a profile. Complete these boundaries in order:
 
-1. retain the committed 2026-08-03 concept, cross-stack execution plans,
-   immutable complete-service decision, reviewed dark Phase 8.6 compiler, and
-   zero-finding Phase 8.7 Flutter workflow;
-2. implement and review guided cloud bootstrap / #154 without activating a
-   profile;
-3. keep `five-layer-baseline@1`, Phase 8.5 admission, and all new profile
+1. retain the committed concept, cross-stack execution plans, immutable
+   complete-service decision, reviewed dark Phase 8.6 compiler, zero-finding
+   Phase 8.7 workflow, and reviewed offline guided-bootstrap boundary;
+2. keep `five-layer-baseline@1`, Phase 8.5 admission, and all new profile
    execution default-off throughout that gate;
-4. implement and review `five-layer-baseline@2` / 8.9A including Layer Access;
-5. freeze the reviewed Five-layer v2 digest before starting the separate
+3. implement and review `five-layer-baseline@2` / 8.9A including Layer Access;
+4. freeze the reviewed Five-layer v2 digest before starting the separate
    Six-layer delta; then complete Phase 8.10 evaluation.
 
 ## Required Reading Order

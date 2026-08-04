@@ -49,6 +49,21 @@ refresh uses a user-level pricing default, not an arbitrary twin.
 Never paste the credential into logs or issue bodies. Re-bootstrap or replace a
 connection through the application boundary.
 
+## Guided Bootstrap Stops Or Requires Cleanup
+
+- `BOOTSTRAP_IDENTITY_CREATION_FAILED` together with a disabled guide in
+  production is intentional: no live provider adapter is enabled. Use the
+  reviewed manual script/import path for supervised cloud work.
+- If the session requests credential re-entry, submit a fresh credential; the
+  previous value was released and cannot be restored.
+- If provider-side automatic deletion could not be proven, follow the exact
+  official cleanup link and acknowledge manual revocation only after completing
+  it. Local application release is not proof of provider revocation.
+- Resume the active provider/target session instead of creating a conflicting
+  duplicate. Cancel or start new only when the UI exposes that safe transition.
+- Recheck uses safe session and generated-connection state; never paste the
+  bootstrap credential into logs, tickets, or persisted configuration.
+
 ## Pricing Is Stale Or Review-Required
 
 Open Pricing Review from the dashboard, choose one provider, confirm the account, and

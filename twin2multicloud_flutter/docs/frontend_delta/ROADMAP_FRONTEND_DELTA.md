@@ -132,7 +132,7 @@ Flutter App
 | 5 | Superseded | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Legacy Wizard Step 1 | Replaced by the configuration-workspace roadmap |
 | 6 | Done | [PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md](phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md) | Wizard Step 2 | Pricing readiness contract |
 | 7 | Done | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
-| 7.1 | Planned | [Configuration Workspace Phase 9](../configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) | Shared Settings and Prepare deployment cloud-access bootstrap | Planned [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) |
+| 7.1 | Done offline | [Configuration Workspace Phase 9](../configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) | Shared Settings and Prepare deployment cloud-access bootstrap | [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) implemented with deterministic adapters; production disabled |
 | 8 | Core done; 8.6 planned | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [operations plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) + [Layer Access plan](../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) | Twin Overview | Existing operation contracts plus planned [FR-001](../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md) |
 | 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
 | 9.1 | Local gates complete; platform CI pending | [Immutable Region-Scoped Pricing Catalogs](../../../2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md) | Pricing Review, calculation evidence, Twin Overview | Strict immutable references replace full pricing exports; compact evidence, honest legacy state, Web/macOS builds, and live local integration are verified |
@@ -152,9 +152,9 @@ The order is intentional:
 6. Keep pricing maintenance in its dedicated replacement surfaces.
 7. Preserve the typed optimizer and deployment contracts while reorganizing
    their inputs around user tasks.
-8. Implement the Management-owned guided bootstrap contract and its shared
-   Settings/workspace UI before relying on automatically generated deployment
-   connections.
+8. Keep the implemented Management-owned guided bootstrap contract and shared
+   Settings/workspace UI stable while Five-layer v2 activates generated
+   deployment connections.
 9. Harden Twin Overview deployment operations after credential/preflight state
    is visible.
 10. Run cross-cutting quality and thesis-evidence gates.
