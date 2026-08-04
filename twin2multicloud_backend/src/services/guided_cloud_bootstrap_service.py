@@ -396,7 +396,12 @@ class GuidedCloudBootstrapService:
             session.credential_expires_at = result.credential_expires_at
             session.safe_credential_identifier = result.safe_credential_identifier
             session.lease_started_at = None
-            session.finding_json = None
+            session.finding_json = (
+                _canonical_json(self._manual_revocation_finding(session.provider))
+                if result.disposal_status
+                == CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+                else None
+            )
             session.state = (
                 CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value
                 if result.disposal_status
@@ -724,13 +729,7 @@ class GuidedCloudBootstrapService:
                     CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED.value
                 )
                 session.finding_json = _canonical_json(
-                    CloudBootstrapFinding(
-                        code="BOOTSTRAP_MANUAL_REVOCATION_REQUIRED",
-                        title="Manual credential cleanup required",
-                        message="Provider-side deletion was not durably confirmed before the request ended.",
-                        blocking=True,
-                        action="Delete the displayed credential in the provider console and acknowledge it.",
-                    ).model_dump(mode="json")
+                    self._manual_revocation_finding(session.provider)
                 )
             session.lease_started_at = None
             session.revision += 1
@@ -814,6 +813,28 @@ class GuidedCloudBootstrapService:
             "BOOTSTRAP_CREDENTIAL_INVALID",
             "The credential shape is unsupported.",
         )
+
+    @staticmethod
+    def _manual_revocation_finding(provider: str) -> dict[str, Any]:
+        remediation_url = {
+            "aws": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
+            "azure": "https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal",
+            "gcp": "https://cloud.google.com/iam/docs/keys-create-delete",
+        }[provider]
+        return CloudBootstrapFinding(
+            code="BOOTSTRAP_MANUAL_REVOCATION_REQUIRED",
+            title="Manual credential cleanup required",
+            message=(
+                "Provider-side deletion of the displayed temporary credential "
+                "was not durably confirmed."
+            ),
+            blocking=True,
+            action=(
+                "Delete the displayed credential in the provider console, "
+                "then acknowledge the cleanup."
+            ),
+            remediation_url=remediation_url,
+        ).model_dump(mode="json", exclude_none=True)
 
     @staticmethod
     def _command_permissions(session: CloudBootstrapSession) -> list[str]:

@@ -9,6 +9,7 @@ from src.config import settings
 from src.models.cloud_bootstrap_session import CloudBootstrapSession
 from src.models.cloud_connection import CloudConnection
 from src.models.user import User
+from src.repositories.architecture_repository import ArchitectureRepository
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.guided_cloud_bootstrap_service import GuidedCloudBootstrapService
 
@@ -152,6 +153,74 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
             step["official_url"].startswith("https://")
             for step in guide["preparation_steps"]
         )
+
+
+def test_twin_prepare_admits_only_a_provider_in_the_selected_resolution(
+    auth_client,
+    test_twin,
+    monkeypatch,
+):
+    class Assignment:
+        def __init__(self, provider: str):
+            self.provider = provider
+
+    class Resolution:
+        components = [Assignment("aws")]
+
+    monkeypatch.setattr(
+        ArchitectureRepository,
+        "get_resolution_for_selected_run",
+        lambda _repository, twin_id, _user_id: (
+            Resolution() if twin_id == test_twin.id else None
+        ),
+    )
+
+    aws_guide = _guide(auth_client, "aws")
+    admitted = auth_client.post(
+        "/cloud-bootstrap/sessions",
+        json={
+            "provider": "aws",
+            "target": aws_guide["target"],
+            "entry_point": "twin_prepare",
+            "twin_id": test_twin.id,
+            "display_name": "Twin-scoped AWS deployment access",
+            "guide_digest": aws_guide["guide_digest"],
+            "bootstrap_authority_pack_digest": aws_guide[
+                "bootstrap_authority_pack"
+            ]["digest"],
+            "generated_deployment_pack_digest": aws_guide[
+                "generated_deployment_pack"
+            ]["digest"],
+            "idempotency_key": "create-twin-prepare-aws-0001",
+        },
+    )
+
+    assert admitted.status_code == 200
+    assert admitted.json()["entry_point"] == "twin_prepare"
+    assert admitted.json()["twin_id"] == test_twin.id
+
+    gcp_guide = _guide(auth_client, "gcp")
+    rejected = auth_client.post(
+        "/cloud-bootstrap/sessions",
+        json={
+            "provider": "gcp",
+            "target": gcp_guide["target"],
+            "entry_point": "twin_prepare",
+            "twin_id": test_twin.id,
+            "display_name": "Out-of-resolution GCP deployment access",
+            "guide_digest": gcp_guide["guide_digest"],
+            "bootstrap_authority_pack_digest": gcp_guide[
+                "bootstrap_authority_pack"
+            ]["digest"],
+            "generated_deployment_pack_digest": gcp_guide[
+                "generated_deployment_pack"
+            ]["digest"],
+            "idempotency_key": "create-twin-prepare-gcp-0001",
+        },
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["error_code"] == "BOOTSTRAP_SESSION_CONFLICT"
 
 
 def test_all_provider_execute_paths_create_one_valid_bounded_connection(
@@ -368,6 +437,8 @@ def test_manual_revocation_requires_exact_revision_and_acknowledgement(auth_clie
     assert pending["state"] == "manual_revocation_required"
     assert pending["safe_credential_identifier"] == "manual-key-123"
     assert pending["command_permissions"] == ["acknowledge_manual_revocation"]
+    assert pending["finding"]["code"] == "BOOTSTRAP_MANUAL_REVOCATION_REQUIRED"
+    assert pending["finding"]["remediation_url"].startswith("https://learn.microsoft.com/")
     stale = auth_client.post(
         f"/cloud-bootstrap/sessions/{pending['id']}/acknowledge-manual-revocation",
         json={"expected_revision": pending["revision"] - 1},
