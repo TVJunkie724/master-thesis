@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/cloud-bootstrap/v1/cloud-bootstrap-session.schema.json",
+  "title": "Cloud bootstrap session v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "provider",
+    "target",
+    "entry_point",
+    "display_name",
+    "revision",
+    "state",
+    "guide_digest",
+    "bootstrap_authority_pack",
+    "generated_deployment_pack",
+    "command_permissions",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "cloud-bootstrap-session.v1"},
+    "id": {"type": "string", "format": "uuid"},
+    "provider": {"enum": ["aws", "azure", "gcp"]},
+    "target": {"$ref": "#/$defs/target"},
+    "entry_point": {"enum": ["settings", "twin_prepare"]},
+    "twin_id": {"type": ["string", "null"]},
+    "display_name": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "state": {
+      "enum": [
+        "draft",
+        "bootstrap_running",
+        "generated_connection_ready",
+        "disposal_running",
+        "manual_revocation_required",
+        "credential_reentry_required",
+        "ready",
+        "failed",
+        "cancelled",
+        "expired"
+      ]
+    },
+    "guide_digest": {"$ref": "#/$defs/digest"},
+    "bootstrap_authority_pack": {"$ref": "#/$defs/packReference"},
+    "generated_deployment_pack": {"$ref": "#/$defs/packReference"},
+    "credential_origin": {"enum": ["dedicated_disposable", "existing_user_owned", null]},
+    "disposal_status": {
+      "enum": [
+        "revoked",
+        "expires_at_provider",
+        "manual_revocation_required",
+        "not_retained_user_managed",
+        "released_after_failure",
+        null
+      ]
+    },
+    "credential_expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "safe_credential_identifier": {"type": ["string", "null"]},
+    "finding": {"anyOf": [{"$ref": "#/$defs/finding"}, {"type": "null"}]},
+    "connection": {"anyOf": [{"$ref": "#/$defs/connection"}, {"type": "null"}]},
+    "command_permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["execute", "recheck", "acknowledge_manual_revocation", "cancel", "start_new"]}
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "account_id", "region"],
+          "properties": {
+            "provider": {"const": "aws"},
+            "account_id": {"type": "string", "pattern": "^[0-9]{12}$"},
+            "region": {"type": "string", "minLength": 1},
+            "session_expires_at": {"type": "string", "format": "date-time"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "tenant_id", "subscription_id", "region"],
+          "properties": {
+            "provider": {"const": "azure"},
+            "tenant_id": {"type": "string", "minLength": 1},
+            "subscription_id": {"type": "string", "minLength": 1},
+            "region": {"type": "string", "minLength": 1},
+            "bootstrap_credential_key_id": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "mode", "project_id", "region"],
+          "properties": {
+            "provider": {"const": "gcp"},
+            "mode": {"const": "existing_project"},
+            "project_id": {"type": "string", "minLength": 1},
+            "region": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "mode", "bootstrap_project_id", "organization_id", "billing_account_id", "region"],
+          "properties": {
+            "provider": {"const": "gcp"},
+            "mode": {"const": "organization"},
+            "bootstrap_project_id": {"type": "string", "minLength": 1},
+            "organization_id": {"type": "string", "minLength": 1},
+            "folder_id": {"type": "string", "minLength": 1},
+            "billing_account_id": {"type": "string", "minLength": 1},
+            "region": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "packReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "title", "message", "blocking", "action"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+        "severity": {"enum": ["info", "warning", "error"]},
+        "title": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "blocking": {"type": "boolean"},
+        "action": {"type": "string", "minLength": 1},
+        "remediation_url": {"type": ["string", "null"], "format": "uri", "pattern": "^https://"}
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "provider", "purpose", "display_name", "cloud_scope", "permission_set_version", "validation_status"],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "provider": {"enum": ["aws", "azure", "gcp"]},
+        "purpose": {"const": "deployment"},
+        "display_name": {"type": "string", "minLength": 1},
+        "cloud_scope": {"type": "object"},
+        "permission_set_version": {"type": "string", "minLength": 1},
+        "validation_status": {"enum": ["valid", "invalid", "untested"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"provider": {"const": "aws"}}},
+      "then": {"properties": {"target": {"properties": {"provider": {"const": "aws"}}}}}
+    },
+    {
+      "if": {"properties": {"provider": {"const": "azure"}}},
+      "then": {"properties": {"target": {"properties": {"provider": {"const": "azure"}}}}}
+    },
+    {
+      "if": {"properties": {"provider": {"const": "gcp"}}},
+      "then": {"properties": {"target": {"properties": {"provider": {"const": "gcp"}}}}}
+    },
+    {
+      "if": {"properties": {"entry_point": {"const": "settings"}}},
+      "then": {"properties": {"twin_id": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"entry_point": {"const": "twin_prepare"}}},
+      "then": {"required": ["twin_id"], "properties": {"twin_id": {"type": "string", "minLength": 1}}}
+    }
+  ]
+}
