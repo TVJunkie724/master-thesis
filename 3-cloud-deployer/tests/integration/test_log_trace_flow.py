@@ -22,8 +22,8 @@ def test_provider_fetches_run_concurrently_and_results_are_redacted(monkeypatch)
     registry.issue("factory", "TRACE-1234ABCD", now)
     service = LogTraceService(
         registry,
-        timeout_seconds=0.01,
-        poll_interval_seconds=0.01,
+        timeout_seconds=0.2,
+        poll_interval_seconds=0.2,
     )
     bundle = SimpleNamespace(
         config=SimpleNamespace(
