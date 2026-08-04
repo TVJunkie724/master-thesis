@@ -1,6 +1,6 @@
 {
   "schema_version": "cloud-bootstrap-guide.v1",
-  "guide_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "guide_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "provider": "aws",
   "target": {
     "provider": "aws",
@@ -10,7 +10,7 @@
   "bootstrap_authority_pack": {
     "id": "bootstrap.aws.admin-v1",
     "version": "1",
-    "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "scope_summary": "One selected AWS account.",
     "limitations": ["Offline validation only."],
     "artifact_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_identity-management.html"
@@ -18,7 +18,7 @@
   "generated_deployment_pack": {
     "id": "aws.thesis-demo-v2",
     "version": "thesis-demo-v2",
-    "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "scope_summary": "One selected AWS account.",
     "limitations": ["Requires supervised live validation."],
     "artifact_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html"

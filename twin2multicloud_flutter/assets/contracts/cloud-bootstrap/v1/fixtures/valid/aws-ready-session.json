@@ -12,16 +12,16 @@
   "display_name": "Thesis AWS deployment access",
   "revision": 4,
   "state": "ready",
-  "guide_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "guide_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "bootstrap_authority_pack": {
     "id": "bootstrap.aws.admin-v1",
     "version": "1",
-    "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "generated_deployment_pack": {
     "id": "aws.thesis-demo-v2",
     "version": "thesis-demo-v2",
-    "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
   },
   "credential_origin": "dedicated_disposable",
   "disposal_status": "revoked",
