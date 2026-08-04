@@ -3,7 +3,7 @@ title: "Configuration Workspace Roadmap"
 description: "Incremental migration from the legacy three-step wizard to the dependency-aware configuration workspace."
 tags: [flutter, roadmap, configuration, wizard]
 lastUpdated: "2026-08-03"
-version: "1.3"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.3"
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
-EXTRACTED: 2026-08-03 | VERSION: 1.3
+EXTRACTED: 2026-08-03 | VERSION: 1.4
 -->
 
 # Configuration Workspace Roadmap
@@ -41,7 +41,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 6 | Done | Review and preflight | Summary, actionable findings, centralized fail-closed readiness, and distributed server validation provide one completion path; 387 tests pass. |
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 | 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
-| 8.1 | Planned | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md) for `five-layer-baseline@2` and `six-layer-eventing@1` | Strict profile/workload-v2 contracts, mandatory immutable event scenario, profile-local complete-candidate calculation, generic resolved review, historical `@1` compatibility, and credential-free real-Management integration pass. |
+| 8.1 | In progress | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md), staged across Phase 8.7 UI infrastructure and the 8.9A/8.9B runtime activations | Phase 8.7 proves strict profile/resolution DTOs, truthful empty/historical states, generic fixture review, and credential-free real-Management integration; 8.9A/8.9B add Workload v2 and activate Five/Six profiles in order. |
 | 9 | Planned | [Guided cloud access bootstrap](phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) shared by Prepare deployment and Settings | [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) provides strict guides/sessions; request-scoped bootstrap secrets never persist; generated bounded CloudConnections and truthful disposal/revocation states are covered; the existing Twin deployment preflight owns later provider-action resume. |
 
 ## Cross-Phase Definition Of Done

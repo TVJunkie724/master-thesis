@@ -3,7 +3,7 @@ title: "Phase 8.1: Architecture Profile Experiment"
 description: "Expose Five-layer v2 and Six-layer v1 as bounded, profile-local thesis experiments in the Configuration Workspace."
 tags: [flutter, phase, architecture-profiles, optimizer, eventing]
 lastUpdated: "2026-08-03"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -12,18 +12,21 @@ version: "1.0"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
-EXTRACTED: 2026-08-03 | VERSION: 1.0
+EXTRACTED: 2026-08-03 | VERSION: 1.1
 -->
 
 # Phase 8.1: Architecture Profile Experiment
 
 ## Summary
 
-Extend the implemented Configuration Workspace with a strict architecture
-profile and workload-v2 workflow. The increment covers selection, calculation,
-resolved review, single-cloud and multicloud presentation, and historical
-read-only compatibility. Guided bootstrap and deployed L4/L5 access retain
-their own phases and integrate through the same selected architecture.
+Deliver the Architecture Profile Experiment in activation-safe increments.
+Phase 8.7 extends the Configuration Workspace with strict profile and resolved
+architecture DTOs, server-driven selection/review state, generic single-cloud
+and multicloud presentation fixtures, and historical read-only compatibility.
+It truthfully blocks new-profile work while the active catalog is empty.
+Phase 8.9A then publishes Workload v2 and Five-layer v2; Phase 8.9B adds the
+Six-layer delta. Guided bootstrap and deployed L4/L5 access retain their own
+phases and integrate through the same selected architecture.
 
 ## Prerequisites
 
@@ -32,7 +35,7 @@ their own phases and integrate through the same selected architecture.
 - The immutable complete-service decision package approves
   `five-layer-baseline@2` and pins its provider/component manifests.
 - The reviewed Phase 8.8 package pins the shared event scenarios and the
-  `six-layer-eventing@1` Event Layer delta.
+  `six-layer-eventing@1` Event Layer delta for later activation.
 - Management API profile and resolved-architecture endpoints expose strict,
   profile-neutral DTOs.
 - The current Configuration Workspace Phase 8 immutable deployment selection
@@ -40,17 +43,17 @@ their own phases and integrate through the same selected architecture.
 
 ## Deliverables
 
-1. Strict Dart profile summary/detail, workload-v2, event-scenario, resolved
-   architecture, and profile-change preview models.
+1. Strict Dart profile summary/detail, resolved architecture, and
+   profile-change preview models matching the existing Phase 8.4 API.
 2. A typed Management API capability shared by live and demo adapters.
 3. Wizard/Configuration Workspace state for catalog loading, profile
    selection, server preview confirmation, stale revision recovery, compatible
    workload fields, and resolved profile review.
 4. A profile task before workload entry and a read-only logical-flow summary.
-5. Removal of legacy event/scene/self-hosting switches from new-profile input
-   while retaining historical read-only parsing.
-6. Profile-local calculation and recommendation presentation with no
-   cross-profile winner.
+5. An explicit activation seam: existing workload/calculation stays blocked
+   while no active profile exists; Workload v2 is not fabricated in Flutter.
+6. Profile-local calculation and recommendation presentation fixtures with no
+   cross-profile winner, ready for the Phase 8.9A request contract.
 7. Generic assignment/edge/support-component review for all valid
    single-cloud and multicloud results.
 8. Documentation, demo parity, unit/widget tests, and credential-free real
@@ -58,17 +61,18 @@ their own phases and integrate through the same selected architecture.
 
 ## Acceptance Criteria
 
-- Only active and implemented `five-layer-baseline@2` and
-  `six-layer-eventing@1` are selectable; `five-layer-baseline@1` is clearly
-  historical and read-only.
-- The event scenario is mandatory and comes from the immutable catalog; no
-  event feature flag or inline event workload is submitted.
-- The visible/editable workload fields come from the selected profile and map
-  exactly to workload v2.
+- Only profiles returned by the Management active catalog are selectable;
+  before Phase 8.9A the runtime and demo catalogs are empty, while
+  `five-layer-baseline@1` is historical and read-only.
+- Phase 8.7 does not submit a new-profile calculation. The mandatory event
+  scenario and exact Workload v2 mapping activate atomically in Phase 8.9A.
+- Populated fixtures prove that visible workload-field IDs and extension slots
+  derive from the selected profile rather than fixed UI layer assumptions.
 - A profile change uses only the server preview/digest, invalidates downstream
   state atomically, and requires a fresh preview after a stale conflict.
-- Calculation is impossible when profile, workload, scenario, pricing, or
-  functional-completeness readiness is absent.
+- After the 8.9A activation, calculation is impossible when profile, workload,
+  scenario, pricing, or functional-completeness readiness is absent; before
+  activation the empty catalog blocks it earlier.
 - Result review represents arbitrary registered components and edges without
   assuming five fixed slots.
 - Five-layer v2 review shows L3-hot/L5 co-location and independent L4 without a

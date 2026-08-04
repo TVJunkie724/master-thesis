@@ -3,7 +3,7 @@ title: "Architecture Profile Experiment"
 description: "A bounded Configuration Workspace experience for selecting, comparing, and deploying the Five-layer v2 and Six-layer v1 thesis profiles."
 tags: [flutter, configuration-workspace, architecture-profiles, eventing, thesis]
 lastUpdated: "2026-08-03"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.0"
 - twin2multicloud_flutter/docs/configuration_workspace/RESOLVED_DEPLOYMENT_REVIEW.md
 - FRONTEND_ARCHITECTURE.md
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-03 | VERSION: 1.0
+EXTRACTED: 2026-08-03 | VERSION: 1.1
 -->
 
 # Architecture Profile Experiment
@@ -29,7 +29,8 @@ core workload and one fixed event scenario, compares only complete deployment
 alternatives within that profile, prepares the exact cloud access required by
 the selected result, and later opens the deployed L4 and L5 user surfaces.
 
-The UI exposes two new selectable profiles:
+The completed experiment exposes two selectable profiles in staged runtime
+increments:
 
 - `five-layer-baseline@2`, where the agreed domain-event behavior is embedded
   in L1/L2 and no independent Event Layer is deployed;
@@ -38,6 +39,12 @@ The UI exposes two new selectable profiles:
 
 `five-layer-baseline@1` remains readable for historical Twins but is not
 selectable for new calculations or deployments.
+
+Phase 8.7 first installs the typed Flutter catalog, selection, visualization,
+and resolved-review workflow while the active catalog is truthfully empty.
+Phase 8.9A publishes Five-layer v2 and Workload v2; Phase 8.9B later publishes
+Six-layer v1. Populated UI fixtures validate both eventual shapes without
+turning either into a fake demo/runtime option early.
 
 ## Motivation
 

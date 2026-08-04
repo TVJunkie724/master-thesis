@@ -3,7 +3,7 @@ title: "Handoff: Phase 8.1 Architecture Profile Experiment to Architect"
 description: "Self-contained handoff for the Flutter architecture-profile implementation plan."
 tags: [flutter, handoff, architect, architecture-profiles]
 lastUpdated: "2026-08-03"
-version: "1.0"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -11,7 +11,7 @@ version: "1.0"
 - twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
 - .codex/skills/concept/references/handoff-protocol.md
-EXTRACTED: 2026-08-03 | VERSION: 1.0
+EXTRACTED: 2026-08-03 | VERSION: 1.1
 -->
 
 # Handoff: Phase 8.1 Architecture Profile Experiment to Architect
@@ -29,8 +29,10 @@ EXTRACTED: 2026-08-03 | VERSION: 1.0
 ## 2. Objective
 
 Produce an executable Flutter implementation plan that extends the existing
-Configuration Workspace with strict Five-layer v2/Six-layer v1 profile
-selection, workload-v2/event-scenario input, and generic resolved review.
+Configuration Workspace with strict server-driven profile selection and
+generic resolved review, while keeping the real/demo active catalog empty
+until Five-layer v2 activation in Phase 8.9A. Populated Five-/Six-layer states
+are contract and widget fixtures, not early runtime publication.
 
 ## 3. Required Reading
 
@@ -50,9 +52,10 @@ selection, workload-v2/event-scenario input, and generic resolved review.
 
 ## 4. Scope
 
-In scope: the profile/workload/calculation/review Configuration Workspace
-increment, strict API models, live/demo adapters, BLoC state, responsive and
-accessible presentation, and safe tests.
+In scope: the profile/review Configuration Workspace increment, strict
+existing-API models, live/demo adapters, BLoC state, responsive and accessible
+presentation, activation seams for later workload/calculation contracts, and
+safe tests.
 
 Out of scope: a graph editor, provider resource authoring, direct cloud calls,
 direct Optimizer/Deployer calls, guided bootstrap implementation, deployed
@@ -66,8 +69,11 @@ without being folded into this plan.
   restore or create a second three-step wizard.
 - Flutter talks only to the Management API.
 - `five-layer-baseline@1` is historical read-only.
+- Phase 8.7 exposes no selectable runtime/demo profile; Five v2 activates in
+  8.9A and Six v1 only after its reviewed branch gate.
 - Events are mandatory in both selectable profiles. No legacy event flags.
-- Core workload and immutable event scenario are separate inputs.
+- Core workload and immutable event scenario are separate later inputs owned
+  by the Phase 8.9A contract, not invented by the Phase 8.7 client.
 - Calculations and rankings are profile-local. No cross-profile winner.
 - The client never derives invalidation, functional completeness, resolved
   services, bridges, tiering jobs, or cost ownership.
