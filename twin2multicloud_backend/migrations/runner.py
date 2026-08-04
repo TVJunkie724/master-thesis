@@ -66,6 +66,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "023_deployment_graph_evidence",
         "migrations.add_deployment_graph_evidence",
     ),
+    Migration(
+        "024_cloud_bootstrap_sessions",
+        "migrations.add_cloud_bootstrap_sessions",
+    ),
 )
 
 

@@ -1,0 +1,64 @@
+{
+  "provider": "aws",
+  "permission_set_version": "thesis-demo-v2",
+  "status": "frozen_offline_contract",
+  "validation_level": "offline_pre_e2e",
+  "requires_e2e_before_final": true,
+  "package_ref": "phase-08-complete-service-bundles@1",
+  "region": "eu-central-1",
+  "assignment": "Generated deployment role in one AWS account; request-scoped bootstrap authority is not retained.",
+  "capabilities": [
+    "l1_iot_core_and_commands",
+    "l2_lambda_and_step_functions_standard",
+    "l3_dynamodb_s3_and_finite_storage_job",
+    "l4_twinmaker_and_interactive_reader_binding",
+    "l5_managed_grafana_and_typed_reader",
+    "embedded_and_independent_eventing",
+    "cross_cloud_workload_identity",
+    "observability",
+    "self_check",
+    "destroy"
+  ],
+  "policy_inputs": [
+    {
+      "group": "identity_and_self_check",
+      "actions": ["sts:GetCallerIdentity", "iam:GetRole", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies", "iam:GetRolePolicy"]
+    },
+    {
+      "group": "deployment_identities",
+      "actions": ["iam:CreateRole", "iam:DeleteRole", "iam:TagRole", "iam:UntagRole", "iam:PutRolePolicy", "iam:DeleteRolePolicy", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:PassRole", "iam:CreateOpenIDConnectProvider", "iam:DeleteOpenIDConnectProvider", "iam:TagOpenIDConnectProvider"]
+    },
+    {
+      "group": "iot",
+      "actions": ["iot:CreateThing", "iot:DeleteThing", "iot:DescribeThing", "iot:CreateTopicRule", "iot:DeleteTopicRule", "iot:GetTopicRule", "iot:CreateCommand", "iot:DeleteCommand", "iot:GetCommand"]
+    },
+    {
+      "group": "compute_and_workflow",
+      "actions": ["lambda:CreateFunction", "lambda:DeleteFunction", "lambda:GetFunction", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:CreateFunctionUrlConfig", "lambda:DeleteFunctionUrlConfig", "lambda:AddPermission", "lambda:RemovePermission", "states:CreateStateMachine", "states:DeleteStateMachine", "states:DescribeStateMachine", "scheduler:CreateSchedule", "scheduler:DeleteSchedule", "ecs:CreateCluster", "ecs:DeleteCluster", "ecs:RegisterTaskDefinition", "ecs:DeregisterTaskDefinition", "ecs:RunTask"]
+    },
+    {
+      "group": "data_and_eventing",
+      "actions": ["dynamodb:CreateTable", "dynamodb:DeleteTable", "dynamodb:DescribeTable", "dynamodb:UpdateTable", "s3:CreateBucket", "s3:DeleteBucket", "s3:GetBucketLocation", "s3:GetLifecycleConfiguration", "s3:PutLifecycleConfiguration", "s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket", "kinesis:CreateStream", "kinesis:DeleteStream", "kinesis:DescribeStreamSummary", "sns:CreateTopic", "sns:DeleteTopic", "sns:Subscribe", "sns:Unsubscribe", "sqs:CreateQueue", "sqs:DeleteQueue", "sqs:GetQueueAttributes", "sqs:SetQueueAttributes"]
+    },
+    {
+      "group": "twin_and_visualization",
+      "actions": ["iottwinmaker:CreateWorkspace", "iottwinmaker:DeleteWorkspace", "iottwinmaker:GetWorkspace", "iottwinmaker:CreateEntity", "iottwinmaker:DeleteEntity", "iottwinmaker:CreateComponentType", "iottwinmaker:DeleteComponentType", "grafana:CreateWorkspace", "grafana:DeleteWorkspace", "grafana:DescribeWorkspace", "grafana:UpdatePermissions", "sso:ListInstances", "sso:CreatePermissionSet", "sso:DeletePermissionSet", "sso:CreateAccountAssignment", "sso:DeleteAccountAssignment", "identitystore:ListUsers"]
+    },
+    {
+      "group": "registry_and_observability",
+      "actions": ["ecr:CreateRepository", "ecr:DeleteRepository", "ecr:DescribeRepositories", "ecr:BatchGetImage", "ecr:GetAuthorizationToken", "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DescribeLogGroups", "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms"]
+    }
+  ],
+  "conditions": [
+    {"condition":"iam:PassedToService","values":["lambda.amazonaws.com","ecs-tasks.amazonaws.com","scheduler.amazonaws.com"],"required":true},
+    {"condition":"aws:RequestedRegion","values":["eu-central-1"],"required_for_regional_actions":true},
+    {"condition":"resource_prefix","value":"twin2mc-*","status":"requires_live_arn_validation"}
+  ],
+  "forbidden_bootstrap_actions": ["organizations:CreateAccount", "iam:CreateUser", "iam:CreateAccessKey"],
+  "known_gaps": [
+    "Create-before-ARN and account-level discovery actions cannot all be resource-scoped offline.",
+    "IAM Identity Center organization-instance activation remains a manual deployment-preflight prerequisite.",
+    "Exact action/resource compatibility requires IAM Access Analyzer and a supervised deploy/destroy smoke."
+  ],
+  "scope_review_ref": "aws_thesis_demo_v2_scope_review.json"
+}

@@ -19,6 +19,11 @@ class User(Base):
     # Relationships
     twins = relationship("DigitalTwin", back_populates="owner")
     cloud_connections = relationship("CloudConnection", back_populates="owner", cascade="all, delete-orphan")
+    cloud_bootstrap_sessions = relationship(
+        "CloudBootstrapSession",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+    )
     external_identities = relationship(
         "ExternalIdentity",
         back_populates="user",
