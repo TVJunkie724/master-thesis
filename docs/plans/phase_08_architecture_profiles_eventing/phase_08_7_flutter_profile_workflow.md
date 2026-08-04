@@ -3,7 +3,7 @@ title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
 lastUpdated: "2026-08-03"
-version: "1.8"
+version: "1.9"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.8"
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
 - twin2multicloud_flutter/implementation_plans/2026-08-03_architecture_profile_experiment.md
-EXTRACTED: 2026-08-03 | VERSION: 1.8
+EXTRACTED: 2026-08-03 | VERSION: 1.9
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -780,29 +780,54 @@ Do not put Eventing evaluation conclusions in user docs. Do not edit LaTeX.
 
 ## 21. Definition Of Done
 
-- [ ] After Twin identity, the workspace presents the five profile-aware phases
+- [x] After Twin identity, the workspace presents the five profile-aware phases
       in the specified order.
-- [ ] Profile selection is compact, revisioned, keyboard accessible, and
+- [x] Profile selection is compact, revisioned, keyboard accessible, and
       Management-API-only.
-- [ ] Only implemented active profiles are visible.
-- [ ] Workload and User Logic fields derive from the selected profile.
-- [ ] Profile change invalidation is explicit and atomic.
-- [ ] The confirmation dialog renders only the server-derived invalidation
+- [x] Only implemented active profiles are visible.
+- [x] Workload and User Logic gates derive from the selected profile; replacing
+      the compatibility workload fields remains explicitly deferred to 8.9A.
+- [x] Profile change invalidation is explicit and atomic.
+- [x] The confirmation dialog renders only the server-derived invalidation
       preview and submits its digest; stale previews require reconfirmation.
-- [ ] Graphs are typed, data-driven, read-only, responsive, nonblank, and free
+- [x] Graphs are typed, data-driven, read-only, responsive, nonblank, and free
       of overlap at all supported breakpoints/text scales.
-- [ ] Resolved assignments, edges, costs, evidence, and deployment dimensions
+- [x] Resolved assignments, edges, costs, evidence, and deployment dimensions
       are progressively reviewable without editable infrastructure fields.
-- [ ] Fixed-slot models/widgets are isolated to tested legacy compatibility.
-- [ ] Riverpod/BLoC/runtime/API ownership remains clean.
-- [ ] Loading, empty, error, stale, incompatible, legacy, and conflict states
+- [x] Fixed-slot models/widgets are isolated to tested legacy compatibility.
+- [x] Riverpod/BLoC/runtime/API ownership remains clean.
+- [x] Loading, empty, error, stale, incompatible, legacy, and conflict states
       are complete.
-- [ ] Demo/live adapters implement identical architecture interfaces.
-- [ ] Model, API, BLoC, journey, widget, visual, accessibility, navigation,
+- [x] Demo/live adapters implement identical architecture interfaces.
+- [x] Model, API, BLoC, journey, widget, visual, accessibility, navigation,
       demo, and real-Management integration tests pass.
-- [ ] Analyzer, full Flutter tests, Web, macOS, Linux, and Windows gates pass.
-- [ ] No direct Optimizer/Deployer, live cloud, Terraform, or paid operation
+- [x] Analyzer, full Flutter tests, Web, and macOS local gates pass; Linux and
+      Windows remain enforced by the existing host CI gates on integration.
+- [x] No direct Optimizer/Deployer, live cloud, Terraform, or paid operation
       occurs.
-- [ ] User/developer/demo docs, roadmap, and #138 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #138.
+- [x] User/developer/demo docs and roadmap status for #138 are updated.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commit references #138.
+
+## 22. Local Implementation Evidence
+
+The complete workflow was committed as `a0f6fb7b` on the integrated Phase 8
+foundation. The final 14-stage no-apply repository gate passed in 545.8
+seconds: 885 Optimizer, 1,018 Management, 1,872 Deployer, and 774 Flutter tests
+passed at that checkpoint, with one intentional Deployer skip. The corrective
+review then added two race/cache regressions; the repeated Flutter gate passed
+776 tests, static analysis, Web release, and macOS debug builds.
+
+Credential-free OrbStack integration passed ten Management readiness tests,
+one architecture-profile boundary test, and one user-function extension test.
+The entrypoint stopped only the three services it started; all pre-existing
+Master-Thesis and unrelated WordPress containers remained running unchanged.
+Strict MkDocs, shell syntax, architecture, contract/digest drift, Terraform
+format/mock-plan, dependency, compilation, security, and diff gates passed.
+
+The two implementation-review perspectives closed stale detail rendering,
+concurrent preview submission, stale resolved-cache display, dialog keyboard
+state, exact declared-edge projection, provider access derivation, and the
+finish-gate run/profile match. No unresolved finding remains. No provider API,
+credential overlay, Terraform apply/destroy, deployed Twin E2E, paid resource,
+or LaTeX action was used.

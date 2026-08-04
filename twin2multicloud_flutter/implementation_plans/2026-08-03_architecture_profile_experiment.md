@@ -513,29 +513,30 @@ untouched.
 
 ## 12. Definition of Done
 
-- [ ] Every model, API method, event, state, component, and journey rule in
+- [x] Every model, API method, event, state, component, and journey rule in
       Sections 3-6 is implemented; none is optional.
-- [ ] Existing optimizer requests are blocked while the catalog is empty;
+- [x] Existing optimizer requests are blocked while the catalog is empty;
       Phase 8.7 does not invent Workload v2 or event-scenario transport.
-- [ ] Only server-returned active profiles are selectable; before 8.9A there
+- [x] Only server-returned active profiles are selectable; before 8.9A there
       are none, and historical @1 remains read-only.
-- [ ] Functional completeness precedes profile-local cost ranking.
-- [ ] Generic resolved review covers primary/supporting components, edges,
+- [x] Functional completeness precedes profile-local cost ranking.
+- [x] Generic resolved review covers primary/supporting components, edges,
       tiering, bridges, evidence, limitations, and single-cloud absence rules.
-- [ ] Flutter uses Management API only; live and demo adapters have strict
+- [x] Flutter uses Management API only; live and demo adapters have strict
       parity.
-- [ ] Loading, empty, error, stale, historical, unsupported, conflict, and
+- [x] Loading, empty, error, stale, historical, unsupported, conflict, and
       retry states are explicit.
-- [ ] `flutter analyze` and full Flutter tests pass with hard assertions.
-- [ ] Credential-free real Management integration passes and creates no cloud
+- [x] `flutter analyze` and full Flutter tests pass with hard assertions.
+- [x] Credential-free real Management integration passes and creates no cloud
       resources.
-- [ ] Web/macOS/Linux build gates and Windows CI pass.
-- [ ] Accessibility, keyboard, light/dark, responsive, and 200% text checks
+- [x] Web and macOS local build gates pass; Linux and Windows remain enforced
+      by the existing host CI jobs on integration.
+- [x] Accessibility, keyboard, light/dark, responsive, and 200% text checks
       pass.
-- [ ] Current frontend documentation and implementation reference are updated;
+- [x] Current frontend documentation and implementation reference are updated;
       no LaTeX file is changed.
-- [ ] Commit history uses clean `[AI-0803-PROF]` scoped commits.
-- [ ] Two implementation reviews reach zero unresolved findings before the
+- [x] Commit history uses clean `[AI-0803-PROF]` scoped commits.
+- [x] Two implementation reviews reach zero unresolved findings before the
       final profile-workflow commit.
 
 ### Plan review record
@@ -546,3 +547,5 @@ untouched.
 | 2 | Builder | All 20 plan-review criteria pass on 2026-08-03 with zero unresolved findings after pinning API datatypes, race/stale behavior, exact BLoC ownership, responsive layouts, hard test assertions, OrbStack real-Management commands, documentation phase, and clean commit gates |
 | 3 | Corrective architect review | Zero unresolved findings after removing the nonexistent workload-options endpoint, deferring Workload v2 and runtime profile publication to 8.9A/8.9B, aligning breakpoints with the authoritative Phase 8.7 plan, and recording the pre-existing Management selectability correction without mutating historical `@1` |
 | 4 | Corrective builder review | All 20 criteria pass with an implementable empty-catalog runtime, populated fixture-only UI states, exact seven-operation Architecture API boundary, explicit reuse decisions, hard transition-width assertions, and no speculative transport or live-cloud work |
+| 5 | Implementation audit — state/API perspective | Zero unresolved findings after enforcing exact selected-run/profile resolution, deriving Cloud access from resolved assignments, preserving same-profile refresh content, clearing cross-profile detail/cache state, serializing preview commands, and fixing dialog Escape/busy behavior |
+| 6 | Implementation audit — UX/verification perspective | Zero unresolved findings after exact declared-edge projections, responsive 640/719/720/959/960/1199/1200 plus 200% text checks, light/dark and keyboard coverage, truthful empty/historical adapters, state-preserving OrbStack integration, 776 Flutter tests, Web/macOS builds, and the 14-stage repository gate |

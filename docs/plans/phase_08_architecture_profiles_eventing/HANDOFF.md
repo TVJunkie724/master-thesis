@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-03"
-version: "4.1"
+version: "4.2"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.1"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 4.1
+EXTRACTED: 2026-08-03 | VERSION: 4.2
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -30,12 +30,12 @@ EXTRACTED: 2026-08-03 | VERSION: 4.1
 | Integration branch | `master` |
 | Planning base | `626e907a` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Locally completed implementation | Phase 8.0 / #144 through Phase 8.6 / #152, plus prerequisite #113; open issues remain open until publication/merge |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.7 / #138, plus prerequisite #113; open issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Phase 8.7 Flutter profile workflow is implemented locally on the reviewed dark Phase 8.6 foundation; real/demo catalogs remain empty and all new profiles remain default-off pending the final integrated gate |
-| Next action | Complete the Phase 8.7 review/gate and commit, then implement guided bootstrap before Five-layer v2 |
+| Implementation status | Phase 8.7 Flutter profile workflow is committed and zero-finding reviewed on the dark Phase 8.6 foundation; real/demo catalogs remain empty and all new profiles remain default-off |
+| Next action | Implement and review guided bootstrap before Five-layer v2 |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -168,15 +168,13 @@ Do not activate a profile. Complete these boundaries in order:
 
 1. retain the committed 2026-08-03 concept, cross-stack execution plans,
    immutable complete-service decision, reviewed dark Phase 8.6 compiler, and
-   implemented Phase 8.7 Flutter workflow;
-2. finish Phase 8.7's integrated Management-API-only Flutter review for Web
-   and desktop;
+   zero-finding Phase 8.7 Flutter workflow;
+2. implement and review guided cloud bootstrap / #154 without activating a
+   profile;
 3. keep `five-layer-baseline@1`, Phase 8.5 admission, and all new profile
    execution default-off throughout that gate;
-4. commit the zero-finding Phase 8.7 boundary;
-5. implement and review guided cloud bootstrap / #154 on that foundation;
-6. implement and review `five-layer-baseline@2` / 8.9A including Layer Access;
-7. freeze the reviewed Five-layer v2 digest before starting the separate
+4. implement and review `five-layer-baseline@2` / 8.9A including Layer Access;
+5. freeze the reviewed Five-layer v2 digest before starting the separate
    Six-layer delta; then complete Phase 8.10 evaluation.
 
 ## Required Reading Order

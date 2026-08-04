@@ -3,7 +3,7 @@ title: "Architecture Profile Workflow Implementation"
 description: "Implemented Flutter state, API, presentation, activation, and verification boundaries for Phase 8.7."
 tags: [flutter, architecture-profiles, wizard, bloc, phase-8]
 lastUpdated: "2026-08-03"
-version: "1.1"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.1"
 - twin2multicloud_flutter/lib/features/configuration_workspace/
 - twin2multicloud_flutter/lib/widgets/results/resolved_architecture_review.dart
 - Credential-free OrbStack integration verification on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 1.1
+EXTRACTED: 2026-08-03 | VERSION: 1.2
 -->
 
 # Architecture Profile Workflow Implementation
@@ -118,6 +118,14 @@ that historical detail/change targets are rejected. The repository entrypoint
 runs it after Management readiness through OrbStack-compatible Compose. It
 does not refresh prices, contact a provider, deploy, destroy infrastructure,
 or execute Terraform.
+
+The implementation commit is `a0f6fb7b`. Two zero-finding review perspectives
+closed all state, UI, and verification findings. The final Flutter rerun passed
+776 tests, static analysis, Web release, and macOS debug builds. The full
+14-stage repository gate passed in 545.8 seconds, and the separate OrbStack
+integration passed 10 readiness, 1 profile-boundary, and 1 extension test while
+preserving every pre-existing container. Linux and Windows remain the existing
+host-CI build gates when this branch is integrated.
 
 Authoritative sources:
 
