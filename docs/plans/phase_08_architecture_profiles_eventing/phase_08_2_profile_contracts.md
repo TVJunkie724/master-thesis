@@ -2,8 +2,8 @@
 title: "Phase 8.2: Versioned Architecture Profile Contracts"
 description: "Implementation plan for shared closed-world architecture, provider implementation, component catalog, and resolved architecture contracts."
 tags: [architecture, contracts, json-schema, versioning, drift-gate, issue-149]
-lastUpdated: "2026-07-29"
-version: "1.4"
+lastUpdated: "2026-08-04"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.4"
 - contracts/resolved-deployment-specification
 - Existing cross-project contract synchronization and drift-gate patterns
 - User-approved ArchitectureProfile, ProviderImplementationProfile, DeploymentComponentCatalog, and ResolvedTwinArchitecture model
-EXTRACTED: 2026-07-29 | VERSION: 1.4
+EXTRACTED: 2026-08-04 | VERSION: 1.5
 -->
 
 # Phase 8.2: Versioned Architecture Profile Contracts
@@ -42,7 +42,7 @@ historical readers. They do not make the provider mappings executable.
 `five-layer-baseline@2`, the complete-provider bundle decision, workload v2,
 the provider-local L3-hot/L5 rule, independent L4 assignment, typed raw-
 visualization and Twin-projection edges,
-RDS v2, and Manifest v4 are additive versioned records owned by the
+RTA v2, RDS v2, and Manifest v4 are additive versioned records owned by the
 complete-service closure and Phase 8.9. Unknown or cross-version combinations
 continue to fail closed; no v1 record is widened or rewritten.
 
@@ -472,17 +472,22 @@ contract. A publishable `ResolvedTwinArchitecture` can never have status
 
 ## 8. Compatibility With Existing Deployment Specification
 
-`ResolvedDeploymentSpecification v1` remains unchanged in this phase:
+`ResolvedDeploymentSpecification v1` and `ResolvedTwinArchitecture v1` remain
+unchanged in this phase:
 
 - it is valid only for `five-layer-baseline@1`;
 - its fixed slot enum cannot represent Eventing;
 - its component/dimension values remain the deployment-dimension SSOT;
-- `ResolvedTwinArchitecture` references its version/digest/component IDs and
+- `ResolvedTwinArchitecture v1` references its version/digest/component IDs and
   does not duplicate dimensions.
 
-Phase 8.9 must introduce `ResolvedDeploymentSpecification v2` before Eventing
-can become deployable. It must preserve v1 read support and must not add an
-Eventing value to the closed v1 enum.
+The implementation audit found that the frozen RTA-v1 schema hard-codes an
+RDS-v1 deployment-specification reference. Phase 8.9 must therefore introduce
+`ResolvedTwinArchitecture v2` together with `ResolvedDeploymentSpecification
+v2`; widening RTA v1 would break the byte-stable historical contract. RTA v2
+retains the generic responsibility/component model and changes the deployment
+reference compatibility only. Both v2 contracts preserve v1 read support and
+must not add new values to closed v1 enums.
 
 ## 9. Field Ownership
 

@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-05"
-version: "4.3"
+version: "4.4"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.3"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-05 | VERSION: 4.3
+EXTRACTED: 2026-08-05 | VERSION: 4.4
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -492,14 +492,20 @@ The reviewed version sequence is:
 
 | Contract | Baseline phase | Eventing phase |
 |---|---|---|
-| `ResolvedTwinArchitecture` | v1, already generic by responsibility/component | v1 remains valid |
+| `ResolvedTwinArchitecture` | v1 for the historical profile, with a closed RDS-v1 reference | v2 preserves the generic graph and admits only RDS v2; v1 remains historical |
 | `ResolvedDeploymentSpecification` | v1 for baseline slot-based historical compatibility | v2 adds generic component deployment selections |
-| `DeploymentManifest` | Current v2 remains historical; v3 carries RTA v1 and RDS v1 | v4 carries RTA v1 and RDS v2; v2/v3 remain historical read/destroy |
+| `DeploymentManifest` | Current v2 remains historical; v3 carries RTA v1 and RDS v1 | v4 carries RTA v2 and RDS v2; v2/v3 remain historical read/destroy |
 | `ResolvedDeploymentGraph` | v1 generic graph | v1 extended through catalog data |
 
 New operations use the current version only. Historical versions remain
 readable and destroyable. Invalid current contracts never fall back silently to
 an older executable path.
+
+This additive RTA-v2 correction was made during implementation review because
+the frozen RTA-v1 JSON Schema has an explicit
+`resolved-deployment-specification.v1` constant. Keeping RTA v1 in Manifest v4
+would either be invalid or require an impermissible mutation of historical
+contract bytes.
 
 ## Documentation Ownership
 

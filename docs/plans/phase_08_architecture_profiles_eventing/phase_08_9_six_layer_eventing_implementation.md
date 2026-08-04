@@ -2,8 +2,8 @@
 title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-08-03"
-version: "2.0"
+lastUpdated: "2026-08-04"
+version: "2.1"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.0"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-03 | VERSION: 2.0
+EXTRACTED: 2026-08-04 | VERSION: 2.1
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -182,15 +182,16 @@ Implementation must add or activate the exact approved artifacts for:
 - provider implementation profiles and Event Layer component catalog;
 - Eventing workload/scenario, capability, pricing/unit, formula, envelope,
   edge, permission, and bridge registries;
-- `ResolvedDeploymentSpecification v2` and `DeploymentManifest v4` Event Layer
-  assignments, bindings, dimensions, and digests;
+- `ResolvedTwinArchitecture v2`, `ResolvedDeploymentSpecification v2`, and
+  `DeploymentManifest v4` Event Layer assignments, bindings, dimensions, and
+  digests;
 - valid/invalid fixtures for local, every directed pair, three-provider,
   capacity, missing evidence, and incompatible versions.
 
-New operations use only RDS v2 with Manifest v4. Historical RDS v1 with its
-supported v2/v3 manifests remains readable/verifiable/destroyable but cannot be
-upgraded in place or selected for a new deployment. Cross-version combinations
-fail closed.
+New operations use only RTA v2 with RDS v2 and Manifest v4. Historical RTA/RDS
+v1 with their supported v2/v3 manifests remain readable, verifiable, and
+destroyable but cannot be upgraded in place or selected for a new deployment.
+Cross-version combinations fail closed.
 
 ## 8. Optimizer
 
@@ -307,7 +308,7 @@ No default gate deploys a provider resource or claims measured throughput.
       candidates pass functional/capacity gates or fail with a typed reason.
 - [ ] Source acknowledgement occurs only after durable destination acceptance.
 - [ ] Same-provider paths deploy no bridge and own no cross-cloud cost.
-- [ ] RDS v2/Manifest v4, persistence, graph, packages, Terraform, permissions,
+- [ ] RTA v2/RDS v2/Manifest v4, persistence, graph, packages, Terraform, permissions,
       pricing, and UI agree on one immutable resolution digest.
 - [ ] Historical contracts remain read/verify/destroy-only and byte-stable.
 - [ ] Safe full repository verification passes with real cloud E2E excluded.

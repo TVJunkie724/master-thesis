@@ -111,7 +111,7 @@ assigned L4. It exposes an L3-hot-to-L5 raw-history edge and an
 L3-hot-to-L4 `twin_projection.v1` edge; L4-to-L5/3D is outside the version.
 Six-layer planning is deferred until this L1-L5 contract is implemented and
 reviewed. No new profile is selectable until its complete-service decision,
-RDS v2/Manifest v4, implementation, and offline activation gates pass.
+RTA v2/RDS v2/Manifest v4, implementation, and offline activation gates pass.
 
 Flutter Phase 8.7 now consumes the seven owner-scoped Management profile,
 selection, preview/change, and resolved-architecture reads through strict Dart

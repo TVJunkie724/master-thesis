@@ -2,8 +2,8 @@
 title: "Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1"
 description: "Cross-stack implementation sequence for the complete bounded Phase 8 thesis PoC."
 tags: [phase-8, architecture-profiles, optimizer, deployer, management-api, flutter, thesis]
-lastUpdated: "2026-08-03"
-version: "1.0"
+lastUpdated: "2026-08-04"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.0"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - User implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 1.0
+EXTRACTED: 2026-08-04 | VERSION: 1.1
 -->
 
 # Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1
@@ -100,7 +100,7 @@ The contract freeze is data and tests only. It creates no cloud resources.
 | C | `codex/phase-8-deployer-graph-resolver` `[AI-0803-DPGR]` | Finish/review the existing dark 8.6 graph resolver without profile-specific runtime resources |
 | D | `codex/phase-8-profile-workflow` `[AI-0803-PROF]` | Strict backend DTOs and Flutter Phase 8.1 selection/workload/resolved review |
 | E | `codex/phase-8-guided-bootstrap` `[AI-0803-BOOT]` | Request-scoped admin bootstrap, bounded CloudConnections, shared Settings/Prepare Deployment UI |
-| F | `codex/phase-8-five-layer-v2` multiple scoped commits | RDS v2/Manifest v4, provider services, tiering, readers, projection, access surfaces, optimizer costs, Management persistence, Deployer/Terraform, UI activation |
+| F | `codex/phase-8-five-layer-v2` multiple scoped commits | RTA v2/RDS v2/Manifest v4, provider services, tiering, readers, projection, access surfaces, optimizer costs, Management persistence, Deployer/Terraform, UI activation |
 | G | Five-layer audit `[AI-0803-F5RV]` | Full safe review until zero findings and frozen Five-layer evidence commit |
 | H | `codex/phase-8-six-layer-eventing-v1` multiple scoped commits | Exact 8.9B Event Layer delta and all directed bridges |
 | I | Six-layer audit `[AI-0803-EVRV]` | Full safe review until zero findings and frozen Six-layer evidence commit |
@@ -113,7 +113,7 @@ commit.
 
 ## 6. Five-Layer v2 Work Packages
 
-1. **Shared contracts:** workload v2, event scenario reference, RDS v2,
+1. **Shared contracts:** workload v2, event scenario reference, RTA v2, RDS v2,
    Manifest v4, profile/provider/catalog artifacts, permission packs, strict
    fixtures, generators, and drift checks.
 2. **Optimizer:** profile-specific parsing, capacity/completeness gates,

@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
-lastUpdated: "2026-08-03"
-version: "1.14"
+lastUpdated: "2026-08-04"
+version: "1.15"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ version: "1.14"
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-08-03 | VERSION: 1.14
+EXTRACTED: 2026-08-04 | VERSION: 1.15
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -1167,7 +1167,7 @@ storage jobs.
 
 ### 8.9A
 
-Implement workload v2, RDS v2/Manifest v4, the three L3-hot/L5 bundles,
+Implement workload v2, RTA v2/RDS v2/Manifest v4, the three L3-hot/L5 bundles,
 independent L4 placement, raw-history read, Twin projection, minimal storage
 jobs, corrected identity, provider `thesis-demo-v2` permission artifacts, and
 `five-layer-baseline@2`. Review to zero findings and commit.
