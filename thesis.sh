@@ -499,6 +499,9 @@ run_frontend_tests() {
     scripts.tests.test_thesis_entrypoint)
   (cd "$REPO_ROOT" && "$PYTHON_COMMAND" scripts/check_flutter_architecture.py)
 
+  info "Resolving the locked Flutter dependency graph."
+  (cd "$FLUTTER_DIR" && flutter pub get --enforce-lockfile)
+
   info "Checking Dart formatting and static analysis."
   (cd "$FLUTTER_DIR" && dart format --output=none --set-exit-if-changed lib test integration_test)
   (cd "$FLUTTER_DIR" && flutter analyze)

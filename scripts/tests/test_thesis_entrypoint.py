@@ -111,6 +111,21 @@ class ThesisEntrypointTests(unittest.TestCase):
             result.stderr,
         )
 
+    def test_frontend_gate_resolves_locked_dependencies_before_formatting(
+        self,
+    ) -> None:
+        script = SCRIPT.read_text(encoding="utf-8")
+        frontend_gate = script.split("run_frontend_tests() {", 1)[1].split(
+            "run_frontend_integration_tests() {", 1
+        )[0]
+
+        dependency_resolution = frontend_gate.index(
+            "flutter pub get --enforce-lockfile"
+        )
+        formatting = frontend_gate.index("dart format --output=none")
+
+        self.assertLess(dependency_resolution, formatting)
+
 
 if __name__ == "__main__":
     unittest.main()
