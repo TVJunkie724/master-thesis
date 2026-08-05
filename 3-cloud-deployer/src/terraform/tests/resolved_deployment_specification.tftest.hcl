@@ -343,7 +343,19 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
     platform_user_last_name               = "Researcher"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
+    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     enable_gcp_logging                    = false
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "55555555-5555-4555-8555-555555555555"
+      artifact_digest = "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.gcp.python311"
+      adapter_version = "1"
+    }]
   }
 
   assert {
@@ -371,6 +383,27 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
       "workflows.googleapis.com",
     ])
     error_message = "Single-cloud GCP v2 must enable exactly its reviewed platform API foundation."
+  }
+
+
+  assert {
+    condition = (
+      length(google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_service) == 1 &&
+      length(google_cloud_run_v2_service.gcp_v2_processor_extension) == 1 &&
+      length(google_cloud_run_v2_service.gcp_v2_action_sink) == 1 &&
+      length(google_workflows_workflow.gcp_gcp_workflows) == 1
+    )
+    error_message = "Single-cloud GCP v2 must bind its event adapter, validated processor, action boundary, and workflow."
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["received", "processed", "domain", "failure"]) &&
+      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 1
+    )
+    error_message = "Single-cloud GCP v2 must retain separated ordered embedded Pub/Sub channels."
   }
 }
 

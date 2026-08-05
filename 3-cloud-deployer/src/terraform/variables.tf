@@ -819,6 +819,34 @@ variable "gcp_region" {
   default     = "europe-west1"
 }
 
+variable "gcp_v2_platform_image" {
+  description = "Content-addressed GCP Five-layer v2 platform runtime image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_v2_platform_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_platform_image))
+    )
+    error_message = "gcp_v2_platform_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
+variable "gcp_v2_processor_extension_image" {
+  description = "Content-addressed GCP processor.telemetry@1 adapter image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_v2_processor_extension_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_processor_extension_image))
+    )
+    error_message = "gcp_v2_processor_extension_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
 variable "gcp_billing_account" {
   description = "GCP Billing Account ID for project creation (for organization accounts)"
   type        = string
